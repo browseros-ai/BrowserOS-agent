@@ -19,14 +19,20 @@ import { isDevelopmentMode } from '@/config'
 // Initialize LogUtility first
 Logging.initialize({ debugMode: isDevelopmentMode() })
 
-// Initialize PostHog for analytics
-posthog.init('phc_nWs0kBH4Kx4lYOQNFL4lzUncjnEHuDPsCwhewmEgOOJ', {
-  api_host: 'https://us.i.posthog.com',
-  person_profiles: 'identified_only',
-})
+// Initialize PostHog for analytics only if API key is provided
+const posthogApiKey = process.env.POSTHOG_API_KEY
+if (posthogApiKey) {
+  posthog.init(posthogApiKey, {
+    api_host: 'https://us.i.posthog.com',
+    person_profiles: 'identified_only',
+  })
+}
 
 // Function to capture events with ai_chat prefix
 function captureEvent(eventName: string, properties?: Record<string, any>) {
+  if (!posthogApiKey) {
+    return // Skip if PostHog is not configured
+  }
   const prefixedEventName = `ai_chat:${eventName}`
   posthog.capture(prefixedEventName, properties)
   // debugLog(`📊 PostHog event: ${prefixedEventName}`, 'info')
