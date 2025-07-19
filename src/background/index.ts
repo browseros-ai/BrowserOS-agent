@@ -7,7 +7,7 @@ import { UIEventHandler } from '@/lib/events/UIEventHandler'
 // Removed deprecated IStreamingCallbacks import
 import { IntentPredictionOrchestrator } from '@/lib/orchestrators/IntentPredictionOrchestrator'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import BrowserContext from '@/lib/browser/BrowserContextV2'
+import BrowserContext from '@/lib/browser/BrowserContext'
 import MessageManager from '@/lib/runtime/MessageManager'
 import posthog from 'posthog-js'
 import { isDevelopmentMode } from '@/config'

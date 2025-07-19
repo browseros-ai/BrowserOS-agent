@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import BrowserContext from '../browser/BrowserContextV2'
+import BrowserContext from '../browser/BrowserContext'
 import MessageManager from '@/lib/runtime/MessageManager'
 import { StreamEventBus } from '@/lib/events'
 

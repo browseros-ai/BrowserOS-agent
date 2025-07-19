@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { StreamEventBus } from "@/lib/events";
 import { Logging } from "@/lib/utils/Logging";
-import { BrowserContext } from "@/lib/browser/BrowserContextV2";
+import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import MessageManager, {
   MessageManagerSettingsSchema,

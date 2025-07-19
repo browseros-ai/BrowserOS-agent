@@ -4,7 +4,7 @@ import { ToolConfig } from '../base/ToolConfig';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { withFlexibleStructuredOutput } from '@/lib/llm/utils/structuredOutput';
-import { BrowserState } from '@/lib/browser/BrowserContextV2';
+import { BrowserState } from '@/lib/browser/BrowserContext';
 import { Logging } from '@/lib/utils/Logging';
 import { profileAsync } from '@/lib/utils/Profiler';
 

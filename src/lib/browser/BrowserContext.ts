@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import BrowserPage from './BrowserPageV2';
+import BrowserPage from './BrowserPage';
 import { Logging } from '../utils/Logging';
 import { profileAsync } from '../utils/Profiler';
 

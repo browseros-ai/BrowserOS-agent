@@ -3,7 +3,7 @@ import { NxtscapeTool } from '../base/NxtscapeTool';
 import { ToolConfig } from '../base/ToolConfig';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
 import { Logging } from '@/lib/utils/Logging';
-import BrowserPage from '@/lib/browser/BrowserPageV2';
+import BrowserPage from '@/lib/browser/BrowserPage';
 import type { SnapshotContext, SectionType, Snapshot, LinkInfo } from '@/lib/browser/BrowserOSAdapter';
 
 /**

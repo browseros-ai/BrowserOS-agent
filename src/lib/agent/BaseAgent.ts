@@ -21,7 +21,7 @@ import { StreamEventBus } from "@/lib/events";
 import { StreamEventProcessor } from "../events/StreamEventProcessor";
 // Removed deprecated IStreamProcessor import
 import { ToolRegistry } from "@/lib/tools/base/ToolRegistry";
-import BrowserContext from "../browser/BrowserContextV2";
+import BrowserContext from "../browser/BrowserContext";
 import { getDomainFromUrl } from "../browser/Utils";
 import { Runnable } from "@langchain/core/runnables";
 import { RunnableConfig } from "@langchain/core/runnables";

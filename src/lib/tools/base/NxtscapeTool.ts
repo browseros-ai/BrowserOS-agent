@@ -5,7 +5,7 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { ToolConfig } from "./ToolConfig";
 import { LangChainProviderFactory, LLMOverrides } from "@/lib/llm";
 import { Logging } from "@/lib/utils/Logging";
-import BrowserContext from "@/lib/browser/BrowserContextV2";
+import BrowserContext from "@/lib/browser/BrowserContext";
 import { profileStart, profileEnd } from "@/lib/utils/Profiler";
 
 /**

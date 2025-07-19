@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { NxtscapeTool } from '../base/NxtscapeTool';
 import { ToolConfig } from '../base/ToolConfig';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { BrowserPage } from '@/lib/browser/BrowserPageV2';
+import { BrowserPage } from '@/lib/browser/BrowserPage';
 import { Logging } from '@/lib/utils/Logging';
 import { profileAsync } from '@/lib/utils/Profiler';
 
