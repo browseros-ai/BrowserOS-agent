@@ -139,9 +139,7 @@ module.exports = {
             return content;
           }
         },
-        { from: 'assets', to: 'assets', noErrorOnMissing: true },
-        { from: 'public/Readability.js', to: '.' },
-        { from: 'public/buildDomTree.js', to: '.' }
+        { from: 'assets', to: 'assets', noErrorOnMissing: true }
       ]
     }),
     new webpack.DefinePlugin(processEnv),
