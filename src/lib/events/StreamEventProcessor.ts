@@ -1,6 +1,6 @@
 import { StreamEventBus } from '@/lib/events';
-import { ToolRegistry } from '@/lib/tools/base/ToolRegistry';
-import { ActionResult, ActionResultBuilder, extractContent } from '@/lib/types/ActionResult';
+// import { ToolRegistry } from '@/lib/tools/base/ToolRegistry';
+// import { ActionResult, ActionResultBuilder, extractContent } from '@/lib/types/ActionResult';
 import { Logging } from '@/lib/utils/Logging';
 
 /**
@@ -8,7 +8,7 @@ import { Logging } from '@/lib/utils/Logging';
  */
 export class StreamEventProcessor {
   private eventBus: StreamEventBus;
-  private toolRegistry: ToolRegistry;
+  // private toolRegistry: ToolRegistry;
   
   // State tracking
   private currentSegmentId: number = 0;
@@ -17,18 +17,18 @@ export class StreamEventProcessor {
   private segmentMessageIds: Map<number, string> = new Map();
   private isProcessingTool: boolean = false;
   private stepCount: number = 0;
-  private actionResults: ActionResult[] = [];
+  // private actionResults: ActionResult[] = [];
   private currentToolName: string = '';
   private currentToolArgs: any = {};
   private abortSignal?: AbortSignal;
 
   constructor(
     eventBus: StreamEventBus,
-    toolRegistry: ToolRegistry,
+    // toolRegistry: ToolRegistry,
     abortSignal?: AbortSignal
   ) {
     this.eventBus = eventBus;
-    this.toolRegistry = toolRegistry;
+    // this.toolRegistry = toolRegistry;
     this.abortSignal = abortSignal;
   }
 
@@ -232,8 +232,8 @@ export class StreamEventProcessor {
     }
 
     // Create ActionResult for tracking
-    const actionResult = this.buildActionResultFromOutput(toolName, toolOutputArgs);
-    this.actionResults.push(actionResult);
+    // const actionResult = this.buildActionResultFromOutput(toolName, toolOutputArgs);
+    // this.actionResults.push(actionResult);
 
     // Get display information using the original input args
     const displayInfo = this.fetchToolMetadata(toolName, this.currentToolArgs);
@@ -337,14 +337,15 @@ export class StreamEventProcessor {
     icon: string; 
     description: string;
   } {
-    if (!this.toolRegistry) {
-      throw new Error('ToolRegistry is required for StreamEventProcessor');
-    }
+    // if (!this.toolRegistry) {
+    //   throw new Error('ToolRegistry is required for StreamEventProcessor');
+    // }
 
-    const tool = this.toolRegistry.getByName(toolName);
-    if (!tool) {
-      throw new Error(`Tool '${toolName}' not found in registry`);
-    }
+    // const tool = this.toolRegistry.getByName(toolName);
+    // if (!tool) {
+    //   throw new Error(`Tool '${toolName}' not found in registry`);
+    // }
+    const tool = null;
 
     let processedArgs = args;
     
@@ -368,7 +369,13 @@ export class StreamEventProcessor {
       }
     }
 
-    return tool.getToolMetadata(processedArgs);
+    // return tool.getToolMetadata(processedArgs);
+    // For now, return a default metadata object
+    return {
+      displayName: toolName,
+      icon: '🔧',
+      description: `Executing ${toolName}`
+    };
   }
 
   private formatToolResultForDisplay(result: string): string {
@@ -410,12 +417,12 @@ export class StreamEventProcessor {
       parsed.kwargs?.content;
   }
 
-  private buildActionResultFromOutput(toolName: string, output: any): ActionResult {
-    const builder = new ActionResultBuilder(toolName);
-    const content = extractContent(toolName, output);
-    builder.setExtractedContent(content);
-    return builder.build();
-  }
+  // private buildActionResultFromOutput(toolName: string, output: any): ActionResult {
+  //   const builder = new ActionResultBuilder(toolName);
+  //   const content = extractContent(toolName, output);
+  //   builder.setExtractedContent(content);
+  //   return builder.build();
+  // }
 
   /**
    * Get collected data
@@ -424,9 +431,9 @@ export class StreamEventProcessor {
     return this.stepCount;
   }
 
-  getActionResults(): ActionResult[] {
-    return this.actionResults;
-  }
+  // getActionResults(): ActionResult[] {
+  //   return this.actionResults;
+  // }
 
   /**
    * Reset processor state
@@ -438,7 +445,7 @@ export class StreamEventProcessor {
     this.segmentMessageIds.clear();
     this.isProcessingTool = false;
     this.stepCount = 0;
-    this.actionResults = [];
+    // this.actionResults = [];
     this.currentToolName = '';
     this.currentToolArgs = {};
   }

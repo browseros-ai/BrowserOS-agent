@@ -1,7 +1,12 @@
 import { type BaseMessage, AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 import { Logging } from '@/lib/utils/Logging';
-import { wrapUserRequest } from '../utils/MessageUtils';
+// import { wrapUserRequest } from '../utils/MessageUtils';
+
+// Simple wrapper function to replace the missing import
+function wrapUserRequest(content: string): string {
+  return content; // For now, just return the content as-is
+}
 
 export const MessageTypeEnum = z.enum(["human", "ai", "system", "tool", "plan", "generic", "task", "browser_state", "validation_feedback", "productivity_task", "productivity_human", "productivity_ai"]);
 export type MessageType = z.infer<typeof MessageTypeEnum>;
