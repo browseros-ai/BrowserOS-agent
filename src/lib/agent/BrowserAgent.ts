@@ -80,9 +80,9 @@ interface ClassificationResult {
 
 export class BrowserAgent {
   // Constants for explicit control
-  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 5;
+  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 10;
   private static readonly MAX_STEPS_FOR_COMPLEX_TASKS = PLANNING_CONFIG.STEPS_PER_PLAN;
-  private static readonly MAX_TOTAL_STEPS = 20;
+  private static readonly MAX_TOTAL_STEPS = 100;
 
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
