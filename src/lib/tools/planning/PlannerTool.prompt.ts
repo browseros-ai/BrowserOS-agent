@@ -46,7 +46,7 @@ You must return a JSON object with the following structure:
 - Maximum ${PLANNING_CONFIG.STEPS_PER_PLAN} steps focusing on business objectives. You can generate 1 or 2 step plan as well, if the objective is simple.
 - Keep steps high-level and goal-oriented
 - Consider what has already been accomplished
-- The user can see the page - they often refer to visible elements`;
+- The user can see the page - they often refer to visible elements`
 }
 
 export function generatePlannerTaskPrompt(
@@ -55,14 +55,21 @@ export function generatePlannerTaskPrompt(
   conversationHistory: string,
   browserState: string
 ): string {
-  return `${conversationHistory}
-
-${browserState}
-
-PLANNING REQUEST:
+  return `PLANNING REQUEST:
 - Generate upto ${maxSteps} next steps to accomplish the task. You can generate a plan for fewer steps as well, if the task can achieved in fewer steps.
 - Task: ${task}
-- DO NOT repeat completed actions, BUILD on current progress
+- DO NOT repeat completed actions, BUILD on current progress.
 
-Please analyze the current state and provide a plan with ${maxSteps} actionable steps.`;
+Below is the conversation history and browser state. Use this to provide a plan with ${maxSteps} actionable steps or fewer steps if the task is simple.
+
+--------------------------------
+Conversation history:
+--------------------------------
+${conversationHistory}
+
+--------------------------------
+Browser state:
+--------------------------------
+${browserState}
+`
 }
