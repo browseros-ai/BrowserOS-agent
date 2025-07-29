@@ -2,19 +2,19 @@ import { z } from 'zod'
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { Logging } from '@/lib/utils/Logging'
-import { toolSuccess, toolError } from '@/lib/tools/tool.interface'
+import { toolSuccess, toolError } from '@/lib/tools/Tool.interface'
 
 // Input schema for the screenshot tool
 const ScreenshotToolInputSchema = z.object({})  // No parameters needed
+
+type ScreenshotToolInput = z.infer<typeof ScreenshotToolInputSchema>;
 
 export function createScreenshotTool(executionContext: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'screenshot',
     description: 'Capture a screenshot of the current page. Returns base64 encoded image data.',
     schema: ScreenshotToolInputSchema,
-    func: async (): Promise<string> => {
-      Logging.log('ScreenshotTool', 'Taking screenshot of current page', 'info')
-
+    func: async (args: ScreenshotToolInput): Promise<string> => {
       try {
         // Get the current page from execution context
         const page = await executionContext.browserContext.getCurrentPage()
