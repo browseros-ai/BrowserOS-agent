@@ -425,8 +425,8 @@ export class BrowserAgent {
     const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
     this.events.toolResult('planner_tool', parsedResult.ok, planner_formatted_output);
 
-    if (parsedResult.ok && parsedResult.plan?.steps) {
-      return { steps: parsedResult.plan.steps };
+    if (parsedResult.ok && parsedResult.output?.steps) {
+      return { steps: parsedResult.output.steps };
     }
     return { steps: [] };  // Return an empty plan on failure
   }
