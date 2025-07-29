@@ -19,6 +19,7 @@ Typeable elements (<T>):
 1. The nodeId is the number inside square brackets [n] - this is what you return as index
 2. <C> means clickable, <T> means typeable
 3. Consider all information: tag, visible text (in quotes), context (ctx), path, and attributes (attr)
+4. (ctx) represents nearby text around that element, which can give some additional information of whats around it.
 4. Choose the SINGLE BEST match if multiple candidates exist
 5. Return high confidence for exact matches, medium for good matches, low for uncertain matches
 
