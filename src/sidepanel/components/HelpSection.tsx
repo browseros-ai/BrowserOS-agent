@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { z } from 'zod'
 import styles from '../styles/components/HelpSection.module.scss'
 
@@ -139,6 +139,14 @@ export function HelpSection ({
   onClose,
   className
 }: HelpSectionProps): JSX.Element | null {
+  const [version, setVersion] = useState<string>('');
+
+  useEffect(() => {
+    // Get version from manifest
+    const manifest = chrome.runtime.getManifest();
+    setVersion(manifest.version || '');
+  }, []);
+
   if (!isOpen) return null
 
   return (
@@ -152,6 +160,7 @@ export function HelpSection ({
           <div className={styles.headerContent}>
             <RobotIcon />
             <h2 className={styles.title}>BrowserOS Agent</h2>
+            {version && <span className={styles.version}>v{version}</span>}
           </div>
           <button
             onClick={onClose}

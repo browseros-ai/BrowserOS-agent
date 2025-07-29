@@ -57,6 +57,14 @@
   color: $nxtscape-text-primary;
 }
 
+.version {
+  font-size: 12px;
+  font-weight: 400;
+  color: $nxtscape-text-secondary;
+  margin-left: 8px;
+  opacity: 0.7;
+}
+
 .closeButton {
   @include buttonBase;
   padding: 8px;
