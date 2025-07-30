@@ -52,19 +52,10 @@ export function StreamingMessageDisplay({
     <div className={cn(styles.container, className)}>
       {/* Display all messages including streaming ones */}
       {filteredMessages.map((message, index) => {
-        // Check if this is a cancel/complete message that shouldn't show spinner
-        const isCancelOrComplete = message.type === 'system' && (
-          message.content.includes('✋ Task paused') || 
-          message.content.includes('✅ Task completed') ||
-          message.content.includes('❌ Task failed')
-        );
-        
         return (
           <MessageItem 
             key={message.id} 
             message={message} 
-            // Show spinner on system message only if it's the last message and not a cancel/complete message
-            showSystemSpinner={message.type === 'system' && index === filteredMessages.length - 1 && !isCancelOrComplete}
           />
         );
       })}
@@ -76,11 +67,9 @@ export function StreamingMessageDisplay({
  * Individual message item component
  */
 function MessageItem({ 
-  message, 
-  showSystemSpinner = false 
+  message
 }: { 
-  message: Message; 
-  showSystemSpinner?: boolean 
+  message: Message
 }): JSX.Element {
   // Don't render messages with no content
   if (!message.content && message.type !== 'streaming-tool' && message.type !== 'tool') {
@@ -118,7 +107,7 @@ function MessageItem({
             )}
             {message.type === 'streaming-tool' && !message.isComplete && (
               <span className={styles.toolStatus}>
-                <span className={styles.spinner}>⚡</span> Working...
+                Working...
               </span>
             )}
           </div>
@@ -179,11 +168,6 @@ function MessageItem({
           content={message.content} 
           skipMarkdown={message.type === 'user'}
         />
-        {showSystemSpinner && (
-          <span className={styles.systemStatus}>
-            <span className={styles.systemSpinner}>⚡</span> Working...
-          </span>
-        )}
       </div>
     )
   }

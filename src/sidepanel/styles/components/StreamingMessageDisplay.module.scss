@@ -188,34 +188,8 @@ $message-bg-light: #F4F4F5; // Light theme message background
   gap: 4px;
 }
 
-// Spinner animation
-.spinner {
-  display: inline-block;
-  animation: spin 1s linear infinite;
-}
 
-// System message status (matches tool status styling)
-.systemStatus {
-  display: inline-flex;
-  align-items: center;
-  margin-left: $spacing-sm;
-  font-size: 0.85em;
-  color: $nxtscape-text-secondary;
-  opacity: 0.8;
-}
 
-// System message spinner
-.systemSpinner {
-  display: inline-block;
-  margin-right: $spacing-xs;
-  animation: spin 1s linear infinite;
-  color: $nxtscape-blue;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
 
 // Responsive adjustments
 @media (max-width: 480px) {
