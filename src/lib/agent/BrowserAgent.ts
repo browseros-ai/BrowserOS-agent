@@ -60,6 +60,7 @@ import { createClassificationTool } from '@/lib/tools/classification/Classificat
 import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
 import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
 import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
+import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { generateSystemPrompt } from './BrowserAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import { EventProcessor } from '@/lib/events/EventProcessor';
@@ -197,6 +198,9 @@ export class BrowserAgent {
     // util tools
     this.toolManager.register(createScreenshotTool(this.executionContext));
     this.toolManager.register(createExtractTool(this.executionContext));
+    
+    // Result tool
+    this.toolManager.register(createResultTool(this.executionContext));
     
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
