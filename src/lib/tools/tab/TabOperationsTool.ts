@@ -38,12 +38,19 @@ export class TabOperationsTool {
       const currentWindow = await this.executionContext.browserContext.getCurrentWindow()
       const tabs = await chrome.tabs.query({ windowId: currentWindow.id })
       
-      const tabList = tabs
+      const formattedTabs = tabs
         .filter(tab => tab.id !== undefined && tab.url && tab.title)
-        .map(tab => `[${tab.id}] ${tab.title} - ${tab.url}`)
-        .join('\n')
+        .map(tab => ({
+          id: tab.id!,
+          url: tab.url!,
+          title: tab.title!,
+          windowId: tab.windowId!
+        }))
       
-      return toolSuccess(`Found ${tabs.length} tabs in current window:\n${tabList}`)
+      return {
+        ok: true,
+        output: JSON.stringify(formattedTabs)
+      }
     } catch (error) {
       return toolError(`Failed to list tabs: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -53,12 +60,19 @@ export class TabOperationsTool {
     try {
       const tabs = await chrome.tabs.query({})
       
-      const tabList = tabs
+      const formattedTabs = tabs
         .filter(tab => tab.id !== undefined && tab.url && tab.title)
-        .map(tab => `[${tab.id}] ${tab.title} - ${tab.url}`)
-        .join('\n')
+        .map(tab => ({
+          id: tab.id!,
+          url: tab.url!,
+          title: tab.title!,
+          windowId: tab.windowId!
+        }))
       
-      return toolSuccess(`Found ${tabs.length} tabs across all windows:\n${tabList}`)
+      return {
+        ok: true,
+        output: JSON.stringify(formattedTabs)
+      }
     } catch (error) {
       return toolError(`Failed to list all tabs: ${error instanceof Error ? error.message : String(error)}`)
     }

@@ -38,21 +38,29 @@ describe('TabOperationsTool', () => {
   it('tests that operations are routed correctly based on action type', async () => {
     // Mock tab data
     const mockTabs = [
-      { id: 1, title: 'Google', url: 'https://google.com', active: true },
-      { id: 2, title: 'GitHub', url: 'https://github.com', active: false }
+      { id: 1, title: 'Google', url: 'https://google.com', active: true, windowId: 1 },
+      { id: 2, title: 'GitHub', url: 'https://github.com', active: false, windowId: 1 }
     ]
     vi.mocked(chrome.tabs.query).mockResolvedValue(mockTabs)
 
     // Test list operation
     const listResult = await tool.execute({ action: 'list' })
     expect(listResult.ok).toBe(true)
-    expect(listResult.output).toContain('Found 2 tabs in current window')
+    const listOutput = JSON.parse(listResult.output)
+    expect(Array.isArray(listOutput)).toBe(true)
+    expect(listOutput).toHaveLength(2)
+    expect(listOutput[0]).toHaveProperty('id')
+    expect(listOutput[0]).toHaveProperty('url')
+    expect(listOutput[0]).toHaveProperty('title')
+    expect(listOutput[0]).toHaveProperty('windowId')
     expect(chrome.tabs.query).toHaveBeenCalledWith({ windowId: 1 })
 
     // Test list_all operation
     const listAllResult = await tool.execute({ action: 'list_all' })
     expect(listAllResult.ok).toBe(true)
-    expect(listAllResult.output).toContain('Found 2 tabs across all windows')
+    const listAllOutput = JSON.parse(listAllResult.output)
+    expect(Array.isArray(listAllOutput)).toBe(true)
+    expect(listAllOutput).toHaveLength(2)
     expect(chrome.tabs.query).toHaveBeenCalledWith({})
 
     // Test new tab operation

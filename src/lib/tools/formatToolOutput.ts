@@ -38,18 +38,33 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
     }
 
     case 'tab_operations_tool': {
-      // Output: { tabs: [{ id: number, title: string, url: string }] } or similar
-      if (!output.tabs || !Array.isArray(output.tabs)) {
-        return '```json\n' + JSON.stringify(output, null, 2) + '\n```';
+      // Output is a JSON string array that needs to be parsed
+      let tabs = output;
+      if (typeof output === 'string') {
+        try {
+          tabs = JSON.parse(output);
+        } catch {
+          return output; // Return as-is if not valid JSON
+        }
       }
-      if (output.tabs.length === 0) {
+      
+      if (!Array.isArray(tabs)) {
+        return '```json\n' + JSON.stringify(tabs, null, 2) + '\n```';
+      }
+      
+      if (tabs.length === 0) {
         return '#### 📑 No Open Tabs';
       }
-      let tabMd = '#### 📑 Open Tabs\n\n| ID | Title | URL |\n| -- | ----- | --- |\n';
-      output.tabs.forEach((tab: any) => {
+      
+      let tabMd = `#### 📑 Open Tabs (${tabs.length})\n\n`;
+      tabMd += '| ID | Title | URL |\n| -- | ----- | --- |\n';
+      tabs.forEach((tab: any) => {
         const title = tab.title || 'Untitled';
         const url = tab.url || '';
-        tabMd += `| ${tab.id} | ${title} | ${url} |\n`;
+        // Truncate long titles and URLs for better display
+        const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
+        const displayUrl = url.length > 60 ? url.substring(0, 57) + '...' : url;
+        tabMd += `| ${tab.id} | ${displayTitle} | ${displayUrl} |\n`;
       });
       return tabMd.trim();
     }
