@@ -248,11 +248,7 @@ export class BrowserAgent {
       if (isTaskCompleted) {
         this.eventEmitter.complete('Task completed successfully.');
         return;  // SUCCESS
-      }
-      
-      if (attempt < BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS) {
-        this.eventEmitter.info(`Task not completed unfortunately.`); 
-      }
+      }      
     }
 
     throw new Error(`Task failed to complete after ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS} attempts.`);

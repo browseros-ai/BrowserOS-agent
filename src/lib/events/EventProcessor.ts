@@ -175,7 +175,14 @@ export class EventProcessor {
       'tab_operations_tool': {
         name: 'Tab Operations',
         icon: '📑',
-        description: (args) => args?.operation || 'Managing tabs'
+        description: (args) => {
+          if (args?.action === 'list') return 'Listing tabs in current window';
+          if (args?.action === 'list_all') return 'Listing all tabs';
+          if (args?.action === 'new') return 'Creating new tab';
+          if (args?.action === 'switch') return 'Switching tabs';
+          if (args?.action === 'close') return 'Closing tabs';
+          return args?.action || 'Managing tabs';
+        }
       },
       'done_tool': {
         name: 'Completion',

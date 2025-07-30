@@ -92,12 +92,12 @@ function MessageItem({
       case 'user':
         return '👤'
       case 'system':
-        return '💭'
+        return '✨'
       case 'thinking':
         return '💭'
       case 'llm':
       case 'streaming-llm':
-        return '🤖'
+        return '💭'
       case 'tool':
       case 'streaming-tool':
         return '🛠️'
