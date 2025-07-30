@@ -13,7 +13,7 @@ describe('formatTodoList', () => {
     const result = formatTodoList(todos)
     
     // Check structure
-    expect(result).toContain('#### 📋 TODO List\n\n| # | Status | Task |')
+    expect(result).toContain('#### 📋 TODO List\n| # | Status | Task |')
     expect(result).toContain('|:-:|:------:|:-----|')
     
     // Check content

@@ -9,7 +9,7 @@ export function formatTodoList(todos: Todo[]): string {
   }
 
   let markdown = '#### 📋 TODO List\n'
-  markdown += '\n| # | Status | Task |\n'
+  markdown += '| # | Status | Task |\n'
   markdown += '|:-:|:------:|:-----|\n'
   
   todos.forEach(todo => {
