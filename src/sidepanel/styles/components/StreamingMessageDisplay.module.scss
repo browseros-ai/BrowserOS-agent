@@ -273,4 +273,69 @@ $message-bg-light: #F4F4F5; // Light theme message background
   .messageContent {
     margin-right: 20px; // Leave 20px space on the right
   }
+}
+
+// Message group styles
+.messageGroup {
+  @include flexColumn;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+}
+
+// Execution section styles
+.executionSection {
+  margin-left: 48px; // Indent to align with message content
+  margin-top: $spacing-xs;
+}
+
+.executionToggle {
+  @include button-reset;
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: $border-radius-sm;
+  
+  &:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+  }
+  
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.toggleIcon {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.toggleText {
+  font-weight: 500;
+}
+
+.executionMessages {
+  @include flexColumn;
+  gap: $spacing-sm;
+  margin-top: $spacing-sm;
+  padding-left: $spacing-md;
+  border-left: 2px solid var(--border-color);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 } 

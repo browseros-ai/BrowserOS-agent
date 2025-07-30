@@ -48,28 +48,136 @@ export function StreamingMessageDisplay({
     return true;
   });
 
-  return (
-    <div className={cn(styles.container, className)}>
-      {/* Display all messages including streaming ones */}
-      {filteredMessages.map((message, index) => {
-        // Check if this is a cancel/complete message that shouldn't show spinner
-        const isCancelOrComplete = message.type === 'system' && (
-          message.content.includes('✋ Task paused') || 
+  // Group messages by user messages and their subsequent execution messages
+  const groupedMessages = React.useMemo(() => {
+    const groups: Array<{
+      userMessage: Message;
+      executionMessages: Message[];
+      finalMessage?: Message;
+      isComplete: boolean;
+    }> = [];
+
+    let currentGroup: typeof groups[0] | null = null;
+
+    filteredMessages.forEach((message) => {
+      if (message.type === 'user') {
+        // Start a new group with this user message
+        currentGroup = {
+          userMessage: message,
+          executionMessages: [],
+          isComplete: false
+        };
+        groups.push(currentGroup);
+      } else if (currentGroup) {
+        // Check if this is a completion message
+        const isCompletionMessage = message.type === 'system' && (
           message.content.includes('✅ Task completed') ||
+          message.content.includes('✋ Task paused') ||
           message.content.includes('❌ Task failed')
         );
-        
-        return (
-          <MessageItem 
-            key={message.id} 
-            message={message} 
-            // Show spinner on system message only if it's the last message and not a cancel/complete message
-            showSystemSpinner={message.type === 'system' && index === filteredMessages.length - 1 && !isCancelOrComplete}
-          />
-        );
-      })}
+
+        if (isCompletionMessage) {
+          currentGroup.finalMessage = message;
+          currentGroup.isComplete = true;
+        } else {
+          // Add to execution messages if it's not a completion message
+          currentGroup.executionMessages.push(message);
+        }
+      }
+    });
+
+    return groups;
+  }, [filteredMessages]);
+
+  return (
+    <div className={cn(styles.container, className)}>
+      {groupedMessages.map((group, index) => (
+        <MessageGroup 
+          key={`group-${index}`}
+          group={group}
+          isLastGroup={index === groupedMessages.length - 1}
+        />
+      ))}
     </div>
-  )
+  );
+}
+
+/**
+ * Message group component that contains a user message and its execution messages
+ */
+function MessageGroup({ 
+  group, 
+  isLastGroup 
+}: { 
+  group: {
+    userMessage: Message;
+    executionMessages: Message[];
+    finalMessage?: Message;
+    isComplete: boolean;
+  };
+  isLastGroup: boolean;
+}): JSX.Element {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Auto-collapse when task completes
+  useEffect(() => {
+    if (group.isComplete) {
+      setIsCollapsed(true);
+    }
+  }, [group.isComplete]);
+
+  const hasExecutionMessages = group.executionMessages.length > 0;
+
+  return (
+    <div className={styles.messageGroup}>
+      {/* User message */}
+      <MessageItem message={group.userMessage} />
+
+      {/* Collapsible execution messages */}
+      {hasExecutionMessages && (
+        <div className={styles.executionSection}>
+          <button 
+            className={styles.executionToggle}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            aria-expanded={!isCollapsed}
+          >
+            <span className={styles.toggleIcon}>{isCollapsed ? '▶' : '▼'}</span>
+            <span className={styles.toggleText}>
+              {isCollapsed ? 'Show' : 'Hide'} execution details ({group.executionMessages.length} messages)
+            </span>
+          </button>
+          
+          {!isCollapsed && (
+            <div className={styles.executionMessages}>
+              {group.executionMessages.map((message, index) => {
+                // Check if this is the last message and we're still executing
+                const showSpinner = !group.isComplete && 
+                  isLastGroup && 
+                  index === group.executionMessages.length - 1 &&
+                  message.type === 'system' &&
+                  !message.content.includes('✋ Task paused') &&
+                  !message.content.includes('✅ Task completed') &&
+                  !message.content.includes('❌ Task failed');
+                
+                return (
+                  <MessageItem 
+                    key={message.id} 
+                    message={message} 
+                    showSystemSpinner={showSpinner}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Final message (outside collapsible) */}
+      {group.finalMessage && (
+        <MessageItem message={group.finalMessage} />
+      )}
+    </div>
+  );
 }
 
 /**
@@ -92,12 +200,12 @@ function MessageItem({
       case 'user':
         return '👤'
       case 'system':
-        return '🚀'
+        return '💭'  // Changed from 🚀 to 💭
       case 'thinking':
         return '💭'
       case 'llm':
       case 'streaming-llm':
-        return '🦊'
+        return '🤖'  // Changed from 🦊 to 🤖
       case 'tool':
       case 'streaming-tool':
         return '🛠️'
