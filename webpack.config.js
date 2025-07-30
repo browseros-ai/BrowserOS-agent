@@ -27,6 +27,7 @@ if (!envKeys.LITELLM_API_KEY) {
 // Create environment variables to inject
 const processEnv = {
   'process.env.LITELLM_API_KEY': JSON.stringify(envKeys.LITELLM_API_KEY),
+  'process.env.OPENROUTER_API_KEY': JSON.stringify(envKeys.OPENROUTER_API_KEY),
   'process.env.POSTHOG_API_KEY': JSON.stringify(envKeys.POSTHOG_API_KEY || ''),
   'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
 }

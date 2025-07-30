@@ -29,7 +29,7 @@ describe('ExtractTool Integration Test', () => {
       // Mock the browser page to return sample HTML
       const mockPage = {
         getLinksSnapshot: vi.fn().mockResolvedValue({
-          tree: SAMPLE_LINKS_CONTENT
+          sections: [{ content: SAMPLE_LINKS_CONTENT }]
         }),
         url: vi.fn().mockResolvedValue('https://example.com/products'),
         title: vi.fn().mockResolvedValue('Example shop - Products')
@@ -85,7 +85,7 @@ describe('ExtractTool Integration Test', () => {
       // Mock the browser page to return sample HTML
       const mockPage = {
         getTextSnapshot: vi.fn().mockResolvedValue({
-          tree: SAMPLE_TEXT_CONTENT
+          sections: [{ content: SAMPLE_TEXT_CONTENT }]
         }),
         url: vi.fn().mockResolvedValue('https://example-shop.com/products'),
         title: vi.fn().mockResolvedValue('Example Shop - Products')

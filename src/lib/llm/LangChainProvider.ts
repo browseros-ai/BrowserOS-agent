@@ -23,8 +23,9 @@ const DEFAULT_OPENAI_MODEL = "gpt-4o"
 const DEFAULT_ANTHROPIC_MODEL = 'claude-4-sonnet'
 const DEFAULT_OLLAMA_MODEL = "qwen3:4b"
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-const DEFAULT_NXTSCAPE_PROXY_URL = "http://llm.nxtscape.ai"
-const DEFAULT_NXTSCAPE_MODEL = "claude-3-5-sonnet"
+const DEFAULT_NXTSCAPE_PROXY_URL = "https://openrouter.ai/api/v1"
+const DEFAULT_NXTSCAPE_MODEL = "google/gemini-2.5-flash"
+// OpenRouter will try the primary model first, then fallback to models array in order
 
 // Simple cache for LLM instances
 const llmCache = new Map<string, BaseChatModel>()
@@ -103,15 +104,14 @@ export class LangChainProvider {
     
     switch (provider) {
       case "nxtscape":
-        // Nxtscape uses OpenAI provider with proxy
+        // Nxtscape uses OpenAI provider with OpenRouter
         return {
           provider: "nxtscape",
           model: settings.nxtscape?.model || DEFAULT_NXTSCAPE_MODEL,
           temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
           maxTokens: options?.maxTokens,
           streaming: DEFAULT_STREAMING,
-          // Use environment variables for proxy
-          apiKey: process.env.LITELLM_API_KEY || 'nokey',
+          apiKey: process.env.OPENROUTER_API_KEY || 'nokey',
           baseURL: DEFAULT_NXTSCAPE_PROXY_URL,
         }
         
@@ -162,15 +162,25 @@ export class LangChainProvider {
     
     switch (config.provider) {
       case "nxtscape":
-        // Nxtscape uses OpenAI client with proxy configuration
         return new ChatOpenAI({
           ...baseConfig,
-          openAIApiKey: config.apiKey,  // This is the correct parameter name
-          // The `configuration` field is forwarded directly to the underlying OpenAI client
+          openAIApiKey: config.apiKey,
           configuration: {
             baseURL: config.baseURL,
-            apiKey: config.apiKey,  // Still required by OpenAI client constructor
-            dangerouslyAllowBrowser: true
+            apiKey: config.apiKey,
+            dangerouslyAllowBrowser: true,
+            defaultHeaders: {
+              "HTTP-Referer": "https://nxtscape.ai",
+              "X-Title": "Nxtscape Agent"
+            }
+          },
+          modelKwargs: {
+            extra_body: {
+              models: [
+                "anthropic/claude-3.5-sonnet", 
+                "openai/gpt-4o-mini"
+              ]
+            }
           }
         })
       
