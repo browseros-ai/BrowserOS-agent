@@ -388,7 +388,7 @@ export class BrowserAgent {
           hasStartedThinking = true;
         }
         
-        this.eventEmitter.streamThought(chunk.content);
+        this.eventEmitter.streamThoughtDuringThinking(chunk.content);
         accumulatedText += chunk.content;
       }
       accumulatedChunk = !accumulatedChunk ? chunk : accumulatedChunk.concat(chunk);

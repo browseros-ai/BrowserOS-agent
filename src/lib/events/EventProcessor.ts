@@ -32,7 +32,7 @@ export class EventProcessor {
   /**
    * Stream agent response content
    */
-  streamThought(content: string): void {
+  streamThoughtDuringThinking(content: string): void {
     if (!this.currentMessageId) return;
     
     this.eventBus.emitSegmentChunk(
