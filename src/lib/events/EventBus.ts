@@ -17,7 +17,10 @@ export const StreamEventTypeSchema = z.enum([
   'system.error',       // Error messages
   'system.complete',    // Task complete
   'system.cancel',      // Task cancelled
-  'debug.message'       // Debug messages
+  'debug.message',      // Debug messages
+  'task.execution.start',    // Task execution started
+  'task.execution.detail',   // Task execution detail (thinking/tool)
+  'task.execution.complete'  // Task execution completed
 ]);
 
 export type StreamEventType = z.infer<typeof StreamEventTypeSchema>;

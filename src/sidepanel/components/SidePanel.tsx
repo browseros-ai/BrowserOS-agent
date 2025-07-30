@@ -174,6 +174,8 @@ interface SidePanelProps {
   messages?: Message[];
   externalIntent?: string | null;  // Intent from external source (web page bubble)
   onExternalIntentHandled?: () => void;  // Callback when external intent is handled
+  taskExecutions?: Map<string, any>;  // Task executions for collapsible display
+  onTaskToggle?: (taskId: string, expanded: boolean) => void;  // Toggle task expansion
 }
 
 /**
@@ -191,6 +193,8 @@ export function SidePanel({
   messages = [],
   externalIntent,
   onExternalIntentHandled,
+  taskExecutions,
+  onTaskToggle,
 }: SidePanelProps): JSX.Element {
 
   const [state, setState] = useState<SidePanelState>({
@@ -861,6 +865,8 @@ export function SidePanel({
             <StreamingMessageDisplay
               messages={messages}
               className={styles.messageDisplay}
+              taskExecutions={taskExecutions}
+              onTaskToggle={onTaskToggle}
             />
           </div>
         )}

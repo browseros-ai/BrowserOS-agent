@@ -7,6 +7,17 @@ import { useSidePanelPortMessaging } from "../hooks";
 import { MessageType } from "@/lib/types/messaging";
 import { Message as StreamMessage } from "../components/StreamingMessageDisplay";
 
+// Task execution state type
+interface TaskExecution {
+  id: string;
+  status: 'executing' | 'completed' | 'failed';
+  messages: StreamMessage[];
+  isExpanded: boolean;
+  startTime: Date;
+  endTime?: Date;
+  finalResult?: string;
+}
+
 // Zod schema for side panel page state
 const SidePanelPageStateSchema = z.object({
   isVisible: z.boolean(), // Whether the side panel is visible
@@ -48,6 +59,9 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
     currentSegmentId: 0,
   });
 
+  // Task executions state
+  const [taskExecutions, setTaskExecutions] = useState<Map<string, TaskExecution>>(new Map());
+
   const messageIdCounter = useRef(0);
   
   // Chunk buffer for debouncing streaming updates
@@ -60,6 +74,18 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
   // Helper to generate unique message IDs
   const generateMessageId = () =>
     `msg-${Date.now()}-${++messageIdCounter.current}`;
+    
+  // Handle task execution toggle
+  const handleTaskToggle = (taskId: string, expanded: boolean) => {
+    setTaskExecutions(prev => {
+      const next = new Map(prev);
+      const task = next.get(taskId);
+      if (task) {
+        task.isExpanded = expanded;
+      }
+      return next;
+    });
+  };
     
   // Helper function to flush buffered chunks
   const flushChunkBuffer = () => {
@@ -357,6 +383,69 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
             messages: [...filteredMessages, newMessage],
           };
         });
+      } else if (details?.messageType === "TaskExecutionStart") {
+        // Start a new task execution
+        const taskId = details.taskId;
+        setTaskExecutions(prev => {
+          const next = new Map(prev);
+          next.set(taskId, {
+            id: taskId,
+            status: 'executing',
+            messages: [],
+            isExpanded: true,
+            startTime: new Date()
+          });
+          return next;
+        });
+      } else if (details?.messageType === "TaskExecutionDetail") {
+        // Add detail to task execution
+        const taskId = details.taskId;
+        setTaskExecutions(prev => {
+          const next = new Map(prev);
+          const task = next.get(taskId);
+          if (task) {
+            task.messages.push({
+              id: generateMessageId(),
+              type: details.detailType === 'thinking' ? 'system' : 'tool',
+              content: details.content || '',
+              toolName: details.toolName,
+              isComplete: true,
+              timestamp: new Date()
+            });
+          }
+          return next;
+        });
+      } else if (details?.messageType === "TaskExecutionComplete") {
+        // Complete task execution
+        const taskId = details.taskId;
+        setTaskExecutions(prev => {
+          const next = new Map(prev);
+          const task = next.get(taskId);
+          if (task) {
+            task.status = details.success ? 'completed' : 'failed';
+            task.endTime = new Date();
+            task.finalResult = details.finalResult;
+            // Auto-collapse on completion
+            task.isExpanded = false;
+          }
+          return next;
+        });
+        
+        // If there's a final result, add it as a regular message
+        if (details.finalResult) {
+          const finalMessage: StreamMessage = {
+            id: generateMessageId(),
+            type: "llm",
+            content: details.finalResult,
+            isComplete: true,
+            timestamp: new Date(),
+          };
+          
+          setPageState((prev) => ({
+            ...prev,
+            messages: [...prev.messages, finalMessage],
+          }));
+        }
       } else {
         console.log(
           "🎯 [SidePanel] Unhandled update type:",
@@ -803,6 +892,8 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
         messages={pageState.messages}
         externalIntent={externalIntent}
         onExternalIntentHandled={() => setExternalIntent(null)}
+        taskExecutions={taskExecutions}
+        onTaskToggle={handleTaskToggle}
         className="h-full"
       />
     </div>
