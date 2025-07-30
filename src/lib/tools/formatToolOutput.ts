@@ -174,6 +174,14 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
       return doneMd;
     }
 
+    case 'todo_manager': {
+      // Output: string (success message) or XML for list action
+      if (typeof output === 'string') {
+        return output;
+      }
+      return '```json\n' + JSON.stringify(output, null, 2) + '\n```';
+    }
+
     default:
       // Fallback to pretty-printed JSON in a code block
       return '```json\n' + JSON.stringify(output, null, 2) + '\n```';

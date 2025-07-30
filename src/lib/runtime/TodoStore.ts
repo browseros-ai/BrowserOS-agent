@@ -153,6 +153,13 @@ export class TodoStore {
   }
 
   /**
+   * Get JSON representation of TODOs
+   */
+  getJson(): Todo[] {
+    return [...this.todos]
+  }
+
+  /**
    * Reset all TODOs
    */
   reset(): void {

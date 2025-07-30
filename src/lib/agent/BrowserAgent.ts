@@ -66,6 +66,7 @@ import { EventProcessor } from '@/lib/events/EventProcessor';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { Abortable, AbortError } from '@/lib/utils/Abortable';
 import { formatToolOutput } from '@/lib/tools/formatToolOutput';
+import { formatTodoList } from '@/lib/tools/utils/formatTodoList';
 
 // Type Definitions
 interface Plan {
@@ -273,6 +274,8 @@ export class BrowserAgent {
       const todoXml = await this._fetchTodoXml();
       if (todoXml !== '<todos></todos>') {  // Only add if there are TODOs
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
+        // Show remaining TODOs to user at start of planning cycle
+        this.events.info(formatTodoList(todoStore.getJson()));
       }
 
       // 1. PLAN: Create a new plan for the next few steps
@@ -283,6 +286,9 @@ export class BrowserAgent {
 
       // Convert plan steps to TODOs (simple append)
       await this._updateTodosFromPlan(plan);
+
+      // Show TODO list after plan creation
+      this.events.info(formatTodoList(todoStore.getJson()));
 
       // 2. EXECUTE: Execute TODOs
       while (step_index < BrowserAgent.MAX_TOTAL_STEPS && !todoStore.isAllDoneOrSkipped()) {
@@ -436,6 +442,8 @@ export class BrowserAgent {
         this.messageManager.addSystemReminder(
           `TODO list updated. Current state:\n${todoStore.getXml()}`
         );
+        // Show updated TODO list to user
+        this.events.info(formatTodoList(todoStore.getJson()));
       }
 
       // Add the result back to the message history for context
