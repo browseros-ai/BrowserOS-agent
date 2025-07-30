@@ -223,6 +223,14 @@ The index parameter refers to the element's position in the page's interactive e
 
 For complex tasks requiring multiple steps:
 
+**At the start of each planning cycle:**
+- Review the current TODO list if one exists
+- If there are old/completed TODOs from previous attempts, use todo_manager to clean up:
+  - Use \`replace_all\` to start fresh if the previous approach failed
+  - Use \`complete_multiple\` to mark any already completed tasks
+  - Use \`skip\` to remove irrelevant TODOs
+- The system will automatically add your new plan steps to the TODO list after planning
+
 **When you see a TODO list in the conversation:**
 - The system will present TODOs one at a time as XML: \`<todos><todo id="1" status="doing">Task description</todo></todos>\`
 - Focus on completing the current TODO using any tools necessary

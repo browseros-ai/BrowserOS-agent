@@ -278,6 +278,9 @@ export class BrowserAgent {
       }
       this.events.info(`Created new plan: ${JSON.stringify(plan, null, 2)}`);
 
+      // Convert plan steps to TODOs (simple append)
+      await this._updateTodosFromPlan(plan);
+
       // 2. EXECUTE: Execute TODOs
       while (step_index < BrowserAgent.MAX_TOTAL_STEPS && !todoStore.isAllDoneOrSkipped()) {
         this.checkIfAborted();
@@ -526,6 +529,25 @@ export class BrowserAgent {
       return parsedResult.ok ? parsedResult.output : '<todos></todos>';
     } catch (error) {
       return '<todos></todos>';
+    }
+  }
+
+  /**
+   * Update TODOs from plan steps (simple append)
+   */
+  private async _updateTodosFromPlan(plan: Plan): Promise<void> {
+    // Simple append - just add the plan steps as new TODOs
+    const todos = plan.steps.map(step => ({
+      content: step.action
+    }));
+    
+    // Call todo_manager tool with add_multiple action
+    const todoTool = this.toolManager.get('todo_manager');
+    if (todoTool && todos.length > 0) {
+      const args = { action: 'add_multiple' as const, todos };
+      await todoTool.func(args);
+      
+      // System reminder will be added by _processToolCalls special handling
     }
   }
 }
