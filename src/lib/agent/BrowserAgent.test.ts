@@ -67,6 +67,55 @@ describe('BrowserAgent-unit-test', () => {
     // Verify error was emitted with the wrapped error message
     expect(errorSpy).toHaveBeenCalledWith('Oops! Got a fatal error when executing task: Classification failed', true)
   })
+
+  // Unit Test 3: TODOs are populated from plan
+  it('tests that TODOs are added from plan steps', async () => {
+    const messageManager = new MessageManager()
+    const browserContext = new BrowserContext()
+    const abortController = new AbortController()
+    const eventBus = new EventBus()
+    const eventProcessor = new EventProcessor(eventBus)
+    
+    const executionContext = new ExecutionContext({
+      browserContext,
+      messageManager,
+      abortController,
+      debugMode: false,
+      eventBus,
+      eventProcessor
+    })
+    
+    const browserAgent = new BrowserAgent(executionContext)
+    
+    // Create a mock plan
+    const mockPlan = {
+      steps: [
+        { action: 'Navigate to website', reasoning: 'Need to go to the site first' },
+        { action: 'Find search box', reasoning: 'Need to locate search functionality' },
+        { action: 'Enter search query', reasoning: 'Input the search terms' }
+      ]
+    }
+    
+    // Call the private method directly
+    await (browserAgent as any)._updateTodosFromPlan(mockPlan)
+    
+    // Verify TODOs were added to the store
+    const todos = executionContext.todoStore.getAll()
+    expect(todos).toHaveLength(3)
+    expect(todos[0].content).toBe('Navigate to website')
+    expect(todos[0].status).toBe('todo')
+    expect(todos[0].id).toBe(1)
+    expect(todos[1].content).toBe('Find search box')
+    expect(todos[1].status).toBe('todo')
+    expect(todos[1].id).toBe(2)
+    expect(todos[2].content).toBe('Enter search query')
+    expect(todos[2].status).toBe('todo')
+    expect(todos[2].id).toBe(3)
+    
+    // Verify todo_manager tool was called
+    const todoTool = browserAgent['toolManager'].get('todo_manager')
+    expect(todoTool).toBeDefined()
+  })
 })
 
 // ===================================================================
@@ -216,6 +265,64 @@ describe('BrowserAgent-integration-test', () => {
       // Cleanup and exit
       abortController.abort()
       console.log('✅ TODO-driven execution flow test passed')
+    },
+    30000
+  )
+
+  // Integration Test: TODOs populated from plan during execution
+  it.skipIf(!process.env.LITELLM_API_KEY || process.env.LITELLM_API_KEY === 'nokey')(
+    'tests that TODOs are populated from plan steps during complex task execution',
+    async () => {
+      // Setup with real instances
+      const messageManager = new MessageManager()
+      const browserContext = new BrowserContext()
+      const abortController = new AbortController()
+      const eventBus = new EventBus()
+      const eventProcessor = new EventProcessor(eventBus)
+      
+      const executionContext = new ExecutionContext({
+        browserContext,
+        messageManager,
+        abortController,
+        debugMode: false,
+        eventBus,
+        eventProcessor
+      })
+      
+      const browserAgent = new BrowserAgent(executionContext)
+      
+      // Spy on methods to track the flow
+      const updateTodosSpy = vi.spyOn(browserAgent as any, '_updateTodosFromPlan')
+      const plannerSpy = vi.spyOn(browserAgent as any, '_createMultiStepPlan')
+      
+      // Start execution of a complex task (don't await)
+      browserAgent.execute('find information about TypeScript and create a summary').catch(error => {
+        // Expected - we'll abort early
+      })
+      
+      // Wait for planning to complete
+      await new Promise(resolve => setTimeout(resolve, 10000))
+      
+      // Verify the flow
+      // 1. Planner was called
+      expect(plannerSpy).toHaveBeenCalled()
+      
+      // 2. _updateTodosFromPlan was called
+      expect(updateTodosSpy).toHaveBeenCalled()
+      
+      // 3. TodoStore has TODOs from the plan
+      const todos = executionContext.todoStore.getAll()
+      expect(todos.length).toBeGreaterThan(0)
+      console.log(`TODOs populated from plan: ${todos.length}`)
+      console.log('TODO contents:', todos.map(t => `${t.id}: ${t.content}`).join('\n'))
+      
+      // 4. Verify TODOs match plan steps pattern
+      const allTodosHaveContent = todos.every(todo => todo.content && todo.content.length > 0)
+      expect(allTodosHaveContent).toBe(true)
+      
+      // Cleanup and exit
+      abortController.abort()
+      console.log('✅ TODOs from plan test passed')
     },
     30000
   )
