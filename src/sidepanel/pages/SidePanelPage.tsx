@@ -196,58 +196,28 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
           
           return { ...prev, messages };
         });
-      } else if (details?.messageType === "ToolCall") {
-        // Add streaming tool message
+      } else if (details?.messageType === "ToolStart") {
+        // Disabled - tool.start events are only shown in debug mode
+        // Tool results are shown via ToolResult events instead
+      } else if (details?.messageType === "ToolStream") {
+        // Disabled - tool streaming is only shown in debug mode
+      } else if (details?.messageType === "ToolEnd") {
+        // Disabled - tool.end events are only shown in debug mode
+      } else if (details?.messageType === "ToolResult") {
+        // Add tool result message (always shown)
         const newMessage: StreamMessage = {
           id: generateMessageId(),
-          type: "streaming-tool",
-          content: "",
+          type: "tool",
+          content: details.content || "",
           toolName: details.toolName,
-          toolArgs: details.toolArgs,
-          isComplete: false,
+          isComplete: true,
           timestamp: new Date(),
         };
-
+        
         setPageState((prev) => ({
           ...prev,
-          messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
+          messages: [...prev.messages, newMessage],
         }));
-      } else if (details?.messageType === "ToolStream") {
-        // Update the streaming tool message with new content
-        setPageState((prev) => {
-          const messages = [...prev.messages];
-          const lastToolIndex = messages.findLastIndex(
-            (m) => m.type === "streaming-tool" && m.toolName === details.toolName && !m.isComplete
-          );
-          
-          if (lastToolIndex !== -1) {
-            messages[lastToolIndex] = {
-              ...messages[lastToolIndex],
-              content: messages[lastToolIndex].content + details.content,
-            };
-          }
-          
-          return { ...prev, messages };
-        });
-      } else if (details?.messageType === "ToolResponse") {
-        // Convert streaming tool to final tool message
-        setPageState((prev) => {
-          const messages = [...prev.messages];
-          const lastToolIndex = messages.findLastIndex(
-            (m) => m.type === "streaming-tool" && !m.isComplete,
-          );
-
-          if (lastToolIndex !== -1) {
-            messages[lastToolIndex] = {
-              ...messages[lastToolIndex],
-              type: "tool",
-              content: details.toolResult || details.content || "",
-              isComplete: true,
-            };
-          }
-
-          return { ...prev, messages };
-        });
       } else if (details?.messageType === "LLMResponse") {
         // Legacy handler - shouldn't be used with new streaming
       } else if (details?.messageType === "ErrorMessage") {

@@ -12,6 +12,7 @@ export const StreamEventTypeSchema = z.enum([
   'tool.start',         // Tool execution started
   'tool.stream',        // Tool streaming output
   'tool.end',           // Tool completed
+  'tool.result',        // Tool result for display (always shown)
   'system.message',     // System messages
   'system.thinking',    // Thinking/progress messages (replaceable)
   'system.error',       // Error messages
@@ -74,6 +75,14 @@ export const ToolEndDataSchema = z.object({
   result: z.string(),  // Formatted result for display
   rawResult: z.unknown().optional(),  // Raw result data
   success: z.boolean()  // Whether tool succeeded
+});
+
+export const ToolResultDataSchema = z.object({
+  toolName: z.string(),  // Tool name
+  displayName: z.string(),  // User-friendly display name
+  content: z.string(),  // Markdown formatted result content
+  success: z.boolean(),  // Whether tool succeeded
+  isJson: z.boolean().optional()  // Whether content was originally JSON
 });
 
 export const SystemMessageDataSchema = z.object({
@@ -334,6 +343,14 @@ export class EventBus extends EventEmitter {
   emitToolEnd(toolData: z.infer<typeof ToolEndDataSchema>, source?: string): void {
     this.emitStreamEvent({
       type: 'tool.end',
+      source,
+      data: toolData
+    });
+  }
+
+  emitToolResult(toolData: z.infer<typeof ToolResultDataSchema>, source?: string): void {
+    this.emitStreamEvent({
+      type: 'tool.result',
       source,
       data: toolData
     });

@@ -217,13 +217,13 @@ export class BrowserAgent {
       if (parsedResult.ok) {
         const classification = JSON.parse(parsedResult.output);
         const classification_formatted_output = formatToolOutput('classification_tool', parsedResult);
-        this.eventEmitter.toolResult('classification_tool', true, classification_formatted_output);
+        this.eventEmitter.toolEnd('classification_tool', true, classification_formatted_output);
         return { is_simple_task: classification.is_simple_task };
       }
     } catch (error) {
       const errorResult = { ok: false, error: 'Classification failed' };
       const error_formatted_output = formatToolOutput('classification_tool', errorResult);
-      this.eventEmitter.toolResult('classification_tool', false, error_formatted_output);
+      this.eventEmitter.toolEnd('classification_tool', false, error_formatted_output);
     }
     
     // Default to complex task on any failure
@@ -429,6 +429,9 @@ export class BrowserAgent {
       // Format the tool output for display
       const displayMessage = formatToolOutput(toolName, parsedResult);
       this.eventEmitter.debug('Executing tool: ' + toolName + ' result: ' + displayMessage);
+      
+      // Emit tool result for UI display (always shown)
+      this.eventEmitter.emitToolResult(toolName, result);
 
       // Add the result back to the message history for context
       // add toolMessage before systemReminders as openAI expects each 
@@ -473,7 +476,7 @@ export class BrowserAgent {
     
     // Format the planner output
     const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
-    this.eventEmitter.toolResult('planner_tool', parsedResult.ok, planner_formatted_output);
+    this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
 
     if (parsedResult.ok && parsedResult.output?.steps) {
       return { steps: parsedResult.output.steps };
@@ -503,7 +506,7 @@ export class BrowserAgent {
       
       // Format the validator output
       const validator_formatted_output = formatToolOutput('validator_tool', parsedResult);
-      this.eventEmitter.toolResult('validator_tool', parsedResult.ok, validator_formatted_output);
+      this.eventEmitter.toolEnd('validator_tool', parsedResult.ok, validator_formatted_output);
       
       if (parsedResult.ok) {
         // Parse the validation data from output
@@ -517,7 +520,7 @@ export class BrowserAgent {
     } catch (error) {
       const errorResult = { ok: false, error: 'Validation failed' };
       const error_formatted_output = formatToolOutput('validator_tool', errorResult);
-      this.eventEmitter.toolResult('validator_tool', false, error_formatted_output);
+      this.eventEmitter.toolEnd('validator_tool', false, error_formatted_output);
     }
     
     return {

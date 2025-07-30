@@ -1,4 +1,5 @@
 import { EventBus } from '@/lib/events/EventBus';
+import { formatToolOutput } from '@/lib/tools/formatToolOutput';
 
 /**
  * High-level event processor for BrowserAgent
@@ -73,9 +74,9 @@ export class EventProcessor {
   }
 
   /**
-   * Emit tool execution result
+   * Emit tool execution end (for debug mode)
    */
-  toolResult(toolName: string, success: boolean, summary?: string): void {
+  toolEnd(toolName: string, success: boolean, summary?: string): void {
     const displayName = this._getToolDisplayInfo(toolName).name;
     
     this.eventBus.emitToolEnd({
@@ -84,6 +85,35 @@ export class EventProcessor {
       result: summary || (success ? 'Completed' : 'Failed'),
       rawResult: {},
       success
+    }, 'BrowserAgent');
+  }
+
+  /**
+   * Emit tool result for display (always shown)
+   */
+  emitToolResult(toolName: string, result: string): void {
+    const displayName = this._getToolDisplayInfo(toolName).name;
+    
+    // Parse result to get formatted content
+    let parsedResult;
+    let success = false;
+    try {
+      parsedResult = JSON.parse(result);
+      success = parsedResult.ok || false;
+    } catch {
+      // If not JSON, create a simple result object
+      parsedResult = { ok: true, output: result };
+      success = true;
+    }
+    
+    const formattedContent = formatToolOutput(toolName, parsedResult);
+    
+    this.eventBus.emitToolResult({
+      toolName,
+      displayName,
+      content: formattedContent,
+      success,
+      isJson: true
     }, 'BrowserAgent');
   }
 

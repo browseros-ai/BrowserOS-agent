@@ -10,9 +10,10 @@ export enum UIMessageType {
   NewSegment = 'NewSegment',
   StreamingChunk = 'StreamingChunk',
   FinalizeSegment = 'FinalizeSegment',
-  ToolCall = 'ToolCall',
+  ToolStart = 'ToolStart',
   ToolStream = 'ToolStream',
-  ToolResponse = 'ToolResponse',
+  ToolEnd = 'ToolEnd',
+  ToolResult = 'ToolResult',
   DebugMessage = 'DebugMessage',
   ErrorMessage = 'ErrorMessage',
   CompleteMessage = 'CompleteMessage',
@@ -30,6 +31,7 @@ export interface UIMessage {
   toolName?: string;
   toolArgs?: any;
   toolResult?: string;
+  success?: boolean;
   error?: string;
   data?: any;
 }
@@ -65,6 +67,7 @@ export class UIEventHandler {
     this.eventBus.onStreamEvent('tool.start', this.handleToolStart.bind(this));
     this.eventBus.onStreamEvent('tool.stream', this.handleToolStream.bind(this));
     this.eventBus.onStreamEvent('tool.end', this.handleToolEnd.bind(this));
+    this.eventBus.onStreamEvent('tool.result', this.handleToolResult.bind(this));
 
     // System events
     this.eventBus.onStreamEvent('system.message', this.handleSystemMessage.bind(this));
@@ -132,7 +135,7 @@ export class UIEventHandler {
     const { toolName, displayName, icon, description, args } = event.data as any;
     
     this.sendUIMessage({
-      messageType: UIMessageType.ToolCall,
+      messageType: UIMessageType.ToolStart,
       toolName: displayName,
       toolArgs: {
         description,
@@ -156,10 +159,21 @@ export class UIEventHandler {
     const { toolName, displayName, result } = event.data as any;
     
     this.sendUIMessage({
-      messageType: UIMessageType.ToolResponse,
+      messageType: UIMessageType.ToolEnd,
       toolName: displayName,
       toolResult: result,
       content: result  // For backward compatibility
+    });
+  }
+
+  private handleToolResult(event: StreamEvent): void {
+    const { toolName, displayName, content, success } = event.data as any;
+    
+    this.sendUIMessage({
+      messageType: UIMessageType.ToolResult,
+      toolName: displayName,
+      content: content,
+      success: success
     });
   }
 
