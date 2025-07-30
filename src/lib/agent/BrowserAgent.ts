@@ -86,7 +86,13 @@ export class BrowserAgent {
   // Constants for explicit control
   private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 10;
   private static readonly MAX_STEPS_FOR_COMPLEX_TASKS = PLANNING_CONFIG.STEPS_PER_PLAN;
+
+  // Total steps the entire execution can run for, including sub-loops
   private static readonly MAX_TOTAL_STEPS = 100;
+
+  // this is the max steps for sub-loop for executing TODOs
+  // let's keep it at 15, if it's not done in this, let's re-plan.
+  private static readonly MAX_STEPS_FOR_EXECUTING_TODOS_SUB_LOOP  = 15; 
 
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
@@ -287,13 +293,16 @@ export class BrowserAgent {
       this.eventEmitter.info(formatTodoList(todoStore.getJson()));
 
       // 2. EXECUTE: Execute TODOs
-      while (step_index < BrowserAgent.MAX_TOTAL_STEPS && !todoStore.isAllDoneOrSkipped()) {
+      let sub_step_index = 0;
+      while (sub_step_index < BrowserAgent.MAX_STEPS_FOR_EXECUTING_TODOS_SUB_LOOP && !todoStore.isAllDoneOrSkipped()) {
         this.checkIfAborted();
         
         const todo = todoStore.getNextTodo();
         if (!todo) break;
         
-        step_index++;
+        sub_step_index++;
+        step_index++; 
+
         this.eventEmitter.info(`Executing - ${todo.content}...`);
         
         const instruction = `Current TODO: "${todo.content}". Complete this TODO. If TODO is done, mark it as complete using todo_manager. If not, let's continue executing on this TODO.`;
