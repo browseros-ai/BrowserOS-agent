@@ -3,6 +3,7 @@ import { z } from 'zod'
 import styles from '../styles/components/StreamingMessageDisplay.module.scss'
 import { cn } from '@/sidepanel/lib/utils'
 import { MarkdownContent } from './MarkdownContent'
+import { CollapsibleTaskExecution } from './CollapsibleTaskExecution'
 
 // Message type schema 
 const MessageTypeSchema = z.enum(['user', 'system', 'llm', 'tool', 'error', 'streaming-llm', 'streaming-tool', 'thinking'])
@@ -24,6 +25,8 @@ export type Message = z.infer<typeof MessageSchema>
 interface StreamingMessageDisplayProps {
   messages: Message[]
   className?: string
+  taskExecutions?: Map<string, any>
+  onTaskToggle?: (taskId: string, expanded: boolean) => void
 }
 
 /**
@@ -32,7 +35,9 @@ interface StreamingMessageDisplayProps {
  */
 export function StreamingMessageDisplay({ 
   messages, 
-  className 
+  className,
+  taskExecutions,
+  onTaskToggle
 }: StreamingMessageDisplayProps): JSX.Element {
   // HACK: Filter out "Aborted" error messages that slip through despite our error handling
   // This is a temporary fix - the root cause is that AbortError messages are still being
@@ -50,6 +55,19 @@ export function StreamingMessageDisplay({
 
   return (
     <div className={cn(styles.container, className)}>
+      {/* Display task executions in collapsible containers */}
+      {taskExecutions && Array.from(taskExecutions.entries()).map(([taskId, taskData]) => (
+        <CollapsibleTaskExecution
+          key={taskId}
+          taskId={taskId}
+          status={taskData.status}
+          messages={taskData.messages}
+          isExpanded={taskData.isExpanded}
+          onToggle={onTaskToggle || (() => {})}
+          finalResult={taskData.finalResult}
+        />
+      ))}
+      
       {/* Display all messages including streaming ones */}
       {filteredMessages.map((message, index) => {
         // Check if this is a cancel/complete message that shouldn't show spinner
@@ -92,12 +110,12 @@ function MessageItem({
       case 'user':
         return '👤'
       case 'system':
-        return '🚀'
+        return '💭'  // Changed from 🚀
       case 'thinking':
         return '💭'
       case 'llm':
       case 'streaming-llm':
-        return '🦊'
+        return '🤖'  // Changed from 🦊
       case 'tool':
       case 'streaming-tool':
         return '🛠️'

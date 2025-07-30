@@ -1,0 +1,134 @@
+@use '../shared/index.scss' as *;
+@import '../shared/variables';
+@import '../shared/mixins';
+
+.container {
+  background: $nxtscape-bg-secondary;
+  border: 1px solid $nxtscape-bg-tertiary;
+  border-radius: $border-radius-md;
+  margin: $spacing-md 0;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  
+  &--executing {
+    border-color: $nxtscape-blue;
+  }
+  
+  &--completed {
+    border-color: $nxtscape-green;
+  }
+  
+  &--failed {
+    border-color: $nxtscape-red;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  
+  &:hover {
+    background: $nxtscape-bg-tertiary;
+  }
+  
+  &:focus {
+    outline: 2px solid $nxtscape-blue;
+    outline-offset: -2px;
+  }
+}
+
+.arrow {
+  font-size: 0.75rem;
+  margin-right: $spacing-sm;
+  transition: transform 0.2s ease;
+  color: $nxtscape-text-secondary;
+  
+  &--collapsed {
+    transform: rotate(-90deg);
+  }
+}
+
+.headerText {
+  flex: 1;
+  font-weight: 500;
+  color: $nxtscape-text-primary;
+}
+
+.spinner {
+  animation: pulse 1.5s ease-in-out infinite;
+  margin-left: $spacing-sm;
+}
+
+.success {
+  color: $nxtscape-green;
+  margin-left: $spacing-sm;
+}
+
+.error {
+  color: $nxtscape-red;
+  margin-left: $spacing-sm;
+}
+
+.content {
+  border-top: 1px solid $nxtscape-bg-tertiary;
+  max-height: 400px;
+  overflow-y: auto;
+  @include sidePanelScrollbar;
+}
+
+.executionMessage {
+  display: flex;
+  align-items: flex-start;
+  padding: $spacing-sm $spacing-md;
+  border-bottom: 1px solid rgba($nxtscape-bg-tertiary, 0.5);
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: rgba($nxtscape-bg-tertiary, 0.3);
+  }
+}
+
+.messageIcon {
+  margin-right: $spacing-sm;
+  flex-shrink: 0;
+}
+
+.messageText {
+  flex: 1;
+  color: $nxtscape-text-secondary;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-lg;
+  color: $nxtscape-text-secondary;
+  font-size: 0.9rem;
+  
+  .spinner {
+    margin-right: $spacing-sm;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}

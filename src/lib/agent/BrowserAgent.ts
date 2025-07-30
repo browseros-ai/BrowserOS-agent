@@ -90,6 +90,7 @@ export class BrowserAgent {
 
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
+  private lastLLMResponse: string = '';  // Track last LLM response for final result
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
@@ -121,7 +122,12 @@ export class BrowserAgent {
    * Orchestrates classification and delegates to the appropriate execution strategy.
    */
   async execute(task: string): Promise<void> {
+    let finalResult: string | undefined;
+    
     try {
+      // Start task execution tracking
+      this.events.startTaskExecution();
+      
       // 1. SETUP: Initialize system prompt and user task
       this._initializeExecution(task);
 
@@ -130,14 +136,17 @@ export class BrowserAgent {
       const message = classification.is_simple_task 
         ? 'Executing the task...'
         : 'Creating a step-by-step plan to complete the task';
-      this.events.info(message);
+      this.events.collapsibleInfo(message);
 
       // 3. DELEGATE: Route to the correct execution strategy
       if (classification.is_simple_task) {
-        await this._executeSimpleTaskStrategy(task);
+        finalResult = await this._executeSimpleTaskStrategy(task);
       } else {
-        await this._executeMultiStepStrategy(task);
+        finalResult = await this._executeMultiStepStrategy(task);
       }
+      
+      // Mark execution as complete with final result
+      this.events.completeTaskExecution(true, finalResult);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       
@@ -148,6 +157,8 @@ export class BrowserAgent {
       
       if (!isUserCancellation) {
         this.events.error(`Oops! Got a fatal error when executing task: ${errorMessage}`, true);  // Mark as fatal error
+        // Mark execution as failed
+        this.events.completeTaskExecution(false, errorMessage);
       }
       
       throw error;
@@ -199,7 +210,7 @@ export class BrowserAgent {
 
   @Abortable
   private async _classifyTask(task: string): Promise<ClassificationResult> {
-    this.events.info('Analyzing task complexity...');
+    this.events.collapsibleInfo('Analyzing task complexity...');
     
     const classificationTool = this.toolManager.get('classification_tool');
     if (!classificationTool) {
@@ -210,7 +221,7 @@ export class BrowserAgent {
     const args = { task };
     
     try {
-      this.events.executingTool('classification_tool', args);
+      this.events.collapsibleToolExecution('classification_tool', args);
       const result = await classificationTool.func(args);
       const parsedResult = JSON.parse(result);
       
@@ -234,7 +245,7 @@ export class BrowserAgent {
   //  Execution Strategy 1: Simple Tasks (No Planning)
   // ===================================================================
   @Abortable  // Checks at method start
-  private async _executeSimpleTaskStrategy(task: string): Promise<void> {
+  private async _executeSimpleTaskStrategy(task: string): Promise<string | undefined> {
     this.events.debug(`Executing as a simple task. Max attempts: ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}`);
 
     for (let attempt = 1; attempt <= BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
@@ -246,12 +257,12 @@ export class BrowserAgent {
       const isTaskCompleted = await this._executeSingleTurn(instruction);
 
       if (isTaskCompleted) {
-        this.events.complete('Task completed successfully.');
-        return;  // SUCCESS
+        // Return the last LLM response as final result, or default message
+        return this.lastLLMResponse || 'Task completed successfully';
       }
       
       if (attempt < BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS) {
-        this.events.info(`Task not completed unfortunately.`); 
+        this.events.collapsibleInfo(`Task not completed unfortunately.`); 
       }
     }
 
@@ -262,7 +273,7 @@ export class BrowserAgent {
   //  Execution Strategy 2: Multi-Step Tasks (Plan -> Execute -> Repeat)
   // ===================================================================
   @Abortable
-  private async _executeMultiStepStrategy(task: string): Promise<void> {
+  private async _executeMultiStepStrategy(task: string): Promise<string | undefined> {
     this.events.debug('Executing as a complex multi-step task. Max steps: ' + BrowserAgent.MAX_TOTAL_STEPS);
     let step_index = 0;
     const todoStore = this.executionContext.todoStore;
@@ -275,7 +286,7 @@ export class BrowserAgent {
       if (todoXml !== '<todos></todos>') {  // Only add if there are TODOs
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
         // Show remaining TODOs to user at start of planning cycle
-        this.events.info(formatTodoList(todoStore.getJson()));
+        this.events.collapsibleInfo(formatTodoList(todoStore.getJson()));
       }
 
       // 1. PLAN: Create a new plan for the next few steps
@@ -288,7 +299,7 @@ export class BrowserAgent {
       await this._updateTodosFromPlan(plan);
 
       // Show TODO list after plan creation
-      this.events.info(formatTodoList(todoStore.getJson()));
+      this.events.collapsibleInfo(formatTodoList(todoStore.getJson()));
 
       // 2. EXECUTE: Execute TODOs
       while (step_index < BrowserAgent.MAX_TOTAL_STEPS && !todoStore.isAllDoneOrSkipped()) {
@@ -298,22 +309,21 @@ export class BrowserAgent {
         if (!todo) break;
         
         step_index++;
-        this.events.info(`Executing - ${todo.content}...`);
+        this.events.collapsibleInfo(`Executing - ${todo.content}...`);
         
         const instruction = `Current TODO: "${todo.content}". Complete this TODO. If TODO is done, mark it as complete using todo_manager. If not, let's continue executing on this TODO.`;
         const isTaskCompleted = await this._executeSingleTurn(instruction);
         
         if (isTaskCompleted) {
-          this.events.complete('Task completed successfully.');
-          return;
+          // Return the last LLM response as final result, or default message
+          return this.lastLLMResponse || 'Task completed successfully';
         }
       }
       
       // 3. VALIDATE: Check if task is complete after plan segment
       const validationResult = await this._validateTaskCompletion(task);
       if (validationResult.isComplete) {
-        this.events.complete(`Task validated as complete: ${validationResult.reasoning}`);
-        return;
+        return validationResult.reasoning;  // Return the validation reasoning as final result
       }
       
       // 4. CONTINUE: Add validation result to message manager for planner
@@ -397,6 +407,7 @@ export class BrowserAgent {
     // Only finish thinking if we started and have content
     if (hasStartedThinking && accumulatedText.trim()) {
       this.events.finishThinking(accumulatedText);
+      this.lastLLMResponse = accumulatedText;  // Store for final result
     }
     
     if (!accumulatedChunk) return new AIMessage({ content: '' });
@@ -422,7 +433,7 @@ export class BrowserAgent {
         continue;
       }
 
-      this.events.executingTool(toolName, args);
+      this.events.collapsibleToolExecution(toolName, args);
       const result = await tool.func(args);
       const parsedResult = JSON.parse(result);
       
@@ -443,7 +454,7 @@ export class BrowserAgent {
           `TODO list updated. Current state:\n${todoStore.getXml()}`
         );
         // Show updated TODO list to user
-        this.events.info(formatTodoList(todoStore.getJson()));
+        this.events.collapsibleInfo(formatTodoList(todoStore.getJson()));
       }
 
       // Add the result back to the message history for context
@@ -464,7 +475,7 @@ export class BrowserAgent {
       max_steps: BrowserAgent.MAX_STEPS_FOR_COMPLEX_TASKS
     };
 
-    this.events.executingTool('planner_tool', args);
+    this.events.collapsibleToolExecution('planner_tool', args);
     const result = await plannerTool.func(args);
     const parsedResult = JSON.parse(result);
     
@@ -494,7 +505,7 @@ export class BrowserAgent {
 
     const args = { task };
     try {
-      this.events.executingTool('validator_tool', args);
+      this.events.collapsibleToolExecution('validator_tool', args);
       const result = await validatorTool.func(args);
       const parsedResult = JSON.parse(result);
       
