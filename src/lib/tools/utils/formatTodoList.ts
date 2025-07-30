@@ -8,7 +8,7 @@ export function formatTodoList(todos: Todo[]): string {
     return '#### 📋 TODO List\n\n*No tasks*'
   }
 
-  let markdown = '#### 📋 TODO List\n\n'
+  let markdown = '#### 📋 TODO List\n'
   markdown += '| # | Status | Task |\n'
   markdown += '|:-:|:------:|:-----|\n'
   
