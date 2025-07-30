@@ -230,7 +230,7 @@ export class BrowserAgent {
   // ===================================================================
   @Abortable  // Checks at method start
   private async _executeSimpleTaskStrategy(task: string): Promise<void> {
-    this.events.info(`Executing as a simple task. Max attempts: ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}`);
+    this.events.debug(`Executing as a simple task. Max attempts: ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}`);
 
     for (let attempt = 1; attempt <= BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
       this.checkIfAborted();  // Manual check in loop
@@ -258,7 +258,7 @@ export class BrowserAgent {
   // ===================================================================
   @Abortable
   private async _executeMultiStepStrategy(task: string): Promise<void> {
-    this.events.info('Executing as a multi-step task.');
+    this.events.debug('Executing as a complex multi-step task. Max steps: ' + BrowserAgent.MAX_TOTAL_STEPS);
     let step_index = 0;
     const todoStore = this.executionContext.todoStore;
 
@@ -418,7 +418,7 @@ export class BrowserAgent {
       
       // Format the tool output for display
       const displayMessage = formatToolOutput(toolName, parsedResult);
-      this.events.toolResult(toolName, parsedResult.ok, displayMessage);
+      this.events.debug('Executing tool: ' + toolName + ' result: ' + displayMessage);
 
       // Special handling for refresh_browser_state tool, add the browser state to the message history
       if (toolName === 'refresh_browser_state' && parsedResult.ok) {
