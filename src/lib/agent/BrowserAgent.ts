@@ -422,9 +422,8 @@ export class BrowserAgent {
 
       // Special handling for refresh_browser_state tool, add the browser state to the message history
       if (toolName === 'refresh_browser_state' && parsedResult.ok) {
-        // Remove previous browser state messages
-        this.messageManager.removeMessagesByType(MessageType.BROWSER_STATE);
-        this.messageManager.addBrowserState(parsedResult.output);
+        // Add browser state as a system reminder that LLM should not print
+        this.messageManager.addSystemReminder(parsedResult.output);
       }
 
       // Special handling for todo_manager tool, add system reminder for mutations

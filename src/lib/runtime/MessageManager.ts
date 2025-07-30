@@ -29,6 +29,7 @@ export class BrowserStateMessage extends AIMessage {
   }
 }
 
+
 // Read-only view for tools
 export class MessageManagerReadOnly {
   constructor(private messageManager: MessageManager) {}
@@ -85,6 +86,7 @@ export class MessageManager {
     this.add(new BrowserStateMessage(content));
     this._trimIfNeeded();
   }
+
 
   addTool(content: string, toolCallId: string): void {
     this.add(new ToolMessage(content, toolCallId));
