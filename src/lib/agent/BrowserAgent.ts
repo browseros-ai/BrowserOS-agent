@@ -430,6 +430,11 @@ export class BrowserAgent {
       const displayMessage = formatToolOutput(toolName, parsedResult);
       this.events.debug('Executing tool: ' + toolName + ' result: ' + displayMessage);
 
+      // Add the result back to the message history for context
+      // add toolMessage before systemReminders as openAI expects each 
+      // tool call to be followed by toolMessage
+      this.messageManager.addTool(result, toolCallId);
+
       // Special handling for refresh_browser_state tool, add the browser state to the message history
       if (toolName === 'refresh_browser_state' && parsedResult.ok) {
         // Add browser state as a system reminder that LLM should not print
@@ -446,8 +451,6 @@ export class BrowserAgent {
         this.events.info(formatTodoList(todoStore.getJson()));
       }
 
-      // Add the result back to the message history for context
-      this.messageManager.addTool(result, toolCallId);
 
       if (toolName === 'done_tool' && parsedResult.ok) {
         wasDoneToolCalled = true;
