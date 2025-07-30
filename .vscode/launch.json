@@ -7,6 +7,21 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "Debug Vitest Current File",
+            "autoAttachChildProcesses": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+            "program": "${workspaceRoot}/node_modules/vitest/vitest.mjs",
+            "args": ["run", "${relativeFile}"],
+            "smartStep": true,
+            "console": "integratedTerminal",
+            "env": {
+                "LITELLM_API_KEY": "${env:LITELLM_API_KEY}",
+                "OPENROUTER_API_KEY": "${env:OPENROUTER_API_KEY}"
+            }
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Debug Jest Tests",
             "runtimeExecutable": "node",
             "runtimeArgs": [
