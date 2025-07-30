@@ -41,10 +41,20 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
         let rawContent: string
         if (args.extract_type === 'text') {
           const textSnapshot = await page.getTextSnapshot()
-          rawContent = textSnapshot.tree || 'No text content found'
+          // Convert sections to readable content
+          rawContent = textSnapshot.sections && textSnapshot.sections.length > 0
+            ? textSnapshot.sections.map((section: any) => 
+                section.content || section.text || JSON.stringify(section)
+              ).join('\n')
+            : 'No text content found'
         } else {
           const linksSnapshot = await page.getLinksSnapshot()
-          rawContent = linksSnapshot.tree || 'No links found'
+          // Convert sections to readable content
+          rawContent = linksSnapshot.sections && linksSnapshot.sections.length > 0
+            ? linksSnapshot.sections.map((section: any) => 
+                section.content || section.text || JSON.stringify(section)
+              ).join('\n')
+            : 'No links found'
         }
         
         // Get page metadata
