@@ -8,7 +8,6 @@ export class EventProcessor {
   private eventBus: EventBus;
   private currentSegmentId: number = 0;
   private currentMessageId: string = '';
-  private currentTaskId: string | null = null;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -67,7 +66,7 @@ export class EventProcessor {
     this.eventBus.emitToolStart({
       toolName,
       displayName: displayInfo.name,
-      icon: '🛠️',  // Standardize to wrench icon
+      icon: displayInfo.icon,
       description: displayInfo.description,
       args: args || {}
     }, 'BrowserAgent');
@@ -116,99 +115,9 @@ export class EventProcessor {
     this.eventBus.emitDebug(message, data, 'BrowserAgent');
   }
 
-  /**
-   * Start a task execution session
-   */
-  startTaskExecution(): string {
-    this.currentTaskId = this._generateTaskId();
-    this.eventBus.emitStreamEvent({
-      type: 'task.execution.start',
-      source: 'BrowserAgent',
-      data: {
-        taskId: this.currentTaskId,
-        timestamp: Date.now()
-      }
-    });
-    return this.currentTaskId;
-  }
-
-  /**
-   * Emit collapsible info message (for task execution context)
-   */
-  collapsibleInfo(message: string): void {
-    if (!this.currentTaskId) {
-      // Fallback to regular info if not in task context
-      this.info(message);
-      return;
-    }
-    
-    this.eventBus.emitStreamEvent({
-      type: 'task.execution.detail',
-      source: 'BrowserAgent',
-      data: {
-        taskId: this.currentTaskId,
-        detailType: 'thinking',
-        message,
-        icon: '💭'
-      }
-    });
-  }
-
-  /**
-   * Emit collapsible tool execution (for task execution context)
-   */
-  collapsibleToolExecution(toolName: string, args?: any): void {
-    if (!this.currentTaskId) {
-      // Fallback to regular tool execution if not in task context
-      this.executingTool(toolName, args);
-      return;
-    }
-    
-    const displayInfo = this._getToolDisplayInfo(toolName, args);
-    
-    this.eventBus.emitStreamEvent({
-      type: 'task.execution.detail',
-      source: 'BrowserAgent',
-      data: {
-        taskId: this.currentTaskId,
-        detailType: 'tool',
-        message: displayInfo.description,
-        toolName,
-        icon: '🛠️'
-      }
-    });
-    
-    // Still emit regular tool.start for other purposes
-    this.executingTool(toolName, args);
-  }
-
-  /**
-   * Complete task execution
-   */
-  completeTaskExecution(success: boolean, finalResult?: string): void {
-    if (!this.currentTaskId) return;
-    
-    this.eventBus.emitStreamEvent({
-      type: 'task.execution.complete',
-      source: 'BrowserAgent',
-      data: {
-        taskId: this.currentTaskId,
-        success,
-        finalResult,
-        timestamp: Date.now()
-      }
-    });
-    
-    this.currentTaskId = null;
-  }
-
   // Private helper methods
   private _generateMessageId(): string {
     return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  }
-
-  private _generateTaskId(): string {
-    return `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 
   private _getToolDisplayInfo(toolName: string, args?: any): {
