@@ -2,3 +2,5 @@ export { TabOperationsTool, createTabOperationsTool, TabOperationInputSchema } f
 export type { TabOperationInput } from './TabOperationsTool'
 export { GroupTabsTool, createGroupTabsTool, GroupTabsInputSchema } from './GroupTabsTool'
 export type { GroupTabsInput } from './GroupTabsTool'
+export { GetSelectedTabsTool, createGetSelectedTabsTool, GetSelectedTabsInputSchema } from './GetSelectedTabsTool'
+export type { GetSelectedTabsInput } from './GetSelectedTabsTool'

@@ -55,6 +55,7 @@ import { createSearchTool } from '@/lib/tools/navigation/SearchTool';
 import { createRefreshStateTool } from '@/lib/tools/navigation/RefreshStateTool';
 import { createTabOperationsTool } from '@/lib/tools/tab/TabOperationsTool';
 import { createGroupTabsTool } from '@/lib/tools/tab/GroupTabsTool';
+import { createGetSelectedTabsTool } from '@/lib/tools/tab/GetSelectedTabsTool';
 import { createClassificationTool } from '@/lib/tools/classification/ClassificationTool';
 import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
 import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
@@ -181,6 +182,7 @@ export class BrowserAgent {
     // Tab tools
     this.toolManager.register(createTabOperationsTool(this.executionContext));
     this.toolManager.register(createGroupTabsTool(this.executionContext));
+    this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
     
     // Validation tool
     this.toolManager.register(createValidatorTool(this.executionContext));
