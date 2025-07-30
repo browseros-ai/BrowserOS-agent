@@ -1,7 +1,6 @@
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import remarkSqueezeParagraphs from 'remark-squeeze-paragraphs'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize from 'rehype-sanitize'
 import styles from '../styles/components/MarkdownContent.module.scss'
@@ -12,6 +11,7 @@ interface MarkdownContentProps {
   className?: string
   forceMarkdown?: boolean  // Kept for backward compatibility but ignored
   skipMarkdown?: boolean  // Skip markdown rendering - plain text only
+  compact?: boolean  // Control compact mode styling
 }
 
 /**
@@ -23,7 +23,8 @@ export function MarkdownContent({
   content, 
   className, 
   forceMarkdown = false,  // Ignored - we always render as markdown
-  skipMarkdown = false
+  skipMarkdown = false,
+  compact = false  // Default to false for better readability
 }: MarkdownContentProps): JSX.Element {
   // Only render as plain text if explicitly requested
   if (skipMarkdown) {
@@ -31,7 +32,7 @@ export function MarkdownContent({
       <div className={cn(
         styles.container, 
         styles.plainText, 
-        styles.compact,  // Always use compact mode
+        compact && styles.compact,  // Only use compact mode if requested
         className
       )}>
         <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
@@ -41,8 +42,8 @@ export function MarkdownContent({
 
   // Build remark plugins array
   const remarkPlugins = [
-    remarkGfm,  // GitHub Flavored Markdown (tables, strikethrough, etc.)
-    remarkSqueezeParagraphs  // Automatically removes empty paragraphs and excessive blank lines
+    remarkGfm  // GitHub Flavored Markdown (tables, strikethrough, etc.)
+    // Removed remarkSqueezeParagraphs to preserve intentional spacing
   ]
 
   // Always render as markdown - plain text renders fine in markdown
@@ -50,7 +51,7 @@ export function MarkdownContent({
     <div className={cn(
       styles.container, 
       styles.markdown,
-      styles.compact,  // Always use compact mode
+      compact && styles.compact,  // Only use compact mode if requested
       className
     )}>
       <ReactMarkdown

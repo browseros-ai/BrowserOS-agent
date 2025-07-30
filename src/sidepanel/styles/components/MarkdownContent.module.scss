@@ -24,49 +24,49 @@
     color: $nxtscape-text-primary;
   }
   
-  // Compact mode for tool results - tighter spacing
+  // Compact mode for tool results - moderately tighter spacing
   &.compact {
-    line-height: 1.4;
+    line-height: 1.5;  // Increased from 1.4 for better readability
     
     &.plainText {
       font-size: 0.9em;
     }
     
     .paragraph {
-      margin: 0.25em 0;
+      margin: 0.5em 0;  // Increased from 0.25em
     }
     
     .list, .orderedList {
-      margin: 0.25em 0;
-      padding-left: 1.2em;
+      margin: 0.5em 0;  // Increased from 0.25em
+      padding-left: 1.5em;  // Increased from 1.2em
       
       li {
-        margin: 0.1em 0;
+        margin: 0.2em 0;  // Increased from 0.1em
       }
     }
     
     .heading1, .heading2, .heading3, .heading4, .heading5, .heading6 {
-      margin: 0.5em 0 0.25em;
+      margin: 0.75em 0 0.5em;  // Increased from 0.5em 0 0.25em
     }
     
     .codeBlock {
-      margin: 0.25em 0;
-      padding: 0.5em;
+      margin: 0.5em 0;  // Increased from 0.25em
+      padding: 0.75em;  // Increased from 0.5em
     }
     
     .blockquote {
-      margin: 0.25em 0;
+      margin: 0.5em 0;  // Increased from 0.25em
     }
     
     .divider {
-      margin: 0.5em 0;
+      margin: 0.75em 0;  // Increased from 0.5em
     }
   }
 }
 
 // Markdown element styles (used via className props in ReactMarkdown components)
 .paragraph {
-  margin: 0.5em 0;
+  margin: 0.75em 0;  // Increased from 0.5em for better readability
   
   &:first-child {
     margin-top: 0;
@@ -96,18 +96,18 @@
 
 // Lists
 .list, .orderedList {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+  margin: 0.75em 0;  // Increased from 0.5em
+  padding-left: 1.75em;  // Increased from 1.5em for better indentation
   color: $nxtscape-text-primary;
   
   li {
-    margin: 0.25em 0;
+    margin: 0.3em 0;  // Increased from 0.25em
     color: $nxtscape-text-primary;
   }
   
   // Nested lists
   ul, ol {
-    margin: 0.25em 0;
+    margin: 0.3em 0;  // Increased from 0.25em
   }
 }
 

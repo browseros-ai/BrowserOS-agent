@@ -49,10 +49,44 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
   });
 
   const messageIdCounter = useRef(0);
+  
+  // Chunk buffer for debouncing streaming updates
+  const chunkBufferRef = useRef<{
+    messageId: string;
+    content: string;
+    timer: NodeJS.Timeout | null;
+  }>({ messageId: '', content: '', timer: null });
 
   // Helper to generate unique message IDs
   const generateMessageId = () =>
     `msg-${Date.now()}-${++messageIdCounter.current}`;
+    
+  // Helper function to flush buffered chunks
+  const flushChunkBuffer = () => {
+    if (!chunkBufferRef.current.content || !chunkBufferRef.current.messageId) return;
+    
+    const bufferedMessageId = chunkBufferRef.current.messageId;
+    const bufferedContent = chunkBufferRef.current.content;
+    
+    setPageState((prev) => {
+      const messages = [...prev.messages];
+      const messageIndex = messages.findIndex(
+        (m) => m.id === bufferedMessageId && m.type === "streaming-llm"
+      );
+      
+      if (messageIndex !== -1) {
+        messages[messageIndex] = {
+          ...messages[messageIndex],
+          content: messages[messageIndex].content + bufferedContent,
+        };
+      }
+      
+      return { ...prev, messages };
+    });
+    
+    // Reset buffer
+    chunkBufferRef.current = { messageId: '', content: '', timer: null };
+  };
 
   // Listen for agent stream updates
   useEffect(() => {
@@ -98,23 +132,33 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
           messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
         }));
       } else if (details?.messageType === "StreamingChunk") {
-        // Update the streaming message with new content
-        setPageState((prev) => {
-          const messages = [...prev.messages];
-          const messageIndex = messages.findIndex(
-            (m) => m.id === details.messageId && m.type === "streaming-llm"
-          );
-          
-          if (messageIndex !== -1) {
-            messages[messageIndex] = {
-              ...messages[messageIndex],
-              content: messages[messageIndex].content + details.content,
-            };
-          }
-          
-          return { ...prev, messages };
-        });
+        // Buffer chunks to reduce re-renders
+        if (chunkBufferRef.current.messageId === details.messageId) {
+          // Same message, accumulate content
+          chunkBufferRef.current.content += details.content;
+        } else {
+          // Different message, flush previous buffer first
+          flushChunkBuffer();
+          chunkBufferRef.current = {
+            messageId: details.messageId,
+            content: details.content,
+            timer: null
+          };
+        }
+        
+        // Clear existing timer
+        if (chunkBufferRef.current.timer) {
+          clearTimeout(chunkBufferRef.current.timer);
+        }
+        
+        // Set new timer to flush after 50ms of no new chunks
+        chunkBufferRef.current.timer = setTimeout(() => {
+          flushChunkBuffer();
+        }, 50);
       } else if (details?.messageType === "FinalizeSegment") {
+        // Flush any remaining buffered chunks before finalizing
+        flushChunkBuffer();
+        
         // Convert streaming message to final LLM message
         setPageState((prev) => {
           const messages = [...prev.messages];
@@ -323,11 +367,17 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
     };
 
     addMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate);
-    return () =>
+    return () => {
+      // Clean up chunk buffer timer
+      if (chunkBufferRef.current.timer) {
+        clearTimeout(chunkBufferRef.current.timer);
+        flushChunkBuffer();  // Flush any remaining content
+      }
       removeMessageListener(
         MessageType.AGENT_STREAM_UPDATE,
         handleStreamUpdate,
       );
+    };
   }, [addMessageListener, removeMessageListener]);
 
   // Listen for workflow status updates

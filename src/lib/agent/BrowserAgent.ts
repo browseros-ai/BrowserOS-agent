@@ -364,19 +364,27 @@ export class BrowserAgent {
     
     let accumulatedChunk: AIMessageChunk | undefined;
     let accumulatedText = '';
+    let hasStartedThinking = false;
 
-    this.events.startThinking();
     for await (const chunk of stream) {
       this.checkIfAborted();  // Manual check during streaming
 
       if (chunk.content && typeof chunk.content === 'string') {
+        // Start thinking on first real content
+        if (!hasStartedThinking) {
+          this.events.startThinking();
+          hasStartedThinking = true;
+        }
+        
         this.events.streamThought(chunk.content);
         accumulatedText += chunk.content;
       }
       accumulatedChunk = !accumulatedChunk ? chunk : accumulatedChunk.concat(chunk);
     }
-    if(accumulatedText!='') {
-        this.events.finishThinking(accumulatedText);
+    
+    // Only finish thinking if we started and have content
+    if (hasStartedThinking && accumulatedText.trim()) {
+      this.events.finishThinking(accumulatedText);
     }
     
     if (!accumulatedChunk) return new AIMessage({ content: '' });

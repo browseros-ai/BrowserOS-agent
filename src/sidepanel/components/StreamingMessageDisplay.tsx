@@ -128,8 +128,8 @@ function MessageItem({
                 // Show raw streaming content for tools
                 <pre className={styles.streamingContent}>{message.content}</pre>
               ) : (
-                // Show formatted content for completed tools
-                <MarkdownContent content={message.content} />
+                // Show formatted content for completed tools (compact for tool results)
+                <MarkdownContent content={message.content} compact={true} />
               )}
             </div>
           )}
@@ -145,8 +145,29 @@ function MessageItem({
       }
       return (
         <div className={styles.messageText}>
-          <MarkdownContent content={message.content} forceMarkdown={true} />
-          {!message.isComplete && message.content && <span className={styles.cursor}>|</span>}
+          {!message.isComplete ? (
+            // STREAMING: Render as plain text to avoid partial markdown issues
+            <div className={styles.streamingContent}>
+              <pre style={{ 
+                whiteSpace: 'pre-wrap', 
+                wordBreak: 'break-word',
+                fontFamily: 'inherit',  // Use same font as rest of UI
+                margin: 0,
+                padding: 0,
+                background: 'transparent',
+                border: 'none',
+                fontSize: 'inherit',
+                lineHeight: 'inherit',
+                color: 'inherit'
+              }}>
+                {message.content}
+              </pre>
+              <span className={styles.cursor}>|</span>
+            </div>
+          ) : (
+            // COMPLETE: Render as markdown
+            <MarkdownContent content={message.content} />
+          )}
         </div>
       )
     }
@@ -157,7 +178,6 @@ function MessageItem({
         <MarkdownContent 
           content={message.content} 
           skipMarkdown={message.type === 'user'}
-          forceMarkdown={message.type === 'llm' || message.type === 'system' || message.type === 'thinking'}
         />
         {showSystemSpinner && (
           <span className={styles.systemStatus}>
