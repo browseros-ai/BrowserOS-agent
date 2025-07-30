@@ -13,7 +13,7 @@ describe('formatTodoList', () => {
     const result = formatTodoList(todos)
     
     // Check structure
-    expect(result).toContain('#### 📋 TODO List\n| # | Status | Task |')
+    expect(result).toContain('| # | Status | Task |')
     expect(result).toContain('|:-:|:------:|:-----|')
     
     // Check content
@@ -24,6 +24,6 @@ describe('formatTodoList', () => {
   
   it('tests that empty list shows appropriate message', () => {
     const result = formatTodoList([])
-    expect(result).toBe('#### 📋 TODO List\n\n*No tasks*')
+    expect(result).toBe('*No tasks*')
   })
 })

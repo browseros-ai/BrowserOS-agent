@@ -5,11 +5,11 @@ import { Todo } from '@/lib/runtime/TodoStore'
  */
 export function formatTodoList(todos: Todo[]): string {
   if (todos.length === 0) {
-    return '#### 📋 TODO List\n\n*No tasks*'
+    return '*No tasks*'
   }
 
-  let markdown = '#### 📋 TODO List\n'
-  markdown += '| # | Status | Task |\n'
+  // Start directly with the table - no header
+  let markdown = '| # | Status | Task |\n'
   markdown += '|:-:|:------:|:-----|\n'
   
   todos.forEach(todo => {
