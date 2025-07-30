@@ -163,4 +163,60 @@ describe('BrowserAgent-integration-test', () => {
     },
     30000
   )
+
+  // Integration Test: TODO-driven execution flow
+  it.skipIf(!process.env.LITELLM_API_KEY || process.env.LITELLM_API_KEY === 'nokey')(
+    'tests that complex tasks use TODO-driven execution flow',
+    async () => {
+      // Setup with real instances
+      const messageManager = new MessageManager()
+      const browserContext = new BrowserContext()
+      const abortController = new AbortController()
+      const eventBus = new EventBus()
+      const eventProcessor = new EventProcessor(eventBus)
+      
+      const executionContext = new ExecutionContext({
+        browserContext,
+        messageManager,
+        abortController,
+        debugMode: false,
+        eventBus,
+        eventProcessor
+      })
+      
+      const browserAgent = new BrowserAgent(executionContext)
+      
+      // Spy on the _fetchTodoXml method to verify TODOs are being checked
+      const fetchTodoSpy = vi.spyOn(browserAgent as any, '_fetchTodoXml')
+      
+      // Start execution of a complex task (don't await)
+      browserAgent.execute('research top 3 programming languages in 2024 and create a comparison table').catch(error => {
+        // Expected - we'll abort early
+      })
+      
+      // Wait a bit for the agent to start processing
+      await new Promise(resolve => setTimeout(resolve, 8000))
+      
+      // Check 2-3 key things happened
+      // 1. TODO XML was fetched (indicating TODO-driven flow)
+      expect(fetchTodoSpy).toHaveBeenCalled()
+      
+      // 2. TodoStore has TODOs (if the agent created any)
+      const todos = executionContext.todoStore.getAll()
+      console.log(`TODOs created: ${todos.length}`)
+      
+      // 3. Complex task strategy was used (check via message history)
+      const messages = messageManager.getMessages()
+      const hasComplexTaskFlow = messages.some(msg => 
+        msg.content && typeof msg.content === 'string' && 
+        (msg.content.includes('plan') || msg.content.includes('TODO'))
+      )
+      expect(hasComplexTaskFlow).toBe(true)
+      
+      // Cleanup and exit
+      abortController.abort()
+      console.log('✅ TODO-driven execution flow test passed')
+    },
+    30000
+  )
 })

@@ -45,6 +45,7 @@ import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
 import { MessageManager, MessageType } from '@/lib/runtime/MessageManager';
 import { ToolManager } from '@/lib/tools/ToolManager';
 import { createPlannerTool } from '@/lib/tools/planning/PlannerTool';
+import { createTodoManagerTool } from '@/lib/tools/planning/TodoManagerTool';
 import { createDoneTool } from '@/lib/tools/utils/DoneTool';
 import { createNavigationTool } from '@/lib/tools/navigation/NavigationTool';
 import { createFindElementTool } from '@/lib/tools/navigation/FindElementTool';
@@ -165,6 +166,7 @@ export class BrowserAgent {
   private _registerTools(): void {
     // Register all tools first
     this.toolManager.register(createPlannerTool(this.executionContext));
+    this.toolManager.register(createTodoManagerTool(this.executionContext));
     this.toolManager.register(createDoneTool());
     
     // Navigation tools
@@ -258,9 +260,16 @@ export class BrowserAgent {
   private async _executeMultiStepStrategy(task: string): Promise<void> {
     this.events.info('Executing as a multi-step task.');
     let step_index = 0;
+    const todoStore = this.executionContext.todoStore;
 
     while (step_index < BrowserAgent.MAX_TOTAL_STEPS) {
       this.checkIfAborted();  // Check if the user has cancelled the task before executing
+
+      // Inject current TODO state
+      const todoXml = await this._fetchTodoXml();
+      if (todoXml !== '<todos></todos>') {  // Only add if there are TODOs
+        this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
+      }
 
       // 1. PLAN: Create a new plan for the next few steps
       const plan = await this._createMultiStepPlan(task);
@@ -269,20 +278,22 @@ export class BrowserAgent {
       }
       this.events.info(`Created new plan: ${JSON.stringify(plan, null, 2)}`);
 
-      // 2. EXECUTE: Execute the steps from the current plan
-      for (const step of plan.steps) {
-        if (step_index >= BrowserAgent.MAX_TOTAL_STEPS) break;  // Exit if we hit the global limit
-
-        this.checkIfAborted();  // Check if the user has cancelled the task before executing
-
-        step_index++;
-        this.events.info(`Step ${step_index}: ${step.action}`);
+      // 2. EXECUTE: Execute TODOs
+      while (step_index < BrowserAgent.MAX_TOTAL_STEPS && !todoStore.isAllDoneOrSkipped()) {
+        this.checkIfAborted();
         
-        const isTaskCompleted = await this._executeSingleTurn(step.action);
-
+        const todo = todoStore.getNextTodo();
+        if (!todo) break;
+        
+        step_index++;
+        this.events.info(`Step ${step_index} (TODO #${todo.id}): ${todo.content}`);
+        
+        const instruction = `Current TODO: "${todo.content}". Complete this TODO. If TODO is done, mark it as complete using todo_manager. If not, let's continue executing on this TODO.`;
+        const isTaskCompleted = await this._executeSingleTurn(instruction);
+        
         if (isTaskCompleted) {
           this.events.complete('Task completed successfully.');
-          return;  // SUCCESS
+          return;
         }
       }
       
@@ -406,6 +417,14 @@ export class BrowserAgent {
         this.messageManager.addBrowserState(parsedResult.output);
       }
 
+      // Special handling for todo_manager tool, add system reminder for mutations
+      if (toolName === 'todo_manager' && parsedResult.ok && args.action !== 'list') {
+        const todoStore = this.executionContext.todoStore;
+        this.messageManager.addSystemReminder(
+          `TODO list updated. Current state:\n${todoStore.getXml()}`
+        );
+      }
+
       // Add the result back to the message history for context
       this.messageManager.addTool(result, toolCallId);
 
@@ -482,5 +501,23 @@ export class BrowserAgent {
       reasoning: 'Validation failed - continuing execution',
       suggestions: []
     };
+  }
+
+  /**
+   * Fetch current TODO list as XML
+   */
+  private async _fetchTodoXml(): Promise<string> {
+    const todoTool = this.toolManager.get('todo_manager');
+    if (!todoTool) {
+      return '<todos></todos>';
+    }
+    
+    try {
+      const result = await todoTool.func({ action: 'list' });
+      const parsedResult = JSON.parse(result);
+      return parsedResult.ok ? parsedResult.output : '<todos></todos>';
+    } catch (error) {
+      return '<todos></todos>';
+    }
   }
 }

@@ -181,6 +181,8 @@ export class NxtScape {
     const isFollowUp = this.messageManager.getMessages().length > 0;
     if (!isFollowUp || this.executionContext.isUserCancellation()) {
       this.resetAbortController();
+      // Also reset TODO list for new tasks
+      this.executionContext.todoStore.reset();
     }
 
     // Always get the current page from browser context - this is the tab the agent will operate on

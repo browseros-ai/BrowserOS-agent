@@ -4,6 +4,7 @@ import { MessageManager } from '@/lib/runtime/MessageManager'
 import { EventBus, EventProcessor } from '@/lib/events'
 import { getLLM as getLLMFromProvider } from '@/lib/llm/LangChainProvider'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
+import { TodoStore } from '@/lib/runtime/TodoStore'
 
 /**
  * Configuration options for ExecutionContext
@@ -13,8 +14,9 @@ export const ExecutionContextOptionsSchema = z.object({
   messageManager: z.instanceof(MessageManager),  // Message manager for communication
   abortController: z.instanceof(AbortController),  // Abort controller for task cancellation
   debugMode: z.boolean().default(false),  // Whether to enable debug logging
-  eventBus: z.instanceof(EventBus).optional(),  // Event bus for streaming updates (set via setEventBus)
-  eventProcessor: z.instanceof(EventProcessor).optional()  // Event processor for high-level events (set via setEventProcessor)
+  eventBus: z.instanceof(EventBus).optional(),  // Event bus for streaming updates
+  eventProcessor: z.instanceof(EventProcessor).optional(),  // Event processor for high-level events
+  todoStore: z.instanceof(TodoStore).optional()  // TODO store for complex task management
 })
 
 export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
@@ -30,6 +32,7 @@ export class ExecutionContext {
   eventBus: EventBus | null = null  // Event bus for streaming updates
   eventProcessor: EventProcessor | null = null  // Event processor for high-level events
   selectedTabIds: number[] | null = null  // Selected tab IDs
+  todoStore: TodoStore  // TODO store for complex task management
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
@@ -45,6 +48,7 @@ export class ExecutionContext {
     this.debugMode = validatedOptions.debugMode || false
     this.eventBus = validatedOptions.eventBus || null
     this.eventProcessor = validatedOptions.eventProcessor || null
+    this.todoStore = validatedOptions.todoStore || new TodoStore()
     this.userInitiatedCancel = false
   }
   
@@ -159,6 +163,7 @@ export class ExecutionContext {
     this._lockedTabId = null;
     this.userInitiatedCancel = false;
     this._currentTask = null;
+    this.todoStore.reset();
   }
 
   /**

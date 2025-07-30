@@ -91,6 +91,12 @@ export class MessageManager {
     this._trimIfNeeded();
   }
 
+  addSystemReminder(content: string): void {
+    // Add system message with system-reminder tags
+    this.add(new SystemMessage(`<system-reminder>${content}</system-reminder>`));
+    this._trimIfNeeded();
+  }
+
   // Get messages
   getMessages(): BaseMessage[] {
     return [...this.messages];
