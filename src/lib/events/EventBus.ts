@@ -18,6 +18,7 @@ export const StreamEventTypeSchema = z.enum([
   'system.error',       // Error messages
   'system.complete',    // Task complete
   'system.cancel',      // Task cancelled
+  'task.result',        // Task execution result summary
   'debug.message'       // Debug messages
 ]);
 
@@ -114,6 +115,11 @@ export const SystemCancelDataSchema = z.object({
 export const DebugMessageDataSchema = z.object({
   message: z.string(),  // Debug message
   data: z.unknown().optional()  // Additional debug data
+});
+
+export const TaskResultDataSchema = z.object({
+  success: z.boolean(),  // Whether task succeeded
+  message: z.string()  // Markdown-formatted result summary
 });
 
 /**
@@ -404,6 +410,14 @@ export class EventBus extends EventEmitter {
         data: { message, data }
       });
     }
+  }
+
+  emitTaskResult(success: boolean, message: string, source?: string): void {
+    this.emitStreamEvent({
+      type: 'task.result',
+      source,
+      data: { success, message }
+    });
   }
 
   // Alias methods for backward compatibility

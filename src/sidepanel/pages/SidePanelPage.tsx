@@ -296,6 +296,23 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
           messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
           isProcessing: false,
         }));
+      } else if (details?.messageType === "TaskResult") {
+        console.log("📊 [SidePanel] Task result message received:", details.content);
+        
+        // Add task result message
+        const newMessage: StreamMessage = {
+          id: generateMessageId(),
+          type: "system",
+          content: details.content || '',
+          isComplete: true,
+          timestamp: new Date(),
+        };
+        
+        // Add task result message (removing any thinking messages)
+        setPageState((prev) => ({
+          ...prev,
+          messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
+        }));
       } else if (details?.messageType === "ThinkingMessage") {
         console.log("🤔 [SidePanel] Thinking message received:", details.content);
         

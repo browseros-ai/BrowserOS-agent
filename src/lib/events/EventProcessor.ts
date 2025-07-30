@@ -145,6 +145,13 @@ export class EventProcessor {
     this.eventBus.emitDebug(message, data, 'BrowserAgent');
   }
 
+  /**
+   * Emit task result summary
+   */
+  emitTaskResult(success: boolean, message: string): void {
+    this.eventBus.emitTaskResult(success, message, 'BrowserAgent');
+  }
+
   // Private helper methods
   private _generateMessageId(): string {
     return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;

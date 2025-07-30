@@ -119,9 +119,6 @@ const EXAMPLE_PROMPTS = [
   "Close all my YouTube tabs",
   "Organize my tabs by topic",
 
-  // Session Management
-  "Save my current browser session as Research",
-
   // Content Analysis & Understanding
   "Summarize this article for me",
   "What are the key points on this page?",

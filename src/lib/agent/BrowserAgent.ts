@@ -145,6 +145,9 @@ export class BrowserAgent {
       } else {
         await this._executeMultiStepStrategy(task);
       }
+
+      // 4. FINALISE: Generate final result
+      await this._generateTaskResult(task);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       
@@ -537,6 +540,33 @@ export class BrowserAgent {
       reasoning: 'Validation failed - continuing execution',
       suggestions: []
     };
+  }
+
+  /**
+   * Generate and emit task result using ResultTool
+   */
+  private async _generateTaskResult(task: string): Promise<void> {
+    const resultTool = this.toolManager.get('result_tool');
+    if (!resultTool) {
+      return;
+    }
+
+    try {
+      const args = { task };
+      const result = await resultTool.func(args);
+      const parsedResult = JSON.parse(result);
+      
+      if (parsedResult.ok && parsedResult.output) {
+        const { success, message } = parsedResult.output;
+        this.eventEmitter.emitTaskResult(success, message);
+      } else {
+        // Fallback on error
+        this.eventEmitter.emitTaskResult(true, 'Task completed.');
+      }
+    } catch (error) {
+      // Fallback on error
+      this.eventEmitter.emitTaskResult(true, 'Task completed.');
+    }
   }
 
   /**
