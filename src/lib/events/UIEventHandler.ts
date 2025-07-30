@@ -16,10 +16,7 @@ export enum UIMessageType {
   DebugMessage = 'DebugMessage',
   ErrorMessage = 'ErrorMessage',
   CompleteMessage = 'CompleteMessage',
-  CancelMessage = 'CancelMessage',
-  TaskExecutionStart = 'TaskExecutionStart',
-  TaskExecutionDetail = 'TaskExecutionDetail',
-  TaskExecutionComplete = 'TaskExecutionComplete'
+  CancelMessage = 'CancelMessage'
 }
 
 /**
@@ -35,11 +32,6 @@ export interface UIMessage {
   toolResult?: string;
   error?: string;
   data?: any;
-  taskId?: string;
-  detailType?: 'thinking' | 'tool';
-  icon?: string;
-  success?: boolean;
-  finalResult?: string;
 }
 
 /**
@@ -83,11 +75,6 @@ export class UIEventHandler {
 
     // Debug events
     this.eventBus.onStreamEvent('debug.message', this.handleDebugMessage.bind(this));
-
-    // Task execution events
-    this.eventBus.onStreamEvent('task.execution.start', this.handleTaskExecutionStart.bind(this));
-    this.eventBus.onStreamEvent('task.execution.detail', this.handleTaskExecutionDetail.bind(this));
-    this.eventBus.onStreamEvent('task.execution.complete', this.handleTaskExecutionComplete.bind(this));
   }
 
   /**
@@ -232,50 +219,6 @@ export class UIEventHandler {
       messageType: UIMessageType.DebugMessage,
       content: message,
       data
-    });
-  }
-
-  /**
-   * Handle task execution start
-   */
-  private handleTaskExecutionStart(event: StreamEvent): void {
-    const { taskId, timestamp } = event.data as any;
-    
-    this.sendUIMessage({
-      messageType: UIMessageType.TaskExecutionStart,
-      taskId,
-      data: { timestamp }
-    });
-  }
-
-  /**
-   * Handle task execution detail
-   */
-  private handleTaskExecutionDetail(event: StreamEvent): void {
-    const { taskId, detailType, message, toolName, icon } = event.data as any;
-    
-    this.sendUIMessage({
-      messageType: UIMessageType.TaskExecutionDetail,
-      taskId,
-      content: message,
-      detailType,
-      toolName,
-      icon
-    });
-  }
-
-  /**
-   * Handle task execution complete
-   */
-  private handleTaskExecutionComplete(event: StreamEvent): void {
-    const { taskId, success, finalResult, timestamp } = event.data as any;
-    
-    this.sendUIMessage({
-      messageType: UIMessageType.TaskExecutionComplete,
-      taskId,
-      success,
-      finalResult,
-      data: { timestamp }
     });
   }
 
