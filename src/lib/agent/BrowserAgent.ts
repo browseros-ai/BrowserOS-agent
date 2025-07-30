@@ -276,7 +276,6 @@ export class BrowserAgent {
       if (plan.steps.length === 0) {
         throw new Error('Planning failed. Could not generate next steps.');
       }
-      this.events.info(`Created new plan: ${JSON.stringify(plan, null, 2)}`);
 
       // Convert plan steps to TODOs (simple append)
       await this._updateTodosFromPlan(plan);
@@ -289,7 +288,7 @@ export class BrowserAgent {
         if (!todo) break;
         
         step_index++;
-        this.events.info(`Step ${step_index} (TODO #${todo.id}): ${todo.content}`);
+        this.events.info(`Executing - ${todo.content}...`);
         
         const instruction = `Current TODO: "${todo.content}". Complete this TODO. If TODO is done, mark it as complete using todo_manager. If not, let's continue executing on this TODO.`;
         const isTaskCompleted = await this._executeSingleTurn(instruction);
