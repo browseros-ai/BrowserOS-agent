@@ -33,6 +33,7 @@ export class ExecutionContext {
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
+  private _currentTask: string | null = null  // Current user task being executed
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
@@ -157,6 +158,7 @@ export class ExecutionContext {
     this._isExecuting = false;
     this._lockedTabId = null;
     this.userInitiatedCancel = false;
+    this._currentTask = null;
   }
 
   /**
@@ -166,6 +168,22 @@ export class ExecutionContext {
    */
   public async getLLM(options?: { temperature?: number; maxTokens?: number }): Promise<BaseChatModel> {
     return getLLMFromProvider(options);
+  }
+
+  /**
+   * Set the current task being executed
+   * @param task - The user's task/goal
+   */
+  public setCurrentTask(task: string): void {
+    this._currentTask = task;
+  }
+
+  /**
+   * Get the current task being executed
+   * @returns The current task or null
+   */
+  public getCurrentTask(): string | null {
+    return this._currentTask;
   }
 }
  

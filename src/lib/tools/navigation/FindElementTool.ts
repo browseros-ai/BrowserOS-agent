@@ -33,10 +33,14 @@ export class FindElementTool {
         return toolError("No interactive elements found on the current page")
       }
 
+      // Get current task from execution context
+      const currentTask = this.executionContext.getCurrentTask()
+
       // Find element using LLM
       const result = await this._findElementWithLLM(
         input.elementDescription,
         browserState.clickableElementsString + '\n' + browserState.typeableElementsString,
+        currentTask
       )
 
       if (!result.found || result.index === null) {
@@ -60,7 +64,7 @@ export class FindElementTool {
     }
   }
 
-  private async _findElementWithLLM(description: string, domContent: string) {
+  private async _findElementWithLLM(description: string, domContent: string, currentTask: string | null) {
     // Get LLM with low temperature for consistency
     // Get LLM instance from execution context
     const llm = await this.executionContext.getLLM();
@@ -68,10 +72,19 @@ export class FindElementTool {
     // Create structured LLM
     const structuredLLM = llm.withStructuredOutput(FindElementLLMSchema)
 
+    // Build user message with task context if available
+    let userMessage = `Find the element matching this description: "${description}"`
+    
+    if (currentTask) {
+      userMessage = `User's goal: ${currentTask}\n\n${userMessage}`
+    }
+    
+    userMessage += `\n\nInteractive elements on the page:\n${domContent}`
+
     // Invoke LLM
     const result = await structuredLLM.invoke([
       new SystemMessage(findElementPrompt),
-      new HumanMessage(`Find the element matching this description: "${description}"\n\nInteractive elements on the page:\n${domContent}`)
+      new HumanMessage(userMessage)
     ])
 
     return result

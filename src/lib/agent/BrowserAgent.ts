@@ -154,6 +154,9 @@ export class BrowserAgent {
     // Clear previous system prompts
     this.messageManager.removeSystemMessages();
 
+    // Set the current task in execution context
+    this.executionContext.setCurrentTask(task);
+
     const systemPrompt = generateSystemPrompt(this.toolManager.getDescriptions());
     this.messageManager.addSystem(systemPrompt);
     this.messageManager.addHuman(task);

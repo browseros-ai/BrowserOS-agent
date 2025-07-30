@@ -1,6 +1,8 @@
 // TODO(NTN): Pass the real format of clickable and typeable elements to the LLM.
 export const findElementPrompt = `You are an expert at finding elements on web pages.
 
+When the user's overall goal is provided, use it to better understand which element they're looking for.
+
 Your task is to find the element that best matches the user's description.
 
 **ELEMENT FORMAT:**
