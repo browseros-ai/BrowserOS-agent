@@ -16,7 +16,6 @@ export enum UIMessageType {
   ToolResult = 'ToolResult',
   DebugMessage = 'DebugMessage',
   ErrorMessage = 'ErrorMessage',
-  CompleteMessage = 'CompleteMessage',
   CancelMessage = 'CancelMessage',
   TaskResult = 'TaskResult'
 }
@@ -74,7 +73,6 @@ export class UIEventHandler {
     this.eventBus.onStreamEvent('system.message', this.handleSystemMessage.bind(this));
     this.eventBus.onStreamEvent('system.thinking', this.handleSystemThinking.bind(this));
     this.eventBus.onStreamEvent('system.error', this.handleSystemError.bind(this));
-    this.eventBus.onStreamEvent('system.complete', this.handleSystemComplete.bind(this));
     this.eventBus.onStreamEvent('system.cancel', this.handleSystemCancel.bind(this));
     
     // Task events
@@ -200,14 +198,6 @@ export class UIEventHandler {
     });
   }
 
-  private handleSystemComplete(event: StreamEvent): void {
-    const { success, message } = event.data as any;
-    
-    this.sendUIMessage({
-      messageType: UIMessageType.CompleteMessage,
-      content: message || (success ? '✅ Task completed successfully' : '❌ Task failed')
-    });
-  }
 
   private handleSystemCancel(event: StreamEvent): void {
     const { reason, userInitiated } = event.data as any;

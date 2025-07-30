@@ -117,12 +117,6 @@ export class EventProcessor {
     }, 'BrowserAgent');
   }
 
-  /**
-   * Emit completion
-   */
-  complete(message?: string): void {
-    this.eventBus.emitComplete(true, message || 'Task completed successfully', 'BrowserAgent');
-  }
 
   /**
    * Emit info message

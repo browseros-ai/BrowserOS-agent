@@ -42,7 +42,7 @@
  */
 
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { MessageManager, MessageType } from '@/lib/runtime/MessageManager';
+import { MessageManager } from '@/lib/runtime/MessageManager';
 import { ToolManager } from '@/lib/tools/ToolManager';
 import { createPlannerTool } from '@/lib/tools/planning/PlannerTool';
 import { createTodoManagerTool } from '@/lib/tools/planning/TodoManagerTool';
@@ -259,8 +259,7 @@ export class BrowserAgent {
       const isTaskCompleted = await this._executeSingleTurn(instruction);
 
       if (isTaskCompleted) {
-        this.eventEmitter.complete('Task completed successfully.');
-        return;  // SUCCESS
+        return;  // SUCCESS - task result will be generated in execute()
       }      
     }
 
@@ -316,15 +315,14 @@ export class BrowserAgent {
         const isTaskCompleted = await this._executeSingleTurn(instruction);
         
         if (isTaskCompleted) {
-          this.eventEmitter.complete('Task completed successfully.');
-          return;
+          return;  // SUCCESS - task result will be generated in execute()
         }
       }
       
       // 3. VALIDATE: Check if task is complete after plan segment
       const validationResult = await this._validateTaskCompletion(task);
       if (validationResult.isComplete) {
-        this.eventEmitter.complete(`Task validated as complete: ${validationResult.reasoning}`);
+        // Task is complete - result will be generated in execute()
         return;
       }
       

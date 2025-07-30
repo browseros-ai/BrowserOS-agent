@@ -16,7 +16,6 @@ export const StreamEventTypeSchema = z.enum([
   'system.message',     // System messages
   'system.thinking',    // Thinking/progress messages (replaceable)
   'system.error',       // Error messages
-  'system.complete',    // Task complete
   'system.cancel',      // Task cancelled
   'task.result',        // Task execution result summary
   'debug.message'       // Debug messages
@@ -102,10 +101,6 @@ export const SystemErrorDataSchema = z.object({
   fatal: z.boolean().default(false)  // Whether error is fatal
 });
 
-export const SystemCompleteDataSchema = z.object({
-  success: z.boolean(),  // Whether task succeeded
-  message: z.string().optional()  // Completion message
-});
 
 export const SystemCancelDataSchema = z.object({
   reason: z.string().optional(),  // Cancellation reason
@@ -386,13 +381,6 @@ export class EventBus extends EventEmitter {
     });
   }
 
-  emitComplete(success: boolean, message?: string, source?: string): void {
-    this.emitStreamEvent({
-      type: 'system.complete',
-      source,
-      data: { success, message }
-    });
-  }
 
   emitCancel(reason?: string, userInitiated: boolean = true, source?: string): void {
     this.emitStreamEvent({

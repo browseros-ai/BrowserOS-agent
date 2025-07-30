@@ -260,24 +260,6 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
           ...prev,
           messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
         }));
-      } else if (details?.messageType === "CompleteMessage") {
-        console.log("✅ [SidePanel] Complete message received:", details.content);
-        
-        // Add completion message
-        const newMessage: StreamMessage = {
-          id: generateMessageId(),
-          type: "system",
-          content: details.content || '✅ Task completed',
-          isComplete: true,
-          timestamp: new Date(),
-        };
-        
-        // Set processing to false and add completion message
-        setPageState((prev) => ({
-          ...prev,
-          messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
-          isProcessing: false,
-        }));
       } else if (details?.messageType === "CancelMessage") {
         console.log("✋ [SidePanel] Cancel message received:", details.content);
         
@@ -308,10 +290,11 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
           timestamp: new Date(),
         };
         
-        // Add task result message (removing any thinking messages)
+        // Add task result message and set isProcessing to false
         setPageState((prev) => ({
           ...prev,
           messages: [...prev.messages.filter(m => m.type !== "thinking"), newMessage],
+          isProcessing: false,
         }));
       } else if (details?.messageType === "ThinkingMessage") {
         console.log("🤔 [SidePanel] Thinking message received:", details.content);

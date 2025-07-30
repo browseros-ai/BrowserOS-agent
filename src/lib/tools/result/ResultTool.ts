@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { MessageManagerReadOnly, MessageType } from '@/lib/runtime/MessageManager';
+import { MessageManagerReadOnly } from '@/lib/runtime/MessageManager';
 import { generateResultSystemPrompt, generateResultTaskPrompt } from './ResultTool.prompt';
 import { toolError } from '@/lib/tools/Tool.interface';
 import { HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
