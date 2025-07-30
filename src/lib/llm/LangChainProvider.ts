@@ -12,6 +12,7 @@ import { z } from "zod"
 import { ChatOpenAI } from "@langchain/openai"
 import { ChatAnthropic } from "@langchain/anthropic"
 import { ChatOllama } from "@langchain/ollama"
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { LLMSettingsReader } from "@/lib/llm/settings/LLMSettingsReader"
 import type { LLMSettings } from '@/lib/llm/settings/types'
@@ -25,13 +26,14 @@ const DEFAULT_OLLAMA_MODEL = "qwen3:4b"
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 const DEFAULT_NXTSCAPE_PROXY_URL = "http://llm.nxtscape.ai"
 const DEFAULT_NXTSCAPE_MODEL = "claude-3-5-sonnet"
+const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
 
 // Simple cache for LLM instances
 const llmCache = new Map<string, BaseChatModel>()
 
 // Configuration schema for creating LLMs
 export const LLMConfigSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "ollama", "nxtscape"]),
+  provider: z.enum(["openai", "anthropic", "ollama", "nxtscape", "gemini"]),
   model: z.string(),
   temperature: z.number().default(DEFAULT_TEMPERATURE),
   maxTokens: z.number().optional(),
@@ -147,6 +149,16 @@ export class LangChainProvider {
           baseURL: settings.ollama?.baseUrl || DEFAULT_OLLAMA_BASE_URL,
         }
         
+      case "gemini":
+        return {
+          provider: "gemini",
+          model: settings.gemini?.model || DEFAULT_GEMINI_MODEL,
+          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
+          maxTokens: options?.maxTokens,
+          streaming: DEFAULT_STREAMING,
+          apiKey: settings.gemini?.apiKey || process.env.GOOGLE_API_KEY,
+        }
+        
       default:
         throw new Error(`Unsupported provider: ${provider}`)
     }
@@ -199,6 +211,15 @@ export class LangChainProvider {
           temperature: config.temperature,
           maxRetries: 2,
           baseUrl: config.baseURL,
+        })
+        
+      case "gemini":
+        return new ChatGoogleGenerativeAI({
+          model: config.model,
+          temperature: config.temperature,
+          maxOutputTokens: config.maxTokens,
+          apiKey: config.apiKey,
+          convertSystemMessageToHumanContent: true,  // Convert system messages for models that don't support them
         })
         
       default:
