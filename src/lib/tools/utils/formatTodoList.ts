@@ -8,8 +8,8 @@ export function formatTodoList(todos: Todo[]): string {
     return '#### 📋 TODO List\n\n*No tasks*'
   }
 
-  let markdown = '#### 📋 TODO List\n\n'
-  markdown += '| # | Status | Task |\n'
+  let markdown = '#### 📋 TODO List\n'
+  markdown += '\n| # | Status | Task |\n'
   markdown += '|:-:|:------:|:-----|\n'
   
   todos.forEach(todo => {
