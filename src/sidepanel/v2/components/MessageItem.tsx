@@ -1,5 +1,5 @@
 import React from 'react'
-import { Markdown } from './shared/Markdown'
+import { MarkdownContent } from './shared/Markdown'
 import { cn } from '@/sidepanel/lib/utils'
 import styles from '../styles/components/MessageItem.module.scss'
 
@@ -56,7 +56,7 @@ export function MessageItem({ message }: MessageItemProps) {
         {isUser ? (
           <div className="whitespace-pre-wrap">{message.content}</div>
         ) : (
-          <Markdown 
+          <MarkdownContent 
             content={message.content} 
             className={styles.markdownContent}
           />
