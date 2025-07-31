@@ -7,7 +7,6 @@ import { useKeyboardShortcuts, useAutoResize } from '../hooks/useKeyboardShortcu
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { MessageType } from '@/lib/types/messaging'
 import { cn } from '@/sidepanel/lib/utils'
-import styles from '../styles/components/ChatInput.module.scss'
 
 interface ChatInputProps {
   isConnected: boolean
@@ -170,10 +169,10 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   }
   
   return (
-    <div className={cn(styles.chatInput, 'relative')}>
+    <div className="relative border-t border-border bg-background p-4">
       {/* Tab selector - positioned absolutely above input */}
       {showTabSelector && (
-        <div className={styles.tabSelectorWrapper}>
+        <div className="absolute bottom-full left-4 right-4 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
           <TabSelector 
             isOpen={showTabSelector}
             onClose={handleTabSelectorClose}
@@ -182,8 +181,8 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className={styles.inputForm}>
-        <div className={styles.inputWrapper}>
+      <form onSubmit={handleSubmit} className="w-full">
+        <div className="relative flex items-end">
           <Textarea
             ref={textareaRef}
             value={input}
@@ -191,8 +190,9 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
             placeholder={getPlaceholder()}
             disabled={!isConnected}
             className={cn(
-              styles.textarea,
-              'min-h-[40px] resize-none pr-12'
+              'min-h-[40px] max-h-[200px] resize-none pr-16 text-sm',
+              'transition-all duration-200',
+              !isConnected && 'opacity-50 cursor-not-allowed bg-muted'
             )}
             rows={1}
           />
@@ -201,7 +201,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
             type="submit"
             disabled={!isConnected || (!input.trim() && !isProcessing)}
             size="sm"
-            className={cn(styles.sendButton, 'absolute right-2 bottom-2')}
+            className="absolute right-2 bottom-2 h-8 px-3"
             variant={isProcessing && !input.trim() ? 'destructive' : 'default'}
           >
             {isProcessing && !input.trim() ? 'Cancel' : 'Send'}
@@ -209,7 +209,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
         </div>
       </form>
       
-      <div className={cn(styles.inputHint, 'text-xs text-muted')}>
+      <div className="mt-2 text-center text-xs text-muted-foreground">
         {getHintText()}
       </div>
     </div>

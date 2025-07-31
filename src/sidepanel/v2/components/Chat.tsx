@@ -2,9 +2,7 @@ import React from 'react'
 import { Header } from './Header'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
-import { cn } from '@/sidepanel/lib/utils'
 import { useChatStore } from '../stores/chatStore'
-import styles from '../styles/components/Chat.module.scss'
 
 interface ChatProps {
   isConnected: boolean
@@ -18,7 +16,7 @@ export function Chat({ isConnected }: ChatProps) {
   const { messages, isProcessing, reset } = useChatStore()
 
   return (
-    <div className={cn(styles.chatContainer, 'flex flex-col h-full')}>
+    <div className="flex flex-col h-full bg-background">
       <Header 
         onReset={reset}
         showReset={messages.length > 0}

@@ -2,11 +2,10 @@ import React from 'react'
 import { useMessageHandler } from './hooks/useMessageHandler'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { Chat } from './components/Chat'
-import './styles/global.css'
 
 /**
  * Root component for sidepanel v2
- * Phase 2: Full UI implementation with Chat component
+ * Uses Tailwind CSS for styling
  */
 export function App() {
   // Initialize message handling
@@ -16,7 +15,7 @@ export function App() {
   const { connected } = useSidePanelPortMessaging()
   
   return (
-    <div className="sidepanel-v2" style={{ height: '100vh' }}>
+    <div className="h-screen bg-background">
       <Chat isConnected={connected} />
     </div>
   )

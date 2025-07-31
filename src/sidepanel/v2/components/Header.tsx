@@ -1,10 +1,8 @@
 import React from 'react'
 import { Button } from '@/sidepanel/components/ui/button'
-import { cn } from '@/sidepanel/lib/utils'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { MessageType } from '@/lib/types/messaging'
 import { useChatStore } from '../stores/chatStore'
-import styles from '../styles/components/Header.module.scss'
 
 interface HeaderProps {
   onReset: () => void
@@ -39,10 +37,10 @@ export function Header({ onReset, showReset, isProcessing }: HeaderProps) {
   }
 
   return (
-    <header className={cn(styles.header, 'flex items-center justify-between p-4 border-b')}>
-      <h1 className="text-lg font-semibold">Nxtscape Assistant</h1>
+    <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
+      <h1 className="text-lg font-semibold text-foreground">Nxtscape Assistant</h1>
       
-      <div className={cn(styles.headerActions, 'flex items-center gap-2')}>
+      <div className="flex items-center gap-2">
         {isProcessing && (
           <Button
             onClick={handleCancel}
@@ -59,7 +57,7 @@ export function Header({ onReset, showReset, isProcessing }: HeaderProps) {
             onClick={handleReset}
             variant="ghost"
             size="sm"
-            className="text-xs"
+            className="text-xs hover:bg-accent"
           >
             Reset
           </Button>

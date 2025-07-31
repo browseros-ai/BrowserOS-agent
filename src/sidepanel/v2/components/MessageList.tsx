@@ -1,8 +1,6 @@
 import React, { useRef, useEffect } from 'react'
 import { MessageItem } from './MessageItem'
 import { Button } from '@/sidepanel/components/ui/button'
-import { cn } from '@/sidepanel/lib/utils'
-import styles from '../styles/components/MessageList.module.scss'
 
 // Message type - temporary until chatStore is implemented
 interface Message {
@@ -54,14 +52,14 @@ export function MessageList({ messages }: MessageListProps) {
   
   if (messages.length === 0) {
     return (
-      <div className={cn(styles.emptyState, 'flex-1 flex flex-col items-center justify-center p-8')}>
-        <h2 className="text-xl font-semibold mb-6">What can I help you with?</h2>
-        <div className={cn(styles.examples, 'grid grid-cols-2 gap-3 max-w-md')}>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <h2 className="text-xl font-semibold text-foreground mb-6">What can I help you with?</h2>
+        <div className="grid grid-cols-2 gap-3 max-w-md w-full">
           {examplePrompts.map((prompt, index) => (
             <Button
               key={index}
               variant="outline"
-              className="text-sm"
+              className="text-sm h-auto py-3 px-4 whitespace-normal hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               onClick={() => handleExampleClick(prompt)}
             >
               {prompt}
@@ -74,10 +72,10 @@ export function MessageList({ messages }: MessageListProps) {
   
   return (
     <div 
-      className={cn(styles.messageList, 'flex-1 overflow-y-auto')}
+      className="flex-1 overflow-y-auto bg-background scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
       ref={containerRef}
     >
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 pb-2">
         {messages.map(message => (
           <MessageItem key={message.id} message={message} />
         ))}

@@ -1,7 +1,6 @@
 import React from 'react'
 import { MarkdownContent } from './shared/Markdown'
 import { cn } from '@/sidepanel/lib/utils'
-import styles from '../styles/components/MessageItem.module.scss'
 
 // Message type - temporary until chatStore is implemented
 interface Message {
@@ -30,35 +29,33 @@ export function MessageItem({ message }: MessageItemProps) {
   return (
     <div 
       className={cn(
-        styles.messageItem,
-        'flex',
+        'flex w-full animate-in fade-in-0 slide-in-from-bottom-2 duration-300',
         isUser ? 'justify-end' : 'justify-start'
       )}
     >
       <div 
         className={cn(
-          styles.messageContent,
-          'max-w-[80%] p-3 rounded-lg',
+          'max-w-[80%] rounded-lg p-3 shadow-sm transition-all duration-200 hover:shadow-md',
           isUser 
-            ? 'bg-blue-100 text-blue-900 ml-12' 
-            : 'bg-gray-100 text-gray-900 mr-12',
-          isError && 'bg-red-100 text-red-900'
+            ? 'ml-12 bg-primary text-primary-foreground' 
+            : 'mr-12 bg-muted text-foreground',
+          isError && 'bg-destructive/10 text-destructive border border-destructive/20'
         )}
       >
         {/* Tool name indicator */}
         {message.metadata?.toolName && (
-          <div className="text-xs text-gray-500 mb-1">
+          <div className="text-xs opacity-70 mb-1">
             Tool: {message.metadata.toolName}
           </div>
         )}
         
         {/* Message content */}
         {isUser ? (
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          <div className="whitespace-pre-wrap break-words">{message.content}</div>
         ) : (
           <MarkdownContent 
             content={message.content} 
-            className={styles.markdownContent}
+            className="break-words"
           />
         )}
       </div>

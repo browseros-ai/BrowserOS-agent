@@ -1,6 +1,5 @@
 import React from 'react'
 import Markdown from 'markdown-to-jsx'
-import styles from '../../styles/components/Markdown.module.scss'
 import { cn } from '@/sidepanel/lib/utils'
 
 interface MarkdownContentProps {
@@ -26,12 +25,11 @@ export function MarkdownContent({
   if (skipMarkdown) {
     return (
       <div className={cn(
-        styles.container, 
-        styles.plainText, 
-        compact && styles.compact,
+        'text-sm',
+        compact && 'space-y-1',
         className
       )}>
-        <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
+        <span className="whitespace-pre-wrap">{content}</span>
       </div>
     )
   }
@@ -39,9 +37,8 @@ export function MarkdownContent({
   // Render with markdown-to-jsx - much simpler!
   return (
     <div className={cn(
-      styles.container, 
-      styles.markdown,
-      compact && styles.compact,
+      'text-sm space-y-2',
+      compact && 'space-y-1',
       className
     )}>
       <Markdown
@@ -52,14 +49,14 @@ export function MarkdownContent({
             table: {
               component: 'table',
               props: {
-                className: styles.table
+                className: 'w-full border-collapse'
               }
             },
             // Links open in new tab
             a: {
               component: 'a',
               props: {
-                className: styles.link,
+                className: 'text-primary hover:underline',
                 target: '_blank',
                 rel: 'noopener noreferrer'
               }
@@ -68,56 +65,69 @@ export function MarkdownContent({
             pre: {
               component: 'pre',
               props: {
-                className: styles.codeBlock
+                className: 'bg-muted p-3 rounded-md overflow-x-auto text-xs'
               }
             },
             // Inline code
             code: {
               component: 'code',
               props: {
-                className: styles.inlineCode
+                className: 'bg-muted px-1 py-0.5 rounded text-xs'
               }
             },
             // Blockquotes
             blockquote: {
               component: 'blockquote',
               props: {
-                className: styles.blockquote
+                className: 'border-l-4 border-primary pl-4 italic'
               }
             },
             // Lists
             ul: {
               component: 'ul',
               props: {
-                className: styles.list
+                className: 'list-disc pl-6 space-y-1'
               }
             },
             ol: {
               component: 'ol',
               props: {
-                className: styles.orderedList
+                className: 'list-decimal pl-6 space-y-1'
               }
             },
             // Paragraphs - key change: minimal margin
             p: {
               component: 'p',
               props: {
-                className: styles.paragraph,
-                style: { margin: '0.25em 0' }  // Minimal margin
+                className: 'mb-2 last:mb-0'
               }
             },
             // Headings
-            h1: { component: 'h1', props: { className: styles.heading1 } },
-            h2: { component: 'h2', props: { className: styles.heading2 } },
-            h3: { component: 'h3', props: { className: styles.heading3 } },
-            h4: { component: 'h4', props: { className: styles.heading4 } },
-            h5: { component: 'h5', props: { className: styles.heading5 } },
-            h6: { component: 'h6', props: { className: styles.heading6 } },
+            h1: { component: 'h1', props: { className: 'text-2xl font-bold mb-3' } },
+            h2: { component: 'h2', props: { className: 'text-xl font-semibold mb-2' } },
+            h3: { component: 'h3', props: { className: 'text-lg font-semibold mb-2' } },
+            h4: { component: 'h4', props: { className: 'text-base font-semibold mb-1' } },
+            h5: { component: 'h5', props: { className: 'text-sm font-semibold mb-1' } },
+            h6: { component: 'h6', props: { className: 'text-sm font-semibold mb-1' } },
             // Horizontal rules
             hr: {
               component: 'hr',
               props: {
-                className: styles.divider
+                className: 'border-t border-border my-4'
+              }
+            },
+            // Table headers
+            th: {
+              component: 'th',
+              props: {
+                className: 'border border-border bg-muted px-3 py-2 text-left font-medium'
+              }
+            },
+            // Table cells
+            td: {
+              component: 'td',
+              props: {
+                className: 'border border-border px-3 py-2'
               }
             }
           },

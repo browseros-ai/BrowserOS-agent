@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { cn } from '@/sidepanel/lib/utils';
 import { z } from 'zod';
-import styles from '../../styles/components/TabSelector.module.scss';
 import { useTabsStore, BrowserTab } from '@/sidepanel/store/tabsStore';
 
 // TabSelector component props schema
@@ -133,7 +132,7 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
 
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest(`.${styles.tabDropdown}`)) {
+      if (!target.closest('[role="dialog"]')) {
         onClose();
       }
     };
@@ -156,16 +155,19 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
   
   return (
     <div 
-      className={cn(styles.tabDropdown, styles.tabDropdownAbove, className)}
+      className={cn(
+        'bg-popover text-popover-foreground rounded-lg border border-border shadow-lg max-h-80 overflow-hidden',
+        className
+      )}
       role="dialog"
       aria-labelledby="tab-selector-heading"
     >
-      <div className={styles.tabDropdownHeader}>
-        <h3 id="tab-selector-heading" className={styles.tabDropdownTitle}>
+      <div className="flex items-center justify-between p-3 border-b border-border">
+        <h3 id="tab-selector-heading" className="text-sm font-medium">
           Browser Tabs ({filteredTabs.length})
         </h3>
         <button 
-          className={styles.tabDropdownCloseBtn}
+          className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none p-1"
           onClick={onClose}
           aria-label="Close tab selector"
         >
@@ -174,13 +176,13 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
       </div>
       
       {/* Content */}
-      <div className={styles.tabDropdownContent} ref={listRef}>
+      <div className="max-h-64 overflow-y-auto" ref={listRef}>
         {filteredTabs.length === 0 ? (
-          <div className={styles.noTabsMessage}>
+          <div className="p-8 text-center text-sm text-muted-foreground">
             {openTabs.length > 0 ? 'No tabs match your search' : 'No tabs available'}
           </div>
         ) : (
-          <ul className={styles.tabsDropdownList} role="list">
+          <ul className="p-2 space-y-1" role="list">
             {filteredTabs.map((tab, index) => {
               const isSelected = isTabSelected(tab.id);
               const isCurrentTab = tab.id === currentTabId;
@@ -194,10 +196,11 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
                     else itemRefs.current.delete(tab.id);
                   }}
                   className={cn(
-                    styles.tabDropdownItem,
-                    isSelected && styles.selected,
-                    isCurrentTab && styles.currentTab,
-                    isActive && styles.active
+                    'flex items-center gap-3 p-2 rounded-md cursor-pointer transition-all',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    isSelected && 'bg-primary/10 text-primary',
+                    isCurrentTab && 'ring-1 ring-primary/20',
+                    isActive && 'ring-2 ring-primary'
                   )}
                   onClick={() => {
                     toggleTabSelection(tab.id);
@@ -207,30 +210,30 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
                   aria-selected={isSelected}
                 >
                   {/* Tab icon/favicon */}
-                  <div className={styles.tabIcon}>
+                  <div className="w-4 h-4 flex-shrink-0">
                     {tab.favIconUrl ? (
-                      <img src={tab.favIconUrl} alt="" className={styles.tabFavicon} />
+                      <img src={tab.favIconUrl} alt="" className="w-full h-full object-contain" />
                     ) : (
-                      <div className={styles.defaultIcon}></div>
+                      <div className="w-full h-full bg-muted rounded-sm"></div>
                     )}
                   </div>
                   
                   {/* Tab information */}
-                  <div className={styles.tabInfo}>
-                    <div className={styles.tabTitle}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
                       {tab.title}
                     </div>
-                    <div className={styles.tabUrl}>
+                    <div className="text-xs text-muted-foreground truncate">
                       {tab.url}
                     </div>
                   </div>
                   
                   {/* Indicators */}
                   {isCurrentTab && (
-                    <span className={styles.currentTabIndicator}>Current</span>
+                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">Current</span>
                   )}
                   {isSelected && (
-                    <span className={styles.selectedIndicator} aria-label="Selected">✓</span>
+                    <span className="text-primary font-bold" aria-label="Selected">✓</span>
                   )}
                 </li>
               );
