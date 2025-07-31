@@ -1,18 +1,7 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { MarkdownContent } from './shared/Markdown'
 import { cn } from '@/sidepanel/lib/utils'
-
-// Message type - temporary until chatStore is implemented
-interface Message {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp: Date
-  metadata?: {
-    toolName?: string
-    error?: boolean
-  }
-}
+import type { Message } from '../stores/chatStore'
 
 interface MessageItemProps {
   message: Message
@@ -21,8 +10,9 @@ interface MessageItemProps {
 /**
  * MessageItem component
  * Renders individual messages with role-based styling
+ * Memoized to prevent re-renders when message hasn't changed
  */
-export function MessageItem({ message }: MessageItemProps) {
+export const MessageItem = memo(function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === 'user'
   const isError = message.metadata?.error
   
@@ -61,4 +51,4 @@ export function MessageItem({ message }: MessageItemProps) {
       </div>
     </div>
   )
-}
+})

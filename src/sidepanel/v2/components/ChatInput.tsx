@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, memo } from 'react'
 import { Textarea } from '@/sidepanel/components/ui/textarea'
 import { Button } from '@/sidepanel/components/ui/button'
-import { TabSelector } from './shared/TabSelector'
+import { LazyTabSelector } from './LazyTabSelector'
 import { useChatStore } from '../stores/chatStore'
 import { useKeyboardShortcuts, useAutoResize } from '../hooks/useKeyboardShortcuts'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
@@ -173,15 +173,14 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       {/* Tab selector - positioned absolutely above input */}
       {showTabSelector && (
         <div className="absolute bottom-full left-4 right-4 mb-2 z-10 animate-in slide-in-from-bottom-2 duration-200">
-          <TabSelector 
+          <LazyTabSelector 
             isOpen={showTabSelector}
             onClose={handleTabSelectorClose}
-            filterQuery=""
           />
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="w-full">
+      <form onSubmit={handleSubmit} className="w-full" role="form" aria-label="Chat input form">
         <div className="relative flex items-end">
           <Textarea
             ref={textareaRef}
@@ -192,24 +191,35 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
             className={cn(
               'min-h-[40px] max-h-[200px] resize-none pr-16 text-sm',
               'transition-all duration-200',
+              'focus:ring-2 focus:ring-primary focus:ring-offset-2',
               !isConnected && 'opacity-50 cursor-not-allowed bg-muted'
             )}
             rows={1}
+            aria-label="Chat message input"
+            aria-describedby="input-hint"
+            aria-invalid={!isConnected}
+            aria-disabled={!isConnected}
           />
           
           <Button
             type="submit"
             disabled={!isConnected || (!input.trim() && !isProcessing)}
             size="sm"
-            className="absolute right-2 bottom-2 h-8 px-3"
+            className="absolute right-2 bottom-2 h-8 px-3 focus:ring-2 focus:ring-primary focus:ring-offset-2"
             variant={isProcessing && !input.trim() ? 'destructive' : 'default'}
+            aria-label={isProcessing && !input.trim() ? 'Cancel current task' : 'Send message'}
           >
             {isProcessing && !input.trim() ? 'Cancel' : 'Send'}
           </Button>
         </div>
       </form>
       
-      <div className="mt-2 text-center text-xs text-muted-foreground">
+      <div 
+        id="input-hint" 
+        className="mt-2 text-center text-xs text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
         {getHintText()}
       </div>
     </div>
