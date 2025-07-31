@@ -47,8 +47,9 @@ export function MessageList({ messages }: MessageListProps) {
   ]
 
   const handleExampleClick = (prompt: string) => {
-    // Will be connected to actual input handling later
-    console.log('Example prompt clicked:', prompt)
+    // Create a custom event to set input value
+    const event = new CustomEvent('setInputValue', { detail: prompt })
+    window.dispatchEvent(event)
   }
   
   if (messages.length === 0) {

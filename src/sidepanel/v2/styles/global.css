@@ -52,6 +52,21 @@ body {
   outline-offset: 2px;
 }
 
+/* Smooth focus transitions */
+button,
+input,
+textarea,
+a {
+  transition: outline-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+/* Enhanced focus for form elements */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
 /* Selection styles */
 ::selection {
   background-color: var(--color-primary-light);

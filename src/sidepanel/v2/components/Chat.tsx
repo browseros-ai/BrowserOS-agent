@@ -1,6 +1,7 @@
 import React from 'react'
 import { Header } from './Header'
 import { MessageList } from './MessageList'
+import { ChatInput } from './ChatInput'
 import { cn } from '@/sidepanel/lib/utils'
 import { useChatStore } from '../stores/chatStore'
 import styles from '../styles/components/Chat.module.scss'
@@ -26,12 +27,10 @@ export function Chat({ isConnected }: ChatProps) {
       
       <MessageList messages={messages} />
       
-      {/* ChatInput will be added in phase 3 */}
-      <div className={cn(styles.inputPlaceholder, 'p-4 border-t')}>
-        <div className="text-center text-sm text-gray-500">
-          {isConnected ? 'Input component coming in phase 3' : 'Disconnected'}
-        </div>
-      </div>
+      <ChatInput 
+        isConnected={isConnected}
+        isProcessing={isProcessing}
+      />
     </div>
   )
 }

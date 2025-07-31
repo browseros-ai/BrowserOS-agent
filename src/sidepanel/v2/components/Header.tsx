@@ -1,6 +1,9 @@
 import React from 'react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { cn } from '@/sidepanel/lib/utils'
+import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
+import { MessageType } from '@/lib/types/messaging'
+import { useChatStore } from '../stores/chatStore'
 import styles from '../styles/components/Header.module.scss'
 
 interface HeaderProps {
@@ -14,9 +17,25 @@ interface HeaderProps {
  * Displays title and action buttons (pause/reset)
  */
 export function Header({ onReset, showReset, isProcessing }: HeaderProps) {
+  const { sendMessage } = useSidePanelPortMessaging()
+  const { setProcessing } = useChatStore()
+  
   const handleCancel = () => {
-    // Cancel logic will be implemented when port messaging is wired up
-    console.log('Cancel processing')
+    sendMessage(MessageType.CANCEL_TASK, {
+      reason: 'User clicked pause button',
+      source: 'sidepanel'
+    })
+    setProcessing(false)
+  }
+  
+  const handleReset = () => {
+    // Send reset message to background
+    sendMessage(MessageType.RESET_CONVERSATION, {
+      source: 'sidepanel'
+    })
+    
+    // Clear local state
+    onReset()
   }
 
   return (
@@ -37,7 +56,7 @@ export function Header({ onReset, showReset, isProcessing }: HeaderProps) {
         
         {showReset && !isProcessing && (
           <Button
-            onClick={onReset}
+            onClick={handleReset}
             variant="ghost"
             size="sm"
             className="text-xs"
