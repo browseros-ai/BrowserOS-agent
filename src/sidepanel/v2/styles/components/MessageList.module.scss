@@ -1,0 +1,57 @@
+.messageList {
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--color-background);
+  scroll-behavior: smooth;
+  
+  /* Custom scrollbar for message list */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  text-align: center;
+  
+  h2 {
+    font-size: var(--font-size-xl);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-lg);
+  }
+}
+
+.examples {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  max-width: 400px;
+  width: 100%;
+  
+  button {
+    white-space: normal;
+    text-align: center;
+    padding: var(--spacing-md);
+    min-height: 48px;
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  }
+  
+  /* Responsive for smaller screens */
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}

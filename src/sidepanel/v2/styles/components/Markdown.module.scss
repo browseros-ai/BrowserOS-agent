@@ -1,0 +1,132 @@
+.markdownContent {
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  word-wrap: break-word;
+  
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 600;
+    line-height: 1.25;
+    
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+  
+  h1 { font-size: 1.5em; }
+  h2 { font-size: 1.25em; }
+  h3 { font-size: 1.1em; }
+  h4, h5, h6 { font-size: 1em; }
+  
+  /* Paragraphs */
+  p {
+    margin: 0 0 var(--spacing-sm) 0;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  /* Lists */
+  ul, ol {
+    margin: var(--spacing-sm) 0;
+    padding-left: var(--spacing-lg);
+    
+    li {
+      margin: var(--spacing-xs) 0;
+      
+      ul, ol {
+        margin: var(--spacing-xs) 0;
+      }
+    }
+  }
+  
+  /* Code */
+  code {
+    background-color: rgba(0, 0, 0, 0.06);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+    font-size: 0.9em;
+  }
+  
+  pre {
+    background-color: rgba(0, 0, 0, 0.06);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: var(--spacing-md) 0;
+    
+    code {
+      background-color: transparent;
+      padding: 0;
+      font-size: 0.875em;
+    }
+  }
+  
+  /* Blockquotes */
+  blockquote {
+    border-left: 4px solid var(--color-border);
+    padding-left: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    color: var(--color-text-secondary);
+    font-style: italic;
+  }
+  
+  /* Links */
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--spacing-md) 0;
+    
+    th, td {
+      padding: var(--spacing-sm);
+      border: 1px solid var(--color-border);
+      text-align: left;
+    }
+    
+    th {
+      background-color: var(--color-surface);
+      font-weight: 600;
+    }
+  }
+  
+  /* Horizontal rules */
+  hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: var(--spacing-lg) 0;
+  }
+  
+  /* Images */
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* Compact mode */
+.compact {
+  p, ul, ol, blockquote {
+    margin: var(--spacing-xs) 0;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+  }
+}

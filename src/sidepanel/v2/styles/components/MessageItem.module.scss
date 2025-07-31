@@ -1,0 +1,87 @@
+.messageItem {
+  display: flex;
+  width: 100%;
+  animation: fadeIn var(--transition-normal);
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+.messageContent {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  max-width: 80%;
+  word-wrap: break-word;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow var(--transition-fast);
+  
+  /* User messages */
+  &[data-role="user"] {
+    background-color: var(--color-primary-light);
+    color: var(--color-text-primary);
+    margin-left: var(--spacing-xl);
+  }
+  
+  /* Assistant/System messages */
+  &[data-role="assistant"],
+  &[data-role="system"] {
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    margin-right: var(--spacing-xl);
+    border: 1px solid var(--color-border);
+  }
+  
+  /* Error messages */
+  &[data-error="true"] {
+    background-color: var(--color-error-light);
+    color: var(--color-error);
+    border-color: var(--color-error);
+  }
+  
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.markdownContent {
+  /* Markdown specific styling */
+  p {
+    margin: 0 0 var(--spacing-sm) 0;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  code {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+  }
+  
+  pre {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: var(--spacing-sm) 0;
+  }
+  
+  ul, ol {
+    margin: var(--spacing-sm) 0;
+    padding-left: var(--spacing-lg);
+  }
+  
+  li {
+    margin: var(--spacing-xs) 0;
+  }
+}
