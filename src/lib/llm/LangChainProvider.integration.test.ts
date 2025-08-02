@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { LangChainProvider, getLLM } from './LangChainProvider'
 import { z } from 'zod'
 import { SystemMessage, HumanMessage } from '@langchain/core/messages'
+import 'dotenv/config'; // loads .env
 
 /**
  * Integration tests for LangChainProvider
@@ -66,6 +67,7 @@ describe('LangChainProvider Integration Test', () => {
         provider: 'nxtscape' as const,
         model: 'gpt-4o-mini',
         temperature: 0,
+        streaming: true,
         maxTokens: 50,
         apiKey: process.env.LITELLM_API_KEY || 'nokey',
         baseURL: 'http://llm.nxtscape.ai'
@@ -154,6 +156,7 @@ describe('LangChainProvider Integration Test', () => {
       provider: 'nxtscape' as const,
       model: 'gpt-4o-mini',
       temperature: 0,
+      streaming: false,
       apiKey: process.env.LITELLM_API_KEY || 'nokey',
       baseURL: 'http://llm.nxtscape.ai'
     }
@@ -183,4 +186,67 @@ describe('LangChainProvider Integration Test', () => {
       throw error
     }
   }, 30000)
+
+  it('should successfully create LMStudio LLM instance', async () => {
+    const config = {
+      provider: 'lmstudio' as const,
+      model: 'lmstudio-default-model',
+      temperature: 0,
+      streaming: true,
+      apiKey: 'nokey',
+      maxTokens: 50,
+      baseURL: 'http://localhost:1234/v1'
+    };
+
+    const llm = provider.createLLMFromConfig(config);
+    expect(llm).toBeDefined();
+
+    const chatModel = llm as any;
+    expect(chatModel.modelName).toBe('lmstudio-default-model');
+    expect(chatModel.streaming).toBe(true);
+    console.log('✓ LMStudio LLM instance created');
+  });
+
+  it(
+    'should successfully create and invoke OpenRouter LLM',
+    async () => {
+      const config = {
+        provider: 'openrouter' as const,
+        model: 'openrouter/horizon-beta',
+        temperature: 0.7,
+        streaming: true,
+        maxTokens: 50,
+        apiKey: process.env.OPENROUTER_API_KEY || 'nokey',
+        baseURL: 'https://openrouter.ai/api/v1'
+      };
+      console.log('[DEBUG] process.env.OPENROUTER_API_KEY =', process.env.OPENROUTER_API_KEY);
+
+      const llm = provider.createLLMFromConfig(config);
+      const response = await llm.invoke('Say "Hello from OpenRouter!"');
+
+      expect(response).toBeDefined();
+
+      // Normalize content
+      let content = '';
+      if (typeof response.content === 'string') {
+        content = response.content;
+      } else if (Array.isArray(response.content)) {
+        content = response.content
+          .map(chunk =>
+            'type' in chunk && chunk.type === 'text' && typeof chunk.text === 'string'
+              ? chunk.text
+              : ''
+          )
+          .join('');
+      } else {
+        content = String(response.content);
+      }
+
+      expect(content.toLowerCase()).toContain('hello');
+      console.log('✓ OpenRouter LLM response:', content);
+    },
+    30000
+  );
+
+
 })

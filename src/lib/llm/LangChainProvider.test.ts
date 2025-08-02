@@ -98,5 +98,42 @@ describe('LangChainProvider', () => {
         anthropicApiUrl: undefined
       })
     })
+
+    it('creates LMStudio model from settings', async () => {
+      const mockSettings = {
+        defaultProvider: 'lmstudio',
+        lmstudio: {
+          model: 'lmstudio-default-model',
+          temperature: 0.4,
+          apiKey: 'nokey',
+          baseURL: 'http://localhost:1234/v1'
+        }
+      };
+      vi.mocked(LLMSettingsReader.read).mockResolvedValue(mockSettings as any);
+
+      const llm = await provider.getLLM();
+
+      expect(llm).toBeDefined();
+      expect((llm as any).modelName).toBe('lmstudio-default-model');
+    })
+
+    it('creates OpenRouter model from settings', async () => {
+      const mockSettings = {
+        defaultProvider: 'openrouter',
+        openrouter: {
+          model: 'openrouter/horizon-beta',
+          temperature: 0.6,
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseURL: 'https://openrouter.ai/api/v1'
+        }
+      };
+
+      vi.mocked(LLMSettingsReader.read).mockResolvedValue(mockSettings as any);
+
+      const llm = await provider.getLLM();
+      expect(llm).toBeDefined();
+      expect((llm as any).modelName).toBe('openrouter/horizon-beta');
+    })
+
   })
 })

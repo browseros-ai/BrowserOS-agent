@@ -29,7 +29,7 @@
  * Each chunk contains:
  * ```
  * {
- *   content: string,           // Text content (may be empty)
+ *   content: string,          // Text content (may be empty)
  *   tool_calls: [],           // Tool calls being formed
  *   tool_call_chunks: []      // Progressive tool call building
  * }

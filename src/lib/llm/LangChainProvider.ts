@@ -27,13 +27,16 @@ const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 const DEFAULT_NXTSCAPE_PROXY_URL = "http://llm.nxtscape.ai"
 const DEFAULT_NXTSCAPE_MODEL = "claude-3-5-sonnet"
 const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+const DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1";
+const DEFAULT_OPENROUTER_MODEL = "openrouter/horizon-beta"
+const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 // Simple cache for LLM instances
 const llmCache = new Map<string, BaseChatModel>()
 
 // Configuration schema for creating LLMs
 export const LLMConfigSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "ollama", "nxtscape", "gemini"]),
+  provider: z.enum(["openai", "anthropic", "ollama", "nxtscape", "gemini", "lmstudio", "openrouter"]),
   model: z.string(),
   temperature: z.number().default(DEFAULT_TEMPERATURE),
   maxTokens: z.number().optional(),
@@ -158,7 +161,28 @@ export class LangChainProvider {
           streaming: DEFAULT_STREAMING,
           apiKey: settings.gemini?.apiKey || process.env.GOOGLE_API_KEY,
         }
-        
+      
+      case "lmstudio":
+        return {
+          provider: "lmstudio",
+          model: settings.lmstudio?.model ?? "lmstudio-default-model",
+          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
+          maxTokens: options?.maxTokens,
+          streaming: DEFAULT_STREAMING,
+          baseURL: settings.lmstudio?.baseUrl ?? DEFAULT_LMSTUDIO_BASE_URL,
+        }
+
+      case "openrouter":
+        return {
+          provider: "openrouter",
+          model: settings.openrouter?.model ?? DEFAULT_OPENROUTER_MODEL,
+          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
+          maxTokens: options?.maxTokens,
+          streaming: DEFAULT_STREAMING,
+          apiKey: process.env.OPENROUTER_API_KEY ?? settings.openrouter?.apiKey,
+          baseURL: settings.openrouter?.baseUrl ?? DEFAULT_OPENROUTER_BASE_URL,
+        }
+
       default:
         throw new Error(`Unsupported provider: ${provider}`)
     }
@@ -221,7 +245,29 @@ export class LangChainProvider {
           apiKey: config.apiKey,
           convertSystemMessageToHumanContent: true,  // Convert system messages for models that don't support them
         })
-        
+      
+      case "lmstudio":
+        return new ChatOpenAI({
+          ...baseConfig,
+          openAIApiKey: config.apiKey,
+          configuration: {
+            baseURL: config.baseURL,
+            dangerouslyAllowBrowser: true
+          }
+        })
+
+      case "openrouter":
+        return new ChatOpenAI({
+          ...baseConfig,
+          openAIApiKey: config.apiKey,
+          modelName: config.model,
+          configuration: {
+            baseURL: config.baseURL,
+            dangerouslyAllowBrowser: true
+          }
+        })
+
+
       default:
         throw new Error(`Unsupported provider: ${config.provider}`)
     }

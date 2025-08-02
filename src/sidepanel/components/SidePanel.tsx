@@ -816,6 +816,35 @@ export function SidePanel({
                     </div>
                   </div>
                   
+                  {/* LMStudio Settings */}
+                  <div className={styles.debugSection}>
+                    <div className={styles.debugSectionTitle}>LMStudio:</div>
+                    <div className={styles.debugItem}>
+                      <strong>Base URL:</strong> {llmSettings.lmstudio?.baseUrl || 'not set'}
+                    </div>
+                    <div className={styles.debugItem}>
+                      <strong>Model:</strong> {llmSettings.lmstudio?.model || 'not set'}
+                    </div>
+                  </div>
+
+                  {/* OpenRouter Settings */}
+                  <div className={styles.debugSection}>
+                    <div className={styles.debugSectionTitle}>OpenRouter:</div>
+                    <div className={styles.debugItem}>
+                      <strong>API Key:</strong> {llmSettings.openrouter?.apiKey
+                        ? (llmSettings.openrouter.apiKey === 'TBD'
+                          ? 'TBD (mock)'
+                          : '***' + llmSettings.openrouter.apiKey.slice(-4))
+                        : 'not set'}
+                    </div>
+                    <div className={styles.debugItem}>
+                      <strong>Base URL:</strong> {llmSettings.openrouter?.baseUrl || 'not set'}
+                    </div>
+                    <div className={styles.debugItem}>
+                      <strong>Model:</strong> {llmSettings.openrouter?.model || 'not set'}
+                    </div>
+                  </div>
+
                   {/* Mock Mode Indicator */}
                   {llmSettings.defaultProvider === 'nxtscape' && (
                     <div className={styles.debugNote}>
