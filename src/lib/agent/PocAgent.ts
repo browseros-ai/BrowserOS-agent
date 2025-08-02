@@ -677,7 +677,7 @@ export class PocAgent {
       }
       if (this._getRandom(0.4)) {
         this.messageManager.addSystemReminder(
-          `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps improve efficiency and parallelize work.`
+          `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps improve efficiency and parallelize work. You need to break down complex tasks into smaller subtasks with clear descriptions and then delegate them to sub_agent_tool. You can spawn multiple sub_agent_tool calls to parallelize work.`
         );
       }
 
