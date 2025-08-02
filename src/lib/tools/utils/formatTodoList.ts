@@ -10,7 +10,7 @@ export function formatTodoList(todos: Todo[], agentName?: string): string {
   
   let markdown = ''
   if (agentName) {
-    markdown += `# ${agentName}: TODOs\n`
+    markdown += `### ${agentName}: TODOs\n`
   }
 
   markdown += '| # | Status | Task |\n'

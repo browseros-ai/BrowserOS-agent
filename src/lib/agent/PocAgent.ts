@@ -651,7 +651,6 @@ export class PocAgent {
       } else {
         // Show TODOs and continue executing
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
-        this.eventEmitter.info(formatTodoList(todoStore.getJson()));
         instruction = `Continue executing the current TODOs.`;
 
         // Add few proabilistic system reminders
