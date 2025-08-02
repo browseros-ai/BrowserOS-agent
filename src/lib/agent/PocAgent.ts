@@ -62,7 +62,7 @@ import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
 import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
 import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { createSubAgentTool } from '@/lib/tools/agent/SubAgentTool';
-import { generateSystemPrompt } from './BrowserAgent.prompt';
+import { generateSystemPrompt } from './PocAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import { EventProcessor } from '@/lib/events/EventProcessor';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
