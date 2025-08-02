@@ -19,7 +19,7 @@ type SubAgentInput = z.infer<typeof SubAgentInputSchema>;
 export function createSubAgentTool(executionContext: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'sub_agent',
-    description: `Spawn a sub-agent to handle complex multi-step tasks that require planning, execution, and validation cycles. Use this for tasks that need multiple steps and verification.`,
+    description: `Spawn a sub-agent to handle multi-step tasks that require planning, execution, and validation cycles. Use this for tasks that need multiple steps and verification.`,
     schema: SubAgentInputSchema,
     func: async (args: SubAgentInput): Promise<string> => {
       try {

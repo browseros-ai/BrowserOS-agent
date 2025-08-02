@@ -95,7 +95,7 @@ export class PocAgent {
   private static readonly MAX_STEPS_OUTER_LOOP = 100;
 
   // Inner loop is -- execute TODOs, one after the other.
-  private static readonly MAX_STEPS_INNER_LOOP  = 15; 
+  private static readonly MAX_STEPS_INNER_LOOP  = 10; 
 
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
@@ -151,18 +151,20 @@ export class PocAgent {
 
       // 2. CLASSIFY: Determine the task type
       const classification = await this._classifyTask(task);
+      const is_followup_task = classification.is_followup_task;
+      const is_simple_task = classification.is_simple_task;
       
       // Clear message history if this is not a follow-up task
-      if (!classification.is_followup_task) {
+      if (!is_followup_task) {
         this.messageManager.clear();
         // Re-add system prompt and user task after clearing
         this._initializeExecution(task);
       }
       
       let message: string;
-      if (classification.is_followup_task) {
+      if (is_followup_task) {
         message = 'Following up on the previous task...';
-      } else if (classification.is_simple_task) {
+      } else if (is_simple_task) {
         message = 'Executing the task...';
       } else {
         message = 'Creating a step-by-step plan to complete the task';
@@ -170,11 +172,11 @@ export class PocAgent {
       this.eventEmitter.info(message);
 
       // 3. DELEGATE: Route to the correct execution strategy
-      if (classification.is_simple_task) {
+      if (is_simple_task) {
         await this._executeSimpleTaskStrategy(task);
       } else {
         // Using new SubAgent-based strategy
-        await this._executeWithSubAgent(task);
+        await this._executeWithSubAgent(task, is_followup_task);
       }
 
       // 4. FINALISE: Generate final result
@@ -533,10 +535,24 @@ export class PocAgent {
   }
 
   @Abortable
-  private async _createMultiStepPlan(task: string): Promise<Plan> {
+  private async _createMultiStepPlan(task: string, stepCount: number = 0, is_followup_task: boolean = false): Promise<Plan> {
     const plannerTool = this.toolManager.get('planner_tool')!;
+    const todoStore = this.executionContext.todoStore;
+    
+    // Build appropriate planning instruction based on context
+    let planInstruction: string;
+    if (is_followup_task) {
+      planInstruction = `Based on the history and user's follow-up request: <user_followup_request>"${task}"</user_followup_request>, update the plan accordingly.`;
+    } else if (stepCount === 0) {
+      planInstruction = `Based on the user task: <user_request>"${task}"</user_request> create a plan to accomplish it.`;
+    } else {
+      // Include validation feedback and current TODOs in re-planning
+      const todoXml = todoStore.getXml();
+      planInstruction = `Based on the history, validation_tool feedback and the main goal: <user_request>"${task}"</user_request>, update the plan accordingly. Here are the current TODOs: ${todoXml}`;
+    }
+    
     const args = {
-      task: `Based on the history, continue with the main goal: ${task}`,
+      task: planInstruction,
       max_steps: PocAgent.MAX_STEPS_FOR_COMPLEX_TASKS
     };
 
@@ -631,39 +647,57 @@ export class PocAgent {
   //  Execution Strategy 3: SubAgent-based execution (POC)
   // ===================================================================
   @Abortable
-  private async _executeWithSubAgent(task: string): Promise<void> {
+  private async _executeWithSubAgent(task: string, is_followup_task: boolean): Promise<void> {
     this.eventEmitter.debug('Executing with SubAgent strategy. Max steps: ' + PocAgent.MAX_STEPS_OUTER_LOOP);
     const todoStore = this.executionContext.todoStore;
-    let stepCount = 0;
+    let outerLoopCount = 0;
 
-    while (stepCount < PocAgent.MAX_STEPS_OUTER_LOOP) {
+    while (outerLoopCount < PocAgent.MAX_STEPS_OUTER_LOOP) {
       this.checkIfAborted();
-      stepCount++;
-
-      // Get current TODOs
-      const todoXml = await this._fetchTodoXml();
-      debugger;
-      let instruction: string;
       
-      if (todoXml === '<todos></todos>') {
-        // No TODOs - prompt to create a plan
-        instruction = `Based on the user task: "${task}", create a plan using the planner_tool and update your TODOs usint todo_manager tool.`;
-      } else {
-        // Show TODOs and continue executing
-        this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
-        instruction = `Continue executing the current TODOs.`;
-
-        // Add few proabilistic system reminders
+      // 1. PLAN: Create or update the plan
+      const plan = await this._createMultiStepPlan(task, outerLoopCount, is_followup_task);
+      if (plan.steps.length === 0) {
+        throw new Error('Planning failed. Could not generate next steps.');
+      }
+      
+      // Tell the AI to update TODOs with the new plan
+      const planSteps = plan.steps.map((step, idx) => `${idx + 1}. ${step.action}`).join('\n');
+      this.messageManager.addHuman(`Update your TODO list with this new plan:\n${planSteps}\n\nUse todo_manager to update the TODO list accordingly.`);
+      
+      // 2. EXECUTE: Run inner loop to execute TODOs  
+      let innerLoopCount = 0;
+      while (innerLoopCount < PocAgent.MAX_STEPS_INNER_LOOP) {
+        this.checkIfAborted();
+        
+        innerLoopCount++;
+        outerLoopCount++;
+        
         this._maybeAddSystemReminders();
+        // Simple instruction to continue executing TODOs
+        const instruction = `Continue executing TODOs: \n${todoStore.getXml()}`;
+        const isTaskCompleted = await this._executeSingleTurn(instruction);
+        
+        if (isTaskCompleted) {
+          return;  // Task completed successfully
+        }
       }
       
-      // Execute single turn
-      const isDone = await this._executeSingleTurn(instruction);
-      
-      // Exit when done_tool is called
-      if (isDone) {
-        return;
+      // 3. VALIDATE: Check if the overall task is complete
+      const validationResult = await this._validateTaskCompletion(task);
+      if (validationResult.isComplete) {
+        return;  // Task is complete
       }
+      
+      // 4. FEEDBACK: Add validation feedback for next planning cycle
+      if (validationResult.suggestions.length > 0) {
+        const validationMessage = `Validation result: ${validationResult.reasoning}\nSuggestions: ${validationResult.suggestions.join(', ')}`;
+        this.messageManager.addAI(validationMessage);
+        this.eventEmitter.debug(`Validation result: ${JSON.stringify(validationResult, null, 2)}`);
+      }
+      
+      // Reset is_followup_task after first iteration
+      is_followup_task = false;
     }
     
     throw new Error(`Task did not complete within the maximum of ${PocAgent.MAX_STEPS_OUTER_LOOP} steps.`);
@@ -684,12 +718,6 @@ export class PocAgent {
       if (this._getRandom(0.7)) {
         this.messageManager.addSystemReminder(
           `REMINDER: Mark your TODOs as soon as you complete them. Do NOT batch them for later."`
-        );
-      }
-      
-      if (this._getRandom(0.7)) {
-        this.messageManager.addSystemReminder(
-          `REMINDER: If you are stuck, use validator_tool to assess and re-plan.`
         );
       }
   }
