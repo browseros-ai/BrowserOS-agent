@@ -174,9 +174,9 @@
 }
 
 .welcomeTitle {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: $spacing-xl;
+  font-size: 1.3rem;
+  font-weight: 200;
+  margin-bottom: $spacing-lg;
   text-align: center;
   color: $nxtscape-text-primary !important;
 }
@@ -191,11 +191,11 @@
 .exampleCard {
   @include buttonBase;
   width: 100%;
-  padding: $spacing-lg;
+  padding: $spacing-md;
   background-color: $nxtscape-bg-secondary;
-  border: 1px solid $nxtscape-bg-tertiary;
+  border: 1.8px solid $nxtscape-bg-tertiary;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: all 0.8s ease;
   
   &:hover:not(:disabled) {
     background-color: $nxtscape-bg-tertiary;
@@ -212,6 +212,24 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
+
+@keyframes slideOutDownFade {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(80px); }
+}
+
+@keyframes slideInTopFade {
+  0% { opacity: 0; transform: translateY(-80px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.exampleCardExit {
+  animation: slideOutDownFade 0.5s ease-in forwards;
+}
+
+.exampleCardEnter {
+  animation: slideInTopFade 0.8s ease-out forwards;
 }
 
 .exampleText {
