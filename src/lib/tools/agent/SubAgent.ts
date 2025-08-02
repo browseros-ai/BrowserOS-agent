@@ -1,10 +1,9 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { MessageManager } from '@/lib/runtime/MessageManager';
+import { MessageManager, MessageManagerReadOnly } from '@/lib/runtime/MessageManager';
 import { ToolManager } from '@/lib/tools/ToolManager';
 import { TodoStore } from '@/lib/runtime/TodoStore';
 import { EventProcessor } from '@/lib/events/EventProcessor';
-import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { Abortable, AbortError } from '@/lib/utils/Abortable';
 import { formatToolOutput } from '@/lib/tools/formatToolOutput';
 import { formatTodoList } from '@/lib/tools/utils/formatTodoList';
@@ -21,22 +20,21 @@ import { createTabOperationsTool } from '@/lib/tools/tab/TabOperationsTool';
 import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
 import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
 import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
-import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
+import { generateSubAgentSystemPrompt, generateSubAgentTaskPrompt } from './SubAgent.prompt';
+import { z } from 'zod';
 
-interface Plan {
-  steps: Array<{
-    action: string;
-    reasoning: string;
-  }>;
-}
+// Schema for summary generation
+const SubAgentSummarySchema = z.object({
+  success: z.boolean(),  // true if task completed, false if failed
+  summary: z.string()  // Brief summary of what was accomplished
+});
 
 /**
  * SubAgent - A self-contained agent that can execute multi-step tasks
  * Used by SubAgentTool to handle complex task execution in isolation
  */
 export class SubAgent {
-  private static readonly MAX_CYCLES = 5;  // Max plan-execute-validate cycles
-  private static readonly MAX_STEPS_PER_CYCLE = 15;  // Max steps in each execution cycle
+  private static readonly MAX_STEPS = 20;  // Max total execution steps
   
   private readonly parentContext: ExecutionContext;
   private readonly executionContext: ExecutionContext;
@@ -91,17 +89,19 @@ export class SubAgent {
       // Initialize with system prompt and task
       this._initializeExecution();
       
-      // Execute plan-execute-validate cycles
-      const success = await this._executePlanCycles();
+      // Execute simple loop until done_tool is called
+      const success = await this._executeLoop();
       
-      if (success) {
-        const summary = await this._generateSummary();
+      // Generate summary using LLM
+      const { success: summarySuccess, summary } = await this._generateSummary();
+      
+      if (success && summarySuccess) {
         return { success: true, summary };
       } else {
         return { 
           success: false, 
-          summary: 'Task could not be completed within the allowed cycles',
-          error: 'Max cycles exceeded'
+          summary: summary || 'Task could not be completed',
+          error: success ? undefined : 'Max steps exceeded'
         };
       }
       
@@ -128,20 +128,18 @@ export class SubAgent {
   }
 
   private _initializeExecution(): void {
-    // Create system prompt for subagent
-    const systemPrompt = `You are a sub-agent tasked with completing a specific objective.
-
-Your task: ${this.task}
-Description: ${this.description}
-
-You have access to various browser automation tools. Use them to complete your task.
-Work methodically and verify your progress using refresh_browser_state.
-Call done_tool when you have successfully completed the task.
-
-Available tools: ${this.toolManager.getDescriptions()}`;
+    // Generate system prompt using the prompt template
+    const systemPrompt = generateSubAgentSystemPrompt(
+      this.task,
+      this.description,
+      this.toolManager.getDescriptions()
+    );
 
     this.messageManager.addSystem(systemPrompt);
-    this.messageManager.addHuman(`Please complete this task: ${this.task}`);
+    
+    // Generate task prompt
+    const taskPrompt = generateSubAgentTaskPrompt(this.task);
+    this.messageManager.addHuman(taskPrompt);
   }
 
   private _registerTools(): void {
@@ -170,69 +168,31 @@ Available tools: ${this.toolManager.getDescriptions()}`;
   }
 
   @Abortable
-  private async _executePlanCycles(): Promise<boolean> {
-    const todoStore = this.todoStore;
+  private async _executeLoop(): Promise<boolean> {
+    let stepCount = 0;
     
-    for (let cycle = 0; cycle < SubAgent.MAX_CYCLES; cycle++) {
+    // Simple while loop that executes until done_tool is called
+    while (stepCount < SubAgent.MAX_STEPS) {
       this.checkIfAborted();
+      stepCount++;
       
-      // Show current TODO state if any
-      const todoXml = todoStore.getXml();
+      // Get current TODOs and add as AI message
+      const todoXml = this.todoStore.getXml();
       if (todoXml !== '<todos></todos>') {
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
-        this.eventEmitter.info(formatTodoList(todoStore.getJson()));
       }
       
-      // 1. Create plan
-      const plan = await this._createPlan();
-      if (plan.steps.length === 0) {
-        this.eventEmitter.debug('No more steps to plan');
-        break;
-      }
+      // Execute single turn
+      const instruction = `Continue working on the task. Check TODOs and take the next action.`;
+      const isDone = await this._executeSingleTurn(instruction);
       
-      // Convert plan to TODOs
-      await this._updateTodosFromPlan(plan);
-      this.eventEmitter.info(formatTodoList(todoStore.getJson()));
-      
-      // 2. Execute TODOs
-      let stepCount = 0;
-      while (stepCount < SubAgent.MAX_STEPS_PER_CYCLE && !todoStore.isAllDoneOrSkipped()) {
-        this.checkIfAborted();
-        
-        const todo = todoStore.getNextTodo();
-        if (!todo) break;
-        
-        stepCount++;
-        
-        this.eventEmitter.info(`SubAgent executing: ${todo.content}...`);
-        
-        const instruction = `Current TODO: "${todo.content}". Complete this TODO. Before marking it as complete, you MUST:
-1. Call refresh_browser_state to get the current page state
-2. Verify that the TODO is actually achieved based on the current state
-3. If TODO is done, mark it as complete using todo_manager with action 'complete'
-4. If this TODO is not yet done, continue executing on it`;
-
-        const isDone = await this._executeSingleTurn(instruction);
-        
-        if (isDone) {
-          return true;  // Task completed successfully
-        }
-      }
-      
-      // 3. Validate progress
-      const validation = await this._validateProgress();
-      if (validation.isComplete) {
+      // Exit when done_tool is called
+      if (isDone) {
         return true;
-      }
-      
-      // Add validation feedback for next cycle
-      if (validation.suggestions.length > 0) {
-        const feedback = `Validation: ${validation.reasoning}\nSuggestions: ${validation.suggestions.join(', ')}`;
-        this.messageManager.addAI(feedback);
       }
     }
     
-    return false;  // Max cycles reached
+    return false;  // Max steps reached
   }
 
   private checkIfAborted(): void {
@@ -346,88 +306,49 @@ Available tools: ${this.toolManager.getDescriptions()}`;
     return wasDoneToolCalled;
   }
 
-  @Abortable
-  private async _createPlan(): Promise<Plan> {
-    const plannerTool = this.toolManager.get('planner_tool')!;
-    const args = {
-      task: `Continue working on: ${this.task}`,
-      max_steps: PLANNING_CONFIG.STEPS_PER_PLAN
-    };
 
-    this.eventEmitter.executingTool('planner_tool', args);
-    const result = await plannerTool.func(args);
-    const parsedResult = JSON.parse(result);
-    
-    const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
-    this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
+  private async _generateSummary(): Promise<{ success: boolean; summary: string }> {
+    try {
+      // Get LLM instance
+      const llm = await this.executionContext.getLLM({ temperature: 0.3 });
+      
+      // Get message history - filter to tool messages for conciseness
+      const readOnlyMessageManager = new MessageManagerReadOnly(this.messageManager);
+      const messageHistory = readOnlyMessageManager.getAll()
+        .filter(m => m instanceof ToolMessage)
+        .map(m => m.content)
+        .join('\n');
+      
+      // Get final browser state
+      const browserState = await this.executionContext.browserContext.getBrowserStateString();
+      
+      // Create prompt for summary generation
+      const systemPrompt = `You are a task summarizer. Analyze the execution history and generate a brief summary.`;
+      const taskPrompt = `Task: ${this.task}
+Description: ${this.description}
 
-    if (parsedResult.ok && parsedResult.output?.steps) {
-      return { steps: parsedResult.output.steps };
-    }
-    return { steps: [] };
-  }
+Execution History:
+${messageHistory}
 
-  private async _updateTodosFromPlan(plan: Plan): Promise<void> {
-    const todos = plan.steps.map(step => ({
-      content: step.action
-    }));
-    
-    const todoTool = this.toolManager.get('todo_manager');
-    if (todoTool && todos.length > 0) {
-      const args = { action: 'add_multiple' as const, todos };
-      await todoTool.func(args);
-    }
-  }
+Final Browser State:
+${browserState}
 
-  private async _validateProgress(): Promise<{
-    isComplete: boolean;
-    reasoning: string;
-    suggestions: string[];
-  }> {
-    const validatorTool = this.toolManager.get('validator_tool');
-    if (!validatorTool) {
+Based on the execution history and final state, determine if the task was successfully completed and provide a brief 1-2 sentence summary of what was accomplished.`;
+      
+      // Get structured response from LLM
+      const structuredLLM = llm.withStructuredOutput(SubAgentSummarySchema);
+      const result = await structuredLLM.invoke([
+        new SystemMessage(systemPrompt),
+        new HumanMessage(taskPrompt)
+      ]);
+      
+      return result;
+    } catch (error) {
+      // Fallback on error
       return {
-        isComplete: false,
-        reasoning: 'Validator not available',
-        suggestions: []
+        success: false,
+        summary: 'Failed to generate summary'
       };
     }
-
-    const args = { task: this.task };
-    try {
-      this.eventEmitter.executingTool('validator_tool', args);
-      const result = await validatorTool.func(args);
-      const parsedResult = JSON.parse(result);
-      
-      const validator_formatted_output = formatToolOutput('validator_tool', parsedResult);
-      this.eventEmitter.toolEnd('validator_tool', parsedResult.ok, validator_formatted_output);
-      
-      if (parsedResult.ok) {
-        const validationData = JSON.parse(parsedResult.output);
-        return {
-          isComplete: validationData.isComplete,
-          reasoning: validationData.reasoning,
-          suggestions: validationData.suggestions || []
-        };
-      }
-    } catch (error) {
-      // Continue on validation error
-    }
-    
-    return {
-      isComplete: false,
-      reasoning: 'Validation failed',
-      suggestions: []
-    };
-  }
-
-  private async _generateSummary(): Promise<string> {
-    // Get final browser state
-    const browserState = await this.executionContext.browserContext.getBrowserStateString();
-    
-    // Create a simple summary
-    const summary = `Successfully completed task: ${this.task}. ${this.description}`;
-    
-    return summary;
   }
 }
