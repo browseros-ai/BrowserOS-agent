@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { toolError } from '@/lib/tools/Tool.interface';
+import { toolError, toolSuccess } from '@/lib/tools/Tool.interface';
 import { SubAgent } from './SubAgent';
 
 // Input schema for SubAgentTool
@@ -18,7 +18,7 @@ type SubAgentInput = z.infer<typeof SubAgentInputSchema>;
  */
 export function createSubAgentTool(executionContext: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: 'subagent_tool',
+    name: 'sub_agent',
     description: `Spawn a sub-agent to handle complex multi-step tasks that require planning, execution, and validation cycles. Use this for tasks that need multiple steps and verification.`,
     schema: SubAgentInputSchema,
     func: async (args: SubAgentInput): Promise<string> => {
@@ -44,11 +44,12 @@ export function createSubAgentTool(executionContext: ExecutionContext): DynamicS
         }
         
         // Return standard tool output format
-        return JSON.stringify({
-          ok: result.success,
-          output: result.summary,
-          error: result.error
-        });
+        if (result.success) {
+          return JSON.stringify(toolSuccess(result.summary));
+        } else {
+          const errorDetail = result.error ? `${result.summary} - ${result.error}` : result.summary;
+          return JSON.stringify(toolError(errorDetail));
+        }
         
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

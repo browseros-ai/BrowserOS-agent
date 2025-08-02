@@ -655,9 +655,9 @@ export class PocAgent {
       }
       
       // Add system reminder about using SubAgent
-      this.messageManager.addSystemReminder(
-        `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps parallelize work and improve efficiency.`
-      );
+      // this.messageManager.addSystemReminder(
+      //   `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps parallelize work and improve efficiency.`
+      // );
       
       // Execute single turn
       const isDone = await this._executeSingleTurn(instruction);

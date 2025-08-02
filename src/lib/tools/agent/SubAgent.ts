@@ -347,7 +347,7 @@ Based on the execution history and final state, determine if the task was succes
       const result = await structuredLLM.invoke([
         new SystemMessage(systemPrompt),
         new HumanMessage(taskPrompt)
-      ]);
+      ]) as { success: boolean; summary: string };
       
       return result;
     } catch (error) {
