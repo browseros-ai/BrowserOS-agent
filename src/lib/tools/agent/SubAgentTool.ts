@@ -37,11 +37,11 @@ export function createSubAgentTool(executionContext: ExecutionContext): DynamicS
         const result = await subAgent.execute();
         
         // Log completion
-        if (result.success) {
-          eventProcessor.info(`✅ Sub-agent completed successfully`);
-        } else {
-          eventProcessor.info(`❌ Sub-agent failed: ${result.error || 'Unknown error'}`);
-        }
+        // if (result.success) {
+        //   eventProcessor.info(`✅ Sub-agent completed successfully`);
+        // } else {
+        //   eventProcessor.info(`❌ Sub-agent failed: ${result.error || 'Unknown error'}`);
+        // }
         
         // Return standard tool output format
         if (result.success) {

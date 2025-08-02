@@ -181,12 +181,15 @@ export class SubAgent {
       let instruction: string;
       if (todoXml === '<todos></todos>') {
         // No TODOs - prompt to create a plan
-        instruction = `Based on the user task: "${this.task}", create a plan using the planner_tool.`;
+        instruction = `Based on the task: "${this.task} and description: ${this.description}", create a plan using the planner_tool and add to your TODO list.`;
       } else {
         // Show TODOs and continue executing
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
-        this.eventEmitter.info(formatTodoList(this.todoStore.getJson()));
+        this.eventEmitter.info(formatTodoList(this.todoStore.getJson(), 'SubAgent'));
         instruction = `Continue executing the current TODOs.`;
+
+        // Add few proabilistic system reminders
+        this._maybeAddSystemReminders();
       }
       
       
@@ -302,7 +305,7 @@ export class SubAgent {
         this.messageManager.addSystemReminder(
           `TODO list updated. Current state:\n${this.todoStore.getXml()}`
         );
-        this.eventEmitter.info(formatTodoList(this.todoStore.getJson()));
+        this.eventEmitter.info(formatTodoList(this.todoStore.getJson(), 'SubAgent'));
       }
 
       if (toolName === 'done_tool' && parsedResult.ok) {
@@ -312,7 +315,28 @@ export class SubAgent {
     
     return wasDoneToolCalled;
   }
+  
+  private async _maybeAddSystemReminders(): Promise<void> {
+    if (this._getRandom(0.4)) {
+      this.messageManager.addSystemReminder(
+        `REMINDER: Mark your TODOs as soon as you complete them. Do NOT batch them for later."`
+      );
+    }
+    if (this._getRandom(0.7)) {
+      this.messageManager.addSystemReminder(
+        `REMINDER: If you are stuck, use validator_tool to assess and re-plan.`
+      );
+    }
+    if (this._getRandom(0.3)) {
+      this.messageManager.addSystemReminder(
+        `REMINDER: You can use screenshot_tool for visual reference of the page if you need more clarity."`
+      );
+    }
+  }
 
+  private _getRandom(probability: number): boolean {
+    return Math.random() < probability;
+  }
 
   private async _generateSummary(): Promise<{ success: boolean; summary: string }> {
     try {

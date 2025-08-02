@@ -173,7 +173,7 @@ export class PocAgent {
       if (classification.is_simple_task) {
         await this._executeSimpleTaskStrategy(task);
       } else {
-        // Using new SubAgent-based strategy for testing
+        // Using new SubAgent-based strategy
         await this._executeWithSubAgent(task);
       }
 
@@ -642,22 +642,21 @@ export class PocAgent {
 
       // Get current TODOs
       const todoXml = await this._fetchTodoXml();
+      debugger;
       let instruction: string;
       
       if (todoXml === '<todos></todos>') {
         // No TODOs - prompt to create a plan
-        instruction = `Based on the user task: "${task}", create a plan using the planner_tool.`;
+        instruction = `Based on the user task: "${task}", create a plan using the planner_tool and update your TODOs usint todo_manager tool.`;
       } else {
         // Show TODOs and continue executing
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
         this.eventEmitter.info(formatTodoList(todoStore.getJson()));
         instruction = `Continue executing the current TODOs.`;
+
+        // Add few proabilistic system reminders
+        this._maybeAddSystemReminders();
       }
-      
-      // Add system reminder about using SubAgent
-      // this.messageManager.addSystemReminder(
-      //   `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps parallelize work and improve efficiency.`
-      // );
       
       // Execute single turn
       const isDone = await this._executeSingleTurn(instruction);
@@ -669,6 +668,31 @@ export class PocAgent {
     }
     
     throw new Error(`Task did not complete within the maximum of ${PocAgent.MAX_STEPS_OUTER_LOOP} steps.`);
+  }
+  
+  private async _maybeAddSystemReminders(): Promise<void> {
+      if (this._getRandom(0.3)) {
+        this.messageManager.addSystemReminder(
+          `REMINDER: You can use screenshot_tool for visual reference of the page if you need more clarity."`
+        );
+      }
+      if (this._getRandom(0.4)) {
+        this.messageManager.addSystemReminder(
+          `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps improve efficiency and parallelize work.`
+        );
+      }
+
+      if (this._getRandom(0.7)) {
+        this.messageManager.addSystemReminder(
+          `REMINDER: Mark your TODOs as soon as you complete them. Do NOT batch them for later."`
+        );
+      }
+      
+      if (this._getRandom(0.7)) {
+        this.messageManager.addSystemReminder(
+          `REMINDER: If you are stuck, use validator_tool to assess and re-plan.`
+        );
+      }
   }
 
   /**
@@ -706,6 +730,15 @@ export class PocAgent {
       
       // System reminder will be added by _processToolCalls special handling
     }
+  }
+
+  /**
+   * Returns true with the given probability (0-1)
+   * @param probability - Number between 0 and 1 (e.g., 0.3 for 30% chance)
+   * @returns true with the given probability, false otherwise
+   */
+  private _getRandom(probability: number): boolean {
+    return Math.random() < probability;
   }
 
   /**
