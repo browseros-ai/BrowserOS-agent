@@ -61,6 +61,7 @@ import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
 import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
 import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
 import { createResultTool } from '@/lib/tools/result/ResultTool';
+import { createSubAgentTool } from '@/lib/tools/agent/SubAgentTool';
 import { generateSystemPrompt } from './BrowserAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import { EventProcessor } from '@/lib/events/EventProcessor';
@@ -172,7 +173,8 @@ export class PocAgent {
       if (classification.is_simple_task) {
         await this._executeSimpleTaskStrategy(task);
       } else {
-        await this._executeMultiStepStrategy(task);
+        // Using new SubAgent-based strategy for testing
+        await this._executeWithSubAgent(task);
       }
 
       // 4. FINALISE: Generate final result
@@ -244,6 +246,9 @@ export class PocAgent {
     
     // Result tool
     this.toolManager.register(createResultTool(this.executionContext));
+    
+    // SubAgent tool for delegating complex tasks
+    this.toolManager.register(createSubAgentTool(this.executionContext));
     
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
@@ -620,6 +625,50 @@ export class PocAgent {
       // Fallback on error
       this.eventEmitter.emitTaskResult(true, 'Task completed.');
     }
+  }
+
+  // ===================================================================
+  //  Execution Strategy 3: SubAgent-based execution (POC)
+  // ===================================================================
+  @Abortable
+  private async _executeWithSubAgent(task: string): Promise<void> {
+    this.eventEmitter.debug('Executing with SubAgent strategy. Max steps: ' + PocAgent.MAX_STEPS_OUTER_LOOP);
+    const todoStore = this.executionContext.todoStore;
+    let stepCount = 0;
+
+    while (stepCount < PocAgent.MAX_STEPS_OUTER_LOOP) {
+      this.checkIfAborted();
+      stepCount++;
+
+      // Get current TODOs
+      const todoXml = await this._fetchTodoXml();
+      let instruction: string;
+      
+      if (todoXml === '<todos></todos>') {
+        // No TODOs - prompt to create a plan
+        instruction = `Based on the user task: "${task}", create a plan using the planner_tool.`;
+      } else {
+        // Show TODOs and continue executing
+        this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
+        this.eventEmitter.info(formatTodoList(todoStore.getJson()));
+        instruction = `Continue executing the current TODOs.`;
+      }
+      
+      // Add system reminder about using SubAgent
+      this.messageManager.addSystemReminder(
+        `REMINDER: Use sub_agent tool to spawn off complex tasks that can be done independently. This helps parallelize work and improve efficiency.`
+      );
+      
+      // Execute single turn
+      const isDone = await this._executeSingleTurn(instruction);
+      
+      // Exit when done_tool is called
+      if (isDone) {
+        return;
+      }
+    }
+    
+    throw new Error(`Task did not complete within the maximum of ${PocAgent.MAX_STEPS_OUTER_LOOP} steps.`);
   }
 
   /**

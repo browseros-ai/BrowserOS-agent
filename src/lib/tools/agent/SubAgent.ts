@@ -178,12 +178,19 @@ export class SubAgent {
       
       // Get current TODOs and add as AI message
       const todoXml = this.todoStore.getXml();
-      if (todoXml !== '<todos></todos>') {
+      let instruction: string;
+      if (todoXml === '<todos></todos>') {
+        // No TODOs - prompt to create a plan
+        instruction = `Based on the user task: "${this.task}", create a plan using the planner_tool.`;
+      } else {
+        // Show TODOs and continue executing
         this.messageManager.addAI(`Current TODO list:\n${todoXml}`);
+        this.eventEmitter.info(formatTodoList(this.todoStore.getJson()));
+        instruction = `Continue executing the current TODOs.`;
       }
       
+      
       // Execute single turn
-      const instruction = `Continue working on the task. Check TODOs and take the next action.`;
       const isDone = await this._executeSingleTurn(instruction);
       
       // Exit when done_tool is called
