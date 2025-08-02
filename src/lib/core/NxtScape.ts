@@ -6,6 +6,8 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { profileStart, profileEnd, profileAsync } from "@/lib/utils/profiler";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
+import { PocAgent } from "@/lib/agent/PocAgent";
+import { isPocMode } from "@/config";
 
 /**
  * Configuration schema for NxtScape agent
@@ -55,7 +57,7 @@ export class NxtScape {
   private executionContext: ExecutionContext;
   private abortController: AbortController; // Track current execution for cancellation
   private messageManager: MessageManager; // Clean conversation history management using MessageManager
-  private browserAgent: BrowserAgent | null = null; // The browser agent for task execution
+  private browserAgent: BrowserAgent | PocAgent | null = null; // The browser agent for task execution
 
   private currentQuery: string | null = null; // Track current query for better cancellation messages
 
@@ -107,7 +109,13 @@ export class NxtScape {
         // BrowserContextV2 doesn't need initialization
         
         // Initialize the browser agent with execution context
-        this.browserAgent = new BrowserAgent(this.executionContext);
+        // Use PocAgent if in POC mode, otherwise use BrowserAgent
+        if (isPocMode()) {
+          this.browserAgent = new PocAgent(this.executionContext);
+          Logging.log("NxtScape", "Using PocAgent (POC mode enabled)");
+        } else {
+          this.browserAgent = new BrowserAgent(this.executionContext);
+        }
 
         Logging.log(
           "NxtScape",
@@ -360,7 +368,12 @@ export class NxtScape {
     });
     
     // Recreate browser agent with new execution context
-    this.browserAgent = new BrowserAgent(this.executionContext);
+    // Use PocAgent if in POC mode, otherwise use BrowserAgent
+    if (isPocMode()) {
+      this.browserAgent = new PocAgent(this.executionContext);
+    } else {
+      this.browserAgent = new BrowserAgent(this.executionContext);
+    }
 
     Logging.log(
       "NxtScape",

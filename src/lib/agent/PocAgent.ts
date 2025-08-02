@@ -291,12 +291,12 @@ export class PocAgent {
   // ===================================================================
   @Abortable  // Checks at method start
   private async _executeSimpleTaskStrategy(task: string): Promise<void> {
-    this.eventEmitter.debug(`Executing as a simple task. Max attempts: ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}`);
+    this.eventEmitter.debug(`Executing as a simple task. Max attempts: ${PocAgent.MAX_STEPS_FOR_SIMPLE_TASKS}`);
 
-    for (let attempt = 1; attempt <= BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
+    for (let attempt = 1; attempt <= PocAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
       this.checkIfAborted();  // Manual check in loop
 
-      this.eventEmitter.debug(`Attempt ${attempt}/${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}: Executing task...`);
+      this.eventEmitter.debug(`Attempt ${attempt}/${PocAgent.MAX_STEPS_FOR_SIMPLE_TASKS}: Executing task...`);
 
       const instruction = `The user's goal is: "${task}". Please take the next best action to complete this goal and call the 'done_tool' when finished.`;
       const isTaskCompleted = await this._executeSingleTurn(instruction);
@@ -306,7 +306,7 @@ export class PocAgent {
       }      
     }
 
-    throw new Error(`Task failed to complete after ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS} attempts.`);
+    throw new Error(`Task failed to complete after ${PocAgent.MAX_STEPS_FOR_SIMPLE_TASKS} attempts.`);
   }
 
   // ===================================================================
@@ -314,11 +314,11 @@ export class PocAgent {
   // ===================================================================
   @Abortable
   private async _executeMultiStepStrategy(task: string): Promise<void> {
-    this.eventEmitter.debug('Executing as a complex multi-step task. Max steps: ' + BrowserAgent.MAX_STEPS_OUTER_LOOP);
+    this.eventEmitter.debug('Executing as a complex multi-step task. Max steps: ' + PocAgent.MAX_STEPS_OUTER_LOOP);
     let outer_loop_index = 0;
     const todoStore = this.executionContext.todoStore;
 
-    while (outer_loop_index < BrowserAgent.MAX_STEPS_OUTER_LOOP) {
+    while (outer_loop_index < PocAgent.MAX_STEPS_OUTER_LOOP) {
       this.checkIfAborted();  // Check if the user has cancelled the task before executing
 
       // Inject current TODO state
@@ -343,7 +343,7 @@ export class PocAgent {
 
       // 2. EXECUTE: Execute TODOs
       let inner_loop_index = 0;
-      while (inner_loop_index < BrowserAgent.MAX_STEPS_INNER_LOOP && !todoStore.isAllDoneOrSkipped()) {
+      while (inner_loop_index < PocAgent.MAX_STEPS_INNER_LOOP && !todoStore.isAllDoneOrSkipped()) {
         this.checkIfAborted();
         
         const todo = todoStore.getNextTodo();
@@ -384,7 +384,7 @@ export class PocAgent {
       }
       
     }
-    throw new Error(`Task did not complete within the maximum of ${BrowserAgent.MAX_STEPS_OUTER_LOOP} steps.`);
+    throw new Error(`Task did not complete within the maximum of ${PocAgent.MAX_STEPS_OUTER_LOOP} steps.`);
   }
 
   // ===================================================================
@@ -532,7 +532,7 @@ export class PocAgent {
     const plannerTool = this.toolManager.get('planner_tool')!;
     const args = {
       task: `Based on the history, continue with the main goal: ${task}`,
-      max_steps: BrowserAgent.MAX_STEPS_FOR_COMPLEX_TASKS
+      max_steps: PocAgent.MAX_STEPS_FOR_COMPLEX_TASKS
     };
 
     this.eventEmitter.executingTool('planner_tool', args);
@@ -665,7 +665,7 @@ export class PocAgent {
    */
   private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
     // Check if this tool should trigger glow animation
-    if (!BrowserAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
+    if (!PocAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
       return false;
     }
 
