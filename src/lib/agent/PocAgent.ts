@@ -541,9 +541,9 @@ export class PocAgent {
     
     // Build appropriate planning instruction based on context
     let planInstruction: string;
-    if (is_followup_task) {
-      planInstruction = `Based on the history and user's follow-up request: <user_followup_request>"${task}"</user_followup_request>, update the plan accordingly.`;
-    } else if (stepCount === 0) {
+    if (is_followup_task && stepCount === 0) {
+      planInstruction = `Based on the history and user's follow-up request: <user_request>"${task}"</user_request>, update the plan accordingly.`;
+    } else if (!is_followup_task && stepCount === 0) {
       planInstruction = `Based on the user task: <user_request>"${task}"</user_request> create a plan to accomplish it.`;
     } else {
       // Include validation feedback and current TODOs in re-planning
@@ -662,8 +662,8 @@ export class PocAgent {
       }
       
       // Tell the AI to update TODOs with the new plan
-      const planSteps = plan.steps.map((step, idx) => `${idx + 1}. ${step.action}`).join('\n');
-      this.messageManager.addHuman(`Update your TODO list with this new plan:\n${planSteps}\n\nUse todo_manager to update the TODO list accordingly.`);
+      const instructions = `Update your TODO list with this new plan:\n${plan.steps.map((step, idx) => `${idx + 1}. ${step.action}`).join('\n')}\n\nUse todo_manager to update the TODO list accordingly.`;
+      await this._executeSingleTurn(instructions);
       
       // 2. EXECUTE: Run inner loop to execute TODOs  
       let innerLoopCount = 0;
@@ -679,7 +679,8 @@ export class PocAgent {
         const isTaskCompleted = await this._executeSingleTurn(instruction);
         
         if (isTaskCompleted) {
-          return;  // Task completed successfully
+          // let's validate the task completion
+          break;
         }
       }
       

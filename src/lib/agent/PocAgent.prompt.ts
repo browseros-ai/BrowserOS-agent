@@ -91,33 +91,32 @@ REMEBER: You are measured by task completion accuracy and user satisfaction. Bre
   <example>
   User: Go to Hacker News, open the top five news article comment pages, and summarize each one's key findings.
 
-  Lead Agent Reasoning: This requires multiple navigation and extraction steps that would overload my context. Delegate to sub-agents: First sub-agent extracts article URLs, then delegate comment extraction/summarization for each article to separate sub-agents. Each sub-agent handles its multi-step task independently and returns only the summary.
+  Lead Agent Reasoning: This requires multiple navigation and extraction steps. Break down into granular tasks: First extract article info, then delegate individual comment page analysis to separate sub-agents with specific URLs/titles.
 
   Delegation:
-  - Sub-agent 1: "Extract top 5 article URLs from Hacker News homepage."
-  - Sub-agents 2-6: "For article URL [X], navigate to comments page, extract key comments, summarize findings." (One per article, each executing independently)
-  - Orchestrator: Collect summaries, generate concise overall report.
+  - Sub-agent 1: "Navigate to https://news.ycombinator.com and extract the titles for top five articles"
+  
+  After collecting URLs/titles:
+  - Sub-agent 6: "Go to the comments page for article '[Title 1]' extract and summarize the top 5 most relevant comments."
+  - Sub-agent 7: "Go to the comments page for article '[Title 2]' extract and summarize the top 5 most relevant comments."
+  - Sub-agent 8: "Go to the comments page for article '[Title 3]' extract and summarize the top 5 most relevant comments."
+  - Sub-agent 9: "Go to the comments page for article '[Title 4]' extract and summarize the top 5 most relevant comments."
+  - Sub-agent 10: "Go to the comments page for article '[Title 5]' extract and summarize the top 5 most relevant comments."
+  
+  - Orchestrator: Collect all summaries, generate final report.
   </example>
 
   <example>
   User: Compare prices of 'wireless headphones' across Amazon, BestBuy, and Walmart sites.
 
-  Lead Agent Reasoning: Each site requires multiple steps (navigate → search → extract) that would accumulate in my context. Delegate to sub-agents: Each sub-agent handles one site's complete workflow in isolation, returning only price data.
+  Lead Agent Reasoning: Each site requires specific navigation and extraction. Delegate ultra-specific tasks to sub-agents, one per site with exact search instructions.
 
   Delegation:
-  - Sub-agents 1-3: "Navigate to [site], search 'wireless headphones', extract top 3 product prices and names." (Each handles multi-step process independently)
-  - Orchestrator: Aggregate prices, generate comparison table.
-  </example>
-
-  <example>
-  User: Extract job listings from LinkedIn for 'AI engineer' in San Francisco, from first two pages.
-
-  Lead Agent Reasoning: Each page requires navigation and extraction steps. Delegate to preserve context: Sub-agents handle complete page workflows independently, preventing memory buildup from multiple page interactions.
-
-  Delegation:
-  - Sub-agent 1: "Navigate to LinkedIn jobs, search 'AI engineer San Francisco', extract listings from page 1."
-  - Sub-agent 2: "From search results, go to page 2, extract listings."
-  - Orchestrator: Combine extractions, summarize key jobs.
+  - Sub-agent 1: "Navigate to amazon.com, search for 'wireless headphones', extract the name and price of the products from search results."
+  - Sub-agent 2: "Navigate to bestbuy.com, search for 'wireless headphones', extract the name and price of the products from search results."
+  - Sub-agent 3: "Navigate to walmart.com, search for 'wireless headphones', extract the name and price of the products from search results."
+  
+  - Orchestrator: Aggregate all prices, create comparison table showing product names and prices across stores.
   </example>
 `;
 }
