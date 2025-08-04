@@ -24,30 +24,24 @@ export class GetSelectedTabsTool {
     try {
       // Get selected tab IDs from execution context
       const selectedTabIds = this.executionContext.getSelectedTabIds()
-      const hasUserSelectedTabs = Boolean(selectedTabIds && selectedTabIds.length > 0)
-      
       // Get browser pages
       const pages = await this.executionContext.browserContext.getPages(
-        hasUserSelectedTabs && selectedTabIds ? selectedTabIds : undefined
-      )
-      
-      // If no pages found, return empty array
-      if (pages.length === 0) {
-        return toolSuccess(JSON.stringify([]))
-      }
-      
-      // Extract tab information
+        selectedTabIds && selectedTabIds.length > 0
+          ? selectedTabIds
+          : undefined
+      );
+
+      // Build array of TabInfo objects
       const tabs: TabInfo[] = await Promise.all(
         pages.map(async page => ({
           id: page.tabId,
           url: page.url(),
-          title: await page.title()
+          title: await page.title(),
         }))
       )
-      
-      // Return simplified output - just the array of tabs
-      return toolSuccess(JSON.stringify(tabs))
-      
+
+      // Return an actual array (empty if nothing)
+      return toolSuccess(tabs);
     } catch (error) {
       return toolError(`Failed to get tab information: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -59,12 +53,12 @@ export function createGetSelectedTabsTool(executionContext: ExecutionContext): D
   const getSelectedTabsTool = new GetSelectedTabsTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "get_selected_tabs",
+    name: "get_selected_tabs_tool",
     description: "Get information about currently selected tabs. Returns an array of tab objects with id, url, and title. If no tabs are selected, returns the current tab.",
     schema: GetSelectedTabsInputSchema,
     func: async (args): Promise<string> => {
-      const result = await getSelectedTabsTool.execute(args)
-      return JSON.stringify(result)
+      const { ok, output } = await getSelectedTabsTool.execute(args);
+      return JSON.stringify({ ok, output });
     }
   })
 }

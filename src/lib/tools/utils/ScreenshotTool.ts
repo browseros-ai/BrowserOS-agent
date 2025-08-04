@@ -11,7 +11,7 @@ type ScreenshotToolInput = z.infer<typeof ScreenshotToolInputSchema>;
 
 export function createScreenshotTool(executionContext: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: 'screenshot',
+    name: 'screenshot_tool',
     description: 'Capture a screenshot of the current page. Returns base64 encoded image data.',
     schema: ScreenshotToolInputSchema,
     func: async (args: ScreenshotToolInput): Promise<string> => {

@@ -99,12 +99,12 @@ export class BrowserAgent {
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
     'navigation_tool',
-    'find_element',
-    'interact',
+    'find_element_tool',
+    'interaction_tool',
     'scroll_tool',
     'search_tool',
     'refresh_browser_state',
-    'tab_operations',
+    'tab_operations_tool',
     'screenshot_tool',
     'extract_tool'
   ]);
@@ -495,7 +495,7 @@ export class BrowserAgent {
       this.eventEmitter.debug('Executing tool: ' + toolName + ' result: ' + displayMessage);
       
       // Emit tool result for UI display (always shown)
-      this.eventEmitter.emitToolResult(toolName, result);
+      this.eventEmitter.emitToolResult(toolName, displayMessage);
 
       // Add the result back to the message history for context
       // add toolMessage before systemReminders as openAI expects each 

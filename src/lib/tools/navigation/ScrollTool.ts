@@ -72,7 +72,7 @@ export function createScrollTool(executionContext: ExecutionContext): DynamicStr
   const scrollTool = new ScrollTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "scroll",
+    name: "scroll_tool",
     description: "Perform scrolling operations: scroll_down/up (by viewports) or scroll_to_element (by index). Pass amount for number of viewports (default 1).",
     schema: ScrollInputSchema,
     func: async (args): Promise<string> => {

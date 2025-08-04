@@ -18,7 +18,7 @@ export function generateResultSystemPrompt(): string {
 
 ## Success Example:
 Task: "Find the current temperature in Tokyo"
-Message: "## ✓ Task Completed\n\n**Current temperature in Tokyo: 22°C (72°F)**\n\nWeather: Partly cloudy with light winds"
+Message: "## Task Summary\n\n**Current temperature in Tokyo: 22°C (72°F)**\n\nWeather: Partly cloudy with light winds"
 
 ## Failure Example:
 Task: "Book a flight to Paris"  

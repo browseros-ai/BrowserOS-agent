@@ -67,12 +67,12 @@ export function createSearchTool(executionContext: ExecutionContext): DynamicStr
   const searchTool = new SearchTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "search",
+    name: "search_tool",
     description: "Perform searches on different platforms: google (web search), amazon (products), google_maps (locations), google_finance (stocks).",
     schema: SearchInputSchema,
     func: async (args): Promise<string> => {
-      const result = await searchTool.execute(args)
-      return JSON.stringify(result)
+      const { ok, output } = await searchTool.execute(args)
+      return JSON.stringify({ ok, output })
     }
   })
 }

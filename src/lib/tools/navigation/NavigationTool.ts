@@ -169,8 +169,8 @@ export function createNavigationTool(executionContext: ExecutionContext): Dynami
     description: "Navigate the browser: go to URL, go back/forward in history, or refresh the page",
     schema: NavigationInputSchema,
     func: async (args): Promise<string> => {
-      const result = await navigationTool.execute(args)
-      return JSON.stringify(result)
+      const { ok, output } = await navigationTool.execute(args)
+      return JSON.stringify({ ok, output })
     }
   })
 }

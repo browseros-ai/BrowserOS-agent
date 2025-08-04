@@ -22,9 +22,9 @@
   justify-content: space-between;
   align-items: center;
   padding: $spacing-md $spacing-lg;
-  height: 56px; // Fixed height for consistency
+  height: 50px; // Fixed height for consistency
   background-color: $nxtscape-bg-primary;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .headerLeft {
@@ -40,14 +40,6 @@
   flex-shrink: 0;
 }
 
-.brandTitle {
-  font-size: 0.875rem;  // Smaller font size
-  font-weight: 500;
-  margin: 0;
-  color: var(--text-primary) !important;
-  letter-spacing: -0.01em;
-}
-
 .headerActions {
   display: flex;
   gap: $spacing-sm;
@@ -58,13 +50,13 @@
   @include flexCenter;
   width: 32px;
   height: 32px;
-  padding: 0;
-  background: transparent;
+  background-color: $nxtscape-bg-secondary;
   border: 1px solid transparent;
   border-radius: $border-radius-sm;
   color: $nxtscape-text-muted;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
   
   &:hover {
     color: $nxtscape-text-primary;
@@ -241,10 +233,10 @@
 
 // Input section
 .inputSection {
+  margin-top: 8px;
   flex-shrink: 0;
-  border-top: 1px solid var(--border-color);
   background-color: var(--background-primary);
-  padding: $spacing-lg;
+  padding: $spacing-xl;
   position: relative; // Add relative positioning for tab selector
 }
 
@@ -267,13 +259,13 @@
 .inputWrapper {
   display: flex;
   align-items: flex-end;
-  gap: $spacing-md;
+  gap: $spacing-sm;
 }
 
 .inputField {
   @include inputBase;
   flex: 1;
-  min-height: 40px;
+  min-height: 60px;
   max-height: 200px;
   padding: $spacing-sm $spacing-md;
   resize: none;
@@ -304,13 +296,14 @@
 .sendButton {
   @include flexCenter;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 43px;
+  height: 43px;
   padding: 0;
   border: none;
   border-radius: $border-radius-md;
   transition: all 0.2s ease;
   cursor: pointer;
+  margin-bottom: 8px;
   
   &Enabled {
     background-color: $nxtscape-blue;
@@ -657,13 +650,13 @@
 .selectedTabsContainer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 12px;
+  gap: 5px;
+  padding: 10px;
   background: var(--surface-primary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   backdrop-filter: blur(10px);
+  max-width: 260px;
 }
 
 .selectedTabPill {

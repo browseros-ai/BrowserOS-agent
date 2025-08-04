@@ -34,7 +34,7 @@ describe('GetSelectedTabsTool-unit-test', () => {
     // Also test the factory function
     const langchainTool = createGetSelectedTabsTool(executionContext)
     expect(langchainTool).toBeDefined()
-    expect(langchainTool.name).toBe('get_selected_tabs')
+    expect(langchainTool.name).toBe('get_selected_tabs_tool')
     expect(langchainTool.description).toContain('Get information about currently selected tabs')
   })
 

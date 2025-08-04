@@ -172,10 +172,6 @@
         opacity: 0.9;
       }
       
-      .tabIcon {
-        filter: brightness(0) invert(1);
-      }
-      
       &::after {
         color: var(--primary-foreground);
       }
@@ -212,7 +208,7 @@
 
   &.currentTab {
     .tabTitle {
-      color: var(--primary);
+      color: white;
       font-weight: 500;
     }
   }

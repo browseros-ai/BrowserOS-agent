@@ -266,7 +266,7 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
         // Add cancellation message
         const newMessage: StreamMessage = {
           id: generateMessageId(),
-          type: "system",
+          type: "paused",
           content: details.content || '✋ Task paused',
           isComplete: true,
           timestamp: new Date(),
@@ -382,7 +382,7 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
             // For cancelled tasks, only show the helpful message, not any errors
             finalMessages.push({
               id: generateMessageId(),
-              type: "system",
+              type: "paused",
               content: payload.message || '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
               isComplete: true,
               timestamp: new Date(),
@@ -515,17 +515,17 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
           if (selectedTabs.length === 1) {
             // Single tab selected
             const tab = selectedTabs[0];
-            enhancedContent = `${taskDescription}\n\n📍 *Operating on: ${tab.title || 'Untitled'}*`;
+            enhancedContent = `${taskDescription}\n\n📍 Operating on: ${tab.title || 'Untitled'}`;
           } else if (selectedTabs.length > 1) {
             // Multiple tabs selected
-            enhancedContent = `${taskDescription}\n\n📑 *Operating on ${selectedTabs.length} selected tabs:*\n`;
+            enhancedContent = `${taskDescription}\n\n📑 Operating on ${selectedTabs.length} selected tabs:\n`;
             selectedTabs.forEach((tab, index) => {
               enhancedContent += `${index + 1}. ${tab.title || 'Untitled'}\n`;
             });
           }
         } catch (error) {
           // If we can't get tab info, just show count
-          enhancedContent = `${taskDescription}\n\n📑 *Operating on ${tabIds.length} selected tab${tabIds.length > 1 ? 's' : ''}*`;
+          enhancedContent = `${taskDescription}\n\n📑 Operating on ${tabIds.length} selected tab${tabIds.length > 1 ? 's' : ''}`;
         }
       }
 

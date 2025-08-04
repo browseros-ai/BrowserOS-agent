@@ -5,7 +5,7 @@ import { cn } from '@/sidepanel/lib/utils'
 import { MarkdownContent } from './MarkdownContent'
 
 // Message type schema 
-const MessageTypeSchema = z.enum(['user', 'system', 'llm', 'tool', 'error', 'streaming-llm', 'streaming-tool', 'thinking'])
+const MessageTypeSchema = z.enum(['user', 'system', 'llm', 'tool', 'error', 'streaming-llm', 'streaming-tool', 'thinking', 'paused'])
 export type MessageType = z.infer<typeof MessageTypeSchema>
 
 // Message schema
@@ -81,13 +81,16 @@ function MessageItem({
       case 'user':
         return '👤'
       case 'system':
-        return '✨'
+        return '⚙️'
       case 'thinking':
         return '💭'
       case 'llm':
       case 'streaming-llm':
         return '💭'
       case 'tool':
+        return '✨'
+      case 'paused':
+        return '✋'
       case 'streaming-tool':
         return '🛠️'
       case 'error':
@@ -100,28 +103,27 @@ function MessageItem({
     if ((message.type === 'tool' || message.type === 'streaming-tool') && message.toolName) {
       return (
         <div className={styles.toolMessage}>
-          <div className={styles.toolHeader}>
-            <span className={styles.toolName}>{formatToolName(message.toolName)}</span>
-            {message.toolArgs && (
-              <span className={styles.toolArgs}>{formatToolArgs(message.toolName, message.toolArgs)}</span>
-            )}
-            {message.type === 'streaming-tool' && !message.isComplete && (
-              <span className={styles.toolStatus}>
-                Working...
-              </span>
-            )}
-          </div>
           {message.content && (
             <div className={styles.toolResult}>
               {message.type === 'streaming-tool' && !message.isComplete ? (
-                // Show raw streaming content for tools
                 <pre className={styles.streamingContent}>{message.content}</pre>
               ) : (
-                // Show formatted content for completed tools (compact for tool results)
                 <MarkdownContent content={message.content} compact={true} />
               )}
             </div>
           )}
+
+          <div className={styles.toolMeta}>
+            <span className={styles.toolName}>{formatToolName(message.toolName)}</span>
+
+            {message.toolArgs && (
+              <span className={styles.toolArgs}>{formatToolArgs(message.toolName, message.toolArgs)}</span>
+            )}
+
+            {message.type === 'streaming-tool' && !message.isComplete && (
+              <span className={styles.toolStatus}>Working...</span>
+            )}
+          </div>
         </div>
       )
     }

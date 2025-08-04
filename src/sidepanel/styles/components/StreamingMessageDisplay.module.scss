@@ -19,12 +19,32 @@ $message-bg-light: #F4F4F5; // Light theme message background
   gap: $spacing-md;
   align-items: flex-start;
   animation: fadeIn 0.3s ease-out;
-  
-  // Apply same background to all message types
-  &--user,
+
+  // Separate styling for user messages
+  &--user {
+    .messageContent {
+      // Fallback for systems without prefers-color-scheme (declare first)
+      background: $message-bg-dark;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      
+      // Use the centralized color based on theme
+      @media (prefers-color-scheme: dark) {
+        background: #ff7c0268;
+        border: 1px solid var(--border-color);
+      }
+      
+      @media (prefers-color-scheme: light) {
+        background: #ff7c0268;
+        border: 1px solid var(--border-color);
+      }
+    }
+  }
+
+  // Apply same background to all other message types
   &--system,
   &--llm,
   &--tool,
+  &--paused,
   &--error {
     .messageContent {
       // Fallback for systems without prefers-color-scheme (declare first)
@@ -99,16 +119,15 @@ $message-bg-light: #F4F4F5; // Light theme message background
   gap: $spacing-sm;
 }
 
-.toolHeader {
+.toolMeta {
   display: flex;
   gap: $spacing-sm;
-  align-items: center;
 }
 
 .toolName {
-  font-weight: 600;
+  font-weight: 365;
   color: var(--success) !important;
-  font-size: 0.875rem;
+  font-size: 0.61rem;
 }
 
 .toolArgs {

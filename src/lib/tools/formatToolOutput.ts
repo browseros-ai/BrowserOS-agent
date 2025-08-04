@@ -84,10 +84,7 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
     }
 
     case 'navigation_tool': {
-      // Output: { url: string, success: boolean } or similar
-      const navUrl = output.url || 'Unknown URL';
-      const navStatus = output.success !== undefined ? (output.success ? '✓ Success' : '✗ Failed') : 'Complete';
-      return `#### 🧭 Navigation\n\n**URL:** ${navUrl}\n**Status:** ${navStatus}`;
+      return `#### 🧭 Navigation`
     }
 
     case 'find_element_tool': {
@@ -133,20 +130,39 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
       return scrollMd.trim();
     }
 
-    case 'search_tool': {
-      // Output: { matches: [{ text: string, selector: string }], query: string }
-      if (!output.matches || !Array.isArray(output.matches)) {
-        return '```json\n' + JSON.stringify(output, null, 2) + '\n```';
+    case "search_tool": {
+      // Output: what came out of JSON.parse(result).output
+      const data = output;
+
+      if (typeof data === "string") {
+        return data.startsWith("❌") ? data : `${data}`;
       }
-      let searchMd = '#### 🔎 Search Results\n\n';
-      if (output.query) searchMd += `**Query:** "${output.query}"\n\n`;
-      if (output.matches.length === 0) {
-        searchMd += '*No matches found*';
+
+      if ( typeof data !== "object" || data === null || !Array.isArray((data as any).matches) ) {
+        return "```json\n" + JSON.stringify(data, null, 2) + "\n```";
+      }
+
+      const { query, matches } = data as {
+        query?: string;
+        matches: Array<{ text: string; selector?: string }>;
+      };
+
+      let searchMd = "🔎 Search Results\n\n";
+      if (query) {
+        searchMd += `**Query:** "${query}"\n\n`;
+      }
+
+      if (matches.length === 0) {
+        searchMd += "*No matches found*";
       } else {
-        searchMd += `**Found ${output.matches.length} match${output.matches.length > 1 ? 'es' : ''}:**\n\n`;
-        output.matches.forEach((match: any, idx: number) => {
-          searchMd += `${idx + 1}. "${match.text}"\n`;
-          if (match.selector) searchMd += `   Selector: \`${match.selector}\`\n`;
+        searchMd += `**Found ${matches.length} match${
+          matches.length > 1 ? "es" : ""
+        }:**\n\n`;
+        matches.forEach((m, i) => {
+          searchMd += `${i + 1}. "${m.text}"\n`;
+          if (m.selector) {
+            searchMd += `   Selector: \`${m.selector}\`\n`;
+          }
         });
       }
       return searchMd.trim();
@@ -159,20 +175,28 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
     }
 
     case 'group_tabs_tool': {
-      // Output: { groups: [{ name: string, tabs: [...] }] }
-      if (!output.groups || !Array.isArray(output.groups)) {
-        return '```json\n' + JSON.stringify(output, null, 2) + '\n```';
+      const data = output; // output is parsedResult.output
+
+      if (typeof data === 'string') {
+        return data.startsWith('Navigated') ? `🚀 ${data}` : `✅ ${data}`;
       }
+      if (typeof data !== 'object' || data === null || !Array.isArray(data.groups)) {
+        return '```json\n' + JSON.stringify(data, null, 2) + '\n```';
+      }
+      if (data.groups.length === 0) {
+        return '#### 📁 No Tab Groups';
+      }
+
       let groupMd = '#### 📁 Tab Groups\n\n';
-      output.groups.forEach((group: any) => {
+      for (const group of data.groups) {
         groupMd += `**${group.name || 'Unnamed Group'}**\n`;
-        if (group.tabs && Array.isArray(group.tabs)) {
-          group.tabs.forEach((tab: any) => {
+        if (Array.isArray(group.tabs)) {
+          for (const tab of group.tabs) {
             groupMd += `- ${tab.title || 'Untitled'}\n`;
-          });
+          }
         }
         groupMd += '\n';
-      });
+      }
       return groupMd.trim();
     }
 
@@ -195,6 +219,37 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
         return output;
       }
       return '```json\n' + JSON.stringify(output, null, 2) + '\n```';
+    }
+
+    case "get_selected_tabs_tool": {
+      const data = output; 
+
+      if (typeof data === "string") {
+        return data.startsWith("❌") ? data : `${data}`;
+      }
+      if (!Array.isArray(data)) {
+        return "```json\n" + JSON.stringify(data, null, 2) + "\n```";
+      }
+      if (data.length === 0) {
+        return "📑 No Tabs Open";
+      }
+
+      // Build the Markdown table
+      let md = "📑 Selected Tabs\n\n";
+      md += "| ID | Title | URL |\n";
+      md += "| -- | ----- | --- |\n";
+
+      data.forEach((tab: any) => {
+        const title = tab.title?.length > 50
+          ? tab.title.substring(0, 47) + "..."
+          : tab.title || "Untitled";
+        const url = tab.url?.length > 60
+          ? tab.url.substring(0, 57) + "..."
+          : tab.url || "";
+        md += `| ${tab.id} | ${title} | ${url} |\n`;
+      });
+
+      return md.trim();
     }
 
     default:
