@@ -27,8 +27,9 @@ export class RefreshStateTool {
 
       // Get fresh browser state
       const browserState = await browserContext.getBrowserStateString()
+      this.executionContext.messageManager.addBrowserState(browserState)
 
-      return toolSuccess(browserState)
+      return toolSuccess(`BrowserState refreshed and added to state`)
     } catch (error) {
       return toolError(`Failed to refresh browser state: ${error instanceof Error ? error.message : String(error)}`)
     }

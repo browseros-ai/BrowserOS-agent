@@ -297,7 +297,7 @@ export class SubAgent {
 
       // Special handling for specific tools
       if (toolName === 'refresh_browser_state' && parsedResult.ok) {
-        this.messageManager.addSystemReminder(parsedResult.output);
+        this.messageManager.addBrowserState(parsedResult.output);
       }
 
       if (toolName === 'todo_manager' && parsedResult.ok && args.action !== 'list') {
