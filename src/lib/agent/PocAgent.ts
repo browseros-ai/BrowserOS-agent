@@ -44,6 +44,7 @@ import { Abortable, AbortError } from '@/lib/utils/Abortable';
 import { formatToolOutput } from '@/lib/tools/formatToolOutput';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { formatTodoList } from '@/lib/tools/utils/formatTodoList';
+import { Logging } from '@/lib/utils/Logging';
 
 // Constants for execution control
 const MAX_ITERATIONS = 50;  // Maximum iterations before giving up
@@ -139,6 +140,8 @@ export class PocAgent {
   async execute(task: string): Promise<void> {
     let taskCompleted = false;
     try {
+      Logging.log('PocAgent', `Executing task: ${task}`, 'info');
+      
       // 1. SETUP: Initialize system prompt and user task
       this._initializeExecution(task);
       this.eventEmitter.info('Starting task execution...');
@@ -147,6 +150,9 @@ export class PocAgent {
       let stepCount = 0;
       while (stepCount < MAX_ITERATIONS) {
         this.checkIfAborted();  // Check if user cancelled
+        Logging.log('PocAgent', `Executing step ${stepCount} of ${MAX_ITERATIONS}`, 'info');
+        Logging.log('PocAgent', `Token usage: ${this.executionContext.messageManager.getTokenCount()}, remaining: ${this.executionContext.messageManager.remaining()}`, 'info');
+        
 
         let instruction = '';
         if (stepCount === 0) {
