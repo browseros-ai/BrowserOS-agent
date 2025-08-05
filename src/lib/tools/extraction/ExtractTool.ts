@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { toolError } from '@/lib/tools/Tool.interface'
+import { toolError } from '@/lib/tools/tool.interface'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { generateExtractorSystemPrompt, generateExtractorTaskPrompt } from './ExtractTool.prompt'
 import { invokeWithRetry } from '@/lib/utils/retryable'

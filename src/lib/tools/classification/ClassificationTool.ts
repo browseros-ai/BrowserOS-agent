@@ -2,7 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { MessageManagerReadOnly } from '@/lib/runtime/MessageManager'
-import { toolSuccess, toolError } from '@/lib/tools/Tool.interface'
+import { toolSuccess, toolError } from '@/lib/tools/tool.interface'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { 
   buildClassificationSystemPrompt,

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
 import { MessageManagerReadOnly } from '@/lib/runtime/MessageManager';
 import { generateResultSystemPrompt, generateResultTaskPrompt } from './ResultTool.prompt';
-import { toolError } from '@/lib/tools/Tool.interface';
+import { toolError } from '@/lib/tools/tool.interface';
 import { HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
 import { invokeWithRetry } from '@/lib/utils/retryable';
 

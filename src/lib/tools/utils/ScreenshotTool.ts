@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { Logging } from '@/lib/utils/Logging'
-import { toolSuccess, toolError } from '@/lib/tools/Tool.interface'
+import { toolSuccess, toolError } from '@/lib/tools/tool.interface'
 
 // Input schema for the screenshot tool
 const ScreenshotToolInputSchema = z.object({})  // No parameters needed

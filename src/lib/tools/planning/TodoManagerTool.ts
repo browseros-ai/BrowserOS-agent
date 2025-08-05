@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { toolSuccess, toolError } from '@/lib/tools/Tool.interface'
+import { toolSuccess, toolError } from '@/lib/tools/tool.interface'
 
 // Input schema for TODO operations
 const TodoInputSchema = z.object({

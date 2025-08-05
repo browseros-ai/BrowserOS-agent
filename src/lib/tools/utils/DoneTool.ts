@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { toolSuccess } from '@/lib/tools/Tool.interface';
+import { toolSuccess } from '@/lib/tools/tool.interface';
 
 // Input schema - simple optional summary
 const DoneInputSchema = z.object({

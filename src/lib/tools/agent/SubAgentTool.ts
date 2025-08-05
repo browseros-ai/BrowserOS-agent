@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { toolError, toolSuccess } from '@/lib/tools/Tool.interface';
+import { toolError, toolSuccess } from '@/lib/tools/tool.interface';
 import { SubAgent } from './SubAgent';
 
 // Input schema for SubAgentTool
