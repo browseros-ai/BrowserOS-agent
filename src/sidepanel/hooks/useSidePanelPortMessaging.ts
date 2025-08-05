@@ -7,11 +7,17 @@ import { MessageType } from '@/lib/types/messaging'
  * Uses SIDEPANEL_TO_BACKGROUND port name to distinguish from options page messaging.
  */
 export function useSidePanelPortMessaging() {
-  const messagingRef = useRef<PortMessaging>(new PortMessaging())
+  const messagingRef = useRef<PortMessaging | null>(null)
   const [connected, setConnected] = useState<boolean>(false)
+  
+  // Get the global singleton instance
+  if (!messagingRef.current) {
+    messagingRef.current = PortMessaging.getInstance()
+  }
 
   useEffect(() => {
     const messaging = messagingRef.current
+    if (!messaging) return
 
     // Set up connection listener
     const handleConnectionChange = (isConnected: boolean) => {
@@ -41,7 +47,7 @@ export function useSidePanelPortMessaging() {
    * @returns true if message sent successfully
    */
   const sendMessage = <T>(type: MessageType, payload: T, messageId?: string): boolean => {
-    return messagingRef.current.sendMessage(type, payload, messageId)
+    return messagingRef.current?.sendMessage(type, payload, messageId) ?? false
   }
 
   /**
@@ -53,7 +59,7 @@ export function useSidePanelPortMessaging() {
     type: MessageType, 
     callback: (payload: T, messageId?: string) => void
   ): void => {
-    messagingRef.current.addMessageListener(type, callback)
+    messagingRef.current?.addMessageListener(type, callback)
   }
 
   /**
@@ -65,7 +71,7 @@ export function useSidePanelPortMessaging() {
     type: MessageType,
     callback: (payload: T, messageId?: string) => void
   ): void => {
-    messagingRef.current.removeMessageListener(type, callback)
+    messagingRef.current?.removeMessageListener(type, callback)
   }
 
   return {

@@ -27,6 +27,7 @@ export type PortMessage<T = unknown> = z.infer<typeof PortMessageSchema> & { pay
  * Port messaging service for communication between extension components
  */
 export class PortMessaging {
+  private static globalInstance: PortMessaging | null = null;
   private port: chrome.runtime.Port | null = null;
   private listeners: Map<MessageType, Array<(payload: unknown, messageId?: string) => void>> = new Map();
   private connectionListeners: Array<(connected: boolean) => void> = [];
@@ -36,6 +37,18 @@ export class PortMessaging {
   private heartbeatIntervalMs = 5000;  // Send heartbeat every 5 seconds
   private autoReconnect = false;
   private reconnectTimeoutMs = 1000;  // Wait 1 second before reconnecting
+
+  constructor() {}
+
+  /**
+   * Get the global singleton instance
+   */
+  static getInstance(): PortMessaging {
+    if (!PortMessaging.globalInstance) {
+      PortMessaging.globalInstance = new PortMessaging();
+    }
+    return PortMessaging.globalInstance;
+  }
 
   /**
    * Connects to a port with the specified name

@@ -27,7 +27,7 @@
 
 5. **Feature Flag** (in `index.tsx`)
    - Use `?v2` query param to enable v2
-   - Or set `REACT_APP_SIDEPANEL_V2=true` environment variable
+   - Or set `USE_V2=true` environment variable
    - Defaults to v1 for safety
 
 ### Testing V2
