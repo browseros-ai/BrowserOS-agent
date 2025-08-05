@@ -99,12 +99,12 @@ export class BrowserAgent {
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
     'navigation_tool',
-    'find_element',
-    'interact',
+    'find_element_tool',
+    'interact_tool',
     'scroll_tool',
     'search_tool',
-    'refresh_browser_state',
-    'tab_operations',
+    'refresh_browser_state_tool',
+    'tab_operations_tool',
     'screenshot_tool',
     'extract_tool'
   ]);
@@ -355,10 +355,10 @@ export class BrowserAgent {
         this.eventEmitter.info(`Executing - ${todo.content}...`);
         
         const instruction = `Current TODO: "${todo.content}". Complete this TODO. Before marking it as complete, you MUST:
-1. Call refresh_browser_state to get the current page state
+1. Call refresh_browser_state_tool to get the current page state
 2. Verify that the TODO is actually achieved based on the current state
-3. If TODO is done, mark it as complete using todo_manager with action 'complete'
-4. If you discover that a previous TODO was not actually completed, use todo_manager with action 'go_back' to mark that TODO and all subsequent ones as not done
+3. If TODO is done, mark it as complete using todo_manager_tool with action 'complete'
+4. If you discover that a previous TODO was not actually completed, use todo_manager_tool with action 'go_back' to mark that TODO and all subsequent ones as not done
 5. If this TODO is not yet done, continue executing on it`;
         const isTaskCompleted = await this._executeSingleTurn(instruction);
         
@@ -503,13 +503,13 @@ export class BrowserAgent {
       this.messageManager.addTool(result, toolCallId);
 
       // Special handling for refresh_browser_state tool, add the browser state to the message history
-      if (toolName === 'refresh_browser_state' && parsedResult.ok) {
+      if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
         // Add browser state as a system reminder that LLM should not print
         this.messageManager.addSystemReminder(parsedResult.output);
       }
 
       // Special handling for todo_manager tool, add system reminder for mutations
-      if (toolName === 'todo_manager' && parsedResult.ok && args.action !== 'list') {
+      if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action !== 'list') {
         const todoStore = this.executionContext.todoStore;
         this.messageManager.addSystemReminder(
           `TODO list updated. Current state:\n${todoStore.getXml()}`
@@ -626,7 +626,7 @@ export class BrowserAgent {
    * Fetch current TODO list as XML
    */
   private async _fetchTodoXml(): Promise<string> {
-    const todoTool = this.toolManager.get('todo_manager');
+    const todoTool = this.toolManager.get('todo_manager_tool');
     if (!todoTool) {
       return '<todos></todos>';
     }
@@ -650,7 +650,7 @@ export class BrowserAgent {
     }));
     
     // Call todo_manager tool with add_multiple action
-    const todoTool = this.toolManager.get('todo_manager');
+    const todoTool = this.toolManager.get('todo_manager_tool');
     if (todoTool && todos.length > 0) {
       const args = { action: 'add_multiple' as const, todos };
       await todoTool.func(args);

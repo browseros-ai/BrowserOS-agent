@@ -21,7 +21,7 @@ describe('TodoManagerTool', () => {
 
     // Verify tool is created properly
     expect(tool).toBeDefined()
-    expect(tool.name).toBe('todo_manager')
+    expect(tool.name).toBe('todo_manager_tool')
     expect(tool.description).toContain('Manage TODO list for complex tasks')
     expect(typeof tool.func).toBe('function')
   })

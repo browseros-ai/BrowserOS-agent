@@ -152,8 +152,7 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
       return searchMd.trim();
     }
 
-    case 'refresh_browser_state':
-    case 'refresh_state_tool': {
+    case 'refresh_browser_state_tool': {
       // Output: Browser state snapshot (potentially large)
       return '#### 🔄 Browser State Refreshed\n\nCurrent page state has been captured and updated.';
     }
@@ -189,7 +188,7 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
       return doneMd;
     }
 
-    case 'todo_manager': {
+    case 'todo_manager_tool': {
       // Output: string (success message) or XML for list action
       if (typeof output === 'string') {
         return output;

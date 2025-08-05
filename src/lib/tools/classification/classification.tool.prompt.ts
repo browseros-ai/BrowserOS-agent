@@ -8,11 +8,11 @@ Available tools:
 ${toolDescriptions}
 
 Simple tasks are those that can be completed with a single tool call, such as:
-- "List tabs" (tab_operations tool)
+- "List tabs" (tab_operations_tool)
 - "Go to google.com" (navigation_tool)
 - "Refresh the page" (navigation_tool)
-- "Create a new tab" (tab_operations tool)
-- "Switch to tab 123" (tab_operations tool)
+- "Create a new tab" (tab_operations_tool)
+- "Switch to tab 123" (tab_operations_tool)
 
 Complex tasks require multiple steps or planning, such as:
 - "Find all YouTube tabs and close them"
