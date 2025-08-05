@@ -41,7 +41,7 @@ export function createRefreshStateTool(executionContext: ExecutionContext): Dyna
   const refreshStateTool = new RefreshStateTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "refresh_browser_state",
+    name: "refresh_browser_state_tool",
     description: refreshStateToolDescription,
     schema: RefreshStateInputSchema,
     func: async (args): Promise<string> => {

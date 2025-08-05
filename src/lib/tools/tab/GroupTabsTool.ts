@@ -67,7 +67,7 @@ export function createGroupTabsTool(executionContext: ExecutionContext): Dynamic
   const groupTabsTool = new GroupTabsTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "group_tabs",
+    name: "group_tabs_tool",
     description: "Group browser tabs together. Pass tabIds array and optionally groupName and color (grey, blue, red, yellow, green, pink, purple, cyan, orange).",
     schema: GroupTabsInputSchema,
     func: async (args): Promise<string> => {

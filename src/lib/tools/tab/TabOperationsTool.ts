@@ -150,7 +150,7 @@ export function createTabOperationsTool(executionContext: ExecutionContext): Dyn
   const tabOperationsTool = new TabOperationsTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "tab_operations",
+    name: "tab_operations_tool",
     description: "Manage browser tabs: list tabs in current window (list), list all tabs (list_all), create new tab (new), switch to tab (switch), or close tabs (close). Use tabIds array for switch/close operations.",
     schema: TabOperationInputSchema,
     func: async (args): Promise<string> => {
