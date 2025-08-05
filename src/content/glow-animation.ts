@@ -29,24 +29,24 @@
       @keyframes nxtscape-glow-pulse {
         0% {
           box-shadow: 
-            inset 0 0 120px 60px transparent,
-            inset 0 0 100px 50px rgba(251, 102, 24, 0.1),
-            inset 0 0 80px 40px rgba(251, 102, 24, 0.2),
-            inset 0 0 60px 30px rgba(251, 102, 24, 0.3);
+            inset 0 0 77px 38px transparent,
+            inset 0 0 64px 32px rgba(251, 102, 24, 0.05),
+            inset 0 0 51px 26px rgba(251, 102, 24, 0.1),
+            inset 0 0 38px 19px rgba(251, 102, 24, 0.15);
         }
         50% {
           box-shadow: 
-            inset 0 0 150px 80px transparent,
-            inset 0 0 130px 70px rgba(251, 102, 24, 0.15),
-            inset 0 0 110px 60px rgba(251, 102, 24, 0.3),
-            inset 0 0 90px 50px rgba(251, 102, 24, 0.4);
+            inset 0 0 96px 51px transparent,
+            inset 0 0 83px 45px rgba(251, 102, 24, 0.08),
+            inset 0 0 70px 38px rgba(251, 102, 24, 0.15),
+            inset 0 0 58px 32px rgba(251, 102, 24, 0.2);
         }
         100% {
           box-shadow: 
-            inset 0 0 120px 60px transparent,
-            inset 0 0 100px 50px rgba(251, 102, 24, 0.1),
-            inset 0 0 80px 40px rgba(251, 102, 24, 0.2),
-            inset 0 0 60px 30px rgba(251, 102, 24, 0.3);
+            inset 0 0 77px 38px transparent,
+            inset 0 0 64px 32px rgba(251, 102, 24, 0.05),
+            inset 0 0 51px 26px rgba(251, 102, 24, 0.1),
+            inset 0 0 38px 19px rgba(251, 102, 24, 0.15);
         }
       }
       

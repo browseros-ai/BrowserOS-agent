@@ -64,9 +64,6 @@ export const BrowserStateSchema = z.object({
   
   // Hierarchical structure from BrowserOS API
   hierarchicalStructure: z.string().nullable().optional(),  // Hierarchical text representation with context
-  
-  // Screenshot support (base64 encoded)
-  screenshot: z.string().nullable().optional()  // Base64 encoded screenshot data
 })
 
 export type BrowserState = z.infer<typeof BrowserStateSchema>
@@ -494,8 +491,7 @@ ${elementsText}
         typeableElements: [],
         clickableElementsString: '',
         typeableElementsString: '',
-        hierarchicalStructure: null,
-        screenshot: null
+        hierarchicalStructure: null
       };
       
       return minimalState;
