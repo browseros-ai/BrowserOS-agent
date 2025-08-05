@@ -54,12 +54,12 @@ export class PocAgent {
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
     'navigation_tool',
-    'find_element',
-    'interact',
+    'find_element_tool',
+    'interact_tool',
     'scroll_tool',
     'search_tool',
-    'refresh_browser_state',
-    'tab_operations',
+    'refresh_browser_state_tool',
+    'tab_operations_tool',
     'screenshot_tool',
     'extract_tool'
   ]);
@@ -245,14 +245,22 @@ export class PocAgent {
   }
 
   private async _maybeAddSystemReminders(stepCount: number): Promise<void> {
+    const suffixMessage = `\n\nThese are ONLY for your reference. NEVER echo them in your responses.`;
+
     if (stepCount % 5 === 0 && stepCount > 0) {
       this.messageManager.addSystemReminder(
-        `REMINDER: Use validator_tool check the progress of the task and re-plan using planner_tool.`
+        `REMINDER: Use validator_tool check the progress of the task and re-plan using planner_tool.${suffixMessage}`
       );
     }
+    if (this._getRandom(0.2)) {
+      this.messageManager.addSystemReminder(
+        `REMINDER: You can use screenshot_tool for visual reference of the page if you need more clarity.${suffixMessage}`
+      );
+    }
+    
     if (this._getRandom(0.3)) {
       this.messageManager.addSystemReminder(
-        `REMINDER: You can use screenshot_tool for visual reference of the page if you need more clarity."`
+        `REMINDER: Ensure you are updating your todo_manager_tool frequently to track your progress and updating them as you complete steps.${suffixMessage}`
       );
     }
   }
@@ -388,12 +396,12 @@ export class PocAgent {
       this.messageManager.addTool(result, toolCallId);
 
       // Special handling for refresh_browser_state tool
-      if (toolName === 'refresh_browser_state' && parsedResult.ok) {
+      if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
         this.messageManager.addSystemReminder(`Browser State has been refreshed`);
       }
 
       // Special handling for todo_manager tool
-      if (toolName === 'todo_manager' && parsedResult.ok && args.action !== 'list') {
+      if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action !== 'list') {
         this.messageManager.addSystemReminder(
           `TODO list updated. Current state:\n${this.todoStore.getXml()}`
         );
