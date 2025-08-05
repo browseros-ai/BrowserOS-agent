@@ -156,8 +156,8 @@ export class PocAgent {
         // Execute one turn with the LLM
         const { wasDoneCalled: wasDoneToolCalled, wasValidatorCalled: wasValidatorToolCalled } = await this._executeSingleTurn(instruction);
 
-        // if we called done_tool and did not call validator_tool, we need to validate the task
-        if (!wasValidatorToolCalled && wasDoneToolCalled) {
+        // if we called done_tool and did not call validator_tool, we need to validate the task manually
+        if (wasDoneToolCalled && !wasValidatorToolCalled) {
           const { isComplete, reasoning, suggestions } = await this._validateTaskCompletion(task);
           if (isComplete) {
             taskCompleted = true;
@@ -170,21 +170,29 @@ export class PocAgent {
               this.messageManager.addAI(validationMessage);
               taskCompleted = false;
             }
+            else {
+              this.messageManager.addAI(`Validation failed. Re-plan and execute.`);
+            }
           }
         }
-
-        if (taskCompleted) {
-          // 3. COMPLETE: Generate final result and exit
-          await this._generateTaskResult(task);
-          return;
-        }
+        
+        // maybe add system reminders
+        await this._maybeAddSystemReminders(stepCount);
         
         // increment step count
         stepCount++;
       }
       
+      // if task is completed, generate the result and exit
+      if (taskCompleted) {
+        // 3. COMPLETE: Generate final result and exit
+        await this._generateTaskResult(task);
+        return;
+      }
       
-      if (stepCount >= MAX_ITERATIONS && ) {
+      
+      // if task is not completed, throw an error
+      if (stepCount >= MAX_ITERATIONS) {
         throw new Error(`Task failed to complete within ${MAX_ITERATIONS} iterations`);
       }
       else {
@@ -217,6 +225,7 @@ export class PocAgent {
     }
   }
 
+
   private _initializeExecution(task: string): void {
     // Clear previous system prompts
     this.messageManager.removeSystemMessages();
@@ -227,6 +236,23 @@ export class PocAgent {
     const systemPrompt = generateSystemPrompt(this.toolManager.getDescriptions());
     this.messageManager.addSystem(systemPrompt);
     this.messageManager.addHuman(`Complete this task: "${task}"`);
+  }
+
+  private async _maybeAddSystemReminders(stepCount: number): Promise<void> {
+    if (stepCount % 5 === 0 && stepCount > 0) {
+      this.messageManager.addSystemReminder(
+        `REMINDER: Use validator_tool check the progress of the task and re-plan using planner_tool.`
+      );
+    }
+    if (this._getRandom(0.3)) {
+      this.messageManager.addSystemReminder(
+        `REMINDER: You can use screenshot_tool for visual reference of the page if you need more clarity."`
+      );
+    }
+  }
+
+  private _getRandom(probability: number): boolean {
+    return Math.random() < probability;
   }
 
 

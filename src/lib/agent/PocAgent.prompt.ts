@@ -13,7 +13,7 @@ Follow this adaptive approach based on task complexity:
 **For Simple Tasks**: Execute directly using appropriate tools, then call done_tool
 
 **For Complex Tasks**: 
-1. Use planner_tool to break down the task (3-5 steps per plan)
+1. Use planner_tool to break down the task (5-7 steps per plan)
 2. Execute the plan using appropriate tools
 3. Use validator_tool periodically to check progress
 4. Re-plan if needed based on validation feedback
