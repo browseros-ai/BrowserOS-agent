@@ -457,11 +457,6 @@ ${elementsText}
       // Get hierarchical structure
       const hierarchicalStructure = await currentPage.getHierarchicalStructure();
       
-      // Get screenshot if vision is enabled
-      let screenshot: string | null = null;
-      if (this._config.useVision) {
-        screenshot = await currentPage.takeScreenshot();
-      }
       
       // Build structured state
       const state: BrowserState = {
@@ -483,9 +478,6 @@ ${elementsText}
         
         // Hierarchical structure
         hierarchicalStructure,
-        
-        // Screenshot (if vision enabled)
-        screenshot
       };
       
       return state;
