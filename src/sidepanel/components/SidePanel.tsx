@@ -115,21 +115,29 @@ const TabsIcon = () => (
 // Example prompts to show users what they can do
 const EXAMPLE_PROMPTS = [
   // Tab Management & Cleanup
-  "List all my tabs",
-  "Close all my YouTube tabs",
-  "Organize my tabs by topic",
+  "Group my tabs by app or purpose",
+  "Find tabs related to machine learning",
+  "Close tabs I haven't touched in 7 days",
+  "Highlight the tab where I was last shopping",
+  "Save all tabs from Facebook into a reading list",
 
   // Content Analysis & Understanding
-  "Summarize this article for me",
-  "What are the key points on this page?",
+  "Summarize the chapter of this book for me",
+  "What are the key points of this report?",
+  "Check if this article is AI-generated",
+  "Extract all links and sources from this page",
+  "Identify bias in this publication",
 ];
 
 // Browser task examples for agent mode
 const BROWSER_TASK_EXAMPLES = [
-  'Open amazon.com and order sensodyne toothpaste',
+  "Open amazon.com and order sensodyne toothpaste",
   "Write a tweet saying Hello World",
-  'Find top rated headphones under 100$',
-  'Extract all news headlines from this page',
+  "Find top rated headphones under 100$",
+  "Extract all news headlines from this site",
+  "Find the cheapest flight to San Francisco",
+  "Search YouTube for videos explaining BrowserOS",
+  "Compare return policies of Walmart and Best Buy",
 ];
 
 // Combine all examples - prioritizing agent tasks first
@@ -140,11 +148,35 @@ const ALL_EXAMPLES = [
   ...EXAMPLE_PROMPTS
 ];
 
-// Function to get 3 random examples
-const getRandomExamples = (): string[] => {
-  const shuffled = [...ALL_EXAMPLES].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, 3);
+// Initialize a single shuffled list once
+const SHUFFLED_EXAMPLES = [...ALL_EXAMPLES].sort(() => 0.5 - Math.random());
+
+// Function to get examples from the fixed shuffled list
+const getRandomExample = (count: number = 1): string[] => {
+  // Ensure count is valid
+  if (count < 1) return [];
+  if (count > ALL_EXAMPLES.length) count = ALL_EXAMPLES.length;
+
+  // Use a static index to track the next starting point
+  if (!(getRandomExample as any).index) {
+    (getRandomExample as any).index = 0;
+  }
+
+  const result: string[] = [];
+  let index = (getRandomExample as any).index;
+
+  // Collect 'count' number of examples starting from the current index
+  while (result.length < count) {
+    result.push(SHUFFLED_EXAMPLES[index % SHUFFLED_EXAMPLES.length]);
+    index++;
+  }
+
+  // Update the index for the next call
+  (getRandomExample as any).index = index % SHUFFLED_EXAMPLES.length;
+
+  return result;
 };
+
 
 // Zod schemas for type safety
 const SidePanelStateSchema = z.object({
@@ -195,7 +227,7 @@ export function SidePanel({
     isProcessing,
     isConnected,
     currentQuery: undefined,
-    examples: getRandomExamples(),
+    examples: getRandomExample(3),
     showHelp: false,
     showTabSelector: false,
     selectedTabs: [],
@@ -209,8 +241,11 @@ export function SidePanel({
   ));
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const messageAreaRef = useRef<HTMLDivElement>(null);  // Add ref for message area
-  const [isUserScrolling, setIsUserScrolling] = useState(false);  // Track if user is manually scrolling
+  const messageAreaRef = useRef<HTMLDivElement>(null);                                        // Add ref for message area
+  const [isUserScrolling, setIsUserScrolling] = useState(false);                              // Track if user is manually scrolling
+
+  const [activeCardState, setActiveCardState] = useState<'idle' | 'exit' | 'enter'>('idle');  // for dynamic examplesGrid
+  const [visibleExamples, setVisibleExamples] = useState<string[]>(getRandomExample(3));      // visible examples for examplesGrid
 
   // Debug state for LLM settings (dev mode only)
   const [llmSettings, setLlmSettings] = useState<LLMSettings | null>(null);
@@ -474,6 +509,37 @@ export function SidePanel({
     }
   }, [messages.length]);
 
+  // Dynamic examplesGrid
+  useEffect(() => {
+    let enterTimeout: NodeJS.Timeout;
+    let resetTimeout: NodeJS.Timeout;
+
+    const interval = setInterval(() => {
+      // Animate bottom card out
+      setActiveCardState('exit');
+
+      // After exit completes, inject new example at top
+      enterTimeout = setTimeout(() => {
+        const newExample = getRandomExample(1)[0];
+        setVisibleExamples((prev) => [newExample, ...prev.slice(0, 2)]);
+        setActiveCardState('enter');
+      }, 800);
+
+      // Reset animation state after full cycle
+      resetTimeout = setTimeout(() => {
+        setActiveCardState('idle');
+      }, 1600);
+
+      return () => {
+        if(enterTimeout) clearTimeout(enterTimeout);
+        if(resetTimeout) clearTimeout(resetTimeout);
+      };
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -615,7 +681,7 @@ export function SidePanel({
       input: "",
       isProcessing: false,
       currentQuery: undefined,
-      examples: getRandomExamples(), // Get new random examples
+      examples: getRandomExample(3), // Get new random examples
       showHelp: false, // Close help if open
       showTabSelector: false,
     }));
@@ -840,10 +906,14 @@ export function SidePanel({
               What can I help you with?
             </h2>
             <div className={styles.examplesGrid}>
-              {state.examples.map((example, index) => (
+              {visibleExamples.map((example, index) => (
                 <button
                   key={index}
-                  className={styles.exampleCard}
+                  className={cn(
+                    styles.exampleCard,
+                    index === 2 && activeCardState === 'exit' ? styles.exampleCardExit : '',
+                    index === 0 && activeCardState === 'enter' ? styles.exampleCardEnter : ''
+                  )}
                   onClick={() => handleExampleClick(example)}
                   disabled={!isConnected}
                 >
