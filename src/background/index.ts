@@ -450,8 +450,9 @@ async function handleExecuteQueryPort(
     // Enhanced debug logging
     debugLog(`🎯 [Background] Received query execution from ${payload.source || 'unknown'}`)
     
-    captureEvent('query_executed', {
-      source: payload.source || 'unknown'
+    captureEvent('query_initiated', {
+      query: payload.query,
+      source: payload.source || 'unknown',
     })
     
     // Initialize NxtScape if not already done
