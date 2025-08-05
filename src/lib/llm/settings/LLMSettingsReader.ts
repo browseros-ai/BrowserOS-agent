@@ -61,7 +61,12 @@ const MOCK_PREFERENCES: Record<string, string | undefined> = {
   'nxtscape.gemini_base_url': undefined,
   'nxtscape.ollama_base_url': 'http://localhost:11434',
   'nxtscape.ollama_model': 'qwen3:4b',
-  'nxtscape.ollama_api_key': undefined  // Optional
+  'nxtscape.ollama_api_key': undefined,  // Optional
+  'nxtscape.lmstudio_model': 'lmstudio-default-model',
+  'nxtscape.lmstudio_base_url': undefined,
+  'nxtscape.openrouter_model': 'openrouter/horizon-beta',
+  'nxtscape.openrouter_api_key': 'TBD',
+  'nxtscape.openrouter_base_url': undefined,
 }
 
 /**
@@ -117,6 +122,15 @@ export class LLMSettingsReader {
           apiKey: preferences[PREFERENCE_KEYS.OLLAMA_API_KEY],
           baseUrl: preferences[PREFERENCE_KEYS.OLLAMA_BASE_URL],
           model: preferences[PREFERENCE_KEYS.OLLAMA_MODEL]
+        },
+        lmstudio: {
+          model: preferences[PREFERENCE_KEYS.LMSTUDIO_MODEL],
+          baseUrl: preferences[PREFERENCE_KEYS.LMSTUDIO_BASE_URL],
+        },
+        openrouter: {
+          apiKey: preferences[PREFERENCE_KEYS.OPENROUTER_API_KEY],
+          model: preferences[PREFERENCE_KEYS.OPENROUTER_MODEL],
+          baseUrl: preferences[PREFERENCE_KEYS.OPENROUTER_BASE_URL],
         }
       }
       
@@ -137,7 +151,9 @@ export class LLMSettingsReader {
         openai: {},
         anthropic: {},
         gemini: {},
-        ollama: {}
+        ollama: {},
+        lmstudio: {},
+        openrouter: {}
       }
     }
   }
@@ -190,7 +206,7 @@ export class LLMSettingsReader {
    * @returns Valid provider type or default
    */
   private static getProviderType(value: string | undefined): ProviderType {
-    const validProviders: ProviderType[] = ['nxtscape', 'openai', 'anthropic', 'gemini', 'ollama']
+    const validProviders: ProviderType[] = ['nxtscape', 'openai', 'anthropic', 'gemini', 'ollama', 'lmstudio', 'openrouter']
     
     if (value && validProviders.includes(value as ProviderType)) {
       return value as ProviderType

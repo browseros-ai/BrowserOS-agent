@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * Provider type enum
  */
-export const ProviderTypeSchema = z.enum(['nxtscape', 'openai', 'anthropic', 'gemini', 'ollama'])
+export const ProviderTypeSchema = z.enum(['nxtscape', 'openai', 'anthropic', 'gemini', 'ollama', 'lmstudio', 'openrouter'])
 export type ProviderType = z.infer<typeof ProviderTypeSchema>
 
 /**
@@ -18,7 +18,7 @@ export const NxtscapeSettingsSchema = z.object({
  */
 export const OpenAISettingsSchema = z.object({
   apiKey: z.string().optional(),  // User's OpenAI API key
-  model: z.string().optional(),  // Model selection
+  model: z.string().optional(),   // Model selection
   baseUrl: z.string().optional()  // Custom base URL override
 })
 
@@ -27,7 +27,7 @@ export const OpenAISettingsSchema = z.object({
  */
 export const AnthropicSettingsSchema = z.object({
   apiKey: z.string().optional(),  // User's Anthropic API key
-  model: z.string().optional(),  // Model selection
+  model: z.string().optional(),   // Model selection
   baseUrl: z.string().optional()  // Custom base URL override
 })
 
@@ -36,7 +36,7 @@ export const AnthropicSettingsSchema = z.object({
  */
 export const GeminiSettingsSchema = z.object({
   apiKey: z.string().optional(),  // User's Google AI API key
-  model: z.string().optional(),  // Model selection
+  model: z.string().optional(),   // Model selection
   baseUrl: z.string().optional()  // Custom base URL override
 })
 
@@ -45,8 +45,25 @@ export const GeminiSettingsSchema = z.object({
  */
 export const OllamaSettingsSchema = z.object({
   apiKey: z.string().optional(),  // Optional API key for secured instances
-  baseUrl: z.string().optional(),  // Ollama server URL
-  model: z.string().optional()  // Model selection
+  baseUrl: z.string().optional(), // Ollama server URL
+  model: z.string().optional()    // Model selection
+})
+
+/**
+ * LMStudio provider settings schema
+ */
+export const LMStudioSettingsSchema = z.object({
+  baseUrl: z.string().optional(),  // LMStudio local server URL
+  model: z.string().optional()     // Local model name to use
+})
+
+/**
+ * OpenRouter provider settings schema
+ */
+export const OpenRouterSettingsSchema = z.object({
+  apiKey: z.string().optional(),   // OpenRouter API key 
+  baseUrl: z.string().optional(),  // OpenRouter API endpoint
+  model: z.string().optional()     // Model selection
 })
 
 /**
@@ -54,11 +71,13 @@ export const OllamaSettingsSchema = z.object({
  */
 export const LLMSettingsSchema = z.object({
   defaultProvider: ProviderTypeSchema,  // Selected provider
-  nxtscape: NxtscapeSettingsSchema,  // Nxtscape provider settings
-  openai: OpenAISettingsSchema,  // OpenAI provider settings
-  anthropic: AnthropicSettingsSchema,  // Anthropic provider settings
-  gemini: GeminiSettingsSchema,  // Gemini provider settings
-  ollama: OllamaSettingsSchema  // Ollama provider settings
+  nxtscape: NxtscapeSettingsSchema,     // Nxtscape provider settings
+  openai: OpenAISettingsSchema,         // OpenAI provider settings
+  anthropic: AnthropicSettingsSchema,   // Anthropic provider settings
+  gemini: GeminiSettingsSchema,         // Gemini provider settings
+  ollama: OllamaSettingsSchema,         // Ollama provider settings
+  lmstudio: LMStudioSettingsSchema,     // LMStudio provider settings
+  openrouter: OpenRouterSettingsSchema  // OpenRouter provider settings
 })
 
 export type LLMSettings = z.infer<typeof LLMSettingsSchema>
@@ -68,11 +87,11 @@ export type LLMSettings = z.infer<typeof LLMSettingsSchema>
  */
 export const ResolvedProviderConfigSchema = z.object({
   provider: z.enum(['openai', 'anthropic', 'gemini', 'ollama']),  // Actual LangChain provider
-  model: z.string(),  // Model to use
-  apiKey: z.string().optional(),  // API key if needed
-  baseUrl: z.string().url().optional(),  // Base URL for API calls
-  useProxy: z.boolean(),  // Whether to use Nxtscape proxy
-  temperature: z.number().min(0).max(2).optional()  // Temperature setting
+  model: z.string(),                                              // Model to use
+  apiKey: z.string().optional(),                                  // API key if needed
+  baseUrl: z.string().url().optional(),                           // Base URL for API calls
+  useProxy: z.boolean(),                                          // Whether to use Nxtscape proxy
+  temperature: z.number().min(0).max(2).optional()                // Temperature setting
 })
 
 export type ResolvedProviderConfig = z.infer<typeof ResolvedProviderConfigSchema>
@@ -94,5 +113,10 @@ export const PREFERENCE_KEYS = {
   GEMINI_BASE_URL: 'nxtscape.gemini_base_url',
   OLLAMA_API_KEY: 'nxtscape.ollama_api_key',
   OLLAMA_BASE_URL: 'nxtscape.ollama_base_url',
-  OLLAMA_MODEL: 'nxtscape.ollama_model'
+  OLLAMA_MODEL: 'nxtscape.ollama_model',
+  LMSTUDIO_BASE_URL: 'nxtscape.lmstudio_base_url',
+  LMSTUDIO_MODEL: 'nxtscape.lmstudio_model',
+  OPENROUTER_API_KEY: 'nxtscape.openrouter_api_key',
+  OPENROUTER_BASE_URL: 'nxtscape.openrouter_base_url',
+  OPENROUTER_MODEL: 'nxtscape.openrouter_model'
 } as const 
