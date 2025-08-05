@@ -396,9 +396,8 @@ export class PocAgent {
       this.messageManager.addTool(result, toolCallId);
 
       // Special handling for refresh_browser_state tool
-      if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
-        this.messageManager.addSystemReminder(`Browser State has been refreshed`);
-      }
+      // if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
+      // }
 
       // Special handling for todo_manager tool
       if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action !== 'list') {

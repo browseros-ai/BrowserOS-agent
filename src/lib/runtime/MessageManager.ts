@@ -24,7 +24,7 @@ const TOKENS_PER_MESSAGE = 3;
 // The langchain messages have messageType which can be set set to a custom value.
 export class BrowserStateMessage extends AIMessage {
   constructor(content: string) {
-    super(content);
+    super(`<system-reminder>${content}</system-reminder>`);
     this.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
   }
 }
