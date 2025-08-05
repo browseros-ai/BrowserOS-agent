@@ -19,6 +19,36 @@ Follow this adaptive approach based on task complexity:
 4. Re-plan if needed based on validation feedback
 5. Call done_tool when complete
 
+## CANONICAL EXECUTION SEQUENCE
+Run **every task following this exact pattern**:
+
+### 1. PLAN
+- Understand the task requirements
+- Use planner_tool for complex tasks (3-5 actionable steps)
+- Ensure each step is specific and measurable
+
+### 2. EXECUTE  
+- Execute each step using appropriate tools
+- Never skip steps or assume success
+- Capture all outputs and results
+
+### 3. VALIDATE ✓
+- **CRITICAL**: Use validator_tool to verify task completion
+- Check that ALL requirements are met
+- Verify actual state matches expected state
+- Never assume - always verify with concrete observations
+
+### 4. ITERATE OR COMPLETE
+- **If validation PASSES**: Call done_tool with success
+- **If validation FAILS**: 
+  - DO NOT call done_tool
+  - Re-plan with updated understanding
+  - Execute new plan
+  - Return to VALIDATE step
+  - Repeat until validation passes
+
+**IMPORTANT**: NEVER call done_tool without successful validation. The validate step is NOT optional - it prevents incomplete or failed executions from being marked as complete.
+
 ## Task Management
 You have access to todo_manager_tool to help manage and plan tasks. Use this tool VERY frequently to ensure you are tracking your tasks and giving the user visibility into your progress.
 
@@ -54,7 +84,11 @@ You have access to todo_manager_tool to help manage and plan tasks. Use this too
 ## Available Tools
 ${toolDescriptions}
 
-Remember: Let the tools do the work. Focus on orchestration, not explanation.
+REMEMBER: 
+- Let the tools do the work. Focus on orchestration, not explanation.
+- Always use the todo_manager_tool to track your progress.
+- Always use the validator_tool to check if the task is complete.
+- If you are not sure what to do, use the screenshot_tool to take a screenshot of the current page.
 `;
 }
 

@@ -48,7 +48,7 @@ import { formatTodoList } from '@/lib/tools/utils/formatTodoList';
 // Constants for execution control
 const MAX_ITERATIONS = 50;  // Maximum iterations before giving up
 
-export class PocAgent { 
+export class PocAgent {
 
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
@@ -75,12 +75,12 @@ export class PocAgent {
   }
 
   // Getters to access context components
-  private get messageManager(): MessageManager { 
-    return this.executionContext.messageManager; 
+  private get messageManager(): MessageManager {
+    return this.executionContext.messageManager;
   }
-  
-  private get eventEmitter(): EventProcessor { 
-    return this.executionContext.getEventProcessor(); 
+
+  private get eventEmitter(): EventProcessor {
+    return this.executionContext.getEventProcessor();
   }
 
   private get todoStore() {
@@ -102,7 +102,7 @@ export class PocAgent {
     this.toolManager.register(createPlannerTool(this.executionContext));
     this.toolManager.register(createTodoManagerTool(this.executionContext));
     this.toolManager.register(createDoneTool());
-    
+
     // Navigation tools
     this.toolManager.register(createNavigationTool(this.executionContext));
     this.toolManager.register(createFindElementTool(this.executionContext));
@@ -110,25 +110,25 @@ export class PocAgent {
     this.toolManager.register(createScrollTool(this.executionContext));
     this.toolManager.register(createSearchTool(this.executionContext));
     this.toolManager.register(createRefreshStateTool(this.executionContext));
-    
+
     // Tab tools
     this.toolManager.register(createTabOperationsTool(this.executionContext));
     this.toolManager.register(createGroupTabsTool(this.executionContext));
     this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
-    
+
     // Validation tool
     this.toolManager.register(createValidatorTool(this.executionContext));
 
     // util tools
     this.toolManager.register(createScreenshotTool(this.executionContext));
     this.toolManager.register(createExtractTool(this.executionContext));
-    
+
     // Result tool
     this.toolManager.register(createResultTool(this.executionContext));
-    
+
     // SubAgent tool for delegating complex tasks
     // this.toolManager.register(createSubAgentTool(this.executionContext));
-    
+
     // No need for classification tool in simplified version
   }
 
@@ -137,45 +137,71 @@ export class PocAgent {
    * Main entry point - simplified execution loop
    */
   async execute(task: string): Promise<void> {
+    let taskCompleted = false;
     try {
       // 1. SETUP: Initialize system prompt and user task
       this._initializeExecution(task);
       this.eventEmitter.info('Starting task execution...');
 
       // 2. EXECUTE: Simple loop until done or max iterations
-      for (let iteration = 0; iteration <= MAX_ITERATIONS; iteration++) {
+      let stepCount = 0;
+      while (stepCount < MAX_ITERATIONS) {
         this.checkIfAborted();  // Check if user cancelled
-        
-        
+
         let instruction = '';
-        if (iteration === 0) {
+        if (stepCount === 0) {
           instruction = `Analyze the task and begin execution. For complex tasks, use planner_tool to create a plan. For simple tasks, execute directly. Call done_tool when the task is complete.`;
         }
-        
+
         // Execute one turn with the LLM
-        const isDone = await this._executeSingleTurn(instruction);
-        
-        if (isDone) {
+        const { wasDoneCalled: wasDoneToolCalled, wasValidatorCalled: wasValidatorToolCalled } = await this._executeSingleTurn(instruction);
+
+        // if we called done_tool and did not call validator_tool, we need to validate the task
+        if (!wasValidatorToolCalled && wasDoneToolCalled) {
+          const { isComplete, reasoning, suggestions } = await this._validateTaskCompletion(task);
+          if (isComplete) {
+            taskCompleted = true;
+            break;
+          }
+
+          if (!isComplete) {
+            if (suggestions.length > 0) {
+              const validationMessage = `Validation result: ${reasoning}\nSuggestions: ${suggestions.join(', ')}`;
+              this.messageManager.addAI(validationMessage);
+              taskCompleted = false;
+            }
+          }
+        }
+
+        if (taskCompleted) {
           // 3. COMPLETE: Generate final result and exit
           await this._generateTaskResult(task);
           return;
         }
+        
+        // increment step count
+        stepCount++;
       }
       
-      // If we get here, task didn't complete within max iterations
-      throw new Error(`Task did not complete within ${MAX_ITERATIONS} iterations`);
+      
+      if (stepCount >= MAX_ITERATIONS && ) {
+        throw new Error(`Task failed to complete within ${MAX_ITERATIONS} iterations`);
+      }
+      else {
+        throw new Error(`Task couldn't be completed 😢`);
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       // Check if this is a user cancellation
-      const isUserCancellation = error instanceof AbortError || 
-                                 this.executionContext.isUserCancellation() || 
-                                 (error instanceof Error && error.name === "AbortError");
-      
+      const isUserCancellation = error instanceof AbortError ||
+        this.executionContext.isUserCancellation() ||
+        (error instanceof Error && error.name === "AbortError");
+
       if (!isUserCancellation) {
         this.eventEmitter.error(`Oops! Got a fatal error when executing task: ${errorMessage}`, true);  // Mark as fatal error
       }
-      
+
       throw error;
     } finally {
       // Ensure glow animation is stopped at the end of execution
@@ -210,32 +236,38 @@ export class PocAgent {
   // ===================================================================
   /**
    * Executes a single "turn" with the LLM, including streaming and tool processing.
-   * @returns {Promise<boolean>} - True if the `done_tool` was successfully called.
+   * @returns {Promise<{wasDoneCalled: boolean, wasValidatorCalled: boolean}>} - True if the `done_tool` was successfully called.
    */
   @Abortable
-  private async _executeSingleTurn(instruction?: string): Promise<boolean> {
+  private async _executeSingleTurn(instruction?: string): Promise<{ wasDoneCalled: boolean, wasValidatorCalled: boolean }> {
     if (instruction && instruction.length > 0) {
       this.messageManager.addHuman(instruction);
     }
-    
+
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
 
-    let wasDoneToolCalled = false;
+    let wasDoneCalled = false;
+    let wasValidatorCalled = false;
+
     if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
       // IMPORTANT: We must add the full AIMessage object (not just a string) to maintain proper conversation history.
       // The AIMessage contains both content and tool_calls. LLMs like Google's API validate that function calls
       // in the conversation history match with their corresponding ToolMessage responses. If we only add a string
       // here, we lose the tool_calls information, causing "function calls don't match" errors.
       this.messageManager.add(llmResponse);
-      wasDoneToolCalled = await this._processToolCalls(llmResponse.tool_calls);
-      
+
+      const { wasDoneCalled: wasDoneCalled_inner, wasValidatorCalled: wasValidatorCalled_inner } = await this._processToolCalls(llmResponse.tool_calls);
+
+      wasDoneCalled = wasDoneCalled_inner;
+      wasValidatorCalled = wasValidatorCalled_inner;
+
     } else if (llmResponse.content) {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
     }
 
-    return wasDoneToolCalled;
+    return { wasDoneCalled, wasValidatorCalled };
   }
 
   @Abortable  // Checks at method start
@@ -251,7 +283,7 @@ export class PocAgent {
     const stream = await llmWithTools.stream(message_history, {
       signal: this.executionContext.abortController.signal
     });
-    
+
     let accumulatedChunk: AIMessageChunk | undefined;
     let accumulatedText = '';
     let hasStartedThinking = false;
@@ -265,20 +297,20 @@ export class PocAgent {
           this.eventEmitter.startThinking();
           hasStartedThinking = true;
         }
-        
+
         this.eventEmitter.streamThoughtDuringThinking(chunk.content);
         accumulatedText += chunk.content;
       }
       accumulatedChunk = !accumulatedChunk ? chunk : accumulatedChunk.concat(chunk);
     }
-    
+
     // Only finish thinking if we started and have content
     if (hasStartedThinking && accumulatedText.trim()) {
       this.eventEmitter.finishThinking(accumulatedText);
     }
-    
+
     if (!accumulatedChunk) return new AIMessage({ content: '' });
-    
+
     // Convert the final chunk back to a standard AIMessage
     return new AIMessage({
       content: accumulatedChunk.content,
@@ -287,15 +319,16 @@ export class PocAgent {
   }
 
   @Abortable  // Checks at method start
-  private async _processToolCalls(toolCalls: any[]): Promise<boolean> {
-    let wasDoneToolCalled = false;
-    
+  private async _processToolCalls(toolCalls: any[]): Promise<{ wasDoneCalled: boolean, wasValidatorCalled: boolean }> {
+    let wasDoneCalled = false;
+    let wasValidatorCalled = false;
+
     for (const toolCall of toolCalls) {
       this.checkIfAborted();  // Manual check before each tool
 
       const { name: toolName, args, id: toolCallId } = toolCall;
       const tool = this.toolManager.get(toolName);
-      
+
       if (!tool) {
         // Handle tool not found
         continue;
@@ -309,11 +342,11 @@ export class PocAgent {
       this.eventEmitter.executingTool(toolName, args);
       const result = await tool.func(args);
       const parsedResult = JSON.parse(result);
-      
+
       // Format the tool output for display
       const displayMessage = formatToolOutput(toolName, parsedResult);
       this.eventEmitter.debug('Executing tool: ' + toolName + ' result: ' + displayMessage);
-      
+
       // Emit tool result for UI display (always shown)
       this.eventEmitter.emitToolResult(toolName, result);
 
@@ -324,7 +357,7 @@ export class PocAgent {
 
       // Special handling for refresh_browser_state tool
       if (toolName === 'refresh_browser_state' && parsedResult.ok) {
-        this.messageManager.addSystemReminder(`Browser State has been refreshed`)
+        this.messageManager.addSystemReminder(`Browser State has been refreshed`);
       }
 
       // Special handling for todo_manager tool
@@ -336,11 +369,15 @@ export class PocAgent {
       }
 
       if (toolName === 'done_tool' && parsedResult.ok) {
-        wasDoneToolCalled = true;
+        wasDoneCalled = true;
+      }
+
+      if (toolName === 'validator_tool' && parsedResult.ok) {
+        wasValidatorCalled = true;
       }
     }
-    
-    return wasDoneToolCalled;
+
+    return { wasDoneCalled, wasValidatorCalled };
   }
 
 
@@ -357,7 +394,7 @@ export class PocAgent {
       const args = { task };
       const result = await resultTool.func(args);
       const parsedResult = JSON.parse(result);
-      
+
       if (parsedResult.ok && parsedResult.output) {
         const { success, message } = parsedResult.output;
         this.eventEmitter.emitTaskResult(success, message);
@@ -369,6 +406,52 @@ export class PocAgent {
       // Fallback on error
       this.eventEmitter.emitTaskResult(true, 'Task completed.');
     }
+  }
+
+  private async _validateTaskCompletion(task: string): Promise<{
+    isComplete: boolean;
+    reasoning: string;
+    suggestions: string[];
+  }> {
+    const validatorTool = this.toolManager.get('validator_tool');
+    if (!validatorTool) {
+      return {
+        isComplete: true,
+        reasoning: 'Validation skipped - tool not available',
+        suggestions: []
+      };
+    }
+
+    const args = { task };
+    try {
+      this.eventEmitter.executingTool('validator_tool', args);
+      const result = await validatorTool.func(args);
+      const parsedResult = JSON.parse(result);
+
+      // Format the validator output
+      const validator_formatted_output = formatToolOutput('validator_tool', parsedResult);
+      this.eventEmitter.toolEnd('validator_tool', parsedResult.ok, validator_formatted_output);
+
+      if (parsedResult.ok) {
+        // Parse the validation data from output
+        const validationData = JSON.parse(parsedResult.output);
+        return {
+          isComplete: validationData.isComplete,
+          reasoning: validationData.reasoning,
+          suggestions: validationData.suggestions || []
+        };
+      }
+    } catch (error) {
+      const errorResult = { ok: false, error: 'Validation failed' };
+      const error_formatted_output = formatToolOutput('validator_tool', errorResult);
+      this.eventEmitter.toolEnd('validator_tool', false, error_formatted_output);
+    }
+
+    return {
+      isComplete: true,
+      reasoning: 'Validation failed - continuing execution',
+      suggestions: []
+    };
   }
 
 
@@ -385,7 +468,7 @@ export class PocAgent {
     try {
       const currentPage = await this.executionContext.browserContext.getCurrentPage();
       const tabId = currentPage.tabId;
-      
+
       if (tabId && !this.glowService.isGlowActive(tabId)) {
         await this.glowService.startGlow(tabId);
         return true;
