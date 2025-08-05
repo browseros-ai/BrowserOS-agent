@@ -96,7 +96,7 @@ export function createFindElementTool(executionContext: ExecutionContext): Dynam
   const findElementTool = new FindElementTool(executionContext)
 
   return new DynamicStructuredTool({
-    name: "find_element",
+    name: "find_element_tool",
     description: "Find an element on the page using a natural language description. Returns found (boolean), index (number), confidence level, and reasoning.",
     schema: FindElementInputSchema,
     func: async (args): Promise<string> => {

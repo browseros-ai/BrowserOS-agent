@@ -27,8 +27,9 @@ export class RefreshStateTool {
 
       // Get fresh browser state
       const browserState = await browserContext.getBrowserStateString()
+      this.executionContext.messageManager.addBrowserState(`<system-reminder>Refreshed browser state: ${browserState}</system-reminder>`)
 
-      return toolSuccess(browserState)
+      return toolSuccess(`BrowserState refreshed and added to state`)
     } catch (error) {
       return toolError(`Failed to refresh browser state: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -40,7 +41,7 @@ export function createRefreshStateTool(executionContext: ExecutionContext): Dyna
   const refreshStateTool = new RefreshStateTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "refresh_browser_state",
+    name: "refresh_browser_state_tool",
     description: refreshStateToolDescription,
     schema: RefreshStateInputSchema,
     func: async (args): Promise<string> => {

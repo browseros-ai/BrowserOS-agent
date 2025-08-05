@@ -59,7 +59,7 @@ export function createGetSelectedTabsTool(executionContext: ExecutionContext): D
   const getSelectedTabsTool = new GetSelectedTabsTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "get_selected_tabs",
+    name: "get_selected_tabs_tool",
     description: "Get information about currently selected tabs. Returns an array of tab objects with id, url, and title. If no tabs are selected, returns the current tab.",
     schema: GetSelectedTabsInputSchema,
     func: async (args): Promise<string> => {

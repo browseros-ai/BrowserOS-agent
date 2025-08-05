@@ -111,7 +111,7 @@ export function createInteractionTool(executionContext: ExecutionContext): Dynam
   const interactionTool = new InteractionTool(executionContext)
   
   return new DynamicStructuredTool({
-    name: "interact",
+    name: "interact_tool",
     description: "Perform element interactions: click, input_text (type text), clear (clear field), or send_keys (keyboard keys).",
     schema: InteractionInputSchema,
     func: async (args): Promise<string> => {

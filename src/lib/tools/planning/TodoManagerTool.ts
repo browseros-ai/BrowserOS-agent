@@ -17,7 +17,7 @@ type TodoInput = z.infer<typeof TodoInputSchema>
  */
 export function createTodoManagerTool(executionContext: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: 'todo_manager',
+    name: 'todo_manager_tool',
     description: 'Manage TODO list for complex tasks. Actions: list (returns current TODOs as XML), add_multiple (add new TODOs), complete (mark a single TODO as done - pass array with single ID), skip (skip a single TODO by removing it - pass array with single ID), go_back (mark a TODO and all subsequent ones as not done - pass array with single ID), replace_all (clear and add new TODOs).',
     schema: TodoInputSchema,
     func: async (args: TodoInput): Promise<string> => {

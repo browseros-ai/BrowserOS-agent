@@ -3,13 +3,17 @@ import { Todo } from '@/lib/runtime/TodoStore'
 /**
  * Format TODO list as markdown table
  */
-export function formatTodoList(todos: Todo[]): string {
+export function formatTodoList(todos: Todo[], agentName?: string): string {
   if (todos.length === 0) {
     return '*No tasks*'
   }
+  
+  let markdown = ''
+  if (agentName) {
+    markdown += `### ${agentName}: TODOs\n`
+  }
 
-  // Start directly with the table - no header
-  let markdown = '| # | Status | Task |\n'
+  markdown += '| # | Status | Task |\n'
   markdown += '|:-:|:------:|:-----|\n'
   
   todos.forEach(todo => {
