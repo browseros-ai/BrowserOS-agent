@@ -151,7 +151,7 @@ export class LangChainProvider {
     
     const maxTokens = options?.maxTokens ?? 
                      (provider.modelConfig?.contextWindow ? 
-                       Math.min(4096, provider.modelConfig.contextWindow) : DEFAULT_MAX_TOKENS)
+                       provider.modelConfig.contextWindow : DEFAULT_MAX_TOKENS)
     
     const streaming = DEFAULT_STREAMING
     
