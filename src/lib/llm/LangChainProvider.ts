@@ -8,41 +8,29 @@
  * Usage: import { getLLM } from '@/lib/llm/LangChainProvider'
  * No manual initialization needed - the singleton is created automatically.
  */
-import { z } from "zod"
 import { ChatOpenAI } from "@langchain/openai"
 import { ChatAnthropic } from "@langchain/anthropic"
 import { ChatOllama } from "@langchain/ollama"
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 import { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { LLMSettingsReader } from "@/lib/llm/settings/LLMSettingsReader"
-import type { LLMSettings } from '@/lib/llm/settings/types'
+import { BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
+import { Logging } from '@/lib/utils/Logging'
 
 // Default constants
 const DEFAULT_TEMPERATURE = 0.7
 const DEFAULT_STREAMING = true
+const DEFAULT_MAX_TOKENS = 128000
 const DEFAULT_OPENAI_MODEL = "gpt-4o"
 const DEFAULT_ANTHROPIC_MODEL = 'claude-4-sonnet'
 const DEFAULT_OLLAMA_MODEL = "qwen3:4b"
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 const DEFAULT_NXTSCAPE_PROXY_URL = "http://llm.nxtscape.ai"
-const DEFAULT_NXTSCAPE_MODEL = "default-llm"; // "openrouter-claude-4-sonnet"
+const DEFAULT_NXTSCAPE_MODEL = "default-llm"
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
 // Simple cache for LLM instances
 const llmCache = new Map<string, BaseChatModel>()
-
-// Configuration schema for creating LLMs
-export const LLMConfigSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "ollama", "nxtscape", "gemini"]),
-  model: z.string(),
-  temperature: z.number().default(DEFAULT_TEMPERATURE),
-  maxTokens: z.number().optional(),
-  streaming: z.boolean().default(DEFAULT_STREAMING),
-  apiKey: z.string().optional(),
-  baseURL: z.string().optional(),
-})
-
-export type LLMConfig = z.infer<typeof LLMConfigSchema>
 
 // Model capabilities interface
 export interface ModelCapabilities {
@@ -51,7 +39,7 @@ export interface ModelCapabilities {
 
 export class LangChainProvider {
   private static instance: LangChainProvider
-  private settings: LLMSettings | null = null
+  private currentProvider: BrowserOSProvider | null = null
   
   // Constructor and initialization
   static getInstance(): LangChainProvider {
@@ -63,241 +51,291 @@ export class LangChainProvider {
   
   // Public getter methods
   async getLLM(options?: { temperature?: number; maxTokens?: number }): Promise<BaseChatModel> {
-    // Load settings if not already loaded
-    this.settings = await LLMSettingsReader.read()
-    
-    // Create config from settings
-    const config = this._createConfigFromSettings(this.settings, options)
+    // Get the current provider configuration
+    const provider = await LLMSettingsReader.read()
+    this.currentProvider = provider
     
     // Check cache
-    const cacheKey = this._getCacheKey(config)
+    const cacheKey = this._getCacheKey(provider, options)
     if (llmCache.has(cacheKey)) {
+      Logging.log('LangChainProvider', `Using cached LLM for provider: ${provider.name}`, 'info')
       return llmCache.get(cacheKey)!
     }
     
-    // Create new LLM instance
-    const llm = this._createLLM(config)
+    // Create new LLM instance based on provider type
+    Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
+    const llm = this._createLLMFromProvider(provider, options)
     llmCache.set(cacheKey, llm)
     
     return llm
   }
   
-  // Get model capabilities based on provider and model
-  async getModelCapabilities(config?: LLMConfig): Promise<ModelCapabilities> {
-    // If no config provided, create one from settings
-    if (!config) {
-      this.settings = await LLMSettingsReader.read()
-      config = this._createConfigFromSettings(this.settings)
+  // Get model capabilities based on provider
+  async getModelCapabilities(): Promise<ModelCapabilities> {
+    const provider = await LLMSettingsReader.read()
+    
+    // Use provider's context window if available
+    if (provider.modelConfig?.contextWindow) {
+      return { maxTokens: provider.modelConfig.contextWindow }
     }
     
-    // Determine max tokens based on provider and model
-    switch (config.provider) {
-      case 'nxtscape':
-        // Nxtscape uses Gemini 2.5 Flash
-        return { maxTokens: 1_000_000}
+    // Otherwise determine based on provider type and model
+    switch (provider.type) {
+      case 'browseros':
+        // BrowserOS/Nxtscape uses various models through proxy
+        return { maxTokens: 1_000_000 }
         
-      case 'openai':
+      case 'openai_compatible':
+      case 'openrouter':
         // Check model name for context window size
-        if (config.model.includes('gpt-4') || config.model.includes('o1') || config.model.includes('o3') || config.model.includes('o4')) {
+        const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
+        if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
           return { maxTokens: 128_000 }
         }
         return { maxTokens: 32_768 }
         
       case 'anthropic':
-        // Claude 3 models have 200k context
-        if (config.model.includes('claude-3.7') || config.model.includes('claude-4')) {
+        // Claude models
+        const anthropicModel = provider.modelId || DEFAULT_ANTHROPIC_MODEL
+        if (anthropicModel.includes('claude-3.7') || anthropicModel.includes('claude-4')) {
           return { maxTokens: 200_000 }
         }
         return { maxTokens: 100_000 }
         
-      case 'gemini':
-        // Gemini 2.5 Flash and Pro support 2M tokens, but setting to 1.5M for conseravtive reasons.
-        if (config.model.includes('2.5') || config.model.includes('2.0')) {
+      case 'google_gemini':
+        // Gemini models
+        const geminiModel = provider.modelId || DEFAULT_GEMINI_MODEL
+        if (geminiModel.includes('2.5') || geminiModel.includes('2.0')) {
           return { maxTokens: 1_500_000 }
         }
         return { maxTokens: 1_000_000 }
         
       case 'ollama':
-        // Ollama models vary widely, use conservative default
-        // Could be enhanced to query model info from Ollama API
-        if (config.model.includes('mixtral') || config.model.includes('llama') || config.model.includes('qwen') || config.model.includes('deepseek')) {
+        // Ollama models vary widely
+        const ollamaModel = provider.modelId || DEFAULT_OLLAMA_MODEL
+        if (ollamaModel.includes('mixtral') || ollamaModel.includes('llama') || 
+            ollamaModel.includes('qwen') || ollamaModel.includes('deepseek')) {
           return { maxTokens: 32_768 }
         }
         return { maxTokens: 8_192 }
+        
+      case 'custom':
+        // Custom providers - conservative default
+        return { maxTokens: 32_768 }
         
       default:
         return { maxTokens: 8_192 }
     }
   }
   
-  // Public creator methods
-  createLLMFromConfig(config: LLMConfig): BaseChatModel {
-    const cacheKey = this._getCacheKey(config)
-    if (llmCache.has(cacheKey)) {
-      return llmCache.get(cacheKey)!
-    }
-    
-    const llm = this._createLLM(config)
-    llmCache.set(cacheKey, llm)
-    
-    return llm
+  // Get current provider info (useful for debugging)
+  getCurrentProvider(): BrowserOSProvider | null {
+    return this.currentProvider
   }
   
   // Public action methods
   clearCache(): void {
     llmCache.clear()
-    this.settings = null
+    this.currentProvider = null
   }
   
   // Private helper methods
-  private _createConfigFromSettings(
-    settings: LLMSettings,
+  private _createLLMFromProvider(
+    provider: BrowserOSProvider,
     options?: { temperature?: number; maxTokens?: number }
-  ): LLMConfig {
-    const provider = settings.defaultProvider
+  ): BaseChatModel {
+    // Extract parameters from provider config first, then override with options
+    const temperature = options?.temperature ?? 
+                       provider.modelConfig?.temperature ?? 
+                       DEFAULT_TEMPERATURE
     
-    switch (provider) {
-      case "nxtscape":
-        // Nxtscape uses OpenAI provider with proxy
-        return {
-          provider: "nxtscape",
-          model: settings.nxtscape?.model || DEFAULT_NXTSCAPE_MODEL,
-          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-          maxTokens: options?.maxTokens,
-          streaming: DEFAULT_STREAMING,
-          // Use environment variables for proxy
-          apiKey: process.env.LITELLM_API_KEY || 'nokey',
-          baseURL: DEFAULT_NXTSCAPE_PROXY_URL,
-        }
-        
-      case "openai":
-        return {
-          provider: "openai",
-          model: settings.openai?.model || DEFAULT_OPENAI_MODEL,
-          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-          maxTokens: options?.maxTokens,
-          streaming: DEFAULT_STREAMING,
-          apiKey: settings.openai?.apiKey || process.env.OPENAI_API_KEY,
-          baseURL: settings.openai?.baseUrl,
-        }
-        
-      case "anthropic":
-        return {
-          provider: "anthropic",
-          model: settings.anthropic?.model || DEFAULT_ANTHROPIC_MODEL,
-          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-          maxTokens: options?.maxTokens,
-          streaming: DEFAULT_STREAMING,
-          apiKey: settings.anthropic?.apiKey || process.env.ANTHROPIC_API_KEY,
-          baseURL: settings.anthropic?.baseUrl,
-        }
-        
-      case "ollama":
-        return {
-          provider: "ollama",
-          model: settings.ollama?.model || DEFAULT_OLLAMA_MODEL,
-          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-          maxTokens: options?.maxTokens,
-          streaming: DEFAULT_STREAMING,
-          baseURL: settings.ollama?.baseUrl || DEFAULT_OLLAMA_BASE_URL,
-        }
-        
-      case "gemini":
-        return {
-          provider: "gemini",
-          model: settings.gemini?.model || DEFAULT_GEMINI_MODEL,
-          temperature: options?.temperature ?? DEFAULT_TEMPERATURE,
-          maxTokens: options?.maxTokens,
-          streaming: DEFAULT_STREAMING,
-          apiKey: settings.gemini?.apiKey || process.env.GOOGLE_API_KEY,
-        }
-        
-      default:
-        throw new Error(`Unsupported provider: ${provider}`)
-    }
-  }
-  
-  private _createLLM(config: LLMConfig): BaseChatModel {
-    const baseConfig = {
-      modelName: config.model,
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      streaming: config.streaming,
-    }
+    const maxTokens = options?.maxTokens ?? 
+                     (provider.modelConfig?.contextWindow ? 
+                       Math.min(4096, provider.modelConfig.contextWindow) : DEFAULT_MAX_TOKENS)
     
-    switch (config.provider) {
-      case "nxtscape":
-        // Nxtscape uses OpenAI client with proxy configuration
-        return new ChatOpenAI({
-          ...baseConfig,
-          // IMPORTANT: Model name mapping for tiktoken compatibility
-          // The 'modelName' field is what gets sent to the API (our custom model like "default-llm")
-          // The 'model' field is what tiktoken uses for token counting
-          // 
-          // Since nxtscape uses custom model names that tiktoken doesn't recognize (e.g., "default-llm"),
-          // we get "Unknown model" errors when LangChain tries to count tokens.
-          // 
-          // Solution: We keep the actual model name in 'modelName' for API calls,
-          // but override 'model' with a known OpenAI model ("gpt-4") for token counting.
-          // This eliminates the tiktoken errors while maintaining correct API behavior.
-          // 
-          // Note: "gpt-4" is chosen because:
-          // 1. It uses the cl100k_base encoding (same as GPT-3.5-turbo and GPT-4 family)
-          // 2. It has a large context window (128k) similar to our proxy models
-          // 3. Token counting will be approximate but reasonable for our use case
-          model: "openrouter-claude-4-sonnet",  // Known model for tiktoken token counting
-          openAIApiKey: config.apiKey,  // This is the correct parameter name
-          // The `configuration` field is forwarded directly to the underlying OpenAI client
-          configuration: {
-            baseURL: config.baseURL,
-            apiKey: config.apiKey,  // Still required by OpenAI client constructor
-            dangerouslyAllowBrowser: true
-          }
-        })
+    const streaming = DEFAULT_STREAMING
+    
+    // Map provider type to appropriate LangChain adapter
+    switch (provider.type) {
+      case 'browseros':
+        return this._createBrowserOSLLM(temperature, maxTokens, streaming)
       
-      case "openai":
-        return new ChatOpenAI({
-          ...baseConfig,
-          openAIApiKey: config.apiKey,
-          configuration: config.baseURL ? { 
-            baseURL: config.baseURL,
-            dangerouslyAllowBrowser: true
-          } : {
-            dangerouslyAllowBrowser: true
-          },
-        })
-        
-      case "anthropic":
-        return new ChatAnthropic({
-          ...baseConfig,
-          anthropicApiKey: config.apiKey,
-          anthropicApiUrl: config.baseURL,
-        })
-        
-      case "ollama":
-        return new ChatOllama({
-          model: config.model,
-          temperature: config.temperature,
-          maxRetries: 2,
-          baseUrl: config.baseURL,
-        })
-        
-      case "gemini":
-        return new ChatGoogleGenerativeAI({
-          model: config.model,
-          temperature: config.temperature,
-          maxOutputTokens: config.maxTokens,
-          apiKey: config.apiKey,
-          convertSystemMessageToHumanContent: true,  // Convert system messages for models that don't support them
-        })
-        
+      case 'openai_compatible':
+      case 'openrouter':
+      case 'custom':
+        return this._createOpenAICompatibleLLM(provider, temperature, maxTokens, streaming)
+      
+      case 'anthropic':
+        return this._createAnthropicLLM(provider, temperature, maxTokens, streaming)
+      
+      case 'google_gemini':
+        return this._createGeminiLLM(provider, temperature, maxTokens)
+      
+      case 'ollama':
+        return this._createOllamaLLM(provider, temperature, maxTokens)
+      
       default:
-        throw new Error(`Unsupported provider: ${config.provider}`)
+        Logging.log('LangChainProvider', 
+          `Unknown provider type: ${provider.type}, falling back to BrowserOS`, 
+          'warning')
+        return this._createBrowserOSLLM(temperature, maxTokens, streaming)
     }
   }
   
-  private _getCacheKey(config: LLMConfig): string {
-    return `${config.provider}-${config.model}-${config.temperature}-${config.maxTokens || 'default'}`
+  // BrowserOS built-in provider (uses proxy, no API key needed)
+  private _createBrowserOSLLM(
+    temperature: number, 
+    maxTokens?: number, 
+    streaming: boolean = true
+  ): ChatOpenAI {
+    return new ChatOpenAI({
+      // IMPORTANT: Model name mapping for tiktoken compatibility
+      // The 'modelName' field is what gets sent to the API (our custom model like "default-llm")
+      // The 'model' field is what tiktoken uses for token counting
+      // 
+      // Since nxtscape uses custom model names that tiktoken doesn't recognize (e.g., "default-llm"),
+      // we get "Unknown model" errors when LangChain tries to count tokens.
+      // 
+      // Solution: We keep the actual model name in 'modelName' for API calls,
+      // but override 'model' with a known OpenAI model for token counting.
+      // This eliminates the tiktoken errors while maintaining correct API behavior.
+      // 
+      // Note: "gpt-4o" is chosen because:
+      // 1. It uses the cl100k_base encoding (same as GPT-3.5-turbo and GPT-4 family)
+      // 2. It has a large context window (128k) similar to our proxy models
+      // 3. Token counting will be approximate but reasonable for our use case
+      modelName: DEFAULT_NXTSCAPE_MODEL,
+      model: "gpt-4o",  // Known model for tiktoken token counting
+      temperature,
+      maxTokens,
+      streaming,
+      openAIApiKey: process.env.LITELLM_API_KEY || 'nokey',
+      configuration: {
+        baseURL: DEFAULT_NXTSCAPE_PROXY_URL,
+        apiKey: process.env.LITELLM_API_KEY || 'nokey',
+        dangerouslyAllowBrowser: true
+      }
+    })
+  }
+  
+  // OpenAI-compatible providers (OpenAI, OpenRouter, Custom)
+  private _createOpenAICompatibleLLM(
+    provider: BrowserOSProvider,
+    temperature: number,
+    maxTokens?: number,
+    streaming: boolean = true
+  ): ChatOpenAI {
+    if (!provider.apiKey && provider.type !== 'custom') {
+      Logging.log('LangChainProvider', 
+        `Warning: No API key for ${provider.name} provider, using default`, 
+        'warning')
+    }
+    
+    return new ChatOpenAI({
+      modelName: provider.modelId || DEFAULT_OPENAI_MODEL,
+      temperature,
+      maxTokens,
+      streaming,
+      openAIApiKey: provider.apiKey || 'nokey',
+      configuration: {
+        baseURL: provider.baseUrl || 'https://api.openai.com/v1',
+        apiKey: provider.apiKey || 'nokey',
+        dangerouslyAllowBrowser: true
+      }
+    })
+  }
+  
+  // Anthropic provider
+  private _createAnthropicLLM(
+    provider: BrowserOSProvider,
+    temperature: number,
+    maxTokens?: number,
+    streaming: boolean = true
+  ): ChatAnthropic {
+    if (!provider.apiKey) {
+      throw new Error(`API key required for ${provider.name} provider`)
+    }
+    
+    return new ChatAnthropic({
+      modelName: provider.modelId || DEFAULT_ANTHROPIC_MODEL,
+      temperature,
+      maxTokens,
+      streaming,
+      anthropicApiKey: provider.apiKey,
+      anthropicApiUrl: provider.baseUrl || 'https://api.anthropic.com'
+    })
+  }
+  
+  // Google Gemini provider
+  private _createGeminiLLM(
+    provider: BrowserOSProvider,
+    temperature: number,
+    maxTokens?: number
+  ): ChatGoogleGenerativeAI {
+    if (!provider.apiKey) {
+      throw new Error(`API key required for ${provider.name} provider`)
+    }
+    
+    return new ChatGoogleGenerativeAI({
+      model: provider.modelId || DEFAULT_GEMINI_MODEL,
+      temperature,
+      maxOutputTokens: maxTokens,
+      apiKey: provider.apiKey,
+      convertSystemMessageToHumanContent: true
+    })
+  }
+  
+  // Ollama provider (local, no API key required)
+  private _createOllamaLLM(
+    provider: BrowserOSProvider,
+    temperature: number,
+    maxTokens?: number
+  ): ChatOllama {
+    const ollamaConfig: any = {
+      model: provider.modelId || DEFAULT_OLLAMA_MODEL,
+      temperature,
+      maxRetries: 2,
+      baseUrl: provider.baseUrl || DEFAULT_OLLAMA_BASE_URL
+    }
+    
+    // Add context window if specified in provider config
+    if (provider.modelConfig?.contextWindow) {
+      ollamaConfig.numCtx = provider.modelConfig.contextWindow
+    }
+    
+    return new ChatOllama(ollamaConfig)
+  }
+  
+  // Cache key includes all relevant provider settings and options
+  private _getCacheKey(
+    provider: BrowserOSProvider, 
+    options?: { temperature?: number; maxTokens?: number }
+  ): string {
+    // Create a deterministic string from all cache-relevant values
+    // Using string concatenation is faster than JSON.stringify for simple cases
+    const keyParts = [
+      provider.id,
+      provider.type,
+      provider.modelId || 'd',
+      provider.baseUrl || 'd',
+      provider.apiKey ? provider.apiKey.slice(-8) : 'n',  // Last 8 chars of API key
+      provider.modelConfig?.temperature?.toString() || 'd',
+      provider.modelConfig?.contextWindow?.toString() || 'd',
+      options?.temperature?.toString() || 'd',
+      options?.maxTokens?.toString() || 'd',
+      provider.updatedAt  // Include update timestamp to invalidate cache on provider changes
+    ]
+    
+    // Use FNV-1a hash (very fast, good distribution for short strings)
+    const str = keyParts.join('|')
+    let hash = 2166136261  // FNV offset basis
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i)
+      hash = (hash * 16777619) >>> 0  // FNV prime, keep as 32-bit unsigned
+    }
+    
+    // Return provider ID with hash for readability (base36 is compact)
+    return `${provider.id}-${hash.toString(36)}`
   }
 }
 

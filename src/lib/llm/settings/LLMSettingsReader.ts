@@ -1,234 +1,271 @@
 import { Logging } from '@/lib/utils/Logging'
 import { isMockLLMSettings } from '@/config'
 import { 
-  LLMSettings, 
-  LLMSettingsSchema, 
-  PREFERENCE_KEYS,
-  ProviderType 
-} from './types'
+  BrowserOSProvider,
+  BrowserOSProvidersConfig,
+  BrowserOSProvidersConfigSchema,
+  BrowserOSPrefObject,
+  BROWSEROS_PREFERENCE_KEYS
+} from './browserOSTypes'
 
-// Type definitions for chrome.settingsPrivate API
+// Type definitions for chrome.browserOS API
 declare global {
-  namespace chrome {
-    namespace settingsPrivate {
-      interface PrefObject {
-        key?: string
-        type?: string
-        value?: any
-        controlledBy?: string
-        enforcement?: string
-        recommendedValue?: any
-        userControlDisabled?: boolean
-      }
-      
-      function getPref(name: string, callback: (pref: PrefObject) => void): void
-      function setPref(name: string, value: any, pageId: string, callback?: (success: boolean) => void): void
-      function getAllPrefs(callback: (prefs: PrefObject[]) => void): void
-      const onPrefsChanged: {
-        addListener(callback: (prefs: PrefObject[]) => void): void
-        removeListener(callback: (prefs: PrefObject[]) => void): void
-      }
-    }
+  interface ChromeBrowserOS {
+    getPref(name: string, callback: (pref: BrowserOSPrefObject) => void): void
+    setPref(name: string, value: any, pageId?: string, callback?: (success: boolean) => void): void
+    getAllPrefs(callback: (prefs: BrowserOSPrefObject[]) => void): void
+  }
+  
+  interface Chrome {
+    browserOS?: ChromeBrowserOS
   }
 }
 
-/**
- * Mock preference values for development mode
- * 
- * IMPORTANT: These are mock values for development/testing only!
- * They will only be used when:
- * 1. DEV_MODE is true in src/config.ts
- * 2. chrome.settingsPrivate API is not available
- * 
- * To test different providers, change 'nxtscape.default_provider' to:
- * - 'nxtscape' (default) - Uses Nxtscape proxy, no real API key needed
- * - 'openai' - Would require real API key in production
- * - 'anthropic' - Would require real API key in production
- * - 'gemini' - Would require real Google AI API key in production
- * - 'ollama' - Requires local Ollama server running
- */
-const MOCK_PREFERENCES: Record<string, string | undefined> = {
-  'nxtscape.default_provider': 'nxtscape',  // Change this to test different providers
-  'nxtscape.nxtscape_model': 'gpt-4o-mini',
-  'nxtscape.openai_api_key': 'TBD',
-  'nxtscape.openai_model': 'gpt-4o',
-  'nxtscape.openai_base_url': undefined,
-  'nxtscape.anthropic_api_key': 'TBD',
-  'nxtscape.anthropic_model': 'claude-3-5-sonnet-latest',
-  'nxtscape.anthropic_base_url': undefined,
-  'nxtscape.gemini_api_key': 'TBD',
-  'nxtscape.gemini_model': 'gemini-2.0-flash',
-  'nxtscape.gemini_base_url': undefined,
-  'nxtscape.ollama_base_url': 'http://localhost:11434',
-  'nxtscape.ollama_model': 'qwen3:4b',
-  'nxtscape.ollama_api_key': undefined  // Optional
-}
+// Default constants
+const DEFAULT_OPENAI_MODEL = 'gpt-4o'
+const DEFAULT_ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest'
+const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
+const DEFAULT_OLLAMA_MODEL = 'qwen3:4b'
+const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 
 /**
- * Reads LLM settings from browser preferences
+ * Reads LLM provider settings from BrowserOS preferences
  */
 export class LLMSettingsReader {
+  private static mockProvider: BrowserOSProvider | null = null
+  
   /**
-   * Override mock preferences for testing (DEV MODE ONLY)
-   * @param overrides - Partial preferences to override
+   * Set mock provider for testing (DEV MODE ONLY)
+   * @param provider - Mock provider configuration
    */
-  static setMockPreferences(overrides: Partial<typeof MOCK_PREFERENCES>): void {
+  static setMockProvider(provider: Partial<BrowserOSProvider>): void {
     if (!isMockLLMSettings()) {
-      Logging.log('LLMSettingsReader', 'setMockPreferences is only available in development mode', 'warning')
+      Logging.log('LLMSettingsReader', 'setMockProvider is only available in development mode', 'warning')
       return
     }
     
-    Object.assign(MOCK_PREFERENCES, overrides)
-    Logging.log('LLMSettingsReader', `Mock preferences updated: ${JSON.stringify(overrides)}`)
+    this.mockProvider = {
+      ...this.getDefaultBrowserOSProvider(),
+      ...provider
+    }
+    Logging.log('LLMSettingsReader', `Mock provider set: ${provider.name || provider.type}`)
   }
   /**
-   * Read all LLM settings from Chrome storage
-   * @returns Promise resolving to LLM settings
+   * Read the default provider configuration
+   * @returns Promise resolving to the default BrowserOS provider
    */
-  static async read(): Promise<LLMSettings> {
+  static async read(): Promise<BrowserOSProvider> {
     try {
-      Logging.log('LLMSettingsReader', 'Reading LLM settings from Chrome preferences')
+      Logging.log('LLMSettingsReader', 'Reading provider settings from BrowserOS preferences')
       
-      // Get all preference values from Chrome storage
-      const preferences = await this.getPreferences()
-      
-      // Construct settings object
-      const settings: LLMSettings = {
-        defaultProvider: this.getProviderType(preferences[PREFERENCE_KEYS.DEFAULT_PROVIDER]),
-        nxtscape: {
-          model: preferences[PREFERENCE_KEYS.NXTSCAPE_MODEL]
-        },
-        openai: {
-          apiKey: preferences[PREFERENCE_KEYS.OPENAI_API_KEY],
-          model: preferences[PREFERENCE_KEYS.OPENAI_MODEL],
-          baseUrl: preferences[PREFERENCE_KEYS.OPENAI_BASE_URL]
-        },
-        anthropic: {
-          apiKey: preferences[PREFERENCE_KEYS.ANTHROPIC_API_KEY],
-          model: preferences[PREFERENCE_KEYS.ANTHROPIC_MODEL],
-          baseUrl: preferences[PREFERENCE_KEYS.ANTHROPIC_BASE_URL]
-        },
-        gemini: {
-          apiKey: preferences[PREFERENCE_KEYS.GEMINI_API_KEY],
-          model: preferences[PREFERENCE_KEYS.GEMINI_MODEL],
-          baseUrl: preferences[PREFERENCE_KEYS.GEMINI_BASE_URL]
-        },
-        ollama: {
-          apiKey: preferences[PREFERENCE_KEYS.OLLAMA_API_KEY],
-          baseUrl: preferences[PREFERENCE_KEYS.OLLAMA_BASE_URL],
-          model: preferences[PREFERENCE_KEYS.OLLAMA_MODEL]
-        }
+      // Try chrome.browserOS.getPref API
+      const provider = await this.readFromBrowserOS()
+      if (provider) {
+        Logging.log('LLMSettingsReader', `Provider loaded: ${provider.name} (${provider.type})`)
+        return provider
       }
-      
-      // Validate with Zod schema
-      const validated = LLMSettingsSchema.parse(settings)
-      
-      Logging.log('LLMSettingsReader', `Settings loaded successfully. Provider: ${validated.defaultProvider}`)
-      
-      return validated
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       Logging.log('LLMSettingsReader', `Failed to read settings: ${errorMessage}`, 'error')
-      
-      // Return default settings on error
-      return {
-        defaultProvider: 'nxtscape',
-        nxtscape: {},
-        openai: {},
-        anthropic: {},
-        gemini: {},
-        ollama: {}
+    }
+    
+    // Return default BrowserOS provider if reading fails
+    const defaultProvider = this.getDefaultBrowserOSProvider()
+    Logging.log('LLMSettingsReader', 'Using default BrowserOS provider')
+    return defaultProvider
+  }
+  
+  /**
+   * Read all providers configuration
+   * @returns Promise resolving to all providers configuration
+   */
+  static async readAllProviders(): Promise<BrowserOSProvidersConfig> {
+    try {
+      const config = await this.readProvidersConfig()
+      if (config) {
+        Logging.log('LLMSettingsReader', `Loaded ${config.providers.length} providers`)
+        return config
       }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logging.log('LLMSettingsReader', `Failed to read providers: ${errorMessage}`, 'error')
+    }
+    
+    // Return default config with BrowserOS provider only
+    return {
+      defaultProviderId: 'browseros',
+      providers: [this.getDefaultBrowserOSProvider()]
     }
   }
   
   /**
-   * Get preferences from Chrome settings
-   * @returns Promise resolving to preference values
+   * Read from chrome.browserOS.getPref API
+   * @returns Promise resolving to the default provider or null
    */
-  private static async getPreferences(): Promise<Record<string, string | undefined>> {
-    // Check if chrome.settingsPrivate is available
-    if (typeof chrome === 'undefined' || !chrome.settingsPrivate || !chrome.settingsPrivate.getPref) {
-      // In development mode, return mock values for testing
+  private static async readFromBrowserOS(): Promise<BrowserOSProvider | null> {
+    // Check if API is available
+    const browserOS = (chrome as any)?.browserOS as ChromeBrowserOS | undefined
+    if (!browserOS?.getPref) {
+      // In development mode, use mock data
       if (isMockLLMSettings()) {
-        Logging.log('LLMSettingsReader', 'Chrome settingsPrivate API not available, using mock values for development', 'warning')
-        Logging.log('LLMSettingsReader', `Mock provider: ${MOCK_PREFERENCES['nxtscape.default_provider']}`)
-        return MOCK_PREFERENCES
+        Logging.log('LLMSettingsReader', 'Chrome browserOS API not available, using mock provider', 'warning')
+        return this.getMockProvider()
       }
-      
-      Logging.log('LLMSettingsReader', 'Chrome settingsPrivate API not available, using defaults', 'warning')
-      return {}
-    }
-
-    // Get all preference values in parallel
-    const prefPromises = Object.entries(PREFERENCE_KEYS).map(([key, prefName]) => 
-      new Promise<[string, string | undefined]>((resolve) => {
-        chrome.settingsPrivate.getPref(prefName, (pref: chrome.settingsPrivate.PrefObject) => {
-          if (chrome.runtime.lastError) {
-            Logging.log('LLMSettingsReader', 
-              `Failed to read preference ${prefName}: ${chrome.runtime.lastError.message}`, 'warning')
-            resolve([prefName, undefined])
-          } else {
-            // Extract the value from the preference object
-            const value = pref?.value as string | undefined
-            resolve([prefName, value])
-          }
-        })
-      })
-    )
-
-    // Wait for all preferences to be fetched
-    const prefEntries = await Promise.all(prefPromises)
-    
-    // Convert array of entries back to object
-    return Object.fromEntries(prefEntries)
-  }
-  
-  /**
-   * Convert string to provider type with validation
-   * @param value - Raw provider value
-   * @returns Valid provider type or default
-   */
-  private static getProviderType(value: string | undefined): ProviderType {
-    const validProviders: ProviderType[] = ['nxtscape', 'openai', 'anthropic', 'gemini', 'ollama']
-    
-    if (value && validProviders.includes(value as ProviderType)) {
-      return value as ProviderType
+      return null
     }
     
-    return 'nxtscape' // Default provider
-  }
-  
-  /**
-   * Read a single preference value
-   * @param key - Preference key to read
-   * @returns Promise resolving to the preference value
-   */
-  static async readPreference(key: string): Promise<string | undefined> {
-    // Check if chrome.settingsPrivate is available
-    if (typeof chrome === 'undefined' || !chrome.settingsPrivate || !chrome.settingsPrivate.getPref) {
-      // In development mode, return mock value for testing
-      if (isMockLLMSettings()) {
-        Logging.log('LLMSettingsReader', `Chrome settingsPrivate API not available, using mock value for ${key}`, 'warning')
-        return MOCK_PREFERENCES[key]
-      }
-      
-      Logging.log('LLMSettingsReader', 'Chrome settingsPrivate API not available', 'warning')
-      return undefined
-    }
-
-    return new Promise((resolve) => {
-      chrome.settingsPrivate.getPref(key, (pref: chrome.settingsPrivate.PrefObject) => {
+    return new Promise<BrowserOSProvider | null>((resolve) => {
+      browserOS!.getPref(BROWSEROS_PREFERENCE_KEYS.PROVIDERS, (pref: BrowserOSPrefObject) => {
         if (chrome.runtime.lastError) {
           Logging.log('LLMSettingsReader', 
-            `Failed to read preference ${key}: ${chrome.runtime.lastError.message}`, 'warning')
-          resolve(undefined)
-        } else {
-          // Extract the value from the preference object
-          const value = pref?.value as string | undefined
-          resolve(value)
+            `Failed to read preference: ${chrome.runtime.lastError.message}`, 'warning')
+          resolve(null)
+          return
+        }
+        
+        if (!pref?.value) {
+          Logging.log('LLMSettingsReader', 'No providers configuration found', 'warning')
+          resolve(null)
+          return
+        }
+        
+        try {
+          // Parse the JSON string
+          const config = BrowserOSProvidersConfigSchema.parse(JSON.parse(pref.value))
+          
+          // Find and return the default provider
+          const defaultProvider = config.providers.find(p => p.id === config.defaultProviderId)
+          
+          if (!defaultProvider) {
+            Logging.log('LLMSettingsReader', 'Default provider not found in config', 'warning')
+            resolve(null)
+          } else {
+            resolve(defaultProvider)
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          Logging.log('LLMSettingsReader', `Failed to parse providers config: ${errorMessage}`, 'error')
+          resolve(null)
         }
       })
     })
   }
+  
+  /**
+   * Read full providers configuration
+   * @returns Promise resolving to providers config or null
+   */
+  private static async readProvidersConfig(): Promise<BrowserOSProvidersConfig | null> {
+    const browserOS = (chrome as any)?.browserOS as ChromeBrowserOS | undefined
+    if (!browserOS?.getPref) {
+      return null
+    }
+    
+    return new Promise<BrowserOSProvidersConfig | null>((resolve) => {
+      browserOS!.getPref(BROWSEROS_PREFERENCE_KEYS.PROVIDERS, (pref: BrowserOSPrefObject) => {
+        if (chrome.runtime.lastError || !pref?.value) {
+          resolve(null)
+          return
+        }
+        
+        try {
+          const config = BrowserOSProvidersConfigSchema.parse(JSON.parse(pref.value))
+          resolve(config)
+        } catch (error) {
+          resolve(null)
+        }
+      })
+    })
+  }
+  
+  /**
+   * Get default BrowserOS built-in provider
+   * @returns Default BrowserOS provider configuration
+   */
+  private static getDefaultBrowserOSProvider(): BrowserOSProvider {
+    return {
+      id: 'browseros',
+      name: 'BrowserOS',
+      type: 'browseros',
+      isDefault: true,
+      isBuiltIn: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  }
+  
+  /**
+   * Get mock provider for development
+   * @returns Mock provider configuration
+   */
+  private static getMockProvider(): BrowserOSProvider {
+    // Return custom mock if set
+    if (this.mockProvider) {
+      return this.mockProvider
+    }
+    
+    // Can be overridden via environment
+    const mockType = process.env.MOCK_PROVIDER_TYPE || 'browseros'
+    
+    const mockProviders: Record<string, BrowserOSProvider> = {
+      browseros: this.getDefaultBrowserOSProvider(),
+      openai: {
+        id: 'mock_openai',
+        name: 'Mock OpenAI',
+        type: 'openai_compatible',
+        isDefault: true,
+        isBuiltIn: false,
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: process.env.OPENAI_API_KEY || 'mock-key',
+        modelId: DEFAULT_OPENAI_MODEL,
+        capabilities: { supportsImages: true },
+        modelConfig: { contextWindow: 128000, temperature: 0.7 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      anthropic: {
+        id: 'mock_anthropic',
+        name: 'Mock Anthropic',
+        type: 'anthropic',
+        isDefault: true,
+        isBuiltIn: false,
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: process.env.ANTHROPIC_API_KEY || 'mock-key',
+        modelId: DEFAULT_ANTHROPIC_MODEL,
+        capabilities: { supportsImages: true },
+        modelConfig: { contextWindow: 200000, temperature: 0.7 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      gemini: {
+        id: 'mock_gemini',
+        name: 'Mock Gemini',
+        type: 'google_gemini',
+        isDefault: true,
+        isBuiltIn: false,
+        apiKey: process.env.GOOGLE_API_KEY || 'mock-key',
+        modelId: DEFAULT_GEMINI_MODEL,
+        capabilities: { supportsImages: true },
+        modelConfig: { contextWindow: 1000000, temperature: 0.7 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      ollama: {
+        id: 'mock_ollama',
+        name: 'Mock Ollama',
+        type: 'ollama',
+        isDefault: true,
+        isBuiltIn: false,
+        baseUrl: DEFAULT_OLLAMA_BASE_URL,
+        modelId: DEFAULT_OLLAMA_MODEL,
+        capabilities: { supportsImages: false },
+        modelConfig: { contextWindow: 4096, temperature: 0.7 },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    }
+    
+    return mockProviders[mockType] || this.getDefaultBrowserOSProvider()
+  }
+  
 } 

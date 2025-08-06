@@ -6,7 +6,7 @@ import { StreamingMessageDisplay, Message } from "./StreamingMessageDisplay";
 import { TabSelector, BrowserTab } from "./TabSelector";
 import { HelpSection } from "./HelpSection";
 import { useTabsStore } from "../store/tabsStore";
-import { LLMSettings } from "@/lib/llm/settings/types";
+import { BrowserOSProvider } from "@/lib/llm/settings/types";
 import { isDevelopmentMode } from "@/config";
 import { LLMSettingsReader } from "@/lib/llm/settings/LLMSettingsReader";
 
@@ -213,8 +213,8 @@ export function SidePanel({
   const [isUserScrolling, setIsUserScrolling] = useState(false);  // Track if user is manually scrolling
 
   // Debug state for LLM settings (dev mode only)
-  const [llmSettings, setLlmSettings] = useState<LLMSettings | null>(null);
-  const [llmSettingsError, setLlmSettingsError] = useState<string | null>(null);
+  const [llmProvider, setLlmProvider] = useState<BrowserOSProvider | null>(null);
+  const [llmSettingsError, setLlmProviderError] = useState<string | null>(null);
 
   // Get tabs data and actions from Zustand store
   const { 
@@ -323,11 +323,11 @@ export function SidePanel({
     if (isDevelopmentMode()) {
       LLMSettingsReader.read()
         .then(settings => {
-          setLlmSettings(settings);
-          setLlmSettingsError(null);
+          setLlmProvider(settings);
+          setLlmProviderError(null);
         })
         .catch(error => {
-          setLlmSettingsError(error.message || 'Failed to load settings');
+          setLlmProviderError(error.message || 'Failed to load settings');
           console.error('Failed to load LLM settings:', error);
         });
     }
@@ -335,14 +335,14 @@ export function SidePanel({
 
   // Function to refresh LLM settings
   const refreshLLMSettings = () => {
-    setLlmSettings(null); // Show loading state
+    setLlmProvider(null); // Show loading state
     LLMSettingsReader.read()
       .then(settings => {
-        setLlmSettings(settings);
-        setLlmSettingsError(null);
+        setLlmProvider(settings);
+        setLlmProviderError(null);
       })
       .catch(error => {
-        setLlmSettingsError(error.message || 'Failed to load settings');
+        setLlmProviderError(error.message || 'Failed to load settings');
         console.error('Failed to load LLM settings:', error);
       });
   };
@@ -745,7 +745,7 @@ export function SidePanel({
             <summary className={styles.debugSummary}>
               🔧 Debug: LLM Settings 
               <span className={styles.debugProvider}>
-                ({llmSettings?.defaultProvider || 'loading...'})
+                ({llmProvider?.name || 'loading...'})
               </span>
               <button
                 className={styles.debugRefreshButton}
@@ -762,69 +762,62 @@ export function SidePanel({
             <div className={styles.debugContent}>
               {llmSettingsError ? (
                 <div className={styles.debugError}>❌ Error: {llmSettingsError}</div>
-              ) : llmSettings ? (
+              ) : llmProvider ? (
                 <div className={styles.debugSettings}>
                   <div className={styles.debugSection}>
-                    <strong>Default Provider:</strong> {llmSettings.defaultProvider}
+                    <strong>Provider Name:</strong> {llmProvider.name}
                   </div>
-                  
-                  {/* Nxtscape Settings */}
                   <div className={styles.debugSection}>
-                    <div className={styles.debugSectionTitle}>Nxtscape:</div>
-                    <div className={styles.debugItem}>
-                      <strong>Model:</strong> {llmSettings.nxtscape.model || 'not set'}
-                    </div>
+                    <strong>Provider Type:</strong> {llmProvider.type}
                   </div>
                   
-                  {/* OpenAI Settings */}
+                  {/* Provider Details */}
                   <div className={styles.debugSection}>
-                    <div className={styles.debugSectionTitle}>OpenAI:</div>
+                    <div className={styles.debugSectionTitle}>Configuration:</div>
                     <div className={styles.debugItem}>
-                      <strong>API Key:</strong> {llmSettings.openai.apiKey ? 
-                        (llmSettings.openai.apiKey === 'TBD' ? 'TBD (mock)' : '***' + llmSettings.openai.apiKey.slice(-4)) 
-                        : 'not set'}
+                      <strong>Model:</strong> {llmProvider.modelId || 'default'}
                     </div>
-                    <div className={styles.debugItem}>
-                      <strong>Model:</strong> {llmSettings.openai.model || 'not set'}
-                    </div>
+                    {llmProvider.baseUrl && (
+                      <div className={styles.debugItem}>
+                        <strong>Base URL:</strong> {llmProvider.baseUrl}
+                      </div>
+                    )}
+                    {llmProvider.apiKey && (
+                      <div className={styles.debugItem}>
+                        <strong>API Key:</strong> {'***' + llmProvider.apiKey.slice(-4)}
+                      </div>
+                    )}
+                    {llmProvider.modelConfig && (
+                      <>
+                        <div className={styles.debugItem}>
+                          <strong>Temperature:</strong> {llmProvider.modelConfig.temperature}
+                        </div>
+                        <div className={styles.debugItem}>
+                          <strong>Context Window:</strong> {llmProvider.modelConfig.contextWindow}
+                        </div>
+                      </>
+                    )}
                   </div>
                   
-                  {/* Anthropic Settings */}
+                  {/* Provider Info */}
                   <div className={styles.debugSection}>
-                    <div className={styles.debugSectionTitle}>Anthropic:</div>
                     <div className={styles.debugItem}>
-                      <strong>API Key:</strong> {llmSettings.anthropic.apiKey ? 
-                        (llmSettings.anthropic.apiKey === 'TBD' ? 'TBD (mock)' : '***' + llmSettings.anthropic.apiKey.slice(-4))
-                        : 'not set'}
+                      <strong>Built-in:</strong> {llmProvider.isBuiltIn ? 'Yes' : 'No'}
                     </div>
                     <div className={styles.debugItem}>
-                      <strong>Model:</strong> {llmSettings.anthropic.model || 'not set'}
+                      <strong>Default:</strong> {llmProvider.isDefault ? 'Yes' : 'No'}
                     </div>
                   </div>
                   
-                  {/* Ollama Settings */}
-                  <div className={styles.debugSection}>
-                    <div className={styles.debugSectionTitle}>Ollama:</div>
-                    <div className={styles.debugItem}>
-                      <strong>Base URL:</strong> {llmSettings.ollama.baseUrl || 'not set'}
-                    </div>
-                    <div className={styles.debugItem}>
-                      <strong>Model:</strong> {llmSettings.ollama.model || 'not set'}
-                    </div>
-                    <div className={styles.debugItem}>
-                      <strong>API Key:</strong> {llmSettings.ollama.apiKey ? '***' + llmSettings.ollama.apiKey.slice(-4) : 'not set'}
-                    </div>
-                  </div>
-                  
-                  {/* Mock Mode Indicator */}
-                  {llmSettings.defaultProvider === 'nxtscape' && (
+                  {/* BrowserOS Indicator */}
+                  {llmProvider.type === 'browseros' && (
                     <div className={styles.debugNote}>
-                      ℹ️ Using Nxtscape proxy - no API key required
+                      ℹ️ Using BrowserOS built-in provider - no API key required
                     </div>
                   )}
                 </div>
               ) : (
-                <div className={styles.debugLoading}>Loading settings...</div>
+                <div className={styles.debugLoading}>Loading provider...</div>
               )}
             </div>
           </details>
