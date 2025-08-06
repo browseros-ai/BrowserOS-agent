@@ -25,8 +25,14 @@ export const ProviderCapabilitiesSchema = z.object({
  * Model configuration for a provider
  */
 export const ModelConfigSchema = z.object({
-  contextWindow: z.number().optional(),  // Maximum context window size
-  temperature: z.number().min(0).max(2).optional()  // Default temperature setting
+  contextWindow: z.union([z.number(), z.string()]).transform(val => {
+    // Convert string to number if needed (from Chrome settings UI)
+    return typeof val === 'string' ? parseInt(val, 10) : val
+  }).optional(),  // Maximum context window size
+  temperature: z.union([z.number(), z.string()]).transform(val => {
+    // Convert string to number if needed (from Chrome settings UI)
+    return typeof val === 'string' ? parseFloat(val) : val
+  }).pipe(z.number().min(0).max(2)).optional()  // Default temperature setting
 })
 
 /**
