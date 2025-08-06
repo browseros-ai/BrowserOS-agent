@@ -2,7 +2,6 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { SidePanelPage } from './pages/SidePanelPage'
 import { App as AppV2 } from './v2/App'
-import './styles/globals.css'
 
 // Feature flag for v2 sidepanel
 const USE_V2 = true;

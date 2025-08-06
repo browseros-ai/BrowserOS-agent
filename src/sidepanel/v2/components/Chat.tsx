@@ -1,9 +1,12 @@
-import React from 'react'
+import React, { useState, useRef } from 'react'
 import { Header } from './Header'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
+import { SelectTabsButton } from './SelectTabsButton'
 import { useChatStore } from '../stores/chatStore'
 import { ErrorBoundary } from './ErrorBoundary'
+import { useAnalytics } from '../hooks/useAnalytics'
+import { ArrowDownIcon } from './ui/Icons'
 
 interface ChatProps {
   isConnected: boolean
@@ -15,35 +18,98 @@ interface ChatProps {
  */
 export function Chat({ isConnected }: ChatProps) {
   const { messages, isProcessing, reset } = useChatStore()
+  const [isUserScrolling, setIsUserScrolling] = useState(false)
+  const [showSelectTabsButton, setShowSelectTabsButton] = useState(false)
+  const messageListRef = useRef<HTMLDivElement>(null)
+  const { trackFeature } = useAnalytics()
+
+  const handleScrollToBottom = () => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTo({
+        top: messageListRef.current.scrollHeight,
+        behavior: 'smooth'
+      })
+      setIsUserScrolling(false)
+    }
+  }
+
+  const toggleSelectTabsButton = () => {
+    setShowSelectTabsButton(prev => !prev)
+  }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background-alt">
+
+      {/* Header */}
       <Header 
         onReset={reset}
         showReset={messages.length > 0}
         isProcessing={isProcessing}
       />
       
-      <ErrorBoundary
-        fallback={(error, reset) => (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <p className="text-red-600 dark:text-red-400 mb-2">Failed to load messages</p>
-              <button 
-                onClick={reset}
-                className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-              >
-                Try Again
-              </button>
+      {/* Main content - takes remaining space and scrolls */}
+      <div className="flex-1 min-h-0">
+        <ErrorBoundary
+          fallback={(error, reset) => (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="text-center">
+                <p className="text-red-600 dark:text-red-400 mb-2">Failed to load messages</p>
+                <button 
+                  onClick={reset}
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Try Again
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      >
-        <main id="main-content">
-          <MessageList messages={messages} />
-        </main>
-      </ErrorBoundary>
+          )}
+        >
+          <main id="main-content" className="h-full">
+            
+            <MessageList 
+              messages={messages} 
+              onScrollStateChange={setIsUserScrolling}
+              scrollToBottom={handleScrollToBottom}
+              containerRef={messageListRef}
+            />
+          </main>
+
+        </ErrorBoundary>
+      </div>
       
+      {/* Scroll to bottom button - positioned above SelectTabsButton */}
+      {isUserScrolling && (
+        <div className="relative h-0">
+          <button
+            onClick={() => {
+              trackFeature('scroll_to_bottom')
+              handleScrollToBottom()
+            }}
+            className="absolute -top-12 right-4 p-3 bg-brand text-white rounded-full shadow-xl hover:bg-brand/90 transition-all duration-200 animate-in fade-in slide-in-from-bottom-2 focus:ring-2 focus:ring-brand focus:ring-offset-2 z-10 border-2 border-white/20 hover:scale-110"
+            aria-label="Scroll to bottom of messages"
+            type="button"
+          >
+            <ArrowDownIcon />
+          </button>
+        </div>
+      )}
+      
+      {/* Select Tabs Button - conditionally rendered */}
+      {showSelectTabsButton && (
+        <ErrorBoundary
+          fallback={(error, reset) => (
+            <div className="px-4 py-2 bg-red-50 dark:bg-red-950/20">
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Tab selector error. <button onClick={reset} className="underline">Reset</button>
+              </p>
+            </div>
+          )}
+        >
+          <SelectTabsButton />
+        </ErrorBoundary>
+      )}
+      
+      {/* Chat Input - always at bottom */}
       <ErrorBoundary
         fallback={(error, reset) => (
           <div className="p-4 bg-red-50 dark:bg-red-950/20">
@@ -56,8 +122,11 @@ export function Chat({ isConnected }: ChatProps) {
         <ChatInput 
           isConnected={isConnected}
           isProcessing={isProcessing}
+          onToggleSelectTabs={toggleSelectTabsButton}
+          showSelectTabsButton={showSelectTabsButton}
         />
       </ErrorBoundary>
+      
     </div>
   )
 }

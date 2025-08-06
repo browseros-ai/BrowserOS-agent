@@ -4,7 +4,8 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 98%;
+    --background-alt: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
@@ -24,10 +25,12 @@
     --input: 240 5.9% 90%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+    --brand: 19 96% 55%;
   }
 
   .dark {
     --background: 222.2 84% 4.9%;
+    --background-alt: 0 0% 100%;
     --foreground: 210 40% 98%;
     --card: 224 71% 4%;
     --card-foreground: 210 40% 98%;
@@ -46,6 +49,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+    --brand: 19 96% 55%;
   }
 }
 
@@ -76,4 +80,83 @@
 html, body {
   @apply bg-background text-foreground;
   transition: background-color 0.3s ease, color 0.3s ease;
-} 
+}
+
+/* Table styles for better markdown table rendering */
+table {
+  @apply w-full border-collapse border border-border rounded-lg overflow-hidden my-4;
+}
+
+th {
+  @apply border border-border bg-muted/80 px-3 py-2 text-left font-medium text-sm;
+}
+
+td {
+  @apply border border-border px-3 py-2 text-sm;
+}
+
+tr {
+  @apply hover:bg-muted/30 transition-colors;
+}
+
+/* Slide down animation for all items */
+@keyframes slideDown {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(20px);
+  }
+}
+
+/* Fly-in animation for top item */
+@keyframes flyInTop {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Fly-out animation for bottom item */
+@keyframes flyOutBottom {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+}
+
+/* Fly-up animation for TabSelector */
+@keyframes flyUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.5s ease-out forwards;
+}
+
+.animate-fly-in-top {
+  animation: flyInTop 0.5s ease-out forwards;
+}
+
+.animate-fly-out-bottom {
+  animation: flyOutBottom 0.5s ease-out forwards;
+}
+
+.animate-fly-up {
+  animation: flyUp 0.3s ease-out forwards;
+}

@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from 'react'
+import { LoadingPawTrail } from './ui/Icons'
 
 // Lazy load the TabSelector component
 const TabSelector = lazy(() => import('./shared/TabSelector').then(module => ({
@@ -22,7 +23,7 @@ export function LazyTabSelector(props: LazyTabSelectorProps) {
     <Suspense 
       fallback={
         <div className="flex items-center justify-center p-4 text-muted-foreground">
-          <span className="text-sm">Loading tabs...</span>
+          <LoadingPawTrail />
         </div>
       }
     >

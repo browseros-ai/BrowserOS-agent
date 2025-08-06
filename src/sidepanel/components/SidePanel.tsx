@@ -9,6 +9,7 @@ import { useTabsStore } from "../store/tabsStore";
 import { BrowserOSProvider } from "@/lib/llm/settings/types";
 import { isDevelopmentMode } from "@/config";
 import { LLMSettingsReader } from "@/lib/llm/settings/LLMSettingsReader";
+import { LoadingPawTrail } from "@/sidepanel/v2/components/ui/Icons";
 
 // Icons
 
@@ -745,7 +746,7 @@ export function SidePanel({
             <summary className={styles.debugSummary}>
               🔧 Debug: LLM Settings 
               <span className={styles.debugProvider}>
-                ({llmProvider?.name || 'loading...'})
+                ({llmSettings?.defaultProvider || <LoadingPawTrail />})
               </span>
               <button
                 className={styles.debugRefreshButton}
@@ -817,7 +818,10 @@ export function SidePanel({
                   )}
                 </div>
               ) : (
-                <div className={styles.debugLoading}>Loading provider...</div>
+                <div className={styles.debugLoading}>
+                  <LoadingPawTrail />
+                  <span>Loading settings</span>
+                </div>
               )}
             </div>
           </details>

@@ -177,13 +177,13 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
 
     case 'done_tool': {
       // Output: { status?: string, message?: string }
-      let doneMd = '#### 🎉 Task Complete\n\n';
+      let doneMd = 'Task Complete - \n\n';
       if (output.message) {
         doneMd += output.message;
       } else if (output.status) {
         doneMd += `Status: ${output.status}`;
       } else {
-        doneMd += 'The task has been completed successfully.';
+        doneMd += 'The task is no longer being worked on.';
       }
       return doneMd;
     }

@@ -37,7 +37,7 @@ export function MarkdownContent({
   // Render with markdown-to-jsx - much simpler!
   return (
     <div className={cn(
-      'text-sm space-y-2',
+      'text-sm space-y-2 [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:border-border [&_table]:rounded-lg [&_table]:my-4 [&_table]:min-w-full [&_th]:border [&_th]:border-border [&_th]:bg-muted/80 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-sm [&_th]:text-foreground [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm [&_td]:text-foreground [&_tr:hover]:bg-muted/30 [&_tr]:transition-colors',
       compact && 'space-y-1',
       className
     )}>
@@ -49,7 +49,7 @@ export function MarkdownContent({
             table: {
               component: 'table',
               props: {
-                className: 'w-full border-collapse'
+                className: 'w-full border-collapse border border-border rounded-lg my-4 min-w-full'
               }
             },
             // Links open in new tab
@@ -120,14 +120,21 @@ export function MarkdownContent({
             th: {
               component: 'th',
               props: {
-                className: 'border border-border bg-muted px-3 py-2 text-left font-medium'
+                className: 'border border-border bg-muted/80 px-3 py-2 text-left font-medium text-sm text-foreground'
               }
             },
             // Table cells
             td: {
               component: 'td',
               props: {
-                className: 'border border-border px-3 py-2'
+                className: 'border border-border px-3 py-2 text-sm text-foreground'
+              }
+            },
+            // Table rows
+            tr: {
+              component: 'tr',
+              props: {
+                className: 'hover:bg-muted/30 transition-colors'
               }
             }
           },

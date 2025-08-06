@@ -43,7 +43,7 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
   } = useTabsStore();
 
   // Local state for keyboard navigation
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
   
   // Refs for DOM operations
   const listRef = useRef<HTMLDivElement>(null);
@@ -71,13 +71,13 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
 
   // Reset active index when filtered tabs change
   useEffect(() => {
-    setActiveIndex(0);
+    setActiveIndex(-1);
   }, [filteredTabs]);
 
   // Fetch tabs when component opens
   useEffect(() => {
     if (isOpen) {
-      setActiveIndex(0); // Reset keyboard navigation
+      setActiveIndex(-1); // Reset keyboard navigation - no default selection
       fetchOpenTabs(); // Will be throttled by store
     }
   }, [isOpen, fetchOpenTabs]);
@@ -90,18 +90,28 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setActiveIndex(prev => (prev + 1) % filteredTabs.length);
+          setActiveIndex(prev => {
+            // If no tab is selected, start with the first one
+            if (prev === -1) return 0;
+            return (prev + 1) % filteredTabs.length;
+          });
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setActiveIndex(prev => (prev - 1 + filteredTabs.length) % filteredTabs.length);
+          setActiveIndex(prev => {
+            // If no tab is selected, start with the last one
+            if (prev === -1) return filteredTabs.length - 1;
+            return (prev - 1 + filteredTabs.length) % filteredTabs.length;
+          });
           break;
         case 'Enter':
           e.preventDefault();
-          const activeTab = filteredTabs[activeIndex];
-          if (activeTab) {
-            toggleTabSelection(activeTab.id);
-            onClose();
+          if (activeIndex >= 0) {
+            const activeTab = filteredTabs[activeIndex];
+            if (activeTab) {
+              toggleTabSelection(activeTab.id);
+              onClose();
+            }
           }
           break;
         case 'Escape':
@@ -117,7 +127,7 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
 
   // Scroll active item into view
   useEffect(() => {
-    if (!isOpen || filteredTabs.length === 0) return;
+    if (!isOpen || filteredTabs.length === 0 || activeIndex < 0) return;
     
     const activeTab = filteredTabs[activeIndex];
     if (activeTab) {
@@ -157,7 +167,7 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
     <div 
       className={cn(
         'bg-popover text-popover-foreground rounded-lg border border-border shadow-lg max-h-80 overflow-hidden',
-        className
+        className,
       )}
       role="dialog"
       aria-labelledby="tab-selector-heading"
@@ -186,7 +196,7 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
             {filteredTabs.map((tab, index) => {
               const isSelected = isTabSelected(tab.id);
               const isCurrentTab = tab.id === currentTabId;
-              const isActive = index === activeIndex;
+              const isActive = activeIndex >= 0 && index === activeIndex;
               
               return (
                 <li
