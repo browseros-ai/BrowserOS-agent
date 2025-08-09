@@ -124,6 +124,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
         {/* Settings content */}
         <div className="space-y-6">
+          
           {/* AI Provider */}
           <ProviderSettingsCard />
 

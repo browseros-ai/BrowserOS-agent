@@ -4,7 +4,7 @@ import { SidePanelPage } from './pages/SidePanelPage'
 import { App as AppV2 } from './v2/App'
 
 // Feature flag for v2 sidepanel
-const USE_V2 = true;
+const USE_V2 = false;
 
 // Log which version is being used
 console.log(`[Sidepanel] Using ${USE_V2 ? 'V2' : 'V1'} implementation`)
