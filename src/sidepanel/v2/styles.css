@@ -733,3 +733,19 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 :root:not(.dark):not(.gray) .tab-card {
   background-color: #ffffff;
 }
+
+/* Selected tabs chip styling - make chips lighter than header in gray theme */
+.gray .selected-tab-chip {
+  background-color: hsl(220 8% 27%);
+}
+
+/* Normalize bullets in Extracted Items card: hide native summary marker */
+.extract-card details > summary::-webkit-details-marker { 
+  display: none; 
+}
+.extract-card details > summary::marker { 
+  content: ''; 
+}
+.extract-card details > summary {
+  list-style: none; /* Ensure no list marker across browsers */
+}

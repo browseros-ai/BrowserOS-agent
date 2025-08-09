@@ -8,7 +8,7 @@ import { useKeyboardShortcuts, useAutoResize } from '../hooks/useKeyboardShortcu
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { MessageType } from '@/lib/types/messaging'
 import { cn } from '@/sidepanel/lib/utils'
-import { SendIcon, LoadingPawTrail } from './ui/Icons'
+import { LoadingPawTrail } from './ui/Icons'
 import { BrowserOSProvidersConfig, BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
 
 
@@ -290,7 +290,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               {selectedContextTabs.map(tab => (
                 <div
                   key={tab.id}
-                  className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-muted text-foreground/90 border border-border shadow-sm shrink-0"
+                  className="selected-tab-chip flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-muted text-foreground/90 border border-border shadow-sm shrink-0"
                   title={tab.title}
                 >
                   <div className="w-4 h-4 rounded-sm overflow-hidden bg-muted-foreground/10 flex items-center justify-center">
@@ -358,11 +358,11 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               type="submit"
               disabled={!uiConnected || isProcessing || !input.trim()}
               size="sm"
-              className="absolute right-2 bottom-2 h-10 px-4 rounded-xl bg-gradient-to-r from-brand to-brand/80 hover:from-brand/90 hover:to-brand/70 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 focus-visible:outline-none"
+              className="absolute right-3 bottom-3 h-8 w-8 p-0 rounded-full bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center justify-center"
               variant={'default'}
               aria-label={'Send message'}
             >
-              <SendIcon />
+              <img src="assets/arrow_upward_alt.svg" alt="" aria-hidden="true" className="w-6 h-6 block pointer-events-none select-none" />
             </Button>
           </div>
         </form>
