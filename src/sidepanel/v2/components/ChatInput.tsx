@@ -30,10 +30,10 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [draftBeforeHistory, setDraftBeforeHistory] = useState<string>('')
   
-  const { addMessage, setProcessing, selectedTabIds, clearSelectedTabs } = useChatStore()
+  const { addMessage, setProcessing } = useChatStore()
   const messages = useChatStore(state => state.messages)
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
-  const { getContextTabs, toggleTabSelection } = useTabsStore()
+  const { getContextTabs, toggleTabSelection, clearSelectedTabs: clearTabSelections } = useTabsStore()
   // Provider health: only consider UI connected if current default provider is usable
   useEffect(() => {
     const computeOk = (cfg: BrowserOSProvidersConfig) => {
@@ -111,8 +111,32 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       content: query
     })
     
-    // Get selected tab IDs from store
-    const tabIds = selectedTabIds.length > 0 ? selectedTabIds : undefined
+    // Determine whether to send explicit tabIds based on user selection state
+    const tabsState = (useTabsStore as any).getState() as { selectedTabs: number[], isCurrentTabRemoved: boolean, currentTabId: number | null }
+    const hasExplicitSelection = tabsState.selectedTabs.length > 0 || tabsState.isCurrentTabRemoved
+    const contextTabs: BrowserTab[] = getContextTabs()
+
+    // Helper: detect ambiguous reference to current tab
+    const isAmbiguousCurrent = /\b(this|current|here|this\s+tab|current\s+tab|this\s+pdf|current\s+pdf)\b/i.test(query)
+
+    let tabIds: number[] | undefined
+    if (isAmbiguousCurrent && tabsState.currentTabId !== null && !tabsState.isCurrentTabRemoved) {
+      // If user said "this/current" and current tab is part of context, restrict to current tab
+      tabIds = [tabsState.currentTabId]
+    } else if (hasExplicitSelection && contextTabs.length > 0) {
+      // Use all context tabs but prioritize current tab first if present
+      const ids = contextTabs.map(t => t.id)
+      if (tabsState.currentTabId !== null) {
+        const idx = ids.indexOf(tabsState.currentTabId)
+        if (idx > 0) {
+          ids.splice(idx, 1)
+          ids.unshift(tabsState.currentTabId)
+        }
+      }
+      tabIds = ids
+    } else {
+      tabIds = undefined
+    }
     
     // Send to background
     setProcessing(true)
@@ -126,7 +150,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     setInput('')
     setHistoryIndex(-1)
     setDraftBeforeHistory('')
-    clearSelectedTabs()
+    clearTabSelections()
     setShowTabSelector(false)
   }
   

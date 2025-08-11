@@ -178,6 +178,10 @@ export class BrowserAgent {
       this.eventEmitter.info(message, 'startup');
 
       // 3. DELEGATE: Route to the correct execution strategy
+      if (!classification.is_followup_task) {
+        // New task: ensure we start a fresh TODO manager
+        try { this.executionContext.todoStore.reset() } catch {}
+      }
       if (classification.is_simple_task) {
         await this._executeSimpleTaskStrategy(task);
       } else {
@@ -399,7 +403,9 @@ export class BrowserAgent {
    * @returns {Promise<boolean>} - True if the `done_tool` was successfully called.
    */
   private async _executeSingleTurn(instruction: string): Promise<boolean> {
-    this.messageManager.addHuman(instruction);
+    // Provide execution guidance as an internal system reminder rather than a new human message
+    // to avoid the model echoing the guidance back to the user on follow-ups.
+    this.messageManager.addSystemReminder(instruction);
     
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
@@ -428,7 +434,10 @@ export class BrowserAgent {
         lower.includes('do not provide commentary on your actions') ||
         lower.includes('you are browseragent') ||
         lower.includes('todo execution steps') ||
-        lower.includes('<system-context>')
+        lower.includes('<system-context>') ||
+        // Suppress echoes of our execution instructions (seen after Task Manager, esp. follow-ups)
+        lower.includes("the user's goal is:") ||
+        lower.includes('please take the next best action')
       )
 
       if (!isInstructionEcho) {

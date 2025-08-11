@@ -17,6 +17,7 @@ interface MessageItemProps {
   shouldIndent?: boolean
   showLocalIndentLine?: boolean  // When true, renders per-item vertical line
   applyIndentMargin?: boolean  // Control whether to apply left margin for indent
+  suppressTopMargin?: boolean  // Remove top margin when adjacent to grouped line
 }
 
 // Helper function to detect and parse JSON content
@@ -96,7 +97,7 @@ const TabDataDisplay = ({ content }: TabDataDisplayProps) => {
 
   const title = `Found ${tabData.length} tab${tabData.length !== 1 ? 's' : ''} across ${Object.keys(tabsByWindow).length} window${Object.keys(tabsByWindow).length !== 1 ? 's' : ''}`
   return (
-    <InlineDropdown title={title} defaultExpanded>
+    <InlineDropdown title={title} defaultExpanded collapseKey='tab_operations_tool'>
       <ExpandableSection itemCount={tabData.length} threshold={6} collapsedMaxHeight={224}>
         {Object.entries(tabsByWindow).map(([windowId, tabs]) => (
           <div key={windowId} className="tab-card bg-muted/50 rounded-lg p-3">
@@ -143,7 +144,7 @@ const SelectedTabDataDisplay = ({ content }: SelectedTabDataDisplayProps) => {
 
   const title = `Selected ${tabData.length} tab${tabData.length !== 1 ? 's' : ''}`
   return (
-    <InlineDropdown title={title} defaultExpanded>
+    <InlineDropdown title={title} defaultExpanded collapseKey='get_selected_tabs_tool'>
       <ExpandableSection itemCount={tabData.length} threshold={6} collapsedMaxHeight={224}>
         <div className="tab-card bg-muted/50 rounded-lg p-3">
           <div className="space-y-2">
@@ -269,7 +270,7 @@ const PdfPreview = ({ content }: PdfPreviewProps) => {
   if (error) return <div className="text-sm text-muted-foreground">Preview error: {error}</div>
 
   return (
-    <InlineDropdown title="PDF Preview" defaultExpanded>
+    <InlineDropdown title="PDF Preview" defaultExpanded collapseKey='extract_tool'>
       <div className="space-y-1">
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
           {thumbs.map((src, i) => (
@@ -336,7 +337,7 @@ interface ToolResultInlineProps { name: string, content: string, autoCollapseAft
 
 const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInlineProps) => {
   return (
-    <InlineDropdown title={name} defaultExpanded autoCollapseAfterMs={autoCollapseAfterMs}>
+    <InlineDropdown title={name} defaultExpanded autoCollapseAfterMs={autoCollapseAfterMs} collapseKey={name}>
       <div className="text-sm text-muted-foreground font-medium">
         {content || ''}
       </div>
@@ -349,7 +350,7 @@ const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInli
  * Renders individual messages with role-based styling
  * Memoized to prevent re-renders when message hasn't changed
  */
-export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true }: MessageItemProps) {
+export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true, suppressTopMargin = false }: MessageItemProps) {
   const { autoCollapseDelayMs, showPdfPreview } = useSettingsStore()
   const isUser = message.role === 'user'
   const isError = message.metadata?.error || message.content.includes('## Task Failed')
@@ -534,16 +535,16 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
 
   // Memoize whether to show bubble and timestamp
   const displayOptions = useMemo(() => {
-    const shouldShowBubble = isUser || contentChecks.isTodoTable
-    const shouldShowTimestamp = isUser || contentChecks.isTodoTable
-    const shouldShowToolName = false // Tool names are not shown since only user and TODO messages get bubbles
+    const shouldShowBubble = isUser // Only user messages use bubbles
+    const shouldShowTimestamp = isUser // Only user messages show timestamp
+    const shouldShowToolName = false
     
     return {
       shouldShowBubble,
       shouldShowTimestamp,
       shouldShowToolName
     }
-  }, [isUser, contentChecks.isTodoTable])
+  }, [isUser])
 
   // Calculate slide-up amount when executing message is being removed
   useEffect(() => {
@@ -597,10 +598,14 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
         )
 
       case 'todo-table':
-        return <TaskManagerDropdown 
-          key={`task-manager-${message.id}`} 
-          content={message.content} 
-        />
+        return (
+          <div className="w-full">
+            <TaskManagerDropdown 
+              key={`task-manager-${message.id}`} 
+              content={message.content}
+            />
+          </div>
+        )
 
       case 'tab-data':
         return <TabDataDisplay content={message.content} />
@@ -791,8 +796,8 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
         // Non-bubble messages (system messages, tool results, task summaries, etc.)
         <div className={cn(
           'mr-4 max-w-[85%]',
-          // Reduce vertical spacing for non-indented tool results
-          !shouldIndent && isToolResult ? '!mt-0' : 'mt-1',
+          // Reduce vertical spacing for non-indented tool results or when suppressed
+          suppressTopMargin ? '!mt-0' : (!shouldIndent && isToolResult ? '!mt-0' : 'mt-1'),
           isCompleting && 'animate-dash-off-left',
           // Add subtle styling for indented messages
           shouldIndent && 'opacity-90'

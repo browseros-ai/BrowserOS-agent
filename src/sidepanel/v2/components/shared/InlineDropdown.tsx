@@ -10,7 +10,8 @@ export const InlineDropdownPropsSchema = z.object({
   defaultExpanded: z.boolean().optional(),  // Whether to start expanded
   countText: z.string().optional(),  // Optional small count text
   className: z.string().optional(),  // Optional container classes
-  autoCollapseAfterMs: z.number().int().positive().optional()  // Optional auto-collapse delay
+  autoCollapseAfterMs: z.number().int().positive().optional(),  // Optional auto-collapse delay
+  collapseKey: z.string().optional()  // Per-dropdown key for selective auto-collapse
 })
 
 type InlineDropdownProps = z.infer<typeof InlineDropdownPropsSchema> & {
@@ -24,31 +25,34 @@ export function InlineDropdown ({
   countText,
   className,
   autoCollapseAfterMs,
+  collapseKey,
   children
 }: InlineDropdownProps) {
   const [expanded, setExpanded] = useState<boolean>(defaultExpanded)
   const autoCollapseDelayMs = useSettingsStore(s => s.autoCollapseDelayMs)
+  const autoCollapseKeys = useSettingsStore(s => s.autoCollapseKeys)
 
   // Auto-collapse support (honors settingsStore.autoCollapseTools)
   useEffect(() => {
     const delay = typeof autoCollapseAfterMs === 'number' ? autoCollapseAfterMs : autoCollapseDelayMs
-    if (!delay || delay <= 0) return
+    const allowByKey = !collapseKey || autoCollapseKeys.length === 0 || autoCollapseKeys.includes(collapseKey)
+    if (!delay || delay <= 0 || !allowByKey) return
     let timer: ReturnType<typeof setTimeout> | null = null
     setExpanded(true)
     timer = setTimeout(() => {
       setExpanded(false)
     }, delay)
     return () => { if (timer) clearTimeout(timer) }
-  }, [autoCollapseAfterMs, autoCollapseDelayMs, title])
+  }, [autoCollapseAfterMs, autoCollapseDelayMs, title, collapseKey, autoCollapseKeys])
 
   return (
-    <div className={cn('flex flex-col gap-0.5', className)}>
+    <div className={cn('flex flex-col', className)}>
       {/* Header toggle */}
       <button
         type='button'
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
-        className='text-[10px] uppercase tracking-wide text-muted-foreground/80 leading-tight inline-flex items-center gap-1 cursor-pointer focus:outline-none'
+        className='text-[10px] uppercase tracking-wide text-muted-foreground/80 leading-tight inline-flex items-center cursor-pointer focus:outline-none'
       >
         <span>{title}</span>
         {countText && (

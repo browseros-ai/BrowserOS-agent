@@ -4,7 +4,9 @@ import { Button } from '@/sidepanel/components/ui/button'
 import { useAutoScroll } from '../hooks/useAutoScroll'
 import { useAnalytics } from '../hooks/useAnalytics'
 import type { Message } from '../stores/chatStore'
-import { AnimatedPawPrints } from './ui/Icons'
+import { AnimatedPawPrints, ChevronDownIcon } from './ui/Icons'
+import { cn } from '@/sidepanel/lib/utils'
+import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
 
 interface MessageListProps {
   messages: Message[]
@@ -82,10 +84,14 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
   const [currentExamples, setCurrentExamples] = useState<string[]>([])
   const [shuffledPool, setShuffledPool] = useState<string[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
+  const [collapsedByResultId, setCollapsedByResultId] = useState<Record<string, boolean>>({})
+  const autoCollapseDelayMs = useSettingsStore(s => s.autoCollapseDelayMs)
+  const autoCollapseKeys = useSettingsStore(s => s.autoCollapseKeys)
   
   // Track previously seen message IDs to determine which are new
   const previousMessageIdsRef = useRef<Set<string>>(new Set())
   const newMessageIdsRef = useRef<Set<string>>(new Set())
+  const autoCollapseTimersRef = useRef<Record<string, number>>({})
 
   // Use external container ref if provided, otherwise use internal one
   const containerRef = externalContainerRef || internalContainerRef
@@ -106,6 +112,33 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
     newMessageIdsRef.current = newIds
     previousMessageIdsRef.current = currentMessageIds
   }, [messages])
+
+  // Auto-collapse newly arrived task results when settings allow 'result_tool'
+  useEffect(() => {
+    const delay = autoCollapseDelayMs || 0
+    const allow = autoCollapseKeys.length === 0 || autoCollapseKeys.includes('result_tool')
+    if (delay <= 0 || !allow) return
+
+    messages.forEach(m => {
+      const isTaskResult = m.metadata?.kind === 'task-result'
+      const isNew = newMessageIdsRef.current.has(m.id)
+      if (!isTaskResult || !isNew) return
+      if (autoCollapseTimersRef.current[m.id]) return
+
+      autoCollapseTimersRef.current[m.id] = window.setTimeout(() => {
+        setCollapsedByResultId(prev => prev[m.id] ? prev : { ...prev, [m.id]: true })
+        delete autoCollapseTimersRef.current[m.id]
+      }, delay)
+    })
+  }, [messages, autoCollapseDelayMs, autoCollapseKeys])
+
+  // Cleanup pending timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(autoCollapseTimersRef.current).forEach(t => clearTimeout(t))
+      autoCollapseTimersRef.current = {}
+    }
+  }, [])
 
   // Memoize filtered and processed messages to avoid recalculation on every render
   const processedMessages = useMemo(() => {
@@ -180,10 +213,40 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
         if (position.isTodoTable && !position.isFirst && !position.isLast) return null
         const isNewMessage = newMessageIdsRef.current.has(message.id)
         const animationDelay = isNewMessage ? index * 0.1 : 0
-        return { message, position: position!, animationDelay, isNewMessage }
+        return { message, position: position!, animationDelay, isNewMessage, originalIndex: index }
       })
-      .filter(Boolean) as Array<{ message: Message, position: NonNullable<ReturnType<typeof messagePositions.get>>, animationDelay: number, isNewMessage: boolean }>
+      .filter(Boolean) as Array<{ message: Message, position: NonNullable<ReturnType<typeof messagePositions.get>>, animationDelay: number, isNewMessage: boolean, originalIndex: number }>
   }, [messages])
+
+  // Task result detection via metadata (no string matching)
+  const isTaskResult = (m: Message): boolean => m.metadata?.kind === 'task-result'
+
+  // Build a set of hidden message IDs based on collapsed ranges
+  const hiddenIds = useMemo(() => {
+    const ids = new Set<string>()
+    // For each collapsed result, hide messages from the first message after the last user
+    // up to the message right before the result message
+    Object.entries(collapsedByResultId).forEach(([resultId, isCollapsed]) => {
+      if (!isCollapsed) return
+      const resultIndex = messages.findIndex(m => m.id === resultId)
+      if (resultIndex <= 0) return
+      // find last user index before result
+      let lastUserIndex = -1
+      for (let i = resultIndex - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') { lastUserIndex = i; break }
+      }
+      const start = Math.max(0, lastUserIndex + 1)
+      const end = Math.max(start, resultIndex - 1)
+      for (let i = start; i <= end; i++) {
+        ids.add(messages[i].id)
+      }
+    })
+    return ids
+  }, [collapsedByResultId, messages])
+
+  const toggleCollapseForResult = useCallback((resultId: string) => {
+    setCollapsedByResultId(prev => ({ ...prev, [resultId]: !prev[resultId] }))
+  }, [])
 
   // Initialize shuffled pool and current examples
   useEffect(() => {
@@ -382,11 +445,15 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
               }
             }
 
-            processedMessages.forEach(({ message, position, animationDelay, isNewMessage }) => {
+            processedMessages.forEach(({ message, position, animationDelay, isNewMessage, originalIndex }) => {
+              const isHidden = hiddenIds.has(message.id)
               const commonAttrs = {
                 key: message.id,
                 className: isNewMessage ? 'animate-fade-in' : '',
-                style: { animationDelay: isNewMessage ? `${animationDelay}s` : undefined },
+                style: {
+                  animationDelay: isNewMessage ? `${animationDelay}s` : undefined,
+                  display: isHidden ? 'none' : undefined
+                },
                 'data-todo-position': position.isFirst ? 'first' : position.isLast ? 'last' : null,
                 'data-todo-index': position.todoIndex,
                 'data-between-todos': position.isBetweenTodos ? 'true' : 'false',
@@ -396,19 +463,104 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
               } as any
 
               if (position.shouldIndent) {
-                if (!inGroup) inGroup = true
-                groupChildren.push(
-                  <div {...commonAttrs}>
-                    <MessageItem message={message} shouldIndent={true} showLocalIndentLine={false} applyIndentMargin={false} />
-                  </div>
-                )
+                const isResult = isTaskResult(message)
+                if (isResult) {
+                  // Flush current group so result is NOT inside the orange line group
+                  if (inGroup) { pushGroup(); inGroup = false }
+                  let lastUserIndex = -1
+                  for (let i = originalIndex - 1; i >= 0; i--) {
+                    if (messages[i].role === 'user') { lastUserIndex = i; break }
+                  }
+                  const start = Math.max(0, lastUserIndex + 1)
+                  const rangeCount = Math.max(0, (originalIndex - start))
+                  const collapsed = !!collapsedByResultId[message.id]
+                  blocks.push(
+                    <div {...commonAttrs}>
+                      <div id={`exec-range-${message.id}`} className='flex items-start gap-2'>
+                        {rangeCount > 0 && (
+                          <button
+                            onClick={() => toggleCollapseForResult(message.id)}
+                            className='mt-1 p-1 rounded hover:bg-muted text-muted-foreground'
+                            title={collapsed ? 'Expand details' : 'Collapse details'}
+                            aria-label={collapsed ? 'Expand details' : 'Collapse details'}
+                            aria-expanded={!collapsed}
+                          >
+                            <ChevronDownIcon className={cn('w-4 h-4 transition-transform', collapsed ? '-rotate-90' : 'rotate-0')} />
+                          </button>
+                        )}
+                        <div className='flex-1'>
+                          <MessageItem message={message} shouldIndent={false} showLocalIndentLine={false} />
+                        </div>
+                        {rangeCount > 0 && (
+                          <button
+                            onClick={() => toggleCollapseForResult(message.id)}
+                            className='mt-1 text-[11px] underline text-muted-foreground hover:text-foreground'
+                            aria-expanded={!collapsed}
+                            aria-controls={`exec-range-${message.id}`}
+                          >
+                            {collapsed ? 'Show' : 'Hide'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                } else {
+                  if (!inGroup) inGroup = true
+                  groupChildren.push(
+                    <div {...commonAttrs}>
+                      <MessageItem message={message} shouldIndent={true} showLocalIndentLine={false} applyIndentMargin={false} suppressTopMargin />
+                    </div>
+                  )
+                }
               } else {
                 if (inGroup) { pushGroup(); inGroup = false }
-                blocks.push(
-                  <div {...commonAttrs}>
-                    <MessageItem message={message} shouldIndent={false} showLocalIndentLine={false} />
-                  </div>
-                )
+                const isResult = isTaskResult(message)
+                if (isResult) {
+                  // compute collapsed range length for display
+                  let lastUserIndex = -1
+                  for (let i = originalIndex - 1; i >= 0; i--) {
+                    if (messages[i].role === 'user') { lastUserIndex = i; break }
+                  }
+                  const start = Math.max(0, lastUserIndex + 1)
+                  const rangeCount = Math.max(0, (originalIndex - start))
+                  const collapsed = !!collapsedByResultId[message.id]
+                  blocks.push(
+                    <div {...commonAttrs}>
+                      <div id={`exec-range-${message.id}`} className='flex items-start gap-2'>
+                        {rangeCount > 0 && (
+                          <button
+                            onClick={() => toggleCollapseForResult(message.id)}
+                            className='mt-1 p-1 rounded hover:bg-muted text-muted-foreground'
+                            title={collapsed ? 'Expand details' : 'Collapse details'}
+                            aria-label={collapsed ? 'Expand details' : 'Collapse details'}
+                            aria-expanded={!collapsed}
+                          >
+                            <ChevronDownIcon className={cn('w-4 h-4 transition-transform', collapsed ? '-rotate-90' : 'rotate-0')} />
+                          </button>
+                        )}
+                        <div className='flex-1'>
+                          <MessageItem message={message} shouldIndent={false} showLocalIndentLine={false} />
+                        </div>
+                        {rangeCount > 0 && (
+                          <button
+                            onClick={() => toggleCollapseForResult(message.id)}
+                            className='mt-1 text-[11px] underline text-muted-foreground hover:text-foreground'
+                            aria-expanded={!collapsed}
+                            aria-controls={`exec-range-${message.id}`}
+                          >
+                            {collapsed ? 'Show' : 'Hide'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                } else {
+                  blocks.push(
+                    <div {...commonAttrs}>
+                      <MessageItem message={message} shouldIndent={false} showLocalIndentLine={false} />
+                    </div>
+                  )
+                }
               }
             })
 

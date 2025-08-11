@@ -12,7 +12,8 @@ const SettingsSchema = z.object({
   theme: z.enum(['light', 'dark', 'gray']).default('light'),  // App theme
   autoScroll: z.boolean().default(true),  // Auto-scroll chat to bottom
   autoCollapseDelayMs: z.number().int().nonnegative().default(DEFAULT_AUTO_COLLAPSE_DELAY_MS),  // Auto-collapse delay
-  showPdfPreview: z.boolean().default(true)  // Show PDF page preview alongside extracted items
+  showPdfPreview: z.boolean().default(true),  // Show PDF page preview alongside extracted items
+  autoCollapseKeys: z.array(z.string()).default([])  // Per-dropdown keys that should auto-collapse; empty means all
 })
 
 type Settings = z.infer<typeof SettingsSchema>
@@ -24,6 +25,9 @@ interface SettingsActions {
   setAutoScroll: (enabled: boolean) => void
   setAutoCollapseDelayMs: (delayMs: number) => void
   setShowPdfPreview: (enabled: boolean) => void
+  setAutoCollapseKey: (key: string, enabled: boolean) => void
+  setAutoCollapseKeys: (keys: string[]) => void
+  isAutoCollapseEnabledFor: (key: string | undefined) => boolean
   resetSettings: () => void
 }
 
@@ -33,7 +37,8 @@ const initialState: Settings = {
   theme: 'light',
   autoScroll: true,
   autoCollapseDelayMs: DEFAULT_AUTO_COLLAPSE_DELAY_MS,
-  showPdfPreview: true
+  showPdfPreview: true,
+  autoCollapseKeys: []
 }
 
 // Create the store with persistence
@@ -72,6 +77,24 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
       setShowPdfPreview: (enabled) => {
         set({ showPdfPreview: enabled })
       },
+
+      setAutoCollapseKey: (key, enabled) => {
+        set((state) => {
+          const current = state.autoCollapseKeys || []
+          const exists = current.includes(key)
+          if (enabled && !exists) return { autoCollapseKeys: [...current, key] }
+          if (!enabled && exists) return { autoCollapseKeys: current.filter(k => k !== key) }
+          return {}
+        })
+      },
+
+      setAutoCollapseKeys: (keys) => set({ autoCollapseKeys: [...new Set(keys)] }),
+
+      isAutoCollapseEnabledFor: (key) => {
+        const { autoCollapseDelayMs, autoCollapseKeys } = (useSettingsStore as any).getState() as Settings
+        if (!key) return autoCollapseDelayMs > 0 && (autoCollapseKeys.length === 0)
+        return autoCollapseDelayMs > 0 && (autoCollapseKeys.length === 0 || autoCollapseKeys.includes(key))
+      },
       
       resetSettings: () => {
         set(initialState)
@@ -83,7 +106,7 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
     }),
     {
       name: 'nxtscape-settings',  // localStorage key
-      version: 6,
+      version: 7,
       migrate: (persisted: any, version: number) => {
         // Migrate from v1 isDarkMode -> theme
         if (version === 1 && persisted) {
@@ -135,6 +158,13 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
             autoScroll: typeof persisted.autoScroll === 'boolean' ? persisted.autoScroll : true,
             autoCollapseDelayMs,
             showPdfPreview: typeof persisted.showPdfPreview === 'boolean' ? persisted.showPdfPreview : true
+          } as Settings
+        }
+        // Migrate to v7 add autoCollapseKeys default []
+        if (version === 6 && persisted) {
+          return {
+            ...persisted,
+            autoCollapseKeys: Array.isArray(persisted.autoCollapseKeys) ? persisted.autoCollapseKeys : []
           } as Settings
         }
         return persisted as Settings

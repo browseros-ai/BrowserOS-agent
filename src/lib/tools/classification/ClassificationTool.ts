@@ -69,8 +69,18 @@ export class ClassificationTool {
   }
 
   private _buildTaskPrompt(task: string, recentMessages: any[]): string {
-    const messageHistory = recentMessages
-      .map(m => `${m._getType()}: ${m.content}`)
+    // Use only human/assistant natural-language messages for context, exclude system/tool/browser-state noise
+    const filtered = recentMessages.filter((m: any) => {
+      const t = typeof m._getType === 'function' ? m._getType() : ''
+      if (t === 'human') return true
+      if (t === 'ai') {
+        const c = typeof m.content === 'string' ? m.content as string : ''
+        return c && !c.includes('<system-context>') && !c.includes('<system-reminder>')
+      }
+      return false
+    })
+    const messageHistory = filtered
+      .map((m: any) => `${m._getType()}: ${typeof m.content === 'string' ? m.content : ''}`)
       .join('\n')
     
     return buildClassificationTaskPrompt(task, messageHistory)
