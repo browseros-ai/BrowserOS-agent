@@ -70,12 +70,11 @@ export function CommandInput() {
   return (
     <form onSubmit={handleSubmit} className="relative">
       <div className={`
-        relative flex items-center gap-2
-        bg-card border rounded-2xl
+        relative flex items-center gap-3
+        bg-card border rounded-xl
         transition-all duration-200
-        ${isFocused ? 'border-primary shadow-lg scale-105' : 'border-border shadow-md'}
-        hover:shadow-lg
-        px-4 py-2
+        ${isFocused ? 'border-primary shadow-lg' : 'border-border'}
+        px-4 py-3
       `}>
         {/* Provider Dropdown */}
         <ProviderDropdown />
@@ -90,7 +89,7 @@ export function CommandInput() {
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
           placeholder={getPlaceholder()}
           className="
-            flex-1 py-2
+            flex-1
             bg-transparent border-none outline-none
             text-base placeholder:text-muted-foreground
           "
@@ -102,7 +101,7 @@ export function CommandInput() {
         {/* Settings Button */}
         <button
           type="button"
-          className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+          className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
           aria-label="Settings"
           onClick={() => setCreating(true)}
         >
