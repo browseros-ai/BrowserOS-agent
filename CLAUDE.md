@@ -340,11 +340,13 @@ This is a Chrome extension that provides AI-powered web automation using LLM age
 - Additional tools can be registered based on task requirements
 
 ### UI Components
-- **Side Panel** (`src/sidepanel/`) - Chrome side panel integration with React
-- **Components**: AgentStreamDisplay, MarkdownContent, TabSelector, StreamingMessageDisplay
-- **Hooks**: useSidePanelPortMessaging, useSidePanelState
-- **Store**: Zustand-based state management (appStore, tabsStore)
-- Real-time streaming display for agent execution with SCSS modules
+- **IMPORTANT: Use `src/sidepanel/v2/` for ALL UI work** - This is the new UI implementation
+- **DO NOT update files in other `src/sidepanel/` directories** - Legacy UI code being phased out
+- **Side Panel V2** (`src/sidepanel/v2/`) - Modern Chrome side panel integration with React
+- **Components**: Chat, MessageList, Header, SettingsModal, TabSelector, etc.
+- **Hooks**: useMessageHandler, useKeyboardShortcuts, useAutoScroll, etc.
+- **Store**: Zustand-based state management (chatStore, settingsStore)
+- Real-time streaming display for agent execution with modern CSS
 
 ### LLM Integration
 - **LangChainProviderFactory** (`src/lib/llm/LangChainProviderFactory.ts`) - Abstraction over multiple LLM providers
