@@ -23,9 +23,21 @@ export function NewTab() {
         <ThemeToggle />
       </div>
       
-      {/* Main Content - Centered */}
+      {/* Main Content - Centered (slightly above center for better visual balance) */}
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-full max-w-3xl px-4">
+        <div className="w-full max-w-3xl px-4 -mt-20">
+          {/* BrowserOS Branding */}
+          <div className="flex items-center justify-center mb-10">
+            <img 
+              src="/assets/browseros.svg" 
+              alt="BrowserOS" 
+              className="w-12 h-12 mr-3"
+            />
+            <span className="text-4xl font-light text-foreground tracking-tight">
+              BrowserOS
+            </span>
+          </div>
+          
           {/* Command Input - Clean and Centered */}
           <CommandInput />
         </div>
