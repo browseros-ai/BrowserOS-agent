@@ -6,6 +6,7 @@ import { RecentsList } from './components/RecentsList'
 import { useAgentsStore, agentSelectors } from './stores/agentsStore'
 import { useQuickActionsStore } from './stores/quickActionsStore'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
+import { useProviderStore } from './stores/providerStore'
 
 export function NewTab() {
   const { theme, fontSize } = useSettingsStore()

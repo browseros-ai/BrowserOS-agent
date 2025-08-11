@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { SendIcon, SettingsIcon } from '@/sidepanel/v2/components/ui/Icons'
 import { useAgentsStore } from '../stores/agentsStore'
 import { useChatStore } from '@/sidepanel/v2/stores/chatStore'
+import { ProviderDropdown } from './ProviderDropdown'
+import { useProviderStore } from '../stores/providerStore'
 
 export function CommandInput() {
   const [value, setValue] = useState('')
@@ -11,6 +13,9 @@ export function CommandInput() {
   
   const { selectedAgentId, setCreating } = useAgentsStore()
   const { addMessage, setProcessing } = useChatStore()
+  const { getSelectedProvider } = useProviderStore()
+  
+  const selectedProvider = getSelectedProvider()
   
   // Auto-focus on mount
   useEffect(() => {
@@ -48,19 +53,32 @@ export function CommandInput() {
     console.log('Handling command:', command)
   }
   
+  // Dynamic placeholder based on selected provider
+  const getPlaceholder = () => {
+    if (!selectedProvider) return "Ask anything or @mention a tab..."
+    
+    switch(selectedProvider.category) {
+      case 'search':
+        return `Search with ${selectedProvider.name}...`
+      case 'llm':
+        return `Ask ${selectedProvider.name} anything...`
+      default:
+        return "Ask anything or @mention a tab..."
+    }
+  }
+  
   return (
     <form onSubmit={handleSubmit} className="relative">
       <div className={`
-        relative flex items-center
+        relative flex items-center gap-2
         bg-card border rounded-2xl
         transition-all duration-200
         ${isFocused ? 'border-primary shadow-lg scale-105' : 'border-border shadow-md'}
         hover:shadow-lg
+        px-4 py-2
       `}>
-        {/* Search Icon */}
-        <div className="pl-6 pr-2 text-muted-foreground">
-          <SendIcon />
-        </div>
+        {/* Provider Dropdown */}
+        <ProviderDropdown />
         
         {/* Input Field */}
         <input
@@ -70,29 +88,26 @@ export function CommandInput() {
           onChange={(e) => setValue(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-          placeholder="Ask anything or @mention a tab..."
+          placeholder={getPlaceholder()}
           className="
-            flex-1 py-4 pr-2
+            flex-1 py-2
             bg-transparent border-none outline-none
-            text-lg placeholder:text-muted-foreground
+            text-base placeholder:text-muted-foreground
           "
           aria-label="Command input"
           autoComplete="off"
           spellCheck={false}
         />
         
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 pr-4">
-          {/* New Agent */}
-          <button
-            type="button"
-            className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
-            aria-label="Create new agent"
-            onClick={() => setCreating(true)}
-          >
-            <SettingsIcon />
-          </button>
-        </div>
+        {/* Settings Button */}
+        <button
+          type="button"
+          className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+          aria-label="Settings"
+          onClick={() => setCreating(true)}
+        >
+          <SettingsIcon />
+        </button>
       </div>
       
       {/* Suggestions Dropdown */}
