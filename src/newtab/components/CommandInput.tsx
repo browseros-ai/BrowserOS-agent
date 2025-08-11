@@ -57,6 +57,11 @@ export function CommandInput() {
   const getPlaceholder = () => {
     if (!selectedProvider) return "Ask anything or @mention a tab..."
     
+    // Special case for BrowserOS Agent
+    if (selectedProvider.id === 'browseros-agent') {
+      return "Ask BrowserOS Agent to automate anything..."
+    }
+    
     switch(selectedProvider.category) {
       case 'search':
         return `Search with ${selectedProvider.name}...`

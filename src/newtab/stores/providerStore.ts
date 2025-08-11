@@ -5,7 +5,7 @@ import { z } from 'zod'
 export const ProviderSchema = z.object({
   id: z.string(),  // Unique identifier
   name: z.string(),  // Display name
-  type: z.string(),  // Provider type
+  type: z.string(),  // Provider type (browseros, openai, anthropic, etc.)
   category: z.enum(['llm', 'search']),  // Category for grouping
   modelId: z.string().optional(),  // Model identifier
   available: z.boolean().default(true)  // Is provider available
@@ -16,6 +16,14 @@ export type Provider = z.infer<typeof ProviderSchema>
 // Default providers list - matching the dropdown image
 const DEFAULT_PROVIDERS: Provider[] = [
   // LLM Providers
+  {
+    id: 'browseros-agent',
+    name: 'BrowserOS Agent',
+    type: 'browseros',
+    category: 'llm',
+    modelId: 'browseros-agent',
+    available: true
+  },
   {
     id: 'chatgpt',
     name: 'ChatGPT',
@@ -72,7 +80,7 @@ interface ProviderActions {
 export const useProviderStore = create<ProviderState & ProviderActions>((set, get) => ({
   // Initial state
   providers: DEFAULT_PROVIDERS,
-  selectedProviderId: 'chatgpt',
+  selectedProviderId: 'browseros-agent',
   isDropdownOpen: false,
   
   // Actions
