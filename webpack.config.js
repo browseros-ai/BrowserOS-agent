@@ -48,7 +48,8 @@ module.exports = {
   entry: {
     sidepanel: './src/sidepanel/index.tsx',
     background: './src/background/index.ts',
-    'glow-animation': './src/content/glow-animation.ts'
+    'glow-animation': './src/content/glow-animation.ts',
+    newtab: './src/newtab/index.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -125,14 +126,19 @@ module.exports = {
     ],
   },
   plugins: [
-    // Limit chunks to only main entry points (3 total: sidepanel, background, glow-animation)
+    // Limit chunks to only main entry points (4 total: sidepanel, background, glow-animation, newtab)
     new webpack.optimize.LimitChunkCountPlugin({
-      maxChunks: 3
+      maxChunks: 4
     }),
     new HtmlWebpackPlugin({
       template: './src/sidepanel/index.html',
       filename: 'sidepanel.html',
       chunks: ['sidepanel']
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/newtab/index.html',
+      filename: 'newtab.html',
+      chunks: ['newtab']
     }),
     new CopyPlugin({
       patterns: [
