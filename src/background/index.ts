@@ -331,6 +331,11 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
         handleGetTabsPort(payload as GetTabsMessage['payload'], port, id)
         break
 
+      case MessageType.PDF_PARSE_RESPONSE: {
+        // Forward PDF_PARSE_RESPONSE to whoever requested if needed (no-op here)
+        break
+      }
+
       case MessageType.GET_LLM_PROVIDERS:
         handleGetLlmProvidersPort(port, id)
         break

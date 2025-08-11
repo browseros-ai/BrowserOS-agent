@@ -365,7 +365,7 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
         tabIndex={0}
       >
         {/* Messages List */}
-        <div className="p-6 space-y-3 pb-4">
+        <div className="p-6 space-y-2 pb-4">
           {(() => {
             const blocks: React.ReactNode[] = []
             let inGroup = false

@@ -1,2 +1,2 @@
 export * from './Logging';
-export * from './profiler';
+export * from './Profiler';

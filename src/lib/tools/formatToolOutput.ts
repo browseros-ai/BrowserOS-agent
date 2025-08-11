@@ -12,7 +12,7 @@ interface ToolResult {
 export function formatToolOutput(toolName: string, result: ToolResult): string {
   // Handle error cases first
   if (!result.ok) {
-    const errorMessage = result.error || 'Unknown error occurred';
+    const errorMessage = result.error || (typeof result.output === 'string' ? result.output : 'Unknown error occurred');
     return `Error in ${toolName}: ${errorMessage}`;
   }
 
@@ -80,7 +80,11 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
     }
 
     case 'extract_tool': {
-      // Output: { content: string, reasoning: string }
+      // Output: { content: string, reasoning: string } or { pdf: { url, title, pageCount }, content, reasoning }
+      if (output && typeof output === 'object' && (output as any).pdf) {
+        // Pass through JSON so UI can detect and render PDF preview
+        return JSON.stringify(output);
+      }
       if (output && typeof output === 'object' && typeof (output as any).content === 'string') {
         return (output as any).content as string;
       }

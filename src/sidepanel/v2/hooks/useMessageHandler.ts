@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { z } from 'zod'
 import { MessageType } from '@/lib/types/messaging'
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { useChatStore } from '../stores/chatStore'
 
@@ -8,8 +9,8 @@ export function useMessageHandler() {
   const { addMessage, updateMessage, setProcessing, setError, markMessageAsExecuting, markMessageAsCompleting, setExecutingMessageRemoving } = useChatStore()
   const { addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
   
-  // Track streaming messages by ID for updates
-  const streamingMessages = useRef<Map<string, { messageId: string, content: string }>>(new Map())
+  // Track streaming messages by ID for updates (created lazily on first non-suppressed chunk)
+  const streamingMessages = useRef<Map<string, { uiMessageId?: string, content: string, suppressed?: boolean }>>(new Map())
   // Suppress assistant streaming while tools are running
   const suppressStreamingRef = useRef<boolean>(false)
   
@@ -66,6 +67,40 @@ export function useMessageHandler() {
       }
     }
     
+    // Helper: detect and suppress instruction-echo segments
+    const shouldSuppressInstructionEcho = (text: string): boolean => {
+      const s = (text || '').toLowerCase()
+      if (!s) return false
+      // Common instruction echoes from system/step prompts
+      if (
+        s.includes('you are browseragent') ||
+        s.includes('todo execution steps') ||
+        s.includes('<system-context>') ||
+        s.includes('never output <system-context>')
+      ) return true
+
+      // Result/step constraints that sometimes get echoed
+      if (
+        s.includes('ensure your response is a valid tool call') ||
+        s.includes('do not use markdown other than for code blocks') ||
+        s.includes('do not use bullet points') ||
+        s.includes('do not ask clarifying questions') ||
+        s.includes('do not provide commentary on your actions') ||
+        s.includes('do not hallucinate tool calls') ||
+        s.includes('remember to call done_tool') ||
+        s.includes('do not use emojis') ||
+        s.includes('do not use all caps') ||
+        s.startsWith('## ⚠️ critical instructions') ||
+        s.startsWith('## \\u26a0\\ufe0f critical instructions')
+      ) return true
+
+      // Heuristic: many "do not" lines in a short chunk likely instruction echo
+      const doNotCount = (s.match(/\bdo not\b/g) || []).length
+      if (doNotCount >= 3 && (s.includes('tool') || s.includes('markdown'))) return true
+
+      return false
+    }
+
     switch (details.messageType) {
       case 'SystemMessage': {
         const category = typeof details.data?.category === 'string' ? details.data?.category as string : undefined
@@ -155,24 +190,9 @@ export function useMessageHandler() {
         // Mark existing executing messages as completing
         markExecutingAsCompleting()
         
-        // Start a new streaming message
+        // Defer creation of the UI message until we see the first chunk
         const messageId = details.messageId || `stream-${Date.now()}`
-        const message = {
-          role: 'assistant' as const,
-          content: '',  // Start with empty content
-          metadata: { kind: 'stream' as const, streamId: messageId }
-        }
-        
-        addMessage(message)
-        
-        // Track this streaming message
-        const lastMessage = useChatStore.getState().messages.slice(-1)[0]
-        if (lastMessage) {
-          streamingMessages.current.set(messageId, {
-            messageId: lastMessage.id,
-            content: ''
-          })
-        }
+        streamingMessages.current.set(messageId, { uiMessageId: undefined, content: '', suppressed: false })
         break
       }
       
@@ -180,12 +200,38 @@ export function useMessageHandler() {
         if (suppressStreamingRef.current) {
           break
         }
-        // Update streaming message
         if (details.messageId && details.content) {
-          const streaming = streamingMessages.current.get(details.messageId)
-          if (streaming) {
+          // Initialize tracking for this segment if missing
+          if (!streamingMessages.current.has(details.messageId)) {
+            streamingMessages.current.set(details.messageId, { uiMessageId: undefined, content: '', suppressed: false })
+          }
+          const streaming = streamingMessages.current.get(details.messageId)!
+          // If not yet created, decide whether to suppress or render
+          if (!streaming.uiMessageId) {
+            if (shouldSuppressInstructionEcho(details.content)) {
+              // Suppress this segment entirely
+              streaming.suppressed = true
+              streaming.content = ''
+              break
+            } else {
+              // Create assistant stream message lazily on first non-suppressed chunk
+              addMessage({
+                role: 'assistant',
+                content: details.content,
+                metadata: { kind: 'stream' as const, streamId: details.messageId }
+              })
+              const lastMessage = useChatStore.getState().messages.slice(-1)[0]
+              if (lastMessage) {
+                streaming.uiMessageId = lastMessage.id
+                streaming.content = details.content
+              }
+              break
+            }
+          }
+          // Already created and not suppressed: append content
+          if (!streaming.suppressed && streaming.uiMessageId) {
             streaming.content += details.content
-            updateMessage(streaming.messageId, streaming.content)
+            updateMessage(streaming.uiMessageId, streaming.content)
           }
         }
         break
@@ -197,13 +243,17 @@ export function useMessageHandler() {
           if (details.messageId) streamingMessages.current.delete(details.messageId)
           break
         }
-        // Complete the streaming message
         if (details.messageId) {
           const streaming = streamingMessages.current.get(details.messageId)
           if (streaming) {
+            // If suppressed or never created, just drop it
+            if (!streaming.uiMessageId || streaming.suppressed) {
+              streamingMessages.current.delete(details.messageId)
+              break
+            }
             const finalContent = details.content || streaming.content
             if (finalContent) {
-              updateMessage(streaming.messageId, finalContent)
+              updateMessage(streaming.uiMessageId, finalContent)
             }
             streamingMessages.current.delete(details.messageId)
           }
@@ -333,4 +383,77 @@ export function useMessageHandler() {
       streamingMessages.current.clear()
     }
   }, [addMessageListener, removeMessageListener, handleStreamUpdate, handleWorkflowStatus])
+  
+  // PDF.js parsing handler in side panel context
+  useEffect(() => {
+    const handler = (request: any, _sender: chrome.runtime.MessageSender, sendResponse: (resp?: any) => void) => {
+      if (request?.type !== MessageType.PDF_PARSE_REQUEST) return
+      ;(async () => {
+        try {
+          const { url, maxPages = 40 } = request.payload || {}
+          let pdfUrl = url
+          // Configure pdf.js for text-only URL-based parsing
+          try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch {}
+          let doc: any
+          try {
+            doc = await (getDocument as any)({
+              url: pdfUrl,
+              isEvalSupported: false,
+              disableWorker: true,
+              // Allow auto-fetch to retrieve needed ranges; we still extract text only
+              disableAutoFetch: false,
+              rangeChunkSize: 65536,
+              nativeImageDecoderSupport: 'none',
+              stopAtErrors: true,
+              withCredentials: true,
+              httpHeaders: { Accept: 'application/pdf' }
+            }).promise
+          } catch (err) {
+            const em = err instanceof Error ? err.message : String(err)
+            if (/Invalid PDF structure/i.test(em)) {
+              // Brief retry; no site-specific fallbacks
+              try {
+                await new Promise(r => setTimeout(r, 800))
+                const retryDoc = await (getDocument as any)({
+                  url: pdfUrl,
+                  isEvalSupported: false,
+                  disableWorker: true,
+                  disableAutoFetch: false,
+                  rangeChunkSize: 65536,
+                  nativeImageDecoderSupport: 'none',
+                  stopAtErrors: true,
+                  withCredentials: true,
+                  httpHeaders: { Accept: 'application/pdf' }
+                }).promise
+                doc = retryDoc
+              } catch {
+                return sendResponse({ ok: false, error: 'PARSE_INVALID_STRUCTURE' })
+              }
+            } else {
+              return sendResponse({ ok: false, error: em })
+            }
+          }
+          const limit = Math.min(doc.numPages || 0, maxPages)
+          const parts: string[] = []
+          for (let i = 1; i <= limit; i++) {
+            const page = await doc.getPage(i)
+            const content = await page.getTextContent()
+            const textItems: string[] = []
+            for (const item of content.items) {
+              const it: any = item
+              if (typeof it.str === 'string') textItems.push(it.str)
+            }
+            parts.push(`\n\n--- Page ${i} ---\n` + textItems.join(' '))
+          }
+          sendResponse({ ok: true, text: parts.join('') })
+        } catch (e) {
+          const em = e instanceof Error ? e.message : String(e)
+          sendResponse({ ok: false, error: em })
+        }
+      })()
+      return true
+    }
+    try { chrome.runtime.onMessage.addListener(handler) } catch {}
+    return () => { try { chrome.runtime.onMessage.removeListener(handler) } catch {} }
+  }, [])
 }

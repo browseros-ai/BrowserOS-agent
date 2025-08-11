@@ -9,6 +9,7 @@ import { useSidePanelPortMessaging } from '@/sidepanel/hooks/useSidePanelPortMes
 import { MessageType } from '@/lib/types/messaging'
 
 const DISCORD_URL = 'https://discord.com/invite/YKwjt5vuKr'
+const AUTO_COLLAPSE_DEFAULT_SECS = 10  // Default seconds when enabling
 
 // Define the props schema with Zod
 const SettingsModalPropsSchema = z.object({
@@ -20,7 +21,7 @@ const SettingsModalPropsSchema = z.object({
 type SettingsModalProps = z.infer<typeof SettingsModalPropsSchema>
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { fontSize, theme, autoScroll, autoCollapseTools, setFontSize, setTheme, setAutoScroll, setAutoCollapseTools } = useSettingsStore()
+  const { fontSize, theme, autoScroll, autoCollapseDelayMs, showPdfPreview, setFontSize, setTheme, setAutoScroll, setAutoCollapseDelayMs, setShowPdfPreview } = useSettingsStore()
   const [glowEnabled, setGlowEnabled] = useState<boolean>(true)
   const { sendMessage } = useSidePanelPortMessaging()
 
@@ -126,7 +127,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {/* Theme selection */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-foreground">Theme</h3>
+            <h3 className="text-sm font-medium text-foreground">Preferences</h3>
             <div className="p-4 rounded-xl bg-card border border-border/50">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">Change app theme</p>
@@ -193,17 +194,57 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Button>
           </div>
 
-          {/* Auto-collapse tool results */}
+          {/* Auto-collapse tool results (seconds) */}
           <div className="flex items-center justify-between px-4 py-2 rounded-xl border border-border/50 bg-card">
-            <p className="text-xs text-muted-foreground">Auto-collapse tool results</p>
+            <p className="text-xs text-muted-foreground">Auto-collapse tool results <span className="opacity-70">(seconds)</span></p>
+            <div className="flex items-center gap-2">
+              <div className={`inline-flex items-center rounded-lg border border-border bg-background overflow-hidden shrink-0 ${((autoCollapseDelayMs || 0) === 0) ? 'opacity-50' : ''}`}>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  step={1}
+                  value={Math.max(1, Math.min(30, Math.round((autoCollapseDelayMs || (AUTO_COLLAPSE_DEFAULT_SECS * 1000)) / 1000)))}
+                  onChange={(e) => {
+                    const secs = Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 0)))
+                    setAutoCollapseDelayMs(secs * 1000)
+                  }}
+                  disabled={(autoCollapseDelayMs || 0) === 0}
+                  className="h-7 w-12 px-2 text-right text-xs bg-transparent outline-none"
+                  aria-label="Auto-collapse delay in seconds"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  const enabled = (autoCollapseDelayMs || 0) > 0
+                  if (enabled) {
+                    setAutoCollapseDelayMs(0)
+                  } else {
+                    const currentSecs = Math.max(1, Math.min(30, Math.round((autoCollapseDelayMs || (AUTO_COLLAPSE_DEFAULT_SECS * 1000)) / 1000)))
+                    setAutoCollapseDelayMs(currentSecs * 1000)
+                  }
+                }}
+                variant="ghost"
+                size="sm"
+                className={`h-7 px-2 text-xs ${(autoCollapseDelayMs || 0) > 0 ? 'text-foreground' : 'text-muted-foreground'}`}
+                aria-label={`${(autoCollapseDelayMs || 0) > 0 ? 'Disable' : 'Enable'} auto-collapse for tool results`}
+              >
+                {(autoCollapseDelayMs || 0) > 0 ? 'On' : 'Off'}
+              </Button>
+            </div>
+          </div>
+
+          {/* PDF preview for extracts */}
+          <div className="flex items-center justify-between px-4 py-2 rounded-xl border border-border/50 bg-card">
+            <p className="text-xs text-muted-foreground">Show PDF preview</p>
             <Button
-              onClick={() => setAutoCollapseTools(!autoCollapseTools)}
+              onClick={() => setShowPdfPreview(!showPdfPreview)}
               variant="ghost"
               size="sm"
-              className={`h-7 px-2 text-xs ${autoCollapseTools ? 'text-foreground' : 'text-muted-foreground'}`}
-              aria-label={`${autoCollapseTools ? 'Disable' : 'Enable'} auto-collapse for tool results`}
+              className={`h-7 px-2 text-xs ${showPdfPreview ? 'text-foreground' : 'text-muted-foreground'}`}
+              aria-label={`${showPdfPreview ? 'Disable' : 'Enable'} PDF preview`}
             >
-              {autoCollapseTools ? 'On' : 'Off'}
+              {showPdfPreview ? 'On' : 'Off'}
             </Button>
           </div>
           </div>

@@ -1,14 +1,16 @@
 import React, { memo, useEffect, useState, useMemo, useCallback } from 'react'
 import { MarkdownContent } from './shared/Markdown'
 import { ExpandableSection } from './shared/ExpandableSection'
+import { InlineDropdown } from './shared/InlineDropdown'
 import { cn } from '@/sidepanel/lib/utils'
 import type { Message } from '../stores/chatStore'
 import { useChatStore } from '../stores/chatStore'
 //import { UserIcon } from './ui/Icons'
 import { DogHeadSpinner } from './ui/DogHeadSpinner'
-import { ChevronDownIcon, ChevronUpIcon } from './ui/Icons'
+// import { ChevronDownIcon, ChevronUpIcon } from './ui/Icons'
 import { TaskManagerDropdown } from './TaskManagerDropdown'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
 
 interface MessageItemProps {
   message: Message
@@ -92,11 +94,9 @@ const TabDataDisplay = ({ content }: TabDataDisplayProps) => {
     return acc
   }, {} as Record<number, typeof tabData>)
 
+  const title = `Found ${tabData.length} tab${tabData.length !== 1 ? 's' : ''} across ${Object.keys(tabsByWindow).length} window${Object.keys(tabsByWindow).length !== 1 ? 's' : ''}`
   return (
-    <div className="space-y-4">
-      <div className="text-sm font-medium text-foreground mb-3">
-        Found {tabData.length} tab{tabData.length !== 1 ? 's' : ''} across {Object.keys(tabsByWindow).length} window{Object.keys(tabsByWindow).length !== 1 ? 's' : ''}
-      </div>
+    <InlineDropdown title={title} defaultExpanded>
       <ExpandableSection itemCount={tabData.length} threshold={6} collapsedMaxHeight={224}>
         {Object.entries(tabsByWindow).map(([windowId, tabs]) => (
           <div key={windowId} className="tab-card bg-muted/50 rounded-lg p-3">
@@ -121,7 +121,7 @@ const TabDataDisplay = ({ content }: TabDataDisplayProps) => {
           </div>
         ))}
       </ExpandableSection>
-    </div>
+    </InlineDropdown>
   )
 }
 
@@ -141,11 +141,9 @@ const SelectedTabDataDisplay = ({ content }: SelectedTabDataDisplayProps) => {
     )
   }
 
+  const title = `Selected ${tabData.length} tab${tabData.length !== 1 ? 's' : ''}`
   return (
-    <div className="space-y-4">
-      <div className="text-sm font-medium text-foreground mb-3">
-        Selected {tabData.length} tab{tabData.length !== 1 ? 's' : ''}
-      </div>
+    <InlineDropdown title={title} defaultExpanded>
       <ExpandableSection itemCount={tabData.length} threshold={6} collapsedMaxHeight={224}>
         <div className="tab-card bg-muted/50 rounded-lg p-3">
           <div className="space-y-2">
@@ -168,7 +166,7 @@ const SelectedTabDataDisplay = ({ content }: SelectedTabDataDisplayProps) => {
           </div>
         </div>
       </ExpandableSection>
-    </div>
+    </InlineDropdown>
   )
 }
 
@@ -224,6 +222,71 @@ const shortenUrl = (u: string): string => {
   }
 }
 
+// PDF preview renderer for at most one page
+interface PdfPreviewProps { content: string }
+
+const PdfPreview = ({ content }: PdfPreviewProps) => {
+  const data = parseJsonContent(content)
+  const pdfMeta = data && typeof data === 'object' && (data as any).pdf ? (data as any).pdf as { url?: string, title?: string, pageCount?: number } : null
+  const url = pdfMeta?.url
+  const [thumbs, setThumbs] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!url) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch {}
+        const resp = await fetch(url, { credentials: 'include' })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const ab = await resp.arrayBuffer()
+        if (cancelled) return
+        const bytes = new Uint8Array(ab)
+        const doc: any = await (getDocument as any)({ data: bytes, isEvalSupported: false, disableWorker: true }).promise
+        const pages = 1
+        const imgs: string[] = []
+        for (let i = 1; i <= pages; i++) {
+          const page = await doc.getPage(i)
+          const viewport = page.getViewport({ scale: 0.3 })
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.max(1, Math.floor(viewport.width))
+          canvas.height = Math.max(1, Math.floor(viewport.height))
+          const ctx = canvas.getContext('2d')
+          if (!ctx) continue
+          await page.render({ canvasContext: ctx, viewport }).promise
+          imgs.push(canvas.toDataURL('image/jpeg', 0.75))
+        }
+        if (!cancelled) setThumbs(imgs)
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [url])
+
+  if (!url) return <div className="text-sm text-muted-foreground">No PDF preview available</div>
+  if (error) return <div className="text-sm text-muted-foreground">Preview error: {error}</div>
+
+  return (
+    <InlineDropdown title="PDF Preview" defaultExpanded>
+      <div className="space-y-1">
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+          {thumbs.map((src, i) => (
+            <div key={i} className="rounded border border-border/40 bg-background/50 p-2">
+              <img src={src} alt={`Page ${i + 1}`} className="w-full h-auto rounded" />
+              <div className="mt-1 text-xs text-muted-foreground">Page {i + 1}</div>
+            </div>
+          ))}
+          {thumbs.length === 0 && (
+            <div className="text-xs text-muted-foreground">Rendering preview…</div>
+          )}
+        </div>
+      </div>
+    </InlineDropdown>
+  )
+}
+
 const ExtractedItemsDisplay = ({ content }: ExtractedItemsDisplayProps) => {
   const links = parseExtractedLinks(content)
   const headlines = links.length === 0 ? parseExtractedHeadlines(content) : []
@@ -272,50 +335,12 @@ const AUTO_COLLAPSE_DELAY_MS = 10000  // Auto-collapse delay for indented tool m
 interface ToolResultInlineProps { name: string, content: string, autoCollapseAfterMs?: number }
 
 const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInlineProps) => {
-  const [expanded, setExpanded] = useState<boolean>(true)
-  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    // Reset and (re)schedule collapse when content/name or delay changes
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-    const isEnabled = typeof autoCollapseAfterMs === 'number' && autoCollapseAfterMs > 0
-    if (isEnabled) {
-      setExpanded(true)
-      timerRef.current = setTimeout(() => {
-        // Simple guard: if setting is off at fire time, do nothing
-        if (!useSettingsStore.getState().autoCollapseTools) return
-        setExpanded(false)
-        timerRef.current = null
-      }, autoCollapseAfterMs)
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [autoCollapseAfterMs, name, content])
-
   return (
-    <div className="flex flex-col gap-0.5 select-text">
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded(!expanded)}
-        className="text-[10px] uppercase tracking-wide text-muted-foreground/80 leading-tight inline-flex items-center gap-1 cursor-pointer focus:outline-none"
-      >
-        <span>{name}</span>
-        <span className="shrink-0 text-muted-foreground/70">
-          {expanded ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="text-sm text-muted-foreground font-medium">
-          {content || ''}
-        </div>
-      )}
-    </div>
+    <InlineDropdown title={name} defaultExpanded autoCollapseAfterMs={autoCollapseAfterMs}>
+      <div className="text-sm text-muted-foreground font-medium">
+        {content || ''}
+      </div>
+    </InlineDropdown>
   )
 }
 
@@ -325,7 +350,7 @@ const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInli
  * Memoized to prevent re-renders when message hasn't changed
  */
 export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true }: MessageItemProps) {
-  const { autoCollapseTools } = useSettingsStore()
+  const { autoCollapseDelayMs, showPdfPreview } = useSettingsStore()
   const isUser = message.role === 'user'
   const isError = message.metadata?.error || message.content.includes('## Task Failed')
   const isSystem = message.role === 'system'
@@ -445,15 +470,20 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
     // Normalize by metadata.kind first
     if (kind === 'tool-result') {
       if (message.metadata?.toolName === 'extract_tool') {
-        // Render extracted items only on success-like content; errors should use standard tool-result styling
+        // Prefer PDF preview when tool returned PDF metadata
         const content = typeof message.content === 'string' ? message.content : ''
+        const jsonData = parseJsonContent(content)
+        if (showPdfPreview && jsonData && typeof jsonData === 'object' && (jsonData as any).pdf && (jsonData as any).pdf.url) {
+          return 'pdf-preview'
+        }
+        // Render extracted items only on success-like content; errors should use standard tool-result styling
         const isErrorLike = !!message.metadata?.error || /^Error in extract_tool:/i.test(content)
         return isErrorLike ? 'tool-result' : 'extracted-items'
       }
       return 'tool-result'
     }
     if (kind === 'task-result') {
-      return message.metadata?.success ? 'task-complete' : 'task-summary'
+      return message.metadata?.success ? 'task-complete' : 'task-failed'
     }
     if (kind === 'stream') {
       return 'markdown'
@@ -579,20 +609,52 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
         return <SelectedTabDataDisplay content={message.content} />
 
       case 'extracted-items':
+        // If extract_tool returned JSON with { content }, prefer that as the display text
+        if (message.metadata?.toolName === 'extract_tool') {
+          const raw = typeof message.content === 'string' ? message.content : ''
+          const parsed = parseJsonContent(raw)
+          const extracted = parsed && typeof parsed === 'object' && typeof (parsed as any).content === 'string'
+            ? (parsed as any).content as string
+            : raw
+          return <ExtractedItemsDisplay content={extracted} />
+        }
         return <ExtractedItemsDisplay content={message.content} />
+
+      case 'pdf-preview':
+        return <PdfPreview content={message.content} />
 
       case 'task-complete':
         return (
           <div className="space-y-3">
             <div className="py-2">
               <div className="text-base font-semibold">Task Complete</div>
-              <div className="text-sm text-muted-foreground mt-1">The task has been completed successfully.</div>
+              <div>
+                <MarkdownContent
+                  content={message.content}
+                  className="break-words"
+                  compact={false}
+                />
+              </div>
             </div>
           </div>
         )
 
-      case 'task-summary':
       case 'task-failed':
+        return (
+          <div className="space-y-3">
+            <div className="py-2">
+              <div className="text-base font-semibold">Task Failed</div>
+              <div>
+                <MarkdownContent
+                  content={message.content}
+                  className="break-words"
+                  compact={false}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      case 'task-summary':
         return (
           <div className="space-y-3">
             <MarkdownContent
@@ -609,9 +671,11 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           const contentStr = typeof message.content === 'string' ? message.content : ''
           const isErrorLike = !!message.metadata?.error || /^Error in extract_tool:/i.test(contentStr)
           if (!isErrorLike) {
-            return (
-              <ExtractedItemsDisplay content={message.content} />
-            )
+            const parsed = parseJsonContent(contentStr)
+            const extracted = parsed && typeof parsed === 'object' && typeof (parsed as any).content === 'string'
+              ? (parsed as any).content as string
+              : contentStr
+            return <ExtractedItemsDisplay content={extracted} />
           }
         }
         const rawName = message.metadata?.toolName || 'tool'
@@ -626,7 +690,7 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
             <ToolResultInline
               name={rawName}
               content={cleanContent}
-              autoCollapseAfterMs={autoCollapseTools && shouldIndent ? AUTO_COLLAPSE_DELAY_MS : undefined}
+              autoCollapseAfterMs={autoCollapseDelayMs}
             />
           )
       }
@@ -694,7 +758,9 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           messageStyling.shadow,
           messageStyling.bubble,
           // Slightly darker text for indented bubble messages to improve contrast
-          shouldIndent && 'opacity-90 text-foreground'
+          shouldIndent && 'opacity-90 text-foreground',
+          // Add a bit of space above only user bubble messages (brand bubble)
+          isUser && 'mt-2'
         )}>
           {/* Glow effect */}
           <div className={cn(

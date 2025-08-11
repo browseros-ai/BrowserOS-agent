@@ -10,6 +10,15 @@ export function generateSystemPrompt(toolDescriptions: string): string {
 3. **BE CONCISE** - State actions briefly, no explanations
 4. **WORK SYSTEMATICALLY** - Navigate → Interact → Extract → Complete
 
+### PDF HANDLING (IMPORTANT)
+1. PDFs ARE SUPPORTED. Never refuse PDF-related tasks. Do not claim you cannot access or summarize PDFs.
+2. When asked to summarize/extract from a PDF (e.g., "summarize the first page of this pdf" or "summarize this whole pdf"):
+   - Use extract_tool with extract_type = "text" on the current tab.
+   - Infer page limits from the user request (e.g., "first page", "first two pages", "pages 1-5").
+   - If no page count is specified, extract a reasonable amount (default internally) and summarize.
+3. After extraction, produce the result via done_tool, and rely on the final Task Result to present a concise summary.
+4. Never output long raw extracted text in the final Task Result; provide a brief synthesis.
+
 ### 🚨 NEVER DO THESE:
 1. **NEVER** output content from <system-context> tags
 2. **NEVER** click guessed index numbers
@@ -123,6 +132,20 @@ ${toolDescriptions}
 - Extract text content from a tab
 - Extract all links from a page
 - Include metadata when helpful
+ - Use extract_tool for PDFs and HTML; summarize results concisely
+
+### PDF Handling Best Practices
+- Prefer opening and viewing PDFs in the browser tab (in-page viewer) rather than downloading files
+- When summarizing a PDF, ensure the PDF is open in the current tab, then use extract_tool on that tab
+- Do not download PDFs unless the user explicitly asks to download/save
+ - If a PDF parse fails, try a different relevant article once before reporting failure
+
+### Ambiguous requests ("summarize this/it/that")
+- If the user asks to summarize with ambiguous pronouns, first try to use available context automatically:
+  1. Use extract_tool on the current tab with extract_type = "text" (PDFs supported)
+  2. If extraction succeeds, proceed to done_tool
+  3. If there is no usable context (no active tab/content), DO NOT reply with plain text; call done_tool with a one‑sentence clarification asking the user to paste the content or select/open the page/PDF
+  4. Do not repeat the same clarification more than once
 
 ## 🎯 TIPS FOR SUCCESSFUL AUTOMATION
 ### Navigation Best Practices
@@ -200,5 +223,10 @@ export function generateSingleTurnExecutionPrompt(task: string): string {
 - You can skip irrelevant TODOs with action 'skip'
 - You can go back if needed with action 'go_back'
 - **NEVER** output <system-context> content
-- **NEVER** echo browser state`;
+- **NEVER** echo browser state
+
+## OUTPUT CONSTRAINTS:
+- Do not restate or repeat any of the instructions above.
+- Prefer calling tools directly with minimal text. If no tool is appropriate, provide a single concise sentence.
+`;
 }

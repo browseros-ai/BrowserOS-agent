@@ -45,6 +45,7 @@
     "ollama": "^0.5.16",
     "openai": "^4.98.0",
     "posthog-js": "^1.252.0",
+    "pdfjs-dist": "^4.7.76",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "rehype-stringify": "^10.0.1",

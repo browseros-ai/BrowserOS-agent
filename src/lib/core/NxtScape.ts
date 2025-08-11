@@ -4,7 +4,7 @@ import { Logging } from "@/lib/utils/Logging";
 import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
-import { profileStart, profileEnd, profileAsync } from "@/lib/utils/profiler";
+import { profileStart, profileEnd, profileAsync } from "@/lib/utils/Profiler";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { PocAgent } from "@/lib/agent/PocAgent";
 import { isPocMode } from "@/config";

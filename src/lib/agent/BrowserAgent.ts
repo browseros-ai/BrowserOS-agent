@@ -86,7 +86,7 @@ interface ClassificationResult {
 
 export class BrowserAgent {
   // Constants for explicit control
-  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 10;
+  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 4;
   private static readonly MAX_STEPS_FOR_COMPLEX_TASKS = PLANNING_CONFIG.STEPS_PER_PLAN;
 
   // Outer loop is -- plan -> execute -> validate
@@ -94,6 +94,16 @@ export class BrowserAgent {
 
   // Inner loop is -- execute TODOs, one after the other.
   private static readonly MAX_STEPS_INNER_LOOP  = 30; 
+
+  // Heuristics for detecting lack-of-context replies
+  private static readonly LACK_OF_CONTEXT_PATTERNS: RegExp[] = [
+    /need more context/i,
+    /please provide (the )?(text|content|document|link)/i,
+    /cannot summarize[^.]*without/i,
+    /i (still )?need more context/i
+  ];
+
+  private static readonly CLARIFICATION_MESSAGE: string = 'Please paste the text or open/select the page or PDF to summarize, then ask again.';
 
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
@@ -312,6 +322,8 @@ export class BrowserAgent {
   private async _executeMultiStepStrategy(task: string): Promise<void> {
     this.eventEmitter.debug('Executing as a complex multi-step task');
     let outer_loop_index = 0;
+    let lastAssistantText: string | null = null
+    let repeatCount: number = 0
 
     while (outer_loop_index < BrowserAgent.MAX_STEPS_OUTER_LOOP) {
       this.checkIfAborted();
@@ -340,6 +352,20 @@ export class BrowserAgent {
         const instruction = generateSingleTurnExecutionPrompt(task);
         
         const isTaskCompleted = await this._executeSingleTurn(instruction);
+        // Simple loop guard: if last assistant message repeats, break to prevent instruction loops
+        const msgs = this.messageManager.getMessages()
+        const last = msgs.length > 0 ? msgs[msgs.length - 1] : null
+        const lastText = last && (last as any).content && typeof (last as any).content === 'string' ? (last as any).content as string : null
+        if (lastText && lastText === lastAssistantText) {
+          repeatCount += 1
+        } else {
+          repeatCount = 0
+          lastAssistantText = lastText
+        }
+        if (repeatCount >= 1) { // two identical assistant texts in a row
+          // Gracefully end to avoid loops; rely on validator/done after
+          break
+        }
         inner_loop_index++;
         
         if (isTaskCompleted) {
@@ -390,11 +416,84 @@ export class BrowserAgent {
       wasDoneToolCalled = await this._processToolCalls(llmResponse.tool_calls);
       
     } else if (llmResponse.content) {
-      // If the AI responds with text, just add it to the history
-      this.messageManager.addAI(llmResponse.content as string);
+      // If the AI responds with text, first try to auto-resolve lack-of-context cases
+      const text = (llmResponse.content as string) || ''
+      const lower = text.toLowerCase()
+      const isInstructionEcho = (
+        lower.includes('ensure your response is a valid tool call') ||
+        lower.includes('do not use markdown other than for code blocks') ||
+        lower.includes('do not use bullet points') ||
+        lower.includes('remember to call done_tool') ||
+        lower.includes('do not hallucinate tool calls') ||
+        lower.includes('do not provide commentary on your actions') ||
+        lower.includes('you are browseragent') ||
+        lower.includes('todo execution steps') ||
+        lower.includes('<system-context>')
+      )
+
+      if (!isInstructionEcho) {
+        const resolved = await this._maybeResolveAmbiguousSummarize(text)
+        if (!resolved) {
+          // Record the AI text for history only if it's not instruction echo
+          this.messageManager.addAI(text)
+        }
+      }
+      // If instruction echo, skip adding to history and treat as no-op
     }
 
     return wasDoneToolCalled;
+  }
+
+  // Try to auto-handle ambiguous requests like "summarize this" by extracting from current tab,
+  // or gracefully completing with a clarification if no context is available.
+  private async _maybeResolveAmbiguousSummarize(aiText: string): Promise<boolean> {
+    // Quick check for lack-of-context indicators
+    const lacksContext = BrowserAgent.LACK_OF_CONTEXT_PATTERNS.some(rgx => rgx.test(aiText))
+    if (!lacksContext) return false
+
+    // Attempt automatic extraction from the active tab
+    const extractTool = this.toolManager.get('extract_tool')
+    const doneTool = this.toolManager.get('done_tool')
+    if (!extractTool || !doneTool) return false
+
+    try {
+      const currentPage = await this.executionContext.browserContext.getCurrentPage()
+      const tabId = currentPage.tabId
+
+      // Execute extract_tool
+      const extractArgs = { task: 'Summarize the visible content', tab_id: tabId, extract_type: 'text' as const }
+      this.eventEmitter.executingTool('extract_tool', extractArgs)
+      const extractResult = await extractTool.func(extractArgs)
+      const extractParsed = JSON.parse(extractResult)
+
+      // Emit tool result for UI and add to message history with a synthetic tool_call_id
+      this.eventEmitter.emitToolResult('extract_tool', extractResult)
+      this.messageManager.addTool(extractResult, 'auto_extract_due_to_ambiguity')
+
+      // If extraction produced content, complete successfully
+      if (extractParsed && extractParsed.ok) {
+        const doneArgs = { summary: 'Summarized the visible content from the current tab.' }
+        this.eventEmitter.executingTool('done_tool', doneArgs)
+        const doneResult = await doneTool.func(doneArgs)
+        this.eventEmitter.emitToolResult('done_tool', doneResult)
+        this.messageManager.addTool(doneResult, 'auto_done_due_to_ambiguity')
+        return true
+      }
+    } catch (_err) {
+      // Fall through to clarification
+    }
+
+    // If we couldn't extract, complete with a concise clarification
+    try {
+      const doneArgs = { summary: BrowserAgent.CLARIFICATION_MESSAGE }
+      this.eventEmitter.executingTool('done_tool', doneArgs)
+      const doneResult = await (this.toolManager.get('done_tool')!).func(doneArgs)
+      this.eventEmitter.emitToolResult('done_tool', doneResult)
+      this.messageManager.addTool(doneResult, 'auto_done_due_to_ambiguity')
+      return true
+    } catch {
+      return false
+    }
   }
 
   private async _invokeLLMWithStreaming(): Promise<AIMessage> {
