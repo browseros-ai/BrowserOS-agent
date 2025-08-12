@@ -4,6 +4,7 @@ import { useAgentsStore } from '../stores/agentsStore'
 import { useChatStore } from '@/sidepanel/v2/stores/chatStore'
 import { ProviderDropdown } from './ProviderDropdown'
 import { useProviderStore } from '../stores/providerStore'
+import { executeProviderAction } from '../utils/providerActions'
 
 export function CommandInput() {
   const [value, setValue] = useState('')
@@ -22,40 +23,23 @@ export function CommandInput() {
     inputRef.current?.focus()
   }, [])
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!value.trim()) return
     
-    // Process the command
-    if (value.startsWith('@')) {
-      // Handle @mention for tabs/agents
-      handleMention(value)
-    } else if (value.startsWith('/')) {
-      // Handle slash commands
-      handleCommand(value)
-    } else {
-      // Regular query - send to chat
-      addMessage({ role: 'user', content: value })
-      setProcessing(true)
-      // Port message will be handled by existing infrastructure
+    const query = value.trim()
+    
+    // Execute provider-specific action
+    if (selectedProvider) {
+      await executeProviderAction(selectedProvider, query)
     }
     
     setValue('')
   }
   
-  const handleMention = (mention: string) => {
-    // Parse and handle @mentions
-    console.log('Handling mention:', mention)
-  }
-  
-  const handleCommand = (command: string) => {
-    // Parse and handle slash commands
-    console.log('Handling command:', command)
-  }
-  
   // Dynamic placeholder based on selected provider
   const getPlaceholder = () => {
-    if (!selectedProvider) return "Ask anything or @mention a tab..."
+    if (!selectedProvider) return "Ask anything..."
     
     // Special case for BrowserOS Agent
     if (selectedProvider.id === 'browseros-agent') {
@@ -68,7 +52,7 @@ export function CommandInput() {
       case 'llm':
         return `Ask ${selectedProvider.name} anything...`
       default:
-        return "Ask anything or @mention a tab..."
+        return "Ask anything..."
     }
   }
   
