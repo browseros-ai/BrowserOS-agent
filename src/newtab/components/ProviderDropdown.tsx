@@ -4,7 +4,7 @@ import { ChevronDownIcon } from '@/sidepanel/v2/components/ui/Icons'
 
 export function ProviderDropdown() {
   const { 
-    providers, 
+    getAllProviders, 
     selectedProviderId, 
     isDropdownOpen, 
     selectProvider, 
@@ -15,6 +15,7 @@ export function ProviderDropdown() {
   
   const dropdownRef = useRef<HTMLDivElement>(null)
   const selectedProvider = getSelectedProvider()
+  const providers = getAllProviders()
   
   // Close dropdown when clicking outside
   useEffect(() => {

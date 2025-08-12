@@ -42,6 +42,19 @@ const PROVIDER_ACTIONS: Record<string, {
  * Execute provider-specific action with the given query
  */
 export async function executeProviderAction(provider: Provider, query: string): Promise<void> {
+  // Handle custom providers first
+  if (provider.isCustom && provider.urlPattern) {
+    const url = provider.urlPattern.replace('%s', encodeURIComponent(query))
+    
+    // Update current tab
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (activeTab?.id) {
+      await chrome.tabs.update(activeTab.id, { url })
+    }
+    return
+  }
+  
+  // Handle built-in providers
   const action = PROVIDER_ACTIONS[provider.id]
   
   if (!action) {
