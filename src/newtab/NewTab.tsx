@@ -24,14 +24,22 @@ export function NewTab() {
         {/* Settings Button */}
         <button
           type="button"
-          className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+          className="
+            p-2 rounded-full 
+            transition-colors duration-200 ease-in-out 
+            focus:outline-none focus:ring-2 focus:ring-offset-2 
+            focus:ring-offset-white dark:focus:ring-offset-gray-900 
+            focus:ring-gray-400 
+            text-gray-600 dark:text-gray-300
+            hover:bg-gray-100 dark:hover:bg-gray-800
+          "
           aria-label="Settings"
           onClick={() => {
             // TODO: Open settings modal
             console.log('Settings clicked')
           }}
         >
-          <Settings size={20} />
+          <Settings size={20} className="transition-transform duration-200" />
         </button>
         
         {/* Theme Toggle */}
