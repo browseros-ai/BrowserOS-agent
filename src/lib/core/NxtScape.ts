@@ -231,7 +231,7 @@ export class NxtScape {
         : "Starting new task",
     );
 
-    const startTime = Date.now();
+    // const startTime = Date.now() // reserved for future timing/debug
 
     try {
       // Check that browser agent is initialized

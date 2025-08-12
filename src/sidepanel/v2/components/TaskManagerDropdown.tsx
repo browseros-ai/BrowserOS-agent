@@ -67,9 +67,7 @@ export function TaskManagerDropdown({ content, className, asContentOnly }: TaskM
   }, [content])
 
   // Count completed tasks
-  const completedCount = useMemo(() => {
-    return tasks.filter(task => task.status.includes('✅')).length
-  }, [tasks])
+  // const completedCount = useMemo(() => tasks.filter(task => task.status.includes('✅')).length, [tasks])
 
   // Check if task is completed
   const isTaskCompleted = (task: Task) => task.status.includes('✅')
@@ -77,7 +75,7 @@ export function TaskManagerDropdown({ content, className, asContentOnly }: TaskM
   // Show only first 6 tasks when expanded
   const MAX_VISIBLE_TASKS = 6
   const visibleTasks = tasks.slice(0, MAX_VISIBLE_TASKS)
-  const hasMoreTasks = tasks.length > MAX_VISIBLE_TASKS
+  // const hasMoreTasks = tasks.length > MAX_VISIBLE_TASKS
 
   const inner = (
     <div className="space-y-1 max-h-48 overflow-y-auto py-1">

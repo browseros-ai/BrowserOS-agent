@@ -105,7 +105,7 @@ export class InteractionTool {
         if (!hrefPair) return {}
         const raw = hrefPair.slice('href='.length)
         let decoded: string | undefined
-        try { decoded = decodeURIComponent(raw) } catch { decoded = raw }
+        try { decoded = decodeURIComponent(raw) } catch (e) { decoded = raw }
         let qVal: string | undefined
         try {
           const u = new URL(decoded || raw, browserState.url)
@@ -113,9 +113,9 @@ export class InteractionTool {
           if (q) {
             try { qVal = decodeURIComponent(q) } catch { qVal = q }
           }
-        } catch {}
+        } catch (_e) { /* ignore decode errors */ }
         return { raw, decoded, q: qVal }
-      } catch { return {} }
+      } catch (_e) { return {} }
     }
 
     // Build failed tokens for robust matching (handles encoding and host-only matches)
@@ -124,14 +124,14 @@ export class InteractionTool {
       failedTokens.push(f)
       try {
         failedTokens.push(encodeURIComponent(f))
-      } catch {}
+      } catch (_e) { /* ignore URL parse */ }
       try {
         const u = new URL(f)
         failedTokens.push(u.hostname)
         if (u.pathname) failedTokens.push(u.pathname)
-        const m = u.pathname.match(/\/(?:pdf|abs)\/([^\/?#]+)/)
+        const m = u.pathname.match(new RegExp('/(?:pdf|abs)/([^/?#]+)'))
         if (m && m[1]) failedTokens.push(m[1].toLowerCase())
-      } catch {}
+      } catch (_e) { /* ignore */ }
     }
 
     let filteredLines = browserState.clickableElementsString
@@ -214,12 +214,12 @@ export class InteractionTool {
           throw new Error('Selected element matches a previously failed URL; picking a different option')
         }
       }
-    } catch {}
+    } catch (_e) { /* ignore guard */ }
     
     // Record this selection as tried for this page+description
     try {
       this.executionContext.markTriedElement(browserState.url, description, result.index)
-    } catch {}
+    } catch (_e) { /* ignore */ }
     return result.index
   }
 
@@ -252,26 +252,26 @@ export class InteractionTool {
             const currentUrl = page.url()
             let resolvedHref: string | undefined
             if (rawHref) {
-              try { resolvedHref = new URL(rawHref, currentUrl).toString() } catch { resolvedHref = rawHref }
+              try { resolvedHref = new URL(rawHref, currentUrl).toString() } catch (_e) { resolvedHref = rawHref }
             }
             const tokens: string[] = []
             for (const f of failed) {
               tokens.push(f)
-              try { tokens.push(encodeURIComponent(f)) } catch {}
+              try { tokens.push(encodeURIComponent(f)) } catch (_e) { /* ignore */ }
               try {
                 const u = new URL(f)
                 tokens.push(u.hostname)
                 if (u.pathname) tokens.push(u.pathname)
-                const m = u.pathname.match(/\/(?:pdf|abs)\/([^\/?#]+)/)
+                const m = u.pathname.match(new RegExp('/(?:pdf|abs)/([^/?#]+)'))
                 if (m && m[1]) tokens.push(m[1].toLowerCase())
-              } catch {}
+              } catch (_e) { /* ignore */ }
             }
             const haystack = [rawHref || '', resolvedHref || ''].map(s => s.toLowerCase()).join(' ')
             if (haystack && tokens.some(tok => tok && haystack.includes(tok))) {
               throw new Error('Target link matches a previously failed URL; selecting a different option')
             }
           }
-        } catch {}
+        } catch (_e) { /* ignore */ }
 
         // Click element
         await page.clickElement(nodeId)

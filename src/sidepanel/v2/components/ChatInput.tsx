@@ -8,7 +8,7 @@ import { useKeyboardShortcuts, useAutoResize } from '../hooks/useKeyboardShortcu
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { MessageType } from '@/lib/types/messaging'
 import { cn } from '@/sidepanel/lib/utils'
-import { LoadingPawTrail } from './ui/Icons'
+// import { LoadingPawTrail } from './ui/Icons'
 import { BrowserOSProvidersConfig, BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
 
 
@@ -34,6 +34,9 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const messages = useChatStore(state => state.messages)
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
   const { getContextTabs, toggleTabSelection, clearSelectedTabs: clearTabSelections } = useTabsStore()
+  const selectedTabs = useTabsStore(state => state.selectedTabs)
+  const isCurrentTabRemoved = useTabsStore(state => state.isCurrentTabRemoved)
+  const currentTabId = useTabsStore(state => state.currentTabId)
   // Provider health: only consider UI connected if current default provider is usable
   useEffect(() => {
     const computeOk = (cfg: BrowserOSProvidersConfig) => {
@@ -112,25 +115,24 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     })
     
     // Determine whether to send explicit tabIds based on user selection state
-    const tabsState = (useTabsStore as any).getState() as { selectedTabs: number[], isCurrentTabRemoved: boolean, currentTabId: number | null }
-    const hasExplicitSelection = tabsState.selectedTabs.length > 0 || tabsState.isCurrentTabRemoved
+    const hasExplicitSelection = selectedTabs.length > 0 || isCurrentTabRemoved
     const contextTabs: BrowserTab[] = getContextTabs()
 
     // Helper: detect ambiguous reference to current tab
     const isAmbiguousCurrent = /\b(this|current|here|this\s+tab|current\s+tab|this\s+pdf|current\s+pdf)\b/i.test(query)
 
     let tabIds: number[] | undefined
-    if (isAmbiguousCurrent && tabsState.currentTabId !== null && !tabsState.isCurrentTabRemoved) {
+    if (isAmbiguousCurrent && currentTabId !== null && !isCurrentTabRemoved) {
       // If user said "this/current" and current tab is part of context, restrict to current tab
-      tabIds = [tabsState.currentTabId]
+      tabIds = [currentTabId]
     } else if (hasExplicitSelection && contextTabs.length > 0) {
       // Use all context tabs but prioritize current tab first if present
       const ids = contextTabs.map(t => t.id)
-      if (tabsState.currentTabId !== null) {
-        const idx = ids.indexOf(tabsState.currentTabId)
+      if (currentTabId !== null) {
+        const idx = ids.indexOf(currentTabId)
         if (idx > 0) {
           ids.splice(idx, 1)
-          ids.unshift(tabsState.currentTabId)
+          ids.unshift(currentTabId)
         }
       }
       tabIds = ids
@@ -239,7 +241,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     textareaRef.current?.focus()
   }
 
-  const handleTabSelected = (tabId: number) => {
+  const handleTabSelected = (_tabId: number) => {
     // Remove trailing '@' that triggered the selector
     setInput(prev => prev.replace(/@$/, ''))
   }
@@ -277,12 +279,6 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     return 'Press Enter to send • @ to select tabs'
   }
 
-  const getLoadingIndicator = () => {
-    if (!uiConnected || isProcessing) {
-      return <LoadingPawTrail />
-    }
-    return null
-  }
   
   return (
     <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-2 py-1 flex-shrink-0 overflow-hidden">

@@ -112,7 +112,7 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
         return output;
       }
       // Output: { url: string, success: boolean } or similar
-      const navUrl = output.url || 'Unknown URL';
+      // const navUrl = output.url || 'Unknown URL'
       const navStatus = output.success !== undefined ? (output.success ? 'Success' : 'Failed') : 'Complete';
       return `Navigation - ${navStatus}`;
     }

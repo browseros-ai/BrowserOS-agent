@@ -4,7 +4,7 @@ import { Button } from '@/sidepanel/components/ui/button'
 import { useAutoScroll } from '../hooks/useAutoScroll'
 import { useAnalytics } from '../hooks/useAnalytics'
 import type { Message } from '../stores/chatStore'
-import { AnimatedPawPrints, ChevronDownIcon } from './ui/Icons'
+import { ChevronDownIcon } from './ui/Icons'
 import { cn } from '@/sidepanel/lib/utils'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
 
@@ -77,13 +77,13 @@ const DISPLAY_COUNT = 5 // Show 5 examples at a time
  * MessageList component
  * Displays a list of chat messages with auto-scroll and empty state
  */
-export function MessageList({ messages, onScrollStateChange, scrollToBottom: externalScrollToBottom, containerRef: externalContainerRef }: MessageListProps) {
-  const { containerRef: internalContainerRef, isUserScrolling, scrollToBottom } = useAutoScroll<HTMLDivElement>([messages], externalContainerRef)
+export function MessageList({ messages, onScrollStateChange, scrollToBottom: _externalScrollToBottom, containerRef: externalContainerRef }: MessageListProps) {
+  const { containerRef: internalContainerRef, isUserScrolling } = useAutoScroll<HTMLDivElement>([messages], externalContainerRef)
   const { trackFeature } = useAnalytics()
-  const [isAtBottom, setIsAtBottom] = useState(true)
+  const [, setIsAtBottom] = useState(true)
   const [currentExamples, setCurrentExamples] = useState<string[]>([])
-  const [shuffledPool, setShuffledPool] = useState<string[]>([])
-  const [isAnimating, setIsAnimating] = useState(false)
+  const [, setShuffledPool] = useState<string[]>([])
+  // Removed unused isAnimating state
   const [collapsedByResultId, setCollapsedByResultId] = useState<Record<string, boolean>>({})
   const autoCollapseDelayMs = useSettingsStore(s => s.autoCollapseDelayMs)
   const autoCollapseKeys = useSettingsStore(s => s.autoCollapseKeys)
@@ -263,23 +263,7 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
     setCurrentExamples(initialExamples)
   }, [])
 
-  // Function to get random examples from pool
-  const getRandomExample = useCallback((count: number = 1): string[] => {
-    const result: string[] = []
-    let pool = [...shuffledPool]
-
-    while (result.length < count) {
-      // If exhausted, reshuffle
-      if (pool.length === 0) {
-        pool = [...ALL_EXAMPLES].sort(() => 0.5 - Math.random())
-      }
-      result.push(pool.pop()!)
-    }
-
-    // Update the pool
-    setShuffledPool(pool)
-    return result
-  }, [shuffledPool])
+  // Random examples generator removed (unused)
 
   // Refresh examples only when the welcome view is shown (on mount or when messages become empty)
   const wasEmptyRef = useRef<boolean>(messages.length === 0)
@@ -327,14 +311,7 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
   }, [containerRef, onScrollStateChange, messages.length, isUserScrolling]) // Added isUserScrolling dependency
 
   // Use external scroll function if provided, otherwise use internal one
-  const handleScrollToBottom = () => {
-    trackFeature('scroll_to_bottom')
-    if (externalScrollToBottom) {
-      externalScrollToBottom()
-    } else {
-      scrollToBottom()
-    }
-  }
+  // const handleScrollToBottom = () => { trackFeature('scroll_to_bottom'); (externalScrollToBottom || scrollToBottom)() }
 
   const handleExampleClick = (prompt: string) => {
     trackFeature('example_prompt', { prompt })
@@ -374,19 +351,14 @@ export function MessageList({ messages, onScrollStateChange, scrollToBottom: ext
               What would you like to do?
             </h3>
             <div 
-              className={`flex flex-col items-center max-w-md w-full space-y-3 transition-transform duration-500 ease-in-out ${
-                isAnimating ? 'translate-y-5' : ''
-              }`}
+              className="flex flex-col items-center max-w-md w-full space-y-3 transition-transform duration-500 ease-in-out"
               role="group"
               aria-label="Example prompts"
             >
               {currentExamples.map((prompt, index) => (
                 <div 
                   key={`${prompt}-${index}`} 
-                  className={`relative w-full transition-all duration-500 ease-in-out ${
-                    isAnimating && index === 0 ? 'animate-fly-in-top' : 
-                    isAnimating && index === currentExamples.length - 1 ? 'animate-fly-out-bottom' : ''
-                  }`}
+                  className="relative w-full transition-all duration-500 ease-in-out"
                 >
                   <Button
                     variant="outline"

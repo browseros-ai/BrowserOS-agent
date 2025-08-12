@@ -384,23 +384,28 @@ export function useMessageHandler() {
     }
   }, [addMessageListener, removeMessageListener, handleStreamUpdate, handleWorkflowStatus])
   
-  // PDF.js parsing handler in side panel context
+  // (removed) Port-based PDF parsing handler and listeners — using only runtime onMessage
+
+  // Fallback: also handle runtime onMessage PDF parse requests directly when the side panel is open
   useEffect(() => {
     const handler = (request: any, _sender: chrome.runtime.MessageSender, sendResponse: (resp?: any) => void) => {
-      if (request?.type !== MessageType.PDF_PARSE_REQUEST) return
+      if (!request || request.type !== MessageType.PDF_PARSE_REQUEST) return
       ;(async () => {
         try {
           const { url, maxPages = 40 } = request.payload || {}
-          let pdfUrl = url
+          const pdfUrl: string = typeof url === 'string' ? url : ''
+          if (!pdfUrl) {
+            sendResponse({ ok: false, error: 'MISSING_URL' })
+            return
+          }
           // Configure pdf.js for text-only URL-based parsing
-          try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch {}
+          try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch (_e) { /* ignore */ }
           let doc: any
           try {
             doc = await (getDocument as any)({
               url: pdfUrl,
               isEvalSupported: false,
               disableWorker: true,
-              // Allow auto-fetch to retrieve needed ranges; we still extract text only
               disableAutoFetch: false,
               rangeChunkSize: 65536,
               nativeImageDecoderSupport: 'none',
@@ -411,7 +416,6 @@ export function useMessageHandler() {
           } catch (err) {
             const em = err instanceof Error ? err.message : String(err)
             if (/Invalid PDF structure/i.test(em)) {
-              // Brief retry; no site-specific fallbacks
               try {
                 await new Promise(r => setTimeout(r, 800))
                 const retryDoc = await (getDocument as any)({
@@ -427,13 +431,15 @@ export function useMessageHandler() {
                 }).promise
                 doc = retryDoc
               } catch {
-                return sendResponse({ ok: false, error: 'PARSE_INVALID_STRUCTURE' })
+                sendResponse({ ok: false, error: 'PARSE_INVALID_STRUCTURE' })
+                return
               }
             } else {
-              return sendResponse({ ok: false, error: em })
+              sendResponse({ ok: false, error: em })
+              return
             }
           }
-          const limit = Math.min(doc.numPages || 0, maxPages)
+          const limit: number = Math.min(doc.numPages || 0, typeof maxPages === 'number' ? maxPages : 40)
           const parts: string[] = []
           for (let i = 1; i <= limit; i++) {
             const page = await doc.getPage(i)
@@ -453,7 +459,7 @@ export function useMessageHandler() {
       })()
       return true
     }
-    try { chrome.runtime.onMessage.addListener(handler) } catch {}
-    return () => { try { chrome.runtime.onMessage.removeListener(handler) } catch {} }
+    try { chrome.runtime.onMessage.addListener(handler) } catch (_e) { /* ignore */ }
+    return () => { try { chrome.runtime.onMessage.removeListener(handler) } catch (_e) { /* ignore */ } }
   }, [])
 }

@@ -6,12 +6,14 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { generateExtractorSystemPrompt, generateExtractorTaskPrompt } from './ExtractTool.prompt'
 import { invokeWithRetry } from '@/lib/utils/retryable'
 import { MessageType } from '@/lib/types/messaging'
+import { Logging } from '@/lib/utils/Logging'
 
 // Input schema for extraction
 const ExtractInputSchema = z.object({
-  task: z.string(),  // What to extract (e.g., "Extract all product prices")
-  tab_id: z.number(),  // Tab ID to extract from
-  extract_type: z.enum(['links', 'text'])  // Type of content to extract
+  task: z.string(),                                           // What to extract (e.g., 'Extract all product prices')
+  tab_id: z.number(),                                         // Tab ID to extract from
+  extract_type: z.enum(['links', 'text']),                    // Type of content to extract
+  max_pages: z.number().int().positive().max(100).optional()  // For PDFs, upper bound of pages to parse
 })
 
 // Output schema for extracted data
@@ -48,28 +50,24 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
         }
         let page = pages[0]
 
-        // Preload page metadata
-        let url = await page.url()
+        // Preload page metadata (fresh from Chrome to avoid stale cache)
+        const getFreshUrl = async (p: any): Promise<string> => {
+          try {
+            const tab = await chrome.tabs.get(p.tabId)
+            return tab.url || ''
+          } catch {
+            try { return typeof p.url === 'function' ? p.url() : '' } catch { return '' }
+          }
+        }
+        let url = await getFreshUrl(page)
         lastKnownUrl = url
         let title = await page.title()
 
-        // Infer page limit from task text (e.g., "first 6 pages", "pages 1-6")
-        const inferMaxPages = (taskText: string): number | undefined => {
-          const lower = taskText.toLowerCase()
-          const m1 = lower.match(/first\s+(\d{1,3})\s+pages?/) // first 6 pages
-          if (m1 && m1[1]) return Math.max(1, Math.min(100, parseInt(m1[1], 10)))
-          const m2 = lower.match(/pages?\s+(\d{1,3})\s*[-–]\s*(\d{1,3})/) // pages 1-6
-          if (m2 && m2[1] && m2[2]) {
-            const start = parseInt(m2[1], 10)
-            const end = parseInt(m2[2], 10)
-            if (!isNaN(start) && !isNaN(end) && end >= start) return Math.max(1, Math.min(100, end - start + 1))
-          }
-          return undefined
-        }
-        const maxPagesHint = inferMaxPages(args.task)
+        // Use provided page upper bound for PDFs when available
+        const maxPagesHint = args.max_pages
 
         // Get raw content; unify to side panel pdf.js only for PDFs, generic snapshots for HTML
-        let rawContent: string
+        let rawContent: string = ''
         
         // Ensure we are on a PDF tab by capability (no URL patterns)
         let isPdf = await (page as any).isPdf?.()
@@ -81,9 +79,9 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
               for (const p of pagesForTabs) {
                 try {
                   if (await (p as any).isPdf?.()) return p
-                  const pc = await (p as any).getPdfPageCount?.().catch(() => 0)
-                  if (typeof pc === 'number' && pc > 0) return p
-                } catch {}
+                } catch (error) {
+                  // Non-fatal: continue scanning other tabs
+                }
               }
               return null
             }
@@ -97,26 +95,29 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
                 for (const p2 of pages2) {
                   try {
                     if (await (p2 as any).isPdf?.()) { pdfPage = p2; break }
-                    const pc2 = await (p2 as any).getPdfPageCount?.().catch(() => 0)
-                    if (typeof pc2 === 'number' && pc2 > 0) { pdfPage = p2; break }
-                  } catch {}
+                  } catch (error) {
+                    // Non-fatal during scan
+                  }
                 }
               }
             }
             if (pdfPage) {
               page = pdfPage
-              url = await page.url()
+              url = await getFreshUrl(page)
               lastKnownUrl = url
               title = await page.title()
               isPdf = true
             }
-          } catch {}
+          } catch (error) {
+            // Accept fallback to non-PDF path silently
+          }
         }
         
         if (isPdf) {
-          // Unified: delegate to side panel pdf.js via URL-only request (text-only). Single retry.
-          // Give newly opened viewer a brief moment to stabilize
-          await new Promise(r => setTimeout(r, 900))
+          // Debug helper
+          const PDF_DEBUG = true
+          const dbg = (msg: string): void => { if (PDF_DEBUG) Logging.log('PDF', `[ExtractTool] ${msg}`, 'info') }
+          dbg(`start tab=${args.tab_id} url=${url}`)
           // Resolve viewer URLs (chrome-extension) to underlying PDF src when possible
           let parseUrl = url
           try {
@@ -125,11 +126,26 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
               const srcParam = u.searchParams.get('src')
               if (srcParam) parseUrl = decodeURIComponent(srcParam)
             }
-          } catch {}
-          const sendParse = () => new Promise<string>((resolve, reject) => {
+          } catch (_error) { /* ignore parse issues */ }
+          
+
+          // Ensure side panel is open and ready to handle PDF parsing via port bridge
+          const sleep = async (ms: number): Promise<void> => await new Promise(resolve => setTimeout(resolve, ms))
+          const ensureSidePanelOpen = async (): Promise<void> => {
+            try {
+              const tabId = Number.isInteger(args.tab_id) && args.tab_id > 0 ? args.tab_id : undefined
+              if (tabId !== undefined) {
+                await chrome.sidePanel.open({ tabId })
+              }
+            } catch (_e) { /* best-effort: ignore */ }
+          }
+
+          // Delegate parsing to side panel UI to avoid ServiceWorker import() limitations
+          const sendParse = (override?: { bytesBase64?: string }) => new Promise<string>((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('PDF sidepanel parse timeout')), 15000)
             try {
-              chrome.runtime.sendMessage({ type: MessageType.PDF_PARSE_REQUEST, payload: { url: parseUrl, maxPages: maxPagesHint ?? DEFAULT_MAX_PDF_PAGES } }, (resp?: { ok?: boolean; text?: string; error?: string }) => {
+              const payload: any = { url: parseUrl, maxPages: maxPagesHint ?? DEFAULT_MAX_PDF_PAGES, ...(override || {}) }
+              chrome.runtime.sendMessage({ type: MessageType.PDF_PARSE_REQUEST, payload }, (resp?: { ok?: boolean; text?: string; error?: string }) => {
                 clearTimeout(timeout)
                 const lastErr = chrome.runtime.lastError
                 if (lastErr) return reject(new Error(lastErr.message))
@@ -141,16 +157,22 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
               reject(e as Error)
             }
           })
+
+          // Single attempt with one retry only for connection races
+          await ensureSidePanelOpen()
           try {
-            rawContent = await sendParse()
-          } catch (firstErr) {
-            await new Promise(r => setTimeout(r, 1200))
-            try {
-              rawContent = await sendParse()
-            } catch (secondErr) {
-              await new Promise(r => setTimeout(r, 1500))
-              rawContent = await sendParse()
-            }
+            const parsedText = await sendParse()
+            rawContent = parsedText
+            dbg(`success length=${rawContent.length}`)
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            const isConnErr = msg.toLowerCase().includes('message port closed') || msg.includes('SIDE_PANEL_DISCONNECTED') || msg.includes('SIDE_PANEL_TIMEOUT')
+            if (!isConnErr) throw err
+            await sleep(400)
+            await ensureSidePanelOpen()
+            const parsedText = await sendParse()
+            rawContent = parsedText
+            dbg(`success (retry) length=${rawContent.length}`)
           }
           // We no longer know total page count reliably here; omit it
         } else if (args.extract_type === 'text') {
@@ -219,13 +241,15 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
           ok: true,
           output
         })
-      } catch (error) {
+        } catch (error) {
         // Handle error
         const errorMessage = error instanceof Error ? error.message : String(error)
         try {
           // Attempt to record the last known URL as failed
           if (lastKnownUrl) executionContext.addFailedUrl(lastKnownUrl)
-        } catch {}
+        } catch (e) {
+          // Ignore recording failure
+        }
         return JSON.stringify(toolError(`Extraction failed: ${errorMessage}`))
       }
     }

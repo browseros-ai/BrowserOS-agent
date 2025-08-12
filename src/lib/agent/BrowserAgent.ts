@@ -57,11 +57,14 @@ import { createGroupTabsTool } from '@/lib/tools/tab/GroupTabsTool';
 import { createGetSelectedTabsTool } from '@/lib/tools/tab/GetSelectedTabsTool';
 import { createClassificationTool } from '@/lib/tools/classification/ClassificationTool';
 import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
+// Validation detection tools temporarily disabled per refactor plan
+// import { createLackOfContextTool } from '@/lib/tools/validation/LackOfContextTool';
+// import { createInstructionEchoTool } from '@/lib/tools/validation/InstructionEchoTool';
 import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
 import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
 import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
-import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
+import { AIMessage, AIMessageChunk, BaseMessage } from '@langchain/core/messages';
 import { EventProcessor } from '@/lib/events/EventProcessor';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { AbortError } from '@/lib/utils/Abortable';
@@ -94,14 +97,6 @@ export class BrowserAgent {
 
   // Inner loop is -- execute TODOs, one after the other.
   private static readonly MAX_STEPS_INNER_LOOP  = 30; 
-
-  // Heuristics for detecting lack-of-context replies
-  private static readonly LACK_OF_CONTEXT_PATTERNS: RegExp[] = [
-    /need more context/i,
-    /please provide (the )?(text|content|document|link)/i,
-    /cannot summarize[^.]*without/i,
-    /i (still )?need more context/i
-  ];
 
   private static readonly CLARIFICATION_MESSAGE: string = 'Please paste the text or open/select the page or PDF to summarize, then ask again.';
 
@@ -180,7 +175,11 @@ export class BrowserAgent {
       // 3. DELEGATE: Route to the correct execution strategy
       if (!classification.is_followup_task) {
         // New task: ensure we start a fresh TODO manager
-        try { this.executionContext.todoStore.reset() } catch {}
+        try {
+          this.executionContext.todoStore.reset()
+        } catch (error) {
+          this.eventEmitter.debug(`Failed to reset TODO store: ${error}`)
+        }
       }
       if (classification.is_simple_task) {
         await this._executeSimpleTaskStrategy(task);
@@ -250,6 +249,9 @@ export class BrowserAgent {
     
     // Validation tool
     this.toolManager.register(createValidatorTool(this.executionContext));
+    // Detection tools disabled (will be reintroduced after refactor without heuristics)
+    // this.toolManager.register(createLackOfContextTool(this.executionContext));
+    // this.toolManager.register(createInstructionEchoTool(this.executionContext));
 
     // util tools
     this.toolManager.register(createScreenshotTool(this.executionContext));
@@ -335,7 +337,7 @@ export class BrowserAgent {
       // 1. PLAN: Create a new plan
       const plan = await this._createMultiStepPlan(task);
       if (plan.steps.length === 0) {
-        throw new Error('Planning failed. Could not generate next steps.');
+        throw new Error('Planning failed: no steps were generated');
       }
       this.eventEmitter.debug('Plan created:', JSON.stringify(plan, null, 2));
 
@@ -357,9 +359,8 @@ export class BrowserAgent {
         
         const isTaskCompleted = await this._executeSingleTurn(instruction);
         // Simple loop guard: if last assistant message repeats, break to prevent instruction loops
-        const msgs = this.messageManager.getMessages()
-        const last = msgs.length > 0 ? msgs[msgs.length - 1] : null
-        const lastText = last && (last as any).content && typeof (last as any).content === 'string' ? (last as any).content as string : null
+        const msgs: BaseMessage[] = this.messageManager.getMessages()
+        const lastText = this._getLastAssistantText(msgs)
         if (lastText && lastText === lastAssistantText) {
           repeatCount += 1
         } else {
@@ -422,32 +423,9 @@ export class BrowserAgent {
       wasDoneToolCalled = await this._processToolCalls(llmResponse.tool_calls);
       
     } else if (llmResponse.content) {
-      // If the AI responds with text, first try to auto-resolve lack-of-context cases
+      // TEMP: accept text directly; validation detection tools are disabled
       const text = (llmResponse.content as string) || ''
-      const lower = text.toLowerCase()
-      const isInstructionEcho = (
-        lower.includes('ensure your response is a valid tool call') ||
-        lower.includes('do not use markdown other than for code blocks') ||
-        lower.includes('do not use bullet points') ||
-        lower.includes('remember to call done_tool') ||
-        lower.includes('do not hallucinate tool calls') ||
-        lower.includes('do not provide commentary on your actions') ||
-        lower.includes('you are browseragent') ||
-        lower.includes('todo execution steps') ||
-        lower.includes('<system-context>') ||
-        // Suppress echoes of our execution instructions (seen after Task Manager, esp. follow-ups)
-        lower.includes("the user's goal is:") ||
-        lower.includes('please take the next best action')
-      )
-
-      if (!isInstructionEcho) {
-        const resolved = await this._maybeResolveAmbiguousSummarize(text)
-        if (!resolved) {
-          // Record the AI text for history only if it's not instruction echo
-          this.messageManager.addAI(text)
-        }
-      }
-      // If instruction echo, skip adding to history and treat as no-op
+      this.messageManager.addAI(text)
     }
 
     return wasDoneToolCalled;
@@ -455,54 +433,9 @@ export class BrowserAgent {
 
   // Try to auto-handle ambiguous requests like "summarize this" by extracting from current tab,
   // or gracefully completing with a clarification if no context is available.
-  private async _maybeResolveAmbiguousSummarize(aiText: string): Promise<boolean> {
-    // Quick check for lack-of-context indicators
-    const lacksContext = BrowserAgent.LACK_OF_CONTEXT_PATTERNS.some(rgx => rgx.test(aiText))
-    if (!lacksContext) return false
-
-    // Attempt automatic extraction from the active tab
-    const extractTool = this.toolManager.get('extract_tool')
-    const doneTool = this.toolManager.get('done_tool')
-    if (!extractTool || !doneTool) return false
-
-    try {
-      const currentPage = await this.executionContext.browserContext.getCurrentPage()
-      const tabId = currentPage.tabId
-
-      // Execute extract_tool
-      const extractArgs = { task: 'Summarize the visible content', tab_id: tabId, extract_type: 'text' as const }
-      this.eventEmitter.executingTool('extract_tool', extractArgs)
-      const extractResult = await extractTool.func(extractArgs)
-      const extractParsed = JSON.parse(extractResult)
-
-      // Emit tool result for UI and add to message history with a synthetic tool_call_id
-      this.eventEmitter.emitToolResult('extract_tool', extractResult)
-      this.messageManager.addTool(extractResult, 'auto_extract_due_to_ambiguity')
-
-      // If extraction produced content, complete successfully
-      if (extractParsed && extractParsed.ok) {
-        const doneArgs = { summary: 'Summarized the visible content from the current tab.' }
-        this.eventEmitter.executingTool('done_tool', doneArgs)
-        const doneResult = await doneTool.func(doneArgs)
-        this.eventEmitter.emitToolResult('done_tool', doneResult)
-        this.messageManager.addTool(doneResult, 'auto_done_due_to_ambiguity')
-        return true
-      }
-    } catch (_err) {
-      // Fall through to clarification
-    }
-
-    // If we couldn't extract, complete with a concise clarification
-    try {
-      const doneArgs = { summary: BrowserAgent.CLARIFICATION_MESSAGE }
-      this.eventEmitter.executingTool('done_tool', doneArgs)
-      const doneResult = await (this.toolManager.get('done_tool')!).func(doneArgs)
-      this.eventEmitter.emitToolResult('done_tool', doneResult)
-      this.messageManager.addTool(doneResult, 'auto_done_due_to_ambiguity')
-      return true
-    } catch {
-      return false
-    }
+  private async _maybeResolveAmbiguousSummarize(_aiText: string): Promise<boolean> {
+    // Temporarily disabled per refactor plan
+    return false
   }
 
   private async _invokeLLMWithStreaming(): Promise<AIMessage> {
@@ -639,10 +572,17 @@ export class BrowserAgent {
     const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
     this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
 
-    if (parsedResult.ok && parsedResult.output?.steps) {
+    if (parsedResult.ok && parsedResult.output?.steps && Array.isArray(parsedResult.output.steps)) {
       return { steps: parsedResult.output.steps };
     }
-    return { steps: [] };  // Return an empty plan on failure
+
+    // Surface planner/LLM errors directly so users see provider issues (e.g., invalid key, bad maxTokens)
+    const errorMessage = typeof parsedResult.error === 'string'
+      ? parsedResult.error
+      : typeof parsedResult.output === 'string'
+        ? parsedResult.output
+        : 'Planning failed due to an unknown error';
+    throw new Error(errorMessage);
   }
 
   private async _validateTaskCompletion(task: string): Promise<{
@@ -756,5 +696,16 @@ export class BrowserAgent {
       this.eventEmitter.debug(`Could not manage glow for tool ${toolName}: ${error}`);
       return false;
     }
+  }
+
+  // Returns last assistant text content or null when none found
+  private _getLastAssistantText (messages: readonly BaseMessage[]): string | null {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i]
+      if (message instanceof AIMessage && typeof message.content === 'string') {
+        return message.content
+      }
+    }
+    return null
   }
 }

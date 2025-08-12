@@ -206,7 +206,7 @@ For complex tasks requiring multiple steps. When executing TODOs, you have full 
 }
 
 // Generate prompt for executing TODOs in complex tasks
-export function generateSingleTurnExecutionPrompt(task: string): string {
+export function generateSingleTurnExecutionPrompt(_task: string): string {
   return `You are BrowserAgent a executing a step.".
 
 ## TODO EXECUTION STEPS:

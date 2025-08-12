@@ -1,10 +1,10 @@
 import { z } from 'zod';
 // pdf.js ESM
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist'
-import { type BrowserContextConfig } from './BrowserContext';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
+// import { type BrowserContextConfig } from './BrowserContext';
 import { Logging } from '../utils/Logging';
 import { getBrowserOSAdapter, type InteractiveNode, type InteractiveSnapshot, type Snapshot, type SnapshotOptions } from './BrowserOSAdapter';
-import { profileAsync, profileSync } from '../utils/Profiler';
+import { profileAsync } from '../utils/Profiler';
 
 // Attributes to include in the compact format
 // Comment out any attributes you want to exclude
@@ -695,9 +695,12 @@ export class BrowserPage {
         clearTimeout(timeoutId);
         const ct = resp.headers.get('content-type') || '';
         if (ct.toLowerCase().includes('application/pdf')) return true;
-      } catch {}
+      } catch (e) {
+        Logging.log('BrowserPage', `PDF detection HEAD request failed: ${e instanceof Error ? e.message : String(e)}`, 'warning');
+      }
       return false;
-    } catch {
+    } catch (e) {
+      Logging.log('BrowserPage', `PDF detection failed: ${e instanceof Error ? e.message : String(e)}`, 'error');
       return false;
     }
   }
@@ -713,7 +716,6 @@ export class BrowserPage {
   async getPdfPageCount(): Promise<number> {
     const sourceUrl = await this._resolvePdfSourceUrl();
     const bytes = await this._fetchPdfBytes(sourceUrl);
-    try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch {}
     const doc = await (getDocument as any)({ data: bytes, isEvalSupported: false, disableWorker: true }).promise
     const num: number = typeof doc.numPages === 'number' ? doc.numPages : 0
     return num
@@ -751,13 +753,13 @@ export class BrowserPage {
   private async _resolvePdfSourceUrl(): Promise<string> {
     try {
       const tab = await chrome.tabs.get(this._tabId);
-      let currentUrl = tab.url || this._url || '';
+      const currentUrl = tab.url || this._url || '';
       if (currentUrl.startsWith('chrome-extension://')) {
         try {
           const u = new URL(currentUrl);
           const src = u.searchParams.get('src');
           if (src) return decodeURIComponent(src);
-        } catch {}
+        } catch { /* ignore parse/decode */ }
       }
       return currentUrl;
     } catch {
@@ -778,7 +780,7 @@ export class BrowserPage {
       throw new Error('DEBUGGER_FAILED: No content')
     } catch (e) {
       // Fallback to credentialed fetch
-      let prior = e instanceof Error ? e.message : String(e)
+      const prior = e instanceof Error ? e.message : String(e)
       try {
         const resp = await fetch(url, { credentials: 'include', headers: { Accept: 'application/pdf' } })
         if (!resp.ok) throw new Error(`NETWORK_ERROR: HTTP ${resp.status}`)
@@ -816,7 +818,11 @@ export class BrowserPage {
 
       const detach = () => {
         if (attached) {
-          try { chrome.debugger.detach(target, () => {}) } catch {}
+          try {
+            chrome.debugger.detach(target, () => {})
+          } catch (error) {
+            Logging.log('BrowserPage', `Debugger detach failed: ${error instanceof Error ? error.message : String(error)}`, 'warning')
+          }
         }
       }
 

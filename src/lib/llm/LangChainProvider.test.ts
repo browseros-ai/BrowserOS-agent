@@ -72,10 +72,10 @@ describe('LangChainProvider', () => {
       vi.mocked(LLMSettingsReader.read).mockResolvedValue(mockSettings as any)
 
       // Create with default temperature
-      const llm1 = await provider.getLLM()
+      await provider.getLLM()
       
       // Create with different temperature
-      const llm2 = await provider.getLLM({ temperature: 0.5 })
+      await provider.getLLM({ temperature: 0.5 })
       
       // Should create two different instances
       expect(ChatAnthropic).toHaveBeenCalledTimes(2)

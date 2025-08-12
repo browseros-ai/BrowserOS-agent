@@ -17,7 +17,7 @@ interface MarkdownContentProps {
 export function MarkdownContent({ 
   content, 
   className, 
-  forceMarkdown = false,  // Ignored - we always render as markdown
+  forceMarkdown: _forceMarkdown = false,  // Ignored - we always render as markdown
   skipMarkdown = false,
   compact = false  // Default to false for better readability
 }: MarkdownContentProps): JSX.Element {

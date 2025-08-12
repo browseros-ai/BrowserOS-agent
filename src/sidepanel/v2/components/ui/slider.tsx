@@ -32,8 +32,6 @@ export function Slider({
     onChange(newValue)
   }
 
-  // Calculate progress percentage for visual feedback (not rendered)
-  const progress = ((value - min) / (max - min)) * 100
 
   return (
     <div className={cn('relative w-full', className)}>

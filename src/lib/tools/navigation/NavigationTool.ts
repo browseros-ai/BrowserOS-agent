@@ -50,16 +50,14 @@ export class NavigationTool {
             const fu = new URL(f)
             if (target.hostname === fu.hostname) {
               if (fu.pathname && target.pathname.includes(fu.pathname)) return true
-              const m = fu.pathname.match(/\/(?:pdf|abs)\/([^\/?#]+)/)
+              const m = fu.pathname.match(new RegExp('/(?:pdf|abs)/([^/?#]+)'))
               if (m && m[1] && target.pathname.toLowerCase().includes(m[1].toLowerCase())) return true
             }
-          } catch {}
+          } catch (_e) { /* ignore URL parse */ }
         }
-      } catch {}
+      } catch (_e) { /* ignore URL parse */ }
       return false
-    } catch {
-      return false
-    }
+    } catch { return false }
   }
 
   private async _navigateToUrl(url?: string): Promise<ToolOutput> {

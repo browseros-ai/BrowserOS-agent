@@ -37,9 +37,13 @@ export function createPlannerTool(executionContext: ExecutionContext): DynamicSt
         const llm = await executionContext.getLLM();
         
         // Create message reader inline
-        const read_only_message_manager = new MessageManagerReadOnly(executionContext.messageManager);
+        const readOnlyMessageManager = new MessageManagerReadOnly(executionContext.messageManager);
         // Filter out browser state messages as they take up too much context
-        const message_history = read_only_message_manager.getAll().filter(m => m.additional_kwargs?.messageType !== MessageType.BROWSER_STATE).map(m => `${m._getType()}: ${m.content}`).join('\n');
+        const messageHistoryText = readOnlyMessageManager
+          .getAll()
+          .filter(m => m.additional_kwargs?.messageType !== MessageType.BROWSER_STATE)
+          .map(m => `${m._getType()}: ${typeof m.content === 'string' ? m.content : ''}`)
+          .join('\n');
        
         // Get browser state using BrowserContext's method
         const browserState = await executionContext.browserContext.getBrowserStateString();
@@ -49,7 +53,7 @@ export function createPlannerTool(executionContext: ExecutionContext): DynamicSt
         const taskPrompt = generatePlannerTaskPrompt(
           args.task,
           args.max_steps,
-          message_history,
+          messageHistoryText,
           browserState
         );
         

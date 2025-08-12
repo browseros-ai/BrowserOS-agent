@@ -35,9 +35,7 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
   // Get data and actions from Zustand store
   const { 
     openTabs, 
-    selectedTabs, 
     currentTabId,
-    isCurrentTabRemoved,
     fetchOpenTabs, 
     toggleTabSelection,
     getContextTabs 
@@ -89,15 +87,17 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
-        case 'ArrowDown':
+        case 'ArrowDown': {
           e.preventDefault();
           setActiveIndex(prev => (prev + 1) % filteredTabs.length);
           break;
-        case 'ArrowUp':
+        }
+        case 'ArrowUp': {
           e.preventDefault();
           setActiveIndex(prev => (prev - 1 + filteredTabs.length) % filteredTabs.length);
           break;
-        case 'Enter':
+        }
+        case 'Enter': {
           e.preventDefault();
           const activeTab = filteredTabs[activeIndex];
           if (activeTab) {
@@ -105,10 +105,12 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
             onClose();
           }
           break;
-        case 'Escape':
+        }
+        case 'Escape': {
           e.preventDefault();
           onClose();
           break;
+        }
       }
     };
 

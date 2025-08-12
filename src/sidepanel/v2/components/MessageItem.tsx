@@ -186,7 +186,7 @@ const parseExtractedLinks = (content: string): ExtractedLink[] => {
   const results: ExtractedLink[] = []
   if (!content) return results
   const labelRegex = /([A-Z][A-Za-z0-9 .&-]{1,50}):/g
-  const segments: Array<{ label?: string, text: string }> = []
+  // const segments: Array<{ label?: string, text: string }> = []
   let match: RegExpExecArray | null
   const labels: Array<{ label: string, index: number }> = []
   while ((match = labelRegex.exec(content)) !== null) {
@@ -238,7 +238,7 @@ const PdfPreview = ({ content }: PdfPreviewProps) => {
     let cancelled = false
     ;(async () => {
       try {
-        try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch {}
+        try { (GlobalWorkerOptions as any).workerSrc = chrome.runtime.getURL('pdf.worker.mjs') } catch (_e) { /* ignore */ }
         const resp = await fetch(url, { credentials: 'include' })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const ab = await resp.arrayBuffer()
@@ -280,7 +280,7 @@ const PdfPreview = ({ content }: PdfPreviewProps) => {
             </div>
           ))}
           {thumbs.length === 0 && (
-            <div className="text-xs text-muted-foreground">Rendering preview…</div>
+            <div className="text-xs text-muted-foreground">Rendering preview…{/* empty state placeholder */}</div>
           )}
         </div>
       </div>
@@ -330,7 +330,7 @@ const ExtractedItemsDisplay = ({ content }: ExtractedItemsDisplayProps) => {
 }
 
 // Defaults
-const AUTO_COLLAPSE_DELAY_MS = 10000  // Auto-collapse delay for indented tool messages
+// const AUTO_COLLAPSE_DELAY_MS = 10000  // Auto-collapse delay for indented tool messages
 
 // Inline collapsible tool result (super subtle, no background)
 interface ToolResultInlineProps { name: string, content: string, autoCollapseAfterMs?: number }
@@ -350,11 +350,9 @@ const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInli
  * Renders individual messages with role-based styling
  * Memoized to prevent re-renders when message hasn't changed
  */
-export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true, suppressTopMargin = false }: MessageItemProps) {
+export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin: _applyIndentMargin = true, suppressTopMargin = false }: MessageItemProps) {
   const { autoCollapseDelayMs, showPdfPreview } = useSettingsStore()
   const isUser = message.role === 'user'
-  const isError = message.metadata?.error || message.content.includes('## Task Failed')
-  const isSystem = message.role === 'system'
   const { markMessageAsCompleting, removeExecutingMessage, messages, executingMessageRemoving } = useChatStore()
   
   // Prefer metadata flags over content heuristics
@@ -786,9 +784,9 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           </div>
 
           {/* Timestamp - only show for specific message types */}
-          {displayOptions.shouldShowTimestamp && (
+          {displayOptions.shouldShowTimestamp && message.timestamp && (
             <div className={cn('text-xs opacity-50', isUser ? 'text-right' : 'text-left')}>
-              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
         </div>

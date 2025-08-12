@@ -9,11 +9,7 @@ const ErrorStateSchema = z.object({
 
 type ErrorState = z.infer<typeof ErrorStateSchema>
 
-const ErrorBoundaryPropsSchema = z.object({
-  children: z.any(),  // ReactNode
-  fallback: z.function().args(z.instanceof(Error), z.function()).returns(z.any()).optional(),  // Custom fallback component
-  onError: z.function().args(z.instanceof(Error), z.any()).returns(z.void()).optional()  // Error callback
-})
+// Removed unused ErrorBoundaryPropsSchema
 
 interface ErrorBoundaryProps {
   children: ReactNode

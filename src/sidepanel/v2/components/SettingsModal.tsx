@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { Slider } from './ui/slider'
-import { cn } from '@/sidepanel/lib/utils'
+// import { cn } from '@/sidepanel/lib/utils'
 import { z } from 'zod'
-import { XIcon, SunIcon, MoonIcon } from './ui/Icons'
+import { XIcon } from './ui/Icons'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks/useSidePanelPortMessaging'
 import { MessageType } from '@/lib/types/messaging'
@@ -245,7 +245,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
                 <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto pr-1">
                   {[
-                    'task_manager_tool', 'todo_manager_tool', 'navigation_tool', 'tab_operations_tool', 'find_element_tool', 'interact_tool', 'scroll_tool', 'search_tool', 'group_tabs_tool', 'get_selected_tabs_tool', 'extract_tool', 'screenshot_tool', 'validator_tool', 'result_tool'
+                    'task_manager_tool', 'todo_manager_tool', 'navigation_tool', 'tab_operations_tool',
+                    'find_element_tool', 'interact_tool', 'scroll_tool', 'search_tool',
+                    'group_tabs_tool', 'get_selected_tabs_tool', 'extract_tool', 'screenshot_tool',
+                    'validator_tool', 'done_tool', 'result_tool'
                   ].map(key => {
                     const checked = autoCollapseKeys.length === 0 ? true : autoCollapseKeys.includes(key)
                     return (
@@ -255,7 +258,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           className="accent-[hsl(var(--brand))]"
                           checked={checked}
                           onChange={(e) => {
-                            const all = ['task_manager_tool','todo_manager_tool','navigation_tool','tab_operations_tool','find_element_tool','interact_tool','scroll_tool','search_tool','group_tabs_tool','get_selected_tabs_tool','extract_tool','screenshot_tool','validator_tool','result_tool']
+                            const all = ['task_manager_tool','todo_manager_tool','navigation_tool','tab_operations_tool','find_element_tool','interact_tool','scroll_tool','search_tool','group_tabs_tool','get_selected_tabs_tool','extract_tool','screenshot_tool','validator_tool','done_tool','result_tool']
                             if (autoCollapseKeys.length === 0) {
                               const next = e.target.checked ? all : all.filter(k => k !== key)
                               setAutoCollapseKeys(next)
@@ -278,7 +281,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-xs"
-                    onClick={() => setAutoCollapseKeys(['task_manager_tool','todo_manager_tool','navigation_tool','tab_operations_tool','find_element_tool','interact_tool','scroll_tool','search_tool','group_tabs_tool','get_selected_tabs_tool','extract_tool','screenshot_tool','validator_tool','result_tool'])}
+                    onClick={() => setAutoCollapseKeys(['task_manager_tool','todo_manager_tool','navigation_tool','tab_operations_tool','find_element_tool','interact_tool','scroll_tool','search_tool','group_tabs_tool','get_selected_tabs_tool','extract_tool','screenshot_tool','validator_tool','done_tool','result_tool'])}
                   >
                     Apply to all
                   </Button>

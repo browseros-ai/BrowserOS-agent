@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ClassificationTool, createClassificationTool } from './ClassificationTool'
-import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
+// Removed unused ExecutionContext import
 import { MessageManager } from '@/lib/runtime/MessageManager'
 
 describe('ClassificationTool', () => {
