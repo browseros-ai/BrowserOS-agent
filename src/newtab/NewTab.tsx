@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { CommandInput } from './components/CommandInput'
 import { ThemeToggle } from './components/ThemeToggle'
+import { SettingsDialog } from './components/SettingsDialog'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
 import { Settings } from 'lucide-react'
 
 export function NewTab() {
   const { theme, fontSize } = useSettingsStore()
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   
   // Apply theme and font size
   useEffect(() => {
@@ -34,10 +36,7 @@ export function NewTab() {
             hover:bg-gray-100 dark:hover:bg-gray-800
           "
           aria-label="Settings"
-          onClick={() => {
-            // TODO: Open settings modal
-            console.log('Settings clicked')
-          }}
+          onClick={() => setIsSettingsOpen(true)}
         >
           <Settings size={20} className="transition-transform duration-200" />
         </button>
@@ -65,6 +64,12 @@ export function NewTab() {
           <CommandInput />
         </div>
       </div>
+      
+      {/* Settings Dialog */}
+      <SettingsDialog 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </div>
   )
 }
