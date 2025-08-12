@@ -12,7 +12,6 @@ import { TodoStore } from '@/lib/runtime/TodoStore'
 export const ExecutionContextOptionsSchema = z.object({
   browserContext: z.instanceof(BrowserContext),  // Browser context for page operations
   messageManager: z.instanceof(MessageManager),  // Message manager for communication
-  abortController: z.instanceof(AbortController),  // Abort controller for task cancellation
   debugMode: z.boolean().default(false),  // Whether to enable debug logging
   eventBus: z.instanceof(EventBus).optional(),  // Event bus for streaming updates
   eventProcessor: z.instanceof(EventProcessor).optional(),  // Event processor for high-level events
@@ -44,7 +43,8 @@ export class ExecutionContext {
     // Validate options at runtime
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
     
-    this.abortController = validatedOptions.abortController
+    // Create our own AbortController - single source of truth
+    this.abortController = new AbortController()
     this.browserContext = validatedOptions.browserContext
     this.messageManager = validatedOptions.messageManager
     this.debugMode = validatedOptions.debugMode || false

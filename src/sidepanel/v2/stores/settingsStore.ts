@@ -125,7 +125,7 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
             autoScroll: true
           } as Settings
         }
-        // Migrate to v4 add autoCollapseTools default true
+        // Migrate to v4 add autoCollapseTools default false
         if (version === 3 && persisted) {
           const migrated = {
             fontSize: typeof persisted.fontSize === 'number' ? persisted.fontSize : 14,

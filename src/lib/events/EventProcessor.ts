@@ -61,7 +61,7 @@ export class EventProcessor {
   /**
    * Emit tool execution start
    */
-  executingTool(toolName: string, args?: any): void {
+  toolStart(toolName: string, args?: any): void {
     const displayInfo = this._getToolDisplayInfo(toolName, args);
     
     this.eventBus.emitToolStart({

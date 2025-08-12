@@ -6,7 +6,8 @@ import { z } from 'zod';
  */
 export enum PortName {
   OPTIONS_TO_BACKGROUND = 'options-to-background',
-  SIDEPANEL_TO_BACKGROUND = 'sidepanel-to-background'
+  SIDEPANEL_TO_BACKGROUND = 'sidepanel-to-background',
+  NEWTAB_TO_BACKGROUND = 'newtab-to-background'
 }
 
 // Create a zod enum for PortName

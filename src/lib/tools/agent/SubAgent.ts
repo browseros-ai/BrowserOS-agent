@@ -60,17 +60,20 @@ export class SubAgent {
     this.todoStore = new TodoStore();
     
     // Create a new ExecutionContext for the subagent
-    // Keep parent's browser context, abort controller, and event processors
+    // Keep parent's browser context and event processors
     // But use our own message manager and todo store
+    // ExecutionContext will create its own abort controller internally
     this.executionContext = new ExecutionContext({
       browserContext: parentContext.browserContext,
       messageManager: this.messageManager,
-      abortController: parentContext.abortController,
       debugMode: parentContext.debugMode,
       eventBus: parentContext.getEventBus(),
       eventProcessor: parentContext.getEventProcessor(),
       todoStore: this.todoStore
     });
+    
+    // Share parent's abort controller so cancellation propagates
+    this.executionContext.abortController = parentContext.abortController;
     
     // Create tool manager with our execution context
     this.toolManager = new ToolManager(this.executionContext);
@@ -286,7 +289,7 @@ export class SubAgent {
         continue;
       }
 
-      this.eventEmitter.executingTool(toolName, args);
+      this.eventEmitter.toolStart(toolName, args);
       const result = await tool.func(args);
       const parsedResult = JSON.parse(result);
       

@@ -56,7 +56,6 @@ export class NxtScape {
   private readonly config: NxtScapeConfig;
   private browserContext: BrowserContext;
   private executionContext!: ExecutionContext; // Will be initialized in initialize()
-  private abortController: AbortController; // Track current execution for cancellation
   private messageManager!: MessageManager; // Will be initialized in initialize()
   private browserAgent: BrowserAgent | PocAgent | null = null; // The browser agent for task execution
 
@@ -74,9 +73,6 @@ export class NxtScape {
     this.browserContext = new BrowserContext({
       useVision: true,
     });
-
-    // create new abort controller for this execution
-    this.abortController = new AbortController();
 
     // Initialize logging
     Logging.initialize({ debugMode: this.config.debug || false });
@@ -111,7 +107,6 @@ export class NxtScape {
           browserContext: this.browserContext,
           messageManager: this.messageManager,
           debugMode: this.config.debug || false,
-          abortController: this.abortController,
         });
         
         // Initialize the browser agent with execution context
@@ -161,10 +156,15 @@ export class NxtScape {
    * @returns Result of the processed query with success/error status
    */
   public async run(options: RunOptions): Promise<NxtScapeResult> {
+    profileStart("NxtScape.run");
+    // Ensure the agent is initialized before running
+    if (!this.isInitialized()) {
+        await this.initialize();
+    }
+
     const parsedOptions = RunOptionsSchema.parse(options);
     const { query, tabIds, eventBus, eventProcessor } = parsedOptions;
 
-    profileStart("NxtScape.run");
     const runStartTime = Date.now();
 
     Logging.log(
@@ -173,10 +173,6 @@ export class NxtScape {
         tabIds ? ` (${tabIds.length} tabs)` : ""
       }`,
     );
-
-    if (!this.isInitialized()) {
-      await this.initialize();
-    }
 
     if (!this.browserContext) {
       throw new Error("NxtScape.initialize() must be awaited before run()");
@@ -190,13 +186,9 @@ export class NxtScape {
       this._internalCancel();
     }
 
-    // Only reset abort controller for new conversations or after user cancellation
-    // NOT for follow-up tasks
-    const isFollowUp = this.messageManager.getMessages().length > 0;
-    if (!isFollowUp || this.executionContext.isUserCancellation()) {
-      this.resetAbortController();
-      // Also reset TODO list for new tasks
-      this.executionContext.todoStore.reset();
+    // Reset abort controller if it's aborted (from pause or previous execution)
+    if (this.executionContext.abortController.signal.aborted) {
+      this.executionContext.resetAbortController();
     }
 
     // Always get the current page from browser context - this is the tab the agent will operate on
@@ -272,13 +264,7 @@ export class NxtScape {
       profileStart("NxtScape.cleanup");
       await this.browserContext.unlockExecution();
 
-      // Highlights not implemented in BrowserContextV2
-
       profileEnd("NxtScape.cleanup");
-
-      // Clean up abort controller
-      this.resetAbortController();
-
       profileEnd("NxtScape.run");
       Logging.log(
         "NxtScape",
@@ -297,7 +283,7 @@ export class NxtScape {
    * @returns Object with cancellation info including the query that was cancelled
    */
   public cancel(): { wasCancelled: boolean; query?: string } {
-    if (this.abortController && !this.abortController.signal.aborted) {
+    if (this.executionContext && !this.executionContext.abortController.signal.aborted) {
       const cancelledQuery = this.currentQuery;
       Logging.log(
         "NxtScape",
@@ -319,7 +305,7 @@ export class NxtScape {
    * @private
    */
   private _internalCancel(): void {
-    if (this.abortController && !this.abortController.signal.aborted) {
+    if (this.executionContext && !this.executionContext.abortController.signal.aborted) {
       Logging.log(
         "NxtScape",
         "Internal cleanup: cancelling previous execution",
@@ -360,26 +346,12 @@ export class NxtScape {
     // Recreate MessageManager to clear history
     this.messageManager.clear();
 
-    // Force reset abort controller for new conversation
-    this.executionContext.resetAbortController();
-    this.abortController = this.executionContext.abortController;
+    // reset the execution context
+    this.executionContext.reset();
 
-    // Update executionContext with new message manager
-    // EventBus and EventProcessor will be set during next run()
-    this.executionContext = new ExecutionContext({
-      browserContext: this.browserContext,
-      messageManager: this.messageManager,
-      debugMode: this.config.debug || false,
-      abortController: this.abortController,
-    });
-    
-    // Recreate browser agent with new execution context
-    // Use PocAgent if in POC mode, otherwise use BrowserAgent
-    if (isPocMode()) {
-      this.browserAgent = new PocAgent(this.executionContext);
-    } else {
-      this.browserAgent = new BrowserAgent(this.executionContext);
-    }
+    // forces initalize of nextscape again
+    // this would pick-up new mew message mangaer context length, etc
+    this.browserAgent = null;
 
     Logging.log(
       "NxtScape",
@@ -387,13 +359,4 @@ export class NxtScape {
     );
   }
 
-  /**
-   * Reset the abort controller and update ExecutionContext
-   * This ensures both NxtScape and ExecutionContext have fresh, non-aborted controllers
-   */
-  private resetAbortController(): void {
-    this.executionContext.resetAbortController();
-    this.abortController = this.executionContext.abortController;
-    Logging.log("NxtScape", "Abort controller reset");
-  }
 }

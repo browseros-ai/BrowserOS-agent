@@ -266,4 +266,9 @@ declare namespace chrome.browserOS {
     type: SnapshotType,
     callback: (snapshot: Snapshot) => void
   ): void;
+
+  // Get BrowserOS version number
+  function getVersionNumber(
+    callback: (version: string) => void
+  ): void;
 }

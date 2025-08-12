@@ -23,6 +23,7 @@ type SettingsModalProps = z.infer<typeof SettingsModalPropsSchema>
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { fontSize, theme, autoScroll, autoCollapseDelayMs, showPdfPreview, autoCollapseKeys, setFontSize, setTheme, setAutoScroll, setAutoCollapseDelayMs, setShowPdfPreview, setAutoCollapseKey, setAutoCollapseKeys } = useSettingsStore()
   const [glowEnabled, setGlowEnabled] = useState<boolean>(true)
+  const [agentVersion, setAgentVersion] = useState<string>('1.0.0')
   const { sendMessage } = useSidePanelPortMessaging()
   // No separate configurator toggle; shown only when auto-collapse is enabled
 
@@ -52,7 +53,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }, [isOpen, onClose])
 
-  // Load persisted glow setting
+  // Load persisted glow setting and get version
   useEffect(() => {
     const GLOW_ENABLED_KEY = 'nxtscape-glow-enabled'
     try {
@@ -65,6 +66,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       })
     } catch (_e) {
       setGlowEnabled(true)
+    }
+    
+    // Get agent version from manifest
+    try {
+      const manifest = chrome.runtime.getManifest()
+      setAgentVersion(manifest.version || '1.0.0')
+    } catch (_e) {
+      // Keep default version
     }
   }, [])
 
@@ -341,7 +350,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <h3 className="text-sm font-medium text-foreground">About</h3>
             <div className="p-4 rounded-xl bg-card border border-border/50">
               <p className="text-sm text-muted-foreground">
-                BrowserOS Agentic Assistant v1.0.0
+                BrowserOS Agentic Assistant v{agentVersion}
               </p>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <p className="text-sm text-foreground">Have feedback or ideas? We'd love to hear from you.</p>

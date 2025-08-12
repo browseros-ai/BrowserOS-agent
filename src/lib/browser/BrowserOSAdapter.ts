@@ -367,6 +367,37 @@ export class BrowserOSAdapter {
       return typeof chrome.browserOS[key] === 'function';
     });
   }
+
+  /**
+   * Get BrowserOS version information
+   */
+  async getVersion(): Promise<string | null> {
+    try {
+      Logging.log('BrowserOSAdapter', 'Getting BrowserOS version', 'info');
+      
+      return new Promise<string | null>((resolve, reject) => {
+        // Check if getVersionNumber API is available
+        if ('getVersionNumber' in chrome.browserOS && typeof chrome.browserOS.getVersionNumber === 'function') {
+          chrome.browserOS.getVersionNumber((version: string) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              Logging.log('BrowserOSAdapter', `BrowserOS version: ${version}`, 'info');
+              resolve(version);
+            }
+          });
+        } else {
+          // Fallback - return null if API not available
+          resolve(null);
+        }
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Logging.log('BrowserOSAdapter', `Failed to get version: ${errorMessage}`, 'error');
+      // Return null on error
+      return null;
+    }
+  }
 }
 
 // Export singleton instance getter for convenience

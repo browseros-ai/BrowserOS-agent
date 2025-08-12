@@ -379,7 +379,7 @@ export class PocAgent {
       // we'll disable at the end of agent execution
       await this._maybeStartGlowAnimation(toolName);
 
-      this.eventEmitter.executingTool(toolName, args);
+      this.eventEmitter.toolStart(toolName, args);
       const result = await tool.func(args);
       const parsedResult = JSON.parse(result);
 
@@ -466,7 +466,7 @@ export class PocAgent {
 
     const args = { task };
     try {
-      this.eventEmitter.executingTool('validator_tool', args);
+      this.eventEmitter.toolStart('validator_tool', args);
       const result = await validatorTool.func(args);
       const parsedResult = JSON.parse(result);
 

@@ -52,7 +52,6 @@ let isNxtScapeInitialized = false
  */
 async function ensureNxtScapeInitialized(): Promise<void> {
   if (!isNxtScapeInitialized) {
-    debugLog('Initializing NxtScape for the first time...')
     await nxtScape.initialize()
     isNxtScapeInitialized = true
     debugLog('NxtScape initialized successfully')
