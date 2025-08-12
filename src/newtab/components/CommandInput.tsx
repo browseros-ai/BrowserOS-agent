@@ -1,7 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { SendIcon, SettingsIcon } from '@/sidepanel/v2/components/ui/Icons'
-import { useAgentsStore } from '../stores/agentsStore'
-import { useChatStore } from '@/sidepanel/v2/stores/chatStore'
 import { ProviderDropdown } from './ProviderDropdown'
 import { useProviderStore } from '../stores/providerStore'
 import { executeProviderAction } from '../utils/providerActions'
@@ -12,8 +9,6 @@ export function CommandInput() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const { selectedAgentId, setCreating } = useAgentsStore()
-  const { addMessage, setProcessing } = useChatStore()
   const { getSelectedProvider } = useProviderStore()
   
   const selectedProvider = getSelectedProvider()
@@ -87,15 +82,6 @@ export function CommandInput() {
           spellCheck={false}
         />
         
-        {/* Settings Button */}
-        <button
-          type="button"
-          className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
-          aria-label="Settings"
-          onClick={() => setCreating(true)}
-        >
-          <SettingsIcon />
-        </button>
       </div>
       
       {/* Suggestions Dropdown */}

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { CommandInput } from './components/CommandInput'
 import { ThemeToggle } from './components/ThemeToggle'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
+import { Settings } from 'lucide-react'
 
 export function NewTab() {
   const { theme, fontSize } = useSettingsStore()
@@ -18,8 +19,22 @@ export function NewTab() {
   
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Theme Toggle - Top Right */}
-      <div className="absolute top-6 right-6 z-10">
+      {/* Top Right Controls - Settings and Theme Toggle */}
+      <div className="absolute top-6 right-6 z-10 flex items-center gap-2">
+        {/* Settings Button */}
+        <button
+          type="button"
+          className="p-2 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+          aria-label="Settings"
+          onClick={() => {
+            // TODO: Open settings modal
+            console.log('Settings clicked')
+          }}
+        >
+          <Settings size={20} />
+        </button>
+        
+        {/* Theme Toggle */}
         <ThemeToggle />
       </div>
       
