@@ -34,6 +34,7 @@ export function ProviderDropdown() {
     <div className="relative" ref={dropdownRef}>
       {/* Trigger Button */}
       <button
+        type="button"
         className="
           flex items-center gap-1.5 px-3 py-1.5 h-8
           text-sm font-medium
