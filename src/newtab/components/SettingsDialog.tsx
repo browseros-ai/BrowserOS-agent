@@ -140,7 +140,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-foreground mb-2">Manage Search Providers</h3>
                   <p className="text-sm text-muted-foreground">
-                    Reorder providers by dragging. The first provider is your default.
+                    The first provider is your default.
                   </p>
                 </div>
                 
@@ -159,7 +159,8 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                       `}
                       onClick={() => selectProvider(provider.id)}
                     >
-                      <Grip size={16} className="text-muted-foreground cursor-move" />
+                      {/* Hidden drag handle for now */}
+                      {/* <Grip size={16} className="text-muted-foreground cursor-move" /> */}
                       
                       <div className="flex-1">
                         <div className="font-medium text-sm text-foreground">
