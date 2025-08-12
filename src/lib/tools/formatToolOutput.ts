@@ -12,7 +12,7 @@ interface ToolResult {
 export function formatToolOutput(toolName: string, result: ToolResult): string {
   // Handle error cases first
   if (!result.ok) {
-    const errorMessage = result.error || (typeof result.output === 'string' ? result.output : 'Unknown error occurred');
+    const errorMessage = result.error || 'Unknown error occurred';
     return `Error in ${toolName}: ${errorMessage}`;
   }
 
@@ -80,11 +80,7 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
     }
 
     case 'extract_tool': {
-      // Output: { content: string, reasoning: string } or { pdf: { url, title, pageCount }, content, reasoning }
-      if (output && typeof output === 'object' && (output as any).pdf) {
-        // Pass through JSON so UI can detect and render PDF preview
-        return JSON.stringify(output);
-      }
+      // Output: { content: string, reasoning: string }
       if (output && typeof output === 'object' && typeof (output as any).content === 'string') {
         return (output as any).content as string;
       }
@@ -112,7 +108,7 @@ export function formatToolOutput(toolName: string, result: ToolResult): string {
         return output;
       }
       // Output: { url: string, success: boolean } or similar
-      // const navUrl = output.url || 'Unknown URL'
+      const navUrl = output.url || 'Unknown URL';
       const navStatus = output.success !== undefined ? (output.success ? 'Success' : 'Failed') : 'Complete';
       return `Navigation - ${navStatus}`;
     }

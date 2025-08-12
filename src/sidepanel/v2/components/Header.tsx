@@ -8,10 +8,10 @@ import { HelpSection } from './HelpSection'
 import { HelpIcon, SettingsIcon, PauseIcon, ResetIcon, ChevronDownIcon } from './ui/Icons'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
 import { useEffect } from 'react'
-// import { z } from 'zod'
+import { z } from 'zod'
 import { BrowserOSProvidersConfig, BrowserOSProvidersConfigSchema } from '@/lib/llm/settings/types'
 
-// const GITHUB_REPO_URL: string = 'https://github.com/browseros-ai/BrowserOS'
+const GITHUB_REPO_URL: string = 'https://github.com/browseros-ai/BrowserOS'
 
 interface HeaderProps {
   onReset: () => void
@@ -25,12 +25,12 @@ interface HeaderProps {
  * Memoized to prevent unnecessary re-renders
  */
 export const Header = memo(function Header({ onReset, showReset, isProcessing }: HeaderProps) {
-  const { sendMessage, addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
+  const { sendMessage, connected, addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
   const { trackClick } = useAnalytics()
   const [showSettings, setShowSettings] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [providersConfig, setProvidersConfig] = useState<BrowserOSProvidersConfig | null>(null)
-  const [, setProvidersError] = useState<string | null>(null)
+  const [providersError, setProvidersError] = useState<string | null>(null)
   const { theme } = useSettingsStore()
   
   

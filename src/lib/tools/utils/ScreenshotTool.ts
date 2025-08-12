@@ -14,7 +14,7 @@ export function createScreenshotTool(executionContext: ExecutionContext): Dynami
     name: 'screenshot_tool',
     description: 'Capture a screenshot of the current page. Returns base64 encoded image data.',
     schema: ScreenshotToolInputSchema,
-    func: async (_args: ScreenshotToolInput): Promise<string> => {
+    func: async (args: ScreenshotToolInput): Promise<string> => {
       try {
         // Get the current page from execution context
         const page = await executionContext.browserContext.getCurrentPage()

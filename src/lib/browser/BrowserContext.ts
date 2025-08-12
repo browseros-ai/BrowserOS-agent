@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import BrowserPage from './BrowserPage';
 import { Logging } from '../utils/Logging';
-import { profileAsync } from '../utils/Profiler';
+import { profileAsync } from '../utils/profiler';
 
 // ============= Browser Context Configuration =============
 
@@ -342,18 +342,10 @@ ${elementsText}
         return [currentPage];
       }
 
-      // Filter out invalid tab IDs and handle fallback
-      const validTabIds = tabIds.filter(id => Number.isInteger(id) && id > 0)
-      if (validTabIds.length === 0) {
-        Logging.log('BrowserContextV2', `No valid tab IDs in request (${tabIds.join(', ')}). Falling back to current tab.`, 'warning')
-        const currentPage = await this.getCurrentPage()
-        return [currentPage]
-      }
-
       // Get pages for specified tabs
       const pages: BrowserPage[] = [];
       
-      for (const tabId of validTabIds) {
+      for (const tabId of tabIds) {
         try {
           const tab = await chrome.tabs.get(tabId);
           const page = await this._getOrCreatePage(tab);
@@ -364,9 +356,7 @@ ${elementsText}
       }
       
       if (pages.length === 0) {
-        Logging.log('BrowserContextV2', `No pages resolved for requested tabs (${validTabIds.join(', ')}). Falling back to current tab.`, 'warning')
-        const currentPage = await this.getCurrentPage()
-        return [currentPage]
+        throw new Error(`Failed to get any of the selected tabs (${tabIds.join(', ')})`);
       }
       
       return pages;

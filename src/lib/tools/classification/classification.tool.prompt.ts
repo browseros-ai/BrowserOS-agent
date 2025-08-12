@@ -35,7 +35,7 @@ ${messageHistory || 'No previous messages'}
 
 Analyze whether this task:
 1. Can be done with a single tool call (is_simple_task: true) or requires planning (is_simple_task: false)
-2. Is a follow-up ONLY if it logically continues the same goal or explicitly references prior content (e.g., "continue", "same task", pronouns that clearly refer to previous result). If it starts a different goal (e.g., "open a tab" after summarizing a PDF), classify as new (is_followup_task: false).
+2. References or continues from the previous conversation (is_followup_task: true) or is a new task (is_followup_task: false)
 
 Respond with the JSON classification.`
 }

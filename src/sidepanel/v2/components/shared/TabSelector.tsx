@@ -37,7 +37,9 @@ export const TabSelector: React.FC<TabSelectorComponentProps> = ({
   // Get data and actions from Zustand store
   const { 
     openTabs, 
+    selectedTabs, 
     currentTabId,
+    isCurrentTabRemoved,
     fetchOpenTabs, 
     toggleTabSelection,
     getContextTabs 

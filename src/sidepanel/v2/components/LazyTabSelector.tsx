@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from 'react'
+import { LoadingPawTrail } from './ui/Icons'
 
 // Lazy load the TabSelector component
 const TabSelector = lazy(() => import('./shared/TabSelector').then(module => ({

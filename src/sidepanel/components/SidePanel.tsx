@@ -3,7 +3,7 @@ import { z } from "zod";
 import { cn } from "@/sidepanel/lib/utils";
 import styles from "../styles/components/SidePanel.module.scss";
 import { StreamingMessageDisplay, Message } from "./StreamingMessageDisplay";
-import { TabSelector } from "./TabSelector";
+import { TabSelector, BrowserTab } from "./TabSelector";
 import { HelpSection } from "./HelpSection";
 import { useTabsStore } from "../store/tabsStore";
 import { BrowserOSProvider } from "@/lib/llm/settings/types";
@@ -183,7 +183,7 @@ export function SidePanel({
   onNewTask,
   onCancelTask,
   onReset,
-  onClose: _onClose,
+  onClose,
   isConnected = false,
   isProcessing = false,
   messages = [],
@@ -221,6 +221,7 @@ export function SidePanel({
   const { 
     openTabs,
     selectedTabs,
+    currentTabId,
     toggleTabSelection,
     clearSelectedTabs,
     getContextTabs,
@@ -278,7 +279,8 @@ export function SidePanel({
             }
           }
         }
-      } catch (error) { /* ignore stored predictions errors */ }
+      } catch (error) {
+      }
     };
     
     loadStoredPredictions();

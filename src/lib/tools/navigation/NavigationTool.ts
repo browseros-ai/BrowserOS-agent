@@ -35,31 +35,6 @@ export class NavigationTool {
   }
 
   // Private helper methods
-  private _isFailedTarget(url: string): boolean {
-    try {
-      const failed = this.executionContext.getFailedUrls().map(u => u.toLowerCase())
-      if (failed.length === 0) return false
-      const lower = (url || '').toLowerCase()
-      // Simple contains match
-      if (failed.some(f => lower.includes(f))) return true
-      // Structured host/path matching
-      try {
-        const target = new URL(url)
-        for (const f of failed) {
-          try {
-            const fu = new URL(f)
-            if (target.hostname === fu.hostname) {
-              if (fu.pathname && target.pathname.includes(fu.pathname)) return true
-              const m = fu.pathname.match(new RegExp('/(?:pdf|abs)/([^/?#]+)'))
-              if (m && m[1] && target.pathname.toLowerCase().includes(m[1].toLowerCase())) return true
-            }
-          } catch (_e) { /* ignore URL parse */ }
-        }
-      } catch (_e) { /* ignore URL parse */ }
-      return false
-    } catch { return false }
-  }
-
   private async _navigateToUrl(url?: string): Promise<ToolOutput> {
     if (!url) {
       return toolError("URL is required for navigate action")
@@ -67,10 +42,6 @@ export class NavigationTool {
 
     try {
       const normalizedUrl = this._normalizeUrl(url)
-      // Avoid navigating to previously failed targets
-      if (this._isFailedTarget(normalizedUrl)) {
-        return toolError(`This URL or a closely related target previously failed. Choose a different result: ${normalizedUrl}`)
-      }
       const browserPage = await this.executionContext.browserContext.getCurrentPage()
       await browserPage.navigateTo(normalizedUrl)
       

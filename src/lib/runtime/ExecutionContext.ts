@@ -36,8 +36,6 @@ export class ExecutionContext {
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
-  private _failedUrls: Set<string> = new Set()  // URLs that failed during this execution
-  private _pageSelectionHistory: Map<string, Map<string, Set<number>>> = new Map()  // pageUrl -> description -> tried nodeIds
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
@@ -166,8 +164,6 @@ export class ExecutionContext {
     this.userInitiatedCancel = false;
     this._currentTask = null;
     this.todoStore.reset();
-    this._failedUrls.clear();
-    this._pageSelectionHistory.clear();
   }
 
   /**
@@ -193,48 +189,6 @@ export class ExecutionContext {
    */
   public getCurrentTask(): string | null {
     return this._currentTask;
-  }
-
-  /**
-   * Record a URL that led to failure, so selectors can avoid it later
-   */
-  public addFailedUrl (url: string): void {
-    const normalized = (url || '').trim().toLowerCase()
-    if (normalized) this._failedUrls.add(normalized)
-  }
-
-  /**
-   * Get the list of failed URLs for this execution
-   */
-  public getFailedUrls (): string[] {
-    return Array.from(this._failedUrls)
-  }
-
-  // ===== Selection history helpers =====
-  public markTriedElement (pageUrl: string, description: string, nodeId: number): void {
-    const urlKey = (pageUrl || '').trim().toLowerCase()
-    const descKey = (description || '').trim().toLowerCase()
-    if (!urlKey || !descKey || !Number.isFinite(nodeId)) return
-    let byDesc = this._pageSelectionHistory.get(urlKey)
-    if (!byDesc) {
-      byDesc = new Map<string, Set<number>>()
-      this._pageSelectionHistory.set(urlKey, byDesc)
-    }
-    let ids = byDesc.get(descKey)
-    if (!ids) {
-      ids = new Set<number>()
-      byDesc.set(descKey, ids)
-    }
-    ids.add(nodeId)
-  }
-
-  public getTriedNodeIds (pageUrl: string, description: string): Set<number> {
-    const urlKey = (pageUrl || '').trim().toLowerCase()
-    const descKey = (description || '').trim().toLowerCase()
-    const byDesc = this._pageSelectionHistory.get(urlKey)
-    if (!byDesc) return new Set<number>()
-    const ids = byDesc.get(descKey)
-    return ids ? new Set<number>(ids) : new Set<number>()
   }
 }
  

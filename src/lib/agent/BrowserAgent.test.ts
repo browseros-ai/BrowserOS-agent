@@ -149,7 +149,7 @@ describe('BrowserAgent-integration-test', () => {
       const complexStrategySpy = vi.spyOn(browserAgent as any, '_executeMultiStepStrategy')
       
       // Start execution (don't await)
-      browserAgent.execute('list tabs').catch(_error => {
+      browserAgent.execute('list tabs').catch(error => {
         // Do nothing
       })
       
@@ -195,7 +195,7 @@ describe('BrowserAgent-integration-test', () => {
       const plannerSpy = vi.spyOn(browserAgent as any, '_createMultiStepPlan')
       
       // Start execution (don't await)
-      browserAgent.execute('go to amazon and order toothpaste').catch(_error => {
+      browserAgent.execute('go to amazon and order toothpaste').catch(error => {
         // Do nothing
       })
       
@@ -239,7 +239,7 @@ describe('BrowserAgent-integration-test', () => {
       const fetchTodoSpy = vi.spyOn(browserAgent as any, '_fetchTodoXml')
       
       // Start execution of a complex task (don't await)
-      browserAgent.execute('research top 3 programming languages in 2024 and create a comparison table').catch(_error => {
+      browserAgent.execute('research top 3 programming languages in 2024 and create a comparison table').catch(error => {
         // Expected - we'll abort early
       })
       
@@ -296,7 +296,7 @@ describe('BrowserAgent-integration-test', () => {
       const plannerSpy = vi.spyOn(browserAgent as any, '_createMultiStepPlan')
       
       // Start execution of a complex task (don't await)
-      browserAgent.execute('find information about TypeScript and create a summary').catch(_error => {
+      browserAgent.execute('find information about TypeScript and create a summary').catch(error => {
         // Expected - we'll abort early
       })
       

@@ -35,7 +35,7 @@ export function ProviderSettingsCard(): JSX.Element | null {
   const [error, setError] = useState<string | null>(null)
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
-  const [, setMissing] = useState<{ name: boolean; apiKey: boolean; modelId: boolean; type: boolean }>({ name: false, apiKey: false, modelId: false, type: false })
+  const [missing, setMissing] = useState<{ name: boolean; apiKey: boolean; modelId: boolean; type: boolean }>({ name: false, apiKey: false, modelId: false, type: false })
 
   const isDraftSatisfied = !!draft &&
     !!draft.type &&

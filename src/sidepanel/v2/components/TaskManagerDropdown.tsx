@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { cn } from '@/sidepanel/lib/utils'
-import { InlineDropdown } from './shared/InlineDropdown'
+import { ChevronDownIcon, ChevronUpIcon } from './ui/Icons'
 import { z } from 'zod'
 
 // Define the task schema with Zod
@@ -13,8 +13,7 @@ const TaskSchema = z.object({
 // Define the props schema with Zod
 const TaskManagerDropdownPropsSchema = z.object({
   content: z.string(),  // Raw markdown table content
-  className: z.string().optional(),  // Optional CSS classes
-  asContentOnly: z.boolean().optional()  // Render only inner content without header
+  className: z.string().optional()  // Optional CSS classes
 })
 
 // Infer types from schemas
@@ -35,7 +34,8 @@ const CompletionLight = ({ isCompleted }: { isCompleted: boolean }) => (
   </div>
 )
 
-export function TaskManagerDropdown({ content, className, asContentOnly }: TaskManagerDropdownProps) {
+export function TaskManagerDropdown({ content, className }: TaskManagerDropdownProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // Parse tasks from markdown table content
   const tasks = useMemo(() => {
@@ -67,7 +67,9 @@ export function TaskManagerDropdown({ content, className, asContentOnly }: TaskM
   }, [content])
 
   // Count completed tasks
-  // const completedCount = useMemo(() => tasks.filter(task => task.status.includes('✅')).length, [tasks])
+  const completedCount = useMemo(() => {
+    return tasks.filter(task => task.status.includes('✅')).length
+  }, [tasks])
 
   // Check if task is completed
   const isTaskCompleted = (task: Task) => task.status.includes('✅')
@@ -75,53 +77,59 @@ export function TaskManagerDropdown({ content, className, asContentOnly }: TaskM
   // Show only first 6 tasks when expanded
   const MAX_VISIBLE_TASKS = 6
   const visibleTasks = tasks.slice(0, MAX_VISIBLE_TASKS)
-  // const hasMoreTasks = tasks.length > MAX_VISIBLE_TASKS
+  const hasMoreTasks = tasks.length > MAX_VISIBLE_TASKS
 
-  const inner = (
-    <div className="space-y-1 max-h-48 overflow-y-auto py-1">
-      {tasks.length === 0 ? (
-        <div className="text-xs text-muted-foreground">No tasks available</div>
-      ) : (
-        visibleTasks.map((task, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-2 py-1 first:pt-0 last:pb-0 text-xs"
-          >
-            <CompletionLight isCompleted={isTaskCompleted(task)} />
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-foreground break-words">
-                {task.content}
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-
-  if (asContentOnly) {
+  if (tasks.length === 0) {
     return (
-      <div className={cn('my-1', className)}>
-        {inner}
+      <div className={cn("my-1", className)}>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm text-foreground">Task Manager</span>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">No tasks available</div>
       </div>
     )
   }
 
   return (
-    <div className={cn('my-1', className)}>
-      <InlineDropdown
-        title='Task_Manager_Tool'
-        defaultExpanded
-        collapseKey='task_manager_tool'
-      >
-        <div className={cn(
-          'relative inline-block w-fit max-w-full align-top',
-          'bg-card text-foreground rounded-2xl rounded-bl-md',
-          'px-3 py-2 border border-border/50'
-        )}>
-          {inner}
+    <div className={cn("my-1", className)}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm text-foreground">Task Manager</span>
         </div>
-      </InlineDropdown>
+        
+        {/* Expand/Collapse button */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors ml-4"
+          aria-label={isExpanded ? 'Collapse task list' : 'Expand task list'}
+        >
+          <span>{completedCount}/{tasks.length} completed</span>
+          {isExpanded ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+        </button>
+      </div>
+
+      {/* Expanded Task List */}
+      {isExpanded && (
+        <div className="space-y-1 max-h-48 overflow-y-auto pt-2">
+          {visibleTasks.map((task, index) => (
+            <div 
+              key={index} 
+              className="flex items-center gap-2 py-1 text-xs"
+            >
+              <CompletionLight isCompleted={isTaskCompleted(task)} />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate text-foreground">
+                  {task.content}
+                </div>
+              </div>
+            </div>
+          ))}
+          
+
+        </div>
+      )}
+
     </div>
   )
 } 

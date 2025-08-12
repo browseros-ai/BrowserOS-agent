@@ -85,47 +85,46 @@ export class LangChainProvider {
     
     // Otherwise determine based on provider type and model
     switch (provider.type) {
-      case 'browseros': {
+      case 'browseros':
         // BrowserOS/Nxtscape uses gemini 2.5 flash by default
         return { maxTokens: 1_000_000 }
-      }
+        
       case 'openai_compatible':
-      case 'openrouter': {
+      case 'openrouter':
         const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
         if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
           return { maxTokens: 128_000 }
         }
         return { maxTokens: 32_768 }
-      }
-      case 'anthropic': {
+        
+      case 'anthropic':
         const anthropicModel = provider.modelId || DEFAULT_ANTHROPIC_MODEL
         if (anthropicModel.includes('claude-3.7') || anthropicModel.includes('claude-4')) {
           return { maxTokens: 200_000 }
         }
         return { maxTokens: 100_000 }
-      }
-      case 'google_gemini': {
+        
+      case 'google_gemini':
         const geminiModel = provider.modelId || DEFAULT_GEMINI_MODEL
         if (geminiModel.includes('2.5') || geminiModel.includes('2.0')) {
           return { maxTokens: 1_500_000 }
         }
         return { maxTokens: 1_000_000 }
-      }
-      case 'ollama': {
+        
+      case 'ollama':
         const ollamaModel = provider.modelId || DEFAULT_OLLAMA_MODEL
         if (ollamaModel.includes('mixtral') || ollamaModel.includes('llama') || 
             ollamaModel.includes('qwen') || ollamaModel.includes('deepseek')) {
           return { maxTokens: 32_768 }
         }
         return { maxTokens: 8_192 }
-      }
-      case 'custom': {
+        
+      case 'custom':
         // Custom providers - conservative default
         return { maxTokens: 32_768 }
-      }
-      default: {
+        
+      default:
         return { maxTokens: 8_192 }
-      }
     }
   }
   
@@ -340,7 +339,7 @@ export class LangChainProvider {
   private _createOllamaLLM(
     provider: BrowserOSProvider,
     temperature: number,
-    _maxTokens?: number
+    maxTokens?: number
   ): ChatOllama {
     const ollamaConfig: any = {
       model: provider.modelId || DEFAULT_OLLAMA_MODEL,

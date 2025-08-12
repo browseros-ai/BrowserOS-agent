@@ -57,14 +57,11 @@ import { createGroupTabsTool } from '@/lib/tools/tab/GroupTabsTool';
 import { createGetSelectedTabsTool } from '@/lib/tools/tab/GetSelectedTabsTool';
 import { createClassificationTool } from '@/lib/tools/classification/ClassificationTool';
 import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
-// Validation detection tools temporarily disabled per refactor plan
-// import { createLackOfContextTool } from '@/lib/tools/validation/LackOfContextTool';
-// import { createInstructionEchoTool } from '@/lib/tools/validation/InstructionEchoTool';
 import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
 import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
 import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
-import { AIMessage, AIMessageChunk, BaseMessage } from '@langchain/core/messages';
+import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import { EventProcessor } from '@/lib/events/EventProcessor';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { AbortError } from '@/lib/utils/Abortable';
@@ -89,7 +86,7 @@ interface ClassificationResult {
 
 export class BrowserAgent {
   // Constants for explicit control
-  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 4;
+  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 10;
   private static readonly MAX_STEPS_FOR_COMPLEX_TASKS = PLANNING_CONFIG.STEPS_PER_PLAN;
 
   // Outer loop is -- plan -> execute -> validate
@@ -97,8 +94,6 @@ export class BrowserAgent {
 
   // Inner loop is -- execute TODOs, one after the other.
   private static readonly MAX_STEPS_INNER_LOOP  = 30; 
-
-  private static readonly CLARIFICATION_MESSAGE: string = 'Please paste the text or open/select the page or PDF to summarize, then ask again.';
 
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
@@ -173,14 +168,6 @@ export class BrowserAgent {
       this.eventEmitter.info(message, 'startup');
 
       // 3. DELEGATE: Route to the correct execution strategy
-      if (!classification.is_followup_task) {
-        // New task: ensure we start a fresh TODO manager
-        try {
-          this.executionContext.todoStore.reset()
-        } catch (error) {
-          this.eventEmitter.debug(`Failed to reset TODO store: ${error}`)
-        }
-      }
       if (classification.is_simple_task) {
         await this._executeSimpleTaskStrategy(task);
       } else {
@@ -249,9 +236,6 @@ export class BrowserAgent {
     
     // Validation tool
     this.toolManager.register(createValidatorTool(this.executionContext));
-    // Detection tools disabled (will be reintroduced after refactor without heuristics)
-    // this.toolManager.register(createLackOfContextTool(this.executionContext));
-    // this.toolManager.register(createInstructionEchoTool(this.executionContext));
 
     // util tools
     this.toolManager.register(createScreenshotTool(this.executionContext));
@@ -328,8 +312,6 @@ export class BrowserAgent {
   private async _executeMultiStepStrategy(task: string): Promise<void> {
     this.eventEmitter.debug('Executing as a complex multi-step task');
     let outer_loop_index = 0;
-    let lastAssistantText: string | null = null
-    let repeatCount: number = 0
 
     while (outer_loop_index < BrowserAgent.MAX_STEPS_OUTER_LOOP) {
       this.checkIfAborted();
@@ -337,7 +319,7 @@ export class BrowserAgent {
       // 1. PLAN: Create a new plan
       const plan = await this._createMultiStepPlan(task);
       if (plan.steps.length === 0) {
-        throw new Error('Planning failed: no steps were generated');
+        throw new Error('Planning failed. Could not generate next steps.');
       }
       this.eventEmitter.debug('Plan created:', JSON.stringify(plan, null, 2));
 
@@ -358,19 +340,6 @@ export class BrowserAgent {
         const instruction = generateSingleTurnExecutionPrompt(task);
         
         const isTaskCompleted = await this._executeSingleTurn(instruction);
-        // Simple loop guard: if last assistant message repeats, break to prevent instruction loops
-        const msgs: BaseMessage[] = this.messageManager.getMessages()
-        const lastText = this._getLastAssistantText(msgs)
-        if (lastText && lastText === lastAssistantText) {
-          repeatCount += 1
-        } else {
-          repeatCount = 0
-          lastAssistantText = lastText
-        }
-        if (repeatCount >= 1) { // two identical assistant texts in a row
-          // Gracefully end to avoid loops; rely on validator/done after
-          break
-        }
         inner_loop_index++;
         
         if (isTaskCompleted) {
@@ -404,9 +373,7 @@ export class BrowserAgent {
    * @returns {Promise<boolean>} - True if the `done_tool` was successfully called.
    */
   private async _executeSingleTurn(instruction: string): Promise<boolean> {
-    // Provide execution guidance as an internal system reminder rather than a new human message
-    // to avoid the model echoing the guidance back to the user on follow-ups.
-    this.messageManager.addSystemReminder(instruction);
+    this.messageManager.addHuman(instruction);
     
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
@@ -423,19 +390,11 @@ export class BrowserAgent {
       wasDoneToolCalled = await this._processToolCalls(llmResponse.tool_calls);
       
     } else if (llmResponse.content) {
-      // TEMP: accept text directly; validation detection tools are disabled
-      const text = (llmResponse.content as string) || ''
-      this.messageManager.addAI(text)
+      // If the AI responds with text, just add it to the history
+      this.messageManager.addAI(llmResponse.content as string);
     }
 
     return wasDoneToolCalled;
-  }
-
-  // Try to auto-handle ambiguous requests like "summarize this" by extracting from current tab,
-  // or gracefully completing with a clarification if no context is available.
-  private async _maybeResolveAmbiguousSummarize(_aiText: string): Promise<boolean> {
-    // Temporarily disabled per refactor plan
-    return false
   }
 
   private async _invokeLLMWithStreaming(): Promise<AIMessage> {
@@ -572,17 +531,10 @@ export class BrowserAgent {
     const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
     this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
 
-    if (parsedResult.ok && parsedResult.output?.steps && Array.isArray(parsedResult.output.steps)) {
+    if (parsedResult.ok && parsedResult.output?.steps) {
       return { steps: parsedResult.output.steps };
     }
-
-    // Surface planner/LLM errors directly so users see provider issues (e.g., invalid key, bad maxTokens)
-    const errorMessage = typeof parsedResult.error === 'string'
-      ? parsedResult.error
-      : typeof parsedResult.output === 'string'
-        ? parsedResult.output
-        : 'Planning failed due to an unknown error';
-    throw new Error(errorMessage);
+    return { steps: [] };  // Return an empty plan on failure
   }
 
   private async _validateTaskCompletion(task: string): Promise<{
@@ -696,16 +648,5 @@ export class BrowserAgent {
       this.eventEmitter.debug(`Could not manage glow for tool ${toolName}: ${error}`);
       return false;
     }
-  }
-
-  // Returns last assistant text content or null when none found
-  private _getLastAssistantText (messages: readonly BaseMessage[]): string | null {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i]
-      if (message instanceof AIMessage && typeof message.content === 'string') {
-        return message.content
-      }
-    }
-    return null
   }
 }

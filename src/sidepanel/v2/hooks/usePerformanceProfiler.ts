@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 interface PerformanceMetrics {
   renderCount: number
@@ -96,7 +96,7 @@ export function withPerformanceProfiler<P extends object>(
     const profiler = usePerformanceProfiler(name)
     
     profiler.startRender()
-    const result = React.createElement(Component as React.ComponentType<P>, { ...props })
+    const result = <Component {...props} />
     profiler.endRender()
     
     return result

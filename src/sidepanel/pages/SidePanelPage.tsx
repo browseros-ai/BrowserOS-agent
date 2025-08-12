@@ -33,6 +33,7 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
     setTaskInput,
     addLog,
     startExecution,
+    executionResult,
     setExecutionResult,
   } = useAppStore();
 
@@ -90,7 +91,7 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
   // Listen for agent stream updates
   useEffect(() => {
     const handleStreamUpdate = (payload: any): void => {
-      const { action, details } = payload;
+      const { step, action, details } = payload;
 
       // Skip empty or repetitive system messages
       if (
@@ -539,6 +540,8 @@ export function SidePanelPage({ onClose }: SidePanelPageProps): JSX.Element {
 
       // Add messages and start processing (preserve existing conversation)
       setPageState((prev) => {
+        const isFirstTask = prev.messages.length === 0;
+
         return {
           ...prev,
           isProcessing: true,

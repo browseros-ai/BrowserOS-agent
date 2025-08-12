@@ -4,7 +4,7 @@ import { Logging } from "@/lib/utils/Logging";
 import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
-import { profileStart, profileEnd, profileAsync } from "@/lib/utils/Profiler";
+import { profileStart, profileEnd, profileAsync } from "@/lib/utils/profiler";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { PocAgent } from "@/lib/agent/PocAgent";
 import { isPocMode } from "@/config";
@@ -212,18 +212,6 @@ export class NxtScape {
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
     this.currentQuery = query;
 
-    // The BrowserAgent will handle adding messages to the MessageManager
-    // No need to add task messages here since BrowserAgent.execute() handles it
-
-    // Log execution status
-    Logging.log(
-      "NxtScape",
-      isFollowUp
-        ? `Processing follow-up task`
-        : "Starting new task",
-    );
-
-    // const startTime = Date.now() // reserved for future timing/debug
 
     try {
       // Check that browser agent is initialized

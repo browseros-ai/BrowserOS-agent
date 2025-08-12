@@ -103,9 +103,7 @@ module.exports = {
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
     alias: {
-      '@': path.resolve(__dirname, 'src'),
-      'langsmith$': path.resolve(__dirname, 'src/shims/langsmith.ts'),
-      'uuid$': path.resolve(__dirname, 'src/shims/uuid.ts')
+      '@': path.resolve(__dirname, 'src')
     }
   },
   optimization: {
@@ -156,9 +154,7 @@ module.exports = {
             return content;
           }
         },
-        { from: 'assets', to: 'assets', noErrorOnMissing: true },
-        // Bundle pdf.js worker for MV3 and reference via chrome.runtime.getURL
-        { from: 'node_modules/pdfjs-dist/build/pdf.worker.mjs', to: 'pdf.worker.mjs', noErrorOnMissing: true }
+        { from: 'assets', to: 'assets', noErrorOnMissing: true }
       ]
     }),
     new webpack.DefinePlugin(processEnv),

@@ -8,7 +8,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages"
 
 // Constants
 const INTERACTION_WAIT_MS = 1000
-const NUM_RETRIES = 2
+const NUM_RETRIES = 1
 const RETRY_WAIT_MS = 500
 
 // Input schema for interaction operations
@@ -91,85 +91,8 @@ export class InteractionTool {
     if (!browserState.clickableElements.length && !browserState.typeableElements.length) {
       throw new Error("No interactive elements found on the current page")
     }
-
-    // Filter out previously failed URLs from clickable elements list
-    const failedUrls = this.executionContext.getFailedUrls().map(u => u.toLowerCase())
-    const triedNodeIds = this.executionContext.getTriedNodeIds(browserState.url, description)
-    // Helper: extract href value (raw and decoded), and Google q= param if present
-    const extractHrefData = (line: string): { raw?: string; decoded?: string; q?: string } => {
-      try {
-        const attrMatch = line.match(/attr:"([^"]+)"/)
-        if (!attrMatch || !attrMatch[1]) return {}
-        const attrs = attrMatch[1]
-        const hrefPair = attrs.split(' ').find(kv => kv.startsWith('href='))
-        if (!hrefPair) return {}
-        const raw = hrefPair.slice('href='.length)
-        let decoded: string | undefined
-        try { decoded = decodeURIComponent(raw) } catch (e) { decoded = raw }
-        let qVal: string | undefined
-        try {
-          const u = new URL(decoded || raw, browserState.url)
-          const q = u.searchParams.get('q')
-          if (q) {
-            try { qVal = decodeURIComponent(q) } catch { qVal = q }
-          }
-        } catch (_e) { /* ignore decode errors */ }
-        return { raw, decoded, q: qVal }
-      } catch (_e) { return {} }
-    }
-
-    // Build failed tokens for robust matching (handles encoding and host-only matches)
-    const failedTokens: string[] = []
-    for (const f of failedUrls) {
-      failedTokens.push(f)
-      try {
-        failedTokens.push(encodeURIComponent(f))
-      } catch (_e) { /* ignore URL parse */ }
-      try {
-        const u = new URL(f)
-        failedTokens.push(u.hostname)
-        if (u.pathname) failedTokens.push(u.pathname)
-        const m = u.pathname.match(new RegExp('/(?:pdf|abs)/([^/?#]+)'))
-        if (m && m[1]) failedTokens.push(m[1].toLowerCase())
-      } catch (_e) { /* ignore */ }
-    }
-
-    let filteredLines = browserState.clickableElementsString
-      .split('\n')
-      .filter(line => !!line)
-
-    // Basic URL filter
-    if (failedUrls.length > 0) {
-      filteredLines = filteredLines.filter(line => {
-        const lower = line.toLowerCase()
-        const href = extractHrefData(line)
-        const enrich = [
-          lower,
-          href.raw ? href.raw.toLowerCase() : '',
-          href.decoded ? href.decoded.toLowerCase() : '',
-          href.q ? href.q.toLowerCase() : ''
-        ].join(' ')
-        return !failedTokens.some(tok => tok && enrich.includes(tok))
-      })
-    }
-
-    // Tried nodeIds filter
-    if (triedNodeIds.size > 0) {
-      filteredLines = filteredLines.filter(line => {
-        const m = line.match(/\[(\d+)\]/)
-        if (!m || !m[1]) return true
-        const id = parseInt(m[1], 10)
-        return !triedNodeIds.has(id)
-      })
-    }
-
-    const filteredClickable = filteredLines.join('\n')
-
-    if (failedUrls.length > 0) {
-      userMessage += `\n\nAvoid revisiting previously failed targets. Do NOT select any element whose URL or destination matches any of these (including encoded variants, hosts, or IDs):\n${failedUrls.join('\n')}`
-    }
     
-    userMessage += `\n\nInteractive elements on the page:\n${filteredClickable}\n${browserState.typeableElementsString}`
+    userMessage += `\n\nInteractive elements on the page:\n${browserState.clickableElementsString}\n${browserState.typeableElementsString}`
 
     // Invoke LLM with retry logic
     const result = await invokeWithRetry<z.infer<typeof _FindElementSchema>>(
@@ -202,24 +125,7 @@ export class InteractionTool {
     if (!found) {
       throw new Error(`Invalid index ${result.index} returned - element not found or wrong type for ${interactionType}`)
     }
-
-    // Guard: if the element line contains a failed URL, reject so retry can pick next best
-    try {
-      if (isClickable) {
-        const failedUrls = this.executionContext.getFailedUrls().map(u => u.toLowerCase())
-        const line = browserState.clickableElementsString
-          .split('\n')
-          .find(l => l.includes(`[${result.index}]`)) || ''
-        if (failedUrls.some(f => line.toLowerCase().includes(f))) {
-          throw new Error('Selected element matches a previously failed URL; picking a different option')
-        }
-      }
-    } catch (_e) { /* ignore guard */ }
     
-    // Record this selection as tried for this page+description
-    try {
-      this.executionContext.markTriedElement(browserState.url, description, result.index)
-    } catch (_e) { /* ignore */ }
     return result.index
   }
 
@@ -242,36 +148,6 @@ export class InteractionTool {
         if (page.isFileUploader(element)) {
           return toolError(`Element "${description}" opens a file upload dialog. File uploads are not supported.`)
         }
-
-        // Final guard: avoid clicking elements that lead to previously failed targets
-        try {
-          const failed = this.executionContext.getFailedUrls().map(u => u.toLowerCase())
-          if (failed.length > 0) {
-            const attrs: any = (element as any)?.attributes || {}
-            const rawHref: string | undefined = attrs['href']
-            const currentUrl = page.url()
-            let resolvedHref: string | undefined
-            if (rawHref) {
-              try { resolvedHref = new URL(rawHref, currentUrl).toString() } catch (_e) { resolvedHref = rawHref }
-            }
-            const tokens: string[] = []
-            for (const f of failed) {
-              tokens.push(f)
-              try { tokens.push(encodeURIComponent(f)) } catch (_e) { /* ignore */ }
-              try {
-                const u = new URL(f)
-                tokens.push(u.hostname)
-                if (u.pathname) tokens.push(u.pathname)
-                const m = u.pathname.match(new RegExp('/(?:pdf|abs)/([^/?#]+)'))
-                if (m && m[1]) tokens.push(m[1].toLowerCase())
-              } catch (_e) { /* ignore */ }
-            }
-            const haystack = [rawHref || '', resolvedHref || ''].map(s => s.toLowerCase()).join(' ')
-            if (haystack && tokens.some(tok => tok && haystack.includes(tok))) {
-              throw new Error('Target link matches a previously failed URL; selecting a different option')
-            }
-          }
-        } catch (_e) { /* ignore */ }
 
         // Click element
         await page.clickElement(nodeId)
@@ -361,8 +237,8 @@ export function createInteractionTool(
   executionContext: ExecutionContext
 ): DynamicStructuredTool {
   const interactionTool = new InteractionTool(executionContext)
-  const ToolCtor = DynamicStructuredTool as unknown as new (config: any) => DynamicStructuredTool
-  return new ToolCtor({
+  
+  return new DynamicStructuredTool({
     name: "interact_tool",
     description: `Interact with page elements by describing them in natural language. This tool automatically finds and interacts with elements in a single step.
 
@@ -382,7 +258,7 @@ Examples:
 
 The tool uses AI to find the best matching element based on your description, then performs the action.`,
     schema: InteractionInputSchema,
-    func: async (args: InteractionInput): Promise<string> => {
+    func: async (args): Promise<string> => {
       const result = await interactionTool.execute(args)
       return JSON.stringify(result)
     }

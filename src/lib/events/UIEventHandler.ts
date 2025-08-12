@@ -134,7 +134,7 @@ export class UIEventHandler {
   }
 
   private handleToolStart(event: StreamEvent): void {
-    const { toolName, icon, description, args } = event.data as any;
+    const { toolName, displayName, icon, description, args } = event.data as any;
     
     this.sendUIMessage({
       messageType: UIMessageType.ToolStart,
@@ -158,7 +158,7 @@ export class UIEventHandler {
   }
 
   private handleToolEnd(event: StreamEvent): void {
-    const { toolName, result } = event.data as any;
+    const { toolName, displayName, result } = event.data as any;
     
     this.sendUIMessage({
       messageType: UIMessageType.ToolEnd,
@@ -169,7 +169,7 @@ export class UIEventHandler {
   }
 
   private handleToolResult(event: StreamEvent): void {
-    const { toolName, content, success } = event.data as any;
+    const { toolName, displayName, content, success } = event.data as any;
     
     this.sendUIMessage({
       messageType: UIMessageType.ToolResult,

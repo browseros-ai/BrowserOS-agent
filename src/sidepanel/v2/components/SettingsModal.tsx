@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { Slider } from './ui/slider'
-// import { cn } from '@/sidepanel/lib/utils'
+import { cn } from '@/sidepanel/lib/utils'
 import { z } from 'zod'
-import { XIcon } from './ui/Icons'
+import { XIcon, SunIcon, MoonIcon } from './ui/Icons'
 import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks/useSidePanelPortMessaging'
 import { MessageType } from '@/lib/types/messaging'
 
 const DISCORD_URL = 'https://discord.com/invite/YKwjt5vuKr'
-const AUTO_COLLAPSE_DEFAULT_SECS = 10  // Default seconds when enabling
 
 // Define the props schema with Zod
 const SettingsModalPropsSchema = z.object({
@@ -21,11 +20,10 @@ const SettingsModalPropsSchema = z.object({
 type SettingsModalProps = z.infer<typeof SettingsModalPropsSchema>
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { fontSize, theme, autoScroll, autoCollapseDelayMs, showPdfPreview, autoCollapseKeys, setFontSize, setTheme, setAutoScroll, setAutoCollapseDelayMs, setShowPdfPreview, setAutoCollapseKey, setAutoCollapseKeys } = useSettingsStore()
+  const { fontSize, theme, autoScroll, autoCollapseTools, setFontSize, setTheme, setAutoScroll, setAutoCollapseTools } = useSettingsStore()
   const [glowEnabled, setGlowEnabled] = useState<boolean>(true)
   const [agentVersion, setAgentVersion] = useState<string>('1.0.0')
   const { sendMessage } = useSidePanelPortMessaging()
-  // No separate configurator toggle; shown only when auto-collapse is enabled
 
   // Select theme
   const selectTheme = (next: 'light' | 'dark' | 'gray') => {
@@ -137,7 +135,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
           {/* Theme selection */}
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-foreground">Preferences</h3>
+            <h3 className="text-sm font-medium text-foreground">Theme</h3>
             <div className="p-4 rounded-xl bg-card border border-border/50">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">Change app theme</p>
@@ -204,112 +202,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </Button>
           </div>
 
-          {/* Auto-collapse tool results (seconds) + configurator */}
-          <div className="p-0 rounded-xl border border-border/50 bg-card overflow-hidden">
-            {/* Slider header: delay + toggle + config button */}
-            <div className="flex items-center justify-between px-4 py-2">
-              <p className="text-xs text-muted-foreground">Auto-collapse tool results <span className="opacity-70">(seconds)</span></p>
-              <div className="flex items-center gap-2">
-                <div className={`inline-flex items-center rounded-lg border border-border bg-background overflow-hidden shrink-0 ${((autoCollapseDelayMs || 0) === 0) ? 'opacity-50' : ''}`}>
-                  <input
-                    type="number"
-                    min={1}
-                    max={30}
-                    step={1}
-                    value={Math.max(1, Math.min(30, Math.round((autoCollapseDelayMs || (AUTO_COLLAPSE_DEFAULT_SECS * 1000)) / 1000)))}
-                    onChange={(e) => {
-                      const secs = Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 0)))
-                      setAutoCollapseDelayMs(secs * 1000)
-                    }}
-                    disabled={(autoCollapseDelayMs || 0) === 0}
-                    className="h-7 w-12 px-2 text-right text-xs bg-transparent outline-none"
-                    aria-label="Auto-collapse delay in seconds"
-                  />
-                </div>
-                <Button
-                  onClick={() => {
-                    const enabled = (autoCollapseDelayMs || 0) > 0
-                    if (enabled) {
-                      setAutoCollapseDelayMs(0)
-                    } else {
-                      const currentSecs = Math.max(1, Math.min(30, Math.round((autoCollapseDelayMs || (AUTO_COLLAPSE_DEFAULT_SECS * 1000)) / 1000)))
-                      setAutoCollapseDelayMs(currentSecs * 1000)
-                    }
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  className={`h-7 px-2 text-xs ${(autoCollapseDelayMs || 0) > 0 ? 'text-foreground' : 'text-muted-foreground'}`}
-                  aria-label={`${(autoCollapseDelayMs || 0) > 0 ? 'Disable' : 'Enable'} auto-collapse for tool results`}
-                >
-                  {(autoCollapseDelayMs || 0) > 0 ? 'On' : 'Off'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Configurator appears only when auto-collapse is enabled */}
-            {(autoCollapseDelayMs || 0) > 0 && (
-              <div className="px-4 pb-3">
-                <div className="text-xs text-muted-foreground mb-2">
-                  Select dropdowns that should auto-collapse.
-                </div>
-                <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto pr-1">
-                  {[
-                    'task_manager_tool', 'todo_manager_tool', 'navigation_tool', 'tab_operations_tool',
-                    'find_element_tool', 'interact_tool', 'scroll_tool', 'search_tool',
-                    'group_tabs_tool', 'get_selected_tabs_tool', 'extract_tool', 'screenshot_tool',
-                    'validator_tool', 'done_tool', 'result_tool'
-                  ].map(key => {
-                    const checked = autoCollapseKeys.length === 0 ? true : autoCollapseKeys.includes(key)
-                    return (
-                      <label key={key} className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          className="accent-[hsl(var(--brand))]"
-                          checked={checked}
-                          onChange={(e) => {
-                            const all = ['task_manager_tool','todo_manager_tool','navigation_tool','tab_operations_tool','find_element_tool','interact_tool','scroll_tool','search_tool','group_tabs_tool','get_selected_tabs_tool','extract_tool','screenshot_tool','validator_tool','done_tool','result_tool']
-                            if (autoCollapseKeys.length === 0) {
-                              const next = e.target.checked ? all : all.filter(k => k !== key)
-                              setAutoCollapseKeys(next)
-                            } else {
-                              // Enforce at least one selected
-                              if (!e.target.checked && autoCollapseKeys.length <= 1) {
-                                return
-                              }
-                              setAutoCollapseKey(key, e.target.checked)
-                            }
-                          }}
-                        />
-                        <span className="uppercase tracking-wide text-[10px] text-muted-foreground">{key}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-                <div className="flex items-center justify-end gap-2 mt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setAutoCollapseKeys(['task_manager_tool','todo_manager_tool','navigation_tool','tab_operations_tool','find_element_tool','interact_tool','scroll_tool','search_tool','group_tabs_tool','get_selected_tabs_tool','extract_tool','screenshot_tool','validator_tool','done_tool','result_tool'])}
-                  >
-                    Apply to all
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* PDF preview for extracts */}
+          {/* Auto-collapse tool results */}
           <div className="flex items-center justify-between px-4 py-2 rounded-xl border border-border/50 bg-card">
-            <p className="text-xs text-muted-foreground">Show PDF preview</p>
+            <p className="text-xs text-muted-foreground">Auto-collapse tool results</p>
             <Button
-              onClick={() => setShowPdfPreview(!showPdfPreview)}
+              onClick={() => setAutoCollapseTools(!autoCollapseTools)}
               variant="ghost"
               size="sm"
-              className={`h-7 px-2 text-xs ${showPdfPreview ? 'text-foreground' : 'text-muted-foreground'}`}
-              aria-label={`${showPdfPreview ? 'Disable' : 'Enable'} PDF preview`}
+              className={`h-7 px-2 text-xs ${autoCollapseTools ? 'text-foreground' : 'text-muted-foreground'}`}
+              aria-label={`${autoCollapseTools ? 'Disable' : 'Enable'} auto-collapse for tool results`}
             >
-              {showPdfPreview ? 'On' : 'Off'}
+              {autoCollapseTools ? 'On' : 'Off'}
             </Button>
           </div>
           </div>

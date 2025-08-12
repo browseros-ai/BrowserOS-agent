@@ -8,7 +8,7 @@ import { useKeyboardShortcuts, useAutoResize } from '../hooks/useKeyboardShortcu
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { MessageType } from '@/lib/types/messaging'
 import { cn } from '@/sidepanel/lib/utils'
-// import { LoadingPawTrail } from './ui/Icons'
+import { LoadingPawTrail } from './ui/Icons'
 import { BrowserOSProvidersConfig, BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
 
 
@@ -30,13 +30,10 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [draftBeforeHistory, setDraftBeforeHistory] = useState<string>('')
   
-  const { addMessage, setProcessing } = useChatStore()
+  const { addMessage, setProcessing, selectedTabIds, clearSelectedTabs } = useChatStore()
   const messages = useChatStore(state => state.messages)
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
-  const { getContextTabs, toggleTabSelection, clearSelectedTabs: clearTabSelections } = useTabsStore()
-  const selectedTabs = useTabsStore(state => state.selectedTabs)
-  const isCurrentTabRemoved = useTabsStore(state => state.isCurrentTabRemoved)
-  const currentTabId = useTabsStore(state => state.currentTabId)
+  const { getContextTabs, toggleTabSelection } = useTabsStore()
   // Provider health: only consider UI connected if current default provider is usable
   useEffect(() => {
     const computeOk = (cfg: BrowserOSProvidersConfig) => {
@@ -114,31 +111,8 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       content: query
     })
     
-    // Determine whether to send explicit tabIds based on user selection state
-    const hasExplicitSelection = selectedTabs.length > 0 || isCurrentTabRemoved
-    const contextTabs: BrowserTab[] = getContextTabs()
-
-    // Helper: detect ambiguous reference to current tab
-    const isAmbiguousCurrent = /\b(this|current|here|this\s+tab|current\s+tab|this\s+pdf|current\s+pdf)\b/i.test(query)
-
-    let tabIds: number[] | undefined
-    if (isAmbiguousCurrent && currentTabId !== null && !isCurrentTabRemoved) {
-      // If user said "this/current" and current tab is part of context, restrict to current tab
-      tabIds = [currentTabId]
-    } else if (hasExplicitSelection && contextTabs.length > 0) {
-      // Use all context tabs but prioritize current tab first if present
-      const ids = contextTabs.map(t => t.id)
-      if (currentTabId !== null) {
-        const idx = ids.indexOf(currentTabId)
-        if (idx > 0) {
-          ids.splice(idx, 1)
-          ids.unshift(currentTabId)
-        }
-      }
-      tabIds = ids
-    } else {
-      tabIds = undefined
-    }
+    // Get selected tab IDs from store
+    const tabIds = selectedTabIds.length > 0 ? selectedTabIds : undefined
     
     // Send to background
     setProcessing(true)
@@ -152,7 +126,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     setInput('')
     setHistoryIndex(-1)
     setDraftBeforeHistory('')
-    clearTabSelections()
+    clearSelectedTabs()
     setShowTabSelector(false)
   }
   
@@ -241,7 +215,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     textareaRef.current?.focus()
   }
 
-  const handleTabSelected = (_tabId: number) => {
+  const handleTabSelected = (tabId: number) => {
     // Remove trailing '@' that triggered the selector
     setInput(prev => prev.replace(/@$/, ''))
   }
@@ -279,6 +253,12 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     return 'Press Enter to send • @ to select tabs'
   }
 
+  const getLoadingIndicator = () => {
+    if (!uiConnected || isProcessing) {
+      return <LoadingPawTrail />
+    }
+    return null
+  }
   
   return (
     <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-2 py-1 flex-shrink-0 overflow-hidden">

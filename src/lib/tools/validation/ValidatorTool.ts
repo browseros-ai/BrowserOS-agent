@@ -57,7 +57,7 @@ export function createValidatorTool(executionContext: ExecutionContext): Dynamic
         // Get message history for context
         const readOnlyMessageManager = new MessageManagerReadOnly(executionContext.messageManager)
         const messageHistory = readOnlyMessageManager.getAll()
-          .map(m => `${m._getType()}: ${typeof m.content === 'string' ? m.content : ''}`)
+          .map(m => `${m._getType()}: ${m.content}`)
           .join('\n')
         
         // Generate prompts

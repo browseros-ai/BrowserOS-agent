@@ -31,12 +31,6 @@ Each step should describe WHAT to achieve, not HOW:
 - "Add product to cart" (not "Find and click the Add to Cart button")
 - "Proceed to checkout" (not "Click on cart icon then checkout button")
 
-# BROWSER BEST PRACTICES FOR PDFs:
-- Prefer opening PDFs in a browser tab (view in-page) rather than downloading files
-- When the goal is to read/summarize a PDF, propose steps like "Open the PDF" and "Summarize the PDF" (avoid "download")
-- Rely on the current tab’s content to extract text; avoid saving or downloading unless explicitly requested by the user
- - If summarization fails, propose trying a different article once (open next PDF) before giving up
-
 # OUTPUT FORMAT:
 You must return a JSON object with the following structure:
 {

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { z } from 'zod'
 import styles from '../styles/components/StreamingMessageDisplay.module.scss'
 import { cn } from '@/sidepanel/lib/utils'
@@ -51,7 +51,7 @@ export function StreamingMessageDisplay({
   return (
     <div className={cn(styles.container, className)}>
       {/* Display all messages including streaming ones */}
-      {filteredMessages.map((message, _index) => {
+      {filteredMessages.map((message, index) => {
         return (
           <MessageItem 
             key={message.id} 

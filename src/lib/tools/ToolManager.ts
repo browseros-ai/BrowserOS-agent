@@ -1,4 +1,5 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
+import { z } from "zod";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 
 // NTN: Using ToolManager instead of ToolRegistry as requested
