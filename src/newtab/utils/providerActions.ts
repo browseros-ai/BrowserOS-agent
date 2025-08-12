@@ -21,11 +21,11 @@ const PROVIDER_ACTIONS: Record<string, {
   'grok': {
     type: 'url',
     urlPattern: 'https://x.com/i/grok',
-    searchParam: 'text'
+    searchParam: 'text'  // Grok.com search
   },
-  'gemini': {
+  'google': {
     type: 'url',
-    urlPattern: 'https://gemini.google.com/app',
+    urlPattern: 'https://www.google.com/search',
     searchParam: 'q'
   },
   'perplexity': {
@@ -50,16 +50,19 @@ export async function executeProviderAction(provider: Provider, query: string): 
   }
   
   if (action.type === 'url' && action.urlPattern) {
-    // Open external provider in new tab with query
+    // Navigate to external provider in current tab with query
     const url = new URL(action.urlPattern)
     if (action.searchParam) {
       url.searchParams.set(action.searchParam, query)
     }
     
-    await chrome.tabs.create({ 
-      url: url.toString(),
-      active: true 
-    })
+    // Update current tab instead of creating new one
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (activeTab?.id) {
+      await chrome.tabs.update(activeTab.id, { 
+        url: url.toString() 
+      })
+    }
   } else if (action.type === 'sidepanel') {
     // Open sidepanel and send query to BrowserOS Agent
     await openSidePanelWithQuery(query)

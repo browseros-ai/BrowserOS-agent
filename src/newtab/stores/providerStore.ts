@@ -43,15 +43,15 @@ const DEFAULT_PROVIDERS: Provider[] = [
   {
     id: 'grok',
     name: 'Grok',
-    type: 'xai',
-    category: 'llm',
+    type: 'llm',
+    category: 'llm',  // Back to LLM category for Grok
     available: true
   },
   {
-    id: 'gemini',
-    name: 'Gemini',
+    id: 'google',
+    name: 'Google',
     type: 'google',
-    category: 'llm',
+    category: 'search',  // Google as search provider
     available: true
   },
   {
