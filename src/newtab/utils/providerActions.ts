@@ -33,6 +33,11 @@ const PROVIDER_ACTIONS: Record<string, {
     urlPattern: 'https://www.perplexity.ai/',
     searchParam: 'q'
   },
+  'duckduckgo': {
+    type: 'url',
+    urlPattern: 'https://duckduckgo.com/',
+    searchParam: 'q'
+  },
   'browseros-agent': {
     type: 'sidepanel'
   }

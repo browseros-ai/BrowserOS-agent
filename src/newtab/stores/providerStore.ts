@@ -6,7 +6,7 @@ import { z } from 'zod'
 export const ProviderSchema = z.object({
   id: z.string(),  // Unique identifier
   name: z.string(),  // Display name
-  type: z.enum(['custom', 'browseros', 'openai', 'anthropic', 'llm', 'google', 'perplexity']),  // Provider type
+  type: z.enum(['custom', 'browseros', 'openai', 'anthropic', 'llm', 'google', 'perplexity', 'duckduckgo']),  // Provider type
   category: z.enum(['llm', 'search']),  // Category for grouping
   modelId: z.string().optional(),  // Model identifier
   available: z.boolean().default(true),  // Is provider available
@@ -36,21 +36,6 @@ const DEFAULT_PROVIDERS: Provider[] = [
     available: true
   },
   {
-    id: 'claude',
-    name: 'Claude',
-    type: 'anthropic',
-    category: 'llm',
-    modelId: 'claude-3-5-sonnet',
-    available: true
-  },
-  {
-    id: 'grok',
-    name: 'Grok',
-    type: 'llm',
-    category: 'llm',  // Back to LLM category for Grok
-    available: true
-  },
-  {
     id: 'google',
     name: 'Google',
     type: 'google',
@@ -62,6 +47,28 @@ const DEFAULT_PROVIDERS: Provider[] = [
     name: 'Perplexity',
     type: 'perplexity',
     category: 'llm',
+    available: true
+  },
+  {
+    id: 'duckduckgo',
+    name: 'DuckDuckGo',
+    type: 'duckduckgo',
+    category: 'search',
+    available: true
+  },
+  {
+    id: 'grok',
+    name: 'Grok',
+    type: 'llm',
+    category: 'llm',  // Back to LLM category for Grok
+    available: true
+  },
+  {
+    id: 'claude',
+    name: 'Claude',
+    type: 'anthropic',
+    category: 'llm',
+    modelId: 'claude-3-5-sonnet',
     available: true
   }
 ]
