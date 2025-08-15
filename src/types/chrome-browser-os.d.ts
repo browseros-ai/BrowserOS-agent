@@ -271,4 +271,25 @@ declare namespace chrome.browserOS {
   function getVersionNumber(
     callback: (version: string) => void
   ): void;
+
+  // Logs a metric event with optional properties
+  function logMetric(
+    eventName: string,
+    properties: Record<string, any>,
+    callback: () => void
+  ): void;
+
+  function logMetric(
+    eventName: string,
+    callback: () => void
+  ): void;
+
+  function logMetric(
+    eventName: string,
+    properties?: Record<string, any>
+  ): void;
+
+  function logMetric(
+    eventName: string
+  ): void;
 }

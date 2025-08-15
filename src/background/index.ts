@@ -5,8 +5,6 @@ import { BrowserOSProvidersConfigSchema, BROWSEROS_PREFERENCE_KEYS } from '@/lib
 import { PortName, PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
 import { NxtScape } from '@/lib/core/NxtScape'
-// Removed deprecated IStreamingCallbacks import
-import posthog from 'posthog-js'
 import { isDevelopmentMode } from '@/config'
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
@@ -19,25 +17,6 @@ import { PubSub, PubSubEvent } from '@/lib/pubsub'
 
 // Initialize LogUtility first
 Logging.initialize({ debugMode: isDevelopmentMode() })
-
-// Initialize PostHog for analytics only if API key is provided
-const posthogApiKey = process.env.POSTHOG_API_KEY
-if (posthogApiKey) {
-  posthog.init(posthogApiKey, {
-    api_host: 'https://us.i.posthog.com',
-    person_profiles: 'identified_only',
-  })
-}
-
-// Function to capture events with ai_chat prefix
-function captureEvent(eventName: string, properties?: Record<string, any>) {
-  if (!posthogApiKey) {
-    return // Skip if PostHog is not configured
-  }
-  const prefixedEventName = `ai_chat:${eventName}`
-  posthog.capture(prefixedEventName, properties)
-  // debugLog(`📊 PostHog event: ${prefixedEventName}`, 'info')
-}
 
 // Initialize NxtScape agent with Claude
 const nxtScape = new NxtScape({
@@ -122,8 +101,8 @@ pubsub.subscribe((event: PubSubEvent) => {
 function initialize(): void {
   debugLog('ParallelManus extension initialized')
   
-  // Capture extension initialization event
-  captureEvent('extension_initialized')
+  // Log extension initialization metric
+  Logging.logMetric('extension_initialized')
   
   // Initialize NxtScape once at startup to preserve conversation across queries
   ensureNxtScapeInitialized().catch(error => {
@@ -234,8 +213,8 @@ async function toggleSidePanel(tabId: number): Promise<void> {
       
       await chrome.sidePanel.open({ tabId })
 
-      // Capture panel opened via toggle event
-      captureEvent('side_panel_toggled', {})
+      // Log panel opened via toggle metric
+      Logging.logMetric('side_panel_toggled', {})
       
       
       // State will be updated when the panel connects
@@ -280,7 +259,7 @@ function handlePortConnection(port: chrome.runtime.Port): void {
   if (portName === PortName.SIDEPANEL_TO_BACKGROUND) {
     isPanelOpen = true
     debugLog('Side panel connected, updating state')
-    captureEvent('side_panel_opened', {
+    Logging.logMetric('side_panel_opened', {
       source: 'port_connection'
     })
     // Kick a fetch and start polling for external changes
@@ -304,7 +283,7 @@ function handlePortConnection(port: chrome.runtime.Port): void {
     if (portName === PortName.SIDEPANEL_TO_BACKGROUND) {
       isPanelOpen = false
       debugLog('Side panel disconnected, updating state')
-      captureEvent('side_panel_closed', {
+      Logging.logMetric('side_panel_closed', {
         source: 'port_disconnection'
       })
       stopProvidersPolling()
@@ -445,9 +424,10 @@ async function handleExecuteQueryPort(
     // Enhanced debug logging
     debugLog(`🎯 [Background] Received query execution from ${payload.source || 'unknown'}`)
     
-    captureEvent('query_initiated', {
+    Logging.logMetric('query_initiated', {
       query: payload.query,
       source: payload.source || 'unknown',
+      mode: payload.chatMode ? 'chat' : 'browse',
     })
     
     // Initialize NxtScape if not already done
@@ -522,7 +502,7 @@ function handleResetConversationPort(
 ): void {
   try {
     nxtScape.reset()
-    captureEvent('conversation_reset')
+    Logging.logMetric('conversation_reset')
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`Error handling conversation reset: ${errorMessage}`, 'error')
@@ -696,7 +676,7 @@ function handleCancelTaskPort(
 ): void {
   try {
     nxtScape.cancel()
-    captureEvent('task_cancelled')
+    Logging.logMetric('task_cancelled')
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`Error handling task cancellation: ${errorMessage}`, 'error')

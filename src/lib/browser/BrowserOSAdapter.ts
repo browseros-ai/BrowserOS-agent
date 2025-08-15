@@ -398,6 +398,48 @@ export class BrowserOSAdapter {
       return null;
     }
   }
+
+  /**
+   * Log a metric event with optional properties
+   */
+  async logMetric(eventName: string, properties?: Record<string, any>): Promise<void> {
+    try {
+      Logging.log('BrowserOSAdapter', `Logging metric: ${eventName} with properties: ${JSON.stringify(properties)}`, 'info');
+      
+      return new Promise<void>((resolve, reject) => {
+        // Check if logMetric API is available
+        if ('logMetric' in chrome.browserOS && typeof chrome.browserOS.logMetric === 'function') {
+          if (properties) {
+            chrome.browserOS.logMetric(eventName, properties, () => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                Logging.log('BrowserOSAdapter', `Metric logged: ${eventName}`, 'info');
+                resolve();
+              }
+            });
+          } else {
+            chrome.browserOS.logMetric(eventName, () => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                Logging.log('BrowserOSAdapter', `Metric logged: ${eventName}`, 'info');
+                resolve();
+              }
+            });
+          }
+        } else {
+          // If API not available, log a warning but don't fail
+          Logging.log('BrowserOSAdapter', `logMetric API not available, skipping metric: ${eventName}`, 'warning');
+          resolve();
+        }
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Logging.log('BrowserOSAdapter', `Failed to log metric: ${errorMessage}`, 'error');
+      return;
+    }
+  }
 }
 
 // Export singleton instance getter for convenience

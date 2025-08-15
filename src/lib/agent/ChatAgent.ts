@@ -158,6 +158,17 @@ export class ChatAgent {
         // Don't publish message here - already handled in _subscribeToExecutionStatus
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorType = error instanceof Error ? error.name : 'UnknownError'
+        
+        // Log error metric with details
+        Logging.logMetric('execution_error', {
+          error: errorMessage,
+          error_type: errorType,
+          query: query.substring(0, 200), // Truncate long queries
+          mode: 'chat',
+          agent: 'ChatAgent'
+        })
+        
         Logging.log('ChatAgent', `Execution failed: ${errorMessage}`, 'error')
         this.pubsub.publishMessage(PubSub.createMessage(`Error: ${errorMessage}`, 'error'))
       }
