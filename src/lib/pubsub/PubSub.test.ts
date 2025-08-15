@@ -12,20 +12,15 @@ describe('PubSub', () => {
   })
 
   it('tests that execution status can be published', () => {
-    const status: ExecutionStatus = {
-      executionId: 'exec_123',
-      status: 'running',
-      ts: Date.now()
-    }
-    
     // This should not throw
-    pubsub.publishExecutionStatus(status)
+    pubsub.publishExecutionStatus('running')
     
     // Verify it's in the buffer
     const buffer = pubsub.getBuffer()
     expect(buffer.length).toBe(1)
     expect(buffer[0].type).toBe('execution-status')
-    expect(buffer[0].payload).toEqual(status)
+    expect(buffer[0].payload.status).toBe('running')
+    expect(buffer[0].payload.ts).toBeDefined()
   })
 
   it('tests that subscribers receive execution status events', () => {
@@ -37,17 +32,11 @@ describe('PubSub', () => {
     })
 
     // Publish execution status
-    const status: ExecutionStatus = {
-      executionId: 'exec_456',
-      status: 'cancelled',
-      ts: Date.now()
-    }
-    pubsub.publishExecutionStatus(status)
+    pubsub.publishExecutionStatus('cancelled')
 
     // Verify subscriber received the event
     expect(receivedEvent).not.toBeNull()
     expect(receivedEvent.type).toBe('execution-status')
-    expect(receivedEvent.payload.executionId).toBe('exec_456')
     expect(receivedEvent.payload.status).toBe('cancelled')
 
     // Clean up

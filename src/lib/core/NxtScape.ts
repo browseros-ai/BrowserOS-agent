@@ -44,7 +44,6 @@ export class NxtScape {
   private messageManager!: MessageManager; // Will be initialized in initialize()
   private browserAgent: BrowserAgent | null = null; // The browser agent for task execution
   private chatAgent: ChatAgent | null = null; // The chat agent for Q&A mode
-  private currentExecutionId: string | null = null; // Track current execution session
 
   /**
    * Creates a new NxtScape orchestration agent
@@ -127,22 +126,24 @@ export class NxtScape {
   }
 
   /**
-   * Processes a user query with streaming support.
-   * Always uses streaming execution for real-time progress updates.
-   *
-   * @param options - Run options including query, optional tabIds, and mode
+   * Prepares the execution environment
+   * @private
    */
-  public async run(options: RunOptions): Promise<void> {
-    profileStart("NxtScape.run");
-    // Ensure the agent is initialized before running
+  private async _prepareExecution(options: RunOptions): Promise<{
+    query: string;
+    mode: 'chat' | 'browse';
+    tabIds: number[] | undefined;
+    currentTabId: number;
+    startTime: number;
+  }> {
+    // Ensure initialization
     if (!this.isInitialized()) {
-        await this.initialize();
+      await this.initialize();
     }
 
     const parsedOptions = RunOptionsSchema.parse(options);
     const { query, tabIds, mode } = parsedOptions;
-
-    const runStartTime = Date.now();
+    const startTime = Date.now();
 
     Logging.log(
       "NxtScape",
@@ -151,120 +152,151 @@ export class NxtScape {
       }`,
     );
 
+    // Validate browser context
     if (!this.browserContext) {
       throw new Error("NxtScape.initialize() must be awaited before run()");
     }
 
+    // Clean up any running task (after initialization ensures executionContext exists)
     if (this.isRunning()) {
-      Logging.log(
-        "NxtScape",
-        "Another task is already running. Cleaning up...",
-      );
+      Logging.log("NxtScape", "Another task is already running. Cleaning up...");
       this._internalCancel();
     }
 
-    // Reset abort controller if it's aborted (from pause or previous execution)
-    if (this.executionContext.abortController.signal.aborted) {
+    // Reset abort controller if needed (executionContext guaranteed to exist after init)
+    if (this.executionContext && this.executionContext.abortController.signal.aborted) {
       this.executionContext.resetAbortController();
     }
 
-    // Always get the current page from browser context - this is the tab the agent will operate on
+    // Get current page and lock execution
     profileStart("NxtScape.getCurrentPage");
     const currentPage = await this.browserContext.getCurrentPage();
     const currentTabId = currentPage.tabId;
     profileEnd("NxtScape.getCurrentPage");
 
-    // Lock browser context to the current tab to prevent tab switches during execution
+    // Lock browser context to current tab
     this.browserContext.lockExecutionToTab(currentTabId);
 
-    // Mark execution as started
+    // Start execution context
     this.executionContext.startExecution(currentTabId);
 
-    // Generate execution ID and publish running status
-    this.currentExecutionId = PubSub.generateId('exec');
-    this.executionContext.setExecutionId(this.currentExecutionId);
-    PubSub.getInstance().publishExecutionStatus({
-      executionId: this.currentExecutionId,
-      status: 'running',
-      ts: Date.now()
-    });
-
-
-    // Set selected tab IDs for context (e.g., for summarizing multiple tabs)
-    // These are NOT the tabs the agent operates on, just context for tools like ExtractTool
+    // Set selected tab IDs for context
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
 
+    // Publish running status
+    PubSub.getInstance().publishExecutionStatus('running');
+
+    return { query, mode, tabIds, currentTabId, startTime };
+  }
+
+  /**
+   * Executes the appropriate agent based on mode
+   * @private
+   */
+  private async _executeAgent(query: string, mode: 'chat' | 'browse'): Promise<void> {
+    if (mode === 'chat') {
+      if (!this.chatAgent) {
+        throw new Error('Chat agent not initialized');
+      }
+      await this.chatAgent.execute(query);
+    } else {
+      if (!this.browserAgent) {
+        throw new Error('Browser agent not initialized');
+      }
+      await this.browserAgent.execute(query);
+    }
+
+    Logging.log("NxtScape", "Agent execution completed");
+  }
+
+  /**
+   * Handles execution errors and publishes appropriate status
+   * @private
+   */
+  private _handleExecutionError(error: unknown): void {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const wasCancelled = error instanceof Error && error.name === "AbortError";
+
+    if (wasCancelled) {
+      Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
+      PubSub.getInstance().publishExecutionStatus('cancelled', errorMessage);
+    } else {
+      Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
+      
+      // Publish error status
+      PubSub.getInstance().publishExecutionStatus('error', errorMessage);
+      
+      // Publish user-facing error message
+      const errorMsg = PubSub.createMessage(
+        `❌ Error: ${errorMessage}`,
+        'error'
+      );
+      PubSub.getInstance().publishMessage(errorMsg);
+    }
+  }
+
+  /**
+   * Cleans up after execution
+   * @private
+   */
+  private async _cleanupExecution(startTime: number): Promise<void> {
+    // End execution context
+    this.executionContext.endExecution();
+    
+    // Unlock browser context
+    profileStart("NxtScape.cleanup");
+    await this.browserContext.unlockExecution();
+    profileEnd("NxtScape.cleanup");
+    
+    // Log execution time
+    Logging.log(
+      "NxtScape",
+      `Total execution time: ${Date.now() - startTime}ms`,
+    );
+  }
+
+  /**
+   * Processes a user query with streaming support.
+   * Always uses streaming execution for real-time progress updates.
+   *
+   * @param options - Run options including query, optional tabIds, and mode
+   */
+  public async run(options: RunOptions): Promise<void> {
+    profileStart("NxtScape.run");
+    
+    let executionContext: {
+      query: string;
+      mode: 'chat' | 'browse';
+      tabIds: number[] | undefined;
+      currentTabId: number;
+      startTime: number;
+    } | null = null;
 
     try {
-      // Use explicit mode parameter for agent selection
-      if (mode === 'chat') {
-        await this.chatAgent!.execute(query);
-      } else {
-        await this.browserAgent!.execute(query);
-      }
+      // Phase 1: Prepare execution
+      executionContext = await this._prepareExecution(options);
       
-      // BrowserAgent handles all logging and result management internally
-      Logging.log("NxtScape", "Agent execution completed");
+      // Phase 2: Execute agent
+      await this._executeAgent(executionContext.query, executionContext.mode);
       
-      // Publish done status
-      if (this.currentExecutionId) {
-        PubSub.getInstance().publishExecutionStatus({
-          executionId: this.currentExecutionId,
-          status: 'done',
-          ts: Date.now()
-        });
-      }
+      // Success: Publish done status
+      PubSub.getInstance().publishExecutionStatus('done');
+      
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const wasCancelled = error instanceof Error && error.name === "AbortError";
-
-      if (wasCancelled) {
-        Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
-        // Publish cancelled status
-        if (this.currentExecutionId) {
-          PubSub.getInstance().publishExecutionStatus({
-            executionId: this.currentExecutionId,
-            status: 'cancelled',
-            ts: Date.now()
-          });
-        }
-      } else {
-        Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
-        // Publish error status
-        if (this.currentExecutionId) {
-          PubSub.getInstance().publishExecutionStatus({
-            executionId: this.currentExecutionId,
-            status: 'error',
-            ts: Date.now()
-          });
-        }
-      }
-      
-      // Re-throw error so background script can handle if needed
-      throw error;
+      // Phase 3: Handle errors
+      this._handleExecutionError(error);
     } finally {
-      // Always mark execution as ended
-      this.executionContext.endExecution();
-      
-      // Clear execution ID
-      this.currentExecutionId = null;
-
-      // Unlock browser context and update to active tab
-      profileStart("NxtScape.cleanup");
-      await this.browserContext.unlockExecution();
-
-      profileEnd("NxtScape.cleanup");
+      // Phase 4: Always cleanup
+      if (executionContext) {
+        await this._cleanupExecution(executionContext.startTime);
+      }
       profileEnd("NxtScape.run");
-      Logging.log(
-        "NxtScape",
-        `Total execution time: ${Date.now() - runStartTime}ms`,
-      );
     }
   }
 
 
   public isRunning(): boolean {
-    return this.executionContext.isExecuting();
+    return this.executionContext && this.executionContext.isExecuting();
   }
 
   /**
@@ -273,16 +305,10 @@ export class NxtScape {
   public cancel(): void {
     if (this.executionContext) {
       Logging.log("NxtScape", "User cancelling current task execution");
-      this.executionContext.cancelExecution(/*isUserInitiatedsCancellation=*/ true);
+      this.executionContext.cancelExecution( true);
       
-      // Publish cancelled status
-      if (this.currentExecutionId) {
-        PubSub.getInstance().publishExecutionStatus({
-          executionId: this.currentExecutionId,
-          status: 'cancelled',
-          ts: Date.now()
-        });
-      }
+      // Publish cancelled status with message
+      PubSub.getInstance().publishExecutionStatus('cancelled', 'Task cancelled by user');
     }
   }
 
@@ -337,25 +363,38 @@ export class NxtScape {
    * Clear conversation history (useful for reset functionality)
    */
   public reset(): void {
-    // stop the current task if it is running
+    // 1. Stop current task if running
     if (this.isRunning()) {
-      this.cancel();
+      // Use internal cancel to avoid publishing status
+      this._internalCancel();
     }
     
-    // Publish cancelled status for reset
-    if (this.currentExecutionId) {
-      PubSub.getInstance().publishExecutionStatus({
-        executionId: this.currentExecutionId,
-        status: 'cancelled',
-        ts: Date.now()
-      });
+    // 2. Clean up existing agents (call cleanup to unsubscribe)
+    if (this.browserAgent) {
+      this.browserAgent.cleanup();
+      this.browserAgent = null;
     }
+    if (this.chatAgent) {
+      this.chatAgent.cleanup();
+      this.chatAgent = null;
+    }
+    
+    // 3. Clear PubSub buffer only (NOT subscribers - UI needs to stay subscribed!)
+    PubSub.getInstance().clearBuffer();
 
-    // Recreate MessageManager to clear history
+    // 4. Clear message history
     this.messageManager.clear();
 
-    // reset the execution context
+    // 5. Reset execution context and abort controller
     this.executionContext.reset();
+    // Ensure abort controller is reset for next run
+    if (this.executionContext.abortController.signal.aborted) {
+      this.executionContext.resetAbortController();
+    }
+    
+    // 6. Recreate agents with fresh state (they will subscribe themselves)
+    this.browserAgent = new BrowserAgent(this.executionContext);
+    this.chatAgent = new ChatAgent(this.executionContext);
 
     Logging.log(
       "NxtScape",

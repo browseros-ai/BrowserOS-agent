@@ -475,8 +475,6 @@ async function handleExecuteQueryPort(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`[Background] Error executing query: ${errorMessage}`, 'error')
-    
-    // Errors are already handled by agents via PubSub, just log here for debugging
   }
 }
 

@@ -34,7 +34,6 @@ export class ExecutionContext {
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
   private _chatMode: boolean = false  // Whether ChatAgent mode is enabled
-  private _executionId: string | null = null  // Current execution ID for status tracking
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
@@ -114,27 +113,10 @@ export class ExecutionContext {
   }
 
   /**
-   * Set the execution ID for the current execution
-   * @param executionId - The execution ID to set
-   */
-  public setExecutionId(executionId: string): void {
-    this._executionId = executionId;
-  }
-
-  /**
-   * Get the current execution ID
-   * @returns The current execution ID or null
-   */
-  public getExecutionId(): string | null {
-    return this._executionId;
-  }
-
-  /**
    * Mark execution as ended
    */
   public endExecution(): void {
     this._isExecuting = false;
-    this._executionId = null;
     // Keep lockedTabId until reset() for debugging purposes
   }
 
@@ -160,7 +142,6 @@ export class ExecutionContext {
     this._lockedTabId = null;
     this.userInitiatedCancel = false;
     this._currentTask = null;
-    this._executionId = null;
     this.todoStore.reset();
   }
 

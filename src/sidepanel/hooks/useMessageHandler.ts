@@ -9,19 +9,34 @@ export function useMessageHandler() {
 
   const handleStreamUpdate = useCallback((payload: any) => {
     // Check if this is a PubSub event
-    if (payload?.action === 'PUBSUB_EVENT' && payload?.details?.type === 'message') {
-      const message = payload.details.payload as PubSubMessage
-      
-      // Filter out thinking messages, only show narration messages
-      if (message.role === 'narration') {
-        return 
+    if (payload?.action === 'PUBSUB_EVENT') {
+      // Handle message events
+      if (payload.details?.type === 'message') {
+        const message = payload.details.payload as PubSubMessage
+        
+        // Filter out narration messages, it's disbled
+        if (message.role === 'narration') {
+          return 
+        }
+        
+        upsertMessage(message)
+        
+        // Check for completion or error messages from agents
+        if (message.role === 'error') {
+          setProcessing(false)
+        }
       }
       
-      upsertMessage(message)
-      
-      // Check for completion or error messages from agents
-      if (message.role === 'assistant' || message.role === 'error') {
-        setProcessing(false)
+      // Handle execution-status events
+      if (payload.details?.type === 'execution-status') {
+        const status = payload.details.payload.status
+        
+        // Set processing based on status
+        if (status === 'running') {
+          setProcessing(true)
+        } else if (status === 'done' || status === 'cancelled' || status === 'error') {
+          setProcessing(false)
+        }
       }
     }
   }, [upsertMessage, setProcessing])

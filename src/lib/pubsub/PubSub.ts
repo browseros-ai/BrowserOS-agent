@@ -30,11 +30,15 @@ export class PubSub {
     this._publish(event)
   }
 
-  // Publish execution status
-  publishExecutionStatus(status: ExecutionStatus): void {
+  // Publish execution status with optional message
+  publishExecutionStatus(status: 'running' | 'done' | 'cancelled' | 'error', message?: string): void {
     const event: PubSubEvent = {
       type: 'execution-status',
-      payload: status
+      payload: {
+        status,
+        ts: Date.now(),
+        ...(message && { message })
+      }
     }
     this._publish(event)
   }

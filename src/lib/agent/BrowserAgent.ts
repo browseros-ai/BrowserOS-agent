@@ -155,19 +155,25 @@ export class BrowserAgent {
   private _subscribeToExecutionStatus(): void {
     this.statusSubscription = this.pubsub.subscribe((event) => {
       if (event.type === 'execution-status') {
-        const { executionId, status } = event.payload;
+        const { status } = event.payload;
         
-        // Check if this status is for the current execution
-        if (executionId === this.executionContext.getExecutionId()) {
-          // If status is cancelled, trigger abort
-          if (status === 'cancelled') {
-            // Publish pause message when cancelled
-            this.pubsub.publishMessage(PubSub.createMessageWithId('pause_message_id','✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!', 'assistant'));
-            this.executionContext.cancelExecution(true);
-          }
+        if (status === 'cancelled') {
+          this.pubsub.publishMessage(PubSub.createMessageWithId('pause_message_id','✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!', 'assistant'));
+          this.executionContext.cancelExecution(true);
         }
       }
     });
+  }
+
+  /**
+   * Cleanup method to properly unsubscribe when agent is being destroyed
+   */
+  public cleanup(): void {
+    if (this.statusSubscription) {
+      this.statusSubscription.unsubscribe();
+      this.statusSubscription = undefined;
+    }
+    this.narrator?.cleanup();
   }
 
   /**
