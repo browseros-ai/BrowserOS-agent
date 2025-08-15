@@ -1,14 +1,17 @@
-# PlannerTool LLM Evaluation
-
-LLM-based evaluation system for PlannerTool with real plan generation and scoring.
+# Tool Evaluation System
+Current State:
+LLM-based evaluation system for PlannerTool and ValidatorTool with LLM scoring.
 
 ## Structure
 
 ```
 src/evals/
 ├── planner-llm.eval.ts          # LLM-based planner evaluation
-├── push-prompts.ts              # Extract planner prompts for Braintrust
-├── tools/planner/test-cases.json  # Planner test cases
+├── validator-llm.eval.ts        # LLM-based validator evaluation
+├── push-prompts.ts              # Extract tool prompts for Braintrust
+├── tools/
+│   ├── planner/test-cases.json  # Planner test cases
+│   └── validator/test-cases.json # Validator test cases
 └── utils/test-context.ts        # Test utilities
 ```
 
@@ -16,8 +19,12 @@ src/evals/
 
 ```bash
 npm run eval:planner        # Run LLM-based planner evaluation locally
-npm run extract:prompts     # Extract planner prompts to JSON for Braintrust
-npx braintrust eval src/evals/planner-llm.eval.ts  # Run with Braintrust SDK (optional)
+npm run eval:validator      # Run LLM-based validator evaluation locally
+npm run extract:prompts     # Extract tool prompts to JSON for Braintrust
+
+# Braintrust SDK (optional)
+npx braintrust eval src/evals/planner-llm.eval.ts
+npx braintrust eval src/evals/validator-llm.eval.ts
 ```
 
 ## Prerequisites

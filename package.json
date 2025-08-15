@@ -19,6 +19,7 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "eval:planner": "tsx src/evals/planner-llm.eval.ts",
+    "eval:validator": "tsx src/evals/validator-llm.eval.ts",
     "extract:prompts": "tsx src/evals/push-prompts.ts"
   },
   "author": "",
