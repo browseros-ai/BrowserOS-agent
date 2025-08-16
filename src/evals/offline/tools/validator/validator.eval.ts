@@ -8,29 +8,34 @@ import path from 'path'
 import { z } from 'zod'
 import { generateValidatorSystemPrompt, generateValidatorTaskPrompt } from '@/lib/tools/validation/ValidatorTool.prompt'
 import { ChatOpenAI } from '@langchain/openai'
+import { SystemMessage, HumanMessage } from '@langchain/core/messages'
 
-// Test case schema
+// Test case schema - defines the structure of each validation test case
 const ValidatorTestCaseSchema = z.object({
-  id: z.string(),
-  task: z.string(),
-  category: z.enum(['ecommerce', 'research', 'interaction', 'auth']),
-  complexity: z.enum(['simple', 'medium', 'complex']),
+  id: z.string(),  // Unique identifier for the test case
+  task: z.string(),  // The user task to validate completion for
+  category: z.enum(['ecommerce', 'research', 'interaction', 'auth']),  // Task domain
+  complexity: z.enum(['simple', 'medium', 'complex']),  // Task difficulty level
   currentState: z.object({
-    url: z.string(),
-    title: z.string(),
-    elements: z.array(z.string()),
-    messageHistory: z.string()
+    url: z.string(),  // Current page URL
+    title: z.string(),  // Current page title
+    elements: z.array(z.string()),  // Visible elements on the page
+    messageHistory: z.string()  // Previous conversation context
   }),
   expected: z.object({
-    isComplete: z.boolean(),
-    reasoning: z.string(),
-    confidence: z.enum(['high', 'medium', 'low']),
-    suggestions: z.array(z.string()).optional()
+    isComplete: z.boolean(),  // Expected completion status
+    reasoning: z.string(),  // Expected reasoning for the validation
+    confidence: z.enum(['high', 'medium', 'low']),  // Expected confidence level
+    suggestions: z.array(z.string()).optional()  // Expected suggestions if incomplete
   })
 })
 
+/**
+ * Load and validate test cases from JSON file
+ * @returns Array of validated test cases
+ */
 function loadValidatorTestCases() {
-  const datasetPath = path.resolve('src/evals/tools/validator/test-cases.json')
+  const datasetPath = path.resolve('src/evals/offline/tools/validator/test-cases.json')
   const rawJson = JSON.parse(readFileSync(datasetPath, 'utf8'))
   return z.array(ValidatorTestCaseSchema).parse(rawJson)
 }
@@ -42,6 +47,9 @@ const ValidationResultSchema = z.object({
   confidence: z.enum(['high', 'medium', 'low']),  // Confidence in validation
   suggestions: z.array(z.string())  // Suggestions for the planner if task incomplete
 })
+
+// Type alias to help TypeScript
+type ValidationResult = z.infer<typeof ValidationResultSchema>
 
 /**
  * Call LLM to perform validation using ValidatorTool prompts
@@ -78,11 +86,11 @@ Elements: ${currentState.elements.join(', ')}`
     )
 
     // Use structured output like the real ValidatorTool
-    const structuredLLM = llm.withStructuredOutput(ValidationResultSchema)
+    const structuredLLM = llm.withStructuredOutput(ValidationResultSchema as any)
     const validation = await structuredLLM.invoke([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: taskPrompt }
-    ])
+      new SystemMessage(systemPrompt),
+      new HumanMessage(taskPrompt)
+    ]) as ValidationResult
 
     return { validation }
 
@@ -171,6 +179,10 @@ Respond with JSON:
   }
 }
 
+/**
+ * Run the validator evaluation locally for development
+ * Only runs the first test case to keep execution time reasonable
+ */
 async function runValidatorLLMEvaluation() {
   console.log('Running ValidatorTool LLM Evaluation')
   
@@ -181,7 +193,7 @@ async function runValidatorLLMEvaluation() {
     return
   }
 
-  const testCases = loadValidatorTestCases().slice(0, 5) // Test first 5 cases
+  const testCases = loadValidatorTestCases().slice(0, 1) // Test only first case for local validation
   const results = []
   
   for (let i = 0; i < testCases.length; i++) {
@@ -246,7 +258,7 @@ async function runValidatorLLMEvaluation() {
 // Braintrust-compatible evaluation function
 export default async function Eval() {
   return {
-    data: loadValidatorTestCases().slice(0, 5), // Test first 5 cases
+    data: loadValidatorTestCases(), // Load all test cases for Braintrust
     task: async (input: z.infer<typeof ValidatorTestCaseSchema>) => {
       // Perform validation using our ValidatorTool prompts
       const validation = await performValidation(input.task, input.currentState)

@@ -1,116 +1,184 @@
-# Tool Evaluation System
-Current State:
-LLM-based evaluation system for PlannerTool and ValidatorTool with LLM scoring.
+# BrowserOS Agent Evaluation System
 
-## Structure
+## Overview
+
+Consolidated evaluation system for the BrowserOS agent, supporting both online (runtime) and offline (test script) evaluations. Uses Braintrust's latest SDK patterns with `initLogger` for production logging.
+
+## Directory Structure
 
 ```
 src/evals/
-├── planner-llm.eval.ts          # LLM-based planner evaluation
-├── validator-llm.eval.ts        # LLM-based validator evaluation
-├── push-prompts.ts              # Extract tool prompts for Braintrust
-├── tools/
-│   ├── planner/test-cases.json  # Planner test cases
-│   └── validator/test-cases.json # Validator test cases
-└── utils/test-context.ts        # Test utilities
+├── online/              # Online evaluation infrastructure
+│   ├── BraintrustEventCollector.ts  # Event collection
+│   ├── decorators.ts                # @track decorators
+│   ├── EvalSettings.ts              # Settings management
+│   ├── enable.ts                  # Enable eval mode
+│   └── disable.ts                 # Disable eval mode
+│
+├── offline/             # Offline test suites
+│   └── tools/                       # Tool-specific unit tests
+│       ├── planner/                 # Planner tool
+│       └── validator/               # Validator tool
+│
+└── shared/              # Shared utilities
+    └── push-prompts.ts            # Extract prompts to JSON (Planned)
 ```
 
-## Commands
+## Quick Start
+
+### Online Evaluations (Configuration Only)
+
+**⚠️ Currently configuration-only. Data collection requires integration with BrowserAgent.**
 
 ```bash
-npm run eval:planner        # Run LLM-based planner evaluation locally
-npm run eval:validator      # Run LLM-based validator evaluation locally
-npm run extract:prompts     # Extract tool prompts to JSON for Braintrust
+# Enable evaluation mode (sets up configuration only)
+npm run eval:enable
 
-# Braintrust SDK (optional)
-npx braintrust eval src/evals/planner-llm.eval.ts
-npx braintrust eval src/evals/validator-llm.eval.ts
+# Disable when done
+npm run eval:disable
 ```
 
-## Prerequisites
+**Note:** These scripts currently only save/clear settings. No actual data collection occurs until the system is integrated with BrowserAgent.
 
-Set your OpenAI API key:
+### Offline Evaluations (Existing)
+
+Run standalone test suites:
+
 ```bash
-$env:OPENAI_API_KEY="sk-your-openai-key"
+# Tool-specific tests
+npm run eval:planner     # Test planner tool
+npm run eval:validator   # Test validator tool
+
+# Extract prompts for version control
+npm run extract:prompts
 ```
 
-## What happens when you run eval:planner
+## Configuration
 
-1. Loads test cases from `tools/planner/test-cases.json`
-2. For each test case:
-   - Uses your PlannerTool prompts to generate a plan via LLM
-   - Scores the plan quality with LLM-as-judge (0.0-1.0)
-   - Provides reasoning for the score
-3. Shows summary: passed/total tests and average score
+### Online Evaluation Settings
 
-Expected output:
-```
-Running PlannerTool LLM Evaluation
+Set in browser console or environment:
+```javascript
+// API Key (required)
+localStorage.setItem('BRAINTRUST_API_KEY', 'your-key')
 
-Test 1/3: planner-001
-Task: Order toothpaste on Amazon
-  Generating plan...
-  Generated 5 steps
-  Scoring with LLM...
-  Score: 0.90
-  Reasoning: The plan covers all required actions and presents them in a logical sequence...
-
-Test 2/3: planner-002
-Task: Compare MacBook Air M2 prices on Amazon and Best Buy
-  Generating plan...
-  Generated 5 steps
-  Scoring with LLM...
-  Score: 0.75
-  Reasoning: The plan covers most required actions but misses the explicit step...
-
-Test 3/3: planner-003
-Task: Open example.com and extract the page title
-  Generating plan...
-  Generated 1 steps
-  Scoring with LLM...
-  Score: 0.65
-  Reasoning: The plan is incomplete as it only includes the action to extract...
-
-=== RESULTS ===
-Passed: 2/3
-Average Score: 0.767
+// Enable/disable
+localStorage.setItem('BROWSEROS_EVAL_MODE', 'true')
 ```
 
-## Benefits of Braintrust Prompt Management
+### Offline Test Configuration
 
-1. **Version Control**: Track prompt changes across experiments
-2. **A/B Testing**: Compare different prompt versions systematically  
-3. **Performance Analytics**: See which prompts work best
-4. **Team Collaboration**: Share and review prompts
-5. **Experiment Linking**: Connect prompts to evaluation results
-6. **Easy Rollback**: Revert to previous working versions
+Configured in test case JSON files:
+```
+offline/tools/planner/test-cases.json
+offline/tools/validator/test-cases.json
+```
 
-## Current Status
+## NPM Scripts
 
-✅ **PlannerTool evaluation is working!**
-- Average score: 0.767 (2/3 tests passing)
-- Successfully generates plans with your actual prompts
-- LLM-as-judge scoring with detailed reasoning
+```json
+{
+  "scripts": {
+    // Online evaluation
+    "eval:enable": "tsx src/evals/online/enable.ts",
+    "eval:disable": "tsx src/evals/online/disable.ts",
+    
+    // Offline tests
+    "eval:planner": "tsx src/evals/offline/tools/planner/planner.eval.ts",
+    "eval:validator": "tsx src/evals/offline/tools/validator/validator.eval.ts",
+    
+    // Utilities
+    "extract:prompts": "tsx src/evals/shared/push-prompts.ts"
+  }
+}
+```
 
-## Identified Issues
+## Implementation Status
 
-- Test 3 (0.65): Plan missing navigation step for "Open example.com"
-- Test 2 (0.75): Missing explicit price extraction step
-- Overall: Room for prompt improvement to increase completeness
+### ✅ Phase 1: Infrastructure (COMPLETE - Updated)
+- Online event collection using `initLogger` ✅
+- Proper parent/child span relationships ✅
+- Automatic LLM tracking with `wrapOpenAI` ✅
+- Braintrust SDK handles all batching ✅
+- Secure API key handling via `SecureEventCollectorProxy` ✅
+- Settings management with privacy controls ✅
+
+### ⚠️ Phase 2: Integration (PENDING)
+- Connect to BrowserAgent
+- Pass parent span IDs through execution
+- **This is required for data collection to work**
+
+### 📊 Phase 3: Analysis (FUTURE)
+- Query Braintrust data
+- Generate metrics
+
+### 💬 Phase 4: User Feedback (FUTURE)
+- UI for user ratings
+- Ground truth collection
+
+## Current State
+
+**⚠️ IMPORTANT:** The evaluation system is currently **configuration-only**. Data collection will not work until Phase 2 (Integration) is completed.
+
+- ✅ Enable/disable scripts work (save/clear settings)
+- ✅ Configuration system is functional
+- ❌ **No actual data collection** (not integrated with agent)
+- ❌ **No event tracking** (decorators not applied to agent methods)
+
+## Best Practices
+
+1. **Online**: Enable only when needed (performance impact)
+2. **Offline**: Run before commits to catch regressions
+3. **Privacy**: Never log sensitive user data
+4. **Versioning**: Extract prompts after changes
+
+## Troubleshooting
+
+### Online Eval Not Working?
+```javascript
+// Check if enabled
+console.log(localStorage.getItem('BROWSEROS_EVAL_MODE'))
+
+// Check API key
+console.log(localStorage.getItem('BRAINTRUST_API_KEY'))
+```
+
+### Offline Tests Failing?
+```bash
+# Check OpenAI API key
+echo $OPENAI_API_KEY
+
+# Run with debug output
+DEBUG=* npm run eval:planner
+```
 
 ## Next Steps
 
-**Option A: Improve PlannerTool First**
-1. Analyze and improve PlannerTool prompts
-2. Re-run evaluation to confirm improvements
-3. Document baseline vs improved performance
+1. **For developers**: Run offline tests before PRs
+2. **For integration**: Complete Phase 2 to enable data collection
+3. **For analysis**: Query Braintrust dashboard for insights (after integration)
 
-**Option B: Move to Next Tool**
-1. Set up ValidatorTool evaluation following same pattern
-2. Add other tool evaluations (ClassificationTool, etc.)
-3. Move to end-to-end agent evaluation
+## Integration Required
 
-**Option C: Document & Continue**
-1. Push current prompts to Braintrust for version control
-2. Document current baseline (0.767)
-3. Move to ValidatorTool while noting areas for improvement
+To make online evaluations functional, you need to:
+
+1. **Add decorators to BrowserAgent methods:**
+   ```typescript
+   import { track, trackLLM } from '@/evals/online/decorators'
+   
+   class BrowserAgent {
+     @track('agent_execution')
+     async execute(task: string) {
+       // Your existing logic
+     }
+   }
+   ```
+
+2. **Initialize event collector in constructor:**
+   ```typescript
+   constructor() {
+     this.eventCollector = BraintrustEventCollector.getInstance()
+   }
+   ```
+
+3. **Set up session tracking in execute method**
