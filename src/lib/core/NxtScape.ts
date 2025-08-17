@@ -10,6 +10,9 @@ import { PocAgent } from "@/lib/agent/PocAgent";
 import { isPocMode } from "@/config";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 
+// Import telemetry module - only used if enabled
+import { BraintrustEventCollector } from "@/evals/online/BraintrustEventCollector";
+
 /**
  * Configuration schema for NxtScape agent
  */
@@ -60,6 +63,14 @@ export class NxtScape {
   private browserAgent: BrowserAgent | PocAgent | null = null; // The browser agent for task execution
 
   private currentQuery: string | null = null; // Track current query for better cancellation messages
+  
+  // Telemetry session management for conversation tracking
+  private telemetrySessionId: string | null = null;
+  private telemetryParentSpan: string | null = null;
+  private telemetry: BraintrustEventCollector | null = null; // Direct use of BraintrustEventCollector
+  private conversationStartTime: number = 0;
+  private taskCount: number = 0; // Track number of tasks in conversation
+  private taskStartTime: number = 0; // Track individual task timing
 
   /**
    * Creates a new NxtScape orchestration agent
@@ -117,6 +128,9 @@ export class NxtScape {
         } else {
           this.browserAgent = new BrowserAgent(this.executionContext);
         }
+        
+        // Initialize telemetry session for conversation tracking (this logs status)
+        await this._initializeTelemetrySession();
 
         Logging.log(
           "NxtScape",
@@ -211,7 +225,39 @@ export class NxtScape {
     // These are NOT the tabs the agent operates on, just context for tools like ExtractTool
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
     this.currentQuery = query;
-
+    
+    // Track task start with telemetry
+    if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
+      try {
+        // Log this task as a child of the conversation
+        this.taskCount++;
+        this.taskStartTime = Date.now();
+        
+        // Log task start event
+        await this.telemetry.logEvent({
+          type: 'decision_point',
+          name: `task_${this.taskCount}_start`,
+          data: {
+            task: query,
+            taskNumber: this.taskCount,
+            selectedTabIds: tabIds || [currentTabId],
+            conversationSessionId: this.telemetrySessionId,
+            phase: 'task_start'
+          }
+        }, {
+          parent: this.telemetryParentSpan,
+          name: `task_${this.taskCount}_start`
+        });
+        
+        console.log(`%c→ Task ${this.taskCount}: "${query.substring(0, 40)}..."`, 'color: #00ff00; font-size: 10px');
+      } catch (error) {
+        console.warn('Failed to create task span:', error);
+      }
+    }
+    
+    // Pass telemetry to execution context for BrowserAgent
+    this.executionContext.telemetry = this.telemetry;
+    this.executionContext.parentSpanId = this.telemetryParentSpan;
 
     try {
       // Check that browser agent is initialized
@@ -221,6 +267,27 @@ export class NxtScape {
 
       // Execute the browser agent with the task
       await this.browserAgent.execute(query);
+      
+      // Log task completion with telemetry
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
+        const taskDuration = Date.now() - this.taskStartTime;
+        await this.telemetry.logEvent({
+          type: 'decision_point',
+          name: `task_${this.taskCount}_complete`,
+          data: {
+            task: query,
+            taskNumber: this.taskCount,
+            duration_ms: taskDuration,
+            success: true,
+            phase: 'task_complete'
+          }
+        }, {
+          parent: this.telemetryParentSpan,
+          name: `task_${this.taskCount}_complete`
+        });
+        
+        console.log(`%c✓ Task ${this.taskCount} complete (${taskDuration}ms)`, 'color: #00ff00; font-size: 10px');
+      }
       
       // BrowserAgent handles all logging and result management internally
       Logging.log("NxtScape", "Agent execution completed");
@@ -236,6 +303,27 @@ export class NxtScape {
         Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
       } else {
         Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
+      }
+      
+      // Log task error with telemetry
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan && !wasCancelled) {
+        const taskDuration = Date.now() - this.taskStartTime;
+        await this.telemetry.logEvent({
+          type: 'error',
+          name: `task_${this.taskCount}_error`,
+          data: {
+            task: query,
+            taskNumber: this.taskCount,
+            duration_ms: taskDuration,
+            error: errorMessage,
+            wasCancelled
+          }
+        }, {
+          parent: this.telemetryParentSpan,
+          name: `task_${this.taskCount}_error`
+        });
+        
+        console.log(`%c✗ Task ${this.taskCount} failed: ${errorMessage}`, 'color: #ff0000; font-size: 10px');
       }
       
       // Return error result
@@ -331,6 +419,11 @@ export class NxtScape {
     // Clear current query to ensure clean state
     this.currentQuery = null;
 
+    // End current telemetry session and start a new one
+    this._endTelemetrySession('user_reset');
+    this.taskCount = 0; // Reset task counter for new conversation
+    this._initializeTelemetrySession();
+
     // Recreate MessageManager to clear history
     this.messageManager.clear();
 
@@ -345,6 +438,77 @@ export class NxtScape {
       "NxtScape",
       "Conversation history and state cleared completely",
     );
+  }
+  
+  /**
+   * Initialize telemetry session for conversation tracking
+   * This creates a parent session that spans multiple tasks
+   */
+  private async _initializeTelemetrySession(): Promise<void> {
+    try {
+      // Get telemetry instance (singleton)
+      this.telemetry = BraintrustEventCollector.getInstance();
+      
+      // Check if telemetry is enabled (this now does lazy initialization)
+      if (!this.telemetry.isEnabled()) {
+        // Silent when disabled - no logs
+        this.telemetry = null;
+        return;
+      }
+      this.conversationStartTime = Date.now();
+      this.telemetrySessionId = crypto.randomUUID();
+      
+      // Start conversation-level session
+      const { parent } = await this.telemetry.startSession({
+        sessionId: this.telemetrySessionId,
+        task: 'conversation_session',  // Special marker for conversation sessions
+        timestamp: this.conversationStartTime,
+        browserInfo: {
+          version: typeof chrome !== 'undefined' ? chrome.runtime.getManifest().version : 'unknown',
+          tabCount: 0  // Will be updated with actual tab count later
+        }
+      });
+      
+      this.telemetryParentSpan = parent || null;
+      
+      // Telemetry session started
+      if (this.telemetryParentSpan) {
+        console.log('%c✓ Telemetry session initialized', 'color: #00ff00; font-size: 10px');
+        console.log(`%c  Session ID: ${this.telemetrySessionId}`, 'color: #888; font-size: 10px');
+      }
+      
+    } catch (error) {
+      // Telemetry initialization failed silently
+    }
+  }
+  
+  /**
+   * End the current telemetry session
+   * @param reason - Why the session is ending (reset, close, timeout, etc.)
+   */
+  private async _endTelemetrySession(reason: string = 'unknown'): Promise<void> {
+    if (!this.telemetry?.isEnabled() || !this.telemetrySessionId || !this.telemetryParentSpan) {
+      return;
+    }
+    
+    try {
+      const duration = Date.now() - this.conversationStartTime;
+      
+      await this.telemetry.endSession(this.telemetryParentSpan, this.telemetrySessionId, {
+        success: true,
+        summary: `Conversation ended: ${reason}`,
+        duration_ms: duration,
+        toolsUsed: [`${this.taskCount} tasks completed`]
+      });
+      
+      console.log(`%c← Telemetry session ended (${reason})`, 'color: #888; font-size: 10px');
+      
+      // Clear telemetry state
+      this.telemetrySessionId = null;
+      this.telemetryParentSpan = null;
+    } catch (error) {
+      console.warn('Failed to end telemetry session:', error);
+    }
   }
 
 }

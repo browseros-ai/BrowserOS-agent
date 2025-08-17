@@ -11,10 +11,13 @@
  * - Automatic LLM tracking via wrapOpenAI
  */
 
-import { initLogger, wrapOpenAI } from 'braintrust'
-import OpenAI from 'openai'
+// Lazy load heavy dependencies to avoid module loading issues
+let initLogger: any;
+let wrapOpenAI: any;
+let OpenAI: any;
 import { z } from 'zod'
 import { Logging } from '@/lib/utils/Logging'
+import { ENABLE_TELEMETRY, BRAINTRUST_API_KEY } from '@/config'
 
 // Event types we track during agent execution
 // Each type represents a different aspect of agent behavior
@@ -60,6 +63,7 @@ export class BraintrustEventCollector {
   private enabled: boolean = false
   private logger: any = null
   private sampleRate: number = 1.0  // Percentage of sessions to track (0-1)
+  private initialized: boolean = false  // Track if we've initialized Braintrust
   
   // Pre-wrapped OpenAI client that automatically tracks LLM calls
   // Use this instead of raw OpenAI client to get automatic telemetry
@@ -67,38 +71,45 @@ export class BraintrustEventCollector {
   
   /**
    * Private constructor enforces singleton pattern
-   * Checks if eval mode is enabled and initializes if needed
+   * Note: Initialization is now lazy - happens on first use, not construction
    */
   private constructor() {
-    this.enabled = this._checkIfEnabled()
+    // Don't check or initialize here - do it lazily on first use
+    // This allows environment variables to be set after construction
+  }
+  
+  /**
+   * Lazily check if enabled and initialize if needed
+   * This is called on every public method to ensure we pick up env changes
+   */
+  private _ensureInitialized(): void {
+    // Only initialize once
+    if (this.initialized) return;
+    
+    // Check if we should be enabled
+    this.enabled = this._checkIfEnabled();
     if (this.enabled) {
-      this._initialize()
+      this._initialize();
     }
+    
+    // Mark as initialized even if disabled (to avoid repeated checks)
+    this.initialized = true;
   }
   
   /**
    * Determines if evaluation mode is active
-   * Checks multiple sources to avoid accidental data collection
+   * Simply checks the ENABLE_TELEMETRY flag from config
    */
   private _checkIfEnabled(): boolean {
-    // Check environment-specific flags
+    // Simple flag check - no environment variables needed
+    const isEnabled = ENABLE_TELEMETRY;
+    
+    // Set global flag for debugging
     if (typeof window !== 'undefined') {
-      // Browser: Use sessionStorage (not localStorage) for security
-      // sessionStorage is cleared when tab closes, preventing persistent tracking
-      const isEnabled = (
-        sessionStorage.getItem('BROWSEROS_EVAL_MODE') === 'true' ||
-        new URLSearchParams(window.location.search).has('eval')  // URL param override
-      )
-      
-      if (isEnabled) {
-        Logging.log('BraintrustEventCollector', 'Eval mode enabled in browser', 'info')
-      }
-      
-      return isEnabled
-    } else {
-      // Node.js: Check environment variable (for testing)
-      return process.env.BROWSEROS_EVAL_MODE === 'true'
+      (window as any).__BROWSEROS_TELEMETRY_ENABLED = isEnabled;
     }
+    
+    return isEnabled;
   }
   
   /**
@@ -111,9 +122,19 @@ export class BraintrustEventCollector {
       const apiKey = this._getApiKey()
       
       if (!apiKey) {
-        Logging.log('BraintrustEventCollector', 'No API key found, disabling', 'warning')
-        this.enabled = false
-        return
+        // Only show warning if telemetry was supposed to be enabled
+        if (ENABLE_TELEMETRY) {
+          console.warn('%c⚠️ Telemetry enabled but no API key set. Add BRAINTRUST_API_KEY in config.ts', 'color: #ff9900; font-size: 11px');
+        }
+        this.enabled = false;
+        return;
+      }
+      
+      // Lazy load braintrust module only when we have an API key
+      if (!initLogger || !wrapOpenAI) {
+        const braintrust = require('braintrust');
+        initLogger = braintrust.initLogger;
+        wrapOpenAI = braintrust.wrapOpenAI;
       }
       
       // Create Braintrust logger instance (not Experiment)
@@ -127,30 +148,27 @@ export class BraintrustEventCollector {
       // Wrap OpenAI client for automatic LLM telemetry
       const openaiKey = this._getOpenAIKey()
       if (openaiKey) {
+        if (!OpenAI) {
+          OpenAI = require('openai').default;
+        }
         this.openai = wrapOpenAI(new OpenAI({ apiKey: openaiKey }))
       }
       
-      Logging.log('BraintrustEventCollector', 'Successfully initialized with logger', 'info')
+      // Telemetry initialized successfully
+      console.log('%c✓ Telemetry ready (API key found)', 'color: #00ff00; font-size: 10px');
     } catch (error) {
-      Logging.log('BraintrustEventCollector', `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`, 'error')
-      this.enabled = false
+      // Silently disable on initialization failure
+      this.enabled = false;
     }
   }
   
   /**
-   * Retrieves Braintrust API key from secure storage
-   * In production, should route through background script to avoid exposing keys
+   * Retrieves Braintrust API key from config
    */
   private _getApiKey(): string | null {
-    // TODO: In production, use SecureAPIKeyHandler to route through background script
-    if (typeof window !== 'undefined') {
-      // Browser: Currently using sessionStorage (temporary)
-      // Production should use chrome.storage.local via background script
-      return sessionStorage.getItem('BRAINTRUST_API_KEY') || null
-    } else {
-      // Node.js: Use environment variable
-      return process.env.BRAINTRUST_API_KEY || null
-    }
+    // Use API key from config file
+    // Return null if empty string or not set
+    return BRAINTRUST_API_KEY && BRAINTRUST_API_KEY.trim() ? BRAINTRUST_API_KEY : null
   }
   
   /**
@@ -158,11 +176,8 @@ export class BraintrustEventCollector {
    * Only needed if you want automatic LLM call telemetry
    */
   private _getOpenAIKey(): string | null {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('OPENAI_API_KEY') || null
-    } else {
-      return process.env.OPENAI_API_KEY || null
-    }
+    // OpenAI key still comes from environment (via webpack)
+    return (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY) || null
   }
   
   /**
@@ -178,8 +193,10 @@ export class BraintrustEventCollector {
   
   /**
    * Check if event collection is currently active
+   * This now checks and initializes lazily
    */
   isEnabled(): boolean {
+    this._ensureInitialized();
     return this.enabled
   }
   
@@ -201,6 +218,7 @@ export class BraintrustEventCollector {
    * @returns Parent span ID to pass to child events
    */
   async startSession(metadata: SessionMetadata): Promise<{ parent?: string }> {
+    this._ensureInitialized();
     if (!this.enabled || !this.logger) return { parent: undefined }
     
     // Apply sampling rate without affecting global enabled state
@@ -208,6 +226,8 @@ export class BraintrustEventCollector {
     if (Math.random() > this.sampleRate) {
       return { parent: undefined }
     }
+    
+    console.log('%c→ Telemetry: Starting session', 'color: #888; font-size: 11px');
     
     try {
       // Validate metadata against schema
@@ -246,7 +266,11 @@ export class BraintrustEventCollector {
    * @param options.name - Override event name for better trace readability
    */
   async logEvent(event: BraintrustEvent, options: { parent?: string; name?: string } = {}): Promise<void> {
+    this._ensureInitialized();
     if (!this.enabled || !this.logger) return
+    
+    // Log event type in a compact format
+    console.log(`%c→ ${event.type}`, 'color: #888; font-size: 10px');
     
     try {
       // Validate and add timestamp
@@ -265,7 +289,7 @@ export class BraintrustEventCollector {
       })
     } catch (error) {
       // Silent failure prevents eval errors from breaking agent execution
-      if (process.env.NODE_ENV === 'development') {
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
         console.debug('Failed to log event:', error)
       }
     }
@@ -287,7 +311,10 @@ export class BraintrustEventCollector {
     toolsUsed?: string[]   // Which tools were invoked
     duration_ms?: number   // Total execution time
   }): Promise<void> {
+    this._ensureInitialized();
     if (!this.enabled || !this.logger) return
+    
+    console.log('%c← Telemetry: Session complete', 'color: #888; font-size: 11px');
     
     try {
       // Log final span with results
@@ -309,6 +336,7 @@ export class BraintrustEventCollector {
       
       // Force flush to ensure data is sent
       await this.logger.flush()
+      console.log('%c✓ Telemetry data sent', 'color: #888; font-size: 10px');
     } catch (error) {
       Logging.log('BraintrustEventCollector', `Failed to end session: ${error instanceof Error ? error.message : String(error)}`, 'error')
     }
@@ -319,6 +347,7 @@ export class BraintrustEventCollector {
    * Usually not needed as SDK auto-batches, but useful before shutdown
    */
   async flush(): Promise<void> {
+    this._ensureInitialized();
     if (!this.enabled || !this.logger) return
     await this.logger.flush()
   }

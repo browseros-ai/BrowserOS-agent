@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import BrowserContext from '../browser/BrowserContext'
+import BrowserContext from '@/lib/browser/BrowserContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
 import { EventBus, EventProcessor } from '@/lib/events'
 import { getLLM as getLLMFromProvider } from '@/lib/llm/LangChainProvider'
@@ -16,7 +16,7 @@ export const ExecutionContextOptionsSchema = z.object({
   eventBus: z.instanceof(EventBus).optional(),  // Event bus for streaming updates
   eventProcessor: z.instanceof(EventProcessor).optional(),  // Event processor for high-level events
   todoStore: z.instanceof(TodoStore).optional()  // TODO store for complex task management
-})
+}).passthrough()  // Allow extra properties to be passed (like abortController from tests)
 
 export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
 
@@ -32,13 +32,15 @@ export class ExecutionContext {
   eventProcessor: EventProcessor | null = null  // Event processor for high-level events
   selectedTabIds: number[] | null = null  // Selected tab IDs
   todoStore: TodoStore  // TODO store for complex task management
+  telemetry: any | null = null  // Telemetry integration for online evaluation (typed as any to avoid circular deps)
+  parentSpanId: string | null = null  // Parent span ID for telemetry tracing
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
 
   constructor(options: ExecutionContextOptions) {
-    // Validate options at runtime
+    // Validate options at runtime with proper type checking
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
     
     // Create our own AbortController - single source of truth

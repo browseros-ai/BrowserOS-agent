@@ -44,6 +44,7 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
 import { MessageManager } from '@/lib/runtime/MessageManager';
 import { ToolManager } from '@/lib/tools/ToolManager';
+import { DynamicStructuredTool } from '@langchain/core/tools';
 import { createPlannerTool } from '@/lib/tools/planning/PlannerTool';
 import { createTodoManagerTool } from '@/lib/tools/planning/TodoManagerTool';
 import { createDoneTool } from '@/lib/tools/utils/DoneTool';
@@ -68,6 +69,8 @@ import { AbortError } from '@/lib/utils/Abortable';
 import { formatToolOutput } from '@/lib/tools/formatToolOutput';
 import { formatTodoList } from '@/lib/tools/utils/formatTodoList';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
+// Import telemetry wrapper statically so webpack includes it
+import { createTrackedTool } from '@/evals/online/createTrackedTool';
 
 // Type Definitions
 interface Plan {
@@ -110,12 +113,13 @@ export class BrowserAgent {
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
+  private toolsRegistered = false;  // Track if tools have been registered
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    this._registerTools();
+    // Tools will be registered lazily on first execute() call
   }
 
   // Getters to access context components
@@ -142,12 +146,42 @@ export class BrowserAgent {
    * Orchestrates classification and delegates to the appropriate execution strategy.
    */
   async execute(task: string): Promise<void> {
+    // Lazy tool registration - register tools on first execution
+    // This ensures telemetry is ready if it's going to be enabled
+    if (!this.toolsRegistered) {
+      this._registerTools();
+      this.toolsRegistered = true;
+      
+      // Log if telemetry is active
+      if (this.executionContext.telemetry?.isEnabled()) {
+        console.log('%c→ Tools registered with telemetry tracking', 'color: #888; font-size: 10px');
+      }
+    }
+    
     try {
       // 1. SETUP: Initialize system prompt and user task
       this._initializeExecution(task);
 
       // 2. CLASSIFY: Determine the task type
       const classification = await this._classifyTask(task);
+      
+      // Track classification decision with telemetry
+      if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
+        await this.executionContext.telemetry.logEvent({
+          type: 'decision_point' as any,
+          name: 'task_classification',
+          data: {
+            task,
+            classification: classification.is_simple_task ? 'simple' : 'complex',
+            is_followup: classification.is_followup_task
+          }
+        }, {
+          parent: this.executionContext.parentSpanId,
+          name: 'task_classification'
+        });
+        
+        console.log(`%c→ Classification: ${classification.is_simple_task ? 'simple' : 'complex'}`, 'color: #888; font-size: 10px');
+      }
       
       // Clear message history if this is not a follow-up task
       if (!classification.is_followup_task) {
@@ -176,6 +210,8 @@ export class BrowserAgent {
 
       // 4. FINALISE: Generate final result
       await this._generateTaskResult(task);
+      
+      // Task completion is logged by NxtScape, not here
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       
@@ -187,6 +223,8 @@ export class BrowserAgent {
       if (!isUserCancellation) {
         this.eventEmitter.error(`Oops! Got a fatal error when executing task: ${errorMessage}`, true);  // Mark as fatal error
       }
+      
+      // Task errors are logged by NxtScape, not here
       
       throw error;
     } finally {
@@ -216,37 +254,47 @@ export class BrowserAgent {
   }
 
   private _registerTools(): void {
-    // Register all tools first
-    this.toolManager.register(createPlannerTool(this.executionContext));
-    this.toolManager.register(createTodoManagerTool(this.executionContext));
-    this.toolManager.register(createDoneTool());
+    // Register tools with telemetry tracking if enabled
+    // Called lazily on first execute() to ensure telemetry is ready
+    const registerTool = (tool: DynamicStructuredTool) => {
+      if (this.executionContext.telemetry?.isEnabled()) {
+        this.toolManager.register(createTrackedTool(tool, this.executionContext));
+      } else {
+        this.toolManager.register(tool);
+      }
+    };
+
+    // Register all tools with automatic telemetry tracking
+    registerTool(createPlannerTool(this.executionContext));
+    registerTool(createTodoManagerTool(this.executionContext));
+    registerTool(createDoneTool());
     
     // Navigation tools
-    this.toolManager.register(createNavigationTool(this.executionContext));
+    registerTool(createNavigationTool(this.executionContext));
     // Note: FindElementTool is no longer registered - InteractionTool now handles finding and interacting
-    this.toolManager.register(createInteractionTool(this.executionContext));
-    this.toolManager.register(createScrollTool(this.executionContext));
-    this.toolManager.register(createSearchTool(this.executionContext));
-    this.toolManager.register(createRefreshStateTool(this.executionContext));
+    registerTool(createInteractionTool(this.executionContext));
+    registerTool(createScrollTool(this.executionContext));
+    registerTool(createSearchTool(this.executionContext));
+    registerTool(createRefreshStateTool(this.executionContext));
     
     // Tab tools
-    this.toolManager.register(createTabOperationsTool(this.executionContext));
-    this.toolManager.register(createGroupTabsTool(this.executionContext));
-    this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
+    registerTool(createTabOperationsTool(this.executionContext));
+    registerTool(createGroupTabsTool(this.executionContext));
+    registerTool(createGetSelectedTabsTool(this.executionContext));
     
     // Validation tool
-    this.toolManager.register(createValidatorTool(this.executionContext));
+    registerTool(createValidatorTool(this.executionContext));
 
     // util tools
-    this.toolManager.register(createScreenshotTool(this.executionContext));
-    this.toolManager.register(createExtractTool(this.executionContext));
+    registerTool(createScreenshotTool(this.executionContext));
+    registerTool(createExtractTool(this.executionContext));
     
     // Result tool
-    this.toolManager.register(createResultTool(this.executionContext));
+    registerTool(createResultTool(this.executionContext));
     
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
-    this.toolManager.register(createClassificationTool(this.executionContext, toolDescriptions));
+    registerTool(createClassificationTool(this.executionContext, toolDescriptions));
   }
 
   private async _classifyTask(task: string): Promise<ClassificationResult> {
@@ -459,6 +507,24 @@ export class BrowserAgent {
         continue;
       }
 
+      // Track tool selection decision (execution is tracked by the tool itself)
+      if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
+        await this.executionContext.telemetry.logEvent({
+          type: 'decision_point' as any,
+          name: 'tool_selection',
+          data: {
+            toolName,
+            args,
+            context: {
+              messageCount: this.messageManager.getMessages().length
+            }
+          }
+        }, {
+          parent: this.executionContext.parentSpanId,
+          name: 'tool_selection'
+        });
+      }
+
       // Handle glow animation for applicable tools
       // This enables glow only for certain interactive tools.
       // we'll disable at the end of agent execution
@@ -523,13 +589,35 @@ export class BrowserAgent {
       max_steps: BrowserAgent.MAX_STEPS_FOR_COMPLEX_TASKS
     };
 
+    const startTime = performance.now();
     this.eventEmitter.toolStart('planner_tool', args);
     const result = await plannerTool.func(args);
     const parsedResult = JSON.parse(result);
+    const duration = performance.now() - startTime;
     
     // Format the planner output
     const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
     this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
+
+    // Track plan generation with telemetry
+    if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
+      const plan = parsedResult.ok ? parsedResult.output : { steps: [] };
+      await this.executionContext.telemetry.logEvent({
+        type: 'decision_point' as any,
+        name: 'plan_generation',
+        data: {
+          task,
+          planSteps: plan.steps?.length || 0,
+          plan: plan.steps?.map((step: any) => ({ tool: step.tool, instruction: step.instruction })),
+          duration_ms: duration
+        }
+      }, {
+        parent: this.executionContext.parentSpanId,
+        name: 'plan_generation'
+      });
+      
+      console.log(`%c→ Plan: ${plan.steps?.length || 0} steps (${duration.toFixed(0)}ms)`, 'color: #888; font-size: 10px');
+    }
 
     if (parsedResult.ok && parsedResult.output?.steps) {
       return { steps: parsedResult.output.steps };
@@ -648,5 +736,33 @@ export class BrowserAgent {
       this.eventEmitter.debug(`Could not manage glow for tool ${toolName}: ${error}`);
       return false;
     }
+  }
+
+  // Helper methods for telemetry
+  private async _getTabCount(): Promise<number> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        const tabs = await chrome.tabs.query({});
+        return tabs.length;
+      }
+    } catch {
+      // Ignore errors
+    }
+    return 0;
+  }
+
+  private async _getCurrentUrl(): Promise<string | undefined> {
+    try {
+      // Get current tab URL if available
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs.length > 0) {
+          return tabs[0].url;
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+    return undefined;
   }
 }
