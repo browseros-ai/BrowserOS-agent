@@ -4,9 +4,10 @@ import { ExpandableSection } from './shared/ExpandableSection'
 import { cn } from '@/sidepanel/lib/utils'
 import type { Message } from '../stores/chatStore'
 import { useChatStore } from '../stores/chatStore'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { TaskManagerDropdown } from './TaskManagerDropdown'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
+import { useCopyToClipboard } from '@/sidepanel/hooks/useCopyToClipboard'
 
 interface MessageItemProps {
   message: Message
@@ -325,6 +326,7 @@ const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInli
 export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true }: MessageItemProps) {
   const { autoCollapseTools } = useSettingsStore()
   const messages = useChatStore(state => state.messages)
+  const { copyToClipboard, isCopied } = useCopyToClipboard()
   
   // Check if this is the latest thinking message (for shimmer effect)
   const isLatestThinking = useMemo(() => {
@@ -339,6 +341,13 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
     const lastMessage = messages[messages.length - 1]
     return lastMessage?.msgId === message.msgId
   }, [message.role, message.msgId, messages])
+  
+  // Handle copy action for assistant messages
+  const handleCopyMessage = useCallback(async () => {
+    if (message.role === 'assistant') {
+      await copyToClipboard(message.content)
+    }
+  }, [message.role, message.content, copyToClipboard])
   
   // Simple role checks
   const isUser = message.role === 'user'
@@ -555,7 +564,7 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
       ) : (
         // Non-bubble messages (thinking, assistant, error)
         <div className={cn(
-          'mr-4 max-w-[85%]',
+          'mr-4 max-w-[85%] relative group',
           'mt-1',
           // Add subtle styling for indented messages
           shouldIndent && 'opacity-90',
@@ -565,6 +574,28 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           <div className="text-sm">
             {renderContent()}
           </div>
+          
+          {/* Copy button for assistant messages */}
+          {message.role === 'assistant' && (
+            <button
+              onClick={handleCopyMessage}
+              className={cn(
+                'absolute top-1 right-1 p-1.5 rounded-md transition-all duration-200',
+                'opacity-0 group-hover:opacity-100',
+                'hover:bg-muted/80 active:bg-muted',
+                'text-muted-foreground hover:text-foreground',
+                'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand/20'
+              )}
+              title={isCopied ? 'Copied!' : 'Copy response'}
+              aria-label={isCopied ? 'Copied to clipboard' : 'Copy response to clipboard'}
+            >
+              {isCopied ? (
+                <Check className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>
