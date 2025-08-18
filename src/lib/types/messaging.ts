@@ -28,7 +28,9 @@ export enum MessageType {
   INTENT_BUBBLE_CLICKED = 'INTENT_BUBBLE_CLICKED',
   GLOW_START = 'GLOW_START',
   GLOW_STOP = 'GLOW_STOP',
-  EXECUTE_QUERY_FROM_NEWTAB = 'EXECUTE_QUERY_FROM_NEWTAB'
+  EXECUTE_QUERY_FROM_NEWTAB = 'EXECUTE_QUERY_FROM_NEWTAB',
+  MCP_INSTALL_SERVER = 'MCP_INSTALL_SERVER',
+  MCP_SERVER_STATUS = 'MCP_SERVER_STATUS'
 }
 
 // Create a zod enum for MessageType
@@ -150,7 +152,8 @@ export const ExecuteQueryMessageSchema = MessageSchema.extend({
   payload: z.object({
     query: z.string(),
     tabIds: z.array(z.number()).optional(),  // Selected tab IDs for context
-    source: z.string().optional()  // Source of the query (e.g., 'sidepanel')
+    source: z.string().optional(),  // Source of the query (e.g., 'sidepanel')
+    chatMode: z.boolean().optional()  // Whether to use ChatAgent (Q&A mode) instead of BrowserAgent
   })
 })
 

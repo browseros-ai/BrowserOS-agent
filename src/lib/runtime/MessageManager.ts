@@ -6,6 +6,8 @@ import {
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
+import { TokenCounter } from "@/lib/utils/TokenCounter";
+import { Logging } from "@/lib/utils/Logging";
 
 // Message type enum
 export enum MessageType {
@@ -16,15 +18,11 @@ export enum MessageType {
   BROWSER_STATE = 'browser_state'
 }
 
-// Constants for token approximation
-const CHARS_PER_TOKEN = 4;
-const TOKENS_PER_MESSAGE = 3;
-
 // Create a new custom message type for browser state by extending LangChain's AIMessage.
 // The langchain messages have messageType which can be set set to a custom value.
 export class BrowserStateMessage extends AIMessage {
   constructor(content: string) {
-    super(`<system-context>${content}</system-context>`);
+    super(`<BrowserState>${content}</BrowserState>`);
     this.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
   }
 }
@@ -38,76 +36,212 @@ export class MessageManagerReadOnly {
     return this.messageManager.getMessages();
   }
 
+  // Get messages filtered by excluding specific types
+  getFiltered(excludeTypes: MessageType[] = []): BaseMessage[] {
+    if (excludeTypes.length === 0) {
+      return this.getAll();
+    }
+    
+    return this.getAll().filter(message => {
+      const messageType = this.messageManager._getMessageType(message);
+      return !excludeTypes.includes(messageType);
+    });
+  }
+
+  // Get filtered messages as formatted string (useful for history)
+  getFilteredAsString(
+    excludeTypes: MessageType[] = [],
+    separator: string = '\n'
+  ): string {
+    const messages = this.getFiltered(excludeTypes);
+    return messages
+      .map(m => `${m._getType()}: ${m.content}`)
+      .join(separator);
+  }
+
   getRecentBrowserState(): string | null {
     const messages = this.messageManager.getMessages();
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i] instanceof BrowserStateMessage) {
-        return messages[i].content as string;
+        const content = messages[i].content;
+        // Extract content from BrowserState tags if needed
+        if (typeof content === 'string' && content.includes('<BrowserState>')) {
+          return content.match(/<BrowserState>(.*?)<\/BrowserState>/s)?.[1] || content;
+        }
+        return content as string;
       }
     }
     return null;
   }
 }
 
+// Entry structure: message + cached token count
+interface MessageEntry {
+  message: BaseMessage;  // The actual message
+  tokens: number;  // Cached token count for this message
+}
+
 export class MessageManager {
-  private messages: BaseMessage[] = [];
+  private entries: MessageEntry[] = [];
+  private totalTokens: number = 0;
   private maxTokens: number;
   
   constructor(maxTokens = 8192) {
     this.maxTokens = maxTokens;
   }
 
-  // Add message and auto-trim if needed
-  add(message: BaseMessage): void {
-    this.messages.push(message);
-    this._trimIfNeeded();
+  // Centralized add method with message type handling
+  add(message: BaseMessage, position?: number): void {
+    const messageType = this._getMessageType(message);
+    
+    // Special handling (like removing existing messages) based on message type
+    switch (messageType) {
+      case MessageType.SYSTEM:
+        // Remove existing system messages first
+        this.removeSystemMessages();
+        break;
+        
+      case MessageType.BROWSER_STATE:
+        // Only one browser state at a time
+        this.removeMessagesByType(MessageType.BROWSER_STATE);
+        break;
+    }
+    
+    // Calculate tokens once using TokenCounter utility
+    const tokens = TokenCounter.countMessage(message);
+    
+    this._ensureSpace(tokens);
+    
+    // Add entry at position or end
+    const entry = { message, tokens };
+    // If position is provided, insert at that position
+    if (position !== undefined) {
+      this.entries.splice(position, 0, entry);
+    } else {
+      this.entries.push(entry);
+    }
+    
+    // Update total
+    this.totalTokens += tokens;
+
+    Logging.log('MessageManager', `Total tokens in message manager: ${TokenCounter.format(this.totalTokens)}`, 'info');
   }
 
-  // Convenience methods
   addHuman(content: string): void {
     this.add(new HumanMessage(content));
-    this._trimIfNeeded();
   }
 
   addAI(content: string): void {
     this.add(new AIMessage(content));
-    this._trimIfNeeded();
   }
 
   addSystem(content: string, position?: number): void {
-    this.removeSystemMessages();
-    this.messages.splice(position ?? this.messages.length, 0, new SystemMessage(content));
-    this._trimIfNeeded();
+    this.add(new SystemMessage(content), position);
   }
 
   addBrowserState(content: string): void {
-    // Remove existing browser state messages before adding new one
-    this.removeMessagesByType(MessageType.BROWSER_STATE);
     this.add(new BrowserStateMessage(content));
-    this._trimIfNeeded();
   }
-
 
   addTool(content: string, toolCallId: string): void {
     this.add(new ToolMessage(content, toolCallId));
-    this._trimIfNeeded();
   }
 
   addSystemReminder(content: string): void {
-    // Add system message with system-reminder tags
     // For Anthropic, you can't have SystemMessage after first message
-    this.add(new AIMessage(`<system-reminder>${content}</system-reminder>`));
-    this._trimIfNeeded();
+    // So we wrap it in an AIMessage
+    this.add(new AIMessage(`<SystemReminder>${content}</SystemReminder>`));
   }
 
-  // Get messages - applies trimming to ensure we never exceed token limit
+  // Get messages array
   getMessages(): BaseMessage[] {
-    this._trimIfNeeded();
-    return [...this.messages];
+    return this.entries.map(e => e.message);
   }
 
-  // Get message type
-  private _getMessageType(message: BaseMessage): MessageType {
+  // Get current token count - O(1)
+  getTokenCount(): number {
+    return this.totalTokens;
+  }
+
+  // Get remaining tokens
+  remaining(): number {
+    return Math.max(0, this.maxTokens - this.getTokenCount());
+  }
+
+  // Get current max tokens limit
+  getMaxTokens(): number {
+    return this.maxTokens;
+  }
+
+  // Update max tokens limit and trim if needed
+  setMaxTokens(newMaxTokens: number): void {
+    const oldMaxTokens = this.maxTokens;
+    this.maxTokens = newMaxTokens;
+    
+    // If new limit is lower, trim messages to fit
+    if (newMaxTokens < oldMaxTokens) {
+      // Remove messages until we fit within new limit
+      while (this.totalTokens > this.maxTokens && this.entries.length > 0) {
+        const removed = this._removeLowestPriority();
+        if (!removed) break;
+      }
+    }
+  }
+
+  // Fork the message manager with optional history
+  fork(includeHistory: boolean = true): MessageManager {
+    const newMM = new MessageManager(this.maxTokens);
+    if (includeHistory) {
+      // Deep copy entries
+      newMM.entries = this.entries.map(e => ({ 
+        message: e.message, 
+        tokens: e.tokens 
+      }));
+      newMM.totalTokens = this.totalTokens;
+    }
+    return newMM;
+  }
+
+    // Remove messages by type
+  removeMessagesByType(type: MessageType): void {
+    // Filter out messages of the specified type and update tokens
+    const newEntries: MessageEntry[] = [];
+    let removedTokens = 0;
+    
+    for (const entry of this.entries) {
+      if (this._getMessageType(entry.message) !== type) {
+        newEntries.push(entry);
+      } else {
+        removedTokens += entry.tokens;
+      }
+    }
+    
+    this.entries = newEntries;
+    this.totalTokens -= removedTokens;
+  }
+
+  removeSystemMessages(): void {
+    this.removeMessagesByType(MessageType.SYSTEM);
+  }
+    
+  // Remove last message
+  removeLast(): boolean {
+    const removed = this.entries.pop();
+    if (removed) {
+      this.totalTokens -= removed.tokens;
+      return true;
+    }
+    return false;
+  }
+
+  // Clear all messages but preserve maxTokens
+  clear(): void {
+    this.entries = [];
+    this.totalTokens = 0;
+  }
+
+  // Get message type (public for MessageManagerReadOnly access)
+  _getMessageType(message: BaseMessage): MessageType {
     if (message.additional_kwargs?.messageType === MessageType.BROWSER_STATE) {
       return MessageType.BROWSER_STATE;
     }
@@ -118,88 +252,57 @@ export class MessageManager {
     return MessageType.AI;
   }
 
-  // Remove messages by type
-  removeMessagesByType(type: MessageType): void {
-    this.messages = this.messages.filter(msg => this._getMessageType(msg) !== type);
+  // Calculate tokens for a single message
+  private _getTokensForMessage(message: BaseMessage): number {
+    // Delegate to TokenCounter utility
+    return TokenCounter.countMessage(message);
   }
 
-  // Get current token count - simple approximation
-  getTokenCount(): number {
-    if (this.messages.length === 0) return 0;
+  // Ensure we have space for new tokens
+  private _ensureSpace(needed: number): void {
+    while (this.totalTokens + needed > this.maxTokens && this.entries.length > 0) {
+      const removed = this._removeLowestPriority();
+      if (!removed) break;  // Nothing left to remove
+    }
+  }
+
+  // Remove lowest priority message
+  private _removeLowestPriority(): boolean {
+    // Priority tiers (lower number = remove first)
+    // TOOL < AI < HUMAN < old BROWSER_STATE < SYSTEM
+    const priorities: Record<MessageType, number> = {
+      [MessageType.TOOL]: 0,
+      [MessageType.AI]: 1, 
+      [MessageType.HUMAN]: 2,
+      [MessageType.BROWSER_STATE]: 3,
+      [MessageType.SYSTEM]: 4
+    };
     
-    let totalTokens = 0;
+    // Keep last 3 messages for context continuity
+    const keepRecent = 3;
+    const removableCount = Math.max(0, this.entries.length - keepRecent);
     
-    for (const msg of this.messages) {
-      // Add per-message overhead
-      totalTokens += TOKENS_PER_MESSAGE;
+    if (removableCount === 0) return false;
+    
+    // Find lowest priority message in removable range
+    let lowestIdx = -1;
+    let lowestPriority = Infinity;
+    
+    for (let i = 0; i < removableCount; i++) {
+      const type = this._getMessageType(this.entries[i].message);
+      const priority = priorities[type] ?? 1;
       
-      // Count content tokens
-      if (typeof msg.content === 'string') {
-        totalTokens += Math.ceil(msg.content.length / CHARS_PER_TOKEN);
-      } else if (msg.content) {
-        // For complex content (arrays, objects), stringify and count
-        const contentStr = JSON.stringify(msg.content);
-        totalTokens += Math.ceil(contentStr.length / CHARS_PER_TOKEN);
-      }
-      
-      // Count additional fields for AI messages (tool calls)
-      if (msg instanceof AIMessage && msg.tool_calls) {
-        const toolCallsStr = JSON.stringify(msg.tool_calls);
-        totalTokens += Math.ceil(toolCallsStr.length / CHARS_PER_TOKEN);
-      }
-      
-      // Count tool message IDs
-      if (msg instanceof ToolMessage && msg.tool_call_id) {
-        totalTokens += Math.ceil(msg.tool_call_id.length / CHARS_PER_TOKEN);
+      if (priority < lowestPriority) {
+        lowestPriority = priority;
+        lowestIdx = i;
       }
     }
     
-    return totalTokens;
-  }
-
-  // Get remaining tokens
-  remaining(): number {
-    return Math.max(0, this.maxTokens - this.getTokenCount());
-  }
-
-  // Clear all
-  clear(): void {
-    this.messages = [];
-  }
-
-  // Remove last message
-  removeLast(): boolean {
-    return this.messages.pop() !== undefined;
-  }
-
-  removeSystemMessages(): void {
-    this.removeMessagesByType(MessageType.SYSTEM);
-  }
-
-  // Fork the message manager with optional history
-  fork(includeHistory: boolean = true): MessageManager {
-    const newMM = new MessageManager(this.maxTokens);
-    if (includeHistory) {
-      newMM.messages = [...this.messages];
-    }
-    return newMM;
-  }
-
-  // Private: Auto-trim to fit token budget
-  private _trimIfNeeded(): void {
-    // Simple trimming by removing oldest non-system and non-browser-state messages
-    while (this.getTokenCount() > this.maxTokens && this.messages.length > 1) {
-      const indexToRemove = this.messages.findIndex(msg => {
-        const type = this._getMessageType(msg);
-        return type !== MessageType.SYSTEM;
-      });
-      
-      if (indexToRemove !== -1) {
-        this.messages.splice(indexToRemove, 1);
-      } else {
-        // All remaining messages are system/browser state messages, remove the oldest one
-        this.messages.shift();
-      }
-    }
+    if (lowestIdx === -1) return false;
+    
+    // Remove the message and update total
+    const removed = this.entries.splice(lowestIdx, 1)[0];
+    this.totalTokens -= removed.tokens;
+    return true;
   }
 }

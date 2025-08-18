@@ -3,7 +3,7 @@ import { BrowserAgent } from './BrowserAgent'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
-import { EventBus, EventProcessor } from '@/lib/events'
+import { PubSub } from '@/lib/pubsub'
 
 // ===================================================================
 //  Unit Tests
@@ -14,16 +14,14 @@ describe('BrowserAgent-unit-test', () => {
     const messageManager = new MessageManager()
     const browserContext = new BrowserContext()
     const abortController = new AbortController()
-    const eventBus = new EventBus()
-    const eventProcessor = new EventProcessor(eventBus)
+    const pubsub = new PubSub()
     
     const executionContext = new ExecutionContext({
       browserContext,
       messageManager,
       abortController,
       debugMode: false,
-      eventBus,
-      eventProcessor
+      pubsub
     })
     
     const browserAgent = new BrowserAgent(executionContext)
@@ -40,22 +38,20 @@ describe('BrowserAgent-unit-test', () => {
     const messageManager = new MessageManager()
     const browserContext = new BrowserContext()
     const abortController = new AbortController()
-    const eventBus = new EventBus()
-    const eventProcessor = new EventProcessor(eventBus)
+    const pubsub = new PubSub()
     
     const executionContext = new ExecutionContext({
       browserContext,
       messageManager,
       abortController,
       debugMode: false,
-      eventBus,
-      eventProcessor
+      pubsub
     })
     
     const browserAgent = new BrowserAgent(executionContext)
     
     // Spy on error event emission
-    const errorSpy = vi.spyOn(eventProcessor, 'error')
+    const errorSpy = vi.spyOn(console, 'error')
     
     // Make classification fail
     vi.spyOn(browserAgent as any, '_classifyTask')
@@ -73,16 +69,14 @@ describe('BrowserAgent-unit-test', () => {
     const messageManager = new MessageManager()
     const browserContext = new BrowserContext()
     const abortController = new AbortController()
-    const eventBus = new EventBus()
-    const eventProcessor = new EventProcessor(eventBus)
+    const pubsub = new PubSub()
     
     const executionContext = new ExecutionContext({
       browserContext,
       messageManager,
       abortController,
       debugMode: false,
-      eventBus,
-      eventProcessor
+      pubsub
     })
     
     const browserAgent = new BrowserAgent(executionContext)
@@ -131,15 +125,13 @@ describe('BrowserAgent-integration-test', () => {
       const browserContext = new BrowserContext()
       const abortController = new AbortController()
       const eventBus = new EventBus()
-      const eventProcessor = new EventProcessor(eventBus)
       
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus,
-        eventProcessor
+        pubsub
       })
       
       const browserAgent = new BrowserAgent(executionContext)
@@ -176,15 +168,13 @@ describe('BrowserAgent-integration-test', () => {
       const browserContext = new BrowserContext()
       const abortController = new AbortController()
       const eventBus = new EventBus()
-      const eventProcessor = new EventProcessor(eventBus)
       
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus,
-        eventProcessor
+        pubsub
       })
       
       const browserAgent = new BrowserAgent(executionContext)
@@ -222,15 +212,13 @@ describe('BrowserAgent-integration-test', () => {
       const browserContext = new BrowserContext()
       const abortController = new AbortController()
       const eventBus = new EventBus()
-      const eventProcessor = new EventProcessor(eventBus)
       
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus,
-        eventProcessor
+        pubsub
       })
       
       const browserAgent = new BrowserAgent(executionContext)
@@ -278,15 +266,13 @@ describe('BrowserAgent-integration-test', () => {
       const browserContext = new BrowserContext()
       const abortController = new AbortController()
       const eventBus = new EventBus()
-      const eventProcessor = new EventProcessor(eventBus)
       
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus,
-        eventProcessor
+        pubsub
       })
       
       const browserAgent = new BrowserAgent(executionContext)

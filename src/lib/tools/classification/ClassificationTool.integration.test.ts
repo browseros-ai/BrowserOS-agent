@@ -15,13 +15,11 @@ describe('ClassificationTool Integration Test', () => {
       // Setup
       const messageManager = new MessageManager()
       const browserContext = new BrowserContext()
-      const abortController = new AbortController()
       
       const eventBus = new EventBus()
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
-        abortController,
         debugMode: false,
         eventBus
       })

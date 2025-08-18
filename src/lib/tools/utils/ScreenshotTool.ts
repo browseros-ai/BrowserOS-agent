@@ -3,6 +3,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { Logging } from '@/lib/utils/Logging'
 import { toolSuccess, toolError } from '@/lib/tools/Tool.interface'
+import { PubSub } from '@/lib/pubsub'
 
 // Input schema for the screenshot tool
 const ScreenshotToolInputSchema = z.object({})  // No parameters needed
@@ -16,6 +17,9 @@ export function createScreenshotTool(executionContext: ExecutionContext): Dynami
     schema: ScreenshotToolInputSchema,
     func: async (args: ScreenshotToolInput): Promise<string> => {
       try {
+        // Emit status message
+        executionContext.getPubSub().publishMessage(PubSub.createMessage(`Capturing screenshot of current page`, 'thinking'))
+
         // Get the current page from execution context
         const page = await executionContext.browserContext.getCurrentPage()
         
@@ -36,13 +40,17 @@ export function createScreenshotTool(executionContext: ExecutionContext): Dynami
         
         Logging.log('ScreenshotTool', `Screenshot captured successfully (${base64Data.length} bytes)`, 'info')
         
+        
         // Return success with the base64 data in the output message
         return JSON.stringify(toolSuccess(`Screenshot captured successfully. Base64 data (${base64Data.length} bytes): ${base64Data}`))
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         Logging.log('ScreenshotTool', `Error capturing screenshot: ${errorMessage}`, 'error')
         
-        return JSON.stringify(toolError(`Failed to capture screenshot: ${errorMessage}`))
+        executionContext.getPubSub().publishMessage(
+          PubSub.createMessageWithId(PubSub.generateId('ToolError'), `Screenshot failed: ${errorMessage}`, 'error')
+        )
+        return JSON.stringify(toolError(errorMessage))  // Return raw error
       }
     }
   })

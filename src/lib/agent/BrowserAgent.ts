@@ -47,6 +47,7 @@ import { ToolManager } from '@/lib/tools/ToolManager';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { createPlannerTool } from '@/lib/tools/planning/PlannerTool';
 import { createTodoManagerTool } from '@/lib/tools/planning/TodoManagerTool';
+import { createRequirePlanningTool } from '@/lib/tools/planning/RequirePlanningTool';
 import { createDoneTool } from '@/lib/tools/utils/DoneTool';
 import { createNavigationTool } from '@/lib/tools/navigation/NavigationTool';
 import { createInteractionTool } from '@/lib/tools/navigation/InteractionTool';
@@ -63,14 +64,15 @@ import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
 import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
-import { EventProcessor } from '@/lib/events/EventProcessor';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { AbortError } from '@/lib/utils/Abortable';
-import { formatToolOutput } from '@/lib/tools/formatToolOutput';
-import { formatTodoList } from '@/lib/tools/utils/formatTodoList';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Import telemetry wrapper statically so webpack includes it
 import { createTrackedTool } from '@/evals/online/createTrackedTool';
+import { NarratorService } from '@/lib/services/NarratorService';
+import { PubSub } from '@/lib/pubsub'; // For static helper methods
+import { Subscription } from '@/lib/pubsub/types';
+import { Logging } from '@/lib/utils/Logging';
 
 // Type Definitions
 interface Plan {
@@ -85,6 +87,11 @@ interface PlanStep {
 interface ClassificationResult {
   is_simple_task: boolean;
   is_followup_task: boolean;
+}
+
+interface SingleTurnResult {
+  doneToolCalled: boolean;
+  requirePlanningCalled: boolean;
 }
 
 export class BrowserAgent {
@@ -114,12 +121,17 @@ export class BrowserAgent {
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
   private toolsRegistered = false;  // Track if tools have been registered
+  private narrator?: NarratorService;  // Narrator service for human-friendly messages
+  private statusSubscription?: Subscription;  // Subscription to execution status events
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    // Tools will be registered lazily on first execute() call
+    this.narrator = new NarratorService(executionContext);
+    
+    this._registerTools();
+    this._subscribeToExecutionStatus();
   }
 
   // Getters to access context components
@@ -127,8 +139,8 @@ export class BrowserAgent {
     return this.executionContext.messageManager; 
   }
   
-  private get eventEmitter(): EventProcessor { 
-    return this.executionContext.getEventProcessor(); 
+  private get pubsub(): PubSub { 
+    return this.executionContext.getPubSub(); 
   }
 
   /**
@@ -139,6 +151,33 @@ export class BrowserAgent {
     if (this.executionContext.abortController.signal.aborted) {
       throw new AbortError();
     }
+  }
+
+  /**
+   * Subscribe to execution status events and handle cancellation
+   */
+  private _subscribeToExecutionStatus(): void {
+    this.statusSubscription = this.pubsub.subscribe((event) => {
+      if (event.type === 'execution-status') {
+        const { status } = event.payload;
+        
+        if (status === 'cancelled') {
+          this.pubsub.publishMessage(PubSub.createMessageWithId('pause_message_id','✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!', 'assistant'));
+          this.executionContext.cancelExecution(true);
+        }
+      }
+    });
+  }
+
+  /**
+   * Cleanup method to properly unsubscribe when agent is being destroyed
+   */
+  public cleanup(): void {
+    if (this.statusSubscription) {
+      this.statusSubscription.unsubscribe();
+      this.statusSubscription = undefined;
+    }
+    this.narrator?.cleanup();
   }
 
   /**
@@ -174,20 +213,18 @@ export class BrowserAgent {
       // Clear message history if this is not a follow-up task
       if (!classification.is_followup_task) {
         this.messageManager.clear();
-        // Re-add system prompt and user task after clearing
         this._initializeExecution(task);
       }
       
       let message: string;
-      if (classification.is_followup_task) {
-        message = 'Following up on the previous task...';
+      if (classification.is_followup_task && this.messageManager.getMessages().length > 0) {
+        message = 'Following up on previous task...';
       } else if (classification.is_simple_task) {
-        message = 'Executing the task...';
+        message = 'Executing your task...';
       } else {
-        message = 'Creating a step-by-step plan to complete the task';
+        message = 'Creating a plan to complete the task...';
       }
-      // Tag startup status messages for UI styling
-      this.eventEmitter.info(message, 'startup');
+      this.pubsub.publishMessage(PubSub.createMessage(message, 'narration'));
 
       // 3. DELEGATE: Route to the correct execution strategy
       if (classification.is_simple_task) {
@@ -201,15 +238,15 @@ export class BrowserAgent {
       
       // Task completion is logged by NxtScape, not here
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      this._handleExecutionError(error, task);
+    } finally {
+      // Cleanup narrator service
+      this.narrator?.cleanup();
       
-      // Check if this is a user cancellation
-      const isUserCancellation = error instanceof AbortError || 
-                                 this.executionContext.isUserCancellation() || 
-                                 (error instanceof Error && error.name === "AbortError");
-      
-      if (!isUserCancellation) {
-        this.eventEmitter.error(`Oops! Got a fatal error when executing task: ${errorMessage}`, true);  // Mark as fatal error
+      // Cleanup status subscription
+      if (this.statusSubscription) {
+        this.statusSubscription.unsubscribe();
+        this.statusSubscription = undefined;
       }
       
       // Task errors are logged by NxtScape, not here
@@ -224,7 +261,7 @@ export class BrowserAgent {
           await this.glowService.stopGlow(tabId);
         }
       } catch (error) {
-        this.eventEmitter.debug(`Could not stop glow animation: ${error}`);
+        console.error(`Could not stop glow animation: ${error}`);
       }
     }
   }
@@ -280,14 +317,15 @@ export class BrowserAgent {
     // Result tool
     registerTool(createResultTool(this.executionContext));
     
+    // MCP tool for external integrations
+    // this.toolManager.register(createMCPTool(this.executionContext));
+    
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
     registerTool(createClassificationTool(this.executionContext, toolDescriptions));
   }
 
   private async _classifyTask(task: string): Promise<ClassificationResult> {
-    this.eventEmitter.info('Analyzing task complexity...');
-    
     const classificationTool = this.toolManager.get('classification_tool');
     if (!classificationTool) {
       // Default to complex task if classification tool not found
@@ -297,23 +335,20 @@ export class BrowserAgent {
     const args = { task };
     
     try {
-      this.eventEmitter.toolStart('classification_tool', args);
+      // Tool start notification not needed in new pub-sub system
       const result = await classificationTool.func(args);
       const parsedResult = JSON.parse(result);
       
       if (parsedResult.ok) {
         const classification = JSON.parse(parsedResult.output);
-        const classification_formatted_output = formatToolOutput('classification_tool', parsedResult);
-        this.eventEmitter.toolEnd('classification_tool', true, classification_formatted_output);
+        // Tool end notification not needed in new pub-sub system
         return { 
           is_simple_task: classification.is_simple_task,
           is_followup_task: classification.is_followup_task 
         };
       }
     } catch (error) {
-      const errorResult = { ok: false, error: 'Classification failed' };
-      const error_formatted_output = formatToolOutput('classification_tool', errorResult);
-      this.eventEmitter.toolEnd('classification_tool', false, error_formatted_output);
+      // Tool end notification not needed in new pub-sub system
     }
     
     // Default to complex task on any failure
@@ -324,19 +359,30 @@ export class BrowserAgent {
   //  Execution Strategy 1: Simple Tasks (No Planning)
   // ===================================================================
   private async _executeSimpleTaskStrategy(task: string): Promise<void> {
-    this.eventEmitter.debug(`Executing as a simple task. Max attempts: ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}`);
+    // Debug: Executing as a simple task
 
     for (let attempt = 1; attempt <= BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
       this.checkIfAborted();  // Manual check in loop
 
-      this.eventEmitter.debug(`Attempt ${attempt}/${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}: Executing task...`);
+      // Check for loop before continuing
+      if (this._detectLoop()) {
+        const loopMessage = 'Detected repetitive behavior. Breaking out of potential infinite loop.';
+        console.warn(loopMessage);
+        this.pubsub.publishMessage(PubSub.createMessage(loopMessage, 'error'));
+        return;
+      }
+
+      // Debug: Attempt ${attempt}/${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}
 
       const instruction = `The user's goal is: "${task}". Please take the next best action to complete this goal and call the 'done_tool' when finished.`;
-      const isTaskCompleted = await this._executeSingleTurn(instruction);
+      const turnResult = await this._executeSingleTurn(instruction);
 
-      if (isTaskCompleted) {
+      if (turnResult.doneToolCalled) {
         return;  // SUCCESS - task result will be generated in execute()
-      }      
+      }
+      
+      // Note: require_planning_tool doesn't make sense for simple tasks
+      // but if called, we could escalate to complex strategy      
     }
 
     throw new Error(`Task failed to complete after ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS} attempts.`);
@@ -346,7 +392,7 @@ export class BrowserAgent {
   //  Execution Strategy 2: Multi-Step Tasks (Plan -> Execute -> Repeat)
   // ===================================================================
   private async _executeMultiStepStrategy(task: string): Promise<void> {
-    this.eventEmitter.debug('Executing as a complex multi-step task');
+    // Debug: Executing as a complex multi-step task
     let outer_loop_index = 0;
 
     while (outer_loop_index < BrowserAgent.MAX_STEPS_OUTER_LOOP) {
@@ -354,32 +400,56 @@ export class BrowserAgent {
 
       // 1. PLAN: Create a new plan
       const plan = await this._createMultiStepPlan(task);
-      if (plan.steps.length === 0) {
-        throw new Error('Planning failed. Could not generate next steps.');
-      }
-      this.eventEmitter.debug('Plan created:', JSON.stringify(plan, null, 2));
 
       // 2. Convert plan to TODOs
       await this._updateTodosFromPlan(plan);
 
       // Show TODO list after plan creation
-      const todoStore = this.executionContext.todoStore;
-      this.eventEmitter.info(formatTodoList(todoStore.getJson()));
+      const todoTool = this.toolManager.get('todo_manager_tool');
+      let currentTodos = '';
+      if (todoTool) {
+        const result = await todoTool.func({ action: 'get' });
+        const parsedResult = JSON.parse(result);
+        currentTodos = parsedResult.output || '';
+        this.pubsub.publishMessage(PubSub.createMessage(currentTodos, 'thinking'));
+      }
 
       // 3. EXECUTE: Inner loop with one TODO per turn
       let inner_loop_index = 0;
       
-      while (inner_loop_index < BrowserAgent.MAX_STEPS_INNER_LOOP && !todoStore.isAllDoneOrSkipped()) {
+      // Continue while there are uncompleted tasks (- [ ]) in the markdown
+      while (inner_loop_index < BrowserAgent.MAX_STEPS_INNER_LOOP && currentTodos.includes('- [ ]')) {
         this.checkIfAborted();
+        
+        // Check for loop before continuing
+        if (this._detectLoop()) {
+          console.warn('Detected repetitive behavior. Breaking out of potential infinite loop.');
+          
+          // break out of loop
+          throw new Error("Agent is stuck, please restart your task.");
+        }
         
         // Use the generateTodoExecutionPrompt for TODO execution
         const instruction = generateSingleTurnExecutionPrompt(task);
         
-        const isTaskCompleted = await this._executeSingleTurn(instruction);
+        const turnResult = await this._executeSingleTurn(instruction);
         inner_loop_index++;
         
-        if (isTaskCompleted) {
-          break; // done_tool was called
+        if (turnResult.doneToolCalled) {
+          return; // Task fully complete - exit entire strategy
+        }
+        
+        if (turnResult.requirePlanningCalled) {
+          // Agent explicitly requested re-planning
+          console.log('Agent requested re-planning, breaking inner loop');
+          break; // Exit inner loop to trigger re-planning
+        }
+        
+        // Update currentTodos for the next iteration
+        if (todoTool) {
+          const result = await todoTool.func({ action: 'get' });
+          const parsedResult = JSON.parse(result);
+          currentTodos = parsedResult.output || '';
         }
       }
 
@@ -406,31 +476,35 @@ export class BrowserAgent {
   // ===================================================================
   /**
    * Executes a single "turn" with the LLM, including streaming and tool processing.
-   * @returns {Promise<boolean>} - True if the `done_tool` was successfully called.
+   * @returns {Promise<SingleTurnResult>} - Information about which tools were called
    */
-  private async _executeSingleTurn(instruction: string): Promise<boolean> {
+  private async _executeSingleTurn(instruction: string): Promise<SingleTurnResult> {
     this.messageManager.addHuman(instruction);
     
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
-    // console.log("LLM Response:", JSON.stringify(llmResponse, null, 4));
-    
 
-    let wasDoneToolCalled = false;
+    const result: SingleTurnResult = {
+      doneToolCalled: false,
+      requirePlanningCalled: false
+    };
+
     if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
       // IMPORTANT: We must add the full AIMessage object (not just a string) to maintain proper conversation history.
       // The AIMessage contains both content and tool_calls. LLMs like Google's API validate that function calls
       // in the conversation history match with their corresponding ToolMessage responses. If we only add a string
       // here, we lose the tool_calls information, causing "function calls don't match" errors.
       this.messageManager.add(llmResponse);
-      wasDoneToolCalled = await this._processToolCalls(llmResponse.tool_calls);
+      const toolsResult = await this._processToolCalls(llmResponse.tool_calls);
+      result.doneToolCalled = toolsResult.doneToolCalled;
+      result.requirePlanningCalled = toolsResult.requirePlanningCalled;
       
     } else if (llmResponse.content) {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
     }
 
-    return wasDoneToolCalled;
+    return result;
   }
 
   private async _invokeLLMWithStreaming(): Promise<AIMessage> {
@@ -449,6 +523,7 @@ export class BrowserAgent {
     let accumulatedChunk: AIMessageChunk | undefined;
     let accumulatedText = '';
     let hasStartedThinking = false;
+    let currentMsgId: string | null = null;
 
     for await (const chunk of stream) {
       this.checkIfAborted();  // Manual check during streaming
@@ -456,19 +531,27 @@ export class BrowserAgent {
       if (chunk.content && typeof chunk.content === 'string') {
         // Start thinking on first real content
         if (!hasStartedThinking) {
-          this.eventEmitter.startThinking();
+          // Start thinking - handled via streaming
           hasStartedThinking = true;
+          // Create message ID on first content chunk
+          currentMsgId = PubSub.generateId('msg_assistant');
         }
         
-        this.eventEmitter.streamThoughtDuringThinking(chunk.content);
+        // Stream thought chunk - will be handled via assistant message streaming
         accumulatedText += chunk.content;
+        
+        // Publish/update the message with accumulated content in real-time
+        if (currentMsgId) {
+          this.pubsub.publishMessage(PubSub.createMessageWithId(currentMsgId, accumulatedText, 'thinking'));
+        }
       }
       accumulatedChunk = !accumulatedChunk ? chunk : accumulatedChunk.concat(chunk);
     }
     
     // Only finish thinking if we started and have content
-    if (hasStartedThinking && accumulatedText.trim()) {
-      this.eventEmitter.finishThinking(accumulatedText);
+    if (hasStartedThinking && accumulatedText.trim() && currentMsgId) {
+      // Final publish with complete message (in case last chunk was missed)
+      this.pubsub.publishMessage(PubSub.createMessageWithId(currentMsgId, accumulatedText, 'thinking'));
     }
     
     if (!accumulatedChunk) return new AIMessage({ content: '' });
@@ -480,79 +563,59 @@ export class BrowserAgent {
     });
   }
 
-  private async _processToolCalls(toolCalls: any[]): Promise<boolean> {
-    let wasDoneToolCalled = false;
+  private async _processToolCalls(toolCalls: any[]): Promise<SingleTurnResult> {
+    const result: SingleTurnResult = {
+      doneToolCalled: false,
+      requirePlanningCalled: false
+    };
     
     for (const toolCall of toolCalls) {
-      // Check abort before processing each tool
       this.checkIfAborted();
 
       const { name: toolName, args, id: toolCallId } = toolCall;
       const tool = this.toolManager.get(toolName);
-      
       if (!tool) {
-        // Handle tool not found
         continue;
       }
 
-      // Tool execution is already tracked automatically via tool wrapping
-      // No need for separate tool_selection event
-
-      // Handle glow animation for applicable tools
-      // This enables glow only for certain interactive tools.
-      // we'll disable at the end of agent execution
       await this._maybeStartGlowAnimation(toolName);
 
-      this.eventEmitter.toolStart(toolName, args);
-      const result = await tool.func(args);
+      const toolResult = await tool.func(args);
+      const parsedResult = JSON.parse(toolResult);
       
-      // Check abort after tool execution completes
-      this.checkIfAborted();
-      
-      const parsedResult = JSON.parse(result);
-      
-      // Format the tool output for display
-      const displayMessage = formatToolOutput(toolName, parsedResult);
-      this.eventEmitter.debug('Executing tool: ' + toolName + ' result: ' + displayMessage);
-      
-      // Emit tool result for UI display
-      // Skip emitting refresh_browser_state_tool to prevent browser state from appearing in UI
-      // Also skip result_tool to avoid duplicating the final summary in the UI
-      if (toolName !== 'refresh_browser_state_tool' && toolName !== 'result_tool') {
-        this.eventEmitter.emitToolResult(toolName, result);
-      }
 
       // Add the result back to the message history for context
-      // Special handling for refresh_browser_state_tool vs other tools:
-      // - refresh_browser_state_tool: Add simplified tool message AND browser state context
-      // - All other tools: Add as regular tool message for proper conversation flow
       if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
-        // Add proper tool result message with toolCallId for message history continuity
-        const simplifiedResult = JSON.stringify({ ok: true, output: "Browser state refreshed successfully" });
+        const simplifiedResult = JSON.stringify({ 
+          ok: true, 
+          output: "Emergency browser state refresh completed - full DOM analysis available" 
+        });
         this.messageManager.addTool(simplifiedResult, toolCallId);
-        // Also update the browser state context for the agent to use
         this.messageManager.addBrowserState(parsedResult.output);
       } else {
-        this.messageManager.addTool(result, toolCallId);
+        this.messageManager.addTool(toolResult, toolCallId);
       }
 
       // Special handling for todo_manager_tool, add system reminder for mutations
-      if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action !== 'list') {
-        const todoStore = this.executionContext.todoStore;
+      if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action === 'set') {
+        const markdown = args.todos || '';
         this.messageManager.addSystemReminder(
-          `TODO list updated. Current state:\n${todoStore.getXml()}`
+          `TODO list updated:\n${markdown}`
         );
-        // Show updated TODO list to user
-        this.eventEmitter.info(formatTodoList(todoStore.getJson()));
+        this.pubsub.publishMessage(PubSub.createMessage(markdown, 'thinking'));
       }
 
 
       if (toolName === 'done_tool' && parsedResult.ok) {
-        wasDoneToolCalled = true;
+        result.doneToolCalled = true;
+      }
+      
+      if (toolName === 'require_planning_tool' && parsedResult.ok) {
+        result.requirePlanningCalled = true;
       }
     }
     
-    return wasDoneToolCalled;
+    return result;
   }
 
   private async _createMultiStepPlan(task: string): Promise<Plan> {
@@ -576,7 +639,8 @@ export class BrowserAgent {
     if (parsedResult.ok && parsedResult.output?.steps) {
       return { steps: parsedResult.output.steps };
     }
-    return { steps: [] };  // Return an empty plan on failure
+    
+    throw new Error('Invalid plan format - no steps returned');
   }
 
   private async _validateTaskCompletion(task: string): Promise<{
@@ -595,13 +659,16 @@ export class BrowserAgent {
 
     const args = { task };
     try {
-      this.eventEmitter.toolStart('validator_tool', args);
+      // Tool start for validator - not needed
       const result = await validatorTool.func(args);
       const parsedResult = JSON.parse(result);
       
-      // Format the validator output
-      const validator_formatted_output = formatToolOutput('validator_tool', parsedResult);
-      this.eventEmitter.toolEnd('validator_tool', parsedResult.ok, validator_formatted_output);
+      // Publish validator result
+      if (parsedResult.ok) {
+        const validationData = JSON.parse(parsedResult.output);
+        const status = validationData.isComplete ? 'Complete' : 'Incomplete';
+        this.pubsub.publishMessage(PubSub.createMessage(`Task validation: ${status}`, 'thinking'));
+      }
       
       if (parsedResult.ok) {
         // Parse the validation data from output
@@ -613,9 +680,8 @@ export class BrowserAgent {
         };
       }
     } catch (error) {
-      const errorResult = { ok: false, error: 'Validation failed' };
-      const error_formatted_output = formatToolOutput('validator_tool', errorResult);
-      this.eventEmitter.toolEnd('validator_tool', false, error_formatted_output);
+      // Publish validator error
+      this.pubsub.publishMessage(PubSub.createMessage('Error in validator_tool: Validation failed', 'error'));
     }
     
     return {
@@ -640,15 +706,15 @@ export class BrowserAgent {
       const parsedResult = JSON.parse(result);
       
       if (parsedResult.ok && parsedResult.output) {
-        const { success, message } = parsedResult.output;
-        this.eventEmitter.emitTaskResult(success, message);
+        const { message } = parsedResult.output;
+        this.pubsub.publishMessage(PubSub.createMessage(message, 'assistant'));
       } else {
         // Fallback on error
-        this.eventEmitter.emitTaskResult(true, 'Task completed.');
+        this.pubsub.publishMessage(PubSub.createMessage('Task completed.', 'assistant'));
       }
     } catch (error) {
       // Fallback on error
-      this.eventEmitter.emitTaskResult(true, 'Task completed.');
+      this.pubsub.publishMessage(PubSub.createMessage('Task completed.', 'assistant'));
     }
   }
 
@@ -660,11 +726,87 @@ export class BrowserAgent {
     const todoTool = this.toolManager.get('todo_manager_tool');
     if (!todoTool || plan.steps.length === 0) return;
     
-    // Replace all TODOs with the new plan
-    const todos = plan.steps.map(step => ({ content: step.action }));
-    const args = { action: 'replace_all' as const, todos };
+    // Convert plan steps to markdown TODO list
+    const markdown = plan.steps
+      .map(step => `- [ ] ${step.action}`)
+      .join('\n');
+    
+    const args = { action: 'set' as const, todos: markdown };
     await todoTool.func(args);
   }
+
+  /**
+   * Handle execution errors - tools have already published specific errors
+   */
+  private _handleExecutionError(error: unknown, task: string): void {
+    // Check if this is a user cancellation - handle silently
+    const isUserCancellation = error instanceof AbortError || 
+                               this.executionContext.isUserCancellation() || 
+                               (error instanceof Error && error.name === "AbortError");
+    
+    if (isUserCancellation) {
+      // Don't publish message here - already handled in _subscribeToExecutionStatus
+      // when the cancelled status event is received
+    } else {
+      // Log error metric with details
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorType = error instanceof Error ? error.name : 'UnknownError';
+      
+      Logging.logMetric('execution_error', {
+        error: errorMessage,
+        error_type: errorType,
+        task: task.substring(0, 200), // Truncate long tasks
+        mode: 'browse',
+        agent: 'BrowserAgent'
+      });
+      
+      console.error('Execution error (already reported by tool):', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Detect if the agent is stuck in a loop by checking for repeated messages
+   * @param lookback - Number of recent messages to check (default: 8)
+   * @param threshold - Number of times a message must appear to be considered a loop (default: 4)
+   * @returns true if a loop is detected
+   */
+  private _detectLoop(lookback: number = 8, threshold: number = 4): boolean {
+    const messages = this.messageManager.getMessages();
+    
+    // Need at least lookback messages to check
+    if (messages.length < lookback) {
+      return false;
+    }
+    
+    // Get the last N messages, filtering only AI/assistant messages
+    const recentMessages = messages
+      .slice(-lookback)
+      .filter(msg => msg._getType() === 'ai')
+      .map(msg => {
+        // Normalize the content for comparison
+        const content = typeof msg.content === 'string' ? msg.content : '';
+        return content.trim().toLowerCase();
+      });
+
+    // Count occurrences of each message
+    const messageCount = new Map<string, number>();
+    for (const msg of recentMessages) {
+      if (msg) {  // Skip empty messages
+        const count = messageCount.get(msg) || 0;
+        messageCount.set(msg, count + 1);
+        
+        // If any message appears threshold times or more, we have a loop
+        if (count + 1 >= threshold) {
+          console.warn(`Loop detected: Message "${msg.substring(0, 50)}..." repeated ${count + 1} times`);
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
 
   /**
    * Handle glow animation for tools that interact with the browser
@@ -687,7 +829,7 @@ export class BrowserAgent {
       return false;
     } catch (error) {
       // Log but don't fail if we can't manage glow
-      this.eventEmitter.debug(`Could not manage glow for tool ${toolName}: ${error}`);
+      console.error(`Could not manage glow for tool ${toolName}: ${error}`);
       return false;
     }
   }

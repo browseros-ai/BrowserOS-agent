@@ -2,6 +2,7 @@ import { z } from "zod"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext"
 import { toolSuccess, toolError, type ToolOutput } from "@/lib/tools/Tool.interface"
+import { PubSub } from "@/lib/pubsub"
 
 // Input schema - no input required
 export const GetSelectedTabsInputSchema = z.object({})
@@ -22,6 +23,8 @@ export class GetSelectedTabsTool {
 
   async execute(_input: GetSelectedTabsInput): Promise<ToolOutput> {
     try {
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Getting selected tabs`, 'thinking'))
+      
       // Get selected tab IDs from execution context
       const selectedTabIds = this.executionContext.getSelectedTabIds()
       const hasUserSelectedTabs = Boolean(selectedTabIds && selectedTabIds.length > 0)

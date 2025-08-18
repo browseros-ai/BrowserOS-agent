@@ -52,25 +52,25 @@ export function generateResultSystemPrompt(): string {
 <example>
 Task: "Find the current temperature in Tokyo"
 Success: true
-Message: "## Task Completed\n\n**Current temperature in Tokyo: 22°C (72°F)**\n\nWeather: Partly cloudy with light winds"
+Message: "Task completed\n\n**Current temperature in Tokyo: 22°C (72°F)**\n\nWeather: Partly cloudy with light winds"
 </example>
 
 <example>
 Task: "Compare prices for iPhone 15 on different websites"
 Success: true
-Message: "## Price Comparison Complete\n\n**Best Prices Found:**\n• [Amazon](https://amazon.com/...): $799.99\n• [Best Buy](https://bestbuy.com/...): $829.99\n• [Apple Store](https://apple.com/...): $899.00\n\n**Lowest Price:** $799.99 at Amazon (save $99)"
+Message: "Price comparison complete\n\n**Best Prices Found:**\n• [Amazon](https://amazon.com/...): $799.99\n• [Best Buy](https://bestbuy.com/...): $829.99\n• [Apple Store](https://apple.com/...): $899.00\n\n**Lowest Price:** $799.99 at Amazon (save $99)"
 </example>
 
 <example>
 Task: "Book a flight to Paris"
 Success: false
-Message: "## Task Failed\n\nUnable to complete the booking process. The payment page failed to load after multiple attempts.\n\n**Suggestion:** Try again with a different browser or contact the airline directly."
+Message: "Task failed\n\nUnable to complete the booking process. The payment page failed to load after multiple attempts.\n\n**Suggestion:** Try again with a different browser or contact the airline directly."
 </example>
 
 <example>
 Task: "Find trending news about AI"
 Success: true
-Message: "## Top AI News Today\n\n**Key Stories:**\n• **OpenAI Announces GPT-5** - Major upgrade with enhanced reasoning\n• **Google's Gemini Update** - New multimodal capabilities released\n• **AI Regulation Bill** - EU passes comprehensive AI safety framework\n\nSource: [TechCrunch](https://techcrunch.com/...)"
+Message: "Top AI news today\n\n**Key Stories:**\n• **OpenAI Announces GPT-5** - Major upgrade with enhanced reasoning\n• **Google's Gemini Update** - New multimodal capabilities released\n• **AI Regulation Bill** - EU passes comprehensive AI safety framework\n\nSource: [TechCrunch](https://techcrunch.com/...)"
 </example>`;
 }
 

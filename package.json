@@ -7,7 +7,7 @@
     "build": "npm run clean && cross-env NODE_ENV=production webpack --config webpack.config.js",
     "build:dev": "npm run clean && cross-env NODE_ENV=development webpack --config webpack.config.js",
     "build:watch": "npm run clean && cross-env NODE_ENV=development WEBPACK_WATCH=true webpack --config webpack.config.js --watch",
-    "clean": "rm -rf dist/",
+    "clean": "rimraf dist",
     "dev": "npm run clean && cross-env NODE_ENV=development webpack --config webpack.config.js",
     "dev:chrome": "npm run clean && cross-env NODE_ENV=development BUILD_TARGET=chrome webpack --config webpack.config.js",
     "dev:watch": "npm run clean && cross-env NODE_ENV=development WEBPACK_WATCH=true webpack --config webpack.config.js --watch",
@@ -19,11 +19,10 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
 
-    "eval:enable": "tsx src/evals/online/enable.ts",
-    "eval:disable": "tsx src/evals/online/disable.ts",
     "eval:planner": "tsx src/evals/offline/tools/planner/planner.eval.ts",
     "eval:validator": "tsx src/evals/offline/tools/validator/validator.eval.ts",
     "extract:prompts": "tsx src/evals/shared/push-prompts.ts"
+
   },
   "author": "",
   "license": "MIT",
@@ -89,6 +88,7 @@
     "postcss-loader": "^6.2.1",
     "process": "^0.11.10",
     "puppeteer": "^24.8.2",
+    "rimraf": "^6.0.1",
     "sass": "^1.69.5",
     "sass-loader": "^13.3.2",
     "stream-browserify": "^3.0.0",

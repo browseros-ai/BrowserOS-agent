@@ -2,6 +2,7 @@ import { z } from "zod"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext"
 import { toolSuccess, toolError, type ToolOutput } from "@/lib/tools/Tool.interface"
+import { PubSub } from "@/lib/pubsub"
 
 // Constants
 const DEFAULT_GROUP_COLOR = "blue"
@@ -22,6 +23,7 @@ export class GroupTabsTool {
   async execute(input: GroupTabsInput): Promise<ToolOutput> {
     try {
       // Get current window ID
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Grouping tabs ${input.tabIds.join(", ")} with name: ${input.groupName}`, 'thinking'))
       const currentTab = await chrome.tabs.getCurrent()
       const windowId = currentTab?.windowId
       

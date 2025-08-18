@@ -5,12 +5,11 @@ import { BrowserOSProvidersConfigSchema, BROWSEROS_PREFERENCE_KEYS } from '@/lib
 import { PortName, PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
 import { NxtScape } from '@/lib/core/NxtScape'
-import { EventBus, EventProcessor } from '@/lib/events'
-import { UIEventHandler } from '@/lib/events/UIEventHandler'
-// Removed deprecated IStreamingCallbacks import
-import posthog from 'posthog-js'
 import { isDevelopmentMode } from '@/config'
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService'
+import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
+import { MCP_SERVERS } from '@/config/mcpServers'
+import { PubSub, PubSubEvent } from '@/lib/pubsub'
 
 /**
  * Background script for the ParallelManus extension
@@ -18,25 +17,6 @@ import { GlowAnimationService } from '@/lib/services/GlowAnimationService'
 
 // Initialize LogUtility first
 Logging.initialize({ debugMode: isDevelopmentMode() })
-
-// Initialize PostHog for analytics only if API key is provided
-const posthogApiKey = process.env.POSTHOG_API_KEY
-if (posthogApiKey) {
-  posthog.init(posthogApiKey, {
-    api_host: 'https://us.i.posthog.com',
-    person_profiles: 'identified_only',
-  })
-}
-
-// Function to capture events with ai_chat prefix
-function captureEvent(eventName: string, properties?: Record<string, any>) {
-  if (!posthogApiKey) {
-    return // Skip if PostHog is not configured
-  }
-  const prefixedEventName = `ai_chat:${eventName}`
-  posthog.capture(prefixedEventName, properties)
-  // debugLog(`📊 PostHog event: ${prefixedEventName}`, 'info')
-}
 
 // Initialize NxtScape agent with Claude
 const nxtScape = new NxtScape({
@@ -92,12 +72,37 @@ let lastProvidersConfigJson: string | null = null
 // Get the GlowAnimationService instance
 const glowService = GlowAnimationService.getInstance()
 
+// Get PubSub instance and set up forwarding
+const pubsub = PubSub.getInstance()
+
+// Subscribe to PubSub events and forward to sidepanel
+pubsub.subscribe((event: PubSubEvent) => {
+  // Forward to all connected sidepanels
+  for (const [name, port] of connectedPorts) {
+    if (name === PortName.SIDEPANEL_TO_BACKGROUND) {
+      try {
+        port.postMessage({
+          type: MessageType.AGENT_STREAM_UPDATE,
+          payload: {
+            step: 0,
+            action: 'PUBSUB_EVENT',
+            status: 'executing',
+            details: event
+          }
+        })
+      } catch (error) {
+        debugLog(`Failed to forward PubSub event to ${name}: ${error}`, 'warning')
+      }
+    }
+  }
+})
+
 // Initialize the extension
 function initialize(): void {
   debugLog('ParallelManus extension initialized')
   
-  // Capture extension initialization event
-  captureEvent('extension_initialized')
+  // Log extension initialization metric
+  Logging.logMetric('extension_initialized')
   
   // Initialize NxtScape once at startup to preserve conversation across queries
   ensureNxtScapeInitialized().catch(error => {
@@ -208,8 +213,8 @@ async function toggleSidePanel(tabId: number): Promise<void> {
       
       await chrome.sidePanel.open({ tabId })
 
-      // Capture panel opened via toggle event
-      captureEvent('side_panel_toggled', {})
+      // Log panel opened via toggle metric
+      Logging.logMetric('side_panel_toggled', {})
       
       
       // State will be updated when the panel connects
@@ -254,7 +259,7 @@ function handlePortConnection(port: chrome.runtime.Port): void {
   if (portName === PortName.SIDEPANEL_TO_BACKGROUND) {
     isPanelOpen = true
     debugLog('Side panel connected, updating state')
-    captureEvent('side_panel_opened', {
+    Logging.logMetric('side_panel_opened', {
       source: 'port_connection'
     })
     // Kick a fetch and start polling for external changes
@@ -278,7 +283,7 @@ function handlePortConnection(port: chrome.runtime.Port): void {
     if (portName === PortName.SIDEPANEL_TO_BACKGROUND) {
       isPanelOpen = false
       debugLog('Side panel disconnected, updating state')
-      captureEvent('side_panel_closed', {
+      Logging.logMetric('side_panel_closed', {
         source: 'port_disconnection'
       })
       stopProvidersPolling()
@@ -354,6 +359,10 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
       case MessageType.GLOW_STOP:
         handleGlowStopPort(payload as { tabId: number }, port, id)
         break
+      
+      case MessageType.MCP_INSTALL_SERVER:
+        handleMCPInstallServerPort(payload as { serverId: string }, port, id)
+        break
         
       default:
         // Unknown port message type
@@ -399,75 +408,6 @@ function getStatusFromAction(action: string): 'thinking' | 'executing' | 'comple
   }
 }
 
-/**
- * Create EventBus, EventProcessor and UIEventHandler for streaming
- * @returns EventBus, EventProcessor and cleanup function
- */
-function createStreamingComponents(): { eventBus: EventBus; eventProcessor: EventProcessor; cleanup: () => void } {
-  const eventBus = new EventBus();
-  const eventProcessor = new EventProcessor(eventBus);
-  
-  // Create UI event handler that converts events to messages
-  const uiHandler = new UIEventHandler(eventBus, (type: MessageType, payload: any) => {
-    broadcastStreamUpdate(payload);
-  });
-  
-  // Track high-level agent activities  
-  eventBus.onStreamEvent('system.message', (event) => {
-    const { message } = event.data as any;
-    if (message.includes('Analyzing and planning your task')) {
-      captureEvent('agent_activity', {
-        agent_type: 'classification',
-        activity: 'task_analysis'
-      });
-    } else if (message.includes('Execution Plan:')) {
-      captureEvent('agent_activity', {
-        agent_type: 'planner',
-        activity: 'plan_created'
-      });
-    } else if (message.includes('Executing productivity task')) {
-      captureEvent('agent_activity', {
-        agent_type: 'productivity',
-        activity: 'task_execution'
-      });
-    } else if (message.includes('Starting browse task')) {
-      captureEvent('agent_activity', {
-        agent_type: 'browse',
-        activity: 'browse_execution'
-      });
-    } else if (message.includes('Validating task completion')) {
-      captureEvent('agent_activity', {
-        agent_type: 'validator',
-        activity: 'validation'
-      });
-    }
-  });
-  
-  // Track tool calls
-  eventBus.onStreamEvent('tool.start', (event) => {
-    const { toolName } = event.data as any;
-    captureEvent('tool_call', {
-      tool_name: toolName
-    });
-  });
-  
-  // Track errors (but not cancellations)
-  eventBus.onStreamEvent('system.error', (event) => {
-    const { error } = event.data as any;
-    if (error && !error.includes('cancelled') && !error.includes('stopped') && !error.includes('Aborted')) {
-      debugLog(`🔄 Stream error: ${error}`, 'error');
-    }
-  });
-  
-  return {
-    eventBus,
-    eventProcessor,
-    cleanup: () => {
-      uiHandler.destroy();
-      eventBus.removeAllListeners();
-    }
-  };
-}
 
 /**
  * Handles query execution from port messages
@@ -476,105 +416,48 @@ function createStreamingComponents(): { eventBus: EventBus; eventProcessor: Even
  * @param id - Message ID for response tracking
  */
 async function handleExecuteQueryPort(
-  payload: { query: string; tabIds?: number[]; source?: string },
+  payload: { query: string; tabIds?: number[]; source?: string; chatMode?: boolean },
   port: chrome.runtime.Port,
   id?: string
 ): Promise<void> {
-  let cleanup: (() => void) | undefined;
-  
   try {
     // Enhanced debug logging
     debugLog(`🎯 [Background] Received query execution from ${payload.source || 'unknown'}`)
     
-    captureEvent('query_initiated', {
+    Logging.logMetric('query_initiated', {
       query: payload.query,
       source: payload.source || 'unknown',
+      mode: payload.chatMode ? 'chat' : 'browse',
     })
     
     // Initialize NxtScape if not already done
     await ensureNxtScapeInitialized()
     
+    // Note: We now pass mode explicitly to run(), but keep setChatMode for backward compatibility
+    if (payload.chatMode !== undefined) {
+      nxtScape.setChatMode(payload.chatMode)  // Keep for any ExecutionContext dependencies
+      debugLog(`Mode set to ${payload.chatMode ? 'chat' : 'browse'} for this query`)
+    }
+    // Clear previous messages when starting new execution
+    pubsub.clearBuffer()
     
-    // Create streaming components
-    const { eventBus, eventProcessor, cleanup: cleanupFn } = createStreamingComponents()
-    cleanup = cleanupFn
-    
-    // Execute the query using NxtScape with EventBus and EventProcessor
+    // Execute the query using NxtScape
     // Starting NxtScape execution
     
-    const result = await nxtScape.run({
+    await nxtScape.run({
       query: payload.query,
+      mode: payload.chatMode ? 'chat' : 'browse',  // Convert boolean to explicit mode
       tabIds: payload.tabIds,
-      eventBus: eventBus,
-      eventProcessor: eventProcessor
     })
     
-    // NxtScape execution completed
-    
-    // Send workflow status based on result
-    const statusPayload: any = {
-      status: result.success ? 'completed' : 'failed',
-      message: result.success ? 'Task completed successfully' : result.error || 'Task failed',
-    }
-    
-    if (result.error) {
-      statusPayload.error = result.error
-    }
-    
-    
-    // Check if it was cancelled
-    if (result.error && (result.error.includes('cancelled') || result.error.includes('stopped'))) {
-      statusPayload.cancelled = true
-      statusPayload.cancelledQuery = payload.query
-      // Override the error message to be more user-friendly
-      statusPayload.error = undefined  // Don't show error for cancellations
-    }
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: statusPayload,
-      id
-    })
+    // NxtScape execution completed - all messaging handled via PubSub
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`[Background] Error executing query: ${errorMessage}`, 'error')
-    
-    // Check if it's a cancellation error
-    const isCancelled = error instanceof Error && (error.name === 'AbortError' || errorMessage.includes('cancelled') || errorMessage.includes('stopped'))
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: {
-        status: isCancelled ? 'cancelled' : 'failed',
-        message: undefined, // Message will be shown by agents only for user-initiated cancellation
-        error: isCancelled ? undefined : errorMessage, // Don't send error for cancellations
-        cancelled: isCancelled,
-        cancelledQuery: isCancelled ? payload.query : undefined,
-        userInitiatedCancel: false  // This is not user-initiated (error path)
-      },
-      id
-    })
   }
 }
 
-/**
- * Broadcast streaming update to all connected UIs
- */
-function broadcastStreamUpdate(update: AgentStreamUpdateMessage['payload']): void {
-  for (const [name, port] of connectedPorts) {
-    if (name === PortName.SIDEPANEL_TO_BACKGROUND) {
-      try {
-        port.postMessage({
-          type: MessageType.AGENT_STREAM_UPDATE,
-          payload: update
-        })
-      } catch (error) {
-        debugLog(`Failed to broadcast stream update to ${name}: ${error}`, 'warning')
-      }
-    }
-  }
-}
 
 // Broadcast latest providers config to all connected UIs
 function broadcastProvidersConfig(config: unknown): void {
@@ -618,38 +501,11 @@ function handleResetConversationPort(
   id?: string
 ): void {
   try {
-    const { source } = payload
-    
-    debugLog(`Conversation reset requested from ${source || 'unknown'}`)
-    
-    // Clear conversation history in NxtScape
     nxtScape.reset()
-    
-    // Capture conversation reset event
-    captureEvent('conversation_reset')
-    
-    // Send success response
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: {
-        status: 'reset',
-        message: 'Conversation history cleared'
-      },
-      id
-    })
-    
+    Logging.logMetric('conversation_reset')
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`Error handling conversation reset: ${errorMessage}`, 'error')
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: { 
-        status: 'error',
-        error: `Failed to reset conversation: ${errorMessage}`
-      },
-      id
-    })
   }
 }
 
@@ -873,30 +729,9 @@ async function handleCancelTaskPort(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`Error handling task cancellation: ${errorMessage}`, 'error')
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: { 
-        status: 'error',
-        error: `Failed to cancel task: ${errorMessage}`
-      },
-      id
-    })
   }
 }
 
-// Broadcast workflow status to all connected UIs
-function broadcastWorkflowStatus(payload: Record<string, unknown> | unknown): void {
-  // Send to all connected UIs (side panels)
-  for (const [name, port] of connectedPorts) {
-    if (name === PortName.SIDEPANEL_TO_BACKGROUND) {
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload
-      })
-    }
-  }
-}
 
 
 
@@ -976,6 +811,80 @@ function handleGlowStopPort(
         id
       })
     })
+}
+
+/**
+ * Handle MCP Install Server message
+ */
+async function handleMCPInstallServerPort(
+  payload: { serverId: string },
+  port: chrome.runtime.Port,
+  id?: string
+): Promise<void> {
+  const { serverId } = payload
+  
+  debugLog(`MCP server installation requested: ${serverId}`)
+  
+  try {
+    // Get the server name from config
+    const serverConfig = MCP_SERVERS.find(s => s.id === serverId)
+    if (!serverConfig) {
+      throw new Error(`Unknown server ID: ${serverId}`)
+    }
+    
+    // Install the server using KlavisAPIManager
+    const manager = KlavisAPIManager.getInstance()
+    const result = await manager.installServer(serverConfig.name)
+    
+    // Check if authentication was successful
+    if (result.oauthUrl && !result.authSuccess) {
+      // OAuth was required but failed
+      port.postMessage({
+        type: MessageType.MCP_SERVER_STATUS,
+        payload: {
+          serverId,
+          status: 'auth_failed',
+          serverUrl: result.serverUrl,
+          instanceId: result.instanceId,
+          error: 'Authentication required but not completed. Please try installing again and complete the authentication.'
+        },
+        id
+      })
+      
+      debugLog(`MCP server installed but auth failed: ${serverId} (${result.instanceId})`)
+      return
+    }
+    
+    // Send success message
+    port.postMessage({
+      type: MessageType.MCP_SERVER_STATUS,
+      payload: {
+        serverId,
+        status: 'success',
+        serverUrl: result.serverUrl,
+        instanceId: result.instanceId,
+        authenticated: result.authSuccess !== false
+      },
+      id
+    })
+    
+    debugLog(`MCP server installed successfully: ${serverId} (${result.instanceId}), authenticated: ${result.authSuccess !== false}`)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Installation failed'
+    
+    // Send error message
+    port.postMessage({
+      type: MessageType.MCP_SERVER_STATUS,
+      payload: {
+        serverId,
+        status: 'error',
+        error: errorMessage
+      },
+      id
+    })
+    
+    debugLog(`MCP server installation failed: ${serverId} - ${errorMessage}`, 'error')
+  }
 }
 
 // Initialize the extension

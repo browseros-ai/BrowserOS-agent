@@ -5,6 +5,9 @@ import { toolSuccess, toolError, type ToolOutput } from "@/lib/tools/Tool.interf
 import { findElementPrompt } from "./FindElementTool.prompt"
 import { invokeWithRetry } from "@/lib/utils/retryable"
 import { HumanMessage, SystemMessage } from "@langchain/core/messages"
+import { PubSub } from "@/lib/pubsub"
+import { TokenCounter } from "@/lib/utils/TokenCounter"
+import { Logging } from "@/lib/utils/Logging"
 
 // Constants
 const INTERACTION_WAIT_MS = 1000
@@ -69,12 +72,6 @@ export class InteractionTool {
 
   // Find element using LLM (adapted from FindElementTool)
   private async _findElementWithLLM(description: string): Promise<z.infer<typeof _FindElementSchema>> {
-    // Get LLM instance from execution context
-    const llm = await this.executionContext.getLLM();
-
-    // Create structured LLM
-    const structuredLLM = llm.withStructuredOutput(_FindElementSchema)
-
     // Get current task from execution context
     const currentTask = this.executionContext.getCurrentTask()
 
@@ -87,20 +84,28 @@ export class InteractionTool {
     
     // Get browser state
     const browserState = await this.executionContext.browserContext.getBrowserState()
-
     if (!browserState.clickableElements.length && !browserState.typeableElements.length) {
       throw new Error("No interactive elements found on the current page")
     }
     
     userMessage += `\n\nInteractive elements on the page:\n${browserState.clickableElementsString}\n${browserState.typeableElementsString}`
 
-    // Invoke LLM with retry logic
+    // Prepare messages for LLM
+    const messages = [
+      new SystemMessage(findElementPrompt),
+      new HumanMessage(userMessage)
+    ]
+    
+    // Log token count
+    const tokenCount = TokenCounter.countMessages(messages)
+    Logging.log('InteractionTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info')
+    
+    // Get LLM instance from execution context
+    const llm = await this.executionContext.getLLM();
+    const structuredLLM = llm.withStructuredOutput(_FindElementSchema)
     const result = await invokeWithRetry<z.infer<typeof _FindElementSchema>>(
       structuredLLM,
-      [
-        new SystemMessage(findElementPrompt),
-        new HumanMessage(userMessage)
-      ],
+      messages,
       3
     )
 
@@ -133,6 +138,7 @@ export class InteractionTool {
   private async _clickElement(description: string): Promise<ToolOutput> {
     for (let attempt = 1; attempt <= NUM_RETRIES; attempt++) {
       try {
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Finding element to click with description: ${description}`, 'thinking'))
         // Find element (returns nodeId)
         const nodeId = await this._findElement(description, 'click')
         
@@ -152,11 +158,15 @@ export class InteractionTool {
         // Click element
         await page.clickElement(nodeId)
         await new Promise(resolve => setTimeout(resolve, INTERACTION_WAIT_MS))
+        
+        // Emit status message
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Clicked element: ${description}`, 'thinking'))
+        
         return toolSuccess(`Clicked element: "${description}"`)
         
       } catch (error) {
         if (attempt === NUM_RETRIES) {
-          return toolError(`Failed to click "${description}": ${error instanceof Error ? error.message : String(error)}`)
+          return toolError(error instanceof Error ? error.message : String(error))  // Return raw error
         }
         await new Promise(resolve => setTimeout(resolve, RETRY_WAIT_MS))
       }
@@ -168,6 +178,7 @@ export class InteractionTool {
   private async _inputTextElement(description: string, text: string): Promise<ToolOutput> {
     for (let attempt = 1; attempt <= NUM_RETRIES; attempt++) {
       try {
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Finding element to type into with description: ${description}`, 'thinking'))
         // Find element (returns nodeId)
         const nodeId = await this._findElement(description, 'type')
         
@@ -183,11 +194,15 @@ export class InteractionTool {
         await page.clearElement(nodeId)
         await page.inputText(nodeId, text)
         await new Promise(resolve => setTimeout(resolve, INTERACTION_WAIT_MS))
+        
+        // Emit status message
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Typed "${text}" into ${description}`, 'thinking'))
+        
         return toolSuccess(`Typed "${text}" into "${description}"`)
         
       } catch (error) {
         if (attempt === NUM_RETRIES) {
-          return toolError(`Failed to input text into "${description}": ${error instanceof Error ? error.message : String(error)}`)
+          return toolError(error instanceof Error ? error.message : String(error))  // Return raw error
         }
         await new Promise(resolve => setTimeout(resolve, RETRY_WAIT_MS))
       }
@@ -199,6 +214,7 @@ export class InteractionTool {
   private async _clearElement(description: string): Promise<ToolOutput> {
     for (let attempt = 1; attempt <= NUM_RETRIES; attempt++) {
       try {
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Finding element to clear with description: ${description}`, 'thinking'))
         // Find element (returns nodeId)
         const nodeId = await this._findElement(description, 'type')
         
@@ -213,11 +229,15 @@ export class InteractionTool {
         // Clear element
         await page.clearElement(nodeId)
         await new Promise(resolve => setTimeout(resolve, INTERACTION_WAIT_MS))
+        
+        // Emit status message
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Cleared: ${description}`, 'thinking'))
+        
         return toolSuccess(`Cleared element: "${description}"`)
         
       } catch (error) {
         if (attempt === NUM_RETRIES) {
-          return toolError(`Failed to clear "${description}": ${error instanceof Error ? error.message : String(error)}`)
+          return toolError(error instanceof Error ? error.message : String(error))  // Return raw error
         }
         await new Promise(resolve => setTimeout(resolve, RETRY_WAIT_MS))
       }
@@ -226,8 +246,13 @@ export class InteractionTool {
   }
 
   private async _sendKeys(keys: string): Promise<ToolOutput> {
+    this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Sending keys: ${keys}`, 'thinking'))
     const page = await this.executionContext.browserContext.getCurrentPage()
     await page.sendKeys(keys)
+    
+    // Emit status message
+    this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Sent keys: ${keys}`, 'thinking'))
+    
     return toolSuccess(`Sent keys: ${keys}`)
   }
 }

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react'
 import { useProviderStore } from '../stores/providerStore'
-import { ChevronDownIcon } from '@/sidepanel/v2/components/ui/Icons'
+import { ChevronDown } from 'lucide-react'
 
 export function ProviderDropdown() {
   const { 
@@ -49,7 +49,7 @@ export function ProviderDropdown() {
         aria-haspopup="listbox"
       >
         <span className="text-foreground">{selectedProvider?.name || 'ChatGPT'}</span>
-        <ChevronDownIcon className={`w-3 h-3 text-muted-foreground transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
       </button>
       
       {/* Dropdown Menu */}

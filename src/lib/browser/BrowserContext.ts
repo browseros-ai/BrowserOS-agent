@@ -382,6 +382,50 @@ ${elementsText}
   // ============= Execution Lock Management =============
 
   /**
+   * Get the active tab with fallback logic
+   */
+  private async _getActiveTab(): Promise<chrome.tabs.Tab> {
+    let activeTab: chrome.tabs.Tab | undefined;
+    
+    // First: Try to get the active tab from the current window
+    [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // If no active tab in current window, try the last active (focused) window
+    if (!activeTab?.id) {
+      const windows = await chrome.windows.getAll({ populate: false });
+      const lastActiveWindow = windows.find(w => w.focused) || windows.find(w => w.state === 'normal');
+      
+      if (lastActiveWindow) {
+        [activeTab] = await chrome.tabs.query({ active: true, windowId: lastActiveWindow.id });
+      }
+    }
+    
+    // If still no active tab (or it's inaccessible), get any tab from the current window
+    if (!activeTab?.id) {
+      const currentWindowTabs = await chrome.tabs.query({ currentWindow: true });
+      activeTab = currentWindowTabs[0]; // Just take the first tab, even if it's chrome://
+    }
+    
+    // Last resort: get any tab from any window
+    if (!activeTab?.id) {
+      const allTabs = await chrome.tabs.query({});
+      activeTab = allTabs[0];
+    }
+    
+    // If absolutely no tabs exist, create one
+    if (!activeTab?.id) {
+      Logging.log('BrowserContextV2', 'No existing tabs found, creating a new tab');
+      activeTab = await chrome.tabs.create({ url: this._config.homePageUrl, active: true });
+    }
+    
+    if (!activeTab?.id) {
+      throw new Error('Unable to find or create a tab');
+    }
+    
+    return activeTab;
+  }
+
+  /**
    * Get the target tab for operations
    */
   private async getTargetTab(): Promise<chrome.tabs.Tab> {
@@ -399,12 +443,7 @@ ${elementsText}
     }
     
     // No locked tab - use the active tab
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!activeTab?.id) {
-      throw new Error('No active tab available');
-    }
-    
-    return activeTab;
+    return this._getActiveTab();
   }
 
   /**

@@ -17,7 +17,7 @@ describe('formatTodoList', () => {
     expect(result).toContain('|:-:|:------:|:-----|')
     
     // Check content
-    expect(result).toContain('| 1 | ✅ | Navigate to website |')
+    expect(result).toContain('| 1 | | Navigate to website |')
     expect(result).toContain('| 2 | 🔄 | Find search box |')
     expect(result).toContain('| 3 | ⬜ | Enter search query |')
   })

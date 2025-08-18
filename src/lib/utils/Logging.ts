@@ -1,7 +1,9 @@
 import { MessageType } from '@/lib/types/messaging'
 import { PortName } from '@/lib/runtime/PortMessaging'
 import { isDevelopmentMode } from '@/config'
+import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
 import { z } from 'zod'
+import posthog from 'posthog-js'
 
 /**
  * Log level type
@@ -35,13 +37,20 @@ interface LogUtilityOptions {
 export class Logging {
   private static connectedPorts = new Map<string, chrome.runtime.Port>()
   private static debugMode = false
+  private static browserOSAdapter = getBrowserOSAdapter()
+  private static posthogInitialized = false
+  private static posthogApiKey = process.env.POSTHOG_API_KEY
   
-  /**
-   * Initialize the logging utility
-   * @param options - Configuration options
-   */
   public static initialize(options: LogUtilityOptions = {}): void {
     this.debugMode = options.debugMode || false
+    
+    if (this.posthogApiKey && !this.posthogInitialized) {
+      posthog.init(this.posthogApiKey, {
+        api_host: 'https://us.i.posthog.com',
+        person_profiles: 'identified_only',
+      })
+      this.posthogInitialized = true
+    }
   }
   
   /**
@@ -137,6 +146,28 @@ export class Logging {
         // It's OK if this fails too, just means no UI is open
         // We've already logged to the console above
       })
+    }
+  }
+
+  /**
+   * Log a metric event using the BrowserOS metrics API with PostHog fallback
+   * @param eventName - Name of the event (will be prefixed with "agent.")
+   * @param properties - Optional properties to include with the event
+   */
+  public static async logMetric(eventName: string, properties?: Record<string, any>): Promise<void> {
+    const prefixedEventName = `agent.${eventName}`
+    
+    try {
+      await this.browserOSAdapter.logMetric(prefixedEventName, properties)
+    } catch (error) {
+      // BrowserOS failed, use PostHog fallback
+      if (this.posthogApiKey && this.posthogInitialized) {
+        try {
+          posthog.capture('agent.metric_api_failed', { event: eventName })
+          posthog.capture(prefixedEventName, properties)
+        } catch (posthogError) {
+        }
+      }
     }
   }
 }

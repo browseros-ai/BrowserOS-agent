@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { CommandInput } from './components/CommandInput'
 import { ThemeToggle } from './components/ThemeToggle'
 import { SettingsDialog } from './components/SettingsDialog'
-import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
+import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { Settings } from 'lucide-react'
 
 export function NewTab() {

@@ -2,6 +2,7 @@ import { z } from "zod"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext"
 import { toolSuccess, toolError, type ToolOutput } from "@/lib/tools/Tool.interface"
+import { PubSub } from "@/lib/pubsub"
 
 // Constants
 const SHOULD_WAIT = true;
@@ -27,6 +28,9 @@ export class SearchTool {
       if (SHOULD_WAIT) {
         await new Promise(resolve => setTimeout(resolve, SEARCH_WAIT_MS))
       }
+      
+      // Emit status message
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Searched for "${input.query}" on ${this._getProviderName(input.searchProvider)}`, 'thinking'))
       
       return toolSuccess(`Searched for "${input.query}" on ${input.searchProvider}`);
     } catch (error) {

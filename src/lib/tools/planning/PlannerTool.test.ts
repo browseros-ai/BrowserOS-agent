@@ -3,7 +3,7 @@ import { createPlannerTool } from './PlannerTool'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
-import { EventBus } from '@/lib/events'
+import { PubSub } from '@/lib/pubsub'
 
 describe('PlannerTool', () => {
   it('tests that planner tool can be created with required dependencies', () => {
@@ -12,13 +12,13 @@ describe('PlannerTool', () => {
     const browserContext = new BrowserContext()
     const abortController = new AbortController()
     
-    const eventBus = new EventBus()
+    const pubsub = new PubSub()
     const executionContext = new ExecutionContext({
       browserContext,
       messageManager,
       abortController,
       debugMode: false,
-      eventBus
+      pubsub
     })
     
     const tool = createPlannerTool(executionContext)
@@ -29,31 +29,31 @@ describe('PlannerTool', () => {
     expect(typeof tool.func).toBe('function')
   })
 
-  it('tests that errors are handled gracefully', async () => {
+  it('tests that errors are handled gracefully and raw error is returned', async () => {
     // Create execution context with failing LLM
     const messageManager = new MessageManager()
     const browserContext = new BrowserContext()
     const abortController = new AbortController()
     
-    const eventBus = new EventBus()
+    const pubsub = new PubSub()
     const executionContext = new ExecutionContext({
       browserContext,
       messageManager,
       abortController,
       debugMode: false,
-      eventBus
+      pubsub
     })
     
     // Override getLLM to throw error
-    executionContext.getLLM = vi.fn().mockRejectedValue(new Error('LLM connection failed'))
+    executionContext.getLLM = vi.fn().mockRejectedValue(new Error('invalid x-api-key'))
     
     const tool = createPlannerTool(executionContext)
     const result = await tool.func({ task: 'Test task', max_steps: 3 })
     const parsedResult = JSON.parse(result)
     
     expect(parsedResult.ok).toBe(false)
-    expect(parsedResult.output).toContain('Planning failed')
-    expect(parsedResult.output).toContain('LLM connection failed')
+    // Now we expect the raw error message, not prefixed
+    expect(parsedResult.output).toBe('invalid x-api-key')
   })
 
 })

@@ -39,7 +39,7 @@ describe('ResultTool', () => {
       withStructuredOutput: vi.fn().mockReturnValue({
         invoke: vi.fn().mockResolvedValue({
           success: true,
-          message: '## ✓ Task Completed\n\n**Result: Test completed**'
+          message: '✓ Task completed\n\n**Result: Test completed**'
         })
       })
     };
@@ -67,6 +67,6 @@ describe('ResultTool', () => {
     
     expect(parsed.ok).toBe(true);
     expect(parsed.output.success).toBe(true);
-    expect(parsed.output.message).toContain('Task Completed');
+    expect(parsed.output.message).toContain('Task completed');
   });
 });

@@ -1,5 +1,5 @@
 import { HumanMessage, AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
-import { MessageManager, MessageManagerReadOnly, MessageType } from "./MessageManager";
+import { MessageManager, MessageManagerReadOnly, MessageType, BrowserStateMessage } from "./MessageManager";
 import { describe, it, expect, beforeEach } from 'vitest';
 
 describe("MessageManager", () => {
@@ -9,393 +9,233 @@ describe("MessageManager", () => {
     manager = new MessageManager(1000); // Small token limit for testing
   });
 
-  describe("Core message operations", () => {
+  describe("Core functionality", () => {
     it("tests that messages can be added and retrieved", () => {
       manager.addHuman("Hello");
       manager.addAI("Hi there");
-      
-      const messages = manager.getMessages();
-      expect(messages).toHaveLength(2);
-      expect(messages[0]).toBeInstanceOf(HumanMessage);
-      expect(messages[0].content).toBe("Hello");
-      expect(messages[1]).toBeInstanceOf(AIMessage);
-      expect(messages[1].content).toBe("Hi there");
-    });
-
-    it("tests that system messages are handled with only one allowed", () => {
-      manager.addSystem("System 1");
-      manager.addHuman("Hello");
-      manager.addSystem("System 2");
-      
-      const messages = manager.getMessages();
-      const systemMessages = messages.filter(m => m instanceof SystemMessage);
-      expect(systemMessages).toHaveLength(1);
-      expect(systemMessages[0].content).toBe("System 2");
-    });
-
-    it("tests that tool messages are handled correctly", () => {
       manager.addTool("Tool result", "tool-123");
       
       const messages = manager.getMessages();
-      expect(messages[0]).toBeInstanceOf(ToolMessage);
-      expect(messages[0].content).toBe("Tool result");
-      expect((messages[0] as ToolMessage).tool_call_id).toBe("tool-123");
-    });
-
-    it("tests that browser state messages are handled correctly", () => {
-      // Add initial messages
-      manager.addHuman("Test");
-      manager.addBrowserState("First browser state");
-      manager.addAI("Response");
-      
-      let messages = manager.getMessages();
       expect(messages).toHaveLength(3);
-      
-      // Adding new browser state should replace old one
-      manager.addBrowserState("Second browser state");
-      messages = manager.getMessages();
-      expect(messages).toHaveLength(3); // Still 3 messages
-      
-      // Check that only the new browser state exists
-      const browserStateMessages = messages.filter(msg => 
-        msg.additional_kwargs?.messageType === MessageType.BROWSER_STATE
-      );
-      expect(browserStateMessages).toHaveLength(1);
-      expect(browserStateMessages[0].content).toBe("<system-context>Second browser state</system-context>");
+      expect(messages[0]).toBeInstanceOf(HumanMessage);
+      expect(messages[1]).toBeInstanceOf(AIMessage);
+      expect(messages[2]).toBeInstanceOf(ToolMessage);
     });
 
-    it("tests that messages can be removed by type", () => {
-      // Add various message types
-      manager.addSystem("System");
-      manager.addHuman("Human");
-      manager.addAI("AI");
-      manager.addBrowserState("Browser state");
-      manager.addTool("Tool result", "tool_123");
+    it("tests that only one system message is kept", () => {
+      manager.addSystem("First system");
+      manager.addHuman("User message");
+      manager.addSystem("Second system");
       
-      expect(manager.getMessages()).toHaveLength(5);
-      
-      // Remove AI messages
-      manager.removeMessagesByType(MessageType.AI);
-      expect(manager.getMessages()).toHaveLength(4);
-      
-      // Remove browser state messages
-      manager.removeMessagesByType(MessageType.BROWSER_STATE);
-      expect(manager.getMessages()).toHaveLength(3);
-      
-      // Remove system messages
-      manager.removeMessagesByType(MessageType.SYSTEM);
-      expect(manager.getMessages()).toHaveLength(2);
-    });
-
-    it("tests that all messages can be cleared", () => {
-      manager.addHuman("Hello");
-      manager.addAI("Hi");
-      manager.clear();
-      
-      expect(manager.getMessages()).toHaveLength(0);
-      expect(manager.getTokenCount()).toBe(0);
-    });
-
-    it("tests that last message can be removed", () => {
-      manager.addHuman("First");
-      manager.addAI("Second");
-      
-      const removed = manager.removeLast();
-      expect(removed).toBe(true);
-      expect(manager.getMessages()).toHaveLength(1);
-      expect(manager.getMessages()[0].content).toBe("First");
-    });
-  });
-
-  describe("Token management", () => {
-    it("tests that token count is tracked accurately", () => {
-      const initialCount = manager.getTokenCount();
-      expect(initialCount).toBe(0);
-      
-      manager.addHuman("Hello world"); // ~11 chars = ~3 tokens + 3 overhead = 6
-      const count = manager.getTokenCount();
-      expect(count).toBeGreaterThan(0);
-      expect(count).toBeLessThan(20); // Reasonable upper bound
-    });
-
-    it("tests that remaining tokens are calculated correctly", () => {
-      const initial = manager.remaining();
-      expect(initial).toBe(1000);
-      
-      manager.addHuman("Hello");
-      const remaining = manager.remaining();
-      expect(remaining).toBeLessThan(1000);
-      expect(remaining).toBeGreaterThan(980); // Should only use a few tokens
-    });
-
-    it("tests that messages auto-trim when exceeding token limit", async () => {
-      // Add messages until we exceed the limit
-      for (let i = 0; i < 50; i++) {
-        manager.addHuman(`This is a long message number ${i} with some content to use up tokens`);
-      }
-      
-      // Should have trimmed to stay under limit
-      expect(manager.getTokenCount()).toBeLessThanOrEqual(1000);
-      
-      // Most recent messages should be preserved
-      const messages = manager.getMessages();
-      const lastMessage = messages[messages.length - 1];
-      expect(lastMessage.content).toContain("49"); // Last message should be preserved
-    });
-
-    it("tests that system messages are preserved during trimming", async () => {
-      manager.addSystem("Important system prompt");
-      
-      // Add many messages to trigger trimming
-      for (let i = 0; i < 50; i++) {
-        manager.addHuman(`Message ${i} with lots of content to trigger trimming`);
-      }
-      
-      // System message should still be there
       const messages = manager.getMessages();
       const systemMessages = messages.filter(m => m instanceof SystemMessage);
       expect(systemMessages).toHaveLength(1);
-      expect(systemMessages[0].content).toBe("Important system prompt");
+      expect(systemMessages[0].content).toBe("Second system");
+    });
+
+    it("tests that only one browser state is kept", () => {
+      manager.addBrowserState("State 1");
+      manager.addHuman("User");
+      manager.addBrowserState("State 2");
+      
+      const messages = manager.getMessages();
+      const browserStates = messages.filter(m => m instanceof BrowserStateMessage);
+      expect(browserStates).toHaveLength(1);
+      expect(browserStates[0].content).toContain("State 2");
     });
   });
 
+  describe("Token tracking", () => {
+    it("tests that token count is O(1) operation", () => {
+      expect(manager.getTokenCount()).toBe(0);
+      
+      manager.addHuman("Hello world");
+      const count1 = manager.getTokenCount();
+      expect(count1).toBeGreaterThan(0);
+      
+      manager.addAI("Response message");
+      const count2 = manager.getTokenCount();
+      expect(count2).toBeGreaterThan(count1);
+    });
+
+    it("tests that remaining tokens decrease correctly", () => {
+      expect(manager.remaining()).toBe(1000);
+      
+      manager.addHuman("Test message");
+      const remaining = manager.remaining();
+      expect(remaining).toBeLessThan(1000);
+      expect(remaining).toBe(1000 - manager.getTokenCount());
+    });
+
+    it("tests that exact token counts from AIMessage are used", () => {
+      // Create AIMessage with usage_metadata
+      const aiMessage = new AIMessage("Test");
+      aiMessage.usage_metadata = {
+        input_tokens: 10,
+        output_tokens: 20,
+        total_tokens: 30
+      };
+      
+      manager.add(aiMessage);
+      // Should use exact 30 tokens from usage_metadata
+      expect(manager.getTokenCount()).toBe(30);
+    });
+  });
+
+  describe("Smart trimming", () => {
+    it("tests that messages are trimmed by priority", () => {
+      // Create manager with very small limit  
+      const tinyManager = new MessageManager(50); // Small limit
+      
+      // Add many tool messages first (low priority)
+      tinyManager.addTool("Tool 1", "id-1");
+      tinyManager.addTool("Tool 2", "id-2"); 
+      tinyManager.addTool("Tool 3", "id-3");
+      tinyManager.addTool("Tool 4", "id-4");
+      
+      // Add higher priority messages
+      tinyManager.addHuman("Human message");
+      tinyManager.addSystem("System prompt");
+      
+      // Force trimming with a long message
+      tinyManager.addAI("This is a very long AI response message that will definitely exceed our tiny token limit and force trimming");
+      
+      const messages = tinyManager.getMessages();
+      const toolCount = messages.filter(m => m instanceof ToolMessage).length;
+      const systemCount = messages.filter(m => m instanceof SystemMessage).length;
+      
+      // Most tool messages should be trimmed (low priority)
+      // But last 3 messages are always kept, so if a tool is in last 3, it stays
+      expect(toolCount).toBeLessThan(4); // Should have trimmed some tools
+      // System should be preserved (high priority)
+      expect(systemCount).toBe(1);
+      // Should stay close to token limit (within a small margin due to token approximation)
+      expect(tinyManager.getTokenCount()).toBeLessThanOrEqual(55);
+    });
+
+    it("tests that recent messages are preserved", () => {
+      // Add many messages to force trimming
+      for (let i = 0; i < 100; i++) {
+        manager.addHuman(`Message ${i}`);
+      }
+      
+      const messages = manager.getMessages();
+      const lastMessage = messages[messages.length - 1];
+      // Last messages should be preserved
+      expect(lastMessage.content).toContain("99");
+      
+      // Should stay under token limit
+      expect(manager.getTokenCount()).toBeLessThanOrEqual(1000);
+    });
+
+    it("tests that system messages are preserved when possible", () => {
+      manager.addSystem("Important system");
+      
+      // Add messages to trigger trimming
+      for (let i = 0; i < 50; i++) {
+        manager.addHuman(`Long message ${i} with content`);
+      }
+      
+      const messages = manager.getMessages();
+      const systemMsg = messages.find(m => m instanceof SystemMessage);
+      // System should be preserved as high priority
+      expect(systemMsg).toBeDefined();
+    });
+  });
+
+  describe("Token limit updates", () => {
+    it("tests that setMaxTokens updates limit correctly", () => {
+      expect(manager.getMaxTokens()).toBe(1000);
+      
+      manager.setMaxTokens(500);
+      expect(manager.getMaxTokens()).toBe(500);
+      expect(manager.remaining()).toBe(500);
+    });
+
+    it("tests that reducing limit triggers trimming", () => {
+      // Add messages
+      for (let i = 0; i < 20; i++) {
+        manager.addHuman(`Message ${i}`);
+      }
+      
+      const initialCount = manager.getTokenCount();
+      
+      // Reduce limit significantly
+      manager.setMaxTokens(100);
+      
+      // Should have trimmed to fit new limit
+      expect(manager.getTokenCount()).toBeLessThanOrEqual(100);
+      expect(manager.getTokenCount()).toBeLessThan(initialCount);
+    });
+  });
 
   describe("Edge cases", () => {
-    it("tests that empty message manager is handled correctly", () => {
+    it("tests that empty manager works correctly", () => {
       expect(manager.getMessages()).toHaveLength(0);
       expect(manager.getTokenCount()).toBe(0);
       expect(manager.remaining()).toBe(1000);
       expect(manager.removeLast()).toBe(false);
     });
 
-    it("tests that trimming works when adding messages", () => {
-      // Create manager with tiny 10 token limit
-      const tinyManager = new MessageManager(10);
+    it("tests that clear resets everything", () => {
+      manager.addHuman("Test");
+      manager.addAI("Response");
       
-      // Add first message - should fit
-      tinyManager.addHuman("Hi"); // ~2 chars + 3 overhead = ~4 tokens
-      expect(tinyManager.getTokenCount()).toBeLessThanOrEqual(10);
-      expect(tinyManager.getMessages()).toHaveLength(1);
+      manager.clear();
       
-      // Add second message - should still fit
-      tinyManager.addHuman("Ok"); // ~2 chars + 3 overhead = ~4 tokens, total ~8
-      expect(tinyManager.getTokenCount()).toBeLessThanOrEqual(10);
-      expect(tinyManager.getMessages()).toHaveLength(2);
-      
-      // Add third message that would exceed limit - should trigger trimming
-      tinyManager.addHuman("Test"); // Would push total over 10
-      expect(tinyManager.getTokenCount()).toBeLessThanOrEqual(10);
-      const messages = tinyManager.getMessages();
-      
-      // Should have trimmed older messages to stay under limit
-      expect(messages.length).toBeLessThanOrEqual(2);
-      // Most recent message should be preserved
-      expect(messages[messages.length - 1].content).toBe("Test");
+      expect(manager.getMessages()).toHaveLength(0);
+      expect(manager.getTokenCount()).toBe(0);
+      expect(manager.remaining()).toBe(1000);
+      expect(manager.getMaxTokens()).toBe(1000); // Limit preserved
     });
 
-    it("tests that large message histories are trimmed for tools (ValidatorTool scenario)", () => {
-      // Simulate ValidatorTool scenario with 200k token limit
-      const manager = new MessageManager(200_000);
+    it("tests that removeLast updates token count", () => {
+      manager.addHuman("First");
+      manager.addAI("Second");
       
-      // Add many large messages to simulate a long conversation
-      for (let i = 0; i < 100; i++) {
-        // Each message is ~1000 chars = ~250 tokens + 3 overhead = ~253 tokens each
-        const largeContent = `This is message ${i}. `.repeat(50);
-        manager.addHuman(largeContent);
-        manager.addAI(`Response to message ${i}. `.repeat(40));
-      }
+      const countBefore = manager.getTokenCount();
+      manager.removeLast();
+      const countAfter = manager.getTokenCount();
       
-      // Token count should be massive (100 * 2 * 253 = ~50,600 tokens)
-      // But manager should have trimmed during adds
-      expect(manager.getTokenCount()).toBeLessThanOrEqual(200_000);
+      expect(countAfter).toBeLessThan(countBefore);
+      expect(manager.getMessages()).toHaveLength(1);
+    });
+
+    it("tests that fork preserves token tracking", () => {
+      manager.addHuman("Test");
+      manager.addAI("Response");
       
-      // When ValidatorTool calls getMessages via MessageManagerReadOnly
+      const forked = manager.fork(true);
+      
+      expect(forked.getTokenCount()).toBe(manager.getTokenCount());
+      expect(forked.getMessages()).toHaveLength(2);
+      expect(forked.getMaxTokens()).toBe(1000);
+      
+      // Fork without history
+      const emptyFork = manager.fork(false);
+      expect(emptyFork.getTokenCount()).toBe(0);
+      expect(emptyFork.getMessages()).toHaveLength(0);
+    });
+  });
+
+  describe("MessageManagerReadOnly", () => {
+    it("tests that read-only interface works", () => {
+      manager.addHuman("User");
+      manager.addBrowserState("Page content");
+      
       const readOnly = new MessageManagerReadOnly(manager);
-      const messages = readOnly.getAll();
       
-      // Calculate actual token count of returned messages
-      let totalTokens = 0;
-      for (const msg of messages) {
-        totalTokens += 3; // Message overhead
-        if (typeof msg.content === 'string') {
-          totalTokens += Math.ceil(msg.content.length / 4);
-        }
-      }
-      
-      // Should never exceed the limit
-      expect(totalTokens).toBeLessThanOrEqual(200_000);
-      console.log(`ValidatorTool scenario: ${messages.length} messages, ${totalTokens} tokens (limit: 200,000)`);
+      expect(readOnly.getAll()).toHaveLength(2);
+      expect(readOnly.getRecentBrowserState()).toContain("Page content");
     });
 
-    it("tests that getMessages now applies trimming - bug fixed", () => {
-      // Create manager with small token limit
-      const manager = new MessageManager(50);
+    it("tests that browser state extraction works", () => {
+      manager.addBrowserState("<html>content</html>");
       
-      // Manually set messages to simulate accumulated history
-      // This bypasses add() to show what happens when messages are already stored
-      manager['messages'] = [
-        new HumanMessage("Message 1"),
-        new HumanMessage("Message 2"),
-        new HumanMessage("Message 3"),
-        new HumanMessage("Message 4"),
-        new HumanMessage("Message 5"),
-        new HumanMessage("Message 6"),
-        new HumanMessage("Message 7"),
-        new HumanMessage("Message 8"),
-        new HumanMessage("Message 9"),
-        new HumanMessage("Message 10")
-      ];
-      
-      // Check initial token count exceeds limit
-      const initialTokenCount = manager.getTokenCount();
-      expect(initialTokenCount).toBeGreaterThan(50);
-      console.log(`Initial token count: ${initialTokenCount}, Limit: 50`);
-      
-      // FIXED: getMessages() now trims to stay within token limit
-      const messages = manager.getMessages();
-      console.log(`After getMessages(), returned ${messages.length} messages`);
-      
-      // Verify trimming happened
-      expect(messages.length).toBeLessThan(10);
-      
-      // Verify we're now within token limit
-      const finalTokenCount = manager.getTokenCount();
-      expect(finalTokenCount).toBeLessThanOrEqual(50);
-      console.log(`Final token count: ${finalTokenCount}`);
-      
-      // Verify most recent messages are preserved
-      expect(messages[messages.length - 1].content).toBe("Message 10");
-      
-      // MessageManagerReadOnly.getAll() should also return trimmed messages
       const readOnly = new MessageManagerReadOnly(manager);
-      const allMessages = readOnly.getAll();
-      expect(allMessages.length).toBeLessThan(10);
-      expect(allMessages.length).toBe(messages.length);
+      const state = readOnly.getRecentBrowserState();
+      
+      expect(state).toContain("<html>content</html>");
     });
-
-    it("tests that complex content types are handled correctly", () => {
-      const complexContent = [
-        { type: "text", text: "Check this image:" },
-        { type: "image_url", image_url: { url: "https://example.com/image.png" } }
-      ];
-      
-      manager.add(new HumanMessage({ content: complexContent }));
-      
-      const messages = manager.getMessages();
-      expect(messages).toHaveLength(1);
-      expect(manager.getTokenCount()).toBeGreaterThan(0);
-    });
-
-    it("tests that very small token limits are handled correctly", () => {
-      const tinyManager = new MessageManager(10); // Very small limit
-      tinyManager.addHuman("This is a message");
-      
-      // Should have the message
-      expect(tinyManager.getMessages().length).toBe(1);
-      
-      // Add another that would exceed limit
-      tinyManager.addHuman("Another long message");
-      
-      // Should have trimmed to stay under limit (kept only the latest)
-      expect(tinyManager.getMessages().length).toBe(1);
-      expect(tinyManager.getMessages()[0].content).toBe("Another long message");
-    });
-  });
-});
-
-describe("MessageManagerReadOnly", () => {
-  let messageManager: MessageManager;
-  let readOnlyView: MessageManagerReadOnly;
-
-  beforeEach(() => {
-    messageManager = new MessageManager();
-    readOnlyView = new MessageManagerReadOnly(messageManager);
-  });
-
-  // Test 1: Verify read-only access to messages
-  it("tests that read-only access is provided to all messages", () => {
-    // Arrange
-    messageManager.addHuman("Hello");
-    messageManager.addAI("Hi there!");
-    messageManager.addSystem("System prompt");
-
-    // Act
-    const messages = readOnlyView.getAll();
-
-    // Assert
-    expect(messages).toHaveLength(3);
-    expect(messages[0]).toBeInstanceOf(HumanMessage);
-    expect(messages[0].content).toBe("Hello");
-    expect(messages[1]).toBeInstanceOf(AIMessage);
-    expect(messages[1].content).toBe("Hi there!");
-    expect(messages[2]).toBeInstanceOf(SystemMessage);
-    expect(messages[2].content).toBe("System prompt");
-  });
-
-  // Test 2: Verify changes in MessageManager are reflected in read-only view
-  it("tests that changes to MessageManager are reflected in read-only view", () => {
-    // Arrange
-    messageManager.addHuman("First message");
-    const initialMessages = readOnlyView.getAll();
-    expect(initialMessages).toHaveLength(1);
-
-    // Act
-    messageManager.addAI("Response");
-    messageManager.addHuman("Follow-up");
-
-    // Assert
-    const updatedMessages = readOnlyView.getAll();
-    expect(updatedMessages).toHaveLength(3);
-    expect(updatedMessages[1].content).toBe("Response");
-    expect(updatedMessages[2].content).toBe("Follow-up");
-  });
-
-  // Test 3: Verify getAll returns a copy, not the original array
-  it("tests that getAll returns a copy to prevent external modifications", () => {
-    // Arrange
-    messageManager.addHuman("Test message");
-    
-    // Act
-    const messages1 = readOnlyView.getAll();
-    const messages2 = readOnlyView.getAll();
-    
-    // Assert
-    expect(messages1).not.toBe(messages2);  // Different array instances
-    expect(messages1).toEqual(messages2);    // But same content
-    
-    // Verify modifying returned array doesn't affect internal state
-    messages1.push(new AIMessage("Injected message"));
-    const messages3 = readOnlyView.getAll();
-    expect(messages3).toHaveLength(1);  // Still only original message
-  });
-});
-
-describe("MessageManager.fork", () => {
-  let messageManager: MessageManager;
-
-  beforeEach(() => {
-    messageManager = new MessageManager();
-    messageManager.addHuman("Original message");
-    messageManager.addAI("Original response");
-  });
-
-  // Test 4: Verify fork creates independent copy with history
-  it("tests that fork creates independent copy with history", () => {
-    // Act
-    const forked = messageManager.fork(true);
-    
-    // Assert - forked has same messages
-    expect(forked.getMessages()).toHaveLength(2);
-    expect(forked.getMessages()[0].content).toBe("Original message");
-    
-    // Assert - changes to forked don't affect original
-    forked.addHuman("New message in fork");
-    expect(forked.getMessages()).toHaveLength(3);
-    expect(messageManager.getMessages()).toHaveLength(2);
-    
-    // Assert - changes to original don't affect forked
-    messageManager.addAI("New response in original");
-    expect(messageManager.getMessages()).toHaveLength(3);
-    expect(forked.getMessages()).toHaveLength(3);
   });
 });

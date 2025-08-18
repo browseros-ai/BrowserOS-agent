@@ -19,6 +19,14 @@ Complex tasks require multiple steps or planning, such as:
 - "Research the latest news about AI"
 - "Compare prices across multiple websites"
 - "Fill out a form with specific information"
+- "Check my emails"
+- "List my YouTube videos"
+- "Show my GitHub pull requests"
+- "Check my calendar"
+- "List my Slack messages"
+- "Search my Google Drive"
+- "Show my Notion pages"
+- "List my Linear issues"
 
 You must respond with a JSON object in this exact format:
 {

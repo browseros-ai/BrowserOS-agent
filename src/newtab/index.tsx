@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { NewTab } from './NewTab'
-import { ErrorBoundary } from '@/sidepanel/v2/components/ErrorBoundary'
+import { ErrorBoundary } from '@/sidepanel/components/ErrorBoundary'
 import './styles.css'
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)

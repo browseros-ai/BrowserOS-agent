@@ -5,6 +5,9 @@ import { toolError } from '@/lib/tools/Tool.interface'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { generateExtractorSystemPrompt, generateExtractorTaskPrompt } from './ExtractTool.prompt'
 import { invokeWithRetry } from '@/lib/utils/retryable'
+import { PubSub } from '@/lib/pubsub'
+import { TokenCounter } from '@/lib/utils/TokenCounter'
+import { Logging } from '@/lib/utils/Logging'
 
 // Input schema for extraction
 const ExtractInputSchema = z.object({
@@ -30,6 +33,7 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
     schema: ExtractInputSchema,
     func: async (args: ExtractInput): Promise<string> => {
       try {
+        executionContext.getPubSub().publishMessage(PubSub.createMessage(`Extracting information from page ${args.tab_id}`, 'thinking'))
         // Get the page for the specified tab
         const pages = await executionContext.browserContext.getPages([args.tab_id])
         if (!pages || pages.length === 0) {
@@ -74,16 +78,25 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
           { url, title }
         )
         
+        // Prepare messages for LLM
+        const messages = [
+          new SystemMessage(systemPrompt),
+          new HumanMessage(taskPrompt)
+        ]
+        
+        // Log token count
+        const tokenCount = TokenCounter.countMessages(messages)
+        Logging.log('ExtractTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info')
+        
         // Get structured response from LLM with retry logic
         const structuredLLM = llm.withStructuredOutput(ExtractedDataSchema)
         const extractedData = await invokeWithRetry<ExtractedData>(
           structuredLLM,
-          [
-            new SystemMessage(systemPrompt),
-            new HumanMessage(taskPrompt)
-          ],
+          messages,
           3
         )
+
+        executionContext.getPubSub().publishMessage(PubSub.createMessage(`Extracted ${args.extract_type} from page ${title}, generated summary...`, 'thinking'))
         
         // Return success result
         return JSON.stringify({
@@ -93,7 +106,10 @@ export function createExtractTool(executionContext: ExecutionContext): DynamicSt
       } catch (error) {
         // Handle error
         const errorMessage = error instanceof Error ? error.message : String(error)
-        return JSON.stringify(toolError(`Extraction failed: ${errorMessage}`))
+        executionContext.getPubSub().publishMessage(
+          PubSub.createMessageWithId(PubSub.generateId('ToolError'), `Extraction failed: ${errorMessage}`, 'error')
+        )
+        return JSON.stringify(toolError(errorMessage))  // Return raw error
       }
     }
   })

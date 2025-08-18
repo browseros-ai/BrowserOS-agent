@@ -28,6 +28,7 @@ if (!envKeys.LITELLM_API_KEY) {
 const processEnv = {
   'process.env.LITELLM_API_KEY': JSON.stringify(envKeys.LITELLM_API_KEY),
   'process.env.POSTHOG_API_KEY': JSON.stringify(envKeys.POSTHOG_API_KEY || ''),
+  'process.env.KLAVIS_API_KEY': JSON.stringify(envKeys.KLAVIS_API_KEY || ''),
   'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
 }
 

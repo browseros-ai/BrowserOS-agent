@@ -1,12 +1,35 @@
-export const refreshStateToolDescription = `CRITICAL TOOL - Updates the browser state in your conversation context to reflect the current page after navigation or interactions.
+export const refreshStateToolDescription = `🚨 EMERGENCY DIAGNOSTIC TOOL - LAST RESORT ONLY 🚨
 
-WHEN TO USE:
-- IMMEDIATELY AFTER: Major page changes (navigation, form submission, clicking links)
-- BEFORE: Planning or validation steps if browser state seems outdated
-- WHEN: You need to verify the current page matches your expectations
-- IF STRUGGLING: When actions are failing repeatedly - refresh to get accurate page information
+Retrieves EXHAUSTIVE browser state with FULL DOM details for debugging stuck automation.
 
-WHY IT'S CRITICAL:
-Without calling this tool regularly, you will be working with STALE, OUTDATED page information that no longer reflects reality.
+⚠️ WHEN TO USE (ALL conditions must be met):
+1. You've tried the same action 2-3 times and it keeps failing
+2. Element finding or interaction is consistently failing
+3. The page seems completely different than expected
+4. You genuinely cannot proceed without understanding the full page structure
 
-Remember: The browser state in your context does NOT update automatically. You MUST call this tool to see changes.` 
+❌ DO NOT USE FOR:
+- Routine state checks (tools already get fresh state internally)
+- After simple navigation (wasteful and slow)
+- First attempts at finding elements (try normal methods first)
+- Regular task execution (unnecessary overhead)
+
+✅ USE ONLY WHEN:
+- Multiple consecutive "element not found" errors on the same element
+- interact_tool repeatedly fails despite element seeming to exist
+- You suspect hidden elements, shadow DOM, or complex CSS is blocking you
+- Debugging why automation is completely stuck
+
+📊 RETURNS:
+- Complete DOM tree with ALL attributes
+- Computed styles for elements
+- Form states and values
+- Hidden element properties
+- Shadow DOM contents
+- Frame/iframe information
+
+⚡ PERFORMANCE WARNING:
+This tool is computationally expensive and returns massive amounts of data.
+Only use when absolutely necessary to diagnose blocking issues.
+
+Remember: If you're using this tool frequently, something is wrong with your approach.`;

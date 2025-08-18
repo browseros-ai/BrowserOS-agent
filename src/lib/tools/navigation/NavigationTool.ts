@@ -2,6 +2,7 @@ import { z } from "zod"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext"
 import { toolSuccess, toolError, type ToolOutput } from "@/lib/tools/Tool.interface"
+import { PubSub } from "@/lib/pubsub"
 
 // Constants
 const ENABLE_WAIT = false  // Set to true to enable wait after navigation actions
@@ -41,6 +42,7 @@ export class NavigationTool {
     }
 
     try {
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Navigating to: ${url}`, 'thinking'))
       const normalizedUrl = this._normalizeUrl(url)
       const browserPage = await this.executionContext.browserContext.getCurrentPage()
       await browserPage.navigateTo(normalizedUrl)
@@ -55,6 +57,7 @@ export class NavigationTool {
         browserPage.title()
       ])
       
+      
       return toolSuccess(`Navigated to ${currentUrl} - ${title}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -64,7 +67,7 @@ export class NavigationTool {
         return toolError(`URL not allowed: ${url}. This URL is restricted by security policy.`)
       }
       
-      return toolError(`Navigation failed: ${errorMessage}`)
+      return toolError(errorMessage)  // Return raw error
     }
   }
 
@@ -82,6 +85,9 @@ export class NavigationTool {
         browserPage.url(),
         browserPage.title()
       ])
+      
+      // Emit status message
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Went back to: ${currentUrl}`, 'thinking'))
       
       return toolSuccess(`Went back to ${currentUrl} - ${title}`)
     } catch (error) {
@@ -109,6 +115,9 @@ export class NavigationTool {
         browserPage.title()
       ])
       
+      // Emit status message
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Went forward to: ${currentUrl}`, 'thinking'))
+      
       return toolSuccess(`Went forward to ${currentUrl} - ${title}`)
     } catch (error) {
       // Check if there's no history to go forward to
@@ -134,6 +143,9 @@ export class NavigationTool {
         browserPage.url(),
         browserPage.title()
       ])
+      
+      // Emit status message
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Refreshed page: ${currentUrl}`, 'thinking'))
       
       return toolSuccess(`Refreshed ${currentUrl} - ${title}`)
     } catch (error) {

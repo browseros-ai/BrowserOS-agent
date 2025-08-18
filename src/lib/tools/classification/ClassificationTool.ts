@@ -1,14 +1,17 @@
 import { DynamicStructuredTool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { MessageManagerReadOnly } from '@/lib/runtime/MessageManager'
+import { MessageManagerReadOnly, MessageType } from '@/lib/runtime/MessageManager'
 import { toolSuccess, toolError } from '@/lib/tools/Tool.interface'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { 
   buildClassificationSystemPrompt,
   buildClassificationTaskPrompt
 } from '@/lib/tools/classification/classification.tool.prompt'
+import { PubSub } from '@/lib/pubsub'
 import { invokeWithRetry } from '@/lib/utils/retryable'
+import { TokenCounter } from '@/lib/utils/TokenCounter'
+import { Logging } from '@/lib/utils/Logging'
 
 // Constants
 const MAX_RECENT_MESSAGES = 10  // Number of recent messages to analyze
@@ -36,31 +39,44 @@ export class ClassificationTool {
 
   async execute(input: ClassificationInput): Promise<string> {
     try {
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Classifying task...`, 'thinking'))
       // Get LLM instance
       const llm = await this.executionContext.getLLM()
       
-      // Get recent message history
+      // Get recent message history, excluding system prompts and browser state messages
+      // to focus on actual conversation context
       const reader = new MessageManagerReadOnly(this.executionContext.messageManager)
-      const recentMessages = reader.getAll().slice(-MAX_RECENT_MESSAGES)
+      const filteredMessages = reader.getFiltered([MessageType.SYSTEM, MessageType.BROWSER_STATE])
+      const recentMessages = filteredMessages.slice(-MAX_RECENT_MESSAGES)
       
       // Build prompt
       const systemPrompt = this._buildSystemPrompt()
       const taskPrompt = this._buildTaskPrompt(input.task, recentMessages)
       
+      // Log token count
+      const messages = [
+        new SystemMessage(systemPrompt),
+        new HumanMessage(taskPrompt)
+      ]
+      const tokenCount = TokenCounter.countMessages(messages)
+      Logging.log('ClassificationTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info')
+      
       // Call LLM with structured output and retry logic
       const structuredLLM = llm.withStructuredOutput(ClassificationResultSchema)
       const result = await invokeWithRetry<ClassificationResult>(
         structuredLLM,
-        [
-          new SystemMessage(systemPrompt),
-          new HumanMessage(taskPrompt)
-        ],
+        messages,
         3
       )
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Task classified as ${result.is_simple_task ? 'simple' : 'complex'} and ${result.is_followup_task ? 'follow-up' : 'new'}`, 'thinking'))
       
       return JSON.stringify(toolSuccess(JSON.stringify(result)))
     } catch (error) {
-      return JSON.stringify(toolError(`Classification failed: ${error instanceof Error ? error.message : String(error)}`))
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      this.executionContext.getPubSub().publishMessage(
+        PubSub.createMessageWithId(PubSub.generateId('ToolError'), `Classification failed: ${errorMessage}`, 'error')
+      )
+      return JSON.stringify(toolError(errorMessage))  // Return raw error
     }
   }
 

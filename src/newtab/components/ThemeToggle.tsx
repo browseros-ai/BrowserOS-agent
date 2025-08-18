@@ -1,6 +1,6 @@
 import React from 'react'
 import { SunIcon, MoonIcon } from 'lucide-react'
-import { useSettingsStore } from '@/sidepanel/v2/stores/settingsStore'
+import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 
 export function ThemeToggle() {
   const { theme, setTheme } = useSettingsStore()

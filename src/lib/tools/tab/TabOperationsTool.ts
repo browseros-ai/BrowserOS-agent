@@ -2,6 +2,7 @@ import { z } from "zod"
 import { DynamicStructuredTool } from "@langchain/core/tools"
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext"
 import { toolSuccess, toolError, type ToolOutput } from "@/lib/tools/Tool.interface"
+import { PubSub } from "@/lib/pubsub"
 
 // Constants
 const DEFAULT_TAB_URL = "chrome://newtab/"
@@ -87,6 +88,10 @@ export class TabOperationsTool {
   private async _createNewTab(): Promise<ToolOutput> {
     try {
       const page = await this.executionContext.browserContext.openTab(DEFAULT_TAB_URL)
+      
+      // Emit status message
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Created new tab with ID: ${page.tabId}`, 'thinking'))
+      
       return toolSuccess(`Created new tab with ID: ${page.tabId}`)
     } catch (error) {
       return toolError(`Failed to create new tab: ${error instanceof Error ? error.message : String(error)}`)
@@ -105,6 +110,10 @@ export class TabOperationsTool {
       
       // Get tab info for confirmation
       const tab = await chrome.tabs.get(tabId)
+      
+      // Emit status message
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Switched to tab: ${tab.title || 'Untitled'}`, 'thinking'))
+      
       return toolSuccess(`Switched to tab: ${tab.title || 'Untitled'} (ID: ${tabId})`)
     } catch (error) {
       return toolError(`Failed to switch to tab ${tabId}: ${error instanceof Error ? error.message : String(error)}`)
@@ -141,8 +150,13 @@ export class TabOperationsTool {
       }
 
       if (errors.length > 0) {
+        // Emit status message for partial success
+        this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Closed ${closedCount} tab(s), failed ${errors.length} tab(s)`, 'thinking'))
         return toolSuccess(`Closed ${closedCount} tab(s). Failed to close ${errors.length} tab(s): ${errors.join(', ')}`)
       }
+      
+      // Emit status message for full success
+      this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Closed ${closedCount} tab${closedCount === 1 ? '' : 's'}`, 'thinking'))
       
       return toolSuccess(`Closed ${closedCount} tab${closedCount === 1 ? '' : 's'}`)
     } catch (error) {
