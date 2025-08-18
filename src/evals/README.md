@@ -3,15 +3,17 @@
 ## Overview
 
 Evaluation system for the BrowserOS agent with:
-- **Online Telemetry**: Seamless, automatic tool tracking via Braintrust SDK
+- **Online Telemetry**: Seamless, automatic agent/tool tracking via Braintrust SDK (only used in dev environments)
 - **Offline Tests**: Standalone unit tests for specific tools
 
 ## Directory Structure
 
 ```
 src/evals/
-├── online/                           # Online telemetry system
+├── online/                           # Online telemetry system (only used in dev environments)
 │   ├── BraintrustEventCollector.ts  # Singleton collector with lazy init
+│   ├── EventEnricher.ts             # Automatic context enrichment
+│   ├── createTrackedTool.ts        # Tool wrapper factory
 │   └── README.md                     # Detailed telemetry guide
 │
 ├── offline/                          # Offline test suites
@@ -40,10 +42,12 @@ export const BRAINTRUST_API_KEY = 'your-key';
 ### How It Works
 
 1. **User query** → NxtScape creates parent session
-2. **BrowserAgent** → Automatically wraps all tools with `createTrackedTool()`
-3. **Tool execution** → Wrapper logs start/end/errors with timing
-4. **Braintrust SDK** → Batches and sends data
-5. **Dashboard** → View traces at braintrust
+2. **EventEnricher** → Created with ExecutionContext for rich data access
+3. **BrowserAgent** → Automatically wraps all tools with `createTrackedTool()`
+4. **Tool execution** → Wrapper logs start/end/errors with timing
+5. **Event enrichment** → EventEnricher automatically adds context to all events
+6. **Braintrust SDK** → Batches and sends enriched data
+7. **Dashboard** → View traces with full context at braintrust
 
 ### What Gets Logged
 
@@ -58,10 +62,15 @@ Conversation Session
 ```
 
 Each tool execution includes:
-- **Input** (sanitized - passwords redacted)
-- **Output** (truncated to 500 chars)
+- **Input** (automatically captured by wrapTraced)
+- **Output** (automatically captured by wrapTraced)
 - **Duration** in milliseconds
 - **Success/failure** status
+- **Rich context** via EventEnricher:
+  - Conversation history (last 3 messages)
+  - Current plan and progress
+  - Browser state (URL, title, tabs)
+  - Original user intent
 
 ### Build & Run
 
@@ -70,7 +79,7 @@ npm run build:dev
 # Reload extension in Chrome
 ```
 
-View data at: https://www.braintrust.com/app → `browseros-agent-online` project
+View data in Braintrust dashboard → `browseros-agent-online` project
 
 ### Offline Evaluations (Existing)
 
@@ -101,12 +110,16 @@ npm run extract:prompts
 - Plan generation tracking ✅
 - Session lifecycle management ✅
 
-### 📊 Phase 3: Data Collection (CURRENT)
-- View data in Braintrust dashboard ✅
-- Query and analyze patterns ✅
-- Basic telemetry working ✅
+### ✅ Phase 3: Enhanced Data Collection (COMPLETE)
+- EventEnricher adds rich context ✅
+- Conversation history tracking ✅
+- Plan state tracking ✅
+- Browser state capture ✅
+- All tools automatically wrapped ✅
+- Decision points tracked ✅
+- Browser actions tracked ✅
 
-### 🎯 Phase 4: LLM-as-Judge Scoring (PLANNED)
+### 🎯 Phase 4: LLM-as-Judge Scoring (NEXT ITERATION)
 #### Implementation Roadmap
 1. **Tool-Level Scoring** (`scoringHelpers.ts`)
    - Performance scoring based on execution time
@@ -130,13 +143,24 @@ npm run extract:prompts
 
 ## Current State
 
-**✅ WORKING:** Development telemetry is functional and collecting data when enabled.
+**✅ COMPLETE:** Enhanced telemetry data collection is fully implemented and working.
 
-- ✅ Simple activation: Set `ENABLE_TELEMETRY = true` in config.ts
-- ✅ Data flows to Braintrust when enabled
-- ✅ Classification, planning, and tool execution tracked
-- ✅ Zero overhead when disabled
-- ✅ No complex configuration needed
+### What's Implemented
+- ✅ **Automatic tool wrapping** - All tools tracked when enabled
+- ✅ **Rich context** - Conversation history, plan state, browser info via EventEnricher
+- ✅ **Decision tracking** - Classification and planning decisions captured
+- ✅ **Browser actions** - Navigation, clicks, scrolls tracked via wrapped tools
+- ✅ **Zero overhead** - No impact when disabled
+- ✅ **Simple activation** - Just set `ENABLE_TELEMETRY = true` in config.ts
+
+### What You Get
+Every tool execution includes:
+- Input/output (sanitized)
+- Duration metrics
+- Success/failure status
+- Conversation context (last 3 messages)
+- Current plan and progress
+- Browser state (URL, title, tab count)
 
 ## Best Practices
 

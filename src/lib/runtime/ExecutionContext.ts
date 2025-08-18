@@ -38,6 +38,7 @@ export class ExecutionContext {
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
+  private _taskNumber: number = 0  // Track number of user tasks in this session
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime with proper type checking
@@ -183,6 +184,7 @@ export class ExecutionContext {
    */
   public setCurrentTask(task: string): void {
     this._currentTask = task;
+    this._taskNumber++;  // Increment task counter when new user task starts
   }
 
   /**
@@ -191,6 +193,14 @@ export class ExecutionContext {
    */
   public getCurrentTask(): string | null {
     return this._currentTask;
+  }
+
+  /**
+   * Get the current task number (how many user tasks in this session)
+   * @returns The current task number (1-based)
+   */
+  public getCurrentTaskNumber(): number {
+    return this._taskNumber;
   }
 }
  

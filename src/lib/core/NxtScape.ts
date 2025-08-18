@@ -129,8 +129,8 @@ export class NxtScape {
           this.browserAgent = new BrowserAgent(this.executionContext);
         }
         
-        // Initialize telemetry session for conversation tracking (this logs status)
-        await this._initializeTelemetrySession();
+        // Note: Telemetry session initialization is deferred until first task execution
+        // This prevents creating empty sessions when extension is just opened/closed
 
         Logging.log(
           "NxtScape",
@@ -226,6 +226,12 @@ export class NxtScape {
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
     this.currentQuery = query;
     
+    // Initialize telemetry session on first task if not already initialized
+    // This ensures we only create sessions when there's actual work
+    if (!this.telemetrySessionId) {
+      await this._initializeTelemetrySession();
+    }
+    
     // Track task start with telemetry
     if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
       try {
@@ -258,6 +264,11 @@ export class NxtScape {
     // Pass telemetry to execution context for BrowserAgent
     this.executionContext.telemetry = this.telemetry;
     this.executionContext.parentSpanId = this.telemetryParentSpan;
+    
+    // Ensure execution context is set in telemetry for enrichment
+    if (this.telemetry && this.executionContext) {
+      this.telemetry.setExecutionContext(this.executionContext);
+    }
 
     try {
       // Check that browser agent is initialized
@@ -358,13 +369,35 @@ export class NxtScape {
    * Cancel the currently running task
    * @returns Object with cancellation info including the query that was cancelled
    */
-  public cancel(): { wasCancelled: boolean; query?: string } {
+  public async cancel(): Promise<{ wasCancelled: boolean; query?: string }> {
     if (this.executionContext && !this.executionContext.abortController.signal.aborted) {
       const cancelledQuery = this.currentQuery;
       Logging.log(
         "NxtScape",
         `User cancelling current task execution: "${cancelledQuery}"`,
       );
+      
+      // Log task paused event with telemetry
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan && this.taskCount > 0) {
+        const taskDuration = Date.now() - this.taskStartTime;
+        await this.telemetry.logEvent({
+          type: 'decision_point',
+          name: `task_${this.taskCount}_paused`,
+          data: {
+            task: cancelledQuery || 'Unknown task',
+            taskNumber: this.taskCount,
+            duration_ms: taskDuration,
+            reason: 'User clicked pause button',
+            phase: 'task_paused'
+          }
+        }, {
+          parent: this.telemetryParentSpan,
+          name: `task_${this.taskCount}_paused`
+        });
+        
+        console.log(`%c⏸ Task ${this.taskCount} paused (${taskDuration}ms)`, 'color: #ffaa00; font-size: 10px');
+      }
+      
       this.executionContext.cancelExecution(
         /*isUserInitiatedsCancellation=*/ true,
       );
@@ -419,10 +452,12 @@ export class NxtScape {
     // Clear current query to ensure clean state
     this.currentQuery = null;
 
-    // End current telemetry session and start a new one
-    this._endTelemetrySession('user_reset');
+    // End current telemetry session if one exists
+    if (this.telemetrySessionId) {
+      this._endTelemetrySession('user_reset');
+    }
     this.taskCount = 0; // Reset task counter for new conversation
-    this._initializeTelemetrySession();
+    // Note: New session will be created on next task execution
 
     // Recreate MessageManager to clear history
     this.messageManager.clear();
@@ -458,10 +493,10 @@ export class NxtScape {
       this.conversationStartTime = Date.now();
       this.telemetrySessionId = crypto.randomUUID();
       
-      // Start conversation-level session
+      // Start conversation-level session with actual user query
       const { parent } = await this.telemetry.startSession({
         sessionId: this.telemetrySessionId,
-        task: 'conversation_session',  // Special marker for conversation sessions
+        task: this.currentQuery || 'No query provided',  // Use actual user query as task
         timestamp: this.conversationStartTime,
         browserInfo: {
           version: typeof chrome !== 'undefined' ? chrome.runtime.getManifest().version : 'unknown',
@@ -471,9 +506,14 @@ export class NxtScape {
       
       this.telemetryParentSpan = parent || null;
       
+      // Set execution context for event enrichment
+      if (this.executionContext) {
+        this.telemetry.setExecutionContext(this.executionContext);
+      }
+      
       // Telemetry session started
       if (this.telemetryParentSpan) {
-        console.log('%c✓ Telemetry session initialized', 'color: #00ff00; font-size: 10px');
+        console.log('%c✓ Telemetry session initialized (first task)', 'color: #00ff00; font-size: 10px');
         console.log(`%c  Session ID: ${this.telemetrySessionId}`, 'color: #888; font-size: 10px');
       }
       
@@ -497,8 +537,7 @@ export class NxtScape {
       await this.telemetry.endSession(this.telemetryParentSpan, this.telemetrySessionId, {
         success: true,
         summary: `Conversation ended: ${reason}`,
-        duration_ms: duration,
-        toolsUsed: [`${this.taskCount} tasks completed`]
+        duration_ms: duration
       });
       
       console.log(`%c← Telemetry session ended (${reason})`, 'color: #888; font-size: 10px');

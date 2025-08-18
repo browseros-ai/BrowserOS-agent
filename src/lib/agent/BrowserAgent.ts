@@ -165,21 +165,9 @@ export class BrowserAgent {
       // 2. CLASSIFY: Determine the task type
       const classification = await this._classifyTask(task);
       
-      // Track classification decision with telemetry
-      if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
-        await this.executionContext.telemetry.logEvent({
-          type: 'decision_point' as any,
-          name: 'task_classification',
-          data: {
-            task,
-            classification: classification.is_simple_task ? 'simple' : 'complex',
-            is_followup: classification.is_followup_task
-          }
-        }, {
-          parent: this.executionContext.parentSpanId,
-          name: 'task_classification'
-        });
-        
+      // The classification tool execution is already tracked via automatic tool wrapping
+      // Just log to console for visibility
+      if (this.executionContext.telemetry?.isEnabled()) {
         console.log(`%c→ Classification: ${classification.is_simple_task ? 'simple' : 'complex'}`, 'color: #888; font-size: 10px');
       }
       
@@ -507,23 +495,8 @@ export class BrowserAgent {
         continue;
       }
 
-      // Track tool selection decision (execution is tracked by the tool itself)
-      if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
-        await this.executionContext.telemetry.logEvent({
-          type: 'decision_point' as any,
-          name: 'tool_selection',
-          data: {
-            toolName,
-            args,
-            context: {
-              messageCount: this.messageManager.getMessages().length
-            }
-          }
-        }, {
-          parent: this.executionContext.parentSpanId,
-          name: 'tool_selection'
-        });
-      }
+      // Tool execution is already tracked automatically via tool wrapping
+      // No need for separate tool_selection event
 
       // Handle glow animation for applicable tools
       // This enables glow only for certain interactive tools.
@@ -599,25 +572,6 @@ export class BrowserAgent {
     const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
     this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
 
-    // Track plan generation with telemetry
-    if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
-      const plan = parsedResult.ok ? parsedResult.output : { steps: [] };
-      await this.executionContext.telemetry.logEvent({
-        type: 'decision_point' as any,
-        name: 'plan_generation',
-        data: {
-          task,
-          planSteps: plan.steps?.length || 0,
-          plan: plan.steps?.map((step: any) => ({ tool: step.tool, instruction: step.instruction })),
-          duration_ms: duration
-        }
-      }, {
-        parent: this.executionContext.parentSpanId,
-        name: 'plan_generation'
-      });
-      
-      console.log(`%c→ Plan: ${plan.steps?.length || 0} steps (${duration.toFixed(0)}ms)`, 'color: #888; font-size: 10px');
-    }
 
     if (parsedResult.ok && parsedResult.output?.steps) {
       return { steps: parsedResult.output.steps };

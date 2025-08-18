@@ -2,7 +2,7 @@
 
 ## Overview
 
-Seamless telemetry integration for the BrowserOS agent using Braintrust SDK. Tools are automatically wrapped with tracking when telemetry is enabled - no manual instrumentation needed.
+Seamless telemetry integration for the BrowserOS agent using Braintrust SDK. Tools are automatically wrapped with tracking when telemetry is enabled - no manual instrumentation needed. (only used in dev environments)
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ npm run build:dev
 ```
 
 ### 3. View Data
-braintrust `browseros-agent-online` project
+View in Braintrust dashboard → `browseros-agent-online` project
 
 ## How It Works
 
@@ -54,25 +54,60 @@ private _registerTools(): void {
 2. NxtScape.run()
    - Creates conversation session (parent span)
    - Passes telemetry to ExecutionContext
+   - Sets ExecutionContext → Creates EventEnricher
    ↓
-3. BrowserAgent.execute()
+3. EventEnricher Initialized
+   - Created in BraintrustEventCollector.setExecutionContext()
+   - Has access to all runtime state via ExecutionContext
+   ↓
+4. BrowserAgent.execute()
    - Receives telemetry via ExecutionContext
    - Wraps all tools with createTrackedTool()
    ↓
-4. Tool Execution
+5. Tool Execution
    - Wrapper logs: start → execute → end/error
-   - Sanitizes sensitive data automatically
+   - Events automatically enriched with context
    ↓
-5. Braintrust SDK
-   - Batches events (handled by SDK)
+6. Event Enrichment (Automatic)
+   - EventEnricher adds conversation history
+   - Includes current plan and progress
+   - Captures browser state (URL, tabs)
+   ↓
+7. Braintrust SDK
+   - Batches enriched events (handled by SDK)
    - Sends to Braintrust API
    ↓
-6. View in Dashboard
+8. View in Dashboard
    - Traces show full execution hierarchy
+   - Rich context for debugging
    - Analyze performance and errors
 ```
 
 ## What Gets Logged
+
+### Automatic Context Enrichment via EventEnricher
+
+Every telemetry event is automatically enriched with contextual data by the EventEnricher:
+
+**For Tool Executions & Decision Points:**
+- **Conversation Context**
+  - Current conversation turn number
+  - Total message history length
+  - Last 3 messages (truncated to ~150 chars each)
+  - Original user intent from first message
+- **Plan Context** (if a plan exists)
+  - All plan steps (first 5)
+  - Current step being executed
+  - Whether this is a re-planning scenario
+- **Browser State**
+  - Current page URL and title
+  - Number of open tabs
+  - Active tab ID
+
+**For Browser Actions:**
+- Only browser state is captured (lighter weight)
+
+This enrichment happens automatically - no manual instrumentation needed!
 
 ### Event Hierarchy
 
@@ -95,37 +130,6 @@ Every conversation creates a nested trace structure:
      └─ ... more tool executions
 ```
 
-### Data Captured Per Tool
-
-```typescript
-{
-  type: 'tool_execution',
-  name: 'navigate_tool',
-  data: {
-    phase: 'end',
-    input: {                    // Sanitized!
-      url: 'https://amazon.com'
-    },
-    output: {                   // Truncated!
-      ok: true,
-      output: 'Navigated successfully'
-    },
-    duration_ms: 89,
-    success: true
-  }
-}
-```
-
-### Automatic Privacy Protection
-
-The `createTrackedTool` wrapper sanitizes all data before sending:
-
-| Data Type | What Happens | Example |
-|-----------|-------------|---------|
-| Passwords/Tokens | Redacted | `password123` → `[REDACTED]` |
-| Long Strings | Truncated | `"Lorem ipsum..."` (2000 chars) → `"Lorem ipsum..."` (500 chars) + `[truncated]` |
-| HTML Content | Removed | `<div>...</div>` → `[HTML content removed]` |
-| Base64 Images | Replaced | `data:image/png;base64,...` → `[BASE64_DATA]` |
 
 ## How Data is Sent to Braintrust
 
@@ -145,18 +149,28 @@ private _ensureInitialized(): void {
 }
 ```
 
-### 2. Event Logging with Parent/Child Relationships
+### 2. Tool Execution Wrapped in Traced Spans
 ```typescript
-// Each event is linked to its parent span
-await telemetry.logEvent({
-  type: 'tool_execution',
-  name: toolName,
-  data: { ... }
-}, {
-  parent: context.parentSpanId,  // Links to parent span
-  name: toolName                  // Shows in trace view
-})
+// Tools are wrapped INSIDE traced spans for proper waterfall visualization
+return telemetry.runInSpan(
+  toolName,
+  context.parentSpanId,
+  async (span) => {
+    // Log start to the span
+    span.log({ input, phase: 'start' })
+    
+    // Execute the actual tool - THIS is what gets measured
+    const result = await originalFunc(input)
+    
+    // Log completion to the same span
+    span.log({ output: result, phase: 'completed', metrics: { duration_ms } })
+    
+    return result
+  }
+)
 ```
+
+This creates proper duration bars in the Braintrust waterfall view, not just point-in-time events.
 
 ### 3. SDK Handles the Rest
 - **Batching**: Events are automatically batched by Braintrust SDK
@@ -181,11 +195,11 @@ When telemetry is enabled, you'll see:
 → Tool: done_tool (45ms)
 ```
 
-## Planned Feature: LLM-as-Judge Scoring
+## Next Iteration: LLM-as-Judge Scoring
 
-**Status: In Development** 🚧
+**Status: Planned** 📋
 
-Currently, telemetry only collects execution data. We're adding automatic quality scoring using LLM-as-judge patterns:
+Currently, telemetry collects comprehensive execution data with rich context. The next iteration will add automatic quality scoring using LLM-as-judge patterns:
 
 ### What Will Be Scored
 
@@ -271,9 +285,10 @@ src/
 ├── config.ts                           # ENABLE_TELEMETRY & API key
 ├── evals/online/
 │   ├── BraintrustEventCollector.ts    # Singleton collector
+│   ├── EventEnricher.ts              # Adds rich context to events
 │   └── createTrackedTool.ts           # Tool wrapper factory
 ├── lib/core/
-│   └── NxtScape.ts                    # Creates parent session
+│   └── NxtScape.ts                    # Creates parent session & EventEnricher
 └── lib/agent/
     └── BrowserAgent.ts                # Wraps tools automatically
 ```

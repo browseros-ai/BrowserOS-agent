@@ -813,18 +813,18 @@ function handleSaveLlmProvidersPort(
  * @param port - Port to send response through
  * @param id - Optional message ID for correlation
  */
-function handleCancelTaskPort(
+async function handleCancelTaskPort(
   payload: CancelTaskMessage['payload'],
   port: chrome.runtime.Port,
   id?: string
-): void {
+): Promise<void> {
   try {
     const { reason, source } = payload
     
     debugLog(`Task cancellation requested from ${source || 'unknown'}: ${reason || 'No reason provided'}`)
     
-    // Attempt to cancel the current task
-    const cancellationResult = nxtScape.cancel()
+    // Attempt to cancel the current task (now async for telemetry)
+    const cancellationResult = await nxtScape.cancel()
     
     if (cancellationResult.wasCancelled) {
       const cancelledQuery = cancellationResult.query || 'Unknown query';

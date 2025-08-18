@@ -56,7 +56,6 @@ export function isPocMode(): boolean {
  * 2. Add your Braintrust API key to BRAINTRUST_API_KEY
  * 3. Rebuild
  * 
- * Get your API key from: https://www.braintrust.com/app/settings
  */
 export const ENABLE_TELEMETRY = false;
 export const BRAINTRUST_API_KEY = 'api-key'; // ⚠️ ADD YOUR API KEY HERE!
