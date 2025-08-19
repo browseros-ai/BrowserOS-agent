@@ -197,6 +197,9 @@ export class BrowserAgent {
 
       // 2. CHECK FOR PREDEFINED PLAN
       if (metadata?.executionMode === 'predefined' && metadata.predefinedPlan) {
+        // Treat predefined plan as a fresh (non-follow-up) task: clear history and re-init
+        this.messageManager.clear();
+        this._initializeExecution(task);
         // Route predefined plan through the multi-step strategy using initial plan
         const predefined = metadata!.predefinedPlan!;
         this.pubsub.publishMessage(PubSub.createMessage(`Executing agent: ${predefined.name || 'Custom Agent'}`, 'thinking'));

@@ -9,7 +9,7 @@ interface GoalSectionProps {
 
 export function GoalSection ({ goal, onChange, error }: GoalSectionProps) {
   return (
-    <section aria-label='Goal' className='mt-8'>
+    <section aria-label='Goal' className='mt-6'>
       <div className='mb-2'>
         <span className='inline-block text-[11px] px-1.5 py-0.5 rounded bg-accent text-muted-foreground'>
           Goal:
@@ -19,7 +19,7 @@ export function GoalSection ({ goal, onChange, error }: GoalSectionProps) {
         value={goal}
         onChange={(e) => onChange(e.target.value)}
         placeholder="One line description of the agent's goal, e.g. 'Help me summarise my emails'"
-        minRows={3}
+        minRows={1}
         className={`w-full min-h-[28px] text-[16px] leading-7 outline-none resize-none placeholder:text-muted-foreground ${
           error ? 'ring-1 ring-red-500/60 rounded' : ''
         }`}
