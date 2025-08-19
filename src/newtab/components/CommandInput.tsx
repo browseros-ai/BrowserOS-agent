@@ -77,9 +77,9 @@ export function CommandInput({ onCreateAgent }: CommandInputProps = {}) {
     <form onSubmit={handleSubmit} className="relative">
       <div className={`
         relative flex items-center gap-3
-        bg-card border rounded-xl
-        transition-all duration-200
-        ${isFocused ? 'border-primary shadow-lg' : 'border-border'}
+        bg-background/80 backdrop-blur-sm border-2 rounded-xl
+        transition-all duration-300 ease-out
+        ${isFocused ? 'border-[hsl(var(--brand))]/60 shadow-lg' : 'border-[hsl(var(--brand))]/30 hover:border-[hsl(var(--brand))]/50 hover:bg-background/90'}
         px-4 py-3
       `}>
         {/* Provider Dropdown */}

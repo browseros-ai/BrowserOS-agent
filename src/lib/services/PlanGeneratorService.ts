@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { getLLM } from '@/lib/llm/LangChainProvider'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
-import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config'
-import { generatePlannerSystemPrompt, generatePlannerTaskPrompt } from '@/lib/tools/planning/PlannerTool.prompt'
 import { Logging } from '@/lib/utils/Logging'
+import { createPlannerTool } from '@/lib/tools/planning/PlannerTool'
+import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
+import BrowserContext from '@/lib/browser/BrowserContext'
+import { MessageManager } from '@/lib/runtime/MessageManager'
 
 // Here let's use a higher max steps
 const MAX_PLANNER_STEPS = 20
@@ -37,19 +37,25 @@ export class PlanGeneratorService {
 
     onUpdate?.({ status: 'started', content: 'Generating plan…' })
 
-    // Compose prompts similar to PlannerTool but without browser state
-    const systemPrompt = generatePlannerSystemPrompt(maxSteps)
-    const conversation = context ? `Additional context provided by user:\n${context}` : ''
-    const taskPrompt = generatePlannerTaskPrompt(input, maxSteps, conversation, 'N/A')
+    // Build a lightweight execution context mirroring BrowserAgent’s planner path
+    const executionContext = this._makeLightExecutionContext(context)
+    const plannerTool = createPlannerTool(executionContext)
 
-    const messages = [new SystemMessage(systemPrompt), new HumanMessage(taskPrompt)]
-    onUpdate?.({ status: 'thinking', content: 'Calling LLM for plan…' })
+    onUpdate?.({ status: 'thinking', content: 'Calling PlannerTool…' })
 
-    // Use structured output for reliability
-    const llm = await getLLM()
-    const structuredLLM = (llm as any).withStructuredOutput(PlanSchema)
-    const plan = await structuredLLM.invoke(messages)
+    const raw = await plannerTool.func({
+      task: input,
+      max_steps: maxSteps
+    })
 
+    const parsed = JSON.parse(raw)
+    if (!parsed.ok) {
+      const msg = parsed.output || 'Planning failed'
+      onUpdate?.({ status: 'error', content: 'PlannerTool error', error: msg })
+      throw new Error(msg)
+    }
+
+    const plan: StructuredPlan = PlanSchema.parse(parsed.output)
     Logging.log('PlanGeneratorService', `Generated plan with ${plan.steps?.length || 0} steps`, 'info')
     onUpdate?.({ status: 'done', content: 'Plan ready', structured: plan })
     return plan
@@ -61,32 +67,60 @@ export class PlanGeneratorService {
 
     onUpdate?.({ status: 'started', content: 'Refining plan…' })
 
-    // Build refinement context
-    const planTextParts: string[] = []
-    if (currentPlan.goal) planTextParts.push(`Goal: ${currentPlan.goal}`)
+    // Build refinement context into the ephemeral message history
+    const contextParts: string[] = []
+    if (currentPlan.goal) contextParts.push(`Goal: ${currentPlan.goal}`)
     if (currentPlan.steps?.length) {
-      planTextParts.push('Current steps:')
-      currentPlan.steps.forEach((s, i) => planTextParts.push(`${i + 1}. ${s}`))
+      contextParts.push('Current steps:')
+      currentPlan.steps.forEach((s, i) => contextParts.push(`${i + 1}. ${s}`))
     }
     if (feedback) {
-      planTextParts.push('Refinement notes:')
-      planTextParts.push(feedback)
+      contextParts.push('Refinement notes:')
+      contextParts.push(feedback)
     }
-    const refinementContext = planTextParts.join('\n')
+    const refinementContext = contextParts.join('\n')
 
-    // Compose prompts (reuse planner prompts)
-    const systemPrompt = generatePlannerSystemPrompt(maxSteps)
-    const taskPrompt = generatePlannerTaskPrompt(currentPlan.goal || 'Refine existing plan', maxSteps, refinementContext, 'N/A')
+    const executionContext = this._makeLightExecutionContext(refinementContext)
+    const plannerTool = createPlannerTool(executionContext)
 
-    const messages = [new SystemMessage(systemPrompt), new HumanMessage(taskPrompt)]
-    onUpdate?.({ status: 'thinking', content: 'Calling LLM for refinement…' })
+    onUpdate?.({ status: 'thinking', content: 'Calling PlannerTool for refinement…' })
 
-    const llm = await getLLM()
-    const structuredLLM = (llm as any).withStructuredOutput(PlanSchema)
-    const plan = await structuredLLM.invoke(messages)
+    const raw = await plannerTool.func({
+      task: currentPlan.goal ? `Refine plan for: ${currentPlan.goal}` : 'Refine existing plan',
+      max_steps: maxSteps
+    })
 
+    const parsed = JSON.parse(raw)
+    if (!parsed.ok) {
+      const msg = parsed.output || 'Refinement failed'
+      onUpdate?.({ status: 'error', content: 'PlannerTool error', error: msg })
+      throw new Error(msg)
+    }
+
+    const plan: StructuredPlan = PlanSchema.parse(parsed.output)
     Logging.log('PlanGeneratorService', `Refined plan with ${plan.steps?.length || 0} steps`, 'info')
     onUpdate?.({ status: 'done', content: 'Plan refined', structured: plan })
     return plan
+  }
+
+  private _makeLightExecutionContext(historyOrContext: string): ExecutionContext {
+    class MinimalBrowserContext extends BrowserContext {
+      public async getBrowserStateString(_simplified: boolean = false): Promise<string> {
+        return 'N/A'
+      }
+    }
+
+    const browserContext = new MinimalBrowserContext()
+    const messageManager = new MessageManager()
+
+    if (historyOrContext && historyOrContext.trim()) {
+      messageManager.addHuman(historyOrContext)
+    }
+
+    return new ExecutionContext({
+      browserContext,
+      messageManager,
+      debugMode: false
+    })
   }
 }

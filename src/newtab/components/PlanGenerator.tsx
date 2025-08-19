@@ -240,13 +240,13 @@ export function PlanGenerator ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={currentPlan?.goal ? "Describe how to improve this plan..." : "Describe what you want the agent to do..."}
-              className="w-full min-h-[80px] max-h-40 resize-none px-4 py-3 text-sm border border-border rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full min-h-[80px] max-h-40 resize-none px-4 py-3 text-sm border-2 border-[hsl(var(--brand))]/30 rounded-lg bg-background/80 backdrop-blur-sm placeholder:text-muted-foreground focus:outline-none focus:border-[hsl(var(--brand))]/60 hover:border-[hsl(var(--brand))]/50 hover:bg-background/90 transition-all duration-300 ease-out"
               onKeyDown={() => {}}
             />
             <button
               onClick={aiGeneratePlan}
               disabled={isGenerating || (!inputText.trim() && !currentPlan?.goal)}
-              className="w-full px-4 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full px-4 py-2 text-sm font-medium rounded-md bg-[hsl(var(--brand))]/10 text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-[hsl(var(--brand))]/30 hover:border-[hsl(var(--brand))]/50"
             >
               {isGenerating ? (
                 <span className="flex items-center justify-center gap-2">
