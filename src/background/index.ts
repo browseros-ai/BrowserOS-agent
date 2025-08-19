@@ -899,7 +899,7 @@ function postPlanUpdate(
   update: {
     status: 'queued' | 'started' | 'thinking' | 'done' | 'error';
     content?: string;
-    structured?: { steps: Array<{ action: string; reasoning: string }> };
+    structured?: { steps: Array<{ action: string; reasoning: string }>; goal?: string; name?: string };
     error?: string;
   }
 ): void {
@@ -909,7 +909,13 @@ function postPlanUpdate(
       status: update.status,
       content: update.content,
       structured: update.structured,
-      plan: update.structured ? { steps: update.structured.steps.map(s => s.action) } : undefined,
+      plan: update.structured 
+        ? { 
+            goal: update.structured.goal, 
+            name: update.structured.name, 
+            steps: update.structured.steps.map(s => s.action) 
+          } 
+        : undefined,
       error: update.error
     },
     id

@@ -19,6 +19,8 @@ interface AgentEditorProps {
 const DEFAULT_DESCRIPTION = ''
 
 export type AgentEditorHandle = {
+  setName: (name: string) => void
+  getName: () => string
   setSteps: (steps: string[]) => void
   getSteps: () => string[]
   setGoal: (goal: string) => void
@@ -142,6 +144,10 @@ export const AgentEditor = forwardRef<AgentEditorHandle, AgentEditorProps>(funct
 
   // Expose minimal imperative API for external helpers (e.g., PlanGenerator)
   useImperativeHandle(ref, () => ({
+    setName: (name: string) => {
+      editor.setName(name)
+    },
+    getName: () => editor.name,
     setSteps: (steps: string[]) => {
       editor.setSteps(steps.length > 0 ? steps : [''])
     },

@@ -400,6 +400,7 @@ export const PlanGenerationUpdateMessageSchema = MessageSchema.extend({
     plan: z
       .object({
         goal: z.string().optional(),
+        name: z.string().optional(),
         steps: z.array(z.string())
       })
       .optional(),
@@ -407,7 +408,9 @@ export const PlanGenerationUpdateMessageSchema = MessageSchema.extend({
       .object({
         steps: z.array(
           z.object({ action: z.string(), reasoning: z.string() })
-        )
+        ),
+        goal: z.string().optional(),
+        name: z.string().optional()
       })
       .optional(),
     error: z.string().optional()

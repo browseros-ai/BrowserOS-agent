@@ -208,11 +208,13 @@ export function CreateAgentPage ({ onBack }: CreateAgentPageProps) {
                 <PlanGenerator
                   refreshKey={planVersion}
                   getCurrentPlan={() => ({
+                    name: editorRef.current?.getName() || '',
                     goal: editorRef.current?.getGoal() || '',
                     steps: editorRef.current?.getSteps() || []
                   })}
-                  onReplacePlan={(plan: { goal: string, steps: string[] }) => {
-                    editorRef.current?.applyPlan(plan, { save: true })
+                  onReplacePlan={(plan: { name?: string, goal: string, steps: string[] }) => {
+                    if (plan.name) editorRef.current?.setName(plan.name)
+                    editorRef.current?.applyPlan({ goal: plan.goal, steps: plan.steps }, { save: true })
                   }}
                   onAppendSteps={(steps: string[]) => {
                     editorRef.current?.appendSteps(steps, { save: true })

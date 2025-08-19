@@ -3,7 +3,7 @@ import { Hammer } from 'lucide-react'
 import { PortName } from '@/lib/runtime/PortMessaging'
 import { MessageType } from '@/lib/types/messaging'
 
-interface ParsedPlan { goal: string; steps: string[] }
+interface ParsedPlan { name?: string; goal: string; steps: string[] }
 
 interface PlanGeneratorProps {
   className?: string
@@ -23,6 +23,8 @@ export function PlanGenerator ({
   const [inputText, setInputText] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [aiSteps, setAiSteps] = useState<string[] | null>(null)
+  const [aiGoal, setAiGoal] = useState<string>('')
+  const [aiName, setAiName] = useState<string>('')
   const [aiStatus, setAiStatus] = useState<string>('')
   const [aiError, setAiError] = useState<string>('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -61,6 +63,8 @@ export function PlanGenerator ({
     setAiStatus('Starting…')
     setAiError('')
     setAiSteps(null)
+    setAiGoal('')
+    setAiName('')
 
     const currentGoal = currentPlan?.goal || ''
     const currentSteps = currentPlan?.steps || []
@@ -77,11 +81,15 @@ export function PlanGenerator ({
       }, (msg) => {
         const status = msg?.payload?.status
         const steps = msg?.payload?.plan?.steps as string[] | undefined
+        const goal = msg?.payload?.plan?.goal as string | undefined
+        const name = msg?.payload?.plan?.name as string | undefined
         const err = msg?.payload?.error as string | undefined
         if (status === 'started' || status === 'thinking') setAiStatus(msg.payload.content || status)
         if (status === 'done') {
           setAiStatus('Done')
           setAiSteps(steps || [])
+          setAiGoal(goal || '')
+          setAiName(name || '')
           setIsGenerating(false)
         }
         if (status === 'error') {
@@ -101,11 +109,15 @@ export function PlanGenerator ({
       }, (msg) => {
         const status = msg?.payload?.status
         const steps = msg?.payload?.plan?.steps as string[] | undefined
+        const goal = msg?.payload?.plan?.goal as string | undefined
+        const name = msg?.payload?.plan?.name as string | undefined
         const err = msg?.payload?.error as string | undefined
         if (status === 'started' || status === 'thinking') setAiStatus(msg.payload.content || status)
         if (status === 'done') {
           setAiStatus('Done')
           setAiSteps(steps || [])
+          setAiGoal(goal || '')
+          setAiName(name || '')
           setIsGenerating(false)
         }
         if (status === 'error') {
@@ -127,11 +139,15 @@ export function PlanGenerator ({
       }, (msg) => {
         const status = msg?.payload?.status
         const steps = msg?.payload?.plan?.steps as string[] | undefined
+        const goal = msg?.payload?.plan?.goal as string | undefined
+        const name = msg?.payload?.plan?.name as string | undefined
         const err = msg?.payload?.error as string | undefined
         if (status === 'started' || status === 'thinking') setAiStatus(msg.payload.content || status)
         if (status === 'done') {
           setAiStatus('Done')
           setAiSteps(steps || [])
+          setAiGoal(goal || '')
+          setAiName(name || '')
           setIsGenerating(false)
         }
         if (status === 'error') {
@@ -189,32 +205,68 @@ export function PlanGenerator ({
                   <div className="text-xs font-medium text-primary">AI GENERATED PLAN</div>
                   <div className="text-xs text-muted-foreground">{aiStatus}</div>
                 </div>
+                {(aiName || aiGoal) && (
+                  <div className="mb-3">
+                    {aiName && (
+                      <div className="mb-1">
+                        <div className="text-xs font-medium text-muted-foreground">Name</div>
+                        <div className="text-sm font-medium">{aiName}</div>
+                      </div>
+                    )}
+                    {aiGoal && (
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground">Goal</div>
+                        <div className="text-sm text-foreground">{aiGoal}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <ol className="list-decimal list-inside space-y-1 mb-4">
                   {aiSteps.map((s, i) => (
                     <li key={i} className="text-sm text-foreground">{s}</li>
                   ))}
                 </ol>
                 <div className="flex gap-2">
+                  {(aiName || aiGoal) && (
+                    <button
+                      className="flex-1 px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                      onClick={() => {
+                        if (onReplacePlan) {
+                          onReplacePlan({ name: aiName, goal: aiGoal || (currentPlan?.goal || ''), steps: aiSteps || [] })
+                        }
+                        setAiSteps(null)
+                        setAiGoal('')
+                        setAiName('')
+                        setInputText('')
+                      }}
+                    >
+                      Replace All
+                    </button>
+                  )}
                   <button
-                    className="flex-1 px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="flex-1 px-3 py-1.5 text-sm rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
                     onClick={() => {
                       if (onReplacePlan) {
                         const goal = currentPlan?.goal || ''
                         onReplacePlan({ goal, steps: aiSteps || [] })
                       }
                       setAiSteps(null)
+                      setAiGoal('')
+                      setAiName('')
                       setInputText('')
                     }}
                   >
-                    Replace Plan
+                    Replace Steps
                   </button>
                   <button
-                    className="flex-1 px-3 py-1.5 text-sm rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    className="flex-1 px-3 py-1.5 text-sm rounded-md bg-muted text-foreground hover:bg-muted/80"
                     onClick={() => {
                       if (onAppendSteps) {
                         onAppendSteps(aiSteps)
                       }
                       setAiSteps(null)
+                      setAiGoal('')
+                      setAiName('')
                       setInputText('')
                     }}
                   >
@@ -264,4 +316,3 @@ export function PlanGenerator ({
     </div>
   )
 }
-
