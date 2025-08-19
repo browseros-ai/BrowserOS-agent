@@ -20,7 +20,7 @@ const PlannerTestCaseSchema = z.object({
 
 // Load and validate planner test cases from a JSON file
 function loadPlannerTestCases() {
-  const datasetPath = path.resolve('src/evals/tools/planner/test-cases.json') // Path to test cases
+  const datasetPath = path.resolve('src/evals/offline/tools/planner/test-cases.json') // Path to test cases
   const rawJson = JSON.parse(readFileSync(datasetPath, 'utf8')) // Read and parse JSON
   return z.array(PlannerTestCaseSchema).parse(rawJson) // Validate against schema
 }
@@ -147,8 +147,8 @@ async function runLLMEvaluation() {
     return
   }
 
-  // Load and slice test cases (limit to first 3 for quick testing)
-  const testCases = loadPlannerTestCases().slice(0, 3)
+  // Load only first test case for local validation
+  const testCases = loadPlannerTestCases().slice(0, 1)
   const results = []
 
   // Loop through each test case
@@ -209,7 +209,7 @@ async function runLLMEvaluation() {
 // This allows you to run the eval via CLI or dashboard
 export default async function Eval() {
   return {
-    data: loadPlannerTestCases().slice(0, 3), // Load test cases
+    data: loadPlannerTestCases(), // Load all test cases for Braintrust
     task: async (input: z.infer<typeof PlannerTestCaseSchema>) => {
       // Generate a plan for each input
       const plan = await generatePlan(input.task)

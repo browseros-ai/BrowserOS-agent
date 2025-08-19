@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import BrowserContext from '../browser/BrowserContext'
+import BrowserContext from '@/lib/browser/BrowserContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
 import { getLLM as getLLMFromProvider } from '@/lib/llm/LangChainProvider'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
@@ -15,7 +15,7 @@ export const ExecutionContextOptionsSchema = z.object({
   messageManager: z.instanceof(MessageManager),  // Message manager for communication
   debugMode: z.boolean().default(false),  // Whether to enable debug logging
   todoStore: z.instanceof(TodoStore).optional()  // TODO store for complex task management
-})
+}).passthrough()  // Allow extra properties to be passed (like abortController from tests)
 
 export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
 
@@ -29,14 +29,16 @@ export class ExecutionContext {
   debugMode: boolean  // Whether debug logging is enabled
   selectedTabIds: number[] | null = null  // Selected tab IDs
   todoStore: TodoStore  // TODO store for complex task management
+  telemetry: any | null = null  // Telemetry integration for online evaluation (typed as any to avoid circular deps)
+  parentSpanId: string | null = null  // Parent span ID for telemetry tracing
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
-  private _chatMode: boolean = false  // Whether ChatAgent mode is enabled
+  private _taskNumber: number = 0  // Track number of user tasks in this session
 
   constructor(options: ExecutionContextOptions) {
-    // Validate options at runtime
+    // Validate options at runtime with proper type checking
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
     
     // Create our own AbortController - single source of truth
@@ -160,6 +162,7 @@ export class ExecutionContext {
    */
   public setCurrentTask(task: string): void {
     this._currentTask = task;
+    this._taskNumber++;  // Increment task counter when new user task starts
   }
 
   /**
@@ -170,6 +173,13 @@ export class ExecutionContext {
     return this._currentTask;
   }
 
+  /**
+   * Get the current task number (how many user tasks in this session)
+   * @returns The current task number (1-based)
+   */
+  public getCurrentTaskNumber(): number {
+    return this._taskNumber;
+  
   /**
    * Get KlavisAPIManager singleton for MCP operations
    * @returns The KlavisAPIManager instance

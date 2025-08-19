@@ -669,14 +669,63 @@ function handleSaveLlmProvidersPort(
  * @param port - Port to send response through
  * @param id - Optional message ID for correlation
  */
-function handleCancelTaskPort(
+async function handleCancelTaskPort(
   payload: CancelTaskMessage['payload'],
   port: chrome.runtime.Port,
   id?: string
-): void {
+): Promise<void> {
   try {
-    nxtScape.cancel()
-    Logging.logMetric('task_cancelled')
+    const { reason, source } = payload
+    
+    debugLog(`Task cancellation requested from ${source || 'unknown'}: ${reason || 'No reason provided'}`)
+    
+    // Attempt to cancel the current task (now async for telemetry)
+    const cancellationResult = await nxtScape.cancel()
+    
+    if (cancellationResult.wasCancelled) {
+      const cancelledQuery = cancellationResult.query || 'Unknown query';
+      // Task successfully cancelled
+      
+      // Capture task cancelled event
+      captureEvent('task_cancelled')
+      
+      // Create a user-friendly cancellation message
+      const cancellationMessage = `Task cancelled: "${cancelledQuery}"`;
+      
+      // Send success response
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'cancelled',
+          message: cancellationMessage
+        },
+        id
+      })
+      
+      // Broadcast cancellation to all connected UIs with better messaging
+      broadcastWorkflowStatus({
+        success: false,
+        cancelled: true,
+        message: '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
+        cancelledQuery,
+        reason: reason || 'User requested cancellation',
+        userInitiatedCancel: true  // Mark this as user-initiated cancellation
+      })
+      
+    } else {
+      // No running task to cancel
+      
+      // Send response indicating no task was running
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'idle',
+          message: 'No running task to cancel'
+        },
+        id
+      })
+    }
+    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`Error handling task cancellation: ${errorMessage}`, 'error')
