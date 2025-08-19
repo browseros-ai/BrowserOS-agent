@@ -67,7 +67,8 @@ export const useAgentsStore = create<AgentsState & AgentsActions>((set, get) => 
     }))
     
     // Persist to storage
-    chrome.storage.local.set({ agents: [...get().agents, newAgent] })
+    // get().agents already includes the newly added agent after set()
+    chrome.storage.local.set({ agents: get().agents })
   },
   
   updateAgent: (id, updates) => {

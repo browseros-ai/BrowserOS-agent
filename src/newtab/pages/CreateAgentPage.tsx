@@ -212,14 +212,17 @@ export function CreateAgentPage ({ onBack }: CreateAgentPageProps) {
                     steps: editorRef.current?.getSteps() || []
                   })}
                   onReplacePlan={(plan: { goal: string, steps: string[] }) => {
+                    // Update editor state, then save after state flushes
                     editorRef.current?.setGoal(plan.goal)
                     editorRef.current?.setSteps(plan.steps)
-                    editorRef.current?.save()
+                    // Defer save to next tick so state is applied
+                    setTimeout(() => editorRef.current?.save(), 0)
                   }}
                   onAppendSteps={(steps: string[]) => {
                     const current = editorRef.current?.getSteps() || []
                     editorRef.current?.setSteps([...current, ...steps])
-                    editorRef.current?.save()
+                    // Defer save to next tick so state is applied
+                    setTimeout(() => editorRef.current?.save(), 0)
                   }}
                 />
               </aside>
