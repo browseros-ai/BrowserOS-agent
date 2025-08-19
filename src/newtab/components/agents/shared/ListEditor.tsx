@@ -61,7 +61,8 @@ export function ListEditor ({ items, onChange, placeholder, itemPrefix, label, e
 
   // Generate appropriate placeholder for each item
   const getPlaceholder = (index: number): string => {
-    if (placeholder) return placeholder
+    // Use custom placeholder only for the first item
+    if (placeholder && index === 0) return placeholder
     if (index === 0) {
       return label === 'Steps:' 
         ? 'When mentioned… analyze the user\'s question.'

@@ -23,6 +23,7 @@ export function StepsSection ({ steps, onChange, errors }: StepsSectionProps) {
       <ListEditor
         items={steps}
         onChange={onChange}
+        placeholder="Steps agent should take, be as specific as you can, e.g. 'Navigate to the url...'"
         itemPrefix='1.'
         label='Steps:'
         errors={errors}

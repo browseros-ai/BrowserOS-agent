@@ -17,6 +17,7 @@ export function NotesSection ({ notes, onChange }: NotesSectionProps) {
       <ListEditor
         items={notes}
         onChange={onChange}
+        placeholder="Constraints/preferences, e.g. 'Don't use slang', 'Be concise'"
         itemPrefix='•'
         label='Notes:'
       />

@@ -18,7 +18,7 @@ export function GoalSection ({ goal, onChange, error }: GoalSectionProps) {
       <AutoResizeTextarea
         value={goal}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Maintain a knowledge base of internal documentation and answer basic user questions when mentioned in external spaces."
+        placeholder="One line description of the agent's goal, e.g. 'Help me summarise my emails'"
         minRows={3}
         className={`w-full min-h-[28px] text-[16px] leading-7 outline-none resize-none placeholder:text-muted-foreground ${
           error ? 'ring-1 ring-red-500/60 rounded' : ''

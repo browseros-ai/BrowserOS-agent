@@ -24,6 +24,8 @@ export type AgentEditorHandle = {
   setGoal: (goal: string) => void
   getGoal: () => string
   save: () => void
+  applyPlan: (plan: { goal: string, steps: string[] }, options?: { save?: boolean }) => void
+  appendSteps: (steps: string[], options?: { save?: boolean }) => void
 }
 
 export const AgentEditor = forwardRef<AgentEditorHandle, AgentEditorProps>(function AgentEditor (
@@ -32,6 +34,7 @@ export const AgentEditor = forwardRef<AgentEditorHandle, AgentEditorProps>(funct
 ) {
   const editor = useAgentEditor()
   const [notification, setNotification] = useState<string>('')
+  const [queuedSaveAfterPlan, setQueuedSaveAfterPlan] = useState<boolean>(false)
   
   // Load agent or template when provided
   useEffect(() => {
@@ -128,6 +131,15 @@ export const AgentEditor = forwardRef<AgentEditorHandle, AgentEditorProps>(funct
     }
   }, [editor.goal, editor.steps])
 
+  // If a plan was applied/steps appended with save requested, save once state is updated
+  useEffect(() => {
+    if (queuedSaveAfterPlan) {
+      // Ensure we save after the latest goal/steps are applied
+      handleSave()
+      setQueuedSaveAfterPlan(false)
+    }
+  }, [queuedSaveAfterPlan, editor.goal, editor.steps])
+
   // Expose minimal imperative API for external helpers (e.g., PlanGenerator)
   useImperativeHandle(ref, () => ({
     setSteps: (steps: string[]) => {
@@ -138,7 +150,18 @@ export const AgentEditor = forwardRef<AgentEditorHandle, AgentEditorProps>(funct
       editor.setGoal(goal)
     },
     getGoal: () => editor.goal,
-    save: () => handleSave()
+    save: () => handleSave(),
+    applyPlan: (plan: { goal: string, steps: string[] }, options?: { save?: boolean }) => {
+      editor.setGoal(plan.goal)
+      editor.setSteps(plan.steps && plan.steps.length > 0 ? plan.steps : [''])
+      if (options?.save) setQueuedSaveAfterPlan(true)
+    },
+    appendSteps: (steps: string[], options?: { save?: boolean }) => {
+      const current = editor.steps || []
+      const next = [...current, ...steps]
+      editor.setSteps(next.length > 0 ? next : [''])
+      if (options?.save) setQueuedSaveAfterPlan(true)
+    }
   }))
 
   return (
