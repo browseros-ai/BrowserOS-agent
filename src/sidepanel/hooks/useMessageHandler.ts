@@ -1,11 +1,21 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { MessageType } from '@/lib/types/messaging'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { useChatStore, type PubSubMessage } from '../stores/chatStore'
 
+interface HumanInputRequest {
+  requestId: string
+  prompt: string
+}
+
 export function useMessageHandler() {
   const { upsertMessage, setProcessing } = useChatStore()
   const { addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
+  const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null)
+  
+  const clearHumanInputRequest = useCallback(() => {
+    setHumanInputRequest(null)
+  }, [])
 
   const handleStreamUpdate = useCallback((payload: any) => {
     // Check if this is a PubSub event
@@ -38,6 +48,15 @@ export function useMessageHandler() {
           setProcessing(false)
         }
       }
+      
+      // Handle human-input-request events
+      if (payload.details?.type === 'human-input-request') {
+        const request = payload.details.payload
+        setHumanInputRequest({
+          requestId: request.requestId,
+          prompt: request.prompt
+        })
+      }
     }
   }, [upsertMessage, setProcessing])
   
@@ -50,4 +69,9 @@ export function useMessageHandler() {
       removeMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
     }
   }, [addMessageListener, removeMessageListener, handleStreamUpdate])
+  
+  return {
+    humanInputRequest,
+    clearHumanInputRequest
+  }
 }

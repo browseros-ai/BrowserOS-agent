@@ -19,6 +19,21 @@ export const ExecutionStatusSchema = z.object({
 
 export type ExecutionStatus = z.infer<typeof ExecutionStatusSchema>
 
+// Human input request/response schemas
+export const HumanInputRequestSchema = z.object({
+  requestId: z.string(),  // Unique request identifier
+  prompt: z.string(),  // The prompt to show to the human
+})
+
+export type HumanInputRequest = z.infer<typeof HumanInputRequestSchema>
+
+export const HumanInputResponseSchema = z.object({
+  requestId: z.string(),  // Matching request identifier
+  action: z.enum(['done', 'abort']),  // User's action choice
+})
+
+export type HumanInputResponse = z.infer<typeof HumanInputResponseSchema>
+
 // Pub-sub event types
 export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -28,6 +43,14 @@ export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('execution-status'),
     payload: ExecutionStatusSchema
+  }),
+  z.object({
+    type: z.literal('human-input-request'),
+    payload: HumanInputRequestSchema
+  }),
+  z.object({
+    type: z.literal('human-input-response'),
+    payload: HumanInputResponseSchema
   }),
 ])
 

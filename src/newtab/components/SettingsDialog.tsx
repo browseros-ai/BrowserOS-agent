@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { X, Plus, Grip, ExternalLink, Github, BookOpen, MessageSquare } from 'lucide-react'
-import { useProviderStore } from '../stores/providerStore'
+import { X, ExternalLink, Github, BookOpen, MessageSquare } from 'lucide-react'
 import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
+import { ProviderSettings } from './ProviderSettings'
 
 interface SettingsDialogProps {
   isOpen: boolean
@@ -12,11 +12,6 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = useState<'providers' | 'about'>('providers')
   const [browserOSVersion, setBrowserOSVersion] = useState<string | null>(null)
   const [agentVersion, setAgentVersion] = useState<string>('1.0.0')
-  const [isAddingProvider, setIsAddingProvider] = useState(false)
-  const [newProviderName, setNewProviderName] = useState('')
-  const [newProviderUrl, setNewProviderUrl] = useState('')
-  const [newProviderCategory, setNewProviderCategory] = useState<'search' | 'llm'>('search')
-  const { getAllProviders, selectedProviderId, selectProvider, addCustomProvider, removeCustomProvider } = useProviderStore()
   
   useEffect(() => {
     if (isOpen) {
@@ -32,36 +27,6 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       setAgentVersion(manifest.version || '1.0.0')
     }
   }, [isOpen])
-  
-  const handleAddProvider = () => {
-    if (newProviderName.trim() && newProviderUrl.trim()) {
-      // Ensure URL has %s placeholder for query
-      const urlPattern = newProviderUrl.includes('%s') 
-        ? newProviderUrl 
-        : newProviderUrl + (newProviderUrl.includes('?') ? '&q=%s' : '?q=%s')
-      
-      addCustomProvider({
-        name: newProviderName.trim(),
-        category: newProviderCategory,
-        urlPattern
-      })
-      
-      // Reset form
-      setNewProviderName('')
-      setNewProviderUrl('')
-      setNewProviderCategory('search')
-      setIsAddingProvider(false)
-    }
-  }
-  
-  const handleCancelAdd = () => {
-    setNewProviderName('')
-    setNewProviderUrl('')
-    setNewProviderCategory('search')
-    setIsAddingProvider(false)
-  }
-  
-  const providers = getAllProviders()
   
   if (!isOpen) return null
   
@@ -136,152 +101,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             {activeTab === 'providers' && (
-              <div className="space-y-4">
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-foreground mb-2">Manage Search Providers</h3>
-                  <p className="text-sm text-muted-foreground">
-                    The first provider is your default.
-                  </p>
-                </div>
-                
-                {/* Provider List */}
-                <div className="space-y-2">
-                  {providers.map((provider, index) => (
-                    <div
-                      key={provider.id}
-                      className={`
-                        flex items-center gap-3 p-3 rounded-lg border
-                        ${selectedProviderId === provider.id 
-                          ? 'border-primary bg-accent/50' 
-                          : 'border-border bg-card hover:bg-accent/30'
-                        }
-                        transition-all cursor-pointer
-                      `}
-                      onClick={() => selectProvider(provider.id)}
-                    >
-                      {/* Hidden drag handle for now */}
-                      {/* <Grip size={16} className="text-muted-foreground cursor-move" /> */}
-                      
-                      <div className="flex-1">
-                        <div className="font-medium text-sm text-foreground">
-                          {provider.name}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {provider.category === 'llm' ? 'AI Assistant' : 'Search Engine'}
-                        </div>
-                      </div>
-                      
-                      {index === 0 && (
-                        <span className="text-xs font-medium text-primary px-2 py-1 bg-primary/10 rounded">
-                          Default
-                        </span>
-                      )}
-                      
-                      {provider.isCustom && (
-                        <button
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeCustomProvider(provider.id)
-                          }}
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Add Provider Form or Button */}
-                {isAddingProvider ? (
-                  <div className="mt-4 p-4 rounded-lg border border-border bg-card space-y-3">
-                    <div>
-                      <label className="text-xs font-medium text-foreground">Name</label>
-                      <input
-                        type="text"
-                        value={newProviderName}
-                        onChange={(e) => setNewProviderName(e.target.value)}
-                        placeholder="e.g., DuckDuckGo"
-                        className="w-full mt-1 px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                        autoFocus
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="text-xs font-medium text-foreground">
-                        URL with %s in place of query
-                      </label>
-                      <input
-                        type="text"
-                        value={newProviderUrl}
-                        onChange={(e) => setNewProviderUrl(e.target.value)}
-                        placeholder="e.g., https://duckduckgo.com/?q=%s"
-                        className="w-full mt-1 px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Use %s where the search query should go
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <label className="text-xs font-medium text-foreground">Category</label>
-                      <div className="flex gap-2 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => setNewProviderCategory('search')}
-                          className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
-                            newProviderCategory === 'search'
-                              ? 'border-primary bg-primary/10 text-foreground'
-                              : 'border-border text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          Search Engine
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewProviderCategory('llm')}
-                          className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
-                            newProviderCategory === 'llm'
-                              ? 'border-primary bg-primary/10 text-foreground'
-                              : 'border-border text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          AI Assistant
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        onClick={handleCancelAdd}
-                        className="flex-1 px-3 py-2 text-sm rounded-md border border-border hover:bg-accent transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleAddProvider}
-                        disabled={!newProviderName.trim() || !newProviderUrl.trim()}
-                        className="flex-1 px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => setIsAddingProvider(true)}
-                    className="
-                      w-full mt-4 p-3 rounded-lg border border-dashed border-border
-                      hover:border-primary hover:bg-accent/20 transition-all
-                      flex items-center justify-center gap-2 text-sm text-muted-foreground
-                      hover:text-foreground
-                    "
-                  >
-                    <Plus size={16} />
-                    Add Custom Provider
-                  </button>
-                )}
-              </div>
+              <ProviderSettings />
             )}
             
             {activeTab === 'about' && (

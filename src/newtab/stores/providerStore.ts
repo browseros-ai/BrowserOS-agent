@@ -1,74 +1,79 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { z } from 'zod'
+import { MessageType } from '@/lib/types/messaging'
+import { PortName } from '@/lib/runtime/PortMessaging'
+import { Agent } from '../stores/agentsStore'
 
 // Provider schema
 export const ProviderSchema = z.object({
   id: z.string(),  // Unique identifier
   name: z.string(),  // Display name
-  type: z.enum(['custom', 'browseros', 'openai', 'anthropic', 'llm', 'google', 'perplexity', 'duckduckgo']),  // Provider type
   category: z.enum(['llm', 'search']),  // Category for grouping
-  modelId: z.string().optional(),  // Model identifier
+  actionType: z.enum(['url', 'sidepanel']),  // How to handle the provider
+  urlPattern: z.string().optional(),  // URL pattern for navigation (use %s for query placeholder)
+  searchParam: z.string().optional(),  // Query parameter name (e.g., 'q' for ?q=query)
   available: z.boolean().default(true),  // Is provider available
-  isCustom: z.boolean().optional(),  // Is this a custom provider
-  urlPattern: z.string().optional()  // URL pattern for custom providers (with %s for query)
+  isCustom: z.boolean().optional()  // Is this a custom provider
 })
 
 export type Provider = z.infer<typeof ProviderSchema>
 
-// Default providers list - matching the dropdown image
+// Default providers list
 const DEFAULT_PROVIDERS: Provider[] = [
-  // LLM Providers
   {
     id: 'browseros-agent',
     name: 'BrowserOS Agent',
-    type: 'browseros',
     category: 'llm',
-    modelId: 'browseros-agent',
+    actionType: 'sidepanel',
     available: true
   },
   {
     id: 'chatgpt',
     name: 'ChatGPT',
-    type: 'openai',
     category: 'llm',
-    modelId: 'gpt-4o',
-    available: true
-  },
-  {
-    id: 'google',
-    name: 'Google',
-    type: 'google',
-    category: 'search',  // Google as search provider
-    available: true
-  },
-  {
-    id: 'perplexity',
-    name: 'Perplexity',
-    type: 'perplexity',
-    category: 'llm',
-    available: true
-  },
-  {
-    id: 'duckduckgo',
-    name: 'DuckDuckGo',
-    type: 'duckduckgo',
-    category: 'search',
-    available: true
-  },
-  {
-    id: 'grok',
-    name: 'Grok',
-    type: 'llm',
-    category: 'llm',  // Back to LLM category for Grok
+    actionType: 'url',
+    urlPattern: 'https://chatgpt.com/?q=%s',
     available: true
   },
   {
     id: 'claude',
     name: 'Claude',
-    type: 'anthropic',
     category: 'llm',
-    modelId: 'claude-3-5-sonnet',
+    actionType: 'url',
+    urlPattern: 'https://claude.ai/new?q=%s',
+    available: true
+  },
+  {
+    id: 'grok',
+    name: 'Grok',
+    category: 'llm',
+    actionType: 'url',
+    urlPattern: 'https://x.com/i/grok?text=%s',
+    available: true
+  },
+  {
+    id: 'google',
+    name: 'Google',
+    category: 'search',
+    actionType: 'url',
+    urlPattern: 'https://www.google.com/search?q=%s',
+    available: true
+  },
+  {
+    id: 'perplexity',
+    name: 'Perplexity',
+    category: 'llm',
+    actionType: 'url',
+    urlPattern: 'https://www.perplexity.ai/?q=%s',
+    available: true
+  },
+  {
+    id: 'duckduckgo',
+    name: 'DuckDuckGo',
+    category: 'search',
+    actionType: 'url',
+    urlPattern: 'https://duckduckgo.com/?q=%s',
     available: true
   }
 ]
@@ -86,9 +91,11 @@ interface ProviderActions {
   closeDropdown: () => void
   getSelectedProvider: () => Provider | undefined
   getProvidersByCategory: (category: 'llm' | 'search') => Provider[]
-  addCustomProvider: (provider: Omit<Provider, 'id' | 'isCustom' | 'type' | 'available'>) => void
+  addCustomProvider: (provider: Omit<Provider, 'id' | 'isCustom' | 'available'>) => void
   removeCustomProvider: (id: string) => void
   getAllProviders: () => Provider[]
+  executeProviderAction: (provider: Provider, query: string) => Promise<void>
+  executeAgent: (agent: Agent, query: string) => Promise<void>
 }
 
 export const useProviderStore = create<ProviderState & ProviderActions>()(
@@ -122,11 +129,10 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
       },
       
       addCustomProvider: (provider) => {
-        const id = `custom-${Date.now()}`
+        const id = crypto.randomUUID()
         const newProvider: Provider = {
           ...provider,
           id,
-          type: 'custom',
           isCustom: true,
           available: true
         }
@@ -146,10 +152,109 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
       getAllProviders: () => {
         const state = get()
         return [...state.providers, ...state.customProviders]
+      },
+      
+      executeProviderAction: async (provider, query) => {
+        // URL-based providers (both custom and built-in)
+        if (provider.actionType === 'url' && provider.urlPattern) {
+          const url = provider.urlPattern.replace('%s', encodeURIComponent(query))
+          
+          // Update current tab
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (activeTab?.id) {
+            await chrome.tabs.update(activeTab.id, { url })
+          }
+        } 
+        // Sidepanel provider (BrowserOS Agent)
+        else if (provider.actionType === 'sidepanel') {
+          try {
+            // Get current tab
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+            
+            if (!activeTab?.id) {
+              console.error('No active tab found')
+              return
+            }
+            
+            // Open the sidepanel for the current tab
+            await chrome.sidePanel.open({ tabId: activeTab.id })
+            
+            // Wait a bit for sidepanel to initialize
+            await new Promise(resolve => setTimeout(resolve, 500))
+            
+            // Connect to background script and send query
+            const port = chrome.runtime.connect({ name: PortName.NEWTAB_TO_BACKGROUND })
+            
+            // Send the query through port messaging
+            port.postMessage({
+              type: MessageType.EXECUTE_QUERY,
+              payload: {
+                query: query,
+                tabIds: [activeTab.id],
+                metadata: {
+                  source: 'newtab',
+                  executionMode: 'dynamic'
+                }
+              }
+            })
+            
+            // Close port after sending message
+            setTimeout(() => port.disconnect(), 100)
+          } catch (error) {
+            console.error('Failed to open sidepanel with query:', error)
+          }
+        } else {
+          console.warn(`No action defined for provider: ${provider.id}`)
+        }
+      },
+      
+      executeAgent: async (agent, query) => {
+        try {
+          // Get current tab
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          
+          if (!activeTab?.id) {
+            console.error('No active tab found')
+            return
+          }
+          
+          // Open the sidepanel for the current tab
+          await chrome.sidePanel.open({ tabId: activeTab.id })
+          
+          // Wait a bit for sidepanel to initialize
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Connect to background script and send query with agent metadata
+          const port = chrome.runtime.connect({ name: PortName.NEWTAB_TO_BACKGROUND })
+          
+          // Send the query through port messaging with predefined plan
+          port.postMessage({
+            type: MessageType.EXECUTE_QUERY,
+            payload: {
+              query: query,
+              tabIds: [activeTab.id],
+              metadata: {
+                source: 'newtab',
+                executionMode: 'predefined',
+                predefinedPlan: {
+                  agentId: agent.id,
+                  steps: agent.steps,
+                  goal: agent.goal,
+                  name: agent.name
+                }
+              }
+            }
+          })
+          
+          // Close port after sending message
+          setTimeout(() => port.disconnect(), 100)
+        } catch (error) {
+          console.error('Failed to execute agent:', error)
+        }
       }
     }),
     {
-      name: 'nxtscape-providers',
+      name: 'browseros-providers',
       version: 1
     }
   )

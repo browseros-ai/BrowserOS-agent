@@ -1,4 +1,4 @@
-import { Message, PubSubEvent, SubscriptionCallback, Subscription, ExecutionStatus } from './types'
+import { Message, PubSubEvent, SubscriptionCallback, Subscription, ExecutionStatus, HumanInputRequest, HumanInputResponse } from './types'
 
 /**
  * Core pub-sub implementation for message passing
@@ -39,6 +39,24 @@ export class PubSub {
         ts: Date.now(),
         ...(message && { message })
       }
+    }
+    this._publish(event)
+  }
+
+  // Publish human input request
+  publishHumanInputRequest(request: HumanInputRequest): void {
+    const event: PubSubEvent = {
+      type: 'human-input-request',
+      payload: request
+    }
+    this._publish(event)
+  }
+
+  // Publish human input response (called from UI)
+  publishHumanInputResponse(response: HumanInputResponse): void {
+    const event: PubSubEvent = {
+      type: 'human-input-response',
+      payload: response
     }
     this._publish(event)
   }

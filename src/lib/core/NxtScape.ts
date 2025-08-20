@@ -14,6 +14,7 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { BraintrustEventCollector } from "@/evals/online/BraintrustEventCollector";
 // Import LLMJudge statically to avoid dynamic import issues in service worker
 import { LLMJudge } from "@/evals/online/scoring/LLMJudge";
+import { ExecutionMetadata } from "@/lib/types/messaging";
 
 /**
  * Configuration schema for NxtScape agent
@@ -36,6 +37,7 @@ export const RunOptionsSchema = z.object({
   tabIds: z.array(z.number()).optional(), // Optional array of tab IDs for context (e.g., which tabs to summarize) - NOT for agent operation
   eventBus: z.instanceof(EventBus), // EventBus for streaming updates
   eventProcessor: z.instanceof(EventProcessor), // EventProcessor for high-level event handling
+  metadata: z.any().optional(), // Execution metadata for controlling execution mode
 });
 
 export type RunOptions = z.infer<typeof RunOptionsSchema>;
@@ -166,21 +168,24 @@ export class NxtScape {
   }
 
   /**
-   * Processes a user query with streaming support.
-   * Always uses streaming execution for real-time progress updates.
-   *
-   * @param options - Run options including query, optional tabIds, and eventBus
-   * @returns Result of the processed query with success/error status
+   * Prepares the execution environment
+   * @private
    */
-  public async run(options: RunOptions): Promise<NxtScapeResult> {
-    profileStart("NxtScape.run");
-    // Ensure the agent is initialized before running
+  private async _prepareExecution(options: RunOptions): Promise<{
+    query: string;
+    mode: 'chat' | 'browse';
+    tabIds: number[] | undefined;
+    metadata: any;
+    currentTabId: number;
+    startTime: number;
+  }> {
+    // Ensure initialization
     if (!this.isInitialized()) {
         await this.initialize();
     }
 
     const parsedOptions = RunOptionsSchema.parse(options);
-    const { query, tabIds, eventBus, eventProcessor } = parsedOptions;
+    const { query, tabIds, eventBus, eventProcessor, metadata } = parsedOptions;
 
     const runStartTime = Date.now();
 
@@ -227,6 +232,24 @@ export class NxtScape {
     // Set selected tab IDs for context (e.g., for summarizing multiple tabs)
     // These are NOT the tabs the agent operates on, just context for tools like ExtractTool
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
+
+    // Publish running status
+    PubSub.getInstance().publishExecutionStatus('running');
+
+    return { query, mode, tabIds, metadata, currentTabId, startTime };
+  }
+
+  /**
+   * Executes the appropriate agent based on mode
+   * @private
+   */
+  private async _executeAgent(query: string, mode: 'chat' | 'browse', metadata?: any): Promise<void> {
+    if (mode === 'chat') {
+      if (!this.chatAgent) {
+        throw new Error('Chat agent not initialized');
+      }
+      await this.chatAgent.execute(query);
+    } else {
     this.currentQuery = query;
     
     // Initialize telemetry session on first task if not already initialized
@@ -280,7 +303,7 @@ export class NxtScape {
       }
 
       // Execute the browser agent with the task
-      await this.browserAgent.execute(query);
+      await this.browserAgent.execute(query, metadata as ExecutionMetadata | undefined);
       
       // Log task completion with telemetry and holistic scoring
       if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
@@ -306,6 +329,74 @@ export class NxtScape {
         Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
       }
       
+      // Publish error status
+      PubSub.getInstance().publishExecutionStatus('error', errorMessage);
+      
+      // Publish user-facing error message
+      const errorMsg = PubSub.createMessage(
+        `❌ Error: ${errorMessage}`,
+        'error'
+      );
+      PubSub.getInstance().publishMessage(errorMsg);
+    }
+  }
+
+  /**
+   * Cleans up after execution
+   * @private
+   */
+  private async _cleanupExecution(startTime: number): Promise<void> {
+    // End execution context
+    this.executionContext.endExecution();
+    
+    // Unlock browser context
+    profileStart("NxtScape.cleanup");
+    await this.browserContext.unlockExecution();
+    profileEnd("NxtScape.cleanup");
+    
+    // Log execution time
+    Logging.log(
+      "NxtScape",
+      `Total execution time: ${Date.now() - startTime}ms`,
+    );
+  }
+
+  /**
+   * Processes a user query with streaming support.
+   * Always uses streaming execution for real-time progress updates.
+   *
+   * @param options - Run options including query, optional tabIds, and mode
+   */
+  public async run(options: RunOptions): Promise<void> {
+    profileStart("NxtScape.run");
+    
+    let executionContext: {
+      query: string;
+      mode: 'chat' | 'browse';
+      tabIds: number[] | undefined;
+      metadata: any;
+      currentTabId: number;
+      startTime: number;
+    } | null = null;
+
+    try {
+      // Phase 1: Prepare execution
+      executionContext = await this._prepareExecution(options);
+      
+      // Phase 2: Execute agent
+      await this._executeAgent(executionContext.query, executionContext.mode, executionContext.metadata);
+      
+      // Success: Publish done status
+      PubSub.getInstance().publishExecutionStatus('done');
+      
+    } catch (error) {
+      // Phase 3: Handle errors
+      this._handleExecutionError(error);
+    } finally {
+      // Phase 4: Always cleanup
+      if (executionContext) {
+        await this._cleanupExecution(executionContext.startTime);
+      }
       // Log task error with telemetry and holistic scoring
       if (this.telemetry?.isEnabled() && this.telemetryParentSpan && !wasCancelled) {
         // Finalize task with scoring and telemetry - pass the full error object
@@ -364,6 +455,14 @@ export class NxtScape {
         /*isUserInitiatedsCancellation=*/ true,
       );
       return { wasCancelled: true, query: cancelledQuery || undefined };
+      // Emit a friendly pause message so UI shows clear state
+      PubSub.getInstance().publishMessage(
+        PubSub.createMessageWithId(
+          'pause_message_id',
+          '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
+          'assistant'
+        )
+      );
     }
 
     return { wasCancelled: false };

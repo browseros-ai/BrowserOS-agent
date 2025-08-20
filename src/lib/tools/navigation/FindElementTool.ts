@@ -102,7 +102,8 @@ export class FindElementTool {
     const result = await invokeWithRetry<z.infer<typeof FindElementLLMSchema>>(
       structuredLLM,
       messages,
-      3
+      3,
+      { signal: this.executionContext.abortController.signal }
     )
 
     return result

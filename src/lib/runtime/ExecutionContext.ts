@@ -6,6 +6,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { TodoStore } from '@/lib/runtime/TodoStore'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
 import { PubSub } from '@/lib/pubsub'
+import { HumanInputResponse } from '@/lib/pubsub/types'
 
 /**
  * Configuration options for ExecutionContext
@@ -36,6 +37,8 @@ export class ExecutionContext {
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
   private _taskNumber: number = 0  // Track number of user tasks in this session
+  private _humanInputRequestId: string | undefined  // Current human input request ID
+  private _humanInputResponse: HumanInputResponse | undefined  // Human input response
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime with proper type checking
@@ -186,6 +189,58 @@ export class ExecutionContext {
    */
   public getKlavisAPIManager(): KlavisAPIManager {
     return KlavisAPIManager.getInstance()
+  }
+
+  /**
+   * Set the current human input request ID
+   * @param requestId - The unique request identifier
+   */
+  public setHumanInputRequestId(requestId: string): void {
+    this._humanInputRequestId = requestId
+    this._humanInputResponse = undefined  // Clear any previous response
+  }
+
+  /**
+   * Get the current human input request ID
+   * @returns The request ID or undefined
+   */
+  public getHumanInputRequestId(): string | undefined {
+    return this._humanInputRequestId
+  }
+
+  /**
+   * Store human input response when received
+   * @param response - The human input response
+   */
+  public setHumanInputResponse(response: HumanInputResponse): void {
+    // Only accept if it matches current request
+    if (response.requestId === this._humanInputRequestId) {
+      this._humanInputResponse = response
+    }
+  }
+
+  /**
+   * Check if human input response has been received
+   * @returns The response or undefined
+   */
+  public getHumanInputResponse(): HumanInputResponse | undefined {
+    return this._humanInputResponse
+  }
+
+  /**
+   * Clear human input state
+   */
+  public clearHumanInputState(): void {
+    this._humanInputRequestId = undefined
+    this._humanInputResponse = undefined
+  }
+
+  /**
+   * Check if execution should abort
+   * @returns True if abort signal is set
+   */
+  public shouldAbort(): boolean {
+    return this.abortController.signal.aborted
   }
 }
  

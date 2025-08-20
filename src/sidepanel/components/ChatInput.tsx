@@ -13,6 +13,8 @@ import { Loader } from 'lucide-react'
 import { BrowserOSProvidersConfig, BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
 import { ModeToggle } from './ModeToggle'
 // Tailwind classes used in ModeToggle; no separate CSS import
+import { SlashCommandPalette } from './SlashCommandPalette'
+import { useAgentsStore } from '@/newtab/stores/agentsStore'
 
 
 interface ChatInputProps {
@@ -28,6 +30,7 @@ interface ChatInputProps {
 export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [input, setInput] = useState('')
   const [showTabSelector, setShowTabSelector] = useState(false)
+  const [showSlashPalette, setShowSlashPalette] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [providerOk, setProviderOk] = useState<boolean>(true)
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
@@ -38,6 +41,19 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const { chatMode } = useSettingsStore()
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
   const { getContextTabs, toggleTabSelection, clearSelectedTabs } = useTabsStore()
+  const { agents, loadAgents } = useAgentsStore()
+  
+  // Load agents from Chrome storage on mount
+  useEffect(() => {
+    chrome.storage.local.get('agents', (result) => {
+      if (result.agents && Array.isArray(result.agents)) {
+        loadAgents(result.agents)
+      } else {
+        loadAgents([])
+      }
+    })
+  }, [])  // Remove loadAgents dependency to avoid re-runs
+  
   // Provider health: only consider UI connected if current default provider is usable
   useEffect(() => {
     const computeOk = (cfg: BrowserOSProvidersConfig) => {
@@ -155,6 +171,8 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     e?.preventDefault()
     // Block submissions while processing
     if (isProcessing) return
+    // Don't submit while slash palette is open
+    if (showSlashPalette) return
     if (!input.trim()) return
     submitTask(input)
   }
@@ -170,6 +188,14 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value
     setInput(newValue)
+    // Toggle slash palette when user types '/'
+    if (newValue === '/' || (newValue.startsWith('/') && newValue.length > 0)) {
+      if (!showSlashPalette) {
+        setShowSlashPalette(true)
+      }
+    } else if (showSlashPalette) {
+      setShowSlashPalette(false)
+    }
     // Only show selector when user just typed '@' starting a new token
     const lastChar: string = newValue.slice(-1)
     if (lastChar === '@' && !showTabSelector) {
@@ -195,7 +221,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
   // Handle ArrowUp/ArrowDown history navigation when caret is at boundaries
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (showTabSelector) return
+    if (showTabSelector || showSlashPalette) return
     if (e.altKey || e.ctrlKey || e.metaKey) return
     const ta = textareaRef.current
     if (!ta) return
@@ -264,7 +290,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     if (!connectionOk) return 'Disconnected'
     if (!providerOk) return 'Provider error'
     if (isProcessing) return 'Task running…'
-    return chatMode ? 'Ask about this page...' : 'Ask me anything...'
+    return chatMode ? 'Ask about this page... (/ to pick an agent)' : 'Ask me anything... (/ to pick an agent)'
   }
   
   const getHintText = () => {
@@ -372,8 +398,59 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               aria-label="Chat message input"
               aria-describedby="input-hint"
                aria-invalid={!uiConnected}
-               aria-disabled={!uiConnected}
+              aria-disabled={!uiConnected}
               />
+
+              {/* Slash command palette overlay */}
+              {showSlashPalette && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-24 bg-black/50">
+                  <div className="w-full max-w-xl">
+                    <SlashCommandPalette
+                      overlay
+                      searchQuery={input}
+                      onSelectAgent={(agentId) => {
+                        const agent = agents.find(a => a.id === agentId)
+                        if (!agent) return
+                        // Add a quick narration message
+                        upsertMessage({
+                          msgId: `thinking_${Date.now()}`,
+                          role: 'thinking',
+                          content: `Executing agent: ${agent.name}`,
+                          ts: Date.now()
+                        })
+                        // Send predefined plan execution request
+                        const contextTabs = getContextTabs()
+                        const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
+                        setProcessing(true)
+                        sendMessage(MessageType.EXECUTE_QUERY, {
+                          query: agent.goal,
+                          tabIds,
+                          source: 'sidepanel',
+                          metadata: {
+                            source: 'sidepanel',
+                            executionMode: 'predefined',
+                            predefinedPlan: {
+                              agentId: agent.id,
+                              steps: agent.steps,
+                              goal: agent.goal,
+                              name: agent.name
+                            }
+                          }
+                        })
+                        // Reset input and close palette
+                        setInput('')
+                        setShowSlashPalette(false)
+                        textareaRef.current?.focus()
+                      }}
+                      onClose={() => {
+                        setShowSlashPalette(false)
+                        if (input === '/') setInput('')
+                        textareaRef.current?.focus()
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <Button
                 type="submit"

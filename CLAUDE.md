@@ -59,7 +59,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - File extensions:
   - Components → .tsx
   - Hooks/Utils → .ts
-  - Style modules → .module.scss
+  - Styles → .css (using Tailwind CSS)
 - Prefer named exports for components
 - Types/Interfaces in PascalCase (e.g. User, ButtonProps)
 - OUR PRODUCT NAME IS Nxtscape (the "s" is small letter) -- so use that name correctly when naming things.
@@ -194,14 +194,27 @@ NEVER proactively create documentation files (*.md) or README files. Only create
   // Define the props schema with Zod
   const ButtonPropsSchema = z.object({
     label: z.string(),
-    onClick: z.function().args().returns(z.void()).optional()
+    onClick: z.function().args().returns(z.void()).optional(),
+    variant: z.enum(['primary', 'secondary', 'ghost']).optional()
   });
 
   // Infer the type from the schema
   type ButtonProps = z.infer<typeof ButtonPropsSchema>;
 
-  export function Button({ label, onClick }: ButtonProps) {
-    return <button onClick={onClick}>{label}</button>
+  export function Button({ label, onClick, variant = 'primary' }: ButtonProps) {
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "px-4 py-2 rounded-md font-medium transition-colors",
+          variant === 'primary' && "bg-primary text-primary-foreground hover:bg-primary/90",
+          variant === 'secondary' && "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          variant === 'ghost' && "hover:bg-accent hover:text-accent-foreground"
+        )}
+      >
+        {label}
+      </button>
+    )
   }
   ```
 - Call hooks (useState, useEffect, etc.) only at the top level.
@@ -216,15 +229,36 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Clean up effects in useEffect to prevent leaks.
 - Use guard clauses (early returns) for error handling.
 
-# UI & Styling (SCSS Modules)
-- Co‑locate a .scss file with each component.
-- Leverage SCSS features:
-  - Variables ($primary-color, $spacing)
-  - Mixins (@mixin flexCenter)
-  - Parent selector & for pseudo‑classes (&:hover)
-- Partials (_variables.scss, _mixins.scss) imported in styles/index.scss
-- Name classes in camelCase or BEM (.card__header).
-- Keep global styles minimal (e.g. reset, typography).
+# UI & Styling (Tailwind CSS)
+- Use Tailwind CSS utility classes directly in components
+- Single `styles.css` file per UI module (sidepanel/v2, newtab)
+- Define CSS custom properties (variables) for theming:
+  - Theme variables in `:root`, `.dark`, and custom theme classes
+  - Use semantic variable names (--background, --foreground, --primary, etc.)
+- Apply Tailwind classes directly in JSX className props:
+  ```tsx
+  <div className="flex flex-col h-full bg-background-alt">
+  ```
+- Use `cn()` utility function (clsx/tailwind-merge) for conditional classes:
+  ```tsx
+  import { cn } from '@/lib/utils'
+  
+  <div className={cn(
+    "base-classes",
+    isActive && "active-classes",
+    variant === 'primary' && "primary-variant-classes"
+  )}>
+  ```
+- Use Tailwind's @layer directives for base styles
+- Support multiple themes (light, dark, custom) via CSS variables
+- Avoid inline styles; use Tailwind utilities instead
+- For custom styles, use CSS custom properties with Tailwind's arbitrary value support:
+  ```tsx
+  <div className="text-[var(--custom-color)]">
+  ```
+- Common spacing patterns: Use consistent spacing utilities (p-4, gap-2, space-y-4)
+- Responsive design: Use Tailwind's responsive prefixes (sm:, md:, lg:)
+- Animation: Use Tailwind's animation utilities or define custom animations in CSS
 
 # State Management
 - Global state: Zustand
@@ -236,6 +270,10 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - For simple forms, write custom hooks; for complex ones, use react-hook-form with generics (e.g. <Controller>).
 - Separate client‑side and server‑side validation.
 - Use Zod schemas for form validation.
+- Style form elements with Tailwind utilities:
+  ```tsx
+  <input className="w-full px-3 py-2 border rounded-md bg-background text-foreground" />
+  ```
 
 # Performance Optimization
 - Minimize client‑only code (useEffect/useState) where unnecessary.
@@ -244,6 +282,8 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Memoize expensive computations with useMemo.
 - Wrap pure components in React.memo.
 - Structure modules for effective tree‑shaking.
+- Use Tailwind's JIT (Just-In-Time) mode for minimal CSS bundle size.
+- Prefer Tailwind utilities over custom CSS to leverage PurgeCSS optimization.
 
 # TypeScript Configuration
 - Enable "strict": true in tsconfig.json.
@@ -255,6 +295,9 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Use semantic HTML.
 - Apply appropriate ARIA attributes.
 - Ensure full keyboard navigation.
+- Use Tailwind's accessibility utilities (sr-only, focus-visible, etc.).
+- Ensure sufficient color contrast with theme variables.
+- Test with screen readers and keyboard-only navigation.
 
 ## Development Commands
 
@@ -340,13 +383,50 @@ This is a Chrome extension that provides AI-powered web automation using LLM age
 - Additional tools can be registered based on task requirements
 
 ### UI Components
-- **IMPORTANT: Use `src/sidepanel/v2/` for ALL UI work** - This is the new UI implementation
-- **DO NOT update files in other `src/sidepanel/` directories** - Legacy UI code being phased out
-- **Side Panel V2** (`src/sidepanel/v2/`) - Modern Chrome side panel integration with React
-- **Components**: Chat, MessageList, Header, SettingsModal, TabSelector, etc.
-- **Hooks**: useMessageHandler, useKeyboardShortcuts, useAutoScroll, etc.
-- **Store**: Zustand-based state management (chatStore, settingsStore)
-- Real-time streaming display for agent execution with modern CSS
+- **IMPORTANT: Use ONLY these directories for UI work:**
+  - `src/sidepanel/v2/` - Modern side panel UI (primary interface)
+  - `src/newtab/` - New tab page UI
+- **NEVER update files in `src/sidepanel/` (without v2)** - Legacy code being removed
+- **DO NOT use SCSS modules or `.module.scss` files** - Use Tailwind CSS instead
+
+#### Side Panel V2 (`src/sidepanel/v2/`)
+- Modern Chrome side panel with React + Tailwind CSS
+- Components: Chat, MessageList, Header, SettingsModal, TabSelector, etc.
+- Hooks: useMessageHandler, useKeyboardShortcuts, useAutoScroll, etc.
+- Store: Zustand-based state management (chatStore, settingsStore)
+- Real-time streaming display for agent execution
+- Tailwind utility classes for all styling
+
+#### New Tab (`src/newtab/`)
+- Custom new tab page with React + Tailwind CSS
+- Components: AgentCard, CommandPalette, ThemeToggle, etc.
+- Stores: agentsStore, providerStore (Zustand)
+- Pages: CreateAgentPage for agent configuration
+- Consistent styling approach with sidepanel/v2
+
+### UI Component Patterns
+- **Component Structure**: 
+  - Keep components focused and single-purpose
+  - Use function components with TypeScript
+  - Export named functions (not default exports)
+- **Shared UI Components** (`components/ui/`):
+  - Reusable primitives (Icons, Buttons, Spinners)
+  - Consistent with Tailwind design system
+  - Minimal props, maximum flexibility
+- **Feature Components**:
+  - Domain-specific components (Chat, Settings, TabSelector)
+  - Compose from UI primitives
+  - Handle business logic and state
+- **Styling Patterns**:
+  - Never use CSS modules or SCSS
+  - Apply Tailwind utilities directly
+  - Use theme variables for colors (bg-background, text-foreground)
+  - Group related utilities logically in className
+- **Accessibility**:
+  - Always include ARIA labels for interactive elements
+  - Use semantic HTML elements
+  - Ensure keyboard navigation works
+  - Add focus-visible styles for keyboard users
 
 ### LLM Integration
 - **LangChainProviderFactory** (`src/lib/llm/LangChainProviderFactory.ts`) - Abstraction over multiple LLM providers

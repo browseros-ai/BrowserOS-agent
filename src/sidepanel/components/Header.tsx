@@ -258,7 +258,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               onClick={handleReset}
               variant="ghost"
               size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300"
+              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
               aria-label="Reset conversation"
             >
               <RotateCcw className="w-4 h-4" />

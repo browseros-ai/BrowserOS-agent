@@ -66,7 +66,8 @@ export class ClassificationTool {
       const result = await invokeWithRetry<ClassificationResult>(
         structuredLLM,
         messages,
-        3
+        3,
+        { signal: this.executionContext.abortController.signal }
       )
       this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Task classified as ${result.is_simple_task ? 'simple' : 'complex'} and ${result.is_followup_task ? 'follow-up' : 'new'}`, 'thinking'))
       

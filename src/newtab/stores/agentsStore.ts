@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { z } from 'zod'
+import { Logging } from '@/lib/utils/Logging'
 
 // Agent schema following v2 patterns
 export const AgentSchema = z.object({
@@ -7,9 +8,9 @@ export const AgentSchema = z.object({
   name: z.string().min(2).max(50),  // Display name
   description: z.string().max(200),  // Brief description
   goal: z.string().min(10),  // Primary objective
-  tools: z.array(z.string()).default([]),  // Tool identifiers
-  provider: z.enum(['openai', 'anthropic', 'ollama', 'nxtscape']),  // LLM provider
-  model: z.string().min(1),  // Model identifier
+  steps: z.array(z.string()).default([]),  // Execution steps
+  notes: z.array(z.string()).optional(),  // Additional notes and context
+  tools: z.array(z.string()).default([]),  // Tool identifiers (future)
   isPinned: z.boolean().default(false),  // Show on new tab
   lastUsed: z.number().int().nullable(),  // Last execution timestamp
   createdAt: z.number().int(),  // Creation timestamp
@@ -56,7 +57,7 @@ export const useAgentsStore = create<AgentsState & AgentsActions>((set, get) => 
   addAgent: (agentData) => {
     const newAgent: Agent = {
       ...agentData,
-      id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -66,8 +67,18 @@ export const useAgentsStore = create<AgentsState & AgentsActions>((set, get) => 
       selectedAgentId: newAgent.id
     }))
     
+    // Log metric for agent creation
+    Logging.logMetric('custom_agent.created', {
+      name: newAgent.name,
+      description: newAgent.description,
+      goal: newAgent.goal,
+      steps: newAgent.steps,
+      tools: newAgent.tools
+    })
+    
     // Persist to storage
-    chrome.storage.local.set({ agents: [...get().agents, newAgent] })
+    // get().agents already includes the newly added agent after set()
+    chrome.storage.local.set({ agents: get().agents })
   },
   
   updateAgent: (id, updates) => {
@@ -78,6 +89,19 @@ export const useAgentsStore = create<AgentsState & AgentsActions>((set, get) => 
           : agent
       )
     }))
+    
+    // Find the updated agent to log its properties
+    const updatedAgent = get().agents.find(agent => agent.id === id)
+    if (updatedAgent) {
+      // Log metric for agent update with 10% sampling
+      Logging.logMetric('custom_agent.updated', {
+        name: updatedAgent.name,
+        description: updatedAgent.description,
+        goal: updatedAgent.goal,
+        steps: updatedAgent.steps,
+        tools: updatedAgent.tools
+      }, 0.1)
+    }
     
     // Persist changes
     chrome.storage.local.set({ agents: get().agents })
