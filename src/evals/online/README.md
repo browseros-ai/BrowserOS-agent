@@ -1,302 +1,178 @@
-# Online Telemetry System
+# Online Telemetry Implementation
 
-## Overview
-
-Seamless telemetry integration for the BrowserOS agent using Braintrust SDK. Tools are automatically wrapped with tracking when telemetry is enabled - no manual instrumentation needed. (only used in dev environments)
+> Implementation details for the real-time telemetry and scoring subsystem. For general overview, see [parent README](../README.md).
 
 ## Quick Start
 
-### 1. Configure in `src/config.ts`
+### Enable Telemetry & Scoring
+
 ```typescript
-export const ENABLE_TELEMETRY = true;
-export const BRAINTRUST_API_KEY = 'your-api-key-here';
+// src/config.ts
+export const ENABLE_TELEMETRY = true                   // Master switch
+export const BRAINTRUST_API_KEY = 'sk-...'             // Telemetry backend
+export const OPENAI_API_KEY_FOR_SCORING = 'sk-...'     // LLM judge
+export const OPENAI_MODEL_FOR_SCORING = 'gpt-4o-mini'  // Scoring model
 ```
 
-### 2. Build and Run
 ```bash
 npm run build:dev
-# Reload Chrome extension
+# View data at Braintrust dashboard → browseros-agent-online
 ```
 
-### 3. View Data
-View in Braintrust dashboard → `browseros-agent-online` project
+## Directory Structure
 
-## How It Works
+```
+src/evals/online/
+├── BraintrustEventCollector.ts   # Singleton telemetry collector with lazy initialization
+├── tool-wrapper.ts               # Tool wrapper factory for automatic tracking (metrics only)
+└── scoring/                      # LLM scoring subsystem
+    ├── LLMJudge.ts               # Multi-dimensional scoring engine
+    ├── LLMJudge.prompts.ts       # Scoring prompts and criteria
+    └── scoring-openai.ts         # Raw OpenAI client for scoring (no telemetry)
+```
 
-### Seamless Tool Integration
+## Key Components
 
-**The magic happens in BrowserAgent:** When telemetry is enabled, all tools are automatically wrapped with tracking - you don't need to modify any tool code!
+### BraintrustEventCollector.ts
+- **Pattern**: Singleton with lazy initialization on first `initializeSession()` call
+- **Purpose**: Manages Braintrust logger instance and span hierarchy
+- **Capabilities**: Provides `startSpan()`, `endSpan()`, `logEvent()`, `flush()` methods
+- **Integration**: Direct access to ExecutionContext for metadata
+
+### tool-wrapper.ts (createTrackedTool)
+- **Pattern**: Factory function that wraps any DynamicStructuredTool
+- **Purpose**: Automatic span creation and metrics tracking
+- **Implementation**: Uses Braintrust's `wrapTraced()` for instrumentation
+- **Performance**: Zero-overhead early return when telemetry disabled
+- **Data**: Returns metrics only (duration, success) - no I/O duplication
+
+### scoring/LLMJudge.ts
+- **Pattern**: Direct ExecutionContext access to stores (MessageManager, TodoStore, BrowserContext)
+- **Purpose**: Multi-dimensional task evaluation across 6 criteria
+- **Implementation**: Raw OpenAI client (not wrapped) to avoid nested telemetry spans
+- **Scoring**: Weighted average calculation with fallback score (-1) when unavailable
+
+### Integration Points
+
+#### Tool Wrapping in BrowserAgent
+
+When telemetry is enabled, BrowserAgent wraps all tools during registration:
 
 ```typescript
-// src/lib/agent/BrowserAgent.ts
-private _registerTools(): void {
-  if (this.executionContext.telemetry?.isEnabled()) {
-    // Every tool gets wrapped automatically
-    const registerTool = (tool: DynamicStructuredTool) => {
-      const trackedTool = createTrackedTool(tool, this.executionContext)
-      this.toolManager.register(trackedTool)
-    }
-    
-    // All tools now have telemetry!
-    registerTool(createClassificationTool(...))
-    registerTool(createPlannerTool(...))
-    registerTool(createNavigationTool(...))
-    // ... etc
+// In BrowserAgent._registerTools()
+if (this.executionContext.telemetry?.isEnabled()) {
+  const registerTool = (tool: DynamicStructuredTool) => {
+    const trackedTool = createTrackedTool(tool, this.executionContext)
+    this.toolManager.register(trackedTool)
   }
+  
+  // All 16 tools automatically tracked
+  registerTool(createClassificationTool(...))
+  registerTool(createPlannerTool(...))
+  // ... continues for all tools
 }
 ```
 
-### Data Flow Architecture
+#### Session Initialization in NxtScape
+
+```typescript
+// First task initializes telemetry session
+if (this.executionContext.telemetry && this.taskNumber === 1) {
+  await this.executionContext.telemetry.initializeSession(sessionId)
+}
+
+// Task completion triggers scoring
+const judge = new LLMJudge()
+const result = await judge.scoreTaskCompletionWithContext(
+  userQuery,
+  executionContext,  // Direct access to all stores
+  taskOutcome
+)
 
 ```
-1. User Query
-   ↓
-2. NxtScape.run()
-   - Creates conversation session (parent span)
-   - Passes telemetry to ExecutionContext
-   - Sets ExecutionContext → Creates EventEnricher
-   ↓
-3. EventEnricher Initialized
-   - Created in BraintrustEventCollector.setExecutionContext()
-   - Has access to all runtime state via ExecutionContext
-   ↓
-4. BrowserAgent.execute()
-   - Receives telemetry via ExecutionContext
-   - Wraps all tools with createTrackedTool()
-   ↓
-5. Tool Execution
-   - Wrapper logs: start → execute → end/error
-   - Events automatically enriched with context
-   ↓
-6. Event Enrichment (Automatic)
-   - EventEnricher adds conversation history
-   - Includes current plan and progress
-   - Captures browser state (URL, tabs)
-   ↓
-7. Braintrust SDK
-   - Batches enriched events (handled by SDK)
-   - Sends to Braintrust API
-   ↓
-8. View in Dashboard
-   - Traces show full execution hierarchy
-   - Rich context for debugging
-   - Analyze performance and errors
+
+### Data Collection Strategy
+
+**Braintrust Events (Metrics Only)**
+```typescript
+// tool-wrapper.ts
+{
+  duration_ms: endTime - startTime,
+  success: result.ok ? 1 : 0,
+  is_exception: result.error ? 1 : 0,
+  toolName: tool.name,
+  messageIndex: messageManager.getMessages().length
+}
 ```
 
-## What Gets Logged
+**LLM Judge Context (Direct References)**
+```typescript
+// LLMJudge.scoreTaskCompletionWithContext()
+const context = {
+  messages: executionContext.messageManager.getMessages(),  // Full array
+  todos: executionContext.todoStore.getAll(),               // All TODOs
+  browserState: executionContext.browserContext.getState(), // Current state
+  taskOutcome: outcome                                      // From NxtScape
+}
+```
 
-### Automatic Context Enrichment via EventEnricher
-
-Every telemetry event is automatically enriched with contextual data by the EventEnricher:
-
-**For Tool Executions & Decision Points:**
-- **Conversation Context**
-  - Current conversation turn number
-  - Total message history length
-  - Last 3 messages (truncated to ~150 chars each)
-  - Original user intent from first message
-- **Plan Context** (if a plan exists)
-  - All plan steps (first 5)
-  - Current step being executed
-  - Whether this is a re-planning scenario
-- **Browser State**
-  - Current page URL and title
-  - Number of open tabs
-  - Active tab ID
-
-**For Browser Actions:**
-- Only browser state is captured (lighter weight)
-
-This enrichment happens automatically - no manual instrumentation needed!
-
-### Event Hierarchy
-
-Every conversation creates a nested trace structure:
+## Event Hierarchy in Braintrust
 
 ```
-🔹 Conversation Session (parent)
+🔹 agent_session (parent span for conversation)
   │
   ├─ Task 1: "Find headphones under $100"
-  │  ├─ decision_point: task_1_start
-  │  ├─ tool_execution: classification_tool (234ms)
-  │  ├─ tool_execution: planner_tool (456ms)
-  │  ├─ tool_execution: navigate_tool (89ms)
-  │  ├─ tool_execution: extract_tool (123ms)
-  │  ├─ tool_execution: done_tool (45ms)
-  │  └─ decision_point: task_1_complete
+  │  ├─ task_1_start (event)
+  │  ├─ tool:classification_tool (span with metrics)
+  │  ├─ tool:planner_tool (span with metrics)
+  │  ├─ tool:navigation_tool (span with metrics)
+  │  ├─ tool:extract_tool (span with metrics)
+  │  ├─ tool:done_tool (span with metrics)
+  │  └─ task_1_complete (event with scores)
   │
   └─ Task 2: "Show only wireless ones"
-     ├─ decision_point: task_2_start
      └─ ... more tool executions
 ```
-
-
-## How Data is Sent to Braintrust
-
-### 1. Lazy Initialization
-```typescript
-// BraintrustEventCollector.ts
-private _ensureInitialized(): void {
-  if (this.initialized) return;
-  
-  // Only initialize when first used
-  if (ENABLE_TELEMETRY && BRAINTRUST_API_KEY) {
-    this.logger = initLogger({
-      apiKey: BRAINTRUST_API_KEY,
-      projectName: 'browseros-agent-online'
-    })
-  }
-}
-```
-
-### 2. Tool Execution Wrapped in Traced Spans
-```typescript
-// Tools are wrapped INSIDE traced spans for proper waterfall visualization
-return telemetry.runInSpan(
-  toolName,
-  context.parentSpanId,
-  async (span) => {
-    // Log start to the span
-    span.log({ input, phase: 'start' })
-    
-    // Execute the actual tool - THIS is what gets measured
-    const result = await originalFunc(input)
-    
-    // Log completion to the same span
-    span.log({ output: result, phase: 'completed', metrics: { duration_ms } })
-    
-    return result
-  }
-)
-```
-
-This creates proper duration bars in the Braintrust waterfall view, not just point-in-time events.
-
-### 3. SDK Handles the Rest
-- **Batching**: Events are automatically batched by Braintrust SDK
-- **Retry Logic**: Failed requests are retried automatically
-- **Async**: All telemetry is non-blocking (doesn't slow down execution)
-- **Flush**: SDK ensures data is sent even if the app closes
-
-## Console Output
-
-When telemetry is enabled, you'll see:
-
-```
-✓ Telemetry ready (API key found)
-✓ Telemetry session initialized
-  Session ID: abc-123-xyz...
-→ Task 1: "Find headphones under $100"
-→ Tools registered with telemetry tracking
-→ Tool: classification_tool (234ms)
-→ Tool: planner_tool (456ms)
-→ Tool: navigate_tool (89ms)
-→ Tool: extract_tool (123ms)
-→ Tool: done_tool (45ms)
-```
-
-## Next Iteration: LLM-as-Judge Scoring
-
-**Status: Planned** 📋
-
-Currently, telemetry collects comprehensive execution data with rich context. The next iteration will add automatic quality scoring using LLM-as-judge patterns:
-
-### What Will Be Scored
-
-**Per Tool Execution:**
-- Performance (speed relative to baseline)
-- Success rate (ok=true frequency)
-- Quality metrics:
-  - Plans: Step coherence, completeness, logical ordering
-  - Validations: Accuracy of completion detection
-  - Extractions: Data completeness and relevance
-  - Navigation: Success reaching target pages
-
-**Per Task:**
-- Overall success rate
-- Efficiency (optimal tool usage)
-- Speed vs complexity
-- Error recovery effectiveness
-
-### How It Will Work
-
-```typescript
-// Scores calculated locally during execution
-const scores = {
-  performance: duration < 500 ? 1.0 : 0.5,
-  success: result.ok ? 1.0 : 0.0,
-  plan_quality: assessPlanQuality(result.steps),  // LLM scoring
-  overall: weightedAverage(allScores)
-}
-
-// Sent to Braintrust with telemetry
-await telemetry.logEvent({
-  type: 'tool_execution',
-  data: { ... },
-  scores  // Braintrust aggregates and visualizes
-})
-```
-
-### Benefits
-- **Automatic quality metrics** without manual review
-- **Regression detection** when scores drop
-- **Performance baselines** for optimization
-- **A/B testing** different strategies
 
 ## Performance Impact
 
 | State | Overhead | Details |
 |-------|----------|---------|
-| **Disabled** | 0ms | All telemetry checks return immediately |
-| **Enabled (current)** | <1ms per event | Plus network time (async, non-blocking) |
-| **Enabled (with scoring)** | ~2-3ms per event | Additional scoring computation (async) |
+| **Disabled** | 0ms | All telemetry code skipped entirely |
+| **Enabled (no scoring)** | <1ms per event | Network calls are async/non-blocking |
+| **Enabled (with scoring)** | ~2-3ms per event | LLM scoring is async/non-blocking |
 
-The wrapper adds minimal overhead:
+Zero overhead when disabled:
 ```typescript
 if (!telemetry?.isEnabled()) {
-  return originalFunc(input)  // Zero overhead when disabled
+  return originalFunc(input)  // Direct execution
 }
 ```
 
-## Debugging
+## Implementation Principles
 
-### Check if Working
-```javascript
-// Browser console
-window.__BROWSEROS_TELEMETRY_ENABLED  // Should be true
-```
+1. **Direct Store Access**: LLM Judge accesses ExecutionContext stores directly, no data copying
+2. **Metrics-Only Telemetry**: Braintrust receives lightweight metrics, not full I/O
+3. **Lazy Singleton**: BraintrustEventCollector initializes once on first session
+4. **Zero-Overhead When Disabled**: Early return paths when `ENABLE_TELEMETRY = false`
+
+## Debugging
 
 ### Common Issues
 
 **No data in Braintrust?**
-1. Verify API key in `config.ts`
-2. Check console for: `✓ Telemetry ready (API key found)`
-3. Look for `→ Tool:` messages in console
-4. Ensure you rebuilt: `npm run build:dev`
+1. Verify `ENABLE_TELEMETRY = true` in config.ts
+2. Check for `BRAINTRUST_API_KEY` in config.ts
+3. Look for `✓ Telemetry ready` in console
+4. Rebuild after config changes: `npm run build:dev`
 
-**Missing tool executions?**
-- Tools are only wrapped when `ENABLE_TELEMETRY = true` at build time
-- Must rebuild after changing config
+**No scores appearing?**
+1. Verify `OPENAI_API_KEY_FOR_SCORING` in config.ts
+2. Check for `✓ LLM Judge ready` in console
+3. Ensure task completes (not interrupted)
+4. Look for `📊 Multi-Dimensional LLM Scores` in console
 
-## Architecture Files
-
-```
-src/
-├── config.ts                           # ENABLE_TELEMETRY & API key
-├── evals/online/
-│   ├── BraintrustEventCollector.ts    # Singleton collector
-│   ├── EventEnricher.ts              # Adds rich context to events
-│   └── createTrackedTool.ts           # Tool wrapper factory
-├── lib/core/
-│   └── NxtScape.ts                    # Creates parent session & EventEnricher
-└── lib/agent/
-    └── BrowserAgent.ts                # Wraps tools automatically
-```
-
-## Key Design Decisions
-
-1. **Automatic Tool Wrapping**: No need to modify individual tools
-2. **Lazy Initialization**: Telemetry only initializes when first used
-3. **Zero Config**: Just set two flags in `config.ts`
-4. **Privacy First**: All sensitive data automatically sanitized
-5. **Non-Invasive**: When disabled, zero performance impact
+**Low goal_achievement scores?**
+- Usually means agent didn't communicate results to user
+- Even if calculation/action completed successfully
+- Agent must use `done_tool` or similar to report results

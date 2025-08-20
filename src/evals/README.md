@@ -1,239 +1,109 @@
 # BrowserOS Agent Evaluation System
 
+> **⚠️ Development Only** - This telemetry system is for internal evaluation during development, not for production use.
+
 ## Overview
 
-Evaluation system for the BrowserOS agent with:
-- **Online Telemetry**: Seamless, automatic agent/tool tracking via Braintrust SDK (only used in dev environments)
-- **Offline Tests**: Standalone unit tests for specific tools
+Comprehensive evaluation system combining automatic telemetry with multi-dimensional LLM scoring to measure and improve agent performance.
 
-## Directory Structure
+## Architecture
 
 ```
 src/evals/
-├── online/                           # Online telemetry system (only used in dev environments)
-│   ├── BraintrustEventCollector.ts  # Singleton collector with lazy init
-│   ├── EventEnricher.ts             # Automatic context enrichment
-│   ├── createTrackedTool.ts        # Tool wrapper factory
-│   └── README.md                     # Detailed telemetry guide
+├── online/         # Real-time telemetry & scoring
+│   └── [See online/README.md for implementation details]
 │
-├── offline/                          # Offline test suites
-│   └── tools/                       # Tool-specific unit tests
-│       ├── planner/                 # Planner tool tests
-│       └── validator/               # Validator tool tests
+├── offline/        # Standalone evaluations  
+│   └── tools/
+│       ├── planner/     # Planner unit test
+│       └── validator/   # Validator unit test
 │
-└── shared/                          # Shared utilities
-    └── push-prompts.ts             # Extract prompts to JSON (Planned)
+└── shared/         # Shared utilities
+    └── push-prompts.ts  # Prompt extraction (planned)
 ```
 
-## Quick Start - Online Telemetry
-
-### Automatic Tool Tracking
-
-When telemetry is enabled, BrowserAgent automatically wraps every tool with tracking:
-
-```typescript
-// Just set these flags in src/config.ts:
-export const ENABLE_TELEMETRY = true;
-export const BRAINTRUST_API_KEY = 'your-key';
-
-// That's it! All tools now have telemetry.
-```
-
-### How It Works
-
-1. **User query** → NxtScape creates parent session
-2. **EventEnricher** → Created with ExecutionContext for rich data access
-3. **BrowserAgent** → Automatically wraps all tools with `createTrackedTool()`
-4. **Tool execution** → Wrapper logs start/end/errors with timing
-5. **Event enrichment** → EventEnricher automatically adds context to all events
-6. **Braintrust SDK** → Batches and sends enriched data
-7. **Dashboard** → View traces with full context at braintrust
-
-### What Gets Logged
-
-```
-Conversation Session
-└── Task: "Find headphones"
-    ├── classification_tool (234ms) ✓
-    ├── planner_tool (456ms) ✓
-    ├── navigate_tool (89ms) ✓
-    ├── extract_tool (123ms) ✓
-    └── done_tool (45ms) ✓
-```
-
-Each tool execution includes:
-- **Input** (automatically captured by wrapTraced)
-- **Output** (automatically captured by wrapTraced)
-- **Duration** in milliseconds
-- **Success/failure** status
-- **Rich context** via EventEnricher:
-  - Conversation history (last 3 messages)
-  - Current plan and progress
-  - Browser state (URL, title, tabs)
-  - Original user intent
-
-### Build & Run
-
-```bash
-npm run build:dev
-# Reload extension in Chrome
-```
-
-View data in Braintrust dashboard → `browseros-agent-online` project
-
-### Offline Evaluations (Existing)
-
-Run standalone test suites:
-
-```bash
-# Tool-specific tests
-npm run eval:planner     # Test planner tool
-npm run eval:validator   # Test validator tool
-
-# Extract prompts for version control
-npm run extract:prompts
-```
-
-## Implementation Status
-
-### ✅ Phase 1: Infrastructure (COMPLETE)
-- Development telemetry using `initLogger` ✅
-- Parent/child span relationships ✅
-- Automatic LLM tracking with `wrapOpenAI` ✅
-- SDK-managed batching ✅
-- Simple env var activation ✅
-
-### ✅ Phase 2: Integration (COMPLETE)
-- Connected to BrowserAgent ✅
-- Classification tracking ✅
-- Tool tracking via wrappers ✅
-- Plan generation tracking ✅
-- Session lifecycle management ✅
-
-### ✅ Phase 3: Enhanced Data Collection (COMPLETE)
-- EventEnricher adds rich context ✅
-- Conversation history tracking ✅
-- Plan state tracking ✅
-- Browser state capture ✅
-- All tools automatically wrapped ✅
-- Decision points tracked ✅
-- Browser actions tracked ✅
-
-### 🎯 Phase 4: LLM-as-Judge Scoring (NEXT ITERATION)
-#### Implementation Roadmap
-1. **Tool-Level Scoring** (`scoringHelpers.ts`)
-   - Performance scoring based on execution time
-   - Success detection from tool outputs
-   - Quality assessment for specific tools (planner, validator)
-
-2. **Task-Level Scoring** (in `NxtScape.ts`)
-   - Overall task success
-   - Efficiency metrics
-   - Complexity handling assessment
-
-3. **Integration with Braintrust**
-   - Add scores to telemetry events
-   - Update `BraintrustEventCollector` to handle scores
-   - Modify `createTrackedTool` wrapper to calculate scores
-
-4. **Dashboard & Analysis**
-   - Score visualization in Braintrust
-   - Regression detection alerts
-   - Performance baselines
-
-## Current State
-
-**✅ COMPLETE:** Enhanced telemetry data collection is fully implemented and working.
-
-### What's Implemented
-- ✅ **Automatic tool wrapping** - All tools tracked when enabled
-- ✅ **Rich context** - Conversation history, plan state, browser info via EventEnricher
-- ✅ **Decision tracking** - Classification and planning decisions captured
-- ✅ **Browser actions** - Navigation, clicks, scrolls tracked via wrapped tools
-- ✅ **Zero overhead** - No impact when disabled
-- ✅ **Simple activation** - Just set `ENABLE_TELEMETRY = true` in config.ts
-
-### What You Get
-Every tool execution includes:
-- Input/output (sanitized)
-- Duration metrics
-- Success/failure status
-- Conversation context (last 3 messages)
-- Current plan and progress
-- Browser state (URL, title, tab count)
-
-## Best Practices
-
-1. **Online**: Enable only when needed (performance impact)
-2. **Offline**: Run before commits to catch regressions
-3. **Privacy**: Never log sensitive user data
-4. **Versioning**: Extract prompts after changes
-
-
-## Next Steps
-
-1. **For developers**: 
-   - Set `ENABLE_TELEMETRY = true` in config.ts when debugging
-   - View your data at braintrust
-   - Run offline tests before PRs
-
-2. **For analysis**: 
-   - Query Braintrust dashboard for patterns
-   - Identify slow tools and optimize
-   - Debug complex execution flows
+- **Online Telemetry**: Automatic tool tracking with multi-dimensional LLM scoring (see [online/README.md](online/README.md))
+- **Offline Evaluations**: Standalone tests for critical tools
+- **Zero Production Impact**: Development-only system
 
 ## How It Works
 
-The telemetry is already integrated! When you enable it in config.ts:
+When enabled, the system automatically:
+1. Tracks all tool executions with performance metrics
+2. Scores task completion across 6 quality dimensions
+3. Sends telemetry data to Braintrust for analysis
 
-1. **NxtScape** creates a conversation-level session
-2. **BrowserAgent** tracks:
-   - Task classification (simple vs complex)
-   - Plan generation for complex tasks  
-   - Tool execution with timing
-   - Success/failure outcomes
-3. **Tools** are automatically wrapped with telemetry
-4. **Data flows** to Braintrust for analysis
+For implementation details, see [online/README.md](online/README.md).
 
-No additional setup needed - just set the flags in config.ts!
+### Multi-Dimensional Scoring
 
-## Understanding the Scoring Architecture (Planned)
+Tasks are evaluated across 6 quality dimensions by an LLM judge:
 
-### Key Concept: Local Scoring, Remote Aggregation
+| Dimension | Weight | Focus |
+|-----------|--------|-------|
+| **Goal Achievement** | 40% | Did the agent achieve what the user asked? |
+| **Execution Quality** | 20% | Were steps logical and appropriate? |
+| **Execution Precision** | 15% | Efficiency without unnecessary retries |
+| **Progress Made** | 10% | How much progress toward completion? |
+| **Plan Coherence** | 8% | Was the plan logical and complete? |
+| **Error Handling** | 7% | Graceful recovery from issues |
 
-Unlike some evaluation systems, Braintrust doesn't automatically score your agent. Instead:
+**Score Interpretation:**
+- `0.8-1.0`: Excellent - Task completed successfully
+- `0.6-0.7`: Acceptable - Main goal achieved with issues  
+- `0.4-0.5`: Mixed - Some progress but significant problems
+- `0.0-0.3`: Poor - Minimal progress or failure
 
-1. **You define what "good" means** in your code
-2. **Calculate scores locally** during execution
-3. **Send scores to Braintrust** with telemetry events
-4. **Braintrust aggregates and visualizes** your scores
+### What Gets Tracked
 
-### Example Flow (Coming Soon)
+- **Tool Metrics**: Execution duration, success/failure rates
+- **Task Scores**: Multi-dimensional quality assessment  
+- **Session Data**: Task progression and outcomes
 
-```typescript
-// 1. Tool executes
-const result = await plannerTool.execute(input)
+The system maintains full conversation context for scoring while sending only lightweight metrics to Braintrust. See [online/README.md](online/README.md) for data collection details.
 
-// 2. Local scoring logic (you define this)
-const scores = {
-  performance: duration < 500 ? 1.0 : 0.5,       // Fast = good
-  success: result.ok ? 1.0 : 0.0,                // OK = success
-  plan_quality: evaluatePlanCoherence(result),   // Custom LLM scoring
-}
+## Offline Evaluations
 
-// 3. Send to Braintrust
-await telemetry.logEvent({
-  type: 'tool_execution',
-  name: 'planner_tool',
-  data: { input, output, duration },
-  scores: scores  // ← Your pre-calculated scores
-})
+Standalone LLM-based tests for critical tools:
 
-// 4. Braintrust shows aggregated metrics
-// - Average scores across runs
-// - Score distributions
-// - Trends over time
-// - Comparisons between experiments
+```bash
+# Requires OPENAI_API_KEY environment variable
+OPENAI_API_KEY=sk-... npx ts-node src/evals/offline/tools/planner/planner.eval.ts
+OPENAI_API_KEY=sk-... npx ts-node src/evals/offline/tools/validator/validator.eval.ts
 ```
 
-This approach gives you complete control over your evaluation metrics while leveraging Braintrust's powerful aggregation and visualization capabilities.
+- **Planner**: Tests plan generation quality (coherence, completeness, efficiency)
+- **Validator**: Tests task completion detection accuracy
+
+## Example Output
+
+When enabled, you'll see telemetry status and scoring results in the console:
+
+```
+✓ Telemetry ready
+→ Task: "Calculate 25 * 4"
+📊 Score: 0.64 (Goal: 0.45, Execution: 0.85)
+```
+
+## Performance Impact
+
+| State | Overhead | Details |
+|-------|----------|---------|
+| **Disabled** | 0ms | All checks return immediately |
+| **Enabled** | <1ms per event | Async, non-blocking |
+| **With Scoring** | ~2-3ms per event | LLM call (async) |
+
+## Troubleshooting
+
+**No telemetry data?** Check API keys in `config.ts` and rebuild with `npm run build:dev`
+
+**Low scores?** Review the scoring dimensions - low Goal Achievement usually means the agent didn't communicate results to the user.
+
+For detailed troubleshooting, see [online/README.md](online/README.md#debugging).
+
+## Tools Tracked (16 Total)
+
+**Planning & Management:** PlannerTool, TodoManagerTool, ClassificationTool, ValidatorTool  
+**Navigation & Interaction:** NavigationTool, InteractionTool, ScrollTool, SearchTool, RefreshStateTool  
+**Tab Management:** TabOperationsTool, GroupTabsTool, GetSelectedTabsTool  
+**Data & Results:** ExtractTool, ScreenshotTool, ResultTool, DoneTool

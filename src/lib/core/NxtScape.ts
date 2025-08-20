@@ -12,6 +12,8 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 
 // Import telemetry module - only used if enabled
 import { BraintrustEventCollector } from "@/evals/online/BraintrustEventCollector";
+// Import LLMJudge statically to avoid dynamic import issues in service worker
+import { LLMJudge } from "@/evals/online/scoring/LLMJudge";
 
 /**
  * Configuration schema for NxtScape agent
@@ -71,6 +73,7 @@ export class NxtScape {
   private conversationStartTime: number = 0;
   private taskCount: number = 0; // Track number of tasks in conversation
   private taskStartTime: number = 0; // Track individual task timing
+  private sessionWeightedTotals: number[] = []; // Track all weighted_total scores for session average
 
   /**
    * Creates a new NxtScape orchestration agent
@@ -279,25 +282,12 @@ export class NxtScape {
       // Execute the browser agent with the task
       await this.browserAgent.execute(query);
       
-      // Log task completion with telemetry
+      // Log task completion with telemetry and holistic scoring
       if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
         const taskDuration = Date.now() - this.taskStartTime;
-        await this.telemetry.logEvent({
-          type: 'decision_point',
-          name: `task_${this.taskCount}_complete`,
-          data: {
-            task: query,
-            taskNumber: this.taskCount,
-            duration_ms: taskDuration,
-            success: true,
-            phase: 'task_complete'
-          }
-        }, {
-          parent: this.telemetryParentSpan,
-          name: `task_${this.taskCount}_complete`
-        });
         
-        console.log(`%c✓ Task ${this.taskCount} complete (${taskDuration}ms)`, 'color: #00ff00; font-size: 10px');
+        // Finalize task with scoring and telemetry
+        await this._finalizeTask("success", query, "Task completed successfully");
       }
       
       // BrowserAgent handles all logging and result management internally
@@ -316,25 +306,10 @@ export class NxtScape {
         Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
       }
       
-      // Log task error with telemetry
+      // Log task error with telemetry and holistic scoring
       if (this.telemetry?.isEnabled() && this.telemetryParentSpan && !wasCancelled) {
-        const taskDuration = Date.now() - this.taskStartTime;
-        await this.telemetry.logEvent({
-          type: 'error',
-          name: `task_${this.taskCount}_error`,
-          data: {
-            task: query,
-            taskNumber: this.taskCount,
-            duration_ms: taskDuration,
-            error: errorMessage,
-            wasCancelled
-          }
-        }, {
-          parent: this.telemetryParentSpan,
-          name: `task_${this.taskCount}_error`
-        });
-        
-        console.log(`%c✗ Task ${this.taskCount} failed: ${errorMessage}`, 'color: #ff0000; font-size: 10px');
+        // Finalize task with scoring and telemetry - pass the full error object
+        await this._finalizeTask("error", query, "Task failed", error);
       }
       
       // Return error result
@@ -377,25 +352,12 @@ export class NxtScape {
         `User cancelling current task execution: "${cancelledQuery}"`,
       );
       
-      // Log task paused event with telemetry
+      // Log task paused event with telemetry and holistic scoring
       if (this.telemetry?.isEnabled() && this.telemetryParentSpan && this.taskCount > 0) {
         const taskDuration = Date.now() - this.taskStartTime;
-        await this.telemetry.logEvent({
-          type: 'decision_point',
-          name: `task_${this.taskCount}_paused`,
-          data: {
-            task: cancelledQuery || 'Unknown task',
-            taskNumber: this.taskCount,
-            duration_ms: taskDuration,
-            reason: 'User clicked pause button',
-            phase: 'task_paused'
-          }
-        }, {
-          parent: this.telemetryParentSpan,
-          name: `task_${this.taskCount}_paused`
-        });
         
-        console.log(`%c⏸ Task ${this.taskCount} paused (${taskDuration}ms)`, 'color: #ffaa00; font-size: 10px');
+        // Finalize task with scoring and telemetry
+        await this._finalizeTask("paused", cancelledQuery || "", "Task paused by user");
       }
       
       this.executionContext.cancelExecution(
@@ -493,6 +455,9 @@ export class NxtScape {
       this.conversationStartTime = Date.now();
       this.telemetrySessionId = crypto.randomUUID();
       
+      // Reset session scores for new conversation
+      this.sessionWeightedTotals = [];
+      
       // Start conversation-level session with actual user query
       const { parent } = await this.telemetry.startSession({
         sessionId: this.telemetrySessionId,
@@ -534,10 +499,18 @@ export class NxtScape {
     try {
       const duration = Date.now() - this.conversationStartTime;
       
+      // Calculate average weighted_total for session success score
+      const avgSuccess = this.sessionWeightedTotals.length > 0
+        ? this.sessionWeightedTotals.reduce((sum, score) => sum + score, 0) / this.sessionWeightedTotals.length
+        : 1.0  // Default to 1.0 if no scores available
+      
+      console.log(`%c📈 Session average success: ${avgSuccess.toFixed(2)} from ${this.sessionWeightedTotals.length} tasks`, 'color: #4caf50; font-weight: bold; font-size: 11px')
+      
       await this.telemetry.endSession(this.telemetryParentSpan, this.telemetrySessionId, {
         success: true,
         summary: `Conversation ended: ${reason}`,
-        duration_ms: duration
+        duration_ms: duration,
+        userScore: avgSuccess  // Pass average as userScore for now
       });
       
       console.log(`%c← Telemetry session ended (${reason})`, 'color: #888; font-size: 10px');
@@ -545,9 +518,164 @@ export class NxtScape {
       // Clear telemetry state
       this.telemetrySessionId = null;
       this.telemetryParentSpan = null;
+      this.sessionWeightedTotals = [];  // Reset scores for next session
     } catch (error) {
       console.warn('Failed to end telemetry session:', error);
     }
+  }
+  
+  /**
+   * Finalize task with scoring and telemetry (deduplicates code)
+   * Used by success, error, and paused paths
+   */
+  private async _finalizeTask(
+    outcome: 'success' | 'error' | 'paused',
+    query: string,
+    message: string,
+    error?: any  // Can be Error object or string
+  ): Promise<void> {
+    if (!this.telemetry?.isEnabled()) return
+    
+    const taskDuration = Date.now() - this.taskStartTime
+    
+    // No need for EventEnricher - LLMJudge will access ExecutionContext directly
+    const taskPhase = outcome === 'error' ? 'task_error' : outcome === 'paused' ? 'task_paused' : 'task_complete'
+    
+    // Score the task completion with LLM judge using full ExecutionContext
+    let multiDimensionalScores: Record<string, number> | undefined
+    let scoringDetails: any = undefined
+    
+    try {
+      const judge = new LLMJudge()
+      
+      // Use the new method that accepts ExecutionContext directly
+      if (this.executionContext) {
+        const result = await judge.scoreTaskCompletionWithContext(
+          query,
+          this.executionContext,
+          {
+            outcome: outcome,
+            duration_ms: taskDuration
+          }
+        )
+        
+        // Handle multi-dimensional scores
+        if (result.scores && Object.keys(result.scores).length > 0) {
+          multiDimensionalScores = result.scores
+          scoringDetails = result.scoringDetails
+        } else if (result.score >= 0) {
+          // Fallback to single score if multi-dimensional not available
+          multiDimensionalScores = {
+            task_completion: result.score,
+            weighted_total: result.score
+          }
+          scoringDetails = result.scoringDetails
+        } else {
+          console.log('%c→ No holistic score (API key missing or error)', 'color: #888; font-size: 10px')
+        }
+      }
+    } catch (error) {
+      console.error('Holistic scoring failed:', error)
+    }
+    
+    // Build scores object with all dimensions
+    const scores: Record<string, number> = {}
+    
+    // Add all multi-dimensional scores first (including weighted_total for this task)
+    if (multiDimensionalScores) {
+      Object.assign(scores, multiDimensionalScores)
+      
+      // Track weighted_total for session average calculation
+      if (multiDimensionalScores.weighted_total !== undefined && multiDimensionalScores.weighted_total >= 0) {
+        this.sessionWeightedTotals.push(multiDimensionalScores.weighted_total)
+        console.log(`%c📊 Session scores so far: [${this.sessionWeightedTotals.map(s => s.toFixed(2)).join(', ')}]`, 'color: #9c27b0; font-size: 10px')
+      }
+    }
+    
+    // Add binary completion status as a separate metric
+    scores.task_completed = outcome === 'success' ? 1.0 : 0.0
+    
+    // Don't set 'success' here - it will be calculated at session end as avg of all weighted_totals
+    
+    // Debug log to see what scores are being sent to Braintrust
+    console.log('%c📤 Scores being sent to Braintrust:', 'color: #4caf50; font-weight: bold; font-size: 11px')
+    console.log(JSON.stringify(scores, null, 2))
+    
+    // Determine event type and name based on outcome
+    const eventType = outcome === 'error' ? 'error' : 'decision_point'
+    const eventName = `task_${this.taskCount}_${outcome}`
+    const phase = outcome === 'error' ? 'task_error' :
+                 outcome === 'paused' ? 'task_paused' :
+                 'task_complete'
+    
+    // Build event data with proper error structure for Braintrust
+    const eventData: any = {
+      task: query,
+      taskNumber: this.taskCount,
+      duration_ms: taskDuration,
+      success: outcome === 'success',
+      phase,
+      ...(outcome === 'paused' && { reason: 'User clicked pause button' })
+    }
+    
+    // Build the event object
+    const event: any = {
+      type: eventType,
+      name: eventName,
+      data: eventData,
+      scores,
+      ...(scoringDetails && { scoring_details: scoringDetails })
+    }
+    
+    // Add structured error for Braintrust if this is an error outcome
+    if (outcome === 'error' && error) {
+      let errorName = 'TaskExecutionError'
+      let errorMessage: string
+      let errorStack: string | undefined
+      
+      // Handle Error objects vs string errors
+      if (error instanceof Error) {
+        errorName = error.name || 'Error'
+        errorMessage = error.message
+        errorStack = error.stack
+      } else {
+        // String error - try to parse it
+        errorMessage = String(error)
+        
+        // Check if it's an LLM error (e.g., BadRequestError)
+        if (errorMessage.includes('BadRequestError') || errorMessage.includes('Exception')) {
+          errorName = 'LLMError'
+          // Extract the actual error message
+          const match = errorMessage.match(/(\w+Error): (.+?)(?:No fallback|$)/s)
+          if (match) {
+            errorName = match[1]
+            errorMessage = match[2].trim()
+          }
+        }
+      }
+      
+      // Add structured error for Braintrust's error tracking
+      event.error = {
+        name: errorName,
+        message: errorMessage,
+        stack: errorStack
+      }
+      
+      // Also keep the original error in data for backward compatibility
+      eventData.error = error instanceof Error ? error.message : error
+    }
+    
+    // Log telemetry event
+    await this.telemetry.logEvent(event, {
+      parent: this.telemetryParentSpan || undefined,
+      name: eventName
+    })
+    
+    // Log status to console
+    const statusIcon = outcome === 'success' ? '✓' : outcome === 'error' ? '✗' : '⏸'
+    const statusColor = outcome === 'success' ? '#00ff00' : outcome === 'error' ? '#ff0000' : '#ffaa00'
+    const statusMsg = outcome === 'error' ? `failed: ${error}` : outcome
+    console.log(`%c${statusIcon} Task ${this.taskCount} ${statusMsg} (${taskDuration}ms)`, `color: ${statusColor}; font-size: 10px`)
   }
 
 }

@@ -68,7 +68,7 @@ import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Import telemetry wrapper statically so webpack includes it
-import { createTrackedTool } from '@/evals/online/createTrackedTool';
+import { createTrackedTool } from '@/evals/online/tool-wrapper';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
 import { Subscription } from '@/lib/pubsub/types';
@@ -336,11 +336,13 @@ export class BrowserAgent {
     
     try {
       // Tool start notification not needed in new pub-sub system
+      // Tool start notification not needed in new pub-sub system
       const result = await classificationTool.func(args);
       const parsedResult = JSON.parse(result);
       
       if (parsedResult.ok) {
         const classification = JSON.parse(parsedResult.output);
+        // Tool end notification not needed in new pub-sub system
         // Tool end notification not needed in new pub-sub system
         return { 
           is_simple_task: classification.is_simple_task,
@@ -348,6 +350,7 @@ export class BrowserAgent {
         };
       }
     } catch (error) {
+      // Tool end notification not needed in new pub-sub system
       // Tool end notification not needed in new pub-sub system
     }
     
@@ -625,15 +628,8 @@ export class BrowserAgent {
       max_steps: BrowserAgent.MAX_STEPS_FOR_COMPLEX_TASKS
     };
 
-    const startTime = performance.now();
-    this.eventEmitter.toolStart('planner_tool', args);
     const result = await plannerTool.func(args);
     const parsedResult = JSON.parse(result);
-    const duration = performance.now() - startTime;
-    
-    // Format the planner output
-    const planner_formatted_output = formatToolOutput('planner_tool', parsedResult);
-    this.eventEmitter.toolEnd('planner_tool', parsedResult.ok, planner_formatted_output);
 
 
     if (parsedResult.ok && parsedResult.output?.steps) {
