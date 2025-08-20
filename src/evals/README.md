@@ -17,9 +17,7 @@ src/evals/
 │   └── tools/
 │       ├── planner/     # Planner unit test
 │       └── validator/   # Validator unit test
-│
-└── shared/         # Shared utilities
-    └── push-prompts.ts  # Prompt extraction (planned)
+
 ```
 
 - **Online Telemetry**: Automatic tool tracking with multi-dimensional LLM scoring (see [online/README.md](online/README.md))
