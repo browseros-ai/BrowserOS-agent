@@ -1,13 +1,11 @@
 import { z } from "zod";
-import { EventBus, EventProcessor } from "@/lib/events";
+import { PubSub } from "@/lib/pubsub";
 import { Logging } from "@/lib/utils/Logging";
 import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { profileStart, profileEnd, profileAsync } from "@/lib/utils/profiler";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
-import { PocAgent } from "@/lib/agent/PocAgent";
-import { isPocMode } from "@/config";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 
 // Import telemetry module - only used if enabled
@@ -34,9 +32,8 @@ export type NxtScapeConfig = z.infer<typeof NxtScapeConfigSchema>;
  */
 export const RunOptionsSchema = z.object({
   query: z.string(), // Natural language user query
+  mode: z.enum(['chat', 'browse']).optional(), // Execution mode
   tabIds: z.array(z.number()).optional(), // Optional array of tab IDs for context (e.g., which tabs to summarize) - NOT for agent operation
-  eventBus: z.instanceof(EventBus), // EventBus for streaming updates
-  eventProcessor: z.instanceof(EventProcessor), // EventProcessor for high-level event handling
   metadata: z.any().optional(), // Execution metadata for controlling execution mode
 });
 
@@ -64,7 +61,7 @@ export class NxtScape {
   private browserContext: BrowserContext;
   private executionContext!: ExecutionContext; // Will be initialized in initialize()
   private messageManager!: MessageManager; // Will be initialized in initialize()
-  private browserAgent: BrowserAgent | PocAgent | null = null; // The browser agent for task execution
+  private browserAgent: BrowserAgent | null = null; // The browser agent for task execution
 
   private currentQuery: string | null = null; // Track current query for better cancellation messages
   
@@ -126,13 +123,7 @@ export class NxtScape {
         });
         
         // Initialize the browser agent with execution context
-        // Use PocAgent if in POC mode, otherwise use BrowserAgent
-        if (isPocMode()) {
-          this.browserAgent = new PocAgent(this.executionContext);
-          Logging.log("NxtScape", "Using PocAgent (POC mode enabled)");
-        } else {
-          this.browserAgent = new BrowserAgent(this.executionContext);
-        }
+        this.browserAgent = new BrowserAgent(this.executionContext);
         
         // Note: Telemetry session initialization is deferred until first task execution
         // This prevents creating empty sessions when extension is just opened/closed
@@ -168,6 +159,14 @@ export class NxtScape {
   }
 
   /**
+   * Set chat mode (for backward compatibility)
+   * @param enabled - Whether chat mode is enabled
+   */
+  public setChatMode(enabled: boolean): void {
+    this.executionContext.setChatMode(enabled);
+  }
+
+  /**
    * Prepares the execution environment
    * @private
    */
@@ -185,9 +184,9 @@ export class NxtScape {
     }
 
     const parsedOptions = RunOptionsSchema.parse(options);
-    const { query, tabIds, eventBus, eventProcessor, metadata } = parsedOptions;
+    const { query, tabIds, mode = 'browse', metadata } = parsedOptions;
 
-    const runStartTime = Date.now();
+    const startTime = Date.now();
 
     Logging.log(
       "NxtScape",
@@ -225,10 +224,6 @@ export class NxtScape {
     // Mark execution as started
     this.executionContext.startExecution(currentTabId);
 
-    // Update the event bus and event processor for this execution
-    this.executionContext.setEventBus(eventBus);
-    this.executionContext.setEventProcessor(eventProcessor);
-
     // Set selected tab IDs for context (e.g., for summarizing multiple tabs)
     // These are NOT the tabs the agent operates on, just context for tools like ExtractTool
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
@@ -243,13 +238,11 @@ export class NxtScape {
    * Executes the appropriate agent based on mode
    * @private
    */
-  private async _executeAgent(query: string, mode: 'chat' | 'browse', metadata?: any): Promise<void> {
+  private async _executeAgent(query: string, mode: 'chat' | 'browse', metadata?: any, tabIds?: number[]): Promise<void> {
+    // Chat mode is not currently implemented, always use browse mode
     if (mode === 'chat') {
-      if (!this.chatAgent) {
-        throw new Error('Chat agent not initialized');
-      }
-      await this.chatAgent.execute(query);
-    } else {
+      throw new Error('Chat mode is not currently implemented');
+    }
     this.currentQuery = query;
     
     // Initialize telemetry session on first task if not already initialized
@@ -272,7 +265,7 @@ export class NxtScape {
           data: {
             task: query,
             taskNumber: this.taskCount,
-            selectedTabIds: tabIds || [currentTabId],
+            selectedTabIds: tabIds || [],
             conversationSessionId: this.telemetrySessionId,
             phase: 'task_start'
           }
@@ -315,9 +308,6 @@ export class NxtScape {
       
       // BrowserAgent handles all logging and result management internally
       Logging.log("NxtScape", "Agent execution completed");
-      
-      // Return success result
-      return { success: true };
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -384,45 +374,36 @@ export class NxtScape {
       executionContext = await this._prepareExecution(options);
       
       // Phase 2: Execute agent
-      await this._executeAgent(executionContext.query, executionContext.mode, executionContext.metadata);
+      await this._executeAgent(executionContext.query, executionContext.mode, executionContext.metadata, executionContext.tabIds);
       
       // Success: Publish done status
       PubSub.getInstance().publishExecutionStatus('done');
       
     } catch (error) {
       // Phase 3: Handle errors
-      this._handleExecutionError(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const wasCancelled = error instanceof Error && error.name === "AbortError";
+      
+      if (wasCancelled) {
+        Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
+      } else {
+        Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
+      }
+      
+      // Publish error status
+      PubSub.getInstance().publishExecutionStatus('error', errorMessage);
+      
+      // Log task error with telemetry and holistic scoring
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan && !wasCancelled && executionContext) {
+        // Finalize task with scoring and telemetry - pass the full error object
+        await this._finalizeTask("error", executionContext.query, "Task failed", error);
+      }
     } finally {
       // Phase 4: Always cleanup
       if (executionContext) {
         await this._cleanupExecution(executionContext.startTime);
       }
-      // Log task error with telemetry and holistic scoring
-      if (this.telemetry?.isEnabled() && this.telemetryParentSpan && !wasCancelled) {
-        // Finalize task with scoring and telemetry - pass the full error object
-        await this._finalizeTask("error", query, "Task failed", error);
-      }
-      
-      // Return error result
-      return { 
-        success: false, 
-        error: errorMessage 
-      };
-    } finally {
-      // Always mark execution as ended
-      this.executionContext.endExecution();
-      this.currentQuery = null;
-
-      // Unlock browser context and update to active tab
-      profileStart("NxtScape.cleanup");
-      await this.browserContext.unlockExecution();
-
-      profileEnd("NxtScape.cleanup");
       profileEnd("NxtScape.run");
-      Logging.log(
-        "NxtScape",
-        `Total execution time: ${Date.now() - runStartTime}ms`,
-      );
     }
   }
 
@@ -454,7 +435,7 @@ export class NxtScape {
       this.executionContext.cancelExecution(
         /*isUserInitiatedsCancellation=*/ true,
       );
-      return { wasCancelled: true, query: cancelledQuery || undefined };
+      
       // Emit a friendly pause message so UI shows clear state
       PubSub.getInstance().publishMessage(
         PubSub.createMessageWithId(
@@ -463,6 +444,8 @@ export class NxtScape {
           'assistant'
         )
       );
+      
+      return { wasCancelled: true, query: cancelledQuery || undefined };
     }
 
     return { wasCancelled: false };

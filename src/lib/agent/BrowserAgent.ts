@@ -271,20 +271,16 @@ export class BrowserAgent {
   }
 
   private _registerTools(): void {
-    // Register tools with telemetry tracking if enabled
-    // Called lazily on first execute() to ensure telemetry is ready
+    // Register tools without wrapping - wrapping happens dynamically at execution time
+    // This ensures tools can be wrapped with the correct parent span when available
     const registerTool = (tool: DynamicStructuredTool) => {
-      if (this.executionContext.telemetry?.isEnabled()) {
-        this.toolManager.register(createTrackedTool(tool, this.executionContext));
-      } else {
-        this.toolManager.register(tool);
-      }
+      this.toolManager.register(tool);
     };
 
-    // Register all tools with automatic telemetry tracking
+    // Register all tools (telemetry wrapping happens in _processToolCalls)
     registerTool(createPlannerTool(this.executionContext));
     registerTool(createTodoManagerTool(this.executionContext));
-    registerTool(createDoneTool());
+    registerTool(createDoneTool(this.executionContext));
     
     // Navigation tools
     registerTool(createNavigationTool(this.executionContext));
@@ -632,7 +628,14 @@ export class BrowserAgent {
 
       await this._maybeStartGlowAnimation(toolName);
 
-      const toolResult = await tool.func(args);
+      // Dynamically wrap tool with telemetry if session is active
+      let toolFunc = tool.func;
+      if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
+        const wrappedTool = createTrackedTool(tool, this.executionContext);
+        toolFunc = wrappedTool.func;
+      }
+
+      const toolResult = await toolFunc(args);
       const parsedResult = JSON.parse(toolResult);
       
 

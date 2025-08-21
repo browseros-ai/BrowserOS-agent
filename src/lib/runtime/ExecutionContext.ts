@@ -39,6 +39,7 @@ export class ExecutionContext {
   private _taskNumber: number = 0  // Track number of user tasks in this session
   private _humanInputRequestId: string | undefined  // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
+  private _chatMode: boolean = false  // Whether chat mode is enabled
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime with proper type checking
@@ -182,6 +183,7 @@ export class ExecutionContext {
    */
   public getCurrentTaskNumber(): number {
     return this._taskNumber;
+  }
   
   /**
    * Get KlavisAPIManager singleton for MCP operations

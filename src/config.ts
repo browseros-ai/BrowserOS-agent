@@ -65,5 +65,6 @@ export const ENABLE_TELEMETRY = false;
 export const BRAINTRUST_API_KEY = 'api-key'; // ⚠️ ADD YOUR API KEY HERE!
 export const OPENAI_API_KEY_FOR_SCORING = 'api-key'; // ⚠️ ADD YOUR OPENAI API KEY HERE FOR SCORING!
 export const OPENAI_MODEL_FOR_SCORING = 'gpt-4o-mini'; // Model used for LLM-as-judge scoring
+export const SHOW_CONSOLE_SCORING_SUMMARY = true; // Show scoring context summary and full prompt in console
 
 export default config 

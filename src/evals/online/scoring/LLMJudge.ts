@@ -6,9 +6,10 @@
  */
 
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { OPENAI_API_KEY_FOR_SCORING } from '@/config'
+import { OPENAI_API_KEY_FOR_SCORING, SHOW_CONSOLE_SCORING_SUMMARY } from '@/config'
 import { getMultiDimensionalScoringPrompt } from './LLMJudge.prompts'
 import { scoringOpenAI, DEFAULT_MODEL } from './scoring-openai'
+import { ToolMessage } from '@langchain/core/messages'
 
 // Score dimension keys used in holistic scoring
 const SCORE_DIMENSIONS = {
@@ -99,7 +100,7 @@ export class LLMJudge {
   
   /**
    * Build full context from ExecutionContext for scoring
-   * Only pulls data from single sources of truth - no re-extraction
+   * Extracts all available context from existing stores and message history
    * @param context - The execution context with all stores
    * @param taskOutcome - Minimal task outcome data from NxtScape (just status/duration)
    */
@@ -130,7 +131,69 @@ export class LLMJudge {
       // Browser state might not be available
     }
     
-    // Structure for the scoring prompt - using data directly from stores
+    // Extract tool execution details from messages
+    const toolExecutions: any[] = []
+    messages.forEach((msg, index) => {
+      if (msg._getType() === 'tool') {
+        const toolMsg = msg as ToolMessage
+        // Look for the AI message before this tool message to get the tool call details
+        if (index > 0 && messages[index - 1]._getType() === 'ai') {
+          const aiMsg = messages[index - 1] as any
+          if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+            // Find matching tool call by ID
+            const toolCall = aiMsg.tool_calls.find((tc: any) => tc.id === toolMsg.tool_call_id)
+            if (toolCall) {
+              let parsedResult = null
+              try {
+                parsedResult = JSON.parse(toolMsg.content as string)
+              } catch (e) {
+                parsedResult = { output: toolMsg.content }
+              }
+              
+              toolExecutions.push({
+                name: toolCall.name,
+                args: toolCall.args,
+                result: parsedResult,
+                success: parsedResult?.ok === true,
+                error: parsedResult?.error || parsedResult?.output
+              })
+            }
+          }
+        }
+      }
+    })
+    
+    // Count tool retries (same tool called multiple times in succession)
+    const toolRetries: Record<string, number> = {}
+    let lastToolName = ''
+    toolExecutions.forEach(exec => {
+      if (exec.name === lastToolName && !exec.success) {
+        toolRetries[exec.name] = (toolRetries[exec.name] || 0) + 1
+      }
+      lastToolName = exec.name
+    })
+    
+    // Extract browser state changes from browser_state messages
+    const browserStates: any[] = []
+    messages.forEach(msg => {
+      if (msg.additional_kwargs?.messageType === 'browser_state') {
+        const content = msg.content as string
+        // Extract URL from browser state content if available
+        const urlMatch = content.match(/URL: ([^\n]+)/)
+        const titleMatch = content.match(/Title: ([^\n]+)/)
+        if (urlMatch || titleMatch) {
+          browserStates.push({
+            url: urlMatch ? urlMatch[1] : 'N/A',
+            title: titleMatch ? titleMatch[1] : 'N/A',
+            content: content
+          })
+        }
+      }
+    })
+    
+
+    
+    // Structure for the scoring prompt - now with FULL context
     return {
       // Task outcome info (minimal, from NxtScape)
       eventData: {
@@ -161,6 +224,16 @@ export class LLMJudge {
       // BrowserContext data - current state
       pageUrl,
       pageTitle,
+      
+      // Full execution context with complete, untruncated data
+      toolExecutions,         // All tool calls with full args and results
+      browserStates,         // Browser state changes over time
+      toolRetries,          // Count of tool retry attempts
+      
+      // Stats for scoring
+      totalToolCalls: toolExecutions.length,
+      failedToolCalls: toolExecutions.filter(e => !e.success).length,
+      uniqueToolsUsed: new Set(toolExecutions.map(e => e.name)).size,
       
       // Additional direct references (for scoring logic if needed)
       fullConversation: messages,  // Direct reference, no copying
@@ -194,17 +267,51 @@ export class LLMJudge {
       // Build full context from ExecutionContext with task outcome
       const fullContext = await this.buildFullContext(executionContext, taskOutcome)
       
-      // Debug: Log context summary
-      console.log('%c📋 Scoring Context Summary:', 'color: #9c27b0; font-weight: bold; font-size: 10px')
-      console.log(`  Messages: ${fullContext.fullConversation?.length || 0}`)
-      console.log(`  TODOs: ${fullContext.allTodos?.length || 0} (completed: ${fullContext.allTodos?.filter((t: any) => t.status === 'done').length || 0})`)
-      console.log(`  Task: "${fullContext.eventData?.task || 'N/A'}"`)
-      console.log(`  Outcome: ${fullContext.eventData?.phase || 'N/A'} (success: ${fullContext.eventData?.success})`)
-      console.log(`  Duration: ${fullContext.eventData?.duration_ms || 0}ms`)
-      console.log(`  Current URL: ${fullContext.pageUrl || 'N/A'}`)
-      
       // Build multi-dimensional scoring prompt with full context
+      // NOTE: We provide complete, untruncated data for accurate scoring
       const prompt = getMultiDimensionalScoringPrompt(userTask, fullContext)
+      
+      // Log scoring context and prompt in a collapsible group (for debugging)
+      if (SHOW_CONSOLE_SCORING_SUMMARY) {
+        console.group('%c📋 LLM Scorer Context Summary (click to expand/collapse)', 'color: #9c27b0; font-weight: bold; font-size: 11px')
+        
+        // Context summary
+        console.log('%c📊 Execution Summary:', 'color: #666; font-weight: bold')
+        console.log(`  Task: "${fullContext.eventData?.task || 'N/A'}"`)
+        console.log(`  Outcome: ${fullContext.eventData?.phase || 'N/A'} (success: ${fullContext.eventData?.success})`)
+        console.log(`  Duration: ${fullContext.eventData?.duration_ms || 0}ms`)
+        console.log(`  Current URL: ${fullContext.pageUrl || 'N/A'}`)
+        console.log('')
+        
+        console.log('%c📈 Execution Metrics:', 'color: #666; font-weight: bold')
+        console.log(`  Messages: ${fullContext.fullConversation?.length || 0}`)
+        console.log(`  TODOs: ${fullContext.allTodos?.length || 0} (completed: ${fullContext.allTodos?.filter((t: any) => t.status === 'done').length || 0})`)
+        console.log(`  Tool Executions: ${fullContext.totalToolCalls || 0} (failed: ${fullContext.failedToolCalls || 0})`)
+        console.log(`  Unique Tools: ${fullContext.uniqueToolsUsed || 0}`)
+        console.log(`  Browser States: ${fullContext.browserStates?.length || 0}`)
+        console.log(`  Tool Retries: ${Object.keys(fullContext.toolRetries || {}).length} tools with retries`)
+        console.log('')
+        
+        console.log('%c🔧 Tool Statistics:', 'color: #666; font-weight: bold')
+        console.log(`  Total Tool Calls: ${fullContext.totalToolCalls || 0}`)
+        console.log(`  Failed Tool Calls: ${fullContext.failedToolCalls || 0}`)
+        console.log(`  Unique Tools Used: ${fullContext.uniqueToolsUsed || 0}`)
+        console.log(`  Tools with Retries: ${Object.keys(fullContext.toolRetries || {}).length}`)
+        console.log('')
+        
+        // Prompt stats
+        console.log('%c📝 Prompt Statistics:', 'color: #666; font-weight: bold')
+        console.log(`  Character count: ${prompt.length.toLocaleString()}`)
+        console.log(`  Line count: ${prompt.split('\n').length.toLocaleString()}`)
+        console.log(`  Estimated tokens: ~${Math.ceil(prompt.length / 4).toLocaleString()}`)
+        console.log('')
+        
+        // Log the full prompt (will be collapsed by default)
+        console.log('%c📄 Full Prompt Content:', 'color: #666; font-weight: bold')
+        console.log(prompt)
+        
+        console.groupEnd()
+      }
       
       // Use wrapped OpenAI for automatic Braintrust telemetry
       const completion = await scoringOpenAI.chat.completions.create({

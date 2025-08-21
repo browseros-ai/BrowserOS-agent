@@ -94,15 +94,13 @@ export class BraintrustEventCollector {
   private async _ensureInitialized(): Promise<void> {
     // Only initialize once
     if (this.initialized) return;
+    this.initialized = true;  // Set immediately to prevent concurrent calls
     
     // Check if we should be enabled
     this.enabled = this._checkIfEnabled();
     if (this.enabled) {
       await this._initialize();
     }
-    
-    // Mark as initialized even if disabled (to avoid repeated checks)
-    this.initialized = true;
   }
   
   /**

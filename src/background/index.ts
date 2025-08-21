@@ -708,9 +708,6 @@ async function handleCancelTaskPort(
       const cancelledQuery = cancellationResult.query || 'Unknown query';
       // Task successfully cancelled
       
-      // Capture task cancelled event
-      captureEvent('task_cancelled')
-      
       // Create a user-friendly cancellation message
       const cancellationMessage = `Task cancelled: "${cancelledQuery}"`;
       
@@ -722,16 +719,6 @@ async function handleCancelTaskPort(
           message: cancellationMessage
         },
         id
-      })
-      
-      // Broadcast cancellation to all connected UIs with better messaging
-      broadcastWorkflowStatus({
-        success: false,
-        cancelled: true,
-        message: '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
-        cancelledQuery,
-        reason: reason || 'User requested cancellation',
-        userInitiatedCancel: true  // Mark this as user-initiated cancellation
       })
       
     } else {
