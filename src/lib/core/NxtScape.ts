@@ -100,6 +100,7 @@ export class NxtScape {
         try {
           console.log("Initializing memory system...");
           const memoryConfig = getMemoryConfig();
+          // console.log("Memory Configuration",memoryConfig);
           if (memoryConfig.enabled && memoryConfig.apiKey) {
             this.memoryManager = await initializeMemorySystem(
               memoryConfig.apiKey,

@@ -36,7 +36,8 @@ export class Mem0ClientWrapper {
   async initialize(): Promise<void> {
     try {
       // Test the connection by attempting a simple operation
-      await this.client.search("test", { user_id: "init-test", limit: 1 });
+      // await this.client.search("test", { user_id: "init-test", limit: 1 });
+      await this.client.ping();
       this.isInitialized = true;
     } catch (error) {
       throw new Error(

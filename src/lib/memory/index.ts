@@ -6,45 +6,24 @@
  */
 
 // Core components
-export { MemoryManager } from "./MemoryManager";
-export { Mem0ClientWrapper } from "./Mem0ClientWrapper";
-export { MemoryEventBus } from "./MemoryEventBus";
+export { MemoryManager } from './MemoryManager';
+export { Mem0ClientWrapper } from './Mem0ClientWrapper';
+export { MemoryEventBus } from './MemoryEventBus';
 
 // Import for factory functions
-import { MemoryManager } from "./MemoryManager";
+import { MemoryManager } from './MemoryManager';
 
 // Types and schemas
-export type {
-  MemoryEntry,
-  MemoryMetadata,
-  MemorySearchParams,
-  MemorySearchResult,
-  MemoryOperationResult,
-  MemoryConfig,
-  MemoryStats,
-  TaskContext,
-  AgentMemoryContext,
-  MemoryEvent,
-} from "./types";
+export type { MemoryEntry, MemoryMetadata, MemorySearchParams, MemorySearchResult, MemoryOperationResult, MemoryConfig, MemoryStats, TaskContext, AgentMemoryContext, MemoryEvent } from './types';
 
-export {
-  MemoryCategory,
-  MemoryEntrySchema,
-  MemoryMetadataSchema,
-  MemorySearchParamsSchema,
-  MemoryStatsSchema,
-  MemoryConfigSchema,
-} from "./types";
+export { MemoryCategory, MemoryEntrySchema, MemoryMetadataSchema, MemorySearchParamsSchema, MemoryStatsSchema, MemoryConfigSchema } from './types';
 
 // Tools (now located in ../tools/memory)
-export { createMemoryTool } from "../tools/memory/MemoryTool";
-export { createMemoryAwarePlannerTool } from "../tools/memory/MemoryAwarePlannerTool";
+export { createMemoryTool } from '../tools/memory/MemoryTool';
+export { createMemoryAwarePlannerTool } from '../tools/memory/MemoryAwarePlannerTool';
 
 // Prompts
-export {
-  MEMORY_TOOL_SYSTEM_PROMPT,
-  MEMORY_TOOL_EXAMPLES,
-} from "../tools/memory/MemoryTool.prompt";
+export { MEMORY_TOOL_SYSTEM_PROMPT, MEMORY_TOOL_EXAMPLES } from '../tools/memory/MemoryTool.prompt';
 
 /**
  * Factory function to create a configured MemoryManager
@@ -67,10 +46,7 @@ export function createMemoryManager(
 /**
  * Helper function to initialize memory system
  */
-export async function initializeMemorySystem(
-  apiKey?: string,
-  agentId?: string
-): Promise<MemoryManager | null> {
+export async function initializeMemorySystem(apiKey?: string, agentId?: string): Promise<MemoryManager | null> {
   try {
     const memoryManager = createMemoryManager(
       apiKey,
@@ -80,15 +56,15 @@ export async function initializeMemorySystem(
         retentionDays: 30,
         autoCleanup: true,
         enableCrossTab: true,
-        enableLearning: true,
+        enableLearning: true
       },
       agentId
     );
-
+    
     await memoryManager.initialize();
     return memoryManager;
   } catch (error) {
-    console.warn("Failed to initialize memory system:", error);
+    console.warn('Failed to initialize memory system:', error);
     return null;
   }
 }
