@@ -9,6 +9,10 @@ import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { PubSub } from "@/lib/pubsub/PubSub";
 import { ExecutionMetadata } from "@/lib/types/messaging";
+import { initializeMemorySystem } from "@/lib/memory";
+import { MemoryManager } from "@/lib/memory/MemoryManager";
+import { getMemoryConfig } from "@/lib/memory/config";
+
 
 /**
  * Configuration schema for NxtScape agent
@@ -45,6 +49,7 @@ export class NxtScape {
   private executionContext!: ExecutionContext; // Will be initialized in initialize()
   private messageManager!: MessageManager; // Will be initialized in initialize()
   private browserAgent: BrowserAgent | null = null; // The browser agent for task execution
+  private memoryManager: MemoryManager | null = null; // Memory manager for task continuity
   private chatAgent: ChatAgent | null = null; // The chat agent for Q&A mode
 
   /**
@@ -78,29 +83,58 @@ export class NxtScape {
     await profileAsync("NxtScape.initialize", async () => {
       try {
         // BrowserContextV2 doesn't need initialization
-        
+
         // Get model capabilities to set appropriate token limit
         const modelCapabilities = await langChainProvider.getModelCapabilities();
         const maxTokens = modelCapabilities.maxTokens;
-        
-        Logging.log("NxtScape", `Initializing MessageManager with ${maxTokens} token limit`);
-        
+
+        Logging.log(
+          "NxtScape",
+          `Initializing MessageManager with ${maxTokens} token limit`
+        );
+
         // Initialize message manager with correct token limit
         this.messageManager = new MessageManager(maxTokens);
-        
+
+        // Initialize memory system (optional, continues if fails)
+        try {
+          console.log("Initializing memory system...");
+          const memoryConfig = getMemoryConfig();
+          if (memoryConfig.enabled && memoryConfig.apiKey) {
+            this.memoryManager = await initializeMemorySystem(
+              memoryConfig.apiKey,
+              `nxtscape_${Date.now()}`
+            );
+            Logging.log("NxtScape", "Memory system initialized successfully");
+          } else {
+            Logging.log(
+              "NxtScape",
+              "Memory system disabled (no API key or disabled in config)"
+            );
+          }
+        } catch (error) {
+          Logging.log(
+            "NxtScape",
+            `Memory system initialization failed: ${error}`,
+            "warning"
+          );
+          this.memoryManager = null;
+        }
+
         // Create execution context with properly configured message manager
         this.executionContext = new ExecutionContext({
           browserContext: this.browserContext,
           messageManager: this.messageManager,
           debugMode: this.config.debug || false,
+          memoryManager: this.memoryManager || undefined,
         });
-        
+
         // Initialize the browser agent with execution context
         this.browserAgent = new BrowserAgent(this.executionContext);
         this.chatAgent = new ChatAgent(this.executionContext);
         Logging.log(
           "NxtScape",
-          "NxtScape initialization completed successfully",
+          "NxtScape initialization completed successfully"
         );
       } catch (error) {
         const errorMessage =
@@ -108,7 +142,7 @@ export class NxtScape {
         Logging.log(
           "NxtScape",
           `Failed to initialize: ${errorMessage}`,
-          "error",
+          "error"
         );
 
         // Clean up partial initialization
@@ -124,7 +158,9 @@ export class NxtScape {
    * @returns True if initialized, false otherwise
    */
   public isInitialized(): boolean {
-    return this.browserContext !== null && !!this.browserAgent && !!this.chatAgent;
+    return (
+      this.browserContext !== null && !!this.browserAgent && !!this.chatAgent
+    );
   }
 
   /**
@@ -133,7 +169,7 @@ export class NxtScape {
    */
   private async _prepareExecution(options: RunOptions): Promise<{
     query: string;
-    mode: 'chat' | 'browse';
+    mode: "chat" | "browse";
     tabIds: number[] | undefined;
     metadata: any;
     currentTabId: number;
@@ -147,8 +183,12 @@ export class NxtScape {
     // Refresh token limit in case provider settings changed
     const modelCapabilities = await langChainProvider.getModelCapabilities();
     if (modelCapabilities.maxTokens !== this.messageManager.getMaxTokens()) {
-      Logging.log("NxtScape", 
-        `Updating MessageManager token limit from ${this.messageManager.getMaxTokens()} to ${modelCapabilities.maxTokens}`);
+      Logging.log(
+        "NxtScape",
+        `Updating MessageManager token limit from ${this.messageManager.getMaxTokens()} to ${
+          modelCapabilities.maxTokens
+        }`
+      );
       this.messageManager.setMaxTokens(modelCapabilities.maxTokens);
     }
 
@@ -160,7 +200,7 @@ export class NxtScape {
       "NxtScape",
       `Processing user query in ${mode} mode: ${query}${
         tabIds ? ` (${tabIds.length} tabs)` : ""
-      }`,
+      }`
     );
 
     // Validate browser context
@@ -170,12 +210,18 @@ export class NxtScape {
 
     // Clean up any running task (after initialization ensures executionContext exists)
     if (this.isRunning()) {
-      Logging.log("NxtScape", "Another task is already running. Cleaning up...");
+      Logging.log(
+        "NxtScape",
+        "Another task is already running. Cleaning up..."
+      );
       this._internalCancel();
     }
 
     // Reset abort controller if needed (executionContext guaranteed to exist after init)
-    if (this.executionContext && this.executionContext.abortController.signal.aborted) {
+    if (
+      this.executionContext &&
+      this.executionContext.abortController.signal.aborted
+    ) {
       this.executionContext.resetAbortController();
     }
 
@@ -195,7 +241,7 @@ export class NxtScape {
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
 
     // Publish running status
-    PubSub.getInstance().publishExecutionStatus('running');
+    PubSub.getInstance().publishExecutionStatus("running");
 
     return { query, mode, tabIds, metadata, currentTabId, startTime };
   }
@@ -204,17 +250,24 @@ export class NxtScape {
    * Executes the appropriate agent based on mode
    * @private
    */
-  private async _executeAgent(query: string, mode: 'chat' | 'browse', metadata?: any): Promise<void> {
-    if (mode === 'chat') {
+  private async _executeAgent(
+    query: string,
+    mode: "chat" | "browse",
+    metadata?: any
+  ): Promise<void> {
+    if (mode === "chat") {
       if (!this.chatAgent) {
-        throw new Error('Chat agent not initialized');
+        throw new Error("Chat agent not initialized");
       }
       await this.chatAgent.execute(query);
     } else {
       if (!this.browserAgent) {
-        throw new Error('Browser agent not initialized');
+        throw new Error("Browser agent not initialized");
       }
-      await this.browserAgent.execute(query, metadata as ExecutionMetadata | undefined);
+      await this.browserAgent.execute(
+        query,
+        metadata as ExecutionMetadata | undefined
+      );
     }
 
     Logging.log("NxtScape", "Agent execution completed");
@@ -233,10 +286,10 @@ export class NxtScape {
       PubSub.getInstance().publishExecutionStatus('cancelled', errorMessage);
     } else {
       Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
-      
+
       // Publish error status
       PubSub.getInstance().publishExecutionStatus('error', errorMessage);
-      
+
       // Publish user-facing error message
       const errorMsg = PubSub.createMessage(
         `❌ Error: ${errorMessage}`,
@@ -253,12 +306,12 @@ export class NxtScape {
   private async _cleanupExecution(startTime: number): Promise<void> {
     // End execution context
     this.executionContext.endExecution();
-    
+
     // Unlock browser context
     profileStart("NxtScape.cleanup");
     await this.browserContext.unlockExecution();
     profileEnd("NxtScape.cleanup");
-    
+
     // Log execution time
     Logging.log(
       "NxtScape",
@@ -274,7 +327,7 @@ export class NxtScape {
    */
   public async run(options: RunOptions): Promise<void> {
     profileStart("NxtScape.run");
-    
+
     let executionContext: {
       query: string;
       mode: 'chat' | 'browse';
@@ -287,13 +340,16 @@ export class NxtScape {
     try {
       // Phase 1: Prepare execution
       executionContext = await this._prepareExecution(options);
-      
+
       // Phase 2: Execute agent
-      await this._executeAgent(executionContext.query, executionContext.mode, executionContext.metadata);
-      
+      await this._executeAgent(
+        executionContext.query,
+        executionContext.mode,
+        executionContext.metadata
+      );
+
       // Success: Publish done status
-      PubSub.getInstance().publishExecutionStatus('done');
-      
+      PubSub.getInstance().publishExecutionStatus("done");
     } catch (error) {
       // Phase 3: Handle errors
       this._handleExecutionError(error);
@@ -306,7 +362,6 @@ export class NxtScape {
     }
   }
 
-
   public isRunning(): boolean {
     return this.executionContext && this.executionContext.isExecuting();
   }
@@ -317,16 +372,19 @@ export class NxtScape {
   public cancel(): void {
     if (this.executionContext) {
       Logging.log("NxtScape", "User cancelling current task execution");
-      this.executionContext.cancelExecution( true);
-      
+      this.executionContext.cancelExecution(true);
+
       // Publish cancelled status with message
-      PubSub.getInstance().publishExecutionStatus('cancelled', 'Task cancelled by user');
+      PubSub.getInstance().publishExecutionStatus(
+        "cancelled",
+        "Task cancelled by user"
+      );
       // Emit a friendly pause message so UI shows clear state
       PubSub.getInstance().publishMessage(
         PubSub.createMessageWithId(
-          'pause_message_id',
-          '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
-          'assistant'
+          "pause_message_id",
+          "✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!",
+          "assistant"
         )
       );
     }
@@ -340,7 +398,10 @@ export class NxtScape {
    */
   private _internalCancel(): void {
     if (this.executionContext) {
-      Logging.log("NxtScape", "Internal cleanup: cancelling previous execution");
+      Logging.log(
+        "NxtScape",
+        "Internal cleanup: cancelling previous execution"
+      );
       // false = not user-initiated, this is internal cleanup
       this.executionContext.cancelExecution(false);
     }
@@ -353,7 +414,7 @@ export class NxtScape {
   public setChatMode(enabled: boolean): void {
     if (this.executionContext) {
       this.executionContext.setChatMode(enabled);
-      Logging.log("NxtScape", `Chat mode ${enabled ? 'enabled' : 'disabled'}`);
+      Logging.log("NxtScape", `Chat mode ${enabled ? "enabled" : "disabled"}`);
     }
   }
 
@@ -388,7 +449,7 @@ export class NxtScape {
       // Use internal cancel to avoid publishing status
       this._internalCancel();
     }
-    
+
     // 2. Clean up existing agents (call cleanup to unsubscribe)
     if (this.browserAgent) {
       this.browserAgent.cleanup();
@@ -398,7 +459,7 @@ export class NxtScape {
       this.chatAgent.cleanup();
       this.chatAgent = null;
     }
-    
+
     // 3. Clear PubSub buffer only (NOT subscribers - UI needs to stay subscribed!)
     PubSub.getInstance().clearBuffer();
 
@@ -411,15 +472,14 @@ export class NxtScape {
     if (this.executionContext.abortController.signal.aborted) {
       this.executionContext.resetAbortController();
     }
-    
+
     // 6. Recreate agents with fresh state (they will subscribe themselves)
     this.browserAgent = new BrowserAgent(this.executionContext);
     this.chatAgent = new ChatAgent(this.executionContext);
 
     Logging.log(
       "NxtScape",
-      "Conversation history and state cleared completely",
+      "Conversation history and state cleared completely"
     );
   }
-
 }

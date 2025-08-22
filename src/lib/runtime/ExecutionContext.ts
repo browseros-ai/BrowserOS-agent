@@ -7,6 +7,7 @@ import { TodoStore } from '@/lib/runtime/TodoStore'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
 import { PubSub } from '@/lib/pubsub'
 import { HumanInputResponse } from '@/lib/pubsub/types'
+import { MemoryManager } from '@/lib/memory/MemoryManager'
 
 /**
  * Configuration options for ExecutionContext
@@ -15,10 +16,13 @@ export const ExecutionContextOptionsSchema = z.object({
   browserContext: z.instanceof(BrowserContext),  // Browser context for page operations
   messageManager: z.instanceof(MessageManager),  // Message manager for communication
   debugMode: z.boolean().default(false),  // Whether to enable debug logging
-  todoStore: z.instanceof(TodoStore).optional()  // TODO store for complex task management
+  todoStore: z.instanceof(TodoStore).optional(),  // TODO store for complex task management
+  memoryManager: z.instanceof(MemoryManager).optional(), // Memory manager for task continuity
 })
 
-export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
+export type ExecutionContextOptions = z.infer<
+  typeof ExecutionContextOptionsSchema
+>;
 
 /**
  * Agent execution context containing browser context, message manager, and control state
@@ -30,6 +34,7 @@ export class ExecutionContext {
   debugMode: boolean  // Whether debug logging is enabled
   selectedTabIds: number[] | null = null  // Selected tab IDs
   todoStore: TodoStore  // TODO store for complex task management
+  memoryManager: MemoryManager | null = null // Memory manager for task continuity
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
@@ -41,11 +46,12 @@ export class ExecutionContext {
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
-    
+
     // Create our own AbortController - single source of truth
     this.abortController = new AbortController()
     this.browserContext = validatedOptions.browserContext
     this.messageManager = validatedOptions.messageManager
+    this.memoryManager = validatedOptions.memoryManager || null
     this.debugMode = validatedOptions.debugMode || false
     this.todoStore = validatedOptions.todoStore || new TodoStore()
     this.userInitiatedCancel = false
@@ -64,7 +70,7 @@ export class ExecutionContext {
   public isChatMode(): boolean {
     return this._chatMode
   }
-  
+
   public setSelectedTabIds(tabIds: number[]): void {
     this.selectedTabIds = tabIds;
   }
@@ -153,7 +159,10 @@ export class ExecutionContext {
    * @param options - Optional LLM configuration
    * @returns Promise resolving to chat model
    */
-  public async getLLM(options?: { temperature?: number; maxTokens?: number }): Promise<BaseChatModel> {
+  public async getLLM(options?: {
+    temperature?: number;
+    maxTokens?: number;
+  }): Promise<BaseChatModel> {
     return getLLMFromProvider(options);
   }
 
@@ -178,7 +187,7 @@ export class ExecutionContext {
    * @returns The KlavisAPIManager instance
    */
   public getKlavisAPIManager(): KlavisAPIManager {
-    return KlavisAPIManager.getInstance()
+    return KlavisAPIManager.getInstance();
   }
 
   /**
@@ -232,5 +241,52 @@ export class ExecutionContext {
   public shouldAbort(): boolean {
     return this.abortController.signal.aborted
   }
+
+  /**
+   * Set the memory manager
+   * @param memoryManager - The memory manager to use
+   */
+  public setMemoryManager(memoryManager: MemoryManager): void {
+    this.memoryManager = memoryManager
+  }
+
+  /**
+   * Get the current memory manager
+   * @returns The memory manager or null if not set
+   */
+  public getMemoryManager(): MemoryManager | null {
+    return this.memoryManager
+  }
+
+  /**
+   * Check if memory is enabled and available
+   * @returns True if memory manager is set and enabled
+   */
+  public isMemoryEnabled(): boolean {
+    return this.memoryManager?.isEnabled() || true
+  }
+  private getMemoryApiKey(): string | undefined {
+    console.log("🧠 getMemoryApiKey called", process.env.MEM0_API_KEY)
+    return process.env.MEM0_API_KEY || ""
+  }
+  private async initializeMemoryManager(): Promise<void> {
+    try {
+      const memoryManager = new MemoryManager(
+        this.getMemoryApiKey(),
+        {
+          enabled: true,
+          maxEntries: 1000,
+          retentionDays: 30,
+        },
+        "browser-agent-memory"
+      );
+
+      await memoryManager.initialize()
+      this.setMemoryManager(memoryManager)
+
+      console.log("✅ MemoryManager initialized successfully")
+    } catch (error) {
+      console.error("❌ Failed to initialize MemoryManager:", error)
+    }
+  }
 }
- 
