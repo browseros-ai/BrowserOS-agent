@@ -20,7 +20,7 @@ Remember: Quality over quantity. Extract only what's specifically requested. Mak
 
 export function generateExtractorTaskPrompt(
   task: string,
-  extractType: 'links' | 'text' | 'semantic' | 'products' | 'forms' | 'navigation' | 'main_content',
+  extractType: 'links' | 'text',
   rawContent: string,
   pageInfo: { url: string; title: string }
 ): string {
