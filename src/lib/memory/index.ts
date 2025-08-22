@@ -22,8 +22,6 @@ export { MemoryCategory, MemoryEntrySchema, MemoryMetadataSchema, MemorySearchPa
 export { createMemoryTool } from '../tools/memory/MemoryTool';
 export { createMemoryAwarePlannerTool } from '../tools/memory/MemoryAwarePlannerTool';
 
-// Prompts
-export { MEMORY_TOOL_SYSTEM_PROMPT, MEMORY_TOOL_EXAMPLES } from '../tools/memory/MemoryTool.prompt';
 
 /**
  * Factory function to create a configured MemoryManager

@@ -2,6 +2,8 @@ import { DynamicStructuredTool } from "@langchain/core/tools";
 import { MemoryManager } from "../../memory/MemoryManager";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MemoryCategory } from "../../memory/types";
+import { MEMORY_TOOL_SYSTEM_PROMPT } from "./MemoryTool.prompt";
+
 
 /**
  * Factory function to create memory tool as DynamicStructuredTool
@@ -11,13 +13,16 @@ export function createMemoryTool(
 ): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: "memory_tool",
-    description: `Store and retrieve information across tasks and sessions. Use this tool to:
-    - Store important results and context for future use
-    - Remember user preferences and successful patterns
-    - Retrieve relevant information from previous tasks
-    - Maintain context across tab switches and navigation
-    
-    Provide input as JSON string with action and relevant parameters.`,
+    description: `Store and retrieve information for task continuity and learning. 
+
+    ${MEMORY_TOOL_SYSTEM_PROMPT}
+
+    Actions:
+    - "add": Store new information with category and importance
+    - "search": Find relevant stored information by query
+    - "store_result": Store task results with task ID
+    - "get_preferences": Get user preferences by category
+    - "get_context": Get task-specific context by task type`,
 
     schema: {
       type: "object",
