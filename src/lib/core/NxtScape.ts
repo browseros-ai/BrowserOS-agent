@@ -104,7 +104,7 @@ export class NxtScape {
           if (memoryConfig.enabled && memoryConfig.apiKey) {
             this.memoryManager = await initializeMemorySystem(
               memoryConfig.apiKey,
-              `nxtscape_${Date.now()}`
+              `nxtscape`
             );
             Logging.log("NxtScape", "Memory system initialized successfully");
           } else {
