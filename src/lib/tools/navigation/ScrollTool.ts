@@ -11,6 +11,7 @@ const DEFAULT_VIEWPORT_COUNT = 1
 export const ScrollInputSchema = z.object({
   operationType: z.enum(["scroll_down", "scroll_up", "scroll_to_element"]),  // Operation to perform
   index: z.number().optional(),  // Element index for scroll_to_element
+  times: z.number().int().min(1).optional(), // Optional number of times to scroll (default 1)
 })
 
 export type ScrollInput = z.infer<typeof ScrollInputSchema>
@@ -29,9 +30,9 @@ export class ScrollTool {
       
       switch (input.operationType) {
         case "scroll_down":
-          return await this._scrollDown(page)
+          return await this._scrollDown(page, input.times)
         case "scroll_up":
-          return await this._scrollUp(page)
+          return await this._scrollUp(page, input.times)
         case "scroll_to_element":
           return await this._scrollToElement(page, input.index!)
       }
@@ -40,22 +41,26 @@ export class ScrollTool {
     }
   }
 
-  private async _scrollDown(page: any): Promise<ToolOutput> {
-    await page.scrollDown(DEFAULT_VIEWPORT_COUNT)
-    
+  private async _scrollDown(page: any, times?: number): Promise<ToolOutput> {
+    const count = typeof times === 'number' && times > 0 ? times : DEFAULT_VIEWPORT_COUNT
+    for (let i = 0; i < count; i++) {
+      await page.scrollDown(DEFAULT_VIEWPORT_COUNT)
+    }
+    const msg = `Scrolled down ${count} viewport${count === 1 ? '' : 's'}`
     // Emit status message
-    this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Scrolled down ${DEFAULT_VIEWPORT_COUNT} viewport`, 'thinking'))
-    
-    return toolSuccess(`Scrolled down ${DEFAULT_VIEWPORT_COUNT} viewport`)
+    this.executionContext.getPubSub().publishMessage(PubSub.createMessage(msg, 'thinking'))
+    return toolSuccess(msg)
   }
 
-  private async _scrollUp(page: any): Promise<ToolOutput> {
-    await page.scrollUp(DEFAULT_VIEWPORT_COUNT)
-    
+  private async _scrollUp(page: any, times?: number): Promise<ToolOutput> {
+    const count = typeof times === 'number' && times > 0 ? times : DEFAULT_VIEWPORT_COUNT
+    for (let i = 0; i < count; i++) {
+      await page.scrollUp(DEFAULT_VIEWPORT_COUNT)
+    }
+    const msg = `Scrolled up ${count} viewport${count === 1 ? '' : 's'}`
     // Emit status message
-    this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Scrolled up ${DEFAULT_VIEWPORT_COUNT} viewport`, 'thinking'))
-    
-    return toolSuccess(`Scrolled up ${DEFAULT_VIEWPORT_COUNT} viewport`)
+    this.executionContext.getPubSub().publishMessage(PubSub.createMessage(msg, 'thinking'))
+    return toolSuccess(msg)
   }
 
   private async _scrollToElement(page: any, index: number): Promise<ToolOutput> {
@@ -86,7 +91,7 @@ export function createScrollTool(executionContext: ExecutionContext): DynamicStr
   
   return new DynamicStructuredTool({
     name: "scroll_tool",
-    description: "Perform scrolling operations: scroll_down/up (by viewports) or scroll_to_element (by index). Pass amount for number of viewports (default 1).",
+    description: "Perform scrolling operations: scroll_down/up (by viewports) or scroll_to_element (by index). Optional 'times' controls how many viewports to scroll (default 1).",
     schema: ScrollInputSchema,
     func: async (args): Promise<string> => {
       const result = await scrollTool.execute(args)

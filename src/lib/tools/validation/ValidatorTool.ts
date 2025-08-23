@@ -9,6 +9,7 @@ import { invokeWithRetry } from '@/lib/utils/retryable'
 import { PubSub } from '@/lib/pubsub'
 import { TokenCounter } from '@/lib/utils/TokenCounter'
 import { Logging } from '@/lib/utils/Logging'
+import { BrowserStateChunker } from '@/lib/utils/BrowserStateChunker'
 
 // Input schema
 const ValidatorInputSchema = z.object({
@@ -25,7 +26,79 @@ const ValidationResultSchema = z.object({
 
 type ValidatorInput = z.infer<typeof ValidatorInputSchema>
 
+// Helper function for chunked validation
+async function _chunkedValidation(
+  llm: any,
+  args: ValidatorInput,
+  browserStateString: string,
+  messageHistory: string,
+  screenshot: string,
+  maxTokens: number,
+  signal?: AbortSignal
+): Promise<any> {
+  const chunker = new BrowserStateChunker(browserStateString, maxTokens)
+  const totalChunks = chunker.getTotalChunks()
+  
+  Logging.log('ValidatorTool', `Browser state too large, validating across ${totalChunks} chunks`, 'info')
+  
+  // Aggregate results
+  let isComplete = false
+  let reasoning = ''
+  let confidence: 'high' | 'medium' | 'low' = 'low'
+  let suggestions: string[] = []
+  
+  for (let i = 0; i < totalChunks; i++) {
+    const chunk = chunker.getChunk(i)
+    if (!chunk) continue
+    
+    const chunkNote = `\n[VALIDATING CHUNK ${i + 1}/${totalChunks}]\n`
+    
+    const systemPrompt = generateValidatorSystemPrompt()
+    const taskPrompt = generateValidatorTaskPrompt(
+      args.task,
+      chunk + chunkNote,
+      messageHistory,
+      i === 0 ? screenshot : ''  // Only include screenshot in first chunk
+    )
+    
+    const messages = [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(taskPrompt)
+    ]
+    
+    const tokenCount = TokenCounter.countMessages(messages)
+    Logging.log('ValidatorTool', `Validating chunk ${i + 1}/${totalChunks} with ${TokenCounter.format(tokenCount)}`, 'info')
+    
+    try {
+      const structuredLLM = llm.withStructuredOutput(ValidationResultSchema)
+      const validation = await invokeWithRetry<z.infer<typeof ValidationResultSchema>>(
+        structuredLLM,
+        messages,
+        3,
+        { signal }
+      )
+      
+      // Update aggregated results
+      isComplete = validation.isComplete
+      reasoning += (reasoning ? ' | ' : '') + `Chunk ${i + 1}: ${validation.reasoning}`
+      confidence = validation.confidence  // Take last chunk's confidence
+      suggestions = suggestions.concat(validation.suggestions)
+      
+    } catch (error) {
+      Logging.log('ValidatorTool', `Validation failed for chunk ${i + 1}: ${error}`, 'warning')
+    }
+  }
+  
+  return {
+    isComplete,
+    reasoning: reasoning || 'Validation across chunks',
+    confidence,
+    suggestions: [...new Set(suggestions)]  // Remove duplicates
+  }
+}
+
 // Factory function to create ValidatorTool
+const MIN_TOKENS_FOR_USING_VISION = 128000
 export function createValidatorTool(executionContext: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: 'validator_tool',
@@ -40,10 +113,15 @@ export function createValidatorTool(executionContext: ExecutionContext): Dynamic
         // Get browser state
         const browserStateString = await executionContext.browserContext.getBrowserStateString()
         
-        // Get screenshot from the current page only if vision is enabled
+        // Check if browser state needs chunking
+        const maxTokens = executionContext.messageManager.getMaxTokens()
+        const browserStateTokens = TokenCounter.countString(browserStateString)
+        
+        // Get screenshot only if vision is enabled AND model has enough tokens (>128K)
         let screenshot = ''
         const config = executionContext.browserContext.getConfig()
-        if (config.useVision) {
+        
+        if (config.useVision && maxTokens >= MIN_TOKENS_FOR_USING_VISION) {
           try {
             const currentPage = await executionContext.browserContext.getCurrentPage()
             if (currentPage) {
@@ -56,6 +134,8 @@ export function createValidatorTool(executionContext: ExecutionContext): Dynamic
             // Log but don't fail if screenshot capture fails
             console.warn('Failed to capture screenshot for validation:', error)
           }
+        } else if (config.useVision && maxTokens < MIN_TOKENS_FOR_USING_VISION) {
+          Logging.log('ValidatorTool', `Skipping vision - model token limit (${maxTokens}) is below ${MIN_TOKENS_FOR_USING_VISION}`, 'info')
         }
         
         // Get message history excluding initial system prompt and browser state messages  
@@ -63,43 +143,55 @@ export function createValidatorTool(executionContext: ExecutionContext): Dynamic
         const readOnlyMessageManager = new MessageManagerReadOnly(executionContext.messageManager)
         const messageHistory = readOnlyMessageManager.getFilteredAsString([MessageType.SYSTEM, MessageType.BROWSER_STATE])
         
-        // Generate prompts
-        const systemPrompt = generateValidatorSystemPrompt()
-        const taskPrompt = generateValidatorTaskPrompt(
-          args.task,
-          browserStateString,
-          messageHistory,
-          screenshot
-        )
+        let validationData: any
         
-        // Prepare messages for LLM
-        const messages = [
-          new SystemMessage(systemPrompt),
-          new HumanMessage(taskPrompt)
-        ]
-        
-        // Log token count
-        const tokenCount = TokenCounter.countMessages(messages)
-        Logging.log('ValidatorTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info')
-        
-        // Get structured response from LLM with retry logic
-        const structuredLLM = llm.withStructuredOutput(ValidationResultSchema)
-        const validation = await invokeWithRetry<z.infer<typeof ValidationResultSchema>>(
-          structuredLLM,
-          messages,
-          3
-        )
-        
-        // Return standard tool output with validation data as JSON string
-        const validationData = {
-          isComplete: validation.isComplete,  // Include isComplete field
-          reasoning: validation.reasoning,
-          confidence: validation.confidence,
-          suggestions: validation.suggestions
+        if (browserStateTokens <= maxTokens) {
+          // Single validation - existing logic
+          const systemPrompt = generateValidatorSystemPrompt()
+          const taskPrompt = generateValidatorTaskPrompt(
+            args.task,
+            browserStateString,
+            messageHistory,
+            screenshot
+          )
+          
+          const messages = [
+            new SystemMessage(systemPrompt),
+            new HumanMessage(taskPrompt)
+          ]
+          
+          const tokenCount = TokenCounter.countMessages(messages)
+          Logging.log('ValidatorTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info')
+          
+          const structuredLLM = llm.withStructuredOutput(ValidationResultSchema)
+          const validation = await invokeWithRetry<z.infer<typeof ValidationResultSchema>>(
+            structuredLLM,
+            messages,
+            3,
+            { signal: executionContext.abortController.signal }
+          )
+          
+          validationData = {
+            isComplete: validation.isComplete,
+            reasoning: validation.reasoning,
+            confidence: validation.confidence,
+            suggestions: validation.suggestions
+          }
+        } else {
+          // Multiple chunks needed
+          validationData = await _chunkedValidation(
+            llm,
+            args,
+            browserStateString,
+            messageHistory,
+            screenshot,
+            maxTokens,
+            executionContext.abortController.signal
+          )
         }
         
         // Emit status message
-        const status = validation.isComplete ? `Task completed!` : `Task is incomplete, will continue execution...`
+        const status = validationData.isComplete ? `Task completed!` : `Task is incomplete, will continue execution...`
         executionContext.getPubSub().publishMessage(PubSub.createMessage(status, 'thinking'))
         
         return JSON.stringify({

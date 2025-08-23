@@ -12,7 +12,8 @@ const MAX_RETRIES = 3
 export async function invokeWithRetry<T> (
   llm: any,
   messages: BaseMessage[],
-  maxRetries: number = MAX_RETRIES
+  maxRetries: number = MAX_RETRIES,
+  options?: { signal?: AbortSignal }
 ): Promise<T> {
   let lastError: Error | null = null
 
@@ -28,6 +29,10 @@ export async function invokeWithRetry<T> (
     }
 
     try {
+      // Pass AbortSignal through when available so calls are cancellable
+      if (options?.signal) {
+        return await llm.invoke(messagesToSend, { signal: options.signal })
+      }
       return await llm.invoke(messagesToSend)
     } catch (error) {
       lastError = error as Error

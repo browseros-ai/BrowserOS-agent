@@ -13,12 +13,9 @@ type TodoInput = z.infer<typeof TodoInputSchema>
 
 /**
  * Simplified TodoManagerTool that stores and retrieves markdown TODO lists
- * The LLM manages all state - we just store/retrieve the markdown string
+ * Now properly syncs with ExecutionContext.todoStore for telemetry tracking
  */
 export function createTodoManagerTool(executionContext: ExecutionContext): DynamicStructuredTool {
-  // Simple in-memory storage for the markdown TODO list
-  let markdownTodos = ''
-  
   return new DynamicStructuredTool({
     name: 'todo_manager_tool',
     description: `Manage a simple TODO list using markdown checkboxes.
@@ -29,22 +26,58 @@ Keep todos single-level without nesting.`,
     schema: TodoInputSchema,
     func: async (args: TodoInput): Promise<string> => {
       try {
-        let resultMessage = 'Success'
-        
         switch (args.action) {
           case 'set':
-            // Store the markdown string as-is
-            markdownTodos = args.todos || ''
+            const markdownTodos = args.todos || ''
+            
+            // Parse markdown and sync with TodoStore for telemetry
+            const lines = markdownTodos.split('\n').filter(line => line.trim())
+            
+            // Reset and rebuild TodoStore
+            executionContext.todoStore.reset()
+            
+            // First pass: collect all todo contents
+            const todoContents: string[] = []
+            const completedIndexes: number[] = []
+            
+            lines.forEach((line, index) => {
+              const pendingMatch = line.match(/^-\s*\[\s*\]\s*(.+)$/)
+              const doneMatch = line.match(/^-\s*\[x\]\s*(.+)$/i)
+              
+              if (pendingMatch) {
+                todoContents.push(pendingMatch[1].trim())
+              } else if (doneMatch) {
+                todoContents.push(doneMatch[1].trim())
+                completedIndexes.push(todoContents.length) // 1-based index
+              }
+            })
+            
+            // Add all todos to store
+            if (todoContents.length > 0) {
+              executionContext.todoStore.addMultiple(todoContents)
+              
+              // Mark completed ones
+              completedIndexes.forEach(index => {
+                executionContext.todoStore.complete(index)
+              })
+            }
+            
             return JSON.stringify({
               ok: true,
               output: 'Todos updated'
             })
           
           case 'get':
-            // Return the stored markdown string
+            // Build markdown from TodoStore
+            const todos = executionContext.todoStore.getAll()
+            const markdownLines = todos.map(todo => {
+              const checkbox = todo.status === 'done' ? '[x]' : '[ ]'
+              return `- ${checkbox} ${todo.content}`
+            })
+            
             return JSON.stringify({
               ok: true,
-              output: markdownTodos
+              output: markdownLines.join('\n') || ''
             })
             
           default:

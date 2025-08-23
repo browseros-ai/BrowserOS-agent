@@ -15,7 +15,7 @@ Output Format:
 - content: Your extracted/summarized/rephrased output based on the task
 - reasoning: Explain what you did, what you found, and what you created (2-3 sentences). Be concise, precise and clear.
 
-Remember: Quality over quantity. Extract only what's specifically requested.`
+Remember: Quality over quantity. Extract only what's specifically requested. Make sure you pass the correct tab_id to extract content from.`
 }
 
 export function generateExtractorTaskPrompt(

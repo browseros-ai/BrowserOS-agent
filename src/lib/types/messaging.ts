@@ -30,7 +30,11 @@ export enum MessageType {
   GLOW_STOP = 'GLOW_STOP',
   EXECUTE_QUERY_FROM_NEWTAB = 'EXECUTE_QUERY_FROM_NEWTAB',
   MCP_INSTALL_SERVER = 'MCP_INSTALL_SERVER',
-  MCP_SERVER_STATUS = 'MCP_SERVER_STATUS'
+  MCP_SERVER_STATUS = 'MCP_SERVER_STATUS',
+  HUMAN_INPUT_RESPONSE = 'HUMAN_INPUT_RESPONSE',
+  GENERATE_PLAN = 'GENERATE_PLAN',
+  REFINE_PLAN = 'REFINE_PLAN',
+  PLAN_GENERATION_UPDATE = 'PLAN_GENERATION_UPDATE'
 }
 
 // Create a zod enum for MessageType
@@ -145,6 +149,22 @@ export const ConnectionStatusMessageSchema = MessageSchema.extend({
 export type ConnectionStatusMessage = z.infer<typeof ConnectionStatusMessageSchema>
 
 /**
+ * Execution metadata schema for query execution
+ */
+export const ExecutionMetadataSchema = z.object({
+  source: z.enum(['newtab', 'sidepanel', 'popup']).optional(),  // Source of the query
+  executionMode: z.enum(['dynamic', 'predefined']).default('dynamic'),  // How to execute
+  predefinedPlan: z.object({  // Plan details when using predefined mode
+    agentId: z.string(),
+    steps: z.array(z.string()),
+    goal: z.string(),
+    name: z.string().optional()
+  }).optional()
+})
+
+export type ExecutionMetadata = z.infer<typeof ExecutionMetadataSchema>
+
+/**
  * Execute query message schema
  */
 export const ExecuteQueryMessageSchema = MessageSchema.extend({
@@ -153,7 +173,8 @@ export const ExecuteQueryMessageSchema = MessageSchema.extend({
     query: z.string(),
     tabIds: z.array(z.number()).optional(),  // Selected tab IDs for context
     source: z.string().optional(),  // Source of the query (e.g., 'sidepanel')
-    chatMode: z.boolean().optional()  // Whether to use ChatAgent (Q&A mode) instead of BrowserAgent
+    chatMode: z.boolean().optional(),  // Whether to use ChatAgent (Q&A mode) instead of BrowserAgent
+    metadata: ExecutionMetadataSchema.optional()  // Execution metadata
   })
 })
 
@@ -338,6 +359,67 @@ export const GlowStopMessageSchema = MessageSchema.extend({
 export type GlowStopMessage = z.infer<typeof GlowStopMessageSchema>
 
 /**
+ * Plan generation: request to generate a plan
+ */
+export const GeneratePlanMessageSchema = MessageSchema.extend({
+  type: z.literal(MessageType.GENERATE_PLAN),
+  payload: z.object({
+    input: z.string(),  // Goal or description text
+    context: z.string().optional(),  // Optional extra context
+    maxSteps: z.number().int().positive().optional()  // Optional cap on steps
+  })
+})
+
+export type GeneratePlanMessage = z.infer<typeof GeneratePlanMessageSchema>
+
+/**
+ * Plan refinement: refine an existing plan with feedback
+ */
+export const RefinePlanMessageSchema = MessageSchema.extend({
+  type: z.literal(MessageType.REFINE_PLAN),
+  payload: z.object({
+    currentPlan: z.object({
+      goal: z.string().optional(),
+      steps: z.array(z.string()).default([])
+    }),
+    feedback: z.string(),  // User feedback or refinement notes
+    maxSteps: z.number().int().positive().optional()
+  })
+})
+
+export type RefinePlanMessage = z.infer<typeof RefinePlanMessageSchema>
+
+/**
+ * Plan generation updates (status + optional result)
+ */
+export const PlanGenerationUpdateMessageSchema = MessageSchema.extend({
+  type: z.literal(MessageType.PLAN_GENERATION_UPDATE),
+  payload: z.object({
+    status: z.enum(['queued', 'started', 'thinking', 'done', 'error']),
+    content: z.string().optional(), // Human-readable update
+    plan: z
+      .object({
+        goal: z.string().optional(),
+        name: z.string().optional(),
+        steps: z.array(z.string())
+      })
+      .optional(),
+    structured: z
+      .object({
+        steps: z.array(
+          z.object({ action: z.string(), reasoning: z.string() })
+        ),
+        goal: z.string().optional(),
+        name: z.string().optional()
+      })
+      .optional(),
+    error: z.string().optional()
+  })
+})
+
+export type PlanGenerationUpdateMessage = z.infer<typeof PlanGenerationUpdateMessageSchema>
+
+/**
  * Union of all message types
  */
 export const ExtensionMessageSchema = z.discriminatedUnion('type', [
@@ -361,7 +443,10 @@ export const ExtensionMessageSchema = z.discriminatedUnion('type', [
   IntentBubblesShowMessageSchema,
   IntentBubbleClickedMessageSchema,
   GlowStartMessageSchema,
-  GlowStopMessageSchema
+  GlowStopMessageSchema,
+  GeneratePlanMessageSchema,
+  RefinePlanMessageSchema,
+  PlanGenerationUpdateMessageSchema
 ])
 
 export type ExtensionMessage = z.infer<typeof ExtensionMessageSchema>

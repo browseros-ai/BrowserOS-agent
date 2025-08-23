@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
 import { SkipLink } from './components/SkipLink'
 import { useSettingsStore } from './stores/settingsStore'
+import { HumanInputDialog } from './components/HumanInputDialog'
 import './styles.css'
 
 /**
@@ -14,7 +15,7 @@ import './styles.css'
  */
 export function App() {
   // Initialize message handling
-  useMessageHandler()
+  const { humanInputRequest, clearHumanInputRequest } = useMessageHandler()
   
   // Get connection status from port messaging
   const { connected } = useSidePanelPortMessaging()
@@ -57,6 +58,13 @@ export function App() {
       <div className="h-screen bg-background overflow-x-hidden" role="main" aria-label="BrowserOS Chat Assistant">
         <SkipLink />
         <Chat isConnected={connected} />
+        {humanInputRequest && (
+          <HumanInputDialog
+            requestId={humanInputRequest.requestId}
+            prompt={humanInputRequest.prompt}
+            onClose={clearHumanInputRequest}
+          />
+        )}
       </div>
     </ErrorBoundary>
   )

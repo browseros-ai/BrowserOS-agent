@@ -10,6 +10,7 @@ import { GlowAnimationService } from '@/lib/services/GlowAnimationService'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
 import { MCP_SERVERS } from '@/config/mcpServers'
 import { PubSub, PubSubEvent } from '@/lib/pubsub'
+import { PlanGeneratorService } from '@/lib/services/PlanGeneratorService'
 
 /**
  * Background script for the ParallelManus extension
@@ -326,6 +327,14 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
         handleCancelTaskPort(payload as CancelTaskMessage['payload'], port, id)
         break
         
+      case MessageType.HUMAN_INPUT_RESPONSE:
+        // Forward human input response to the execution context
+        if (nxtScape) {
+          const pubsub = PubSub.getInstance()
+          pubsub.publishHumanInputResponse(payload as any)
+        }
+        break
+        
       case MessageType.RESET_CONVERSATION:
         handleResetConversationPort(payload as ResetConversationMessage['payload'], port, id)
         break
@@ -362,6 +371,15 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
       
       case MessageType.MCP_INSTALL_SERVER:
         handleMCPInstallServerPort(payload as { serverId: string }, port, id)
+        break
+
+      // Plan generation and refinement from New Tab
+      case MessageType.GENERATE_PLAN:
+        handleGeneratePlanPort(payload as { input: string; context?: string; maxSteps?: number }, port, id)
+        break
+
+      case MessageType.REFINE_PLAN:
+        handleRefinePlanPort(payload as { currentPlan: { goal?: string; steps: string[] }; feedback: string; maxSteps?: number }, port, id)
         break
         
       default:
@@ -416,18 +434,21 @@ function getStatusFromAction(action: string): 'thinking' | 'executing' | 'comple
  * @param id - Message ID for response tracking
  */
 async function handleExecuteQueryPort(
-  payload: { query: string; tabIds?: number[]; source?: string; chatMode?: boolean },
+  payload: { query: string; tabIds?: number[]; source?: string; chatMode?: boolean, metadata?: any },
   port: chrome.runtime.Port,
   id?: string
 ): Promise<void> {
   try {
-    // Enhanced debug logging
-    debugLog(`🎯 [Background] Received query execution from ${payload.source || 'unknown'}`)
+    // Enhanced debug logging with metadata info
+    const source = payload.metadata?.source || payload.source || 'unknown'
+    const executionMode = payload.metadata?.executionMode || 'dynamic'
+    debugLog(`🎯 [Background] Received query execution from ${source} (mode: ${executionMode})`)
     
     Logging.logMetric('query_initiated', {
       query: payload.query,
-      source: payload.source || 'unknown',
+      source: source,
       mode: payload.chatMode ? 'chat' : 'browse',
+      executionMode: executionMode,
     })
     
     // Initialize NxtScape if not already done
@@ -448,6 +469,7 @@ async function handleExecuteQueryPort(
       query: payload.query,
       mode: payload.chatMode ? 'chat' : 'browse',  // Convert boolean to explicit mode
       tabIds: payload.tabIds,
+      metadata: payload.metadata
     })
     
     // NxtScape execution completed - all messaging handled via PubSub
@@ -686,9 +708,6 @@ async function handleCancelTaskPort(
       const cancelledQuery = cancellationResult.query || 'Unknown query';
       // Task successfully cancelled
       
-      // Capture task cancelled event
-      captureEvent('task_cancelled')
-      
       // Create a user-friendly cancellation message
       const cancellationMessage = `Task cancelled: "${cancelledQuery}"`;
       
@@ -700,16 +719,6 @@ async function handleCancelTaskPort(
           message: cancellationMessage
         },
         id
-      })
-      
-      // Broadcast cancellation to all connected UIs with better messaging
-      broadcastWorkflowStatus({
-        success: false,
-        cancelled: true,
-        message: '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
-        cancelledQuery,
-        reason: reason || 'User requested cancellation',
-        userInitiatedCancel: true  // Mark this as user-initiated cancellation
       })
       
     } else {
@@ -914,5 +923,96 @@ function stopProvidersPolling(): void {
   if (providersPollIntervalId !== null) {
     clearInterval(providersPollIntervalId as unknown as number)
     providersPollIntervalId = null
+  }
+}
+
+/**
+ * Helper to post plan generation updates back to the sender
+ */
+function postPlanUpdate(
+  port: chrome.runtime.Port,
+  id: string | undefined,
+  update: {
+    status: 'queued' | 'started' | 'thinking' | 'done' | 'error';
+    content?: string;
+    structured?: { steps: Array<{ action: string; reasoning: string }>; goal?: string; name?: string };
+    error?: string;
+  }
+): void {
+  port.postMessage({
+    type: MessageType.PLAN_GENERATION_UPDATE,
+    payload: {
+      status: update.status,
+      content: update.content,
+      structured: update.structured,
+      plan: update.structured 
+        ? { 
+            goal: update.structured.goal, 
+            name: update.structured.name, 
+            steps: update.structured.steps.map(s => s.action) 
+          } 
+        : undefined,
+      error: update.error
+    },
+    id
+  })
+
+  // Also mirror updates to side panel via PubSub so users see progress
+  try {
+    const text = update.content || (update.status === 'done' && update.structured ? `Generated plan with ${update.structured.steps.length} steps` : `Status: ${update.status}`)
+    if (update.status === 'error') {
+      pubsub.publishMessage(PubSub.createMessage(update.error ? `Plan error: ${update.error}` : 'Plan generation failed', 'error'))
+    } else if (update.status === 'done') {
+      pubsub.publishMessage(PubSub.createMessage(text, 'thinking'))
+    } else {
+      pubsub.publishMessage(PubSub.createMessage(text, 'thinking'))
+    }
+  } catch (_e) {
+    // Best-effort only
+  }
+}
+
+/**
+ * Handle GENERATE_PLAN from new tab
+ */
+async function handleGeneratePlanPort(
+  payload: { input: string; context?: string; maxSteps?: number },
+  port: chrome.runtime.Port,
+  id?: string
+): Promise<void> {
+  try {
+    const service = new PlanGeneratorService()
+    postPlanUpdate(port, id, { status: 'started', content: 'Starting plan generation…' })
+    const plan = await service.generatePlan(payload.input, {
+      context: payload.context,
+      maxSteps: payload.maxSteps,
+      onUpdate: (u) => postPlanUpdate(port, id, u)
+    })
+    postPlanUpdate(port, id, { status: 'done', content: 'Plan generated', structured: plan })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    postPlanUpdate(port, id, { status: 'error', content: 'Plan generation failed', error: msg })
+  }
+}
+
+/**
+ * Handle REFINE_PLAN from new tab
+ */
+async function handleRefinePlanPort(
+  payload: { currentPlan: { goal?: string; steps: string[] }; feedback: string; maxSteps?: number },
+  port: chrome.runtime.Port,
+  id?: string
+): Promise<void> {
+  try {
+    const service = new PlanGeneratorService()
+    postPlanUpdate(port, id, { status: 'started', content: 'Starting plan refinement…' })
+    const plan = await service.refinePlan({ goal: payload.currentPlan.goal, steps: payload.currentPlan.steps || [] }, payload.feedback, {
+      maxSteps: payload.maxSteps,
+      onUpdate: (u) => postPlanUpdate(port, id, u)
+    })
+    postPlanUpdate(port, id, { status: 'done', content: 'Plan refined', structured: plan })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    postPlanUpdate(port, id, { status: 'error', content: 'Plan refinement failed', error: msg })
   }
 }

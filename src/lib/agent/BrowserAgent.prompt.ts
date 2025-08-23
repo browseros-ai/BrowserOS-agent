@@ -56,6 +56,18 @@ ${toolDescriptions}
 ### 📊 STATE MANAGEMENT
 **Browser state is INTERNAL** - appears in <BrowserState> tags for your reference only
 
+### 💾 PERSISTENT STORAGE
+**Use storage_tool for remembering information across steps:**
+- Store extracted data: \`storage_tool({ action: 'set', key: 'prices', value: [{item: 'laptop', price: 999}] })\`
+- Retrieve later: \`storage_tool({ action: 'get', key: 'prices' })\`
+- Perfect for: collecting data from multiple pages, maintaining context, comparing items
+
+**When to use storage_tool:**
+- Extracting data from multiple tabs/pages for comparison
+- Remembering user preferences or inputs
+- Storing intermediate results during complex tasks
+- Maintaining context between related actions
+
 ## ⚠️ ERROR HANDLING & RECOVERY
 ### Common Errors & Solutions
 **Element Not Found:**

@@ -18,7 +18,6 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-
     "eval:planner": "tsx src/evals/offline/tools/planner/planner.eval.ts",
     "eval:validator": "tsx src/evals/offline/tools/validator/validator.eval.ts",
     "extract:prompts": "tsx src/evals/shared/push-prompts.ts"

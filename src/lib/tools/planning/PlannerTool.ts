@@ -48,13 +48,22 @@ export function createPlannerTool(executionContext: ExecutionContext): DynamicSt
         // Get browser state using BrowserContext's method
         const browserState = await executionContext.browserContext.getBrowserStateString();
         
+        // Check if browser state exceeds token limit
+        const browserStateTokens = TokenCounter.countString(browserState);
+        const maxTokens = executionContext.messageManager.getMaxTokens();
+        
+        // If browser state is too large, use a placeholder message
+        const browserStateString = browserStateTokens > maxTokens 
+          ? '[Browser state too large to include - exceeds token limit]'
+          : browserState;
+        
         // Generate prompts
-        const systemPrompt = generatePlannerSystemPrompt();
+        const systemPrompt = generatePlannerSystemPrompt(args.max_steps);
         const taskPrompt = generatePlannerTaskPrompt(
           args.task,
           args.max_steps,
           message_history,
-          browserState
+          browserStateString
         );
         
         // Prepare messages for LLM
@@ -72,7 +81,8 @@ export function createPlannerTool(executionContext: ExecutionContext): DynamicSt
         const plan = await invokeWithRetry<z.infer<typeof PlanSchema>>(
           structuredLLM,
           messages,
-          3
+          3,
+          { signal: executionContext.abortController.signal }
         );
         
         // Emit status message

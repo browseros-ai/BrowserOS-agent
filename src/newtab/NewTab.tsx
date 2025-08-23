@@ -2,12 +2,26 @@ import React, { useEffect, useState } from 'react'
 import { CommandInput } from './components/CommandInput'
 import { ThemeToggle } from './components/ThemeToggle'
 import { SettingsDialog } from './components/SettingsDialog'
+import { CreateAgentPage } from './pages/CreateAgentPage'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
+import { useAgentsStore } from './stores/agentsStore'
 import { Settings } from 'lucide-react'
 
 export function NewTab() {
   const { theme, fontSize } = useSettingsStore()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [currentView, setCurrentView] = useState<'main' | 'create-agent'>('main')
+  const { loadAgents } = useAgentsStore()
+  
+  // Load agents from storage on mount
+  useEffect(() => {
+    // Load agents from storage
+    chrome.storage.local.get('agents', (result) => {
+      if (result.agents) {
+        loadAgents(result.agents)
+      }
+    })
+  }, [loadAgents])
   
   // Apply theme and font size
   useEffect(() => {
@@ -17,6 +31,11 @@ export function NewTab() {
     if (theme === 'dark') root.classList.add('dark')
     if (theme === 'gray') root.classList.add('gray')
   }, [theme, fontSize])
+  
+  // Render create agent page if view is set
+  if (currentView === 'create-agent') {
+    return <CreateAgentPage onBack={() => setCurrentView('main')} />
+  }
   
   
   return (
@@ -61,7 +80,7 @@ export function NewTab() {
           </div>
           
           {/* Command Input - Clean and Centered */}
-          <CommandInput />
+          <CommandInput onCreateAgent={() => setCurrentView('create-agent')} />
         </div>
       </div>
       

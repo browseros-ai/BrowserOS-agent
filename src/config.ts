@@ -56,10 +56,15 @@ export function isPocMode(): boolean {
  * To enable telemetry:
  * 1. Set ENABLE_TELEMETRY = true
  * 2. Add your Braintrust API key to BRAINTRUST_API_KEY
- * 3. Rebuild
+ * 3. Add your OpenAI API key to OPENAI_API_KEY_FOR_SCORING (for LLM-as-judge scoring)
+ * 4. Optionally change OPENAI_MODEL_FOR_SCORING (defaults to gpt-4o-mini)
+ * 5. Rebuild
  * 
  */
 export const ENABLE_TELEMETRY = false;
 export const BRAINTRUST_API_KEY = 'api-key'; // ⚠️ ADD YOUR API KEY HERE!
+export const OPENAI_API_KEY_FOR_SCORING = 'api-key'; // ⚠️ ADD YOUR OPENAI API KEY HERE FOR SCORING!
+export const OPENAI_MODEL_FOR_SCORING = 'gpt-4o-mini'; // Model used for LLM-as-judge scoring
+export const SHOW_CONSOLE_SCORING_SUMMARY = true; // Show scoring context summary and full prompt in console
 
 export default config 

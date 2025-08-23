@@ -64,12 +64,12 @@ describe('ScrollTool', () => {
     
     const tool = new ScrollTool(executionContext)
     
-    // Test scroll down (always 1 viewport)
+    // Test scroll down (default 1 viewport)
     let result = await tool.execute({ operationType: 'scroll_down' })
     expect(result.ok).toBe(true)
     expect(mockPage.scrollDown).toHaveBeenCalledWith(1)
     
-    // Test scroll up (always 1 viewport)
+    // Test scroll up (default 1 viewport)
     result = await tool.execute({ operationType: 'scroll_up' })
     expect(result.ok).toBe(true)
     expect(mockPage.scrollUp).toHaveBeenCalledWith(1)
@@ -78,6 +78,42 @@ describe('ScrollTool', () => {
     result = await tool.execute({ operationType: 'scroll_to_element', index: 42 })
     expect(result.ok).toBe(true)
     expect(mockPage.scrollToElement).toHaveBeenCalledWith(42)
+  })
+
+  // Unit Test 5: Multi-viewport scrolling via times
+  it('tests that times parameter triggers repeated scrolls', async () => {
+    const browserContext = new BrowserContext()
+    const executionContext = new ExecutionContext({
+      browserContext,
+      messageManager: new MessageManager(),
+      abortController: new AbortController(),
+      debugMode: false,
+      eventBus: new EventBus(),
+      eventProcessor: new EventProcessor(new EventBus())
+    })
+
+    const mockPage = {
+      scrollDown: vi.fn().mockResolvedValue(undefined),
+      scrollUp: vi.fn().mockResolvedValue(undefined),
+    }
+    vi.spyOn(browserContext, 'getCurrentPage').mockResolvedValue(mockPage as any)
+
+    const tool = new ScrollTool(executionContext)
+
+    // Scroll down 3 times
+    let result = await tool.execute({ operationType: 'scroll_down', times: 3 })
+    expect(result.ok).toBe(true)
+    expect(mockPage.scrollDown).toHaveBeenCalledTimes(3)
+    expect(mockPage.scrollDown).toHaveBeenNthCalledWith(1, 1)
+    expect(mockPage.scrollDown).toHaveBeenNthCalledWith(2, 1)
+    expect(mockPage.scrollDown).toHaveBeenNthCalledWith(3, 1)
+
+    // Scroll up 2 times
+    result = await tool.execute({ operationType: 'scroll_up', times: 2 })
+    expect(result.ok).toBe(true)
+    expect(mockPage.scrollUp).toHaveBeenCalledTimes(2)
+    expect(mockPage.scrollUp).toHaveBeenNthCalledWith(1, 1)
+    expect(mockPage.scrollUp).toHaveBeenNthCalledWith(2, 1)
   })
 
   // Unit Test 4: Handle element not found

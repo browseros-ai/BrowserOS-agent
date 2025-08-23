@@ -8,18 +8,16 @@
  * - Singleton pattern ensures one collector instance across the app
  * - Lazy initialization only when eval mode is enabled
  * - Parent/child span relationships for tracing execution flow
- * - Automatic LLM tracking via wrapOpenAI
+ * - Automatic tool tracking via wrapTraced
  */
 
 // Lazy load heavy dependencies to avoid module loading issues
 let initLogger: any;
-let wrapOpenAI: any;
 let wrapTraced: any;
-let OpenAI: any;
 import { z } from 'zod'
 import { Logging } from '@/lib/utils/Logging'
-import { ENABLE_TELEMETRY, BRAINTRUST_API_KEY } from '@/config'
-import { EventEnricher } from './EventEnricher'
+import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
+import { ENABLE_TELEMETRY, BRAINTRUST_API_KEY, OPENAI_API_KEY_FOR_SCORING } from '@/config'
 
 // Event types we track during agent execution
 // Each type represents a different aspect of agent behavior
@@ -37,7 +35,14 @@ export const EventSchema = z.object({
   name: z.string(),      // Human-readable event name
   data: z.any(),         // Event-specific payload
   timestamp: z.number().optional(),  // When event occurred
-  context: z.any().optional()  // Enhanced context from EventEnricher
+  context: z.any().optional(),  // Lightweight metadata context
+  scores: z.record(z.string(), z.number()).optional(),  // Top-level scores for Braintrust
+  scoring_details: z.any().optional(),  // Detailed scoring information
+  error: z.object({  // Structured error for Braintrust error tracking
+    name: z.string(),
+    message: z.string(),
+    stack: z.string().optional()
+  }).optional()
 })
 
 export type BraintrustEvent = z.infer<typeof EventSchema>
@@ -65,16 +70,13 @@ export class BraintrustEventCollector {
   private static instance: BraintrustEventCollector | null = null
   private enabled: boolean = false
   private logger: any = null
-  private sampleRate: number = 1.0  // Percentage of sessions to track (0-1)
   private initialized: boolean = false  // Track if we've initialized Braintrust
   
-  // Pre-wrapped OpenAI client that automatically tracks LLM calls
-  // Use this instead of raw OpenAI client to get automatic telemetry
-  public openai: any = null
+  // Direct access to execution context
+  private executionContext: ExecutionContext | null = null  // Will be set when session starts
   
-  // Enhanced telemetry components
-  private eventEnricher: EventEnricher | null = null
-  private executionContext: any = null  // Will be set when session starts
+  // Track tool error counts per session
+  private toolErrorCounts: Map<string, number> = new Map()
   
   /**
    * Private constructor enforces singleton pattern
@@ -89,18 +91,16 @@ export class BraintrustEventCollector {
    * Lazily check if enabled and initialize if needed
    * This is called on every public method to ensure we pick up env changes
    */
-  private _ensureInitialized(): void {
+  private async _ensureInitialized(): Promise<void> {
     // Only initialize once
     if (this.initialized) return;
+    this.initialized = true;  // Set immediately to prevent concurrent calls
     
     // Check if we should be enabled
     this.enabled = this._checkIfEnabled();
     if (this.enabled) {
-      this._initialize();
+      await this._initialize();
     }
-    
-    // Mark as initialized even if disabled (to avoid repeated checks)
-    this.initialized = true;
   }
   
   /**
@@ -120,10 +120,10 @@ export class BraintrustEventCollector {
   }
   
   /**
-   * Initializes Braintrust logger and wrapped OpenAI client
+   * Initializes Braintrust logger
    * Only called if eval mode is enabled
    */
-  private _initialize(): void {
+  private async _initialize(): Promise<void> {
     try {
       // Retrieve API key securely
       const apiKey = this._getApiKey()
@@ -138,10 +138,9 @@ export class BraintrustEventCollector {
       }
       
       // Lazy load braintrust module only when we have an API key
-      if (!initLogger || !wrapOpenAI) {
+      if (!initLogger || !wrapTraced) {
         const braintrust = require('braintrust');
         initLogger = braintrust.initLogger;
-        wrapOpenAI = braintrust.wrapOpenAI;
         wrapTraced = braintrust.wrapTraced;
       }
       
@@ -153,17 +152,17 @@ export class BraintrustEventCollector {
         // Note: SDK handles batching and retry logic automatically
       })
       
-      // Wrap OpenAI client for automatic LLM telemetry
-      const openaiKey = this._getOpenAIKey()
-      if (openaiKey) {
-        if (!OpenAI) {
-          OpenAI = require('openai').default;
-        }
-        this.openai = wrapOpenAI(new OpenAI({ apiKey: openaiKey }))
-      }
+      // LangChain integration removed - not available in current package version
       
       // Telemetry initialized successfully
       console.log('%c✓ Telemetry ready (API key found)', 'color: #00ff00; font-size: 10px');
+      
+      // Check and log OpenAI scoring key status
+      if (OPENAI_API_KEY_FOR_SCORING && OPENAI_API_KEY_FOR_SCORING.trim()) {
+        console.log('%c✓ LLM Scoring ready (OpenAI key found)', 'color: #9c27b0; font-size: 10px');
+      } else {
+        console.log('%c⚠ LLM Scoring disabled (no OpenAI key in config)', 'color: #ffaa00; font-size: 10px');
+      }
     } catch (error) {
       // Silently disable on initialization failure
       this.enabled = false;
@@ -177,15 +176,6 @@ export class BraintrustEventCollector {
     // Use API key from config file
     // Return null if empty string or not set
     return BRAINTRUST_API_KEY && BRAINTRUST_API_KEY.trim() ? BRAINTRUST_API_KEY : null
-  }
-  
-  /**
-   * Retrieves OpenAI API key for LLM tracking
-   * Only needed if you want automatic LLM call telemetry
-   */
-  private _getOpenAIKey(): string | null {
-    // OpenAI key still comes from environment (via webpack)
-    return (typeof process !== 'undefined' && process.env?.OPENAI_API_KEY) || null
   }
   
   /**
@@ -203,51 +193,49 @@ export class BraintrustEventCollector {
    * Set the execution context for event enrichment
    * Called when a new session starts
    */
-  setExecutionContext(context: any): void {
+  setExecutionContext(context: ExecutionContext): void {
     this.executionContext = context
-    if (context && this.enabled) {
-      this.eventEnricher = new EventEnricher(context)
-    }
   }
   
   /**
-   * Run a function inside a traced span for proper waterfall visualization
-   * This wraps the actual work, not just the logging
-   * 
-   * @param name - Name of the span (e.g., tool name)
-   * @param parent - Parent span ID for nesting
-   * @param fn - The async function to execute and measure
-   * @returns Result of the function
+   * Get lightweight metadata directly from ExecutionContext
+   * Only pulls metrics and references, not full content
    */
-  async runInSpan<T>(
-    name: string,
-    parent: string | undefined,
-    fn: (span: any) => Promise<T>
-  ): Promise<T> {
-    this._ensureInitialized()
-    if (!this.enabled || !this.logger || !parent) {
-      // If telemetry disabled or no parent, just run the function
-      return fn(null)
-    }
+  private async getEventMetadata(): Promise<any> {
+    if (!this.executionContext) return {}
     
-    // Wrap the actual work in a traced span
-    return this.logger.traced(
-      async (span: any) => {
-        try {
-          // Execute the function and pass the span for optional logging
-          const result = await fn(span)
-          return result
-        } catch (error) {
-          // Log error to the span before re-throwing
-          span.log({
-            error: error instanceof Error ? error.message : String(error),
-            metadata: { type: 'error', name }
-          })
-          throw error
+    try {
+      // Get current browser state if available
+      let currentUrl: string | null = null
+      let currentTitle: string | null = null
+      try {
+        const page = await this.executionContext.browserContext.getCurrentPage()
+        if (page) {
+          currentUrl = await page.url()
+          currentTitle = await page.title()
         }
-      },
-      { parent, name }
-    )
+      } catch (e) {
+        // Browser state might not be available
+      }
+      
+      return {
+        // Metrics only - no content
+        taskNumber: this.executionContext.getCurrentTaskNumber(),
+        messageCount: this.executionContext.messageManager.getMessages().length,
+        tokenCount: this.executionContext.messageManager.getTokenCount(),
+        todoCount: this.executionContext.todoStore.getAll().length,
+        todosCompleted: this.executionContext.todoStore.getAll().filter(t => t.status === 'done').length,
+        tabCount: this.executionContext.selectedTabIds?.length || 0,
+        
+        // References only - no content
+        currentUrl,
+        currentTitle,
+        isUserCancellation: this.executionContext.isUserCancellation()
+      }
+    } catch (error) {
+      // Don't let metadata errors break telemetry
+      return {}
+    }
   }
   
   /**
@@ -263,7 +251,7 @@ export class BraintrustEventCollector {
     }
     return wrapTraced
   }
-
+  
   /**
    * Check if event collection is currently active
    * This now checks and initializes lazily
@@ -271,15 +259,6 @@ export class BraintrustEventCollector {
   isEnabled(): boolean {
     this._ensureInitialized();
     return this.enabled
-  }
-  
-  /**
-   * Set sampling rate for statistical sampling
-   * Useful for high-traffic scenarios to reduce data volume
-   * @param rate - Value between 0 (no tracking) and 1 (track all)
-   */
-  setSampleRate(rate: number): void {
-    this.sampleRate = Math.max(0, Math.min(1, rate))
   }
   
   /**
@@ -294,11 +273,8 @@ export class BraintrustEventCollector {
     this._ensureInitialized();
     if (!this.enabled || !this.logger) return { parent: undefined }
     
-    // Apply sampling rate without affecting global enabled state
-    // This allows per-session sampling decisions
-    if (Math.random() > this.sampleRate) {
-      return { parent: undefined }
-    }
+    // Reset tool error counts for new session
+    this.toolErrorCounts.clear()
     
     console.log('%c→ Telemetry: Starting session', 'color: #888; font-size: 11px');
     
@@ -353,16 +329,21 @@ export class BraintrustEventCollector {
       const validatedEvent = EventSchema.parse(event)
       validatedEvent.timestamp = validatedEvent.timestamp || Date.now()
       
-      // Add enriched context if available
-      if (this.eventEnricher && !validatedEvent.context) {
-        // Get context based on event type
-        if (event.type === 'tool_execution' || event.type === 'decision_point') {
-          const enrichedContext = await this.eventEnricher.getFullContext()
-          validatedEvent.context = enrichedContext
-        } else if (event.type === 'browser_action') {
-          // Lighter context for browser actions
-          validatedEvent.context = await this.eventEnricher.enrichWithBrowserState()
-        }
+      
+      // Add lightweight metadata if available
+      if (this.executionContext && !validatedEvent.context) {
+        // Get lightweight metadata for all event types
+        validatedEvent.context = await this.getEventMetadata()
+      }
+      
+      // Track tool errors
+      if (validatedEvent.type === 'tool_execution' && validatedEvent.data?.success === false) {
+        const toolName = validatedEvent.data.toolName || 'unknown'
+        const errorCount = (this.toolErrorCounts.get(toolName) || 0) + 1
+        this.toolErrorCounts.set(toolName, errorCount)
+        
+        // Log error to console for visibility
+        console.log(`%c⚠ Tool error #${errorCount} for ${toolName}: ${validatedEvent.data.error}`, 'color: #ff6600; font-size: 10px')
       }
       
       // Use traced with currentSpan() pattern as per Braintrust docs
@@ -383,12 +364,68 @@ export class BraintrustEventCollector {
         if (validatedEvent.context?.conversationTurn !== undefined) {
           metrics.conversation_turn = validatedEvent.context.conversationTurn
         }
-        if (validatedEvent.context?.messageHistoryLength !== undefined) {
-          metrics.message_history_length = validatedEvent.context.messageHistoryLength
+        
+        // Add tool error metrics
+        if (validatedEvent.type === 'tool_execution' && validatedEvent.data?.success === false) {
+          const toolName = validatedEvent.data.toolName || 'unknown'
+          metrics.tool_error = 1  // Binary flag for this event
+          metrics[`${toolName}_error_count`] = this.toolErrorCounts.get(toolName) || 1
+          metrics.total_tool_errors = Array.from(this.toolErrorCounts.values()).reduce((sum, count) => sum + count, 0)
         }
         
-        // Update the span with proper structure
-        span.log({
+        // Build logs object for Braintrust reserved slots
+        const logs: Record<string, any[]> = {}
+        
+        // Track tool calls in reserved "Tool calls" slot
+        if (validatedEvent.type === 'tool_execution') {
+          const toolName = validatedEvent.data?.toolName || 'unknown'
+          const toolCall = {
+            name: toolName,
+            input: validatedEvent.data?.input,
+            output: validatedEvent.data?.output,
+            duration_ms: validatedEvent.data?.duration_ms,
+            timestamp: validatedEvent.timestamp
+          }
+          
+          // Add to Tool calls slot
+          logs['Tool calls'] = [toolCall]
+          
+          // If it's an error, also add to Tool errors slot
+          if (validatedEvent.data?.success === false) {
+            logs['Tool errors'] = [{
+              name: toolName,
+              error: validatedEvent.data?.error || 'Unknown error',
+              errorType: validatedEvent.data?.errorType || 'tool_error',
+              input: validatedEvent.data?.input,
+              timestamp: validatedEvent.timestamp
+            }]
+          }
+        }
+        
+        // Build scores object - normalize from various formats
+        let scores: Record<string, number> | undefined = undefined
+        
+        // 1. Check for new top-level scores format
+        if ((validatedEvent as any).scores) {
+          scores = (validatedEvent as any).scores
+        }
+        // 2. Lift legacy holistic_score from data.metrics
+        else if (validatedEvent.data?.metrics?.holistic_score !== undefined) {
+          scores = { task_completion: validatedEvent.data.metrics.holistic_score }
+          // Remove from metrics to avoid duplication
+          delete metrics.holistic_score
+        }
+        // 3. Add task_completed score if data.success is present but not already in scores
+        // Note: 'success' score now represents quality (weighted_total), not binary completion
+        if (validatedEvent.data?.success !== undefined && scores && !scores.task_completed) {
+          scores.task_completed = validatedEvent.data.success ? 1 : 0
+        }
+        
+        // Extract scoring details if present
+        const scoringDetails = (validatedEvent as any).scoring_details
+        
+        // Build the span log object
+        const spanLogData: any = {
           input: validatedEvent.data?.input || validatedEvent.name,
           output: validatedEvent.data?.output,
           metadata: {
@@ -398,15 +435,27 @@ export class BraintrustEventCollector {
             ...validatedEvent.context,
             // Tool-specific data
             phase: validatedEvent.data?.phase,
-            error: validatedEvent.data?.error,
-            // Keep raw event data for debugging
-            eventData: validatedEvent.data
+            // Keep raw event data for debugging (but not the error - it goes top-level)
+            eventData: { ...validatedEvent.data, error: undefined },
+            // Include scoring details if present
+            ...(scoringDetails && { scoring_details: scoringDetails })
           },
           metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
-          scores: validatedEvent.data?.success !== undefined ? {
-            success: validatedEvent.data.success ? 1 : 0
-          } : undefined
-        })
+          scores: scores,  // Now properly normalized at top level
+          logs: Object.keys(logs).length > 0 ? logs : undefined  // Add logs for reserved slots
+        }
+        
+        // CRITICAL: Add error at top level for Braintrust error tracking
+        // Check both event.error (new format) and event.data.error (legacy)
+        if ((validatedEvent as any).error) {
+          spanLogData.error = (validatedEvent as any).error
+        } else if (validatedEvent.data?.error) {
+          // Legacy format - still in data
+          spanLogData.error = validatedEvent.data.error
+        }
+        
+        // Update the span with proper structure
+        span.log(spanLogData)
       }, {
         parent: options.parent,  // Links to parent span
         name: options.name || validatedEvent.type  // Span name in trace view
@@ -440,23 +489,67 @@ export class BraintrustEventCollector {
     console.log('%c← Telemetry: Session complete', 'color: #888; font-size: 11px');
     
     try {
+      // Calculate total tool errors for the session
+      const totalToolErrors = Array.from(this.toolErrorCounts.values()).reduce((sum, count) => sum + count, 0)
+      
+      // Log tool error summary if there were any errors
+      if (totalToolErrors > 0) {
+        const errorSummary = Array.from(this.toolErrorCounts.entries())
+          .map(([tool, count]) => `${tool}: ${count}`)
+          .join(', ')
+        console.log(`%c📊 Session tool errors: ${errorSummary} (Total: ${totalToolErrors})`, 'color: #ff6600; font-size: 11px')
+      }
+      
       // Log final span with results using proper Braintrust structure
       await this.logger.traced(async (span: any) => {
+        const sessionMetrics: Record<string, number> = {}
+        if (result.duration_ms !== undefined) {
+          sessionMetrics.duration_ms = result.duration_ms
+        }
+        
+        // Add tool error metrics to session
+        if (totalToolErrors > 0) {
+          sessionMetrics.total_tool_errors = totalToolErrors
+          // Add per-tool error counts
+          this.toolErrorCounts.forEach((count, toolName) => {
+            sessionMetrics[`${toolName}_errors`] = count
+          })
+        }
+        
+        // Build logs for reserved slots
+        const sessionLogs: Record<string, any[]> = {}
+        if (totalToolErrors > 0) {
+          // Add all tool errors to the Tool errors slot
+          const toolErrorsList: any[] = []
+          this.toolErrorCounts.forEach((count, toolName) => {
+            toolErrorsList.push({
+              name: toolName,
+              error_count: count,
+              type: 'session_summary'
+            })
+          })
+          sessionLogs['Tool errors'] = toolErrorsList
+        }
+        
         span.log({
           output: result.summary || (result.success ? 'Task completed successfully' : 'Task failed'),
           metadata: {
             type: 'session_end',
             sessionId,
             success: result.success,
-            error: result.error
+            error: result.error,
+            tool_error_summary: totalToolErrors > 0 ? Object.fromEntries(this.toolErrorCounts) : undefined
           },
-          metrics: {
-            duration_ms: result.duration_ms
-          },
+          metrics: sessionMetrics,
           scores: {
-            success: result.success ? 1 : 0,
-            ...(result.userScore !== undefined && { user_score: result.userScore })
-          }
+            // Use userScore as the primary success metric (average of all weighted_totals)
+            success: result.userScore !== undefined ? result.userScore : (result.success ? 1 : 0),
+            session_completed: result.success ? 1 : 0,  // Binary: did session complete?
+            ...(result.userScore !== undefined && { avg_weighted_total: result.userScore }),
+            // Add tool error rate as a score (0 = no errors, 1 = all tools errored)
+            tool_success_rate: totalToolErrors > 0 ? Math.max(0, 1 - (totalToolErrors / 20)) : 1  // Assume 20 tool calls is high
+          },
+          logs: Object.keys(sessionLogs).length > 0 ? sessionLogs : undefined  // Add logs for reserved slots
         })
       }, {
         parent,
@@ -479,16 +572,5 @@ export class BraintrustEventCollector {
     this._ensureInitialized();
     if (!this.enabled || !this.logger) return
     await this.logger.flush()
-  }
-  
-  /**
-   * Gracefully shutdown the collector
-   * Flushes remaining events and disables collection
-   */
-  async shutdown(): Promise<void> {
-    if (this.logger) {
-      await this.logger.flush()
-    }
-    this.enabled = false
   }
 }

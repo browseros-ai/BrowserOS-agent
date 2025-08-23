@@ -73,7 +73,8 @@ export function createResultTool(executionContext: ExecutionContext): DynamicStr
         const result = await invokeWithRetry<z.infer<typeof ResultSummarySchema>>(
           structuredLLM,
           messages,
-          3
+          3,
+          { signal: executionContext.abortController.signal }
         );
         
         executionContext.getPubSub().publishMessage(PubSub.createMessage(`Generated result for task: ${args.task}`, 'thinking'))
