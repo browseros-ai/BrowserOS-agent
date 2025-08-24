@@ -6,7 +6,7 @@
  */
 
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { OPENAI_API_KEY_FOR_SCORING, SHOW_CONSOLE_SCORING_SUMMARY } from '@/config'
+import { OPENAI_API_KEY_FOR_SCORING } from '@/config'
 import { getMultiDimensionalScoringPrompt } from './LLMJudge.prompts'
 import { scoringOpenAI, DEFAULT_MODEL } from './scoring-openai'
 import { ToolMessage } from '@langchain/core/messages'
@@ -85,16 +85,20 @@ export type MultiDimensionalScores = {
 export class LLMJudge {
   private enabled: boolean = false
   private model: string
+  private isV2Experiment: boolean = false
   
-  constructor() {
+  constructor(options?: { isV2Experiment?: boolean }) {
     this.model = DEFAULT_MODEL
+    this.isV2Experiment = options?.isV2Experiment || false
     
     // Check if scoring is available
     const apiKey = OPENAI_API_KEY_FOR_SCORING
     this.enabled = !!(apiKey && apiKey.trim() && scoringOpenAI.chat)
     
     if (this.enabled) {
-      console.log('%c✓ LLM Judge ready (multi-dimensional scoring)', 'color: #9c27b0; font-size: 10px')
+      const color = this.isV2Experiment ? '#6a1b9a' : '#9c27b0'  // Darker purple for v2, regular purple for v1
+      const label = this.isV2Experiment ? '✓ LLM Judge ready (v2 experiment scoring)' : '✓ LLM Judge ready (multi-dimensional scoring)'
+      console.log(`%c${label}`, `color: ${color}; font-size: 10px`)
     }
   }
   
@@ -272,8 +276,10 @@ export class LLMJudge {
       const prompt = getMultiDimensionalScoringPrompt(userTask, fullContext)
       
       // Log scoring context and prompt in a collapsible group (for debugging)
-      if (SHOW_CONSOLE_SCORING_SUMMARY) {
-        console.group('%c📋 LLM Scorer Context Summary (click to expand/collapse)', 'color: #9c27b0; font-weight: bold; font-size: 11px')
+      // Always show but collapsed by default for minimal intrusion
+      const summaryColor = this.isV2Experiment ? '#6a1b9a' : '#9c27b0'  // Darker purple for v2, regular purple for v1
+      const summaryLabel = this.isV2Experiment ? '📋 LLM Scorer Context Summary - V2 Experiment (click to expand/collapse)' : '📋 LLM Scorer Context Summary (click to expand/collapse)'
+      console.groupCollapsed(`%c${summaryLabel}`, `color: ${summaryColor}; font-weight: bold; font-size: 11px`)
         
         // Context summary
         console.log('%c📊 Execution Summary:', 'color: #666; font-weight: bold')
@@ -310,8 +316,7 @@ export class LLMJudge {
         console.log('%c📄 Full Prompt Content:', 'color: #666; font-weight: bold')
         console.log(prompt)
         
-        console.groupEnd()
-      }
+      console.groupEnd()
       
       // Use wrapped OpenAI for automatic Braintrust telemetry
       const completion = await scoringOpenAI.chat.completions.create({
@@ -326,8 +331,8 @@ export class LLMJudge {
             content: prompt 
           }
         ],
-        temperature: 0,  // Deterministic scoring
-        max_tokens: 150,  // Enough for JSON response
+        // temperature: 0,  // GPT-5 only supports default temperature (1)
+        max_completion_tokens: 3000,  // Generous limit for thorough scoring with GPT-5
         response_format: { type: 'json_object' }  // Force JSON response
       })
       
@@ -366,7 +371,9 @@ export class LLMJudge {
       dimensionScores.weighted_total = weightedTotal
       
       // Log detailed scores to console
-      console.log('%c📊 Multi-Dimensional LLM Scores (Full Context):', 'color: #9c27b0; font-weight: bold; font-size: 11px')
+      const scoresColor = this.isV2Experiment ? '#6a1b9a' : '#9c27b0'  // Darker purple for v2, regular purple for v1
+      const scoresLabel = this.isV2Experiment ? '📊 Multi-Dimensional LLM Scores - V2 Experiment (Full Context):' : '📊 Multi-Dimensional LLM Scores (Full Context):'
+      console.log(`%c${scoresLabel}`, `color: ${scoresColor}; font-weight: bold; font-size: 11px`)
       
       // Log individual dimensions
       for (const [dimension, score] of Object.entries(dimensionScores)) {

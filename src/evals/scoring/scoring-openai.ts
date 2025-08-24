@@ -12,7 +12,7 @@ import { OPENAI_API_KEY_FOR_SCORING, OPENAI_MODEL_FOR_SCORING } from '@/config'
 let OpenAI: any
 let scoringClient: any = null
 
-const DEFAULT_MODEL = OPENAI_MODEL_FOR_SCORING || 'gpt-4o-mini'
+const DEFAULT_MODEL = OPENAI_MODEL_FOR_SCORING || 'gpt-5-mini'
 
 /**
  * Get or create the raw OpenAI client for scoring

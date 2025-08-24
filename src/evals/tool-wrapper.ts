@@ -16,10 +16,7 @@ import { BraintrustEventCollector } from './BraintrustEventCollector'
  * Creates a tracked version of a DynamicStructuredTool
  * Only tracks metrics - actual I/O is in MessageManager
  */
-export function createTrackedTool(
-  tool: DynamicStructuredTool,
-  context: ExecutionContext
-): DynamicStructuredTool {
+export function createTrackedTool(tool: DynamicStructuredTool, context: ExecutionContext) : DynamicStructuredTool {
   const originalFunc = tool.func
   const toolName = tool.name
   const telemetry = context.telemetry as BraintrustEventCollector | null

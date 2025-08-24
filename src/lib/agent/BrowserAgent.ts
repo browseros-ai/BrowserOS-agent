@@ -71,7 +71,7 @@ import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Import telemetry wrapper statically so webpack includes it
-import { createTrackedTool } from '@/evals/online/tool-wrapper';
+import { createTrackedTool } from '@/evals/tool-wrapper';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
 import { HumanInputResponse } from '@/lib/pubsub/types';
