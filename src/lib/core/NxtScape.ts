@@ -9,16 +9,18 @@ import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 
 // Import telemetry module - only used if enabled
-import { BraintrustEventCollector } from "@/evals/online/BraintrustEventCollector";
+import { BraintrustEventCollector } from "@/evals/BraintrustEventCollector";
 // Import LLMJudge statically to avoid dynamic import issues in service worker
-import { LLMJudge } from "@/evals/online/scoring/LLMJudge";
+import { LLMJudge } from "@/evals/scoring/LLMJudge";
 import { ExecutionMetadata } from "@/lib/types/messaging";
+import { BRAINTRUST_API_KEY } from "@/config";
 
 /**
  * Configuration schema for NxtScape agent
  */
 export const NxtScapeConfigSchema = z.object({
   debug: z.boolean().default(false).optional(), // Debug mode flag
+  experimentId: z.string().optional(), // Optional experiment ID for logging to experiments
 });
 
 /**
@@ -73,6 +75,7 @@ export class NxtScape {
   private taskCount: number = 0; // Track number of tasks in conversation
   private taskStartTime: number = 0; // Track individual task timing
   private sessionWeightedTotals: number[] = []; // Track all weighted_total scores for session average
+  private experimentId: string | null = null; // Optional experiment ID for dual logging
 
   /**
    * Creates a new NxtScape orchestration agent
@@ -81,6 +84,9 @@ export class NxtScape {
   constructor(config: NxtScapeConfig) {
     // Validate config with Zod schema
     this.config = NxtScapeConfigSchema.parse(config);
+
+    // Store experiment ID if provided for dual logging
+    this.experimentId = this.config.experimentId || null;
 
     // Create new browser context with vision configuration
     this.browserContext = new BrowserContext({
@@ -619,8 +625,6 @@ export class NxtScape {
     if (!this.telemetry?.isEnabled()) return
     
     const taskDuration = Date.now() - this.taskStartTime
-    
-    // No need for EventEnricher - LLMJudge will access ExecutionContext directly
     const taskPhase = outcome === 'error' ? 'task_error' : outcome === 'paused' ? 'task_paused' : 'task_complete'
     
     // Score the task completion with LLM judge using full ExecutionContext
@@ -752,6 +756,58 @@ export class NxtScape {
       parent: this.telemetryParentSpan || undefined,
       name: eventName
     })
+    
+    // Also log to experiment if we're in experiment mode (dual logging)
+    if (this.experimentId && BRAINTRUST_API_KEY) {
+      try {
+        // Format event data for experiment (v2 format from ExperimentRunner)
+        const experimentEvent = {
+          id: `v2_${Date.now()}_${this.taskCount}`,
+          input: query,
+          output: message || (outcome === 'success' ? 'Task completed successfully' : 
+                             outcome === 'error' ? `Error: ${error}` : 
+                             'Task paused'),
+          // Use the same scores that were just logged to telemetry
+          scores: scores,
+          tags: ['new'],
+          metadata: {
+            type: 'new',
+            timestamp: new Date().toISOString(),
+            duration_ms: taskDuration,
+            tool_calls: this.executionContext?.messageManager?.getMessages()?.filter(m => m._getType() === 'tool').length || 0,
+            failed_tool_calls: 0, // Would need to track this separately
+            scoringDetails: scoringDetails,
+            phase: phase,
+            outcome: outcome
+          }
+        }
+        
+        // Send to Braintrust experiment via API
+        const response = await fetch('https://api.braintrust.dev/v1/insert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${BRAINTRUST_API_KEY}`
+          },
+          body: JSON.stringify({
+            experiment: {
+              [this.experimentId]: {
+                events: [experimentEvent]
+              }
+            }
+          })
+        })
+        
+        if (!response.ok) {
+          console.warn(`Failed to log to experiment: ${response.status}`)
+        } else {
+          console.log(`%c→ Also logged to experiment ${this.experimentId}`, 'color: #9c27b0; font-size: 10px')
+        }
+      } catch (error) {
+        // Don't let experiment logging failures break the flow
+        console.warn('Failed to log to experiment:', error)
+      }
+    }
     
     // Log status to console
     const statusIcon = outcome === 'success' ? '✓' : outcome === 'error' ? '✗' : '⏸'

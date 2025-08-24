@@ -298,9 +298,7 @@ export class BraintrustEventCollector {
         })
         // Export returns the span ID for parent-child relationships
         return await span.export()
-      }, { 
-        name: 'agent_session'
-      })
+      }, { name: 'agent_session' })
       
       return { parent }
     } catch (error) {

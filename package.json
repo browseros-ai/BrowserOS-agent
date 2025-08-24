@@ -21,7 +21,7 @@
     "eval:planner": "tsx src/evals/offline/tools/planner/planner.eval.ts",
     "eval:validator": "tsx src/evals/offline/tools/validator/validator.eval.ts",
     "extract:prompts": "tsx src/evals/shared/push-prompts.ts"
-
+    
   },
   "author": "",
   "license": "MIT",
@@ -49,7 +49,7 @@
     "markdown-to-jsx": "^7.7.12",
     "match-sorter": "^6.3.4",
     "ollama": "^0.5.16",
-    "openai": "^4.98.0",
+    "openai": "^5.15.0",
     "posthog-js": "^1.252.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

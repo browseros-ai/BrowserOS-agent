@@ -34,7 +34,11 @@ export enum MessageType {
   HUMAN_INPUT_RESPONSE = 'HUMAN_INPUT_RESPONSE',
   GENERATE_PLAN = 'GENERATE_PLAN',
   REFINE_PLAN = 'REFINE_PLAN',
-  PLAN_GENERATION_UPDATE = 'PLAN_GENERATION_UPDATE'
+  PLAN_GENERATION_UPDATE = 'PLAN_GENERATION_UPDATE',
+  RUN_EXPERIMENT = 'RUN_EXPERIMENT',
+  EXPERIMENT_UPDATE = 'EXPERIMENT_UPDATE',
+  FETCH_AVAILABLE_TAGS = 'FETCH_AVAILABLE_TAGS',
+  AVAILABLE_TAGS_RESPONSE = 'AVAILABLE_TAGS_RESPONSE'
 }
 
 // Create a zod enum for MessageType
@@ -420,6 +424,37 @@ export const PlanGenerationUpdateMessageSchema = MessageSchema.extend({
 export type PlanGenerationUpdateMessage = z.infer<typeof PlanGenerationUpdateMessageSchema>
 
 /**
+ * Message for running experiments
+ */
+export const RunExperimentMessageSchema = z.object({
+  type: z.literal(MessageType.RUN_EXPERIMENT),
+  payload: z.object({
+    logsTag: z.string().optional()  // Tag to fetch from Braintrust
+  })
+})
+
+export type RunExperimentMessage = z.infer<typeof RunExperimentMessageSchema>
+
+/**
+ * Experiment status updates
+ */
+export const ExperimentUpdateMessageSchema = z.object({
+  type: z.literal(MessageType.EXPERIMENT_UPDATE),
+  payload: z.object({
+    status: z.enum(['started', 'fetching', 'running', 'completed', 'error']),
+    message: z.string().optional(),
+    progress: z.object({
+      current: z.number(),
+      total: z.number()
+    }).optional(),
+    results: z.any().optional(),  // Final results
+    error: z.string().optional()
+  })
+})
+
+export type ExperimentUpdateMessage = z.infer<typeof ExperimentUpdateMessageSchema>
+
+/**
  * Union of all message types
  */
 export const ExtensionMessageSchema = z.discriminatedUnion('type', [
@@ -446,7 +481,9 @@ export const ExtensionMessageSchema = z.discriminatedUnion('type', [
   GlowStopMessageSchema,
   GeneratePlanMessageSchema,
   RefinePlanMessageSchema,
-  PlanGenerationUpdateMessageSchema
+  PlanGenerationUpdateMessageSchema,
+  RunExperimentMessageSchema,
+  ExperimentUpdateMessageSchema
 ])
 
 export type ExtensionMessage = z.infer<typeof ExtensionMessageSchema>
