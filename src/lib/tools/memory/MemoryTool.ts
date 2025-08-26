@@ -72,7 +72,6 @@ export function createMemoryTool(
 
     func: async (args: any) => {
       try {
-        // Check if memory is enabled
         const memoryManager = executionContext.getMemoryManager();
         if (!memoryManager) {
           return JSON.stringify({
@@ -82,8 +81,7 @@ export function createMemoryTool(
           });
         }
 
-        const currentPage =
-          await executionContext.browserContext.getCurrentPage();
+        const currentPage = await executionContext.browserContext.getCurrentPage();
         const tabId = currentPage.tabId;
         const pageUrl = await currentPage.url();
         const site = pageUrl ? new URL(pageUrl).hostname : undefined;
@@ -264,5 +262,5 @@ export function createMemoryTool(
   });
 }
 
-// Export for backward compatibility
+ 
 export const MemoryTool = createMemoryTool;

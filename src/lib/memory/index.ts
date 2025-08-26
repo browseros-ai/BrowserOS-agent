@@ -18,9 +18,8 @@ export type { MemoryEntry, MemoryMetadata, MemorySearchParams, MemorySearchResul
 
 export { MemoryCategory, MemoryEntrySchema, MemoryMetadataSchema, MemorySearchParamsSchema, MemoryStatsSchema, MemoryConfigSchema } from './types';
 
-// Tools (now located in ../tools/memory)
+//tools
 export { createMemoryTool } from '../tools/memory/MemoryTool';
-export { createMemoryAwarePlannerTool } from '../tools/memory/MemoryAwarePlannerTool';
 
 
 /**

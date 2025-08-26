@@ -67,7 +67,6 @@ import { createHumanInputTool } from '@/lib/tools/utils/HumanInputTool';
 import { createDateTool } from '@/lib/tools/utility/DateTool';
 import { createMCPTool } from '@/lib/tools/mcp/MCPTool';
 import { createMemoryTool } from '@/lib/tools/memory/MemoryTool';
-import { createMemoryAwarePlannerTool } from '@/lib/tools/memory/MemoryAwarePlannerTool';
 import { MemoryCategory } from '@/lib/memory/types';
 import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
@@ -299,7 +298,6 @@ export class BrowserAgent {
 
     // Memory tools for task continuity and learning
     this.toolManager.register(createMemoryTool(this.executionContext));
-    this.toolManager.register(createMemoryAwarePlannerTool(this.executionContext));
 
     // Result tool
     this.toolManager.register(createResultTool(this.executionContext));

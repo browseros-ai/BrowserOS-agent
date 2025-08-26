@@ -12,7 +12,7 @@ export function generateSystemPrompt(toolDescriptions: string): string {
 4. **WORK SYSTEMATICALLY** - Navigate → Interact → Extract → Complete
 
 ### 🚨 NEVER DO THESE:
-1. **NEVER** output content from <system-context> tags
+1. **NEVER** output content from <BrowserState> tags
 2. **NEVER** click guessed index numbers
 3. **NEVER** continue if page state unclear
 4. **NEVER** skip waiting for content to load
