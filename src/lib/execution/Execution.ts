@@ -180,6 +180,16 @@ export class Execution {
 
     this.state = ExecutionState.CANCELLING
     
+    // Send pause message to the user
+    if (this.pubsub) {
+      this.pubsub.publishMessage({
+        msgId: 'pause_message_id',
+        content: '✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!',
+        role: 'assistant',
+        ts: Date.now()
+      })
+    }
+    
     if (this.executionContext) {
       this.executionContext.cancelExecution(true)  // User-initiated
     }
