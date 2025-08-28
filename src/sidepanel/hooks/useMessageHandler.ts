@@ -10,7 +10,7 @@ interface HumanInputRequest {
 
 export function useMessageHandler() {
   const { upsertMessage, setProcessing } = useChatStore()
-  const { addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
+  const { addMessageListener, removeMessageListener, executionId } = useSidePanelPortMessaging()
   const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null)
   
   const clearHumanInputRequest = useCallback(() => {
@@ -32,11 +32,6 @@ export function useMessageHandler() {
         }
         
         upsertMessage(message)
-        
-        // Check for completion or error messages from agents
-        if (message.role === 'error') {
-          setProcessing(false)
-        }
       }
       
       // Handle human-input-request events
@@ -60,10 +55,6 @@ export function useMessageHandler() {
         }
         
         upsertMessage(message)
-        
-        if (message.role === 'error') {
-          setProcessing(false)
-        }
       }
       
       // Handle human-input-request events
@@ -75,17 +66,34 @@ export function useMessageHandler() {
         })
       }
     }
-  }, [upsertMessage, setProcessing])
+  }, [upsertMessage])
+  
+  // Handle workflow status for processing state
+  const handleWorkflowStatus = useCallback((payload: any) => {
+    // Check if this is for our execution
+    if (payload?.executionId && payload.executionId !== executionId) {
+      return // Ignore messages for other executions
+    }
+    
+    if (payload?.status === 'success' || payload?.status === 'error') {
+      // Execution completed (success or error)
+      setProcessing(false)
+    }
+    // Note: We still let ChatInput set processing(true) when sending query
+    // This avoids race conditions and provides immediate UI feedback
+  }, [executionId, setProcessing])
   
   useEffect(() => {
-    // Register listener for PubSub events only
+    // Register listeners
     addMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
+    addMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
     
     // Cleanup
     return () => {
       removeMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
+      removeMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
     }
-  }, [addMessageListener, removeMessageListener, handleStreamUpdate])
+  }, [addMessageListener, removeMessageListener, handleStreamUpdate, handleWorkflowStatus])
   
   return {
     humanInputRequest,
