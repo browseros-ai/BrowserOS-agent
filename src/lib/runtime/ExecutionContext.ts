@@ -12,10 +12,12 @@ import { HumanInputResponse } from '@/lib/pubsub/types'
  * Configuration options for ExecutionContext
  */
 export const ExecutionContextOptionsSchema = z.object({
+  executionId: z.string().optional(),  // Unique execution identifier (NEW)
   browserContext: z.instanceof(BrowserContext),  // Browser context for page operations
   messageManager: z.instanceof(MessageManager),  // Message manager for communication
   debugMode: z.boolean().default(false),  // Whether to enable debug logging
-  todoStore: z.instanceof(TodoStore).optional()  // TODO store for complex task management
+  todoStore: z.instanceof(TodoStore).optional(),  // TODO store for complex task management
+  pubsub: z.any().optional()  // Scoped PubSub channel (NEW - will be PubSubChannel)
 })
 
 export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
@@ -24,6 +26,7 @@ export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSche
  * Agent execution context containing browser context, message manager, and control state
  */
 export class ExecutionContext {
+  readonly executionId: string  // Unique execution identifier (NEW)
   abortController: AbortController  // Abort controller for task cancellation
   browserContext: BrowserContext  // Browser context for page operations
   messageManager: MessageManager  // Message manager for communication
@@ -37,10 +40,14 @@ export class ExecutionContext {
   private _chatMode: boolean = false  // Whether ChatAgent mode is enabled
   private _humanInputRequestId: string | undefined  // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
+  private _scopedPubSub: any  // Scoped PubSub channel (NEW)
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
+    
+    // Store execution ID (default to 'default' for backwards compatibility)
+    this.executionId = validatedOptions.executionId || 'default'
     
     // Create our own AbortController - single source of truth
     this.abortController = new AbortController()
@@ -49,6 +56,9 @@ export class ExecutionContext {
     this.debugMode = validatedOptions.debugMode || false
     this.todoStore = validatedOptions.todoStore || new TodoStore()
     this.userInitiatedCancel = false
+    
+    // Store scoped PubSub if provided (NEW)
+    this._scopedPubSub = validatedOptions.pubsub
   }
 
   /**
@@ -75,10 +85,14 @@ export class ExecutionContext {
 
 
   /**
-   * Get the PubSub instance (singleton)
+   * Get the PubSub instance (scoped or singleton)
    * @returns The PubSub instance
    */
   public getPubSub(): PubSub {
+    // Return scoped PubSub if provided, otherwise fall back to singleton for backwards compatibility
+    if (this._scopedPubSub) {
+      return this._scopedPubSub;
+    }
     return PubSub.getInstance();
   }
 
