@@ -18,13 +18,15 @@ export function useMessageHandler() {
   }, [])
 
   const handleStreamUpdate = useCallback((payload: any) => {
-    // Check if this is a PubSub event
-    if (payload?.action === 'PUBSUB_EVENT') {
+    // Handle new architecture events (with executionId and event structure)
+    if (payload?.event) {
+      const event = payload.event
+      
       // Handle message events
-      if (payload.details?.type === 'message') {
-        const message = payload.details.payload as PubSubMessage
+      if (event.type === 'message') {
+        const message = event.payload as PubSubMessage
         
-        // Filter out narration messages, it's disbled
+        // Filter out narration messages, it's disabled
         if (message.role === 'narration') {
           return 
         }
@@ -38,10 +40,48 @@ export function useMessageHandler() {
       }
       
       // Handle execution-status events
+      if (event.type === 'execution-status') {
+        const status = event.payload.status
+        
+        // Set processing based on status
+        if (status === 'running') {
+          setProcessing(true)
+        } else if (status === 'done' || status === 'cancelled' || status === 'error') {
+          setProcessing(false)
+        }
+      }
+      
+      // Handle human-input-request events
+      if (event.type === 'human-input-request') {
+        const request = event.payload
+        setHumanInputRequest({
+          requestId: request.requestId,
+          prompt: request.prompt
+        })
+      }
+    }
+    // Legacy handler for old event structure (for backward compatibility during transition)
+    else if (payload?.action === 'PUBSUB_EVENT') {
+      // Handle message events
+      if (payload.details?.type === 'message') {
+        const message = payload.details.payload as PubSubMessage
+        
+        // Filter out narration messages
+        if (message.role === 'narration') {
+          return 
+        }
+        
+        upsertMessage(message)
+        
+        if (message.role === 'error') {
+          setProcessing(false)
+        }
+      }
+      
+      // Handle execution-status events
       if (payload.details?.type === 'execution-status') {
         const status = payload.details.payload.status
         
-        // Set processing based on status
         if (status === 'running') {
           setProcessing(true)
         } else if (status === 'done' || status === 'cancelled' || status === 'error') {
