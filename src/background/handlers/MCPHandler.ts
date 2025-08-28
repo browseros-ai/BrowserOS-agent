@@ -1,6 +1,8 @@
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
+import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
+import { MCP_SERVERS } from '@/config/mcpServers'
 
 /**
  * Handles MCP (Model Context Protocol) related messages:
@@ -8,6 +10,9 @@ import { Logging } from '@/lib/utils/Logging'
  * - CONNECT_MCP_SERVER: Connect to an MCP server
  * - DISCONNECT_MCP_SERVER: Disconnect from an MCP server
  * - CALL_MCP_TOOL: Execute an MCP tool
+ * - MCP_INSTALL_SERVER: Install an MCP server
+ * - MCP_DELETE_SERVER: Delete an MCP server
+ * - MCP_GET_INSTALLED_SERVERS: Get installed servers
  */
 export class MCPHandler {
   private mcpServers: Map<string, any> = new Map()
@@ -176,6 +181,194 @@ export class MCPHandler {
         },
         id: message.id
       })
+    }
+  }
+
+  /**
+   * Handle MCP_INSTALL_SERVER message
+   */
+  async handleInstallServer(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    const { serverId } = message.payload as any
+    
+    Logging.log('MCPHandler', `MCP server installation requested: ${serverId}`)
+    
+    try {
+      // Get the server name from config
+      const serverConfig = MCP_SERVERS.find(s => s.id === serverId)
+      if (!serverConfig) {
+        throw new Error(`Unknown server ID: ${serverId}`)
+      }
+      
+      // Install the server using KlavisAPIManager
+      const manager = KlavisAPIManager.getInstance()
+      const result = await manager.installServer(serverConfig.name)
+      
+      // Check if authentication was successful
+      if (result.oauthUrl && !result.authSuccess) {
+        // OAuth was required but failed
+        port.postMessage({
+          type: MessageType.MCP_SERVER_STATUS,
+          payload: {
+            serverId,
+            status: 'auth_failed',
+            serverUrl: result.serverUrl,
+            instanceId: result.instanceId,
+            error: 'Authentication required but not completed. Please try installing again and complete the authentication.'
+          },
+          id: message.id
+        })
+        
+        Logging.log('MCPHandler', `MCP server installed but auth failed: ${serverId} (${result.instanceId})`)
+        return
+      }
+      
+      // Send success message
+      port.postMessage({
+        type: MessageType.MCP_SERVER_STATUS,
+        payload: {
+          serverId,
+          status: 'success',
+          serverUrl: result.serverUrl,
+          instanceId: result.instanceId,
+          authenticated: result.authSuccess !== false
+        },
+        id: message.id
+      })
+      
+      // Log metric for successful MCP server connection
+      Logging.logMetric('mcp_server_connected', {
+        server_name: serverConfig.name,
+        server_id: serverId,
+        instance_id: result.instanceId,
+        authenticated: result.authSuccess !== false
+      })
+      
+      Logging.log('MCPHandler', `MCP server installed successfully: ${serverId} (${result.instanceId}), authenticated: ${result.authSuccess !== false}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Installation failed'
+      
+      // Send error message
+      port.postMessage({
+        type: MessageType.MCP_SERVER_STATUS,
+        payload: {
+          serverId,
+          status: 'error',
+          error: errorMessage
+        },
+        id: message.id
+      })
+      
+      Logging.log('MCPHandler', `MCP server installation failed: ${serverId} - ${errorMessage}`, 'error')
+    }
+  }
+
+  /**
+   * Handle MCP_DELETE_SERVER message
+   */
+  async handleDeleteServer(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    const { instanceId } = message.payload as any
+    
+    Logging.log('MCPHandler', `MCP server deletion requested: ${instanceId}`)
+    
+    try {
+      const manager = KlavisAPIManager.getInstance()
+      const success = await manager.deleteServer(instanceId)
+      
+      if (success) {
+        port.postMessage({
+          type: MessageType.MCP_SERVER_STATUS,
+          payload: {
+            status: 'deleted',
+            instanceId,
+            message: 'Server deleted successfully'
+          },
+          id: message.id
+        })
+        
+        // Log metric for MCP server disconnection
+        Logging.logMetric('mcp_server_disconnected', {
+          instance_id: instanceId
+        })
+        
+        Logging.log('MCPHandler', `MCP server deleted successfully: ${instanceId}`)
+      } else {
+        throw new Error('Failed to delete server')
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Deletion failed'
+      
+      port.postMessage({
+        type: MessageType.MCP_SERVER_STATUS,
+        payload: {
+          status: 'error',
+          instanceId,
+          error: errorMessage
+        },
+        id: message.id
+      })
+      
+      Logging.log('MCPHandler', `MCP server deletion failed: ${instanceId} - ${errorMessage}`, 'error')
+    }
+  }
+
+  /**
+   * Handle MCP_GET_INSTALLED_SERVERS message
+   */
+  async handleGetInstalledServers(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    Logging.log('MCPHandler', 'Getting installed MCP servers')
+    
+    try {
+      const manager = KlavisAPIManager.getInstance()
+      const installedServers = await manager.getInstalledServers()
+      
+      // Map server data with config icons
+      const serversWithConfig = installedServers.map(server => {
+        const config = MCP_SERVERS.find(s => s.name === server.name)
+        return {
+          id: server.id,
+          name: server.name,
+          description: server.description,
+          authenticated: server.isAuthenticated,
+          authNeeded: server.authNeeded,
+          iconPath: config?.iconPath || null,
+          toolCount: server.tools?.length || 0
+        }
+      })
+      
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'success',
+          data: {
+            servers: serversWithConfig
+          }
+        },
+        id: message.id
+      })
+      
+      Logging.log('MCPHandler', `Found ${serversWithConfig.length} installed MCP servers`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get installed servers'
+      
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'error',
+          error: errorMessage
+        },
+        id: message.id
+      })
+      
+      Logging.log('MCPHandler', `Error getting installed MCP servers: ${errorMessage}`, 'error')
     }
   }
 

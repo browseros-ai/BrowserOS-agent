@@ -114,10 +114,6 @@ export class Execution {
       await this._initialize()
     }
 
-    if (this.state !== ExecutionState.INITIALIZING) {
-      throw new Error(`Cannot run execution in state ${this.state}`)
-    }
-
     this.state = ExecutionState.RUNNING
     this.startTime = Date.now()
 
@@ -234,6 +230,8 @@ export class Execution {
         this.browserAgent = new BrowserAgent(this.executionContext)
       }
     }
+
+    this.state = ExecutionState.INITIALIZING
 
     Logging.log('Execution', `Reset execution ${this.id}`)
   }

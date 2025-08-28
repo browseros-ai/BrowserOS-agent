@@ -98,6 +98,21 @@ function registerHandlers(): void {
     (msg, port) => mcpHandler.handleCallMCPTool(msg, port)
   )
   
+  messageRouter.registerHandler(
+    MessageType.MCP_INSTALL_SERVER,
+    (msg, port) => mcpHandler.handleInstallServer(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.MCP_DELETE_SERVER,
+    (msg, port) => mcpHandler.handleDeleteServer(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.MCP_GET_INSTALLED_SERVERS,
+    (msg, port) => mcpHandler.handleGetInstalledServers(msg, port)
+  )
+  
   // Tab handlers
   messageRouter.registerHandler(
     MessageType.GET_ACTIVE_TAB,
@@ -155,6 +170,19 @@ function registerHandlers(): void {
     (msg, port) => {
       const { event, properties } = msg.payload as any
       Logging.logMetric(event, properties)
+    }
+  )
+  
+  // Heartbeat handler - acknowledge heartbeats to keep connection alive
+  messageRouter.registerHandler(
+    MessageType.HEARTBEAT,
+    (msg, port) => {
+      // Send heartbeat acknowledgment back
+      port.postMessage({
+        type: MessageType.HEARTBEAT_ACK,
+        payload: { timestamp: Date.now() },
+        id: msg.id
+      })
     }
   )
   

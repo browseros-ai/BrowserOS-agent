@@ -54,16 +54,16 @@ export class ExecutionHandler {
           metadata,
           debug: false
         })
-      } else if (execution.isRunning()) {
-        // Cancel previous task if running
-        Logging.log('ExecutionHandler', `Cancelling previous task for execution ${execId}`)
-        execution.cancel()
-        
-        // Wait a bit for cancellation
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Reset for new query
-        execution.reset()
+      } else {
+        // If execution exists, check its state
+        if (execution.isRunning()) {
+          // Cancel previous task if running
+          Logging.log('ExecutionHandler', `Cancelling previous task for execution ${execId}`)
+          execution.cancel()
+          
+          // Wait a bit for cancellation
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
       }
       
       // Run the query
