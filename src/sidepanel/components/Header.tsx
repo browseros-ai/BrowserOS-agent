@@ -5,6 +5,7 @@ import { MessageType } from '@/lib/types/messaging'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
+import { ExperimentModal } from './ExperimentModal'
 import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
@@ -203,6 +204,15 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           >
             <Settings className="w-4 h-4" />
           </Button>
+
+          {/* Experiment Modal - renders its own button */}
+          <ExperimentModal
+            trackClick={trackClick}
+            sendMessage={sendMessage}
+            addMessageListener={addMessageListener}
+            removeMessageListener={removeMessageListener}
+            isProcessing={isProcessing}
+          />
 
           {/* MCP Integrations dropdown - Hidden until feature is enabled */}
           {MCP_FEATURE_ENABLED && (
