@@ -133,8 +133,7 @@ export class Execution {
         this.executionContext.startExecution(this.options.tabId || 0)
       }
 
-      // Publish running status
-      this.pubsub?.publishExecutionStatus('running')
+      // Execution running
 
       // Execute the appropriate agent
       if (this.options.mode === 'chat' && this.chatAgent) {
@@ -147,7 +146,6 @@ export class Execution {
 
       // Success
       this.state = ExecutionState.COMPLETED
-      this.pubsub?.publishExecutionStatus('done')
 
       Logging.log('Execution', `Completed execution ${this.id} in ${Date.now() - this.startTime}ms`)
 
@@ -159,9 +157,7 @@ export class Execution {
 
       if (wasCancelled) {
         this.state = ExecutionState.CANCELLING
-        this.pubsub?.publishExecutionStatus('cancelled', errorMessage)
       } else {
-        this.pubsub?.publishExecutionStatus('error', errorMessage)
         this.pubsub?.publishMessage({
           msgId: `error_${this.id}`,
           content: `❌ Error: ${errorMessage}`,
@@ -191,8 +187,6 @@ export class Execution {
     if (this.executionContext) {
       this.executionContext.cancelExecution(true)  // User-initiated
     }
-
-    this.pubsub?.publishExecutionStatus('cancelled', 'Task cancelled by user')
     
     Logging.log('Execution', `Cancelled execution ${this.id}`)
   }

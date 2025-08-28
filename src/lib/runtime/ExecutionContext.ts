@@ -5,7 +5,7 @@ import { getLLM as getLLMFromProvider } from '@/lib/llm/LangChainProvider'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { TodoStore } from '@/lib/runtime/TodoStore'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
-import { PubSub } from '@/lib/pubsub'
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { HumanInputResponse } from '@/lib/pubsub/types'
 
 /**
@@ -40,7 +40,7 @@ export class ExecutionContext {
   private _chatMode: boolean = false  // Whether ChatAgent mode is enabled
   private _humanInputRequestId: string | undefined  // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
-  private _scopedPubSub: any  // Scoped PubSub channel (NEW)
+  private _scopedPubSub: PubSubChannel | null = null  // Scoped PubSub channel
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
@@ -57,7 +57,7 @@ export class ExecutionContext {
     this.todoStore = validatedOptions.todoStore || new TodoStore()
     this.userInitiatedCancel = false
     
-    // Store scoped PubSub if provided (NEW)
+    // Store scoped PubSub if provided
     this._scopedPubSub = validatedOptions.pubsub
   }
 
@@ -85,15 +85,14 @@ export class ExecutionContext {
 
 
   /**
-   * Get the PubSub instance (scoped or singleton)
-   * @returns The PubSub instance
+   * Get the PubSub channel for this execution
+   * @returns The PubSub channel
    */
-  public getPubSub(): PubSub {
-    // Return scoped PubSub if provided, otherwise fall back to singleton for backwards compatibility
-    if (this._scopedPubSub) {
-      return this._scopedPubSub;
+  public getPubSub(): PubSubChannel {
+    if (!this._scopedPubSub) {
+      throw new Error(`No PubSub channel provided for execution ${this.executionId}`);
     }
-    return PubSub.getInstance();
+    return this._scopedPubSub;
   }
 
   /**

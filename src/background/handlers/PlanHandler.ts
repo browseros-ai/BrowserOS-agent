@@ -2,7 +2,7 @@ import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
 import { ExecutionManager } from '@/lib/execution/ExecutionManager'
-import { PubSubHub } from '@/lib/pubsub/PubSubHub'
+import { PubSub } from '@/lib/pubsub'
 
 /**
  * Handles planning-related messages:
@@ -86,7 +86,7 @@ export class PlanHandler {
       })
       
       // Publish plan update event via PubSub
-      const channel = PubSubHub.getChannel(execId)
+      const channel = PubSub.getChannel(execId)
       channel.publishMessage({
         msgId: `plan_update_${Date.now()}`,
         role: 'assistant',  // Use 'assistant' instead of 'system' which doesn't exist

@@ -2,7 +2,7 @@ import { MessageType, ExecuteQueryMessage, CancelTaskMessage, ResetConversationM
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { ExecutionManager } from '@/lib/execution/ExecutionManager'
 import { Logging } from '@/lib/utils/Logging'
-import { PubSubHub } from '@/lib/pubsub/PubSubHub'
+import { PubSub } from '@/lib/pubsub'
 
 /**
  * Handles execution-related messages:
@@ -40,7 +40,6 @@ export class ExecutionHandler {
       source: source || metadata?.source || 'unknown',
       mode: chatMode ? 'chat' : 'browse',
       executionMode: metadata?.executionMode || 'dynamic',
-      executionId: execId
     })
     
     try {
@@ -200,7 +199,7 @@ export class ExecutionHandler {
     const execution = this.executionManager.get(execId)
     if (execution) {
       // Get the execution's PubSub channel
-      const pubsub = PubSubHub.getChannel(execId)
+      const pubsub = PubSub.getChannel(execId)
       pubsub.publishHumanInputResponse(payload)
       
       Logging.log('ExecutionHandler', 

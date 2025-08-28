@@ -39,18 +39,6 @@ export function useMessageHandler() {
         }
       }
       
-      // Handle execution-status events
-      if (event.type === 'execution-status') {
-        const status = event.payload.status
-        
-        // Set processing based on status
-        if (status === 'running') {
-          setProcessing(true)
-        } else if (status === 'done' || status === 'cancelled' || status === 'error') {
-          setProcessing(false)
-        }
-      }
-      
       // Handle human-input-request events
       if (event.type === 'human-input-request') {
         const request = event.payload
@@ -74,17 +62,6 @@ export function useMessageHandler() {
         upsertMessage(message)
         
         if (message.role === 'error') {
-          setProcessing(false)
-        }
-      }
-      
-      // Handle execution-status events
-      if (payload.details?.type === 'execution-status') {
-        const status = payload.details.payload.status
-        
-        if (status === 'running') {
-          setProcessing(true)
-        } else if (status === 'done' || status === 'cancelled' || status === 'error') {
           setProcessing(false)
         }
       }

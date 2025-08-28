@@ -80,7 +80,8 @@ import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
-import { HumanInputResponse } from '@/lib/pubsub/types';
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel';
+import { HumanInputResponse, PubSubEvent } from '@/lib/pubsub/types';
 import { Logging } from '@/lib/utils/Logging';
 import { z } from 'zod';
 import { trimToMaxTokens } from '@/lib/utils/llmUtils';
@@ -161,7 +162,7 @@ export class BrowserAgent {
     return this.executionContext.messageManager; 
   }
   
-  private get pubsub(): PubSub { 
+  private get pubsub(): PubSubChannel { 
     return this.executionContext.getPubSub(); 
   }
 
@@ -1135,7 +1136,7 @@ Use the ${thought.toolName} tool to accomplish this.`;
     }
     
     // Subscribe to human input responses
-    const subscription = this.pubsub.subscribe((event) => {
+    const subscription = this.pubsub.subscribe((event: PubSubEvent) => {
       if (event.type === 'human-input-response') {
         const response = event.payload as HumanInputResponse;
         if (response.requestId === requestId) {

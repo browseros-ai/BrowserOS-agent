@@ -34,26 +34,6 @@ export class PubSubChannel {
   }
 
   /**
-   * Publish execution status with optional message
-   */
-  publishExecutionStatus(status: 'running' | 'done' | 'cancelled' | 'error', message?: string): void {
-    if (this.isDestroyed) {
-      console.warn(`PubSubChannel: Attempted to publish status to destroyed channel ${this.executionId}`)
-      return
-    }
-    
-    const event: PubSubEvent = {
-      type: 'execution-status',
-      payload: {
-        status,
-        ts: Date.now(),
-        ...(message && { message })
-      }
-    }
-    this._publish(event)
-  }
-
-  /**
    * Publish human input request
    */
   publishHumanInputRequest(request: HumanInputRequest): void {

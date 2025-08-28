@@ -1,7 +1,7 @@
 import { Logging } from '@/lib/utils/Logging'
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
-import { PubSubHub } from '@/lib/pubsub/PubSubHub'
+import { PubSub } from '@/lib/pubsub'
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { Subscription } from '@/lib/pubsub/types'
 
@@ -37,7 +37,7 @@ export class PortManager {
     
     // If this port has an executionId, subscribe to its PubSub channel
     if (executionId) {
-      const channel = PubSubHub.getChannel(executionId)
+      const channel = PubSub.getChannel(executionId)
       portInfo.subscription = this.subscribeToChannel(channel, port, executionId)
       
       // Track execution -> ports mapping

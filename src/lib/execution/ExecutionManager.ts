@@ -1,5 +1,5 @@
 import { Execution, ExecutionOptions, ExecutionState } from './Execution'
-import { PubSubHub } from '@/lib/pubsub/PubSubHub'
+import { PubSub } from '@/lib/pubsub'
 import { Logging } from '@/lib/utils/Logging'
 
 // Default execution ID for backwards compatibility
@@ -58,7 +58,7 @@ export class ExecutionManager {
     }
 
     // Get or create PubSub channel for this execution
-    const pubsub = PubSubHub.getChannel(executionId)
+    const pubsub = PubSub.getChannel(executionId)
 
     // Create execution with full options
     const fullOptions: ExecutionOptions = {
@@ -257,7 +257,7 @@ export class ExecutionManager {
     this.executions.delete(executionId)
 
     // Delete PubSub channel
-    PubSubHub.deleteChannel(executionId)
+    PubSub.deleteChannel(executionId)
 
     // Clear cleanup timer
     this._clearCleanupTimer(executionId)
