@@ -163,10 +163,10 @@ export class Execution {
       } else {
         this.pubsub?.publishExecutionStatus('error', errorMessage)
         this.pubsub?.publishMessage({
-          id: `error_${this.id}`,
+          msgId: `error_${this.id}`,
           content: `❌ Error: ${errorMessage}`,
-          type: 'error',
-          timestamp: Date.now()
+          role: 'error',
+          ts: Date.now()
         })
       }
 
@@ -195,6 +195,19 @@ export class Execution {
     this.pubsub?.publishExecutionStatus('cancelled', 'Task cancelled by user')
     
     Logging.log('Execution', `Cancelled execution ${this.id}`)
+  }
+
+  /**
+   * Update tab IDs for this execution
+   */
+  updateTabIds(tabIds: number[]): void {
+    this.options.tabIds = tabIds
+    
+    // Update browser context if it exists
+    if (this.browserContext) {
+      // BrowserContext would handle updating its tab connections
+      Logging.log('Execution', `Updated tab IDs for execution ${this.id}: [${tabIds.join(', ')}]`)
+    }
   }
 
   /**

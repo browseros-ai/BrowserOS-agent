@@ -33,7 +33,7 @@ export class PortMessaging {
   private listeners: Map<MessageType, Array<(payload: unknown, messageId?: string) => void>> = new Map();
   private connectionListeners: Array<(connected: boolean) => void> = [];
   private connected = false;
-  private currentPortName: PortName | null = null;
+  private currentPortName: PortName | string | null = null;  // Allow dynamic names
   private heartbeatInterval: number | null = null;
   private heartbeatIntervalMs = 5000;  // Send heartbeat every 5 seconds
   private autoReconnect = false;
@@ -54,11 +54,11 @@ export class PortMessaging {
 
   /**
    * Connects to a port with the specified name
-   * @param portName - Name of the port to connect to
+   * @param portName - Name of the port to connect to (can be PortName enum or dynamic string)
    * @param enableAutoReconnect - Whether to automatically reconnect on disconnect
    * @returns true if connection successful
    */
-  public connect(portName: PortName, enableAutoReconnect: boolean = false): boolean {
+  public connect(portName: PortName | string, enableAutoReconnect: boolean = false): boolean {
     try {
       this.currentPortName = portName;
       this.autoReconnect = enableAutoReconnect;
