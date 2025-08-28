@@ -1,8 +1,13 @@
 import { Message, PubSubEvent, SubscriptionCallback, Subscription, ExecutionStatus, HumanInputRequest, HumanInputResponse } from './types'
+import { PubSubHub } from './PubSubHub'
+import { PubSubChannel } from './PubSubChannel'
 
 /**
  * Core pub-sub implementation for message passing
  * Handles publish/subscribe pattern with message buffering
+ * 
+ * NOTE: This now acts as a facade over PubSubHub for backwards compatibility.
+ * New code should use PubSubHub.getChannel(executionId) directly.
  */
 export class PubSub {
   private static instance: PubSub | null = null
@@ -10,19 +15,31 @@ export class PubSub {
   private messageBuffer: PubSubEvent[] = []  // Simple buffer for replay
   
   private readonly MAX_BUFFER_SIZE = 200  // Max messages to keep
+  private defaultChannel: PubSubChannel | null = null  // Lazy-loaded default channel
 
   private constructor() {}
 
-  // Singleton pattern
+  // Singleton pattern (facade over default channel)
   static getInstance(): PubSub {
     if (!PubSub.instance) {
       PubSub.instance = new PubSub()
     }
     return PubSub.instance
   }
+  
+  // Get or create the default channel for backwards compatibility
+  private getDefaultChannel(): PubSubChannel {
+    if (!this.defaultChannel) {
+      this.defaultChannel = PubSubHub.getDefaultChannel()
+    }
+    return this.defaultChannel
+  }
 
-  // Publish a message
+  // Publish a message (delegates to default channel)
   publishMessage(message: Message): void {
+    this.getDefaultChannel().publishMessage(message)
+    
+    // Also maintain local buffer for legacy subscribers
     const event: PubSubEvent = {
       type: 'message',
       payload: message
@@ -30,8 +47,11 @@ export class PubSub {
     this._publish(event)
   }
 
-  // Publish execution status with optional message
+  // Publish execution status with optional message (delegates to default channel)
   publishExecutionStatus(status: 'running' | 'done' | 'cancelled' | 'error', message?: string): void {
+    this.getDefaultChannel().publishExecutionStatus(status, message)
+    
+    // Also maintain local buffer for legacy subscribers
     const event: PubSubEvent = {
       type: 'execution-status',
       payload: {
@@ -43,8 +63,11 @@ export class PubSub {
     this._publish(event)
   }
 
-  // Publish human input request
+  // Publish human input request (delegates to default channel)
   publishHumanInputRequest(request: HumanInputRequest): void {
+    this.getDefaultChannel().publishHumanInputRequest(request)
+    
+    // Also maintain local buffer for legacy subscribers
     const event: PubSubEvent = {
       type: 'human-input-request',
       payload: request
@@ -52,8 +75,11 @@ export class PubSub {
     this._publish(event)
   }
 
-  // Publish human input response (called from UI)
+  // Publish human input response (delegates to default channel)
   publishHumanInputResponse(response: HumanInputResponse): void {
+    this.getDefaultChannel().publishHumanInputResponse(response)
+    
+    // Also maintain local buffer for legacy subscribers
     const event: PubSubEvent = {
       type: 'human-input-response',
       payload: response
