@@ -160,18 +160,6 @@ export class Execution {
     Logging.log('Execution', `Cancelled execution ${this.id}`)
   }
 
-  /**
-   * Update tab IDs for this execution
-   */
-  updateTabIds(tabIds: number[]): void {
-    this.options.tabIds = tabIds
-    
-    // Update browser context if it exists
-    if (this.browserContext) {
-      // BrowserContext would handle updating its tab connections
-      Logging.log('Execution', `Updated tab IDs for execution ${this.id}: [${tabIds.join(', ')}]`)
-    }
-  }
 
   /**
    * Reset conversation history for a fresh start

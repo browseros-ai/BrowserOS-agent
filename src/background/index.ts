@@ -12,7 +12,6 @@ import { PortManager } from './router/PortManager'
 import { ExecutionHandler } from './handlers/ExecutionHandler'
 import { ProvidersHandler } from './handlers/ProvidersHandler'
 import { MCPHandler } from './handlers/MCPHandler'
-import { TabsHandler } from './handlers/TabsHandler'
 import { PlanHandler } from './handlers/PlanHandler'
 
 /**
@@ -35,7 +34,6 @@ const portManager = new PortManager()
 const executionHandler = new ExecutionHandler()
 const providersHandler = new ProvidersHandler()
 const mcpHandler = new MCPHandler()
-const tabsHandler = new TabsHandler()
 const planHandler = new PlanHandler()
 
 // Side panel state per tab
@@ -115,31 +113,6 @@ function registerHandlers(): void {
     (msg, port) => mcpHandler.handleGetInstalledServers(msg, port)
   )
   
-  // Tab handlers
-  messageRouter.registerHandler(
-    MessageType.GET_ACTIVE_TAB,
-    (msg, port) => tabsHandler.handleGetActiveTab(msg, port)
-  )
-  
-  messageRouter.registerHandler(
-    MessageType.GET_ALL_TABS,
-    (msg, port) => tabsHandler.handleGetAllTabs(msg, port)
-  )
-  
-  messageRouter.registerHandler(
-    MessageType.UPDATE_TABS,
-    (msg, port, execId) => tabsHandler.handleUpdateTabs(msg, port, execId)
-  )
-  
-  messageRouter.registerHandler(
-    MessageType.FOCUS_TAB,
-    (msg, port) => tabsHandler.handleFocusTab(msg, port)
-  )
-  
-  messageRouter.registerHandler(
-    MessageType.CLOSE_TAB,
-    (msg, port) => tabsHandler.handleCloseTab(msg, port)
-  )
   
   // Plan handlers
   messageRouter.registerHandler(
@@ -388,7 +361,6 @@ if (isDevelopmentMode()) {
       execution: executionHandler,
       providers: providersHandler,
       mcp: mcpHandler,
-      tabs: tabsHandler,
       plan: planHandler
     }
   }
