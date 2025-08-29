@@ -98,9 +98,12 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
           content: pubsubMessage.content,
           timestamp: new Date(pubsubMessage.ts)
         }
-        return { messages: updated, error: null }
+        return { 
+          messages: updated, 
+          error: null
+          // Don't change isProcessing when updating existing messages
+        }
       } else {
-        // Add new message
         const newMessage: Message = {
           msgId: pubsubMessage.msgId,
           content: pubsubMessage.content,
@@ -110,7 +113,8 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
         }
         return { 
           messages: [...state.messages, newMessage],
-          error: null
+          error: null,
+          isProcessing: true  // Only set processing when adding new messages
         }
       }
     })

@@ -116,20 +116,6 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const submitTask = (query: string) => {
     if (!query.trim()) return
     
-    if (!uiConnected) {
-      // Show error message in chat
-      const msg = !connectionOk
-        ? 'Cannot send message: Extension is disconnected'
-        : 'Cannot send message: Provider not configured'
-      upsertMessage({ 
-        msgId: `error_${Date.now()}`,
-        role: 'error', 
-        content: msg,
-        ts: Date.now()
-      })
-      return
-    }
-    
     // Add user message via upsert
     upsertMessage({
       msgId: `user_${Date.now()}`,
@@ -287,15 +273,11 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   )
   
   const getPlaceholder = () => {
-    if (!connectionOk) return 'Disconnected'
-    if (!providerOk) return 'Provider error'
     if (isProcessing) return 'Task running…'
     return chatMode ? 'Ask about this page...' : 'Ask me anything... (/ to pick an agent)'
   }
   
   const getHintText = () => {
-    if (!connectionOk) return 'Waiting for connection'
-    if (!providerOk) return 'Provider not configured'
     if (isProcessing) return 'Task running… Press Esc to cancel'
     return chatMode 
       ? 'Chat mode is for simple Q&A • @ to select tabs • Press Enter to send'
@@ -382,7 +364,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholder()}
-              disabled={!uiConnected}
+              disabled={isProcessing}
               className={cn(
                 'max-h-[200px] resize-none pr-16 text-sm w-full',
                 'bg-background/80 backdrop-blur-sm border-2 border-brand/30',
@@ -392,13 +374,13 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
                 'rounded-2xl shadow-lg',
                 'px-3 py-2',
                 'transition-all duration-300 ease-out',
-                 !uiConnected && 'opacity-50 cursor-not-allowed bg-muted'
+                 isProcessing && 'opacity-50 cursor-not-allowed bg-muted'
               )}
               rows={1}
               aria-label="Chat message input"
               aria-describedby="input-hint"
-               aria-invalid={!uiConnected}
-              aria-disabled={!uiConnected}
+               aria-invalid={isProcessing}
+              aria-disabled={isProcessing}
               />
 
               {/* Slash command palette overlay */}
@@ -454,7 +436,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
               <Button
                 type="submit"
-                disabled={!uiConnected || isProcessing || !input.trim()}
+                disabled={isProcessing || !input.trim()}
                 size="sm"
                 className="absolute right-3 bottom-3 h-8 w-8 p-0 rounded-full bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center justify-center"
                 variant={'default'}

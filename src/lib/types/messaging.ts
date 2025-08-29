@@ -37,7 +37,9 @@ export enum MessageType {
   GET_PLAN_HISTORY = 'GET_PLAN_HISTORY',
   // Logging
   LOG_MESSAGE = 'LOG_MESSAGE',
-  LOG_METRIC = 'LOG_METRIC'
+  LOG_METRIC = 'LOG_METRIC',
+  // Execution context management
+  SWITCH_EXECUTION_CONTEXT = 'SWITCH_EXECUTION_CONTEXT'
 }
 
 // Create a zod enum for MessageType
@@ -185,6 +187,21 @@ export const CancelTaskMessageSchema = MessageSchema.extend({
 })
 
 export type CancelTaskMessage = z.infer<typeof CancelTaskMessageSchema>
+
+/**
+ * Switch execution context message schema
+ * Used to tell sidepanel to reconnect with a new executionId
+ */
+export const SwitchExecutionContextMessageSchema = MessageSchema.extend({
+  type: z.literal(MessageType.SWITCH_EXECUTION_CONTEXT),
+  payload: z.object({
+    executionId: z.string(),  // New execution ID to switch to
+    tabId: z.number(),  // Tab ID associated with this execution
+    cancelExisting: z.boolean().default(true)  // Whether to cancel existing execution
+  })
+})
+
+export type SwitchExecutionContextMessage = z.infer<typeof SwitchExecutionContextMessageSchema>
 
 /**
  * Close panel message schema

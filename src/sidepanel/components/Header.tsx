@@ -20,7 +20,7 @@ const MCP_FEATURE_ENABLED = true
 
 interface HeaderProps {
   onReset: () => void
-  showReset: boolean
+  showReset: boolean  // This now means "has messages to reset"
   isProcessing: boolean
 }
 
@@ -308,7 +308,35 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             </div>
           )}
 
-          {/* Settings button - Third position */}
+          {/* Show Pause button if processing */}
+          {isProcessing && (
+            <Button
+              onClick={handleCancel}
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-300"
+              aria-label="Pause current task"
+              title="Pause"
+            >
+              <Pause className="w-4 h-4" />
+            </Button>
+          )}
+          
+          {/* Show Reset button if has messages */}
+          {showReset && (
+            <Button
+              onClick={handleReset}
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-xl hover:bg-orange-100 dark:hover:bg-orange-900/20 hover:text-orange-600 dark:hover:text-orange-400 transition-all duration-300"
+              aria-label="Reset conversation"
+              title="Reset"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          )}
+
+          {/* Settings button - Last position (rightmost) */}
           <Button
             onClick={handleSettingsClick}
             variant="ghost"
@@ -318,41 +346,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           >
             <Settings className="w-4 h-4" />
           </Button>
-
-          {/* Experiment Modal - renders its own button */}
-          {/* <ExperimentModal
-            trackClick={trackClick}
-            sendMessage={sendMessage}
-            addMessageListener={addMessageListener}
-            removeMessageListener={removeMessageListener}
-            isProcessing={isProcessing}
-          /> */}  {/* Commented out - old evals system deprecated */}
-
-          {isProcessing && (
-            <Button
-              onClick={handleCancel}
-              variant="ghost"
-              size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
-              aria-label="Pause current task"
-            >
-              <Pause className="w-4 h-4" />
-              Pause
-            </Button>
-          )}
-          
-          {showReset && !isProcessing && (
-            <Button
-              onClick={handleReset}
-              variant="ghost"
-              size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
-              aria-label="Reset conversation"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </Button>
-          )}
         </nav>
 
         {/* Settings Modal */}

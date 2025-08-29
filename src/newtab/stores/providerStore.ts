@@ -203,8 +203,9 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
               }
             })
             
-            // Close port after sending message
-            setTimeout(() => port.disconnect(), 100)
+            // Keep port open longer to receive response
+            // It will auto-disconnect when page unloads or after timeout
+            setTimeout(() => port.disconnect(), 5000)
           } catch (error) {
             console.error('Failed to open sidepanel with query:', error)
           }
@@ -258,8 +259,9 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
             }
           })
           
-          // Close port after sending message
-          setTimeout(() => port.disconnect(), 100)
+          // Keep port open longer to receive response
+          // It will auto-disconnect when page unloads or after timeout
+          setTimeout(() => port.disconnect(), 5000)
         } catch (error) {
           console.error('Failed to execute agent:', error)
         }

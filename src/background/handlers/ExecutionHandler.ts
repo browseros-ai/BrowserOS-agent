@@ -32,11 +32,25 @@ export class ExecutionHandler {
     // Use executionId from port or generate default
     const execId = executionId || 'default'
     
-    // If source is newtab, open sidepanel for the tab
+    // If source is newtab, notify sidepanel to switch context and open it
     if (metadata?.source === 'newtab') {
       const tabId = tabIds?.[0]
       if (tabId) {
         try {
+          // Send context switch message via chrome.runtime.sendMessage
+          // The sidepanel will listen for this and reconnect with new executionId
+          chrome.runtime.sendMessage({
+            type: MessageType.SWITCH_EXECUTION_CONTEXT,
+            payload: {
+              executionId: execId,
+              tabId: tabId,
+              cancelExisting: true
+            }
+          }).catch(() => {
+            // No listeners yet, that's fine - sidepanel might not be open
+          })
+          
+          // Open sidepanel
           await chrome.sidePanel.open({ tabId })
           // Give sidepanel time to initialize
           await new Promise(resolve => setTimeout(resolve, 300))
