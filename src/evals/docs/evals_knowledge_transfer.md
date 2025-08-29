@@ -17,12 +17,12 @@
 
 - **Offline evals**:
   - Iterations using a fixed dataset of inputs/scores
-  - Previous implentation ideas included unit, integration, e2e testing
+  - Previous implementation ideas included unit, integration, e2e testing
 - **Online evals**:
   - Collected automatically while you run the agent during development
   - Leverages tracing, real e2e data
 
-I concluded to use development-only **online** evals for this project because we can capture real, end‑to‑end behavior. While offline evals was the initial plan for a foundation, I have found it not useful as we do not want to mock our agent execution/context.
+I concluded to use development-only **online** evals for this project because we can capture real, end‑to‑end behavior. While offline evals were the initial plan for a foundation, I have found it not useful as we do not want to mock our agent execution/context.
 
 
 ## Why Braintrust?
@@ -37,7 +37,7 @@ Braintrust gives us:
 - **Side‑by‑side experiment comparisons** (baseline vs. new) with diffs and scores  
   ![Comparison](./screenshots/Comparison.png)
 
-- **Storage of experiments** compare iterations of experiments  
+- **Storage of experiments** to compare iterations of experiments  
   ![Experiment](./screenshots/Experiment.png)
 
 
