@@ -143,6 +143,7 @@ export class Execution {
       return
     }
 
+
     // Send pause message to the user
     if (this.pubsub) {
       this.pubsub.publishMessage({
@@ -153,8 +154,9 @@ export class Execution {
       })
     }
     
-    // Abort the current execution
-    this.currentAbortController.abort()
+    // Abort the current execution with reason
+    const abortReason = { userInitiated: true, message: 'User cancelled execution' }
+    this.currentAbortController.abort(abortReason)
     this.currentAbortController = null
     
     Logging.log('Execution', `Cancelled execution ${this.id}`)
@@ -168,7 +170,8 @@ export class Execution {
   reset(): void {
     // Cancel current execution if running
     if (this.currentAbortController) {
-      this.currentAbortController.abort()
+    const abortReason = { userInitiated: true, message: 'User cancelled execution' }
+      this.currentAbortController.abort(abortReason)
       this.currentAbortController = null
     }
 

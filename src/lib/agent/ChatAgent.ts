@@ -132,9 +132,23 @@ export class ChatAgent {
       Logging.log('ChatAgent', 'Q&A response completed')
       
     } catch (error) {
-      if (error instanceof AbortError) {
-        Logging.log('ChatAgent', 'Execution aborted by user')
-        // Don't publish message here - already handled in _subscribeToExecutionStatus
+      // Check if this is a user cancellation - handle silently
+      const isAbortError = error instanceof Error && error.name === 'AbortError'
+      const abortReason = this.executionContext.abortSignal.reason as any
+      const isUserInitiated = abortReason?.userInitiated === true
+      
+      const isUserCancellation = error instanceof AbortError || 
+                                 this.executionContext.isUserCancellation() || 
+                                 (isAbortError && isUserInitiated)
+      
+      if (isUserCancellation) {
+        // User-initiated cancellation - don't rethrow, let execution end gracefully
+        Logging.log('ChatAgent', 'Execution cancelled by user')
+        return  // Don't rethrow
+      } else if (isAbortError) {
+        // System abort (not user-initiated) - still throw
+        Logging.log('ChatAgent', 'Execution aborted by system')
+        throw error
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error)
         const errorType = error instanceof Error ? error.name : 'UnknownError'
@@ -150,8 +164,8 @@ export class ChatAgent {
         
         Logging.log('ChatAgent', `Execution failed: ${errorMessage}`, 'error')
         this.pubsub.publishMessage(PubSub.createMessage(`Error: ${errorMessage}`, 'error'))
+        throw error
       }
-      throw error
     }
   }
 
