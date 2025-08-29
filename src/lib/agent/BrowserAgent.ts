@@ -77,7 +77,8 @@ import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
-import { HumanInputResponse } from '@/lib/pubsub/types';
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel';
+import { HumanInputResponse, PubSubEvent } from '@/lib/pubsub/types';
 import { Logging } from '@/lib/utils/Logging';
 import { jsonParseToolOutput } from '@/lib/utils/utils';
 
@@ -149,7 +150,7 @@ export class BrowserAgent {
     return this.executionContext.messageManager; 
   }
   
-  private get pubsub(): PubSub { 
+  private get pubsub(): PubSubChannel { 
     return this.executionContext.getPubSub(); 
   }
 
@@ -158,7 +159,7 @@ export class BrowserAgent {
    * Use this for manual abort checks inside loops.
    */
   private checkIfAborted(): void {
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError();
     }
   }
@@ -331,7 +332,6 @@ export class BrowserAgent {
       
       if (parsedResult.ok) {
         const classification = parsedResult.output;
-        // Tool end notification not needed in new pub-sub system
         // Tool end notification not needed in new pub-sub system
         return { 
           is_simple_task: classification.is_simple_task,
@@ -563,7 +563,7 @@ export class BrowserAgent {
 
     const llmWithTools = llm.bindTools(this.toolManager.getAll());
     const stream = await llmWithTools.stream(message_history, {
-      signal: this.executionContext.abortController.signal
+      signal: this.executionContext.abortSignal
     });
     
     let accumulatedChunk: AIMessageChunk | undefined;
@@ -857,13 +857,22 @@ export class BrowserAgent {
    */
   private _handleExecutionError(error: unknown, task: string): void {
     // Check if this is a user cancellation - handle silently
+    const isAbortError = error instanceof Error && error.name === 'AbortError';
+    const abortReason = this.executionContext.abortSignal.reason as any;
+    const isUserInitiated = abortReason?.userInitiated === true;
+    
     const isUserCancellation = error instanceof AbortError || 
                                this.executionContext.isUserCancellation() || 
-                               (error instanceof Error && error.name === "AbortError");
+                               (isAbortError && isUserInitiated);
     
     if (isUserCancellation) {
-      // Don't publish message here - already handled in _subscribeToExecutionStatus
-      // when the cancelled status event is received
+      // User-initiated cancellation - don't rethrow, let execution end gracefully
+      Logging.log('BrowserAgent', 'Execution cancelled by user');
+      return;  // Don't rethrow
+    } else if (isAbortError) {
+      // System abort (not user-initiated) - still throw
+      Logging.log('BrowserAgent', 'Execution aborted by system');
+      throw error;
     } else {
       // Log error metric with details
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -965,7 +974,7 @@ export class BrowserAgent {
     }
     
     // Subscribe to human input responses
-    const subscription = this.pubsub.subscribe((event) => {
+    const subscription = this.pubsub.subscribe((event: PubSubEvent) => {
       if (event.type === 'human-input-response') {
         const response = event.payload as HumanInputResponse;
         if (response.requestId === requestId) {

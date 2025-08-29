@@ -10,7 +10,7 @@ interface HumanInputRequest {
 
 export function useMessageHandler() {
   const { upsertMessage, setProcessing } = useChatStore()
-  const { addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
+  const { addMessageListener, removeMessageListener, executionId } = useSidePanelPortMessaging()
   const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null)
   
   const clearHumanInputRequest = useCallback(() => {
@@ -18,35 +18,43 @@ export function useMessageHandler() {
   }, [])
 
   const handleStreamUpdate = useCallback((payload: any) => {
-    // Check if this is a PubSub event
-    if (payload?.action === 'PUBSUB_EVENT') {
+    // Handle new architecture events (with executionId and event structure)
+    if (payload?.event) {
+      const event = payload.event
+      
       // Handle message events
-      if (payload.details?.type === 'message') {
-        const message = payload.details.payload as PubSubMessage
+      if (event.type === 'message') {
+        const message = event.payload as PubSubMessage
         
-        // Filter out narration messages, it's disbled
+        // Filter out narration messages, it's disabled
         if (message.role === 'narration') {
           return 
         }
         
         upsertMessage(message)
-        
-        // Check for completion or error messages from agents
-        if (message.role === 'error') {
-          setProcessing(false)
-        }
       }
       
-      // Handle execution-status events
-      if (payload.details?.type === 'execution-status') {
-        const status = payload.details.payload.status
+      // Handle human-input-request events
+      if (event.type === 'human-input-request') {
+        const request = event.payload
+        setHumanInputRequest({
+          requestId: request.requestId,
+          prompt: request.prompt
+        })
+      }
+    }
+    // Legacy handler for old event structure (for backward compatibility during transition)
+    else if (payload?.action === 'PUBSUB_EVENT') {
+      // Handle message events
+      if (payload.details?.type === 'message') {
+        const message = payload.details.payload as PubSubMessage
         
-        // Set processing based on status
-        if (status === 'running') {
-          setProcessing(true)
-        } else if (status === 'done' || status === 'cancelled' || status === 'error') {
-          setProcessing(false)
+        // Filter out narration messages
+        if (message.role === 'narration') {
+          return 
         }
+        
+        upsertMessage(message)
       }
       
       // Handle human-input-request events
@@ -58,17 +66,34 @@ export function useMessageHandler() {
         })
       }
     }
-  }, [upsertMessage, setProcessing])
+  }, [upsertMessage])
+  
+  // Handle workflow status for processing state
+  const handleWorkflowStatus = useCallback((payload: any) => {
+    // Check if this is for our execution
+    if (payload?.executionId && payload.executionId !== executionId) {
+      return // Ignore messages for other executions
+    }
+    
+    if (payload?.status === 'success' || payload?.status === 'error') {
+      // Execution completed (success or error)
+      setProcessing(false)
+    }
+    // Note: We still let ChatInput set processing(true) when sending query
+    // This avoids race conditions and provides immediate UI feedback
+  }, [executionId, setProcessing])
   
   useEffect(() => {
-    // Register listener for PubSub events only
+    // Register listeners
     addMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
+    addMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
     
     // Cleanup
     return () => {
       removeMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
+      removeMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
     }
-  }, [addMessageListener, removeMessageListener, handleStreamUpdate])
+  }, [addMessageListener, removeMessageListener, handleStreamUpdate, handleWorkflowStatus])
   
   return {
     humanInputRequest,

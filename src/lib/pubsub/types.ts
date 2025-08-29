@@ -10,15 +10,6 @@ export const MessageSchema = z.object({
 
 export type Message = z.infer<typeof MessageSchema>
 
-// Execution status
-export const ExecutionStatusSchema = z.object({
-  status: z.enum(['running', 'done', 'cancelled', 'error']),  // Current execution state
-  ts: z.number(),  // Timestamp when status changed
-  message: z.string().optional(),  // Optional message (e.g., error details)
-})
-
-export type ExecutionStatus = z.infer<typeof ExecutionStatusSchema>
-
 // Human input request/response schemas
 export const HumanInputRequestSchema = z.object({
   requestId: z.string(),  // Unique request identifier
@@ -67,10 +58,6 @@ export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('message'),
     payload: MessageSchema
-  }),
-  z.object({
-    type: z.literal('execution-status'),
-    payload: ExecutionStatusSchema
   }),
   z.object({
     type: z.literal('human-input-request'),
