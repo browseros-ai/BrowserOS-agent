@@ -5,7 +5,7 @@ import { MessageType } from '@/lib/types/messaging'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
-import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2 } from 'lucide-react'
+import { Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
 import { z } from 'zod'
@@ -40,7 +40,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   const [installedServers, setInstalledServers] = useState<any[]>([])
   const { theme } = useSettingsStore()
   
-  
   const handleCancel = () => {
     trackClick('pause_task')
     sendMessage(MessageType.CANCEL_TASK, {
@@ -65,9 +64,9 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
     setShowSettings(true)
   }
 
-  const handleHelpClick = () => {
-    trackClick('open_help')
-    setShowHelp(true)
+  const handleStarClick = () => {
+    trackClick('github_star')
+    window.open(GITHUB_REPO_URL, '_blank', 'noopener,noreferrer')
   }
 
   const handleMCPInstall = (serverId: string) => {
@@ -212,16 +211,18 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         
 
 
-        <nav className="flex items-center gap-3" role="navigation" aria-label="Chat controls">
-          {/* Help button - First position */}
+        <nav className="flex items-center gap-2 sm:gap-3" role="navigation" aria-label="Chat controls">
+          {/* GitHub Star button - First position */}
           <Button
-            onClick={handleHelpClick}
+            onClick={handleStarClick}
             variant="ghost"
             size="sm"
-            className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
-            aria-label="Open help"
+            className="h-9 px-2 sm:px-3 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20 hover:text-yellow-600 dark:hover:text-yellow-400 transition-all duration-300 flex items-center gap-1.5 group"
+            aria-label="Star on GitHub"
+            title="Star us on GitHub"
           >
-            <HelpCircle className="w-4 h-4" />
+            <Star className="w-4 h-4 group-hover:fill-current" />
+            <span className="hidden sm:inline text-xs font-medium">Star</span>
           </Button>
 
           {/* MCP Integrations dropdown - Second position */}
@@ -239,7 +240,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               </Button>
               
               {showMCPDropdown && (
-                <div className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50">
+                <div className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg bg-background border border-border z-50">
                   <div className="py-1">
                     {MCP_SERVERS.map((server) => {
                       // Check if this server is installed
@@ -249,7 +250,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                       return (
                         <div
                           key={server.id}
-                          className="flex items-center justify-between w-full px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="flex items-center justify-between w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
                         >
                           <div className="flex items-center gap-2">
                             <img 
@@ -291,7 +292,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                             ) : (
                               <button
                                 onClick={() => handleMCPInstall(server.id)}
-                                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                className="text-xs text-muted-foreground hover:text-foreground"
                               >
                                 Connect
                               </button>
@@ -322,7 +323,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               onClick={handleCancel}
               variant="ghost"
               size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300"
+              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
               aria-label="Pause current task"
             >
               <Pause className="w-4 h-4" />
@@ -348,6 +349,10 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         <SettingsModal 
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
+          onOpenHelp={() => {
+            setShowSettings(false)
+            setShowHelp(true)
+          }}
         />
       </header>
 

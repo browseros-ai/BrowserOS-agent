@@ -1,14 +1,31 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { PortMessaging, PortName } from '@/lib/runtime/PortMessaging'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { PortMessaging } from '@/lib/runtime/PortMessaging'
 import { MessageType } from '@/lib/types/messaging'
 
 /**
  * Custom hook for managing port messaging specifically for the side panel.
- * Uses SIDEPANEL_TO_BACKGROUND port name to distinguish from options page messaging.
+ * Uses dynamic port naming with executionId to support multiple concurrent executions.
  */
 export function useSidePanelPortMessaging() {
   const messagingRef = useRef<PortMessaging | null>(null)
   const [connected, setConnected] = useState<boolean>(false)
+  // sidepanel triggered tab id
+  const [triggeredTabId, setTriggeredTabId] = useState<number | null>(null)
+  
+  // Generate a unique executionId for this sidepanel instance
+  // Using useMemo ensures it's stable across renders but unique per mount
+  const executionId = useMemo(() => {
+    // Check if we already have an executionId in sessionStorage (for reconnection)
+    const stored = sessionStorage.getItem('executionId')
+    if (stored) {
+      return stored
+    }
+    
+    // Generate new executionId
+    const newId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    sessionStorage.setItem('executionId', newId)
+    return newId
+  }, [])
   
   // Get the global singleton instance
   if (!messagingRef.current) {
@@ -19,22 +36,48 @@ export function useSidePanelPortMessaging() {
     const messaging = messagingRef.current
     if (!messaging) return
 
-    // Set up connection listener
-    const handleConnectionChange = (isConnected: boolean) => {
-      setConnected(isConnected)
+    // Get the current tab ID
+    const initializeConnection = async () => {
+      try {
+        // Get the current active tab
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (activeTab?.id) {
+          setTriggeredTabId(activeTab.id)
+          
+          // Set up connection listener
+          const handleConnectionChange = (isConnected: boolean) => {
+            setConnected(isConnected)
+          }
+
+          messaging.addConnectionListener(handleConnectionChange)
+
+          // Connect to background script using dynamic port name with tabId and executionId
+          const dynamicPortName = `sidepanel:${activeTab.id}:${executionId}`
+          const success = messaging.connect(dynamicPortName, true)
+          
+          if (!success) {
+            console.error(`[SidePanelPortMessaging] Failed to connect with tabId: ${activeTab.id}, executionId: ${executionId}`)
+          } else {
+            console.log(`[SidePanelPortMessaging] Connected with tabId: ${activeTab.id}, executionId: ${executionId}`)
+          }
+        } else {
+          console.error('[SidePanelPortMessaging] Could not get active tab ID')
+        }
+      } catch (error) {
+        console.error('[SidePanelPortMessaging] Error getting tab info:', error)
+      }
     }
 
-    messaging.addConnectionListener(handleConnectionChange)
-
-    // Connect to background script using sidepanel port name
-    const success = messaging.connect(PortName.SIDEPANEL_TO_BACKGROUND, true)
-    if (!success) {
-      console.warn('[SidePanelPortMessaging] Failed to connect to background script')
-    }
+    initializeConnection()
 
     // Cleanup on unmount: remove listener but keep the global connection alive
     return () => {
-      messaging.removeConnectionListener(handleConnectionChange)
+      const messaging = messagingRef.current
+      if (messaging) {
+        messaging.removeConnectionListener((isConnected: boolean) => {
+          setConnected(isConnected)
+        })
+      }
     }
   }, [])
 
@@ -75,6 +118,8 @@ export function useSidePanelPortMessaging() {
 
   return {
     connected,
+    executionId,  // Expose executionId for components to use
+    tabId: triggeredTabId,  // Expose tabId for components to know which tab they're connected to
     sendMessage,
     addMessageListener,
     removeMessageListener

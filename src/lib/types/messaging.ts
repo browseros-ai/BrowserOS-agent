@@ -4,14 +4,8 @@ import { z } from 'zod'
  * Message types for extension communication
  */
 export enum MessageType {
-  NAVIGATE = 'NAVIGATE',
-  CLICK = 'CLICK',
-  EXTRACT = 'EXTRACT',
   LOG = 'LOG',
-  CONTENT_READY = 'CONTENT_READY',
-  EXECUTE_WORKFLOW = 'EXECUTE_WORKFLOW',
   WORKFLOW_STATUS = 'WORKFLOW_STATUS',
-  CONNECTION_STATUS = 'CONNECTION_STATUS',
   EXECUTE_QUERY = 'EXECUTE_QUERY',
   HEARTBEAT = 'HEARTBEAT',
   HEARTBEAT_ACK = 'HEARTBEAT_ACK',
@@ -19,16 +13,10 @@ export enum MessageType {
   CANCEL_TASK = 'CANCEL_TASK',
   CLOSE_PANEL = 'CLOSE_PANEL',
   RESET_CONVERSATION = 'RESET_CONVERSATION',
-  GET_TABS = 'GET_TABS',
-  GET_TAB_HISTORY = 'GET_TAB_HISTORY',
   GET_LLM_PROVIDERS = 'GET_LLM_PROVIDERS',
   SAVE_LLM_PROVIDERS = 'SAVE_LLM_PROVIDERS',
-  INTENT_PREDICTION_UPDATED = 'INTENT_PREDICTION_UPDATED',
-  INTENT_BUBBLES_SHOW = 'INTENT_BUBBLES_SHOW',
-  INTENT_BUBBLE_CLICKED = 'INTENT_BUBBLE_CLICKED',
   GLOW_START = 'GLOW_START',
   GLOW_STOP = 'GLOW_STOP',
-  EXECUTE_QUERY_FROM_NEWTAB = 'EXECUTE_QUERY_FROM_NEWTAB',
   MCP_INSTALL_SERVER = 'MCP_INSTALL_SERVER',
   MCP_SERVER_STATUS = 'MCP_SERVER_STATUS',
   MCP_GET_INSTALLED_SERVERS = 'MCP_GET_INSTALLED_SERVERS',
@@ -36,7 +24,19 @@ export enum MessageType {
   HUMAN_INPUT_RESPONSE = 'HUMAN_INPUT_RESPONSE',
   GENERATE_PLAN = 'GENERATE_PLAN',
   REFINE_PLAN = 'REFINE_PLAN',
-  PLAN_GENERATION_UPDATE = 'PLAN_GENERATION_UPDATE'
+  PLAN_GENERATION_UPDATE = 'PLAN_GENERATION_UPDATE',
+  // MCP related
+  GET_MCP_SERVERS = 'GET_MCP_SERVERS',
+  CONNECT_MCP_SERVER = 'CONNECT_MCP_SERVER',
+  DISCONNECT_MCP_SERVER = 'DISCONNECT_MCP_SERVER',
+  CALL_MCP_TOOL = 'CALL_MCP_TOOL',
+  // Plan management  
+  GET_CURRENT_PLAN = 'GET_CURRENT_PLAN',
+  UPDATE_PLAN = 'UPDATE_PLAN',
+  GET_PLAN_HISTORY = 'GET_PLAN_HISTORY',
+  // Logging
+  LOG_MESSAGE = 'LOG_MESSAGE',
+  LOG_METRIC = 'LOG_METRIC'
 }
 
 // Create a zod enum for MessageType
@@ -52,29 +52,6 @@ export const MessageSchema = z.object({
 
 export type Message = z.infer<typeof MessageSchema>
 
-/**
- * Navigation message schema
- */
-export const NavigateMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.NAVIGATE),
-  payload: z.object({
-    url: z.string()
-  })
-})
-
-export type NavigateMessage = z.infer<typeof NavigateMessageSchema>
-
-/**
- * Click message schema
- */
-export const ClickMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.CLICK),
-  payload: z.object({
-    selector: z.string()
-  })
-})
-
-export type ClickMessage = z.infer<typeof ClickMessageSchema>
 
 /**
  * Log message schema
@@ -91,30 +68,6 @@ export const LogMessageSchema = MessageSchema.extend({
 
 export type LogMessage = z.infer<typeof LogMessageSchema>
 
-/**
- * Content ready message schema
- */
-export const ContentReadyMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.CONTENT_READY),
-  payload: z.object({
-    url: z.string(),
-    title: z.string()
-  })
-})
-
-export type ContentReadyMessage = z.infer<typeof ContentReadyMessageSchema>
-
-/**
- * Execute workflow message schema
- */
-export const ExecuteWorkflowMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.EXECUTE_WORKFLOW),
-  payload: z.object({
-    dsl: z.string()
-  })
-})
-
-export type ExecuteWorkflowMessage = z.infer<typeof ExecuteWorkflowMessageSchema>
 
 /**
  * Workflow status message schema
@@ -137,18 +90,6 @@ export const WorkflowStatusMessageSchema = MessageSchema.extend({
 
 export type WorkflowStatusMessage = z.infer<typeof WorkflowStatusMessageSchema>
 
-/**
- * Connection status message schema
- */
-export const ConnectionStatusMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.CONNECTION_STATUS),
-  payload: z.object({
-    connected: z.boolean(),
-    port: z.string().optional()
-  })
-})
-
-export type ConnectionStatusMessage = z.infer<typeof ConnectionStatusMessageSchema>
 
 /**
  * Execution metadata schema for query execution
@@ -269,72 +210,7 @@ export const ResetConversationMessageSchema = MessageSchema.extend({
 
 export type ResetConversationMessage = z.infer<typeof ResetConversationMessageSchema>
 
-/**
- * Get tabs message schema
- */
-export const GetTabsMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.GET_TABS),
-  payload: z.object({
-    currentWindowOnly: z.boolean().default(true)  // Whether to get tabs from current window only
-  })
-})
 
-export type GetTabsMessage = z.infer<typeof GetTabsMessageSchema>
-
-/**
- * Get tab history message schema
- */
-export const GetTabHistoryMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.GET_TAB_HISTORY),
-  payload: z.object({
-    tabId: z.number(),  // Tab ID to get history for
-    limit: z.number().optional().default(5)  // Number of history entries to return
-  })
-})
-
-export type GetTabHistoryMessage = z.infer<typeof GetTabHistoryMessageSchema>
-
-/**
- * Intent prediction updated message schema
- */
-export const IntentPredictionUpdatedMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.INTENT_PREDICTION_UPDATED),
-  payload: z.object({
-    tabId: z.number(),  // Tab ID the predictions are for
-    url: z.string(),  // URL of the page
-    intents: z.array(z.string()),  // Predicted intents
-    confidence: z.number().optional(),  // Confidence score
-    timestamp: z.number(),  // When prediction was made
-    error: z.string().optional()  // Error message if prediction failed
-  })
-})
-
-export type IntentPredictionUpdatedMessage = z.infer<typeof IntentPredictionUpdatedMessageSchema>
-
-/**
- * Intent bubbles show message schema
- */
-export const IntentBubblesShowMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.INTENT_BUBBLES_SHOW),
-  payload: z.object({
-    intents: z.array(z.string()),
-    confidence: z.number().optional()
-  })
-})
-
-export type IntentBubblesShowMessage = z.infer<typeof IntentBubblesShowMessageSchema>
-
-/**
- * Intent bubble clicked message schema
- */
-export const IntentBubbleClickedMessageSchema = MessageSchema.extend({
-  type: z.literal(MessageType.INTENT_BUBBLE_CLICKED),
-  payload: z.object({
-    intent: z.string()
-  })
-})
-
-export type IntentBubbleClickedMessage = z.infer<typeof IntentBubbleClickedMessageSchema>
 
 /**
  * Glow start message schema
@@ -425,13 +301,8 @@ export type PlanGenerationUpdateMessage = z.infer<typeof PlanGenerationUpdateMes
  * Union of all message types
  */
 export const ExtensionMessageSchema = z.discriminatedUnion('type', [
-  NavigateMessageSchema,
-  ClickMessageSchema,
   LogMessageSchema,
-  ContentReadyMessageSchema,
-  ExecuteWorkflowMessageSchema,
   WorkflowStatusMessageSchema,
-  ConnectionStatusMessageSchema,
   ExecuteQueryMessageSchema,
   HeartbeatMessageSchema,
   HeartbeatAckMessageSchema,
@@ -439,11 +310,6 @@ export const ExtensionMessageSchema = z.discriminatedUnion('type', [
   CancelTaskMessageSchema,
   ClosePanelMessageSchema,
   ResetConversationMessageSchema,
-  GetTabsMessageSchema,
-  GetTabHistoryMessageSchema,
-  IntentPredictionUpdatedMessageSchema,
-  IntentBubblesShowMessageSchema,
-  IntentBubbleClickedMessageSchema,
   GlowStartMessageSchema,
   GlowStopMessageSchema,
   GeneratePlanMessageSchema,

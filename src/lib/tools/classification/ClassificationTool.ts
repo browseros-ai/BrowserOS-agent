@@ -67,7 +67,7 @@ export class ClassificationTool {
         structuredLLM,
         messages,
         3,
-        { signal: this.executionContext.abortController.signal }
+        { signal: this.executionContext.abortSignal }
       )
       this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Task classified as ${result.is_simple_task ? 'simple' : 'complex'} and ${result.is_followup_task ? 'follow-up' : 'new'}`, 'thinking'))
       

@@ -75,8 +75,10 @@ import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
-import { HumanInputResponse } from '@/lib/pubsub/types';
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel';
+import { HumanInputResponse, PubSubEvent } from '@/lib/pubsub/types';
 import { Logging } from '@/lib/utils/Logging';
+import { jsonParseToolOutput } from '@/lib/utils/utils';
 
 // Type Definitions
 interface Plan {
@@ -145,7 +147,7 @@ export class BrowserAgent {
     return this.executionContext.messageManager; 
   }
   
-  private get pubsub(): PubSub { 
+  private get pubsub(): PubSubChannel { 
     return this.executionContext.getPubSub(); 
   }
 
@@ -154,7 +156,7 @@ export class BrowserAgent {
    * Use this for manual abort checks inside loops.
    */
   private checkIfAborted(): void {
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError();
     }
   }
@@ -318,10 +320,10 @@ export class BrowserAgent {
     try {
       // Tool start notification not needed in new pub-sub system
       const result = await classificationTool.func(args);
-      const parsedResult = JSON.parse(result);
-
+      const parsedResult = jsonParseToolOutput(result);
+      
       if (parsedResult.ok) {
-        const classification = JSON.parse(parsedResult.output);
+        const classification = parsedResult.output;
         // Tool end notification not needed in new pub-sub system
         return {
           is_simple_task: classification.is_simple_task,
@@ -419,7 +421,7 @@ export class BrowserAgent {
       let currentTodos = '';
       if (todoTool) {
         const result = await todoTool.func({ action: 'get' });
-        const parsedResult = JSON.parse(result);
+        const parsedResult = jsonParseToolOutput(result);
         currentTodos = parsedResult.output || '';
         this.pubsub.publishMessage(PubSub.createMessage(currentTodos, 'thinking'));
       }
@@ -479,7 +481,7 @@ export class BrowserAgent {
         // Update currentTodos for the next iteration
         if (todoTool) {
           const result = await todoTool.func({ action: 'get' });
-          const parsedResult = JSON.parse(result);
+          const parsedResult = jsonParseToolOutput(result);
           currentTodos = parsedResult.output || '';
         }
       }
@@ -552,7 +554,7 @@ export class BrowserAgent {
 
     const llmWithTools = llm.bindTools(this.toolManager.getAll());
     const stream = await llmWithTools.stream(message_history, {
-      signal: this.executionContext.abortController.signal
+      signal: this.executionContext.abortSignal
     });
 
     let accumulatedChunk: AIMessageChunk | undefined;
@@ -617,8 +619,8 @@ export class BrowserAgent {
       await this._maybeStartGlowAnimation(toolName);
 
       const toolResult = await tool.func(args);
-      const parsedResult = JSON.parse(toolResult);
-
+      const parsedResult = jsonParseToolOutput(toolResult);
+      
 
       // Add the result back to the message history for context
       if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
@@ -670,8 +672,8 @@ export class BrowserAgent {
 
     // Tool start for planner - not needed
     const result = await plannerTool.func(args);
-    const parsedResult = JSON.parse(result);
-
+    const parsedResult = jsonParseToolOutput(result);
+    
     // Check for errors first
     if (!parsedResult.ok) {
       // Throw with actual error from tool
@@ -706,18 +708,18 @@ export class BrowserAgent {
     try {
       // Tool start for validator - not needed
       const result = await validatorTool.func(args);
-      const parsedResult = JSON.parse(result);
-
+      const parsedResult = jsonParseToolOutput(result);
+      
       // Publish validator result
       if (parsedResult.ok) {
-        const validationData = JSON.parse(parsedResult.output);
+        const validationData = parsedResult.output;
         const status = validationData.isComplete ? 'Complete' : 'Incomplete';
         this.pubsub.publishMessage(PubSub.createMessage(`Task validation: ${status}`, 'thinking'));
       }
 
       if (parsedResult.ok) {
-        // Parse the validation data from output
-        const validationData = JSON.parse(parsedResult.output);
+        // Use the validation data from output
+        const validationData = parsedResult.output;
         return {
           isComplete: validationData.isComplete,
           reasoning: validationData.reasoning,
@@ -748,8 +750,8 @@ export class BrowserAgent {
     try {
       const args = { task };
       const result = await resultTool.func(args);
-      const parsedResult = JSON.parse(result);
-
+      const parsedResult = jsonParseToolOutput(result);
+      
       if (parsedResult.ok && parsedResult.output) {
         const { message } = parsedResult.output;
         this.pubsub.publishMessage(PubSub.createMessage(message, 'assistant'));
@@ -785,13 +787,22 @@ export class BrowserAgent {
    */
   private _handleExecutionError(error: unknown, task: string): void {
     // Check if this is a user cancellation - handle silently
+    const isAbortError = error instanceof Error && error.name === 'AbortError';
+    const abortReason = this.executionContext.abortSignal.reason as any;
+    const isUserInitiated = abortReason?.userInitiated === true;
+    
     const isUserCancellation = error instanceof AbortError || 
                                this.executionContext.isUserCancellation() || 
-                               (error instanceof Error && error.name === "AbortError");
+                               (isAbortError && isUserInitiated);
     
     if (isUserCancellation) {
-      // Don't publish message here - already handled in _subscribeToExecutionStatus
-      // when the cancelled status event is received
+      // User-initiated cancellation - don't rethrow, let execution end gracefully
+      Logging.log('BrowserAgent', 'Execution cancelled by user');
+      return;  // Don't rethrow
+    } else if (isAbortError) {
+      // System abort (not user-initiated) - still throw
+      Logging.log('BrowserAgent', 'Execution aborted by system');
+      throw error;
     } else {
       // Log error metric with details
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -893,7 +904,7 @@ export class BrowserAgent {
     }
     
     // Subscribe to human input responses
-    const subscription = this.pubsub.subscribe((event) => {
+    const subscription = this.pubsub.subscribe((event: PubSubEvent) => {
       if (event.type === 'human-input-response') {
         const response = event.payload as HumanInputResponse;
         if (response.requestId === requestId) {

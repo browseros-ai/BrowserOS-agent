@@ -29,7 +29,7 @@ Keep todos single-level without nesting.`,
     schema: TodoInputSchema,
     func: async (args: TodoInput): Promise<string> => {
       try {
-        let resultMessage = 'Success'
+        const resultMessage = 'Success'
         
         switch (args.action) {
           case 'set':

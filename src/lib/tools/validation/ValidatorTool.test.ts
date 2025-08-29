@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createValidatorTool } from './ValidatorTool'
 import { MessageManager } from '@/lib/runtime/MessageManager'
+import { jsonParseToolOutput } from '@/lib/utils/utils'
 
 describe('ValidatorTool-unit-test', () => {
   let mockExecutionContext: any
@@ -12,10 +13,12 @@ describe('ValidatorTool-unit-test', () => {
   beforeEach(() => {
     // Create mock instances
     mockMessageManager = new MessageManager()
+    // Mock getMaxTokens to return a high value for screenshot tests
+    vi.spyOn(mockMessageManager, 'getMaxTokens').mockReturnValue(200000)
     
-    // Mock page with screenshot functionality
+    // Mock page with screenshot functionality (now returns full data URL)
     mockPage = {
-      takeScreenshot: vi.fn().mockResolvedValue('mockScreenshotBase64String')
+      takeScreenshot: vi.fn().mockResolvedValue('data:image/jpeg;base64,mockScreenshotBase64String')
     }
     
     // Mock browser context methods
@@ -43,7 +46,11 @@ describe('ValidatorTool-unit-test', () => {
     mockExecutionContext = {
       getLLM: vi.fn().mockResolvedValue(mockLLM),
       messageManager: mockMessageManager,
-      browserContext: mockBrowserContext
+      browserContext: mockBrowserContext,
+      getPubSub: vi.fn().mockReturnValue({
+        publishMessage: vi.fn()
+      }),
+      abortController: new AbortController()
     }
     
     // Add some message history
@@ -67,20 +74,20 @@ describe('ValidatorTool-unit-test', () => {
     
     const tool = createValidatorTool(mockExecutionContext)
     const result = await tool.func({ task: 'Submit the form' })
-    const parsedResult = JSON.parse(result)
+    const parsedResult = jsonParseToolOutput(result)
     
     expect(parsedResult.ok).toBe(false)
-    expect(parsedResult.output).toContain('Validation failed: LLM service unavailable')
+    expect(parsedResult.output).toContain('LLM service unavailable')
   })
 
   it('tests that the tool returns isComplete field in output', async () => {
     const tool = createValidatorTool(mockExecutionContext)
     const result = await tool.func({ task: 'Submit the form' })
-    const parsedResult = JSON.parse(result)
+    const parsedResult = jsonParseToolOutput(result)
     
     expect(parsedResult.ok).toBe(true)
     
-    const validationData = JSON.parse(parsedResult.output)
+    const validationData = parsedResult.output
     expect(validationData).toHaveProperty('isComplete')
     expect(validationData.isComplete).toBe(true)  // Based on our mock
     expect(validationData).toHaveProperty('reasoning')
@@ -118,7 +125,7 @@ describe('ValidatorTool-unit-test', () => {
     const humanMessage = messages[1]
     const humanMessageContent = humanMessage.content as string
     
-    // Check that screenshot was included in correct format
+    // Check that screenshot was included (now as complete data URL from takeScreenshot)
     expect(humanMessageContent).toContain('data:image/jpeg;base64,mockScreenshotBase64String')
     
     // Check that message history was included (from setup)
@@ -136,7 +143,7 @@ describe('ValidatorTool-unit-test', () => {
     
     const tool = createValidatorTool(mockExecutionContext)
     const result = await tool.func({ task: 'Navigate to checkout page' })
-    const parsedResult = JSON.parse(result)
+    const parsedResult = jsonParseToolOutput(result)
     
     // Should still succeed even if screenshot fails
     expect(parsedResult.ok).toBe(true)
@@ -169,7 +176,7 @@ describe('ValidatorTool-unit-test', () => {
     
     const tool = createValidatorTool(mockExecutionContext)
     const result = await tool.func({ task: 'Navigate to checkout page' })
-    const parsedResult = JSON.parse(result)
+    const parsedResult = jsonParseToolOutput(result)
     
     // Should still succeed even if no current page
     expect(parsedResult.ok).toBe(true)
@@ -221,20 +228,20 @@ describe('ValidatorTool-integration-test', () => {
       const { ExecutionContext } = await import('@/lib/runtime/ExecutionContext')
       const { MessageManager } = await import('@/lib/runtime/MessageManager')
       const { BrowserContext } = await import('@/lib/browser/BrowserContext')
-      const { EventBus } = await import('@/lib/events')
+      const { PubSub } = await import('@/lib/pubsub')
       
       // Setup
       const messageManager = new MessageManager()
       const browserContext = new BrowserContext()
       const abortController = new AbortController()
-      const eventBus = new EventBus()
+      const pubSub = new PubSub()
       
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus
+        pubSub
       })
       
       // Mock page with screenshot capability
@@ -297,10 +304,10 @@ Typeable elements:
         task: 'Order toothpaste from Amazon'
       })
       
-      const parsedResult = JSON.parse(result)
+      const parsedResult = jsonParseToolOutput(result)
       expect(parsedResult.ok).toBe(true)
       
-      const validationData = JSON.parse(parsedResult.output)
+      const validationData = parsedResult.output
       
       // Should NOT be complete - item is in cart but not ordered
       expect(validationData.isComplete).toBe(false)

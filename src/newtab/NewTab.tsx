@@ -3,6 +3,7 @@ import { CommandInput } from './components/CommandInput'
 import { ThemeToggle } from './components/ThemeToggle'
 import { SettingsDialog } from './components/SettingsDialog'
 import { CreateAgentPage } from './pages/CreateAgentPage'
+import { UserAgentsSection } from './components/UserAgentsSection'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useAgentsStore } from './stores/agentsStore'
 import { Settings } from 'lucide-react'
@@ -65,7 +66,7 @@ export function NewTab() {
       </div>
       
       {/* Main Content - Centered (slightly above center for better visual balance) */}
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="w-full max-w-3xl px-4 -mt-20">
           {/* BrowserOS Branding */}
           <div className="flex items-center justify-center mb-10">
@@ -82,6 +83,9 @@ export function NewTab() {
           {/* Command Input - Clean and Centered */}
           <CommandInput onCreateAgent={() => setCurrentView('create-agent')} />
         </div>
+        
+        {/* User Agents Section - Shows up to 4 random agents */}
+        <UserAgentsSection onEditAgent={() => setCurrentView('create-agent')} />
       </div>
       
       {/* Settings Dialog */}
