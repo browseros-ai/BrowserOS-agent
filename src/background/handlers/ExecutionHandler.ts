@@ -3,10 +3,11 @@ import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { ExecutionManager } from '@/lib/execution/ExecutionManager'
 import { Logging } from '@/lib/utils/Logging'
 import { PubSub } from '@/lib/pubsub'
+import { getExecutionId } from '@/lib/utils/executionUtils'
 
 /**
  * Handles execution-related messages:
- * - EXECUTE_QUERY: Start a new query execution
+ * - EXECUTE_QUERY: Start a new query execution (opens sidepanel if source is 'newtab')
  * - CANCEL_TASK: Cancel running execution
  * - RESET_CONVERSATION: Reset execution state
  */
@@ -26,10 +27,25 @@ export class ExecutionHandler {
     executionId?: string
   ): Promise<void> {
     const payload = message.payload as ExecuteQueryMessage['payload']
-    const { query, tabIds, source, chatMode, metadata } = payload
+    const { query, tabIds, chatMode, metadata } = payload
     
     // Use executionId from port or generate default
     const execId = executionId || 'default'
+    
+    // If source is newtab, open sidepanel for the tab
+    if (metadata?.source === 'newtab') {
+      const tabId = tabIds?.[0]
+      if (tabId) {
+        try {
+          await chrome.sidePanel.open({ tabId })
+          // Give sidepanel time to initialize
+          await new Promise(resolve => setTimeout(resolve, 300))
+        } catch (sidepanelError) {
+          Logging.log('ExecutionHandler', 
+            `Could not open sidepanel for tab ${tabId}: ${sidepanelError}`, 'warning')
+        }
+      }
+    }
     
     Logging.log('ExecutionHandler', 
       `Starting execution ${execId}: "${query}" (mode: ${chatMode ? 'chat' : 'browse'})`)
@@ -37,7 +53,7 @@ export class ExecutionHandler {
     // Log metrics
     Logging.logMetric('query_initiated', {
       query,
-      source: source || metadata?.source || 'unknown',
+      source: metadata?.source || 'unknown',
       mode: chatMode ? 'chat' : 'browse',
       executionMode: metadata?.executionMode || 'dynamic',
     })
@@ -204,6 +220,26 @@ export class ExecutionHandler {
     } else {
       Logging.log('ExecutionHandler', 
         `No execution found for human input response: ${execId}`, 'warning')
+    }
+  }
+
+  /**
+   * Clean up execution for a closed tab
+   */
+  async cleanupTabExecution(tabId: number): Promise<void> {
+    const execId = await getExecutionId(tabId)
+    
+    const execution = this.executionManager.get(execId)
+    if (execution) {
+      Logging.log('ExecutionHandler', `Cleaning up execution ${execId} for closed tab ${tabId}`)
+      
+      // Cancel if running
+      if (execution.isRunning()) {
+        execution.cancel()
+      }
+      
+      // Delete the execution
+      await this.executionManager.delete(execId)
     }
   }
 

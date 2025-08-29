@@ -1,5 +1,5 @@
 import { MessageType } from '@/lib/types/messaging'
-import { parsePortName } from '@/background/utils/portUtils'
+import { parsePortName } from '@/lib/utils/portUtils'
 import { isDevelopmentMode } from '@/config'
 import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
 import { z } from 'zod'

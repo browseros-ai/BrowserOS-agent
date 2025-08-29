@@ -2,7 +2,7 @@ import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
 import { isDevelopmentMode } from '@/config'
-import { parsePortName } from './utils/portUtils'
+import { parsePortName } from '@/lib/utils/portUtils'
 
 // Import router and managers
 import { MessageRouter } from './router/MessageRouter'
@@ -339,11 +339,14 @@ function initialize(): void {
   })
   
   // Clean up on tab removal
-  chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.tabs.onRemoved.addListener(async (tabId) => {
     // Clean up tab-specific panel state
     tabPanelState.delete(tabId)
-    // Handlers can clean up tab-specific resources
-    Logging.log('Background', `Tab ${tabId} removed, cleaned up panel state`)
+    
+    // Clean up tab execution
+    await executionHandler.cleanupTabExecution(tabId)
+    
+    Logging.log('Background', `Tab ${tabId} removed, cleaned up panel state and execution`)
   })
   
   Logging.log('Background', 'Nxtscape extension initialized successfully')

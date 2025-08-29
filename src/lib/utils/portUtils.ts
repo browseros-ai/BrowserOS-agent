@@ -12,8 +12,8 @@ export interface PortInfo {
 /**
  * Parse port name to extract structured information
  * 
- * Port name formats:
- * - sidepanel:<tabId>:<executionId>
+ * Port name formats (executionId is always tab_<tabId>):
+ * - sidepanel:<executionId>
  * - newtab:<executionId>
  * - options:<executionId>
  * 
@@ -26,33 +26,38 @@ export function parsePortName(portName: string): PortInfo {
     raw: portName
   }
 
-  // Check for sidepanel with dynamic format
+  // Check for sidepanel
   if (portName.startsWith('sidepanel:')) {
     const parts = portName.split(':')
     result.type = 'sidepanel'
     
-    // Format: sidepanel:tabId:executionId
-    if (parts.length >= 3) {
-      const tabId = parseInt(parts[1])
-      if (!isNaN(tabId)) {
-        result.tabId = tabId
-      }
-      result.executionId = parts[2]
-    }
-    // Format without tabId: sidepanel:executionId (shouldn't happen but handle gracefully)
-    else if (parts.length === 2) {
+    if (parts.length >= 2) {
       result.executionId = parts[1]
+      // Extract tabId from executionId if it's in tab_<id> format
+      if (parts[1].startsWith('tab_')) {
+        const tabId = parseInt(parts[1].slice(4))
+        if (!isNaN(tabId)) {
+          result.tabId = tabId
+        }
+      }
     }
   }
-  // Check for newtab with dynamic format
+  // Check for newtab with executionId (tab_<tabId>)
   else if (portName.startsWith('newtab:')) {
     const parts = portName.split(':')
     result.type = 'newtab'
     if (parts.length >= 2) {
       result.executionId = parts[1]
+      // Extract tabId from executionId if it's in tab_<id> format
+      if (parts[1].startsWith('tab_')) {
+        const tabId = parseInt(parts[1].slice(4))
+        if (!isNaN(tabId)) {
+          result.tabId = tabId
+        }
+      }
     }
   }
-  // Check for options with dynamic format
+  // Check for options
   else if (portName.startsWith('options:')) {
     const parts = portName.split(':')
     result.type = 'options'
@@ -66,26 +71,17 @@ export function parsePortName(portName: string): PortInfo {
 
 /**
  * Create a port name with the given parameters
+ * Note: executionId should be in format tab_<tabId> for tab-scoped executions
  * 
  * @param type - The type of port
- * @param executionId - Execution ID (required)
- * @param tabId - Optional tab ID (for sidepanel only)
+ * @param executionId - Execution ID (should be tab_<tabId> for tab contexts)
  * @returns Formatted port name
  */
 export function createPortName(
   type: 'sidepanel' | 'newtab' | 'options',
-  executionId: string,
-  tabId?: number
+  executionId: string
 ): string {
-  if (type === 'sidepanel' && tabId) {
-    return `sidepanel:${tabId}:${executionId}`
-  }
-  if (type === 'sidepanel') {
-    // This shouldn't happen - sidepanel should always have tabId
-    console.warn('Creating sidepanel port without tab ID')
-    return `sidepanel:${executionId}`
-  }
-  
-  // For newtab and options
+  // Simple format: type:executionId
+  // Since executionId already contains tab info (tab_123), no need for redundancy
   return `${type}:${executionId}`
 }

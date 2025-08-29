@@ -1,7 +1,7 @@
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
-import { parsePortName } from '../utils/portUtils'
+import { parsePortName } from '@/lib/utils/portUtils'
 
 // Handler function type
 export type MessageHandler = (

@@ -4,7 +4,7 @@ import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { PubSub } from '@/lib/pubsub'
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { Subscription } from '@/lib/pubsub/types'
-import { parsePortName } from '../utils/portUtils'
+import { parsePortName } from '@/lib/utils/portUtils'
 
 // Port info stored for each connection
 interface PortInfo {

@@ -115,10 +115,9 @@ export const ExecuteQueryMessageSchema = MessageSchema.extend({
   type: z.literal(MessageType.EXECUTE_QUERY),
   payload: z.object({
     query: z.string(),
-    tabIds: z.array(z.number()).optional(),  // Selected tab IDs for context
-    source: z.string().optional(),  // Source of the query (e.g., 'sidepanel')
-    chatMode: z.boolean().optional(),  // Whether to use ChatAgent (Q&A mode) instead of BrowserAgent
-    metadata: ExecutionMetadataSchema.optional()  // Execution metadata
+    tabIds: z.array(z.number()).optional(),
+    chatMode: z.boolean().optional(),
+    metadata: ExecutionMetadataSchema.optional()
   })
 })
 
