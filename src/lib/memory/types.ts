@@ -132,18 +132,3 @@ export interface AgentMemoryContext {
   }>;
 }
 
-// Memory events for coordination
-export interface MemoryEvent {
-  type:
-    | "memory_added"
-    | "memory_updated"
-    | "memory_deleted"
-    | "memory_searched";
-  data: {
-    entryId?: string;
-    category?: MemoryCategory;
-    agentId: string;
-    tabId?: number;
-    timestamp: Date;
-  };
-}

@@ -8,13 +8,13 @@
 // Core components
 export { MemoryManager } from './MemoryManager';
 export { Mem0ClientWrapper } from './Mem0ClientWrapper';
-export { MemoryEventBus } from './MemoryEventBus';
+import { Logging } from '@/lib/utils/Logging'
 
 // Import for factory functions
 import { MemoryManager } from './MemoryManager';
 
 // Types and schemas
-export type { MemoryEntry, MemoryMetadata, MemorySearchParams, MemorySearchResult, MemoryOperationResult, MemoryConfig, MemoryStats, TaskContext, AgentMemoryContext, MemoryEvent } from './types';
+export type { MemoryEntry, MemoryMetadata, MemorySearchParams, MemorySearchResult, MemoryOperationResult, MemoryConfig, MemoryStats, TaskContext, AgentMemoryContext } from './types';
 
 export { MemoryCategory, MemoryEntrySchema, MemoryMetadataSchema, MemorySearchParamsSchema, MemoryStatsSchema, MemoryConfigSchema } from './types';
 
@@ -61,7 +61,7 @@ export async function initializeMemorySystem(apiKey?: string, agentId?: string):
     await memoryManager.initialize();
     return memoryManager;
   } catch (error) {
-    console.warn('Failed to initialize memory system:', error);
+    Logging.log('MemorySystem', `Failed to initialize memory system: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return null;
   }
 }

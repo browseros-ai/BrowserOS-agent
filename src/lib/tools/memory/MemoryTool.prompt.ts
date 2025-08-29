@@ -102,7 +102,7 @@ You have access to a persistent memory system for task continuity and learning a
 ### 🎯 MEMORY ACTIVATION TRIGGERS:
 **AUTOMATIC TRIGGERS** - Use memory tool when you encounter these patterns:
 - User says: "save", "store", "remember", "recall", "what did I", "my preferences", "last time", "before", "previously"
-- User asks: "continue where I left off", "use my usual settings", "what was that thing I searched for"
+- User asks: "continue where I left off", "use my usual settings", "what was that thing I searched for", "show me my saved items", "what you know about me", etc.
 - User mentions: "bookmark this", "keep this for later", "I need this information again"
 - Tasks involving: user preferences, repeated patterns, multi-step workflows, cross-tab context
 - When you find: important information that could be useful later, user-specific details, successful patterns

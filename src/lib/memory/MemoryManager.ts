@@ -1,7 +1,7 @@
 import { MemoryEntry, MemoryMetadata, MemorySearchParams, MemorySearchResult, MemoryOperationResult, MemoryConfig, MemoryStats, MemoryCategory, TaskContext, AgentMemoryContext } from './types';
 import { Mem0ClientWrapper } from './Mem0ClientWrapper';
-import { MemoryEventBus } from './MemoryEventBus';
 import { v4 as uuidv4 } from 'uuid';
+import { Logging } from '@/lib/utils/Logging'
 
 /**
  * MemoryManager - Central orchestrator for the memory system
@@ -11,26 +11,14 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export class MemoryManager {
   private mem0Client: Mem0ClientWrapper;
-  private eventBus: MemoryEventBus;
   private config: MemoryConfig;
   private agentId: string;
   private sessionId: string;
 
   constructor(apiKey?: string, config: Partial<MemoryConfig> = {}, agentId: string = 'default') {
     this.mem0Client = new Mem0ClientWrapper(apiKey);
-    this.eventBus = new MemoryEventBus();
     this.agentId = agentId;
     this.sessionId = uuidv4();
-
-    this.eventBus.subscribe((event) => {
-      console.log('🧠 Memory Event:', {
-        type: event.type,
-        agentId: event.data.agentId,
-        category: event.data.category,
-        tabId: event.data.tabId,
-        timestamp: event.data.timestamp.toISOString()
-      });
-    });
 
     // Merge with default config
     this.config = {
@@ -89,13 +77,7 @@ export class MemoryManager {
           updatedAt: new Date()
         };
 
-        this.eventBus.emit('memory_added', {
-          entryId: memoryEntry.id,
-          category: fullMetadata.category,
-          agentId: this.agentId,
-          tabId: fullMetadata.tabId,
-          timestamp: new Date()
-        });
+        Logging.log('MemoryManager', `Memory added successfully: ${memoryEntry.id}`);
 
         return {
           success: true,
@@ -131,16 +113,11 @@ export class MemoryManager {
 
       const result = await this.mem0Client.searchMemories(searchParams);
 
-      this.eventBus.emit('memory_searched', {
-        category: searchParams.category,
-        agentId: this.agentId,
-        tabId: searchParams.tabId,
-        timestamp: new Date()
-      });
+      Logging.log('MemoryManager', `Memory search completed: ${searchParams.query}`);
 
       return result;
     } catch (error) {
-      console.error('Memory search failed:', error);
+      Logging.log('MemoryManager', `Memory search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return { entries: [], total: 0, hasMore: false };
     }
   }
@@ -320,18 +297,12 @@ export class MemoryManager {
     return this.agentId;
   }
 
-  /**
-   * Subscribe to memory events
-   */
-  onMemoryEvent(callback: (event: any) => void): void {
-    this.eventBus.subscribe(callback);
-  }
 
   /**
    * Cleanup old memories based on retention policy
    */
   async cleanup(): Promise<void> {
-    if (!this.config.autoCleanup) {
+        if (!this.config.autoCleanup) {
       return;
     }
 
