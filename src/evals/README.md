@@ -77,9 +77,9 @@ npm run build:dev
 
 ### 4. Tag Logs in Braintrust
 
-1. Navigate to [Braintrust Dashboard](https://app.braintrust.dev)
+1. Navigate to [Braintrust Dashboard](https://www.braintrust.dev/)
 2. Open project: `browseros-agent-online`
-3. Select logs you want as test cases
+3. Go to 'Logs' and identify logs you want as test cases
 4. Add tag: `v1` (or any descriptive tag name)
 
 ### 5. Run Experiment
@@ -98,28 +98,28 @@ npm run build:dev
 
 ```
 ┌─────────────────────────── EVALUATION SYSTEM FLOW ───────────────────────────┐
-│                                                                               │
+│                                                                              │
 │  User Query → NxtScape → BrowserAgent → Tool Execution                       │
 │       ↓           ↓            ↓              ↓                              │
 │  Start Session  Init      Tool Wrapping   Execute & Track                    │
 │       ↓       Telemetry        ↓              ↓                              │
 │       └───────────┴────────────┴──────────────┘                              │
-│                        ↓                                                      │
+│                        ↓                                                     │
 │           BraintrustEventCollector (Singleton)                               │
-│                        ↓                                                      │
+│                        ↓                                                     │
 │              [Telemetry Session Span]                                        │
-│                   /    |    \                                                 │
+│                   /    |    \                                                │
 │              task_1  task_2  task_3...                                       │
 │                ↓       ↓       ↓                                             │
 │            [Tool Spans with Metrics]                                         │
-│                        ↓                                                      │
+│                        ↓                                                     │
 │              LLM Judge Scoring                                               │
 │            (6 Quality Dimensions)                                            │
-│                        ↓                                                      │
+│                        ↓                                                     │
 │              Braintrust Dashboard                                            │
 │             (Logs & Experiments)                                             │
-│                                                                               │
-└───────────────────────────────────────────────────────────────────────────────┘
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Directory Structure
@@ -187,7 +187,7 @@ if (this.experimentId && BRAINTRUST_API_KEY) {
 }
 ```
 
-### Hybrid Architecture Design
+### ExperimentRunner Hybrid Architecture Design
 
 To avoid webpack chunk conflicts, we use a hybrid approach:
 
@@ -251,12 +251,12 @@ The evaluation system automatically wraps all tools with telemetry tracking:
 
 The evaluation system uses a **dual logging approach** to eliminate duplicate LLM scoring:
 
-**Normal Usage (No Experiment)**
+**Normal Logging Usage (Not active Experiment)**
 - NxtScape created without `experimentId`
 - Scores once → goes to logs only (initLogger)
 - No experiment data created
 
-**During Experiments**
+**During an active Experiment**
 - NxtScape created with `experimentId: v2ExperimentId`
 - Scores once → logs to BOTH:
   - Telemetry (initLogger) - for monitoring
@@ -300,7 +300,7 @@ agent_session (parent span)
 
 #### 2. **Create Test Dataset**
 As a developer, curate your test cases:
-- Open [Braintrust dashboard](https://app.braintrust.dev)
+- Open [Braintrust dashboard](https://www.braintrust.dev/)
 - Browse logs in project `browseros-agent-online`
 - Select interesting/problematic cases
 - Tag them (e.g., `v1`, `baseline-navigation`, `error-cases`, `complex-tasks`)
@@ -436,18 +436,6 @@ The scorer builds a comprehensive context from `ExecutionContext`:
 | **Success** | Binary | Task completed (1) or not (0) | Pass/fail metric |
 | **Weighted Total** | Calculated | Weighted average of all dimensions | Overall quality score |
 
-### Score Interpretation
-
-- `0.90-1.00` = Excellent execution
-- `0.70-0.89` = Good with minor issues  
-- `0.50-0.69` = Acceptable but needs improvement
-- `0.30-0.49` = Poor execution
-- `0.00-0.29` = Failed badly
-
-### Visual Feedback
-
-Console logs use color coding:
-- **Purple** (#9c27b0) - LLM scoring output (single call, dual logged)
 
 
 ### Experiment Execution Flow
@@ -505,13 +493,6 @@ Log comparison URL to console
 | **LLM scoring** | ~2-3s per task | OpenAI API call |
 | **Experiment run** | ~30-60s per log | Full agent execution |
 | **API calls** | ~100-200ms each | Network latency |
-
-### Optimization Strategies
-
-1. **Limit test dataset size** - Use `maxLogs` parameter
-2. **Tag specific scenarios** - Don't test everything
-3. **Run experiments locally** - No production impact
-4. **Use cheaper scoring model** - `gpt-5-mini` or `gpt-5-nano` vs `gpt-5`
 
 ## Troubleshooting
 
