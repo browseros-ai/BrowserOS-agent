@@ -158,36 +158,13 @@ export class PortManager {
   }
 
 
-  /**
-   * Generate a unique ID for a port
-   */
+  // Generate a stable ID for a port 
   private generatePortId(port: chrome.runtime.Port): string {
-    // Use port name and sender info to create unique ID
-    const sender = port.sender
-    const tabId = sender?.tab?.id || 'notab'
-    const frameId = sender?.frameId || 0
-    return `${port.name}_${tabId}_${frameId}_${Date.now()}`
+    // Use port name as the stable ID since it already contains type and executionId
+    // Port names are unique per connection (e.g., "sidepanel:tab_123", "newtab:tab_123")
+    return port.name
   }
 
-  /**
-   * Get statistics
-   */
-  getStats(): {
-    totalPorts: number
-    executionCount: number
-    portsPerExecution: Record<string, number>
-  } {
-    const portsPerExecution: Record<string, number> = {}
-    for (const [execId, portSet] of this.executionPorts) {
-      portsPerExecution[execId] = portSet.size
-    }
-    
-    return {
-      totalPorts: this.ports.size,
-      executionCount: this.executionPorts.size,
-      portsPerExecution
-    }
-  }
 
   /**
    * Clean up all ports
