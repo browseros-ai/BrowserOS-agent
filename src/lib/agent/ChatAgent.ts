@@ -67,7 +67,7 @@ export class ChatAgent {
    * Check abort signal and throw if aborted
    */
   private _checkAborted(): void {
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError()
     }
   }

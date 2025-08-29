@@ -21,33 +21,19 @@ export const ExecutionOptionsSchema = z.object({
 
 export type ExecutionOptions = z.infer<typeof ExecutionOptionsSchema>
 
-// Execution state enum
-export enum ExecutionState {
-  CREATED = 'created',
-  INITIALIZING = 'initializing',
-  RUNNING = 'running',
-  CANCELLING = 'cancelling',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  DISPOSED = 'disposed'
-}
 
 /**
  * Represents a single, isolated execution instance.
- * Each execution has its own context, agents, and PubSub channel.
- * This replaces the singleton NxtScape pattern.
+ * Each execution has its own persistent conversation (MessageManager) and browser context.
+ * Fresh ExecutionContext and agents are created per run.
  */
 export class Execution {
   readonly id: string
-  private state: ExecutionState = ExecutionState.CREATED
   private browserContext: BrowserContext | null = null
-  private executionContext: ExecutionContext | null = null
   private messageManager: MessageManager | null = null
-  private browserAgent: BrowserAgent | null = null
-  private chatAgent: ChatAgent | null = null
   private pubsub: PubSubChannel | null = null
   private options: ExecutionOptions
-  private startTime: number = 0
+  private currentAbortController: AbortController | null = null
 
   constructor(options: ExecutionOptions, pubsub: PubSubChannel) {
     this.options = ExecutionOptionsSchema.parse(options)
@@ -57,49 +43,19 @@ export class Execution {
   }
 
   /**
-   * Initialize the execution environment
-   * Creates all necessary components for execution
+   * Ensure persistent resources are initialized
+   * Creates browser context and message manager if needed
    */
-  private async _initialize(): Promise<void> {
-    if (this.state !== ExecutionState.CREATED) {
-      throw new Error(`Cannot initialize execution in state ${this.state}`)
-    }
-
-    this.state = ExecutionState.INITIALIZING
-    
-    try {
-      // Create browser context (lightweight, no puppeteer)
+  private async _ensureInitialized(): Promise<void> {
+    if (!this.browserContext) {
       this.browserContext = new BrowserContext({
         useVision: true
       })
+    }
 
-      // Get model capabilities for token limits
+    if (!this.messageManager) {
       const modelCapabilities = await langChainProvider.getModelCapabilities()
-      const maxTokens = modelCapabilities.maxTokens
-
-      // Create message manager
-      this.messageManager = new MessageManager(maxTokens)
-
-      // Create execution context with executionId
-      this.executionContext = new ExecutionContext({
-        executionId: this.id,  // Pass execution ID
-        browserContext: this.browserContext,
-        messageManager: this.messageManager,
-        pubsub: this.pubsub,  // Pass scoped PubSub channel
-        debugMode: this.options.debug || false
-      })
-
-      // Create appropriate agent based on mode
-      if (this.options.mode === 'chat') {
-        this.chatAgent = new ChatAgent(this.executionContext)
-      } else {
-        this.browserAgent = new BrowserAgent(this.executionContext)
-      }
-
-      Logging.log('Execution', `Initialized execution ${this.id}`)
-    } catch (error) {
-      this.state = ExecutionState.FAILED
-      throw new Error(`Failed to initialize execution ${this.id}: ${error}`)
+      this.messageManager = new MessageManager(modelCapabilities.maxTokens)
     }
   }
 
@@ -109,13 +65,18 @@ export class Execution {
    * @param metadata - Optional execution metadata
    */
   async run(query: string, metadata?: ExecutionMetadata): Promise<void> {
-    // Initialize if not already done
-    if (this.state === ExecutionState.CREATED) {
-      await this._initialize()
+    // Cancel any current execution
+    if (this.currentAbortController) {
+      this.currentAbortController.abort()
+      this.currentAbortController = null
     }
 
-    this.state = ExecutionState.RUNNING
-    this.startTime = Date.now()
+    // Ensure persistent resources exist
+    await this._ensureInitialized()
+
+    // Create fresh abort controller for this run
+    this.currentAbortController = new AbortController()
+    const startTime = Date.now()
 
     try {
       // Lock to target tab if specified
@@ -123,37 +84,35 @@ export class Execution {
         this.browserContext.lockExecutionToTab(this.options.tabId)
       }
 
+      // Create fresh execution context with new abort signal
+      const executionContext = new ExecutionContext({
+        executionId: this.id,
+        browserContext: this.browserContext!,
+        messageManager: this.messageManager!,
+        pubsub: this.pubsub,
+        abortSignal: this.currentAbortController.signal,
+        debugMode: this.options.debug || false
+      })
+
       // Set selected tab IDs for context
-      if (this.executionContext) {
-        this.executionContext.setSelectedTabIds(this.options.tabIds || [])
-        this.executionContext.startExecution(this.options.tabId || 0)
-      }
+      executionContext.setSelectedTabIds(this.options.tabIds || [])
+      executionContext.startExecution(this.options.tabId || 0)
 
-      // Execution running
+      // Create fresh agent
+      const agent = this.options.mode === 'chat'
+        ? new ChatAgent(executionContext)
+        : new BrowserAgent(executionContext)
 
-      // Execute the appropriate agent
-      if (this.options.mode === 'chat' && this.chatAgent) {
-        await this.chatAgent.execute(query)
-      } else if (this.browserAgent) {
-        await this.browserAgent.execute(query, metadata || this.options.metadata)
-      } else {
-        throw new Error(`No agent available for mode ${this.options.mode}`)
-      }
+      // Execute
+      await agent.execute(query, metadata || this.options.metadata)
 
-      // Success
-      this.state = ExecutionState.COMPLETED
-
-      Logging.log('Execution', `Completed execution ${this.id} in ${Date.now() - this.startTime}ms`)
+      Logging.log('Execution', `Completed execution ${this.id} in ${Date.now() - startTime}ms`)
 
     } catch (error) {
-      this.state = ExecutionState.FAILED
-      
       const errorMessage = error instanceof Error ? error.message : String(error)
       const wasCancelled = error instanceof Error && error.name === 'AbortError'
 
-      if (wasCancelled) {
-        this.state = ExecutionState.CANCELLING
-      } else {
+      if (!wasCancelled) {
         this.pubsub?.publishMessage({
           msgId: `error_${this.id}`,
           content: `❌ Error: ${errorMessage}`,
@@ -164,22 +123,26 @@ export class Execution {
 
       throw error
     } finally {
-      // Always cleanup after execution
-      await this._cleanup()
+      // Clear abort controller after run completes
+      this.currentAbortController = null
+      
+      // Unlock browser context after each run
+      if (this.browserContext) {
+        await this.browserContext.unlockExecution()
+      }
     }
   }
 
   /**
-   * Cancel the execution
+   * Cancel the current execution
+   * Preserves message history for continuation
    */
   cancel(): void {
-    if (this.state !== ExecutionState.RUNNING) {
-      Logging.log('Execution', `Cannot cancel execution ${this.id} in state ${this.state}`)
+    if (!this.currentAbortController) {
+      Logging.log('Execution', `No active execution to cancel for ${this.id}`)
       return
     }
 
-    this.state = ExecutionState.CANCELLING
-    
     // Send pause message to the user
     if (this.pubsub) {
       this.pubsub.publishMessage({
@@ -190,9 +153,9 @@ export class Execution {
       })
     }
     
-    if (this.executionContext) {
-      this.executionContext.cancelExecution(true)  // User-initiated
-    }
+    // Abort the current execution
+    this.currentAbortController.abort()
+    this.currentAbortController = null
     
     Logging.log('Execution', `Cancelled execution ${this.id}`)
   }
@@ -211,107 +174,56 @@ export class Execution {
   }
 
   /**
-   * Reset conversation history while keeping execution alive
-   * Used for the RESET_CONVERSATION message
+   * Reset conversation history for a fresh start
+   * Cancels current execution and clears message history
    */
   reset(): void {
-    // Stop current task if running
-    if (this.state === ExecutionState.RUNNING && this.executionContext) {
-      this.executionContext.cancelExecution(false)  // Internal cleanup
+    // Cancel current execution if running
+    if (this.currentAbortController) {
+      this.currentAbortController.abort()
+      this.currentAbortController = null
     }
 
     // Clear message history
     this.messageManager?.clear()
 
-    // Reset execution context
-    this.executionContext?.reset()
-
     // Clear PubSub buffer
     this.pubsub?.clearBuffer()
-
-    // Recreate agents with fresh state
-    if (this.executionContext) {
-      this.browserAgent?.cleanup()
-      this.chatAgent?.cleanup()
-      
-      if (this.options.mode === 'chat') {
-        this.chatAgent = new ChatAgent(this.executionContext)
-      } else {
-        this.browserAgent = new BrowserAgent(this.executionContext)
-      }
-    }
-
-    this.state = ExecutionState.INITIALIZING
 
     Logging.log('Execution', `Reset execution ${this.id}`)
   }
 
-  /**
-   * Clean up execution resources
-   * @private
-   */
-  private async _cleanup(): Promise<void> {
-    // Clean up agents
-    this.browserAgent?.cleanup()
-    this.chatAgent?.cleanup()
-
-    // End execution context
-    if (this.executionContext) {
-      this.executionContext.endExecution()
-    }
-
-    // Unlock browser context
-    if (this.browserContext) {
-      await this.browserContext.unlockExecution()
-    }
-
-    Logging.log('Execution', `Cleaned up execution ${this.id}`)
-  }
 
   /**
    * Dispose of the execution completely
    * Called when execution is being removed from manager
    */
   async dispose(): Promise<void> {
-    if (this.state === ExecutionState.DISPOSED) {
-      return
-    }
-
     // Cancel if still running
-    if (this.state === ExecutionState.RUNNING) {
-      this.cancel()
+    if (this.currentAbortController) {
+      this.currentAbortController.abort()
+      this.currentAbortController = null
     }
 
-    // Cleanup all resources
-    await this._cleanup()
+    // Cleanup browser context
+    if (this.browserContext) {
+      await this.browserContext.cleanup()
+      this.browserContext = null
+    }
 
     // Clear all references
-    this.browserContext = null
-    this.executionContext = null
     this.messageManager = null
-    this.browserAgent = null
-    this.chatAgent = null
-    
-    // Note: Don't dispose pubsub here, let the manager handle it
     this.pubsub = null
-
-    this.state = ExecutionState.DISPOSED
     
     Logging.log('Execution', `Disposed execution ${this.id}`)
   }
 
-  /**
-   * Get the current state of the execution
-   */
-  getState(): ExecutionState {
-    return this.state
-  }
 
   /**
    * Check if execution is running
    */
   isRunning(): boolean {
-    return this.state === ExecutionState.RUNNING
+    return this.currentAbortController !== null
   }
 
   /**
@@ -319,17 +231,13 @@ export class Execution {
    */
   getStatus(): {
     id: string
-    state: ExecutionState
+    isRunning: boolean
     mode: 'chat' | 'browse'
-    startTime: number
-    duration: number
   } {
     return {
       id: this.id,
-      state: this.state,
-      mode: this.options.mode,
-      startTime: this.startTime,
-      duration: this.startTime ? Date.now() - this.startTime : 0
+      isRunning: this.isRunning(),
+      mode: this.options.mode
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Execution, ExecutionOptions, ExecutionState } from './Execution'
+import { Execution, ExecutionOptions } from './Execution'
 import { PubSub } from '@/lib/pubsub'
 import { Logging } from '@/lib/utils/Logging'
 
@@ -8,8 +8,8 @@ const DEFAULT_EXECUTION_ID = 'default'
 // Maximum concurrent executions allowed
 const MAX_CONCURRENT_EXECUTIONS = 10
 
-// Execution cleanup timeout (5 minutes)
-const EXECUTION_CLEANUP_TIMEOUT = 5 * 60 * 1000
+// Execution cleanup timeout (30 minutes)
+const EXECUTION_CLEANUP_TIMEOUT = 30 * 60 * 1000
 
 /**
  * Manages all active execution instances.
@@ -87,27 +87,6 @@ export class ExecutionManager {
   }
 
   /**
-   * Get or create an execution instance
-   * Useful for backwards compatibility with singleton pattern
-   * @param executionId - Execution identifier
-   * @param options - Options for creation if doesn't exist
-   * @returns The execution instance
-   */
-  getOrCreate(executionId: string, options?: Omit<ExecutionOptions, 'executionId'>): Execution {
-    let execution = this.get(executionId)
-    
-    if (!execution && options) {
-      execution = this.create(executionId, options)
-    }
-    
-    if (!execution) {
-      throw new Error(`Execution ${executionId} not found and no options provided to create`)
-    }
-    
-    return execution
-  }
-
-  /**
    * Delete an execution instance
    * @param executionId - Execution identifier to delete
    * @param immediate - If true, dispose immediately without cleanup timer
@@ -143,25 +122,16 @@ export class ExecutionManager {
   getStats(): {
     total: number
     running: number
-    completed: number
-    failed: number
   } {
     let running = 0
-    let completed = 0
-    let failed = 0
 
     for (const execution of this.executions.values()) {
-      const state = execution.getState()
-      if (state === ExecutionState.RUNNING) running++
-      else if (state === ExecutionState.COMPLETED) completed++
-      else if (state === ExecutionState.FAILED) failed++
+      if (execution.isRunning()) running++
     }
 
     return {
       total: this.executions.size,
-      running,
-      completed,
-      failed
+      running
     }
   }
 
@@ -228,16 +198,6 @@ export class ExecutionManager {
     Logging.log('ExecutionManager', 'Disposed all executions')
   }
 
-  /**
-   * Get default execution for backwards compatibility
-   * Creates a default execution if it doesn't exist
-   */
-  getDefault(mode: 'chat' | 'browse' = 'browse'): Execution {
-    return this.getOrCreate(DEFAULT_EXECUTION_ID, {
-      mode,
-      debug: false
-    })
-  }
 
   /**
    * Dispose an execution and clean up its resources
@@ -303,11 +263,10 @@ export class ExecutionManager {
   private _cleanupCompletedExecutions(): void {
     const toCleanup: string[] = []
 
+    // For now, we can only clean up executions that are not running
+    // In the future we might track completion time
     for (const [id, execution] of this.executions) {
-      const state = execution.getState()
-      if (state === ExecutionState.COMPLETED || 
-          state === ExecutionState.FAILED || 
-          state === ExecutionState.DISPOSED) {
+      if (!execution.isRunning()) {
         toCleanup.push(id)
       }
     }

@@ -74,7 +74,7 @@ export function createResultTool(executionContext: ExecutionContext): DynamicStr
           structuredLLM,
           messages,
           3,
-          { signal: executionContext.abortController.signal }
+          { signal: executionContext.abortSignal }
         );
         
         executionContext.getPubSub().publishMessage(PubSub.createMessage(`Generated result for task: ${args.task}`, 'thinking'))

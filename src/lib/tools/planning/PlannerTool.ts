@@ -82,7 +82,7 @@ export function createPlannerTool(executionContext: ExecutionContext): DynamicSt
           structuredLLM,
           messages,
           3,
-          { signal: executionContext.abortController.signal }
+          { signal: executionContext.abortSignal }
         );
         
         // Emit status message
