@@ -4,6 +4,7 @@ import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { PubSub } from '@/lib/pubsub'
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { Subscription } from '@/lib/pubsub/types'
+import { parsePortName } from '../utils/portUtils'
 
 // Port info stored for each connection
 interface PortInfo {
@@ -26,7 +27,8 @@ export class PortManager {
    */
   registerPort(port: chrome.runtime.Port): string {
     const portId = this.generatePortId(port)
-    const executionId = this.extractExecutionId(port.name)
+    const parsedPortInfo = parsePortName(port.name)
+    const executionId = parsedPortInfo.executionId
     
     // Store port info
     const portInfo: PortInfo = {
@@ -155,20 +157,6 @@ export class PortManager {
     }
   }
 
-  /**
-   * Extract executionId from port name
-   */
-  private extractExecutionId(portName: string): string | undefined {
-    // Dynamic port names follow pattern: "sidepanel:executionId"
-    if (portName.startsWith('sidepanel:')) {
-      return portName.split(':')[1]
-    }
-    
-    // Add other patterns as needed
-    // e.g., "popup:executionId", "content:executionId"
-    
-    return undefined
-  }
 
   /**
    * Generate a unique ID for a port

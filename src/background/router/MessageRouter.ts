@@ -1,6 +1,7 @@
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
+import { parsePortName } from '../utils/portUtils'
 
 // Handler function type
 export type MessageHandler = (
@@ -48,12 +49,13 @@ export class MessageRouter {
     message: PortMessage,
     port: chrome.runtime.Port
   ): Promise<void> {
-    // Extract executionId from port name if it's a dynamic port
-    const executionId = this.extractExecutionId(port.name)
+    // Parse port name to extract information
+    const portInfo = parsePortName(port.name)
+    const executionId = portInfo.executionId
     
     // Log the routing
     Logging.log('MessageRouter', 
-      `Routing ${message.type} from ${port.name}${executionId ? ` (execution: ${executionId})` : ''}`)
+      `Routing ${message.type} from ${port.name}${executionId ? ` (execution: ${executionId})` : ''}${portInfo.tabId ? ` (tab: ${portInfo.tabId})` : ''}`)
 
     // Find and execute handler
     const handler = this.handlers.get(message.type) || this.defaultHandler
@@ -74,22 +76,6 @@ export class MessageRouter {
     }
   }
 
-  /**
-   * Extract executionId from dynamic port name
-   * @param portName - Port name like "sidepanel:exec_123456_abc"
-   * @returns executionId or undefined
-   */
-  private extractExecutionId(portName: string): string | undefined {
-    // Dynamic port names follow pattern: "sidepanel:executionId"
-    if (portName.startsWith('sidepanel:')) {
-      return portName.split(':')[1]
-    }
-    
-    // Could add other patterns here in future
-    // e.g., "newtab:executionId", "popup:executionId"
-    
-    return undefined
-  }
 
   /**
    * Send error response back to port
