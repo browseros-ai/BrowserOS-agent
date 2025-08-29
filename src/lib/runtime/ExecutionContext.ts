@@ -20,9 +20,7 @@ export const ExecutionContextOptionsSchema = z.object({
   memoryManager: z.instanceof(MemoryManager).optional(), // Memory manager for task continuity
 })
 
-export type ExecutionContextOptions = z.infer<
-  typeof ExecutionContextOptionsSchema
->;
+export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
 
 /**
  * Agent execution context containing browser context, message manager, and control state
@@ -159,10 +157,7 @@ export class ExecutionContext {
    * @param options - Optional LLM configuration
    * @returns Promise resolving to chat model
    */
-  public async getLLM(options?: {
-    temperature?: number;
-    maxTokens?: number;
-  }): Promise<BaseChatModel> {
+  public async getLLM(options?: { temperature?: number; maxTokens?: number }): Promise<BaseChatModel> {
     return getLLMFromProvider(options);
   }
 
@@ -187,7 +182,7 @@ export class ExecutionContext {
    * @returns The KlavisAPIManager instance
    */
   public getKlavisAPIManager(): KlavisAPIManager {
-    return KlavisAPIManager.getInstance();
+    return KlavisAPIManager.getInstance()
   }
 
   /**
@@ -243,50 +238,10 @@ export class ExecutionContext {
   }
 
   /**
-   * Set the memory manager
-   * @param memoryManager - The memory manager to use
-   */
-  public setMemoryManager(memoryManager: MemoryManager): void {
-    this.memoryManager = memoryManager
-  }
-
-  /**
    * Get the current memory manager
    * @returns The memory manager or null if not set
    */
   public getMemoryManager(): MemoryManager | null {
     return this.memoryManager
-  }
-
-  /**
-   * Check if memory is enabled and available
-   * @returns True if memory manager is set and enabled
-   */
-  public isMemoryEnabled(): boolean {
-    return this.memoryManager?.isEnabled() || true
-  }
-  private getMemoryApiKey(): string | undefined {
-    console.log("🧠 getMemoryApiKey called", process.env.MEM0_API_KEY)
-    return process.env.MEM0_API_KEY || ""
-  }
-  private async initializeMemoryManager(): Promise<void> {
-    try {
-      const memoryManager = new MemoryManager(
-        this.getMemoryApiKey(),
-        {
-          enabled: true,
-          maxEntries: 1000,
-          retentionDays: 30,
-        },
-        "browser-agent-memory"
-      );
-
-      await memoryManager.initialize()
-      this.setMemoryManager(memoryManager)
-
-      console.log("✅ MemoryManager initialized successfully")
-    } catch (error) {
-      console.error("❌ Failed to initialize MemoryManager:", error)
-    }
   }
 }

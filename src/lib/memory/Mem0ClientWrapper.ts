@@ -134,7 +134,6 @@ export class Mem0ClientWrapper {
   async updateMemory(
     memoryId: string,
     content: string,
-    metadata: MemoryMetadata
   ): Promise<MemoryOperationResult> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -214,24 +213,6 @@ export class Mem0ClientWrapper {
         total: 0,
         hasMore: false,
       };
-    }
-  }
-
-  /**
-   * Get memory history for a user
-   */
-  async getMemoryHistory(agentId: string): Promise<any[]> {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    try {
-      // Note: history() expects a memory_id, not user_id
-      // For now, we'll return empty array as we need specific memory IDs
-      return [];
-    } catch (error) {
-      console.error("Get memory history failed:", error);
-      return [];
     }
   }
 

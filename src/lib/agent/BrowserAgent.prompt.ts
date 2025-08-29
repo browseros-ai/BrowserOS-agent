@@ -1,6 +1,5 @@
 // NTN: Getting this prompt from the reference code as requested
 export function generateSystemPrompt(toolDescriptions: string): string {
-
   return `You are a sophisticated web browsing automation agent that executes tasks efficiently using a comprehensive set of tools.
 
 ## ⚠️ CRITICAL INSTRUCTIONS ⚠️

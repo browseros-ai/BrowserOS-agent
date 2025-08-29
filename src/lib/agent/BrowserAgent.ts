@@ -1,21 +1,21 @@
 /**
  * BrowserAgent - Unified agent that handles all browser automation tasks
- *
+ * 
  * ## Streaming Architecture
- *
- * Currently, BrowserAgent uses llm.invoke() which waits for the entire response before returning.
+ * 
+ * Currently, BrowserAgent uses llm.invoke() which waits for the entire response before returning. 
  * With streaming:
  * - Users see the AI "thinking" in real-time
  * - Tool calls appear as they're being decided
  * - No long waits with blank screens
- *
+ * 
  * ### How Streaming Works in LangChain
- *
+ * 
  * Current approach (blocking):
  * ```
  * const response = await llm.invoke(messages);  // Waits for complete response
  * ```
- *
+ * 
  * Streaming approach:
  * ```
  * const stream = await llm.stream(messages);    // Returns immediately
@@ -23,7 +23,7 @@
  *   // Process each chunk as it arrives
  * }
  * ```
- *
+ * 
  * ### Stream Chunk Structure
  *
  * Each chunk contains:
@@ -34,7 +34,7 @@
  *   tool_call_chunks: []      // Progressive tool call building
  * }
  * ```
- *
+ * 
  * Tool calls build progressively in the stream:
  * - Chunk 1: { tool_call_chunks: [{ name: 'navigation_tool', args: '', id: 'call_123' }] }
  * - Chunk 2: { tool_call_chunks: [{ name: 'navigation_tool', args: '{"url":', id: 'call_123' }] }
@@ -106,13 +106,13 @@ export class BrowserAgent {
 
   // Outer loop is -- plan -> execute -> validate
   private static readonly MAX_STEPS_OUTER_LOOP = 100;
-
+  
   // Human input constants
-  private static readonly HUMAN_INPUT_TIMEOUT = 600000; // 10 minutes
-  private static readonly HUMAN_INPUT_CHECK_INTERVAL = 500; // Check every 500ms
+  private static readonly HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
+  private static readonly HUMAN_INPUT_CHECK_INTERVAL = 500;  // Check every 500ms
 
   // Inner loop is -- execute TODOs, one after the other.
-  private static readonly MAX_STEPS_INNER_LOOP = 30;
+  private static readonly MAX_STEPS_INNER_LOOP  = 30; 
 
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
@@ -129,7 +129,7 @@ export class BrowserAgent {
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
-  private narrator?: NarratorService; // Narrator service for human-friendly messages
+  private narrator?: NarratorService;  // Narrator service for human-friendly messages
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
@@ -141,12 +141,12 @@ export class BrowserAgent {
   }
 
   // Getters to access context components
-  private get messageManager(): MessageManager {
-    return this.executionContext.messageManager;
+  private get messageManager(): MessageManager { 
+    return this.executionContext.messageManager; 
   }
-
-  private get pubsub(): PubSub {
-    return this.executionContext.getPubSub();
+  
+  private get pubsub(): PubSub { 
+    return this.executionContext.getPubSub(); 
   }
 
   /**
@@ -184,15 +184,10 @@ export class BrowserAgent {
         this._initializeExecution(task);
         // Route predefined plan through the multi-step strategy using initial plan
         const predefined = metadata!.predefinedPlan!;
-        this.pubsub.publishMessage(
-          PubSub.createMessage(`Executing agent: ${predefined.name || 'Custom Agent'}`, 'thinking')
-        );
+        this.pubsub.publishMessage(PubSub.createMessage(`Executing agent: ${predefined.name || 'Custom Agent'}`, 'thinking'));
         // Convert predefined steps to Plan structure
         const initialPlan: Plan = {
-          steps: predefined.steps.map((step) => ({
-            action: step,
-            reasoning: `Part of agent: ${predefined.name || 'Custom'}`
-          }))
+          steps: predefined.steps.map((step) => ({ action: step, reasoning: `Part of agent: ${predefined.name || 'Custom'}` }))
         };
         if (predefined.goal) {
           this.messageManager.addHuman(`User's goal is: ${predefined.goal} and this is the task: ${task}`);
@@ -200,7 +195,8 @@ export class BrowserAgent {
         await this._executeMultiStepStrategy(task, initialPlan);
         await this._generateTaskResult(task);
         return;
-      } else if (metadata?.executionMode === 'dynamic' && metadata?.source === 'newtab') {
+      }
+      else if (metadata?.executionMode === 'dynamic' && metadata?.source === 'newtab') {
         // For tasks initiated from new tab, show the startup message with task
         this.pubsub.publishMessage(PubSub.createMessage(`Executing task: ${task}`, 'thinking'));
       }
@@ -347,7 +343,7 @@ export class BrowserAgent {
     // Debug: Executing as a simple task
 
     for (let attempt = 1; attempt <= BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
-      this.checkIfAborted(); // Manual check in loop
+      this.checkIfAborted();  // Manual check in loop
 
       // Check for loop before continuing
       if (this._detectLoop()) {
@@ -363,7 +359,7 @@ export class BrowserAgent {
       const turnResult = await this._executeSingleTurn(instruction);
 
       if (turnResult.doneToolCalled) {
-        return; // SUCCESS - task result will be generated in execute()
+        return;  // SUCCESS - task result will be generated in execute()
       }
 
       if (turnResult.requiresHumanInput) {
@@ -409,9 +405,7 @@ export class BrowserAgent {
       if (outer_loop_index === 0 && initialPlan) {
         // Use the provided initial plan without creating a new one
         plan = initialPlan;
-        this.pubsub.publishMessage(
-          PubSub.createMessage(`Using predefined plan with ${initialPlan.steps.length} steps`, 'thinking')
-        );
+        this.pubsub.publishMessage(PubSub.createMessage(`Using predefined plan with ${initialPlan.steps.length} steps`, 'thinking'));
       } else {
         // Create a new plan for subsequent iterations or when no initial plan
         plan = await this._createMultiStepPlan(task);
@@ -442,7 +436,7 @@ export class BrowserAgent {
           console.warn('Detected repetitive behavior. Breaking out of potential infinite loop.');
 
           // break out of loop
-          throw new Error('Agent is stuck, please restart your task.');
+          throw new Error("Agent is stuck, please restart your task.");
         }
 
         // Use the generateTodoExecutionPrompt for TODO execution
@@ -472,9 +466,7 @@ export class BrowserAgent {
           }
 
           // Human clicked "Done" - add to message history and trigger re-planning
-          this.pubsub.publishMessage(
-            PubSub.createMessage('✅ Human completed manual action. Re-planning...', 'thinking')
-          );
+          this.pubsub.publishMessage(PubSub.createMessage('✅ Human completed manual action. Re-planning...', 'thinking'));
           this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
 
           // Clear human input state
@@ -500,9 +492,7 @@ export class BrowserAgent {
 
       // Add validation feedback for next planning cycle
       if (validationResult.suggestions.length > 0) {
-        const validationMessage = `Validation result: ${
-          validationResult.reasoning
-        }\nSuggestions: ${validationResult.suggestions.join(', ')}`;
+        const validationMessage = `Validation result: ${validationResult.reasoning}\nSuggestions: ${validationResult.suggestions.join(', ')}`;
         this.messageManager.addAI(validationMessage);
       }
 
@@ -525,7 +515,7 @@ export class BrowserAgent {
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
 
-    console.log(`K tokens:\n${JSON.stringify(llmResponse, null, 2)}`);
+    console.log(`K tokens:\n${JSON.stringify(llmResponse, null, 2)}`)
 
     const result: SingleTurnResult = {
       doneToolCalled: false,
@@ -543,6 +533,7 @@ export class BrowserAgent {
       result.doneToolCalled = toolsResult.doneToolCalled;
       result.requirePlanningCalled = toolsResult.requirePlanningCalled;
       result.requiresHumanInput = toolsResult.requiresHumanInput;
+
     } else if (llmResponse.content) {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
@@ -570,7 +561,7 @@ export class BrowserAgent {
     let currentMsgId: string | null = null;
 
     for await (const chunk of stream) {
-      this.checkIfAborted(); // Manual check during streaming
+      this.checkIfAborted();  // Manual check during streaming
 
       if (chunk.content && typeof chunk.content === 'string') {
         // Start thinking on first real content
@@ -603,7 +594,7 @@ export class BrowserAgent {
     // Convert the final chunk back to a standard AIMessage
     return new AIMessage({
       content: accumulatedChunk.content,
-      tool_calls: accumulatedChunk.tool_calls
+      tool_calls: accumulatedChunk.tool_calls,
     });
   }
 
@@ -628,11 +619,12 @@ export class BrowserAgent {
       const toolResult = await tool.func(args);
       const parsedResult = JSON.parse(toolResult);
 
+
       // Add the result back to the message history for context
       if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
         const simplifiedResult = JSON.stringify({
           ok: true,
-          output: 'Emergency browser state refresh completed - full DOM analysis available'
+          output: "Emergency browser state refresh completed - full DOM analysis available" 
         });
         this.messageManager.addTool(simplifiedResult, toolCallId);
         this.messageManager.addBrowserState(parsedResult.output);
@@ -649,6 +641,7 @@ export class BrowserAgent {
         this.messageManager.addTodoList(markdown);
         this.pubsub.publishMessage(PubSub.createMessage(markdown, 'thinking'));
       }
+
 
       if (toolName === 'done_tool' && parsedResult.ok) {
         result.doneToolCalled = true;
@@ -770,6 +763,7 @@ export class BrowserAgent {
     }
   }
 
+
   /**
    * Update TODOs from plan steps (replaces all existing TODOs)
    */
@@ -778,7 +772,9 @@ export class BrowserAgent {
     if (!todoTool || plan.steps.length === 0) return;
 
     // Convert plan steps to markdown TODO list
-    const markdown = plan.steps.map((step) => `- [ ] ${step.action}`).join('\n');
+    const markdown = plan.steps
+      .map(step => `- [ ] ${step.action}`)
+      .join('\n');
 
     const args = { action: 'set' as const, todos: markdown };
     await todoTool.func(args);
@@ -789,11 +785,10 @@ export class BrowserAgent {
    */
   private _handleExecutionError(error: unknown, task: string): void {
     // Check if this is a user cancellation - handle silently
-    const isUserCancellation =
-      error instanceof AbortError ||
-      this.executionContext.isUserCancellation() ||
-      (error instanceof Error && error.name === 'AbortError');
-
+    const isUserCancellation = error instanceof AbortError || 
+                               this.executionContext.isUserCancellation() || 
+                               (error instanceof Error && error.name === "AbortError");
+    
     if (isUserCancellation) {
       // Don't publish message here - already handled in _subscribeToExecutionStatus
       // when the cancelled status event is received
@@ -801,7 +796,7 @@ export class BrowserAgent {
       // Log error metric with details
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorType = error instanceof Error ? error.name : 'UnknownError';
-
+      
       Logging.logMetric('execution_error', {
         error: errorMessage,
         error_type: errorType,
@@ -809,7 +804,7 @@ export class BrowserAgent {
         mode: 'browse',
         agent: 'BrowserAgent'
       });
-
+      
       console.error('Execution error (already reported by tool):', error);
       throw error;
     }
@@ -823,17 +818,17 @@ export class BrowserAgent {
    */
   private _detectLoop(lookback: number = 8, threshold: number = 4): boolean {
     const messages = this.messageManager.getMessages();
-
+    
     // Need at least lookback messages to check
     if (messages.length < lookback) {
       return false;
     }
-
+    
     // Get the last N messages, filtering only AI/assistant messages
     const recentMessages = messages
       .slice(-lookback)
-      .filter((msg) => msg._getType() === 'ai')
-      .map((msg) => {
+      .filter(msg => msg._getType() === 'ai')
+      .map(msg => {
         // Normalize the content for comparison
         const content = typeof msg.content === 'string' ? msg.content : '';
         return content.trim().toLowerCase();
@@ -842,11 +837,10 @@ export class BrowserAgent {
     // Count occurrences of each message
     const messageCount = new Map<string, number>();
     for (const msg of recentMessages) {
-      if (msg) {
-        // Skip empty messages
+      if (msg) {  // Skip empty messages
         const count = messageCount.get(msg) || 0;
         messageCount.set(msg, count + 1);
-
+        
         // If any message appears threshold times or more, we have a loop
         if (count + 1 >= threshold) {
           console.warn(`Loop detected: Message "${msg.substring(0, 50)}..." repeated ${count + 1} times`);
@@ -857,6 +851,7 @@ export class BrowserAgent {
 
     return false;
   }
+
 
   /**
    * Handle glow animation for tools that interact with the browser
@@ -871,7 +866,7 @@ export class BrowserAgent {
     try {
       const currentPage = await this.executionContext.browserContext.getCurrentPage();
       const tabId = currentPage.tabId;
-
+      
       if (tabId && !this.glowService.isGlowActive(tabId)) {
         await this.glowService.startGlow(tabId);
         return true;
@@ -891,12 +886,12 @@ export class BrowserAgent {
   private async _waitForHumanInput(): Promise<'done' | 'abort' | 'timeout'> {
     const startTime = Date.now();
     const requestId = this.executionContext.getHumanInputRequestId();
-
+    
     if (!requestId) {
       console.error('No human input request ID found');
       return 'abort';
     }
-
+    
     // Subscribe to human input responses
     const subscription = this.pubsub.subscribe((event) => {
       if (event.type === 'human-input-response') {
@@ -906,28 +901,31 @@ export class BrowserAgent {
         }
       }
     });
-
+    
     try {
       // Poll for response or timeout
       while (!this.executionContext.shouldAbort()) {
         // Check if response received
         const response = this.executionContext.getHumanInputResponse();
         if (response) {
-          return response.action; // 'done' or 'abort'
+          return response.action;  // 'done' or 'abort'
         }
-
+        
         // Check timeout
         if (Date.now() - startTime > BrowserAgent.HUMAN_INPUT_TIMEOUT) {
-          this.pubsub.publishMessage(PubSub.createMessage('⏱️ Human input timed out after 10 minutes', 'error'));
+          this.pubsub.publishMessage(
+            PubSub.createMessage('⏱️ Human input timed out after 10 minutes', 'error')
+          );
           return 'timeout';
         }
-
+        
         // Wait before checking again
-        await new Promise((resolve) => setTimeout(resolve, BrowserAgent.HUMAN_INPUT_CHECK_INTERVAL));
+        await new Promise(resolve => setTimeout(resolve, BrowserAgent.HUMAN_INPUT_CHECK_INTERVAL));
       }
-
+      
       // Aborted externally
       return 'abort';
+      
     } finally {
       // Clean up subscription
       subscription.unsubscribe();
@@ -1011,7 +1009,6 @@ export class BrowserAgent {
         });
       }
     } catch (error) {
-      // Don't fail the main execution if memory storage fails
       Logging.log('BrowserAgent', `Failed to store tool result in memory: ${error}`, 'warning');
     }
   }

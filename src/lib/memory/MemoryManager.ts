@@ -150,7 +150,7 @@ export class MemoryManager {
    */
   async getMemoriesByCategory(category: MemoryCategory, limit: number = 20): Promise<MemoryEntry[]> {
     const result = await this.searchMemories({
-      query: '',
+      query: '*',
       category,
       limit
     });
@@ -163,7 +163,7 @@ export class MemoryManager {
   async getTaskContext(taskId: string): Promise<TaskContext | null> {
     try {
       const memories = await this.searchMemories({
-        query: '',
+        query: '*',
         taskId,
         limit: 50
       });
@@ -191,7 +191,7 @@ export class MemoryManager {
             const pref = JSON.parse(entry.content);
             Object.assign(taskContext.userPreferences, pref);
           } catch {
-            // Ignore JSON parse errors
+            console.error('Failed to parse user preferences:', entry.content);
           }
         } else if (entry.metadata.category === MemoryCategory.ERROR_SOLUTION) {
           taskContext.errorHistory.push({
@@ -223,27 +223,14 @@ export class MemoryManager {
     });
   }
 
-  /**
-   * Store user preference
-   */
-  async storeUserPreference(key: string, value: any, metadata: Partial<MemoryMetadata> = {}): Promise<MemoryOperationResult> {
-    const content = `User preference: ${key} = ${JSON.stringify(value)}`;
-
-    return this.addMemory(content, {
-      ...metadata,
-      category: MemoryCategory.USER_PREFERENCE,
-      importance: 0.9
-    });
-  }
 
   /**
    * Clear memories for a specific tab
    */
   async clearTabMemories(tabId: number): Promise<MemoryOperationResult> {
     try {
-      // Note: Mem0 doesn't have bulk delete by filter, so we need to search and delete individually
       const memories = await this.searchMemories({
-        query: '',
+        query: '*',
         tabId,
         limit: 100
       });
