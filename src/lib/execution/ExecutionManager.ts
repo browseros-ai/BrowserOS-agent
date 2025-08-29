@@ -1,6 +1,9 @@
 import { Execution, ExecutionOptions } from './Execution'
 import { PubSub } from '@/lib/pubsub'
 import { Logging } from '@/lib/utils/Logging'
+import { initializeMemorySystem } from "@/lib/memory";
+import { MemoryManager } from "@/lib/memory/MemoryManager";
+import { getMemoryConfig } from "@/lib/memory/config";
 
 /**
  * Manages all active execution instances.
@@ -9,6 +12,7 @@ import { Logging } from '@/lib/utils/Logging'
 export class ExecutionManager {
   private executions: Map<string, Execution> = new Map()
   private static instance: ExecutionManager | null = null
+  private static globalMemoryManager: MemoryManager | null = null
 
   constructor() {
     Logging.log('ExecutionManager', 'Initialized ExecutionManager')
@@ -26,12 +30,34 @@ export class ExecutionManager {
   }
 
   /**
+   * Get or create singleton MemoryManager
+   */
+  static async getMemoryManager(): Promise<MemoryManager | null> {
+    if (!ExecutionManager.globalMemoryManager) {
+      try {
+        const memoryConfig = getMemoryConfig()
+        ExecutionManager.globalMemoryManager = await initializeMemorySystem(memoryConfig.apiKey, "memory_service")
+        
+        if (ExecutionManager.globalMemoryManager) {
+          Logging.log('ExecutionManager', 'Memory system initialized successfully')
+        } else {
+          Logging.log('ExecutionManager', 'Memory system initialization returned null - continuing without memory')
+        }
+      } catch (error) {
+        Logging.log('ExecutionManager', `Memory system initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        ExecutionManager.globalMemoryManager = null
+      }
+    }
+    return ExecutionManager.globalMemoryManager
+  }
+
+  /**
    * Create a new execution instance
    * @param executionId - Unique execution identifier
    * @param options - Execution configuration options
    * @returns The created execution instance
    */
-  create(executionId: string, options: Omit<ExecutionOptions, 'executionId'>): Execution {
+  async create(executionId: string, options: Omit<ExecutionOptions, 'executionId'>): Promise<Execution> {
     // Check if execution already exists
     if (this.executions.has(executionId)) {
       throw new Error(`Execution ${executionId} already exists`)
@@ -40,13 +66,15 @@ export class ExecutionManager {
     // Get or create PubSub channel for this execution
     const pubsub = PubSub.getChannel(executionId)
 
+    const memoryManager = await ExecutionManager.getMemoryManager()
+
     // Create execution with full options
     const fullOptions: ExecutionOptions = {
       ...options,
       executionId
     }
 
-    const execution = new Execution(fullOptions, pubsub)
+    const execution = new Execution(fullOptions, pubsub, memoryManager)
     this.executions.set(executionId, execution)
 
     Logging.log('ExecutionManager', `Created execution ${executionId} (total: ${this.executions.size})`)

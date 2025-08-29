@@ -48,7 +48,7 @@ export class ExecutionHandler {
       
       if (!execution) {
         // Create new execution
-        execution = this.executionManager.create(execId, {
+        execution = await this.executionManager.create(execId, {
           mode: chatMode ? 'chat' : 'browse',
           tabIds,
           metadata,

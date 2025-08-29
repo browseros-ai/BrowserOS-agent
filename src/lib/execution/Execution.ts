@@ -8,6 +8,7 @@ import { langChainProvider } from '@/lib/llm/LangChainProvider'
 import { Logging } from '@/lib/utils/Logging'
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { ExecutionMetadata } from '@/lib/types/messaging'
+import { MemoryManager } from "@/lib/memory/MemoryManager";
 
 // Execution options schema
 export const ExecutionOptionsSchema = z.object({
@@ -34,11 +35,13 @@ export class Execution {
   private pubsub: PubSubChannel | null = null
   private options: ExecutionOptions
   private currentAbortController: AbortController | null = null
+  private memoryManager: MemoryManager | null = null
 
-  constructor(options: ExecutionOptions, pubsub: PubSubChannel) {
+  constructor(options: ExecutionOptions, pubsub: PubSubChannel, memoryManager: MemoryManager | null) {
     this.options = ExecutionOptionsSchema.parse(options)
     this.id = this.options.executionId
     this.pubsub = pubsub
+    this.memoryManager = memoryManager
     Logging.log('Execution', `Created execution ${this.id} in ${this.options.mode} mode`)
   }
 
@@ -91,6 +94,7 @@ export class Execution {
         messageManager: this.messageManager!,
         pubsub: this.pubsub,
         abortSignal: this.currentAbortController.signal,
+        memoryManager: this.memoryManager || undefined,
         debugMode: this.options.debug || false
       })
 
