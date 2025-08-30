@@ -22,6 +22,15 @@ export type SnapshotOptions = chrome.browserOS.SnapshotOptions;
 
 // ============= BrowserOS Adapter =============
 
+// Screenshot size constants
+export const SCREENSHOT_SIZES = {
+  small: 256,   // Low token usage
+  medium: 512,  // Balanced (default)
+  large: 1028   // High detail (note: 1028 not 1024)
+} as const;
+
+export type ScreenshotSizeKey = keyof typeof SCREENSHOT_SIZES;
+
 /**
  * Adapter for Chrome BrowserOS Extension APIs
  * Provides a clean interface to browserOS functionality with extensibility
@@ -246,20 +255,38 @@ export class BrowserOSAdapter {
 
   /**
    * Capture a screenshot of the tab
+   * @param tabId - The tab ID to capture
+   * @param size - Optional screenshot size ('small', 'medium', or 'large')
    */
-  async captureScreenshot(tabId: number): Promise<string> {
+  async captureScreenshot(tabId: number, size?: ScreenshotSizeKey): Promise<string> {
     try {
-      console.log(`[BrowserOSAdapter] Capturing screenshot for tab ${tabId}`);
+      const sizeDesc = size ? ` (${size})` : '';
+      console.log(`[BrowserOSAdapter] Capturing screenshot for tab ${tabId}${sizeDesc}`);
       
       return new Promise<string>((resolve, reject) => {
-        chrome.browserOS.captureScreenshot(tabId, (dataUrl: string) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            console.log(`[BrowserOSAdapter] Screenshot captured for tab ${tabId}`);
-            resolve(dataUrl);
-          }
-        });
+        // Convert size string to pixels only when calling Chrome API
+        if (size !== undefined) {
+          const pixelSize = SCREENSHOT_SIZES[size];
+          // Use the new API with thumbnail size
+          chrome.browserOS.captureScreenshot(tabId, pixelSize, (dataUrl: string) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(`[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${size}: ${pixelSize}px)`);
+              resolve(dataUrl);
+            }
+          });
+        } else {
+          // Use the original API without size (backwards compatibility)
+          chrome.browserOS.captureScreenshot(tabId, (dataUrl: string) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(`[BrowserOSAdapter] Screenshot captured for tab ${tabId}`);
+              resolve(dataUrl);
+            }
+          });
+        }
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

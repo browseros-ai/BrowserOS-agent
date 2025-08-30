@@ -40,7 +40,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   const [installedServers, setInstalledServers] = useState<any[]>([])
   const { theme } = useSettingsStore()
   
-  
   const handleCancel = () => {
     trackClick('pause_task')
     sendMessage(MessageType.CANCEL_TASK, {

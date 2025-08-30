@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { z } from 'zod'
 import { MessageType } from '@/lib/types/messaging'
-import { PortName } from '@/lib/runtime/PortMessaging'
+import { PortPrefix } from '@/lib/runtime/PortMessaging'
 import { Agent } from '../stores/agentsStore'
 import { Logging } from '@/lib/utils/Logging'
 
@@ -189,7 +189,8 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
             await new Promise(resolve => setTimeout(resolve, 500))
             
             // Connect to background script and send query
-            const port = chrome.runtime.connect({ name: PortName.NEWTAB_TO_BACKGROUND })
+            const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+            const port = chrome.runtime.connect({ name: `${PortPrefix.NEWTAB}:${executionId}` })
             
             // Send the query through port messaging
             port.postMessage({
@@ -240,7 +241,8 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
           await new Promise(resolve => setTimeout(resolve, 500))
           
           // Connect to background script and send query with agent metadata
-          const port = chrome.runtime.connect({ name: PortName.NEWTAB_TO_BACKGROUND })
+          const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+          const port = chrome.runtime.connect({ name: `${PortPrefix.NEWTAB}:${executionId}` })
           
           // Send the query through port messaging with predefined plan
           port.postMessage({

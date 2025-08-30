@@ -111,7 +111,7 @@ export class InteractionTool {
         structuredLLM,
         messages,
         3,
-        { signal: this.executionContext.abortController.signal }
+        { signal: this.executionContext.abortSignal }
       );
     }
     
@@ -140,7 +140,7 @@ export class InteractionTool {
         structuredLLM,
         messages,
         3,
-        { signal: this.executionContext.abortController.signal }
+        { signal: this.executionContext.abortSignal }
       );
       
       // If found, return immediately

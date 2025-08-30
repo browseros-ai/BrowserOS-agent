@@ -182,11 +182,20 @@ declare namespace chrome.browserOS {
     callback: () => void
   ): void;
 
+  // Capture screenshot with tab ID and thumbnail size
+  function captureScreenshot(
+    tabId: number,
+    thumbnailSize: number,
+    callback: (dataUrl: string) => void
+  ): void;
+
+  // Capture screenshot with tab ID only (backwards compatibility)
   function captureScreenshot(
     tabId: number,
     callback: (dataUrl: string) => void
   ): void;
 
+  // Capture screenshot of active tab with default size
   function captureScreenshot(
     callback: (dataUrl: string) => void
   ): void;

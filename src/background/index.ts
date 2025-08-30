@@ -1,1110 +1,367 @@
-import { MessageType, LogMessage, ExecuteQueryMessage, AgentStreamUpdateMessage, CancelTaskMessage, ResetConversationMessage, GetTabsMessage } from '@/lib/types/messaging'
-import { LLMSettingsReader } from '@/lib/llm/settings/LLMSettingsReader'
-import { langChainProvider } from '@/lib/llm/LangChainProvider'
-import { BrowserOSProvidersConfigSchema, BROWSEROS_PREFERENCE_KEYS } from '@/lib/llm/settings/browserOSTypes'
-import { PortName, PortMessage } from '@/lib/runtime/PortMessaging'
+import { MessageType } from '@/lib/types/messaging'
+import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
-import { NxtScape } from '@/lib/core/NxtScape'
 import { isDevelopmentMode } from '@/config'
-import { GlowAnimationService } from '@/lib/services/GlowAnimationService'
-import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
-import { MCP_SERVERS } from '@/config/mcpServers'
-import { PubSub, PubSubEvent } from '@/lib/pubsub'
-import { PlanGeneratorService } from '@/lib/services/PlanGeneratorService'
+import { parsePortName } from './utils/portUtils'
+
+// Import router and managers
+import { MessageRouter } from './router/MessageRouter'
+import { PortManager } from './router/PortManager'
+
+// Import handlers
+import { ExecutionHandler } from './handlers/ExecutionHandler'
+import { ProvidersHandler } from './handlers/ProvidersHandler'
+import { MCPHandler } from './handlers/MCPHandler'
+import { PlanHandler } from './handlers/PlanHandler'
 
 /**
- * Background script for the ParallelManus extension
+ * Background script for the Nxtscape extension
+ * 
+ * This is now a thin orchestration layer that:
+ * 1. Sets up message routing
+ * 2. Registers handlers for different message types
+ * 3. Manages port connections
  */
 
-// Initialize LogUtility first
+// Initialize logging
 Logging.initialize({ debugMode: isDevelopmentMode() })
 
-// Initialize NxtScape agent with Claude
-const nxtScape = new NxtScape({
-  debug: isDevelopmentMode()
-})
+// Create router and port manager
+const messageRouter = new MessageRouter()
+const portManager = new PortManager()
 
-// Global initialization flag to ensure we only initialize once
-let isNxtScapeInitialized = false
+// Create handler instances
+const executionHandler = new ExecutionHandler()
+const providersHandler = new ProvidersHandler()
+const mcpHandler = new MCPHandler()
+const planHandler = new PlanHandler()
 
-
-/**
- * Ensure NxtScape is initialized only once globally
- */
-async function ensureNxtScapeInitialized(): Promise<void> {
-  if (!isNxtScapeInitialized) {
-    await nxtScape.initialize()
-    isNxtScapeInitialized = true
-    debugLog('NxtScape initialized successfully')
-  }
-}
-
+// Side panel state per tab
+const tabPanelState = new Map<number, { isOpen: boolean; isToggling: boolean }>()
+// Port to tab ID mapping
+const portToTabMap = new Map<chrome.runtime.Port, number>()
 
 /**
- * Log messages using the centralized LogUtility
- * @param message - Message to log
- * @param level - Log level
+ * Register all message handlers with the router
  */
-function debugLog(message: string, level: 'info' | 'error' | 'warning' = 'info'): void {
-  Logging.log('Background', message, level)
-}
+function registerHandlers(): void {
+  // Execution handlers
+  messageRouter.registerHandler(
+    MessageType.EXECUTE_QUERY,
+    (msg, port, execId) => executionHandler.handleExecuteQuery(msg, port, execId)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.CANCEL_TASK,
+    (msg, port, execId) => executionHandler.handleCancelTask(msg, port, execId)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.RESET_CONVERSATION,
+    (msg, port, execId) => executionHandler.handleResetConversation(msg, port, execId)
+  )
 
-// Active tabs map (tabId -> information)
-const activeTabs = new Map<number, { url: string }>()
-
-// Navigation history tracking (tabId -> array of navigation entries)
-const tabHistory = new Map<number, Array<{
-  url: string
-  title: string
-  timestamp: number
-}>>()
-
-// Connected ports (name -> port)  
-const connectedPorts = new Map<string, chrome.runtime.Port>();
-
-// Side panel state tracking
-let isPanelOpen = false;
-let isToggling = false; // Prevent rapid toggle issues
-let providersPollIntervalId: number | null = null
-let lastProvidersConfigJson: string | null = null
-
-
-
-// Get the GlowAnimationService instance
-const glowService = GlowAnimationService.getInstance()
-
-// Get PubSub instance and set up forwarding
-const pubsub = PubSub.getInstance()
-
-// Subscribe to PubSub events and forward to sidepanel
-pubsub.subscribe((event: PubSubEvent) => {
-  // Forward to all connected sidepanels
-  for (const [name, port] of connectedPorts) {
-    if (name === PortName.SIDEPANEL_TO_BACKGROUND) {
+  messageRouter.registerHandler(
+    MessageType.HUMAN_INPUT_RESPONSE,
+    (msg, port, execId) => executionHandler.handleHumanInputResponse(msg, port, execId)
+  )
+  
+  // Provider handlers
+  messageRouter.registerHandler(
+    MessageType.GET_LLM_PROVIDERS,
+    (msg, port) => providersHandler.handleGetProviders(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.SAVE_LLM_PROVIDERS,
+    (msg, port) => providersHandler.handleSaveProviders(msg, port)
+  )
+  
+  // MCP handlers
+  messageRouter.registerHandler(
+    MessageType.GET_MCP_SERVERS,
+    (msg, port) => mcpHandler.handleGetMCPServers(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.CONNECT_MCP_SERVER,
+    (msg, port) => mcpHandler.handleConnectMCPServer(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.DISCONNECT_MCP_SERVER,
+    (msg, port) => mcpHandler.handleDisconnectMCPServer(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.CALL_MCP_TOOL,
+    (msg, port) => mcpHandler.handleCallMCPTool(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.MCP_INSTALL_SERVER,
+    (msg, port) => mcpHandler.handleInstallServer(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.MCP_DELETE_SERVER,
+    (msg, port) => mcpHandler.handleDeleteServer(msg, port)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.MCP_GET_INSTALLED_SERVERS,
+    (msg, port) => mcpHandler.handleGetInstalledServers(msg, port)
+  )
+  
+  
+  // Plan handlers
+  messageRouter.registerHandler(
+    MessageType.GET_CURRENT_PLAN,
+    (msg, port, execId) => planHandler.handleGetCurrentPlan(msg, port, execId)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.UPDATE_PLAN,
+    (msg, port, execId) => planHandler.handleUpdatePlan(msg, port, execId)
+  )
+  
+  messageRouter.registerHandler(
+    MessageType.GET_PLAN_HISTORY,
+    (msg, port, execId) => planHandler.handleGetPlanHistory(msg, port, execId)
+  )
+  
+  // Log handler
+  messageRouter.registerHandler(
+    MessageType.LOG_MESSAGE,
+    (msg, port) => {
+      const logMsg = msg.payload as any
+      Logging.log(logMsg.source || 'Unknown', logMsg.message, logMsg.level || 'info')
+    }
+  )
+  
+  // Metrics handler
+  messageRouter.registerHandler(
+    MessageType.LOG_METRIC,
+    (msg, port) => {
+      const { event, properties } = msg.payload as any
+      Logging.logMetric(event, properties)
+    }
+  )
+  
+  // Heartbeat handler - acknowledge heartbeats to keep connection alive
+  messageRouter.registerHandler(
+    MessageType.HEARTBEAT,
+    (msg, port) => {
+      // Send heartbeat acknowledgment back
+      port.postMessage({
+        type: MessageType.HEARTBEAT_ACK,
+        payload: { timestamp: Date.now() },
+        id: msg.id
+      })
+    }
+  )
+  
+  // Panel close handler
+  messageRouter.registerHandler(
+    MessageType.CLOSE_PANEL,
+    async (msg, port) => {
+      // Close the side panel
       try {
-        port.postMessage({
-          type: MessageType.AGENT_STREAM_UPDATE,
-          payload: {
-            step: 0,
-            action: 'PUBSUB_EVENT',
-            status: 'executing',
-            details: event
+        const tabId = portToTabMap.get(port)
+        if (tabId) {
+          // Update state for specific tab
+          const state = tabPanelState.get(tabId)
+          if (state) {
+            state.isOpen = false
           }
+        }
+        
+        port.postMessage({
+          type: MessageType.WORKFLOW_STATUS,
+          payload: { status: 'success', message: 'Panel closing' },
+          id: msg.id
         })
       } catch (error) {
-        debugLog(`Failed to forward PubSub event to ${name}: ${error}`, 'warning')
+        Logging.log('Background', `Error closing panel: ${error}`, 'error')
       }
     }
-  }
-})
-
-// Initialize the extension
-function initialize(): void {
-  debugLog('ParallelManus extension initialized')
+  )
   
-  // Log extension initialization metric
-  Logging.logMetric('extension_initialized')
-  
-  // Initialize NxtScape once at startup to preserve conversation across queries
-  ensureNxtScapeInitialized().catch(error => {
-    debugLog(`Failed to initialize NxtScape at startup: ${error}`, 'error')
-  })
-  
-  
-  // Register port connection listener (port-based messaging only)
-  chrome.runtime.onConnect.addListener(handlePortConnection)
-  
-  // Register tab removal listener for glow cleanup
-  chrome.tabs.onRemoved.addListener((tabId) => {
-    glowService.handleTabClosed(tabId)
-  })
-  
-  // Listen for provider changes saved to chrome.storage.local (Chromium settings)
-  try {
-    chrome.storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-      if (areaName !== 'local') return
-      const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
-      const change = changes[key]
-      if (!change) return
-      try {
-        const raw = typeof change.newValue === 'string' ? JSON.parse(change.newValue) : change.newValue
-        const config = BrowserOSProvidersConfigSchema.parse(raw)
-        lastProvidersConfigJson = JSON.stringify(config)
-        try { langChainProvider.clearCache() } catch (_) {}
-        broadcastProvidersConfig(config)
-      } catch (_e) {
-        // Ignore parse/validation errors
-      }
-    })
-  } catch (_e) {
-    // storage.onChanged may not be available in all contexts
-  }
-  
-  
-  // Register action click listener to toggle side panel
-  chrome.action.onClicked.addListener(async (tab) => {
-    debugLog('Extension icon clicked, toggling side panel')
-    
-    try {
-      // Toggle the side panel for the current tab
-      if (tab.id) {
-        await toggleSidePanel(tab.id)
-      } else {
-        // No active tab found for side panel
-      }
-    } catch (error) {
-      debugLog(`Error toggling side panel: ${error instanceof Error ? error.message : String(error)}`, 'error')
-      // Log error if side panel fails
-      debugLog('Side panel failed to open', 'error')
-    }
-  })
-  
-  // Register keyboard shortcut listener
-  chrome.commands.onCommand.addListener(async (command) => {
-    if (command === 'toggle-panel') {
-      debugLog('Toggle panel keyboard shortcut triggered (Cmd+E/Ctrl+E)')
-      
-      // Get the current active tab
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      
-      if (activeTab?.id) {
-        await toggleSidePanel(activeTab.id)
-      } else {
-        // No active tab found for keyboard shortcut
-      }
-    }
-  })
-  
+  Logging.log('Background', 'All message handlers registered')
 }
 
 /**
- * Toggle the side panel for a specific tab with debouncing
- * @param tabId - The tab ID to toggle the panel for
- */
-async function toggleSidePanel(tabId: number): Promise<void> {
-  // Prevent rapid toggling
-  if (isToggling) {
-    // Toggle already in progress
-    return
-  }
-  
-  isToggling = true
-  
-  try {
-    if (isPanelOpen) {
-      // Panel is open, send close message
-      // Sending close message to side panel
-      
-      const sidePanelPort = connectedPorts.get(PortName.SIDEPANEL_TO_BACKGROUND)
-      if (sidePanelPort) {
-        sidePanelPort.postMessage({
-          type: MessageType.CLOSE_PANEL,
-          payload: {
-            reason: 'Keyboard shortcut toggle'
-          }
-        })
-        
-        // The panel will close itself and update isPanelOpen via disconnect handler
-      } else {
-        // Side panel port not found
-      }
-    } else {
-      // Panel is closed, open it
-      // Opening side panel
-      
-      await chrome.sidePanel.open({ tabId })
-
-      // Log panel opened via toggle metric
-      Logging.logMetric('side_panel_toggled', {})
-      
-      
-      // State will be updated when the panel connects
-      // Side panel open command sent
-    }
-  } catch (error) {
-    debugLog(`Error toggling side panel: ${error instanceof Error ? error.message : String(error)}`, 'error')
-    
-    // Try opening without tab ID as fallback
-    if (!isPanelOpen) {
-      try {
-        // Get the current window ID
-        const window = await chrome.windows.getCurrent()
-        if (window.id) {
-          await chrome.sidePanel.open({ windowId: window.id })
-          // Side panel opened with window ID as fallback
-        }
-      } catch (fallbackError) {
-        debugLog(`Fallback also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`, 'error')
-      }
-    }
-  } finally {
-    // Reset toggle flag after a short delay to prevent rapid toggling
-    setTimeout(() => {
-      isToggling = false
-    }, 300) // 300ms debounce
-  }
-}
-
-/**
- * Handles port connections
- * @param port - Port that connected
+ * Handle port connections
  */
 function handlePortConnection(port: chrome.runtime.Port): void {
-  const portName = port.name;
-  // Port connected
+  const portId = portManager.registerPort(port)
   
-  // Store the port
-  connectedPorts.set(portName, port);
-  
-  // Update panel state if side panel connected
-  if (portName === PortName.SIDEPANEL_TO_BACKGROUND) {
-    isPanelOpen = true
-    debugLog('Side panel connected, updating state')
-    Logging.logMetric('side_panel_opened', {
-      source: 'port_connection'
-    })
-    // Kick a fetch and start polling for external changes
-    startProvidersPolling()
+  // Handle sidepanel connections with tab ID in port name
+  const portInfo = parsePortName(port.name)
+  if (portInfo.type === 'sidepanel' && portInfo.tabId) {
+    const tabId = portInfo.tabId
+    
+    // Store the port-to-tab mapping
+    portToTabMap.set(port, tabId)
+    
+    // Update panel state for this tab
+    tabPanelState.set(tabId, { isOpen: true, isToggling: false })
+    
+    Logging.log('Background', `Side panel connected for tab ${tabId} with port name: ${port.name}`)
+    Logging.logMetric('side_panel_opened', { source: 'port_connection', tabId })
+  } else if (portInfo.type === 'sidepanel') {
+    Logging.log('Background', `Side panel connected but no tab ID in port name: ${port.name}`)
   }
   
-  // Register the port with LogUtility for centralized logging
-  Logging.registerPort(portName, port);
+  // Register with logging system
+  Logging.registerPort(port.name, port)
   
-  // Set up port message listener
-  port.onMessage.addListener((message: PortMessage, port: chrome.runtime.Port) => {
-    handlePortMessage(message, port);
-  });
+  // Set up message listener
+  port.onMessage.addListener((message: PortMessage) => {
+    messageRouter.routeMessage(message, port)
+  })
   
   // Set up disconnect listener
   port.onDisconnect.addListener(() => {
-    // Port disconnected
-    connectedPorts.delete(portName);
+    portManager.unregisterPort(port)
     
-    // Update panel state if side panel disconnected
-    if (portName === PortName.SIDEPANEL_TO_BACKGROUND) {
-      isPanelOpen = false
-      debugLog('Side panel disconnected, updating state')
-      Logging.logMetric('side_panel_closed', {
-        source: 'port_disconnection'
-      })
-      stopProvidersPolling()
-    }
-    
-    // Unregister the port from LogUtility
-    Logging.unregisterPort(portName);
-  });
-}
-
-/**
- * Handles messages received via port
- * @param message - The message received
- * @param port - The port that sent the message
- */
-function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): void {
-  try {
-    const { type, payload, id } = message
-    // Port message received (non-heartbeat)
-    
-    if (type === MessageType.EXECUTE_QUERY) {
-      debugLog(`🎯 EXECUTE_QUERY received from ${port.name}`)
-    }
-    
-    switch (type as MessageType) {
-      case MessageType.LOG:
-        handleLogMessage(payload as LogMessage['payload'])
-        break
-        
-      case MessageType.EXECUTE_QUERY:
-        handleExecuteQueryPort(payload as ExecuteQueryMessage['payload'], port, id)
-        break
-        
-        
-      case MessageType.HEARTBEAT:
-        handleHeartbeatMessage(payload as { timestamp: number }, port)
-        break
-        
-      case MessageType.CANCEL_TASK:
-        handleCancelTaskPort(payload as CancelTaskMessage['payload'], port, id)
-        break
-        
-      case MessageType.HUMAN_INPUT_RESPONSE:
-        // Forward human input response to the execution context
-        if (nxtScape) {
-          const pubsub = PubSub.getInstance()
-          pubsub.publishHumanInputResponse(payload as any)
-        }
-        break
-        
-      case MessageType.RESET_CONVERSATION:
-        handleResetConversationPort(payload as ResetConversationMessage['payload'], port, id)
-        break
-        
-      case MessageType.GET_TABS:
-        // GET_TABS message received
-        handleGetTabsPort(payload as GetTabsMessage['payload'], port, id)
-        break
-
-      case MessageType.GET_LLM_PROVIDERS:
-        handleGetLlmProvidersPort(port, id)
-        break
-
-      case MessageType.SAVE_LLM_PROVIDERS:
-        handleSaveLlmProvidersPort(payload, port, id)
-        break
-        
-      case MessageType.GET_TAB_HISTORY:
-        // GET_TAB_HISTORY not used anymore
-        break
-        
-      case MessageType.AGENT_STREAM_UPDATE:
-        // This is an outgoing message type, not incoming
-        // Received AGENT_STREAM_UPDATE (shouldn't happen)
-        break
-        
-      case MessageType.GLOW_START:
-        handleGlowStartPort(payload as { tabId: number }, port, id)
-        break
-        
-      case MessageType.GLOW_STOP:
-        handleGlowStopPort(payload as { tabId: number }, port, id)
-        break
+    // Clean up tab-specific state
+    const tabId = portToTabMap.get(port)
+    if (tabId) {
+      // Remove from port-to-tab mapping
+      portToTabMap.delete(port)
       
-      case MessageType.MCP_INSTALL_SERVER:
-        handleMCPInstallServerPort(payload as { serverId: string }, port, id)
-        break
-
-      case MessageType.MCP_GET_INSTALLED_SERVERS:
-        handleMCPGetInstalledServersPort(port, id)
-        break
-      
-      case MessageType.MCP_DELETE_SERVER:
-        handleMCPDeleteServerPort(payload as { instanceId: string }, port, id)
-        break
-
-      // Plan generation and refinement from New Tab
-      case MessageType.GENERATE_PLAN:
-        handleGeneratePlanPort(payload as { input: string; context?: string; maxSteps?: number }, port, id)
-        break
-
-      case MessageType.REFINE_PLAN:
-        handleRefinePlanPort(payload as { currentPlan: { goal?: string; steps: string[] }; feedback: string; maxSteps?: number }, port, id)
-        
-      default:
-        // Unknown port message type
-        port.postMessage({
-          type: MessageType.WORKFLOW_STATUS,
-          payload: { error: `Unknown message type: ${type}` },
-          id
-        })
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    debugLog(`Error handling port message: ${errorMessage}`, 'error')
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      id: message.id,
-      payload: { error: errorMessage }
-    })
-  }
-}
-
-/**
- * Handles log messages
- * @param payload - Log message payload
- */
-function handleLogMessage(payload: LogMessage['payload']): void {
-  const { source, message, level = 'info' } = payload;
-  // Forward log message from other components
-}
-
-/**
- * Helper function to determine status from action string
- */
-function getStatusFromAction(action: string): 'thinking' | 'executing' | 'completed' | 'error' {
-  if (action.includes('Error') || action.includes('Failed')) {
-    return 'error'
-  } else if (action.includes('Thinking') || action.includes('Processing')) {
-    return 'thinking'
-  } else if (action.includes('Executing')) {
-    return 'executing'
-  } else {
-    return 'executing'
-  }
-}
-
-
-/**
- * Handles query execution from port messages
- * @param payload - Query execution payload
- * @param port - Port that sent the message  
- * @param id - Message ID for response tracking
- */
-async function handleExecuteQueryPort(
-  payload: { query: string; tabIds?: number[]; source?: string; chatMode?: boolean, metadata?: any },
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  try {
-    // Enhanced debug logging with metadata info
-    const source = payload.metadata?.source || payload.source || 'unknown'
-    const executionMode = payload.metadata?.executionMode || 'dynamic'
-    debugLog(`🎯 [Background] Received query execution from ${source} (mode: ${executionMode})`)
-    
-    Logging.logMetric('query_initiated', {
-      query: payload.query,
-      source: source,
-      mode: payload.chatMode ? 'chat' : 'browse',
-      executionMode: executionMode,
-    })
-    
-    // Initialize NxtScape if not already done
-    await ensureNxtScapeInitialized()
-    
-    // Note: We now pass mode explicitly to run(), but keep setChatMode for backward compatibility
-    if (payload.chatMode !== undefined) {
-      nxtScape.setChatMode(payload.chatMode)  // Keep for any ExecutionContext dependencies
-      debugLog(`Mode set to ${payload.chatMode ? 'chat' : 'browse'} for this query`)
-    }
-    // Clear previous messages when starting new execution
-    pubsub.clearBuffer()
-    
-    // Execute the query using NxtScape
-    // Starting NxtScape execution
-    
-    await nxtScape.run({
-      query: payload.query,
-      mode: payload.chatMode ? 'chat' : 'browse',  // Convert boolean to explicit mode
-      tabIds: payload.tabIds,
-      metadata: payload.metadata
-    })
-    
-    // NxtScape execution completed - all messaging handled via PubSub
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    debugLog(`[Background] Error executing query: ${errorMessage}`, 'error')
-  }
-}
-
-
-// Broadcast latest providers config to all connected UIs
-function broadcastProvidersConfig(config: unknown): void {
-  for (const [name, port] of connectedPorts) {
-    if (name === PortName.SIDEPANEL_TO_BACKGROUND) {
-      try {
-        port.postMessage({
-          type: MessageType.WORKFLOW_STATUS,
-          payload: { status: 'success', data: { providersConfig: config } }
-        })
-      } catch (error) {
-        debugLog(`Failed to broadcast providers config to ${name}: ${error}`, 'warning')
+      // Update panel state
+      const state = tabPanelState.get(tabId)
+      if (state) {
+        state.isOpen = false
       }
+      
+      Logging.log('Background', `Side panel disconnected for tab ${tabId}`)
+      Logging.logMetric('side_panel_closed', { source: 'port_disconnection', tabId })
     }
-  }
-}
-
-
-/**
- * Handles heartbeat messages to keep port connection alive
- * @param payload - Heartbeat payload with timestamp
- * @param port - Port to send acknowledgment through
- */
-function handleHeartbeatMessage(payload: { timestamp: number }, port: chrome.runtime.Port): void {
-  // Send heartbeat acknowledgment back to keep connection alive
-  port.postMessage({
-    type: MessageType.HEARTBEAT_ACK,
-    payload: { timestamp: payload.timestamp }
+    
+    // Unregister from logging
+    Logging.unregisterPort(port.name)
   })
 }
 
 /**
- * Handles conversation reset requests via port messaging
- * @param payload - Reset conversation payload
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
+ * Toggle the side panel for a specific tab
  */
-function handleResetConversationPort(
-  payload: ResetConversationMessage['payload'],
-  port: chrome.runtime.Port,
-  id?: string
-): void {
-  try {
-    nxtScape.reset()
-    Logging.logMetric('conversation_reset')
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    debugLog(`Error handling conversation reset: ${errorMessage}`, 'error')
+async function toggleSidePanel(tabId: number): Promise<void> {
+  // Get or create state for this tab
+  let state = tabPanelState.get(tabId)
+  if (!state) {
+    state = { isOpen: false, isToggling: false }
+    tabPanelState.set(tabId, state)
   }
-}
-
-/**
- * Handles GET_TABS requests to fetch browser tabs via port messaging
- * @param payload - Get tabs payload
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
- */
-function handleGetTabsPort(
-  payload: GetTabsMessage['payload'],
-  port: chrome.runtime.Port,
-  id?: string
-): void {
+  
+  if (state.isToggling) return
+  
+  state.isToggling = true
+  
   try {
-    const { currentWindowOnly = true } = payload
-    
-    // Getting tabs
-    
-    // Query tabs based on the currentWindowOnly flag
-    const queryOptions: chrome.tabs.QueryInfo = currentWindowOnly 
-      ? { currentWindow: true }
-      : {}
-    
-    chrome.tabs.query(queryOptions, (tabs) => {
-      // Filter to only HTTP/HTTPS tabs as these are the ones we can interact with
-      const httpTabs = tabs.filter(tab => 
-        tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))
-      )
-      
-      // Found HTTP/HTTPS tabs
-      
-      // Map tabs to a simplified format for the frontend
-      const tabData = httpTabs.map(tab => ({
-        id: tab.id,
-        title: tab.title || 'Untitled',
-        url: tab.url || '',
-        favIconUrl: tab.favIconUrl || null,
-        active: tab.active || false,
-        pinned: tab.pinned || false,
-        windowId: tab.windowId
-      }))
-      
-      // Send success response with tab data
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: {
-          status: 'success',
-          data: {
-            tabs: tabData,
-            totalCount: httpTabs.length,
-            currentWindowOnly
-          }
-        },
-        id
-      })
-    })
-    
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    debugLog(`Error handling GET_TABS request: ${errorMessage}`, 'error')
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: { 
-        status: 'error',
-        error: `Failed to get tabs: ${errorMessage}`
-      },
-      id
-    })
-  }
-}
-
-// Get LLM providers configuration
-async function handleGetLlmProvidersPort(
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  try {
-    const config = await LLMSettingsReader.readAllProviders()
-    lastProvidersConfigJson = JSON.stringify(config)
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: { status: 'success', data: { providersConfig: config } },
-      id
-    })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    debugLog(`Error handling GET_LLM_PROVIDERS: ${errorMessage}`, 'error')
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: { status: 'error', error: `Failed to read providers: ${errorMessage}` },
-      id
-    })
-  }
-}
-
-// Save LLM providers configuration
-function handleSaveLlmProvidersPort(
-  payload: unknown,
-  port: chrome.runtime.Port,
-  id?: string
-): void {
-  try {
-    const config = BrowserOSProvidersConfigSchema.parse(payload)
-    const browserOS = (chrome as any)?.browserOS as { setPref?: (name: string, value: any, pageId?: string, cb?: (ok: boolean) => void) => void } | undefined
-    if (browserOS?.setPref) {
-      browserOS.setPref(
-        BROWSEROS_PREFERENCE_KEYS.PROVIDERS,
-        JSON.stringify(config),
-        undefined,
-        (success?: boolean) => {
-          if (success) {
-            try { langChainProvider.clearCache() } catch (_) {}
-            lastProvidersConfigJson = JSON.stringify(config)
-            broadcastProvidersConfig(config)
-          }
+    if (state.isOpen) {
+      // Find and close the panel for this specific tab
+      for (const [port, mappedTabId] of portToTabMap.entries()) {
+        if (mappedTabId === tabId) {
           port.postMessage({
-            type: MessageType.WORKFLOW_STATUS,
-            payload: success ? { status: 'success' } : { status: 'error', error: 'Save failed' },
-            id
+            type: MessageType.CLOSE_PANEL,
+            payload: { reason: 'toggle', tabId }
           })
+          break
         }
-      )
+      }
+      state.isOpen = false
     } else {
-      // Fallback to chrome.storage.local for dev
+      // Open the panel for this tab
+      await chrome.sidePanel.open({ tabId })
+      state.isOpen = true
+      Logging.logMetric('side_panel_toggled', { tabId })
+    }
+  } catch (error) {
+    Logging.log('Background', `Error toggling side panel for tab ${tabId}: ${error}`, 'error')
+    
+    // Try fallback with windowId
+    if (!state.isOpen) {
       try {
-        const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
-        chrome.storage?.local?.set({ [key]: JSON.stringify(config) }, () => {
-          try { langChainProvider.clearCache() } catch (_) {}
-          lastProvidersConfigJson = JSON.stringify(config)
-          broadcastProvidersConfig(config)
-          port.postMessage({
-            type: MessageType.WORKFLOW_STATUS,
-            payload: { status: 'success' },
-            id
-          })
-        })
-      } catch (_e) {
-        port.postMessage({
-          type: MessageType.WORKFLOW_STATUS,
-          payload: { status: 'error', error: 'Save failed' },
-          id
-        })
-      }
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: { status: 'error', error: errorMessage },
-      id
-    })
-  }
-}
-
-
-/**
- * Handles task cancellation requests via port messaging
- * @param payload - Cancel task payload
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
- */
-function handleCancelTaskPort(
-  payload: CancelTaskMessage['payload'],
-  port: chrome.runtime.Port,
-  id?: string
-): void {
-  try {
-    nxtScape.cancel()
-    Logging.logMetric('task_cancelled')
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    debugLog(`Error handling task cancellation: ${errorMessage}`, 'error')
-  }
-}
-
-
-
-
-/**
- * Handles glow start requests via port messaging
- * @param payload - Glow start payload
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
- */
-function handleGlowStartPort(
-  payload: { tabId: number },
-  port: chrome.runtime.Port,
-  id?: string
-): void {
-  const { tabId } = payload
-  
-  debugLog(`Glow start requested for tab ${tabId}`)
-  
-  glowService.startGlow(tabId)
-    .then(() => {
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: {
-          status: 'success',
-          message: `Glow started on tab ${tabId}`
-        },
-        id
-      })
-    })
-    .catch(error => {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: {
-          status: 'error',
-          error: `Failed to start glow: ${errorMessage}`
-        },
-        id
-      })
-    })
-}
-
-/**
- * Handles glow stop requests via port messaging
- * @param payload - Glow stop payload
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
- */
-function handleGlowStopPort(
-  payload: { tabId: number },
-  port: chrome.runtime.Port,
-  id?: string
-): void {
-  const { tabId } = payload
-  
-  debugLog(`Glow stop requested for tab ${tabId}`)
-  
-  glowService.stopGlow(tabId)
-    .then(() => {
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: {
-          status: 'success',
-          message: `Glow stopped on tab ${tabId}`
-        },
-        id
-      })
-    })
-    .catch(error => {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: {
-          status: 'error',
-          error: `Failed to stop glow: ${errorMessage}`
-        },
-        id
-      })
-    })
-}
-
-/**
- * Handle MCP Install Server message
- */
-async function handleMCPInstallServerPort(
-  payload: { serverId: string },
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  const { serverId } = payload
-  
-  debugLog(`MCP server installation requested: ${serverId}`)
-  
-  try {
-    // Get the server name from config
-    const serverConfig = MCP_SERVERS.find(s => s.id === serverId)
-    if (!serverConfig) {
-      throw new Error(`Unknown server ID: ${serverId}`)
-    }
-    
-    // Install the server using KlavisAPIManager
-    const manager = KlavisAPIManager.getInstance()
-    const result = await manager.installServer(serverConfig.name)
-    
-    // Check if authentication was successful
-    if (result.oauthUrl && !result.authSuccess) {
-      // OAuth was required but failed
-      port.postMessage({
-        type: MessageType.MCP_SERVER_STATUS,
-        payload: {
-          serverId,
-          status: 'auth_failed',
-          serverUrl: result.serverUrl,
-          instanceId: result.instanceId,
-          error: 'Authentication required but not completed. Please try installing again and complete the authentication.'
-        },
-        id
-      })
-      
-      debugLog(`MCP server installed but auth failed: ${serverId} (${result.instanceId})`)
-      return
-    }
-    
-    // Send success message
-    port.postMessage({
-      type: MessageType.MCP_SERVER_STATUS,
-      payload: {
-        serverId,
-        status: 'success',
-        serverUrl: result.serverUrl,
-        instanceId: result.instanceId,
-        authenticated: result.authSuccess !== false
-      },
-      id
-    })
-    
-    // Log metric for successful MCP server connection
-    Logging.logMetric('mcp_server_connected', {
-      server_name: serverConfig.name,
-      server_id: serverId,
-      instance_id: result.instanceId,
-      authenticated: result.authSuccess !== false
-    })
-    
-    debugLog(`MCP server installed successfully: ${serverId} (${result.instanceId}), authenticated: ${result.authSuccess !== false}`)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Installation failed'
-    
-    // Send error message
-    port.postMessage({
-      type: MessageType.MCP_SERVER_STATUS,
-      payload: {
-        serverId,
-        status: 'error',
-        error: errorMessage
-      },
-      id
-    })
-    
-    debugLog(`MCP server installation failed: ${serverId} - ${errorMessage}`, 'error')
-  }
-}
-
-/**
- * Handles getting installed MCP servers
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
- */
-async function handleMCPGetInstalledServersPort(
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  debugLog('Getting installed MCP servers')
-  
-  try {
-    const manager = KlavisAPIManager.getInstance()
-    const installedServers = await manager.getInstalledServers()
-    
-    // Map server data with config icons
-    const serversWithConfig = installedServers.map(server => {
-      const config = MCP_SERVERS.find(s => s.name === server.name)
-      return {
-        id: server.id,
-        name: server.name,
-        description: server.description,
-        authenticated: server.isAuthenticated,
-        authNeeded: server.authNeeded,
-        iconPath: config?.iconPath || null,
-        toolCount: server.tools?.length || 0
-      }
-    })
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: {
-        status: 'success',
-        data: {
-          servers: serversWithConfig
+        const tab = await chrome.tabs.get(tabId)
+        if (tab.windowId) {
+          await chrome.sidePanel.open({ windowId: tab.windowId })
+          state.isOpen = true
         }
-      },
-      id
-    })
-    
-    debugLog(`Found ${serversWithConfig.length} installed MCP servers`)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to get installed servers'
-    
-    port.postMessage({
-      type: MessageType.WORKFLOW_STATUS,
-      payload: {
-        status: 'error',
-        error: errorMessage
-      },
-      id
-    })
-    
-    debugLog(`Error getting installed MCP servers: ${errorMessage}`, 'error')
+      } catch (fallbackError) {
+        Logging.log('Background', `Fallback failed for tab ${tabId}: ${fallbackError}`, 'error')
+      }
+    }
+  } finally {
+    // Reset toggle flag
+    setTimeout(() => {
+      const currentState = tabPanelState.get(tabId)
+      if (currentState) {
+        currentState.isToggling = false
+      }
+    }, 300)
   }
 }
 
 /**
- * Handles deleting an MCP server
- * @param payload - Contains instanceId of server to delete
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
+ * Initialize the extension
  */
-async function handleMCPDeleteServerPort(
-  payload: { instanceId: string },
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  const { instanceId } = payload
+function initialize(): void {
+  Logging.log('Background', 'Nxtscape extension initializing')
+  Logging.logMetric('extension_initialized')
   
-  debugLog(`MCP server deletion requested: ${instanceId}`)
+  // Register all handlers
+  registerHandlers()
   
-  try {
-    const manager = KlavisAPIManager.getInstance()
-    const success = await manager.deleteServer(instanceId)
-    
-    if (success) {
-      port.postMessage({
-        type: MessageType.MCP_SERVER_STATUS,
-        payload: {
-          status: 'deleted',
-          instanceId,
-          message: 'Server deleted successfully'
-        },
-        id
-      })
-      
-      // Log metric for MCP server disconnection
-      Logging.logMetric('mcp_server_disconnected', {
-        instance_id: instanceId
-      })
-      
-      debugLog(`MCP server deleted successfully: ${instanceId}`)
-    } else {
-      throw new Error('Failed to delete server')
+  // Set up port connection listener
+  chrome.runtime.onConnect.addListener(handlePortConnection)
+  
+  // Set up extension icon click handler
+  chrome.action.onClicked.addListener(async (tab) => {
+    Logging.log('Background', 'Extension icon clicked')
+    if (tab.id) {
+      await toggleSidePanel(tab.id)
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Deletion failed'
-    
-    port.postMessage({
-      type: MessageType.MCP_SERVER_STATUS,
-      payload: {
-        status: 'error',
-        instanceId,
-        error: errorMessage
-      },
-      id
-    })
-    
-    debugLog(`MCP server deletion failed: ${instanceId} - ${errorMessage}`, 'error')
-  }
+  })
+  
+  // Set up keyboard shortcut handler
+  chrome.commands.onCommand.addListener(async (command) => {
+    if (command === 'toggle-panel') {
+      Logging.log('Background', 'Toggle panel shortcut triggered (Cmd+E/Ctrl+E)')
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (activeTab?.id) {
+        await toggleSidePanel(activeTab.id)
+      }
+    }
+  })
+  
+  // Clean up on tab removal
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    // Clean up tab-specific panel state
+    tabPanelState.delete(tabId)
+    // Handlers can clean up tab-specific resources
+    Logging.log('Background', `Tab ${tabId} removed, cleaned up panel state`)
+  })
+  
+  Logging.log('Background', 'Nxtscape extension initialized successfully')
 }
 
 // Initialize the extension
 initialize()
 
-// Poll providers when panel is open; compare and broadcast on change
-async function pollProvidersOnce(): Promise<void> {
-  try {
-    const config = await LLMSettingsReader.readAllProviders()
-    const json = JSON.stringify(config)
-    if (json !== lastProvidersConfigJson) {
-      lastProvidersConfigJson = json
-      try { langChainProvider.clearCache() } catch (_) {}
-      broadcastProvidersConfig(config)
+// Export for debugging
+if (isDevelopmentMode()) {
+  (globalThis as any).__nxtscape = {
+    router: messageRouter,
+    portManager,
+    handlers: {
+      execution: executionHandler,
+      providers: providersHandler,
+      mcp: mcpHandler,
+      plan: planHandler
     }
-  } catch (_e) {}
-}
-
-function startProvidersPolling(): void {
-  if (providersPollIntervalId !== null) return
-  // Immediate poll then interval
-  void pollProvidersOnce()
-  providersPollIntervalId = setInterval(() => { void pollProvidersOnce() }, 1500) as unknown as number
-}
-
-function stopProvidersPolling(): void {
-  if (providersPollIntervalId !== null) {
-    clearInterval(providersPollIntervalId as unknown as number)
-    providersPollIntervalId = null
-  }
-}
-
-/**
- * Helper to post plan generation updates back to the sender
- */
-function postPlanUpdate(
-  port: chrome.runtime.Port,
-  id: string | undefined,
-  update: {
-    status: 'queued' | 'started' | 'thinking' | 'done' | 'error';
-    content?: string;
-    structured?: { steps: Array<{ action: string; reasoning: string }>; goal?: string; name?: string };
-    error?: string;
-  }
-): void {
-  port.postMessage({
-    type: MessageType.PLAN_GENERATION_UPDATE,
-    payload: {
-      status: update.status,
-      content: update.content,
-      structured: update.structured,
-      plan: update.structured 
-        ? { 
-            goal: update.structured.goal, 
-            name: update.structured.name, 
-            steps: update.structured.steps.map(s => s.action) 
-          } 
-        : undefined,
-      error: update.error
-    },
-    id
-  })
-
-  // Also mirror updates to side panel via PubSub so users see progress
-  try {
-    const text = update.content || (update.status === 'done' && update.structured ? `Generated plan with ${update.structured.steps.length} steps` : `Status: ${update.status}`)
-    if (update.status === 'error') {
-      pubsub.publishMessage(PubSub.createMessage(update.error ? `Plan error: ${update.error}` : 'Plan generation failed', 'error'))
-    } else if (update.status === 'done') {
-      pubsub.publishMessage(PubSub.createMessage(text, 'thinking'))
-    } else {
-      pubsub.publishMessage(PubSub.createMessage(text, 'thinking'))
-    }
-  } catch (_e) {
-    // Best-effort only
-  }
-}
-
-/**
- * Handle GENERATE_PLAN from new tab
- */
-async function handleGeneratePlanPort(
-  payload: { input: string; context?: string; maxSteps?: number },
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  try {
-    const service = new PlanGeneratorService()
-    postPlanUpdate(port, id, { status: 'started', content: 'Starting plan generation…' })
-    const plan = await service.generatePlan(payload.input, {
-      context: payload.context,
-      maxSteps: payload.maxSteps,
-      onUpdate: (u) => postPlanUpdate(port, id, u)
-    })
-    postPlanUpdate(port, id, { status: 'done', content: 'Plan generated', structured: plan })
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    postPlanUpdate(port, id, { status: 'error', content: 'Plan generation failed', error: msg })
-  }
-}
-
-/**
- * Handle REFINE_PLAN from new tab
- */
-async function handleRefinePlanPort(
-  payload: { currentPlan: { goal?: string; steps: string[] }; feedback: string; maxSteps?: number },
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  try {
-    const service = new PlanGeneratorService()
-    postPlanUpdate(port, id, { status: 'started', content: 'Starting plan refinement…' })
-    const plan = await service.refinePlan({ goal: payload.currentPlan.goal, steps: payload.currentPlan.steps || [] }, payload.feedback, {
-      maxSteps: payload.maxSteps,
-      onUpdate: (u) => postPlanUpdate(port, id, u)
-    })
-    postPlanUpdate(port, id, { status: 'done', content: 'Plan refined', structured: plan })
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    postPlanUpdate(port, id, { status: 'error', content: 'Plan refinement failed', error: msg })
   }
 }

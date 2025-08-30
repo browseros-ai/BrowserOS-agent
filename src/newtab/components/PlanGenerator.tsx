@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Hammer } from 'lucide-react'
-import { PortName } from '@/lib/runtime/PortMessaging'
+import { PortPrefix } from '@/lib/runtime/PortMessaging'
 import { MessageType } from '@/lib/types/messaging'
 
 interface ParsedPlan { name?: string; goal: string; steps: string[] }
@@ -39,7 +39,9 @@ export function PlanGenerator ({
   // --- AI Integration ---
   const sendPortMessage = (message: { type: MessageType, payload: any }, onMessage: (m: any) => void): void => {
     try {
-      const port = chrome.runtime.connect({ name: PortName.NEWTAB_TO_BACKGROUND })
+      // Generate unique execution ID for this newtab instance
+      const executionId = `exec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      const port = chrome.runtime.connect({ name: `${PortPrefix.NEWTAB}:${executionId}` })
       const id = crypto.randomUUID()
       const handler = (msg: any): void => {
         if (msg?.type === MessageType.PLAN_GENERATION_UPDATE && msg?.id === id) {

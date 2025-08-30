@@ -86,7 +86,7 @@ export class NarratorService {
    * Check if execution has been aborted and throw if so
    */
   private _checkIfAborted(): void {
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError()
     }
   }
@@ -136,7 +136,7 @@ export class NarratorService {
       
       // Stream the narration
       const stream = await llm.stream(messages, {
-        signal: this.executionContext.abortController.signal
+        signal: this.executionContext.abortSignal
       })
       
       // Create a message ID for streaming updates

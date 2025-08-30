@@ -6,9 +6,9 @@ import { createScrollTool } from '@/lib/tools/navigation/ScrollTool'
 import { generateSystemPrompt, generatePageContextMessage, generateTaskPrompt } from './ChatAgent.prompt'
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages'
 import { PubSub } from '@/lib/pubsub'
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { AbortError } from '@/lib/utils/Abortable'
 import { Logging } from '@/lib/utils/Logging'
-import { Subscription } from '@/lib/pubsub/types'
 
 // Type definitions
 interface ExtractedPageContext {
@@ -33,7 +33,6 @@ export class ChatAgent {
   
   private readonly executionContext: ExecutionContext
   private readonly toolManager: ToolManager
-  private statusSubscription?: Subscription  // Subscription to execution status events
   
   // State tracking for tab context caching
   private lastExtractedTabIds: Set<number> | null = null
@@ -42,7 +41,6 @@ export class ChatAgent {
     this.executionContext = executionContext
     this.toolManager = new ToolManager(executionContext)
     this._registerTools()
-    this._subscribeToExecutionStatus()
   }
 
   // Getters for context components
@@ -50,7 +48,7 @@ export class ChatAgent {
     return this.executionContext.messageManager
   }
 
-  private get pubsub(): PubSub {
+  private get pubsub(): PubSubChannel {
     return this.executionContext.getPubSub()
   }
 
@@ -69,35 +67,16 @@ export class ChatAgent {
    * Check abort signal and throw if aborted
    */
   private _checkAborted(): void {
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError()
     }
   }
 
   /**
-   * Subscribe to execution status events and handle cancellation
-   */
-  private _subscribeToExecutionStatus(): void {
-    this.statusSubscription = this.pubsub.subscribe((event) => {
-      if (event.type === 'execution-status') {
-        const { status } = event.payload
-        
-        if (status === 'cancelled') {
-          this.pubsub.publishMessage(PubSub.createMessageWithId('pause_message_id','✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!', 'assistant'))
-          this.executionContext.cancelExecution(true)
-        }
-      }
-    })
-  }
-
-  /**
-   * Cleanup method to properly unsubscribe when agent is being destroyed
+   * Cleanup method (currently unused but kept for interface compatibility)
    */
   public cleanup(): void {
-    if (this.statusSubscription) {
-      this.statusSubscription.unsubscribe()
-      this.statusSubscription = undefined
-    }
+    // No cleanup needed currently
   }
 
   /**
@@ -153,9 +132,23 @@ export class ChatAgent {
       Logging.log('ChatAgent', 'Q&A response completed')
       
     } catch (error) {
-      if (error instanceof AbortError) {
-        Logging.log('ChatAgent', 'Execution aborted by user')
-        // Don't publish message here - already handled in _subscribeToExecutionStatus
+      // Check if this is a user cancellation - handle silently
+      const isAbortError = error instanceof Error && error.name === 'AbortError'
+      const abortReason = this.executionContext.abortSignal.reason as any
+      const isUserInitiated = abortReason?.userInitiated === true
+      
+      const isUserCancellation = error instanceof AbortError || 
+                                 this.executionContext.isUserCancellation() || 
+                                 (isAbortError && isUserInitiated)
+      
+      if (isUserCancellation) {
+        // User-initiated cancellation - don't rethrow, let execution end gracefully
+        Logging.log('ChatAgent', 'Execution cancelled by user')
+        return  // Don't rethrow
+      } else if (isAbortError) {
+        // System abort (not user-initiated) - still throw
+        Logging.log('ChatAgent', 'Execution aborted by system')
+        throw error
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error)
         const errorType = error instanceof Error ? error.name : 'UnknownError'
@@ -171,13 +164,7 @@ export class ChatAgent {
         
         Logging.log('ChatAgent', `Execution failed: ${errorMessage}`, 'error')
         this.pubsub.publishMessage(PubSub.createMessage(`Error: ${errorMessage}`, 'error'))
-      }
-      throw error
-    } finally {
-      // Cleanup status subscription
-      if (this.statusSubscription) {
-        this.statusSubscription.unsubscribe()
-        this.statusSubscription = undefined
+        throw error
       }
     }
   }
