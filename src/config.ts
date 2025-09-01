@@ -1,29 +1,29 @@
-import { z } from 'zod'
+import { z } from "zod";
 
 /**
  * Application configuration schema
  */
 export const AppConfigSchema = z.object({
-  DEV_MODE: z.boolean(),  // Enable development features like enhanced logging
-  MOCK_LLM_SETTINGS: z.boolean(),  // Enable mock LLM settings for development
-  ENABLE_NARRATOR: z.boolean(),  // Enable narrator service for human-friendly messages
-  VERSION: z.string(),  // Application version
-  LOG_LEVEL: z.enum(['info', 'error', 'warning', 'debug']).default('info')  // Default log level
-})
+  DEV_MODE: z.boolean(), // Enable development features like enhanced logging
+  MOCK_LLM_SETTINGS: z.boolean(), // Enable mock LLM settings for development
+  ENABLE_NARRATOR: z.boolean(), // Enable narrator service for human-friendly messages
+  VERSION: z.string(), // Application version
+  LOG_LEVEL: z.enum(["info", "error", "warning", "debug"]).default("info"), // Default log level
+});
 
-export type AppConfig = z.infer<typeof AppConfigSchema>
+export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 /**
  * Application configuration
  * DEV_MODE is automatically set based on NODE_ENV
  */
 export const config: AppConfig = {
-  DEV_MODE: process.env.NODE_ENV !== 'production',
+  DEV_MODE: process.env.NODE_ENV !== "production",
   MOCK_LLM_SETTINGS: false,
   ENABLE_NARRATOR: false,
-  VERSION: '0.1.0',
-  LOG_LEVEL: process.env.NODE_ENV !== 'production' ? 'debug' : 'info'
-}
+  VERSION: "0.1.0",
+  LOG_LEVEL: process.env.NODE_ENV !== "production" ? "debug" : "info",
+};
 
 /**
  * Get configuration value
@@ -31,7 +31,7 @@ export const config: AppConfig = {
  * @returns Configuration value
  */
 export function getConfig<K extends keyof AppConfig>(key: K): AppConfig[K] {
-  return config[key]
+  return config[key];
 }
 
 /**
@@ -39,11 +39,15 @@ export function getConfig<K extends keyof AppConfig>(key: K): AppConfig[K] {
  * @returns True if DEV_MODE is enabled
  */
 export function isDevelopmentMode(): boolean {
-  return config.DEV_MODE
+  return config.DEV_MODE;
 }
 
 export function isMockLLMSettings(): boolean {
-  return config.MOCK_LLM_SETTINGS
+  return config.MOCK_LLM_SETTINGS;
 }
 
-export default config 
+export function isPocMode(): boolean {
+  return true;
+}
+
+export default config;
