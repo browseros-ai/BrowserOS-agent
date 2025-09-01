@@ -9,40 +9,51 @@ import { createScrollTool } from "@/lib/tools/navigation/ScrollTool";
 import { createSearchTool } from "@/lib/tools/navigation/SearchTool";
 import { createRefreshStateTool } from "@/lib/tools/navigation/RefreshStateTool";
 import { createTabOperationsTool } from "@/lib/tools/tab/TabOperationsTool";
-import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
-import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
-import { createValidatorTool } from "@/lib/tools/validation/ValidatorTool";
 import { createScreenshotTool } from "@/lib/tools/utils/ScreenshotTool";
-import { createStorageTool } from "@/lib/tools/utils/StorageTool";
-import { createExtractTool } from "@/lib/tools/extraction/ExtractTool";
-import { createResultTool } from "@/lib/tools/result/ResultTool";
-import { createHumanInputTool } from "@/lib/tools/utils/HumanInputTool";
-import { createDateTool } from "@/lib/tools/utility/DateTool";
-import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
-import { generateSystemPrompt } from "./POCAgent.prompt";
 import { AIMessage, AIMessageChunk } from "@langchain/core/messages";
 import { AbortError } from "@/lib/utils/Abortable";
 import { GlowAnimationService } from "@/lib/services/GlowAnimationService";
-import { NarratorService } from "@/lib/services/NarratorService";
 import { PubSub } from "@/lib/pubsub"; // For static helper methods
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { Logging } from "@/lib/utils/Logging";
-import { z } from "zod";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
 
-// Type Definitions
 interface SingleTurnResult {
   doneToolCalled: boolean;
-  requiresHumanInput: boolean;
-  success?: boolean; // For React loop
+  success?: boolean;
+}
+
+interface ActionResult {
+  doneToolCalled: boolean;
+  output?: any;
+}
+
+interface ObserveDecideResult {
+  actions: Array<{
+    type: string;
+    x?: number;
+    y?: number;
+    text?: string;
+    key?: string;
+    selector?: string;
+    instruction?: string;
+    tool?: string;
+    params?: any;
+    reasoning: string;
+  }>;
+}
+
+interface CapturedState {
+  screenshot?: string;
+  domState?: string;
+  currentUrl?: string;
+  timestamp: number;
 }
 
 export class POCAgent {
-  // Human input constants
-  private static readonly HUMAN_INPUT_TIMEOUT = 600000; // 10 minutes
-  private static readonly HUMAN_INPUT_CHECK_INTERVAL = 500; // Check every 500ms
+  private static readonly PLANNING_INTERVAL = 5;
+  private static readonly MAX_ITERATIONS = 50;
 
-  // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
     "navigation_tool",
     "interact_tool",
@@ -57,18 +68,15 @@ export class POCAgent {
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
-  private narrator?: NarratorService; // Narrator service for human-friendly messages
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    this.narrator = new NarratorService(executionContext);
 
     this._registerTools();
   }
 
-  // Getters to access context components
   private get messageManager(): MessageManager {
     return this.executionContext.messageManager;
   }
@@ -77,49 +85,60 @@ export class POCAgent {
     return this.executionContext.getPubSub();
   }
 
-  /**
-   * Helper method to check abort signal and throw if aborted.
-   * Use this for manual abort checks inside loops.
-   */
   private checkIfAborted(): void {
     if (this.executionContext.abortSignal.aborted) {
       throw new AbortError();
     }
   }
 
-  /**
-   * Cleanup method to properly unsubscribe when agent is being destroyed
-   */
-  public cleanup(): void {
-    this.narrator?.cleanup();
-  }
+  public cleanup(): void {}
 
-  /**
-   * Main entry point for POC Agent.
-   * Executes tasks using only the ReAct strategy.
-   * @param task - The task/query to execute
-   * @param metadata - Optional execution metadata for controlling execution mode
-   */
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     try {
-      // 1. SETUP: Initialize system prompt and user task
       this._initializeExecution(task);
-
-      // 2. Show starting message
       this.pubsub.publishMessage(
-        PubSub.createMessage("Starting ReAct execution...", "thinking"),
+        PubSub.createMessage("Starting BrowserOS execution...", "thinking"),
       );
+      let stepCount = 0;
+      let currentPlan: string | null = null;
+      let taskComplete = false;
+      let actionsLeft: any[] = [];
+
+      while (!taskComplete && stepCount < POCAgent.MAX_ITERATIONS) {
+        this.checkIfAborted();
+
+        if (this._shouldPlan(stepCount, actionsLeft, currentPlan)) {
+          currentPlan = await this._planningInterface(task, currentPlan);
+        }
+
+        const state = await this._captureState();
+        const decision = await this._observeDecide(state, currentPlan, task);
+        actionsLeft = decision.actions;
+
+        for (const action of decision.actions) {
+          this.checkIfAborted();
+
+          const result = await this._executeAction(action);
+          await this._recordObservation(action, result);
+
+          if (result.doneToolCalled) {
+            taskComplete = true;
+            break;
+          }
+        }
+
+        stepCount++;
+      }
+
+      if (!taskComplete && stepCount >= POCAgent.MAX_ITERATIONS) {
+        throw new Error(
+          `Task did not complete within ${POCAgent.MAX_ITERATIONS} iterations`,
+        );
+      }
     } catch (error) {
       this._handleExecutionError(error, task);
     } finally {
-      // Cleanup narrator service
-      this.narrator?.cleanup();
-
-      // No status subscription cleanup needed; cancellation is centralized via AbortController
-
-      // Ensure glow animation is stopped at the end of execution
       try {
-        // Get all active glow tabs from the service
         const activeGlows = await this.glowService.getAllActiveGlows();
         for (const tabId of activeGlows) {
           await this.glowService.stopGlow(tabId);
@@ -131,59 +150,23 @@ export class POCAgent {
   }
 
   private _initializeExecution(task: string): void {
-    // Clear previous system prompts
     this.messageManager.removeSystemMessages();
-
-    // Set the current task in execution context
     this.executionContext.setCurrentTask(task);
-
-    const systemPrompt = generateSystemPrompt(
-      this.toolManager.getDescriptions(),
-    );
-    this.messageManager.addSystem(systemPrompt);
+    this.messageManager.addSystem("You are a browser automation agent.");
     this.messageManager.addHuman(task);
   }
 
   private _registerTools(): void {
-    // Core tools
     this.toolManager.register(createDoneTool(this.executionContext));
-
-    // Navigation tools
     this.toolManager.register(createNavigationTool(this.executionContext));
     this.toolManager.register(createInteractionTool(this.executionContext));
     this.toolManager.register(createScrollTool(this.executionContext));
     this.toolManager.register(createSearchTool(this.executionContext));
     this.toolManager.register(createRefreshStateTool(this.executionContext));
-
-    // Tab tools
     this.toolManager.register(createTabOperationsTool(this.executionContext));
-    this.toolManager.register(createGroupTabsTool(this.executionContext));
-    this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
-
-    // Validation tool
-    this.toolManager.register(createValidatorTool(this.executionContext));
-
-    // Util tools
     this.toolManager.register(createScreenshotTool(this.executionContext));
-    this.toolManager.register(createStorageTool(this.executionContext));
-    this.toolManager.register(createExtractTool(this.executionContext));
-    this.toolManager.register(createHumanInputTool(this.executionContext));
-    this.toolManager.register(createDateTool(this.executionContext));
-
-    // Result tool
-    this.toolManager.register(createResultTool(this.executionContext));
-
-    // MCP tool for external integrations
-    this.toolManager.register(createMCPTool(this.executionContext));
   }
 
-  // ===================================================================
-  //  Shared Core & Helper Logic
-  // ===================================================================
-  /**
-   * Executes a single "turn" with the LLM, including streaming and tool processing.
-   * @returns {Promise<SingleTurnResult>} - Information about which tools were called
-   */
   private async _executeSingleTurn(
     instruction: string,
   ): Promise<SingleTurnResult> {
@@ -196,18 +179,12 @@ export class POCAgent {
 
     const result: SingleTurnResult = {
       doneToolCalled: false,
-      requiresHumanInput: false,
     };
 
     if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
-      // IMPORTANT: We must add the full AIMessage object (not just a string) to maintain proper conversation history.
-      // The AIMessage contains both content and tool_calls. LLMs like Google's API validate that function calls
-      // in the conversation history match with their corresponding ToolMessage responses. If we only add a string
-      // here, we lose the tool_calls information, causing "function calls don't match" errors.
       this.messageManager.add(llmResponse);
       const toolsResult = await this._processToolCalls(llmResponse.tool_calls);
       result.doneToolCalled = toolsResult.doneToolCalled;
-      result.requiresHumanInput = toolsResult.requiresHumanInput;
     } else if (llmResponse.content) {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
@@ -302,7 +279,6 @@ export class POCAgent {
       const toolResult = await tool.func(args);
       const parsedResult = jsonParseToolOutput(toolResult);
 
-      // Add the result back to the message history for context
       if (toolName === "refresh_browser_state_tool" && parsedResult.ok) {
         const simplifiedResult = JSON.stringify({
           ok: true,
@@ -333,21 +309,15 @@ export class POCAgent {
     return result;
   }
 
-  /**
-   * Handle execution errors - tools have already published specific errors
-   */
   private _handleExecutionError(error: unknown, task: string): void {
-    // Check if this is a user cancellation - handle silently
     const isUserCancellation =
       error instanceof AbortError ||
       this.executionContext.isUserCancellation() ||
       (error instanceof Error && error.name === "AbortError");
 
     if (isUserCancellation) {
-      // Don't publish message here - already handled in _subscribeToExecutionStatus
-      // when the cancelled status event is received
+      return;
     } else {
-      // Log error metric with details
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       const errorType = error instanceof Error ? error.name : "UnknownError";
@@ -355,7 +325,7 @@ export class POCAgent {
       Logging.logMetric("execution_error", {
         error: errorMessage,
         error_type: errorType,
-        task: task.substring(0, 200), // Truncate long tasks
+        task: task.substring(0, 200),
         mode: "browse",
         agent: "BrowserAgent",
       });
@@ -365,12 +335,7 @@ export class POCAgent {
     }
   }
 
-  /**
-   * Handle glow animation for tools that interact with the browser
-   * @param toolName - Name of the tool being executed
-   */
   private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
-    // Check if this tool should trigger glow animation
     if (!POCAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
       return false;
     }
@@ -386,9 +351,66 @@ export class POCAgent {
       }
       return false;
     } catch (error) {
-      // Log but don't fail if we can't manage glow
       console.error(`Could not manage glow for tool ${toolName}: ${error}`);
       return false;
     }
+  }
+
+  private async _planningInterface(
+    task: string,
+    currentPlan: string | null,
+  ): Promise<string> {
+    this.pubsub.publishMessage(
+      PubSub.createMessage("Planning next steps...", "thinking"),
+    );
+    return `Navigate to the target website and complete the task: ${task}`;
+  }
+
+  private async _captureState(): Promise<CapturedState> {
+    const state: CapturedState = {
+      timestamp: Date.now(),
+      currentUrl: "https://example.com",
+    };
+
+    return state;
+  }
+
+  private async _observeDecide(
+    state: CapturedState,
+    plan: string | null,
+    task: string,
+  ): Promise<ObserveDecideResult> {
+    this.pubsub.publishMessage(
+      PubSub.createMessage(
+        "Analyzing current state and deciding next actions...",
+        "thinking",
+      ),
+    );
+    return {
+      actions: [],
+    };
+  }
+
+  private async _executeAction(action: any): Promise<ActionResult> {
+    const result: ActionResult = {
+      doneToolCalled: false,
+    };
+
+    return result;
+  }
+
+  private async _recordObservation(action: any, result: any): Promise<void> {
+    console.log("Recording observation:", { action, result });
+  }
+
+  private _shouldPlan(
+    stepCount: number,
+    actionsLeft: any[],
+    currentPlan: string | null,
+  ): boolean {
+    if (!currentPlan) return true;
+    if (stepCount % POCAgent.PLANNING_INTERVAL === 0) return true;
+    if (actionsLeft.length === 0) return true;
+    return false;
   }
 }
