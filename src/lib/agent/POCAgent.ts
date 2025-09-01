@@ -108,7 +108,7 @@ export class POCAgent {
     }
   }
 
-  public cleanup(): void { }
+  public cleanup(): void {}
 
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     try {
@@ -128,6 +128,11 @@ export class POCAgent {
 
         // Plan if needed (initial, periodic, or requested)
         if (this._shouldPlan(this.stepCounter, needsReplan, currentPlan)) {
+          Logging.log(
+            "POCAgent",
+            `Planning next steps. Step counter: ${this.stepCounter}`,
+            "info",
+          );
           currentPlan = await this._planningInterface(task, currentPlan);
           needsReplan = false;
         }
@@ -135,6 +140,11 @@ export class POCAgent {
         // Capture current state and decide on actions
         const state = await this._captureState();
         const decision = await this._observeDecide(state, currentPlan, task);
+        Logging.log(
+          "POCAgent",
+          `ObserveDecide result: ${JSON.stringify(decision)}`,
+          "info",
+        );
 
         // Handle control flow decisions
         if (decision.doneToolCalled) {
@@ -228,14 +238,16 @@ export class POCAgent {
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
 
-    Logging.log("POCAgent", `K tokens:\n${JSON.stringify(llmResponse, null, 2)}`, "info");
-
     const result: SingleTurnResult = {
       doneToolCalled: false,
     };
 
     if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
-      Logging.log("POCAgent", `No of tool_calls: ${llmResponse.tool_calls.length}`, "info");
+      Logging.log(
+        "POCAgent",
+        `No of tool_calls: ${llmResponse.tool_calls.length}`,
+        "info",
+      );
 
       this.messageManager.add(llmResponse);
       const toolsResult = await this._processToolCalls(llmResponse.tool_calls);
@@ -543,12 +555,18 @@ export class POCAgent {
 
     // ObserveDecide loop - keep executing until we need to exit or recapture state
     while (true && this.stepCounter < POCAgent.MAX_ITERATIONS) {
+      Logging.log(
+        "POCAgent",
+        `ObserveDecide loop. Step counter: ${this.stepCounter}`,
+        "info",
+      );
       this.checkIfAborted();
 
       this.stepCounter++;
 
       let instruction = "";
       if (captureObservation) {
+        Logging.log("POCAgent", "capturing observation...", "info");
         state = await this._captureState();
         captureObservation = false;
         instruction = `
@@ -585,7 +603,8 @@ export class POCAgent {
         // Task complete - exit everything
         Logging.log("POCAgent", "Done tool called", "info");
         return { doneToolCalled: true };
-      } if (result.replanToolCalled) {
+      }
+      if (result.replanToolCalled) {
         // Need new plan - exit to trigger replanning
         Logging.log("POCAgent", "Replan tool called", "info");
         return { replanToolCalled: true };
@@ -599,16 +618,23 @@ export class POCAgent {
 
       if (result.continueToolCalled) {
         if (this.stepCounter % POCAgent.PLANNING_INTERVAL === 0) {
-          Logging.log("Continue tool called, but planning interval reached", "info");
+          Logging.log(
+            "POCAgent",
+            "Continue tool called, but planning interval reached",
+            "info",
+          );
           return { replanToolCalled: true };
         }
 
         // let's continue
-        Logging.log("Continue tool called, planning interval not reached", "info");
+        Logging.log(
+          "POCAgent",
+          "Continue tool called, planning interval not reached",
+          "info",
+        );
         captureObservation = false;
         continue;
       }
-      
     }
 
     // If we get here, we need to replan

@@ -26,7 +26,9 @@ const DEFAULT_OPENAI_MODEL = "gpt-4o";
 const DEFAULT_ANTHROPIC_MODEL = "claude-4-sonnet";
 const DEFAULT_OLLAMA_MODEL = "qwen3:4b";
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434";
-const DEFAULT_NXTSCAPE_PROXY_URL = "https://llm.browseros.com/";
+// const DEFAULT_NXTSCAPE_PROXY_URL = "https://llm.browseros.com/";
+const DEFAULT_NXTSCAPE_PROXY_URL = "https://llm.browseros.com/default";
+// const DEFAULT_NXTSCAPE_MODEL = "default-llm";
 const DEFAULT_NXTSCAPE_MODEL = "anthropic/claude-sonnet-4";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
