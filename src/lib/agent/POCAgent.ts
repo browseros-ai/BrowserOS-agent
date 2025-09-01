@@ -18,6 +18,18 @@ import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { Logging } from "@/lib/utils/Logging";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
 import { createPlannerTool } from "@/lib/tools/planning/PlannerTool";
+import { createTodoManagerTool } from "@/lib/tools/planning/TodoManagerTool";
+import { createRequirePlanningTool } from "@/lib/tools/planning/RequirePlanningTool";
+import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
+import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
+import { createClassificationTool } from "@/lib/tools/classification/ClassificationTool";
+import { createValidatorTool } from "@/lib/tools/validation/ValidatorTool";
+import { createStorageTool } from "@/lib/tools/utils/StorageTool";
+import { createExtractTool } from "@/lib/tools/extraction/ExtractTool";
+import { createResultTool } from "@/lib/tools/result/ResultTool";
+import { createHumanInputTool } from "@/lib/tools/utils/HumanInputTool";
+import { createDateTool } from "@/lib/tools/utility/DateTool";
+import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
 
 interface SingleTurnResult {
   doneToolCalled: boolean;
@@ -42,6 +54,10 @@ interface ObserveDecideResult {
     params?: any;
     reasoning: string;
   }>;
+}
+
+interface Plan {
+  todoMarkdown: string;  // Markdown TODO list format (- [ ] format)
 }
 
 interface CapturedState {
@@ -158,14 +174,45 @@ export class POCAgent {
   }
 
   private _registerTools(): void {
+    // Planning tools
+    this.toolManager.register(createPlannerTool(this.executionContext));
+    this.toolManager.register(createTodoManagerTool(this.executionContext));
+    this.toolManager.register(createRequirePlanningTool(this.executionContext));
     this.toolManager.register(createDoneTool(this.executionContext));
+
+    // Navigation tools
     this.toolManager.register(createNavigationTool(this.executionContext));
     this.toolManager.register(createInteractionTool(this.executionContext));
     this.toolManager.register(createScrollTool(this.executionContext));
     this.toolManager.register(createSearchTool(this.executionContext));
     this.toolManager.register(createRefreshStateTool(this.executionContext));
+
+    // Tab tools
     this.toolManager.register(createTabOperationsTool(this.executionContext));
+    this.toolManager.register(createGroupTabsTool(this.executionContext));
+    this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
+
+    // Validation tool
+    this.toolManager.register(createValidatorTool(this.executionContext));
+
+    // Utility tools
     this.toolManager.register(createScreenshotTool(this.executionContext));
+    this.toolManager.register(createStorageTool(this.executionContext));
+    this.toolManager.register(createExtractTool(this.executionContext));
+    this.toolManager.register(createHumanInputTool(this.executionContext));
+    this.toolManager.register(createDateTool(this.executionContext));
+
+    // Result tool
+    this.toolManager.register(createResultTool(this.executionContext));
+
+    // MCP tool for external integrations
+    this.toolManager.register(createMCPTool(this.executionContext));
+
+    // Register classification tool last with all tool descriptions
+    const toolDescriptions = this.toolManager.getDescriptions();
+    this.toolManager.register(
+      createClassificationTool(this.executionContext, toolDescriptions),
+    );
   }
 
   private async _executeSingleTurn(
@@ -354,22 +401,53 @@ export class POCAgent {
       PubSub.createMessage("Planning next steps...", "thinking"),
     );
 
+    // Generate the plan with TODO markdown format
+    const plan = await this._generatePlan(task);
+    
+    // Setup and display TODOs
+    await this._setupTodos(plan);
+    
+    // Return the TODO markdown string
+    return plan.todoMarkdown;
+  }
+
+  private async _generatePlan(task: string): Promise<Plan> {
     const plannerTool = createPlannerTool(this.executionContext);
-
-    const result = await plannerTool.func({
-      task,
-    });
-
+    const result = await plannerTool.func({ task });
     const parsed = jsonParseToolOutput(result);
+    
     if (parsed.ok && parsed.output?.steps) {
-      // Convert plan steps to natural language
-      const steps = parsed.output.steps
-        .map((step: any) => step.action)
+      // Convert steps to markdown TODO format
+      const todoMarkdown = parsed.output.steps
+        .map((step: any) => `- [ ] ${step.action}`)
         .join("\n");
-      return steps;
+      
+      const message = `Created ${parsed.output.steps.length} step execution plan`;
+      this.pubsub.publishMessage(PubSub.createMessage(message, "thinking"));
+      
+      return { todoMarkdown };
     }
-
+    
     throw new Error(`Unable to generate plan for ${task}`);
+  }
+
+  private async _setupTodos(plan: Plan): Promise<void> {
+    const todoTool = this.toolManager.get("todo_manager_tool");
+    if (!todoTool || !plan.todoMarkdown) return;
+
+    // Set the TODOs using the markdown format (todo_manager_tool expects markdown)
+    await todoTool.func({ action: "set", todos: plan.todoMarkdown });
+    
+    // Display the TODO list
+    const result = await todoTool.func({ action: "get" });
+    const parsedResult = jsonParseToolOutput(result);
+    const currentTodos = parsedResult.output || "";
+    
+    if (currentTodos) {
+      this.pubsub.publishMessage(
+        PubSub.createMessage(currentTodos, "thinking"),
+      );
+    }
   }
 
   private async _captureState(): Promise<CapturedState> {

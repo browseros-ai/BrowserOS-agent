@@ -62,7 +62,7 @@ export function createPlannerTool(
 
         // Get browser state using BrowserContext's method
         const browserState =
-          await executionContext.browserContext.getBrowserStateString();
+          await executionContext.browserContext.getBrowserStateString(true);
 
         // Check if browser state exceeds token limit
         const browserStateTokens = TokenCounter.countString(browserState);
