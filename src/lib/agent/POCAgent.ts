@@ -45,21 +45,7 @@ interface SingleTurnResult {
 }
 
 interface ObserveDecideResult {
-  actions: Array<{
-    type: string;
-    x?: number;
-    y?: number;
-    text?: string;
-    key?: string;
-    selector?: string;
-    instruction?: string;
-    tool?: string;
-    params?: any;
-    reasoning: string;
-  }>;
   doneToolCalled?: boolean;
-  observeToolCalled?: boolean;
-  continueToolCalled?: boolean;
   replanToolCalled?: boolean;
 }
 
@@ -122,7 +108,7 @@ export class POCAgent {
     }
   }
 
-  public cleanup(): void {}
+  public cleanup(): void { }
 
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     try {
@@ -156,8 +142,6 @@ export class POCAgent {
         } else if (decision.replanToolCalled) {
           needsReplan = true;
         }
-        // Note: observe_tool and continue_tool just affect the next iteration
-
         this.stepCounter++;
       }
 
@@ -237,18 +221,22 @@ export class POCAgent {
   private async _executeSingleTurn(
     instruction: string,
   ): Promise<SingleTurnResult> {
-    this.messageManager.addHuman(instruction);
+    if (instruction) {
+      this.messageManager.addHuman(instruction);
+    }
 
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
 
-    console.log(`K tokens:\n${JSON.stringify(llmResponse, null, 2)}`);
+    Logging.log("POCAgent", `K tokens:\n${JSON.stringify(llmResponse, null, 2)}`, "info");
 
     const result: SingleTurnResult = {
       doneToolCalled: false,
     };
 
     if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
+      Logging.log("POCAgent", `No of tool_calls: ${llmResponse.tool_calls.length}`, "info");
+
       this.messageManager.add(llmResponse);
       const toolsResult = await this._processToolCalls(llmResponse.tool_calls);
       result.doneToolCalled = toolsResult.doneToolCalled;
@@ -374,7 +362,7 @@ export class POCAgent {
             result.replanToolCalled = true;
             break;
         }
-        
+
         // Also check by parsing the output JSON for status field
         if (typeof parsedResult.output === "string") {
           try {
@@ -551,43 +539,80 @@ export class POCAgent {
       ),
     );
 
-    // Build context instruction for the LLM
-    const instruction = `
-Current browser state:
-- URL: ${state.currentUrl || "Unknown"}
-- Title: ${state.title || "Unknown"}
-- Tab ID: ${state.tabId || "Unknown"}
-- Timestamp: ${new Date(state.timestamp).toISOString()}
-- Step: ${this.stepCounter + 1} / ${POCAgent.MAX_ITERATIONS}
+    let captureObservation = true;
 
-Page elements:
-${state.domState || "No DOM state available"}
+    // ObserveDecide loop - keep executing until we need to exit or recapture state
+    while (true && this.stepCounter < POCAgent.MAX_ITERATIONS) {
+      this.checkIfAborted();
 
-Current plan:
-${plan || "No plan established yet"}
+      this.stepCounter++;
 
-Task to complete:
-${task}
+      let instruction = "";
+      if (captureObservation) {
+        state = await this._captureState();
+        captureObservation = false;
+        instruction = `
+  Current browser state:
+  - URL: ${state.currentUrl || "Unknown"}
+  - Title: ${state.title || "Unknown"}
+  - Tab ID: ${state.tabId || "Unknown"}
+  - Timestamp: ${new Date(state.timestamp).toISOString()}
+  - Step: ${this.stepCounter + 1} / ${POCAgent.MAX_ITERATIONS}
 
-Instructions: Based on the current state and plan, execute the necessary browser actions to progress toward completing the task. Plan out as many actions as possible, but stop at the point where you will need to observe the results before continuing.
+  Page elements:
+  ${state.domState || "No DOM state available"}
 
-You can use these control flow tools:
-- observe_tool: When you need to see the current page state before continuing
-- continue_tool: When you know what to do next and want to execute more actions
-- replan_tool: When the current plan isn't working and you need a new approach
-- done_tool: When the task is completed`;
+  Current plan:
+  ${plan || "No plan established yet"}
 
-    // Execute tools through single turn - this will handle tool execution
-    const result = await this._executeSingleTurn(instruction);
+  Task to complete:
+  ${task}
 
-    // Pass through control flow flags
-    return {
-      actions: [], // Actions are executed in _executeSingleTurn
-      doneToolCalled: result.doneToolCalled,
-      observeToolCalled: result.observeToolCalled,
-      continueToolCalled: result.continueToolCalled,
-      replanToolCalled: result.replanToolCalled,
-    };
+  Instructions: Based on the current state and plan, execute the necessary browser actions to progress toward completing the task. Plan out as many actions as possible, but stop at the point where you will need to observe the results before continuing.
+
+  You can use these control flow tools:
+  - observe_tool: When you need to see the current page state before continuing
+  - continue_tool: When you know what to do next and want to execute more actions
+  - replan_tool: When the current plan isn't working and you need a new approach
+  - done_tool: When the task is completed`;
+      }
+
+      // Execute single turn
+      const result = await this._executeSingleTurn(instruction);
+
+      // Handle control flow decisions
+      if (result.doneToolCalled) {
+        // Task complete - exit everything
+        Logging.log("POCAgent", "Done tool called", "info");
+        return { doneToolCalled: true };
+      } if (result.replanToolCalled) {
+        // Need new plan - exit to trigger replanning
+        Logging.log("POCAgent", "Replan tool called", "info");
+        return { replanToolCalled: true };
+      }
+
+      if (result.observeToolCalled) {
+        Logging.log("POCAgent", "Observe tool called", "info");
+        captureObservation = true;
+        continue;
+      }
+
+      if (result.continueToolCalled) {
+        if (this.stepCounter % POCAgent.PLANNING_INTERVAL === 0) {
+          Logging.log("Continue tool called, but planning interval reached", "info");
+          return { replanToolCalled: true };
+        }
+
+        // let's continue
+        Logging.log("Continue tool called, planning interval not reached", "info");
+        captureObservation = false;
+        continue;
+      }
+      
+    }
+
+    // If we get here, we need to replan
+    return { doneToolCalled: false, replanToolCalled: true };
   }
 
   private _shouldPlan(
