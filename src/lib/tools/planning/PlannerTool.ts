@@ -18,7 +18,6 @@ import { Logging } from "@/lib/utils/Logging";
 // Input schema - simple so LLM can generate and pass it
 const PlannerInputSchema = z.object({
   task: z.string(), // Task to plan for
-  max_steps: z.number().default(PLANNING_CONFIG.STEPS_PER_PLAN), // Number of steps to plan
 });
 
 // Plan schema - simple structure for each step
@@ -39,7 +38,7 @@ export function createPlannerTool(
 ): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: "planner_tool",
-    description: `Generate up to ${PLANNING_CONFIG.STEPS_PER_PLAN} steps for the task`,
+    description: `Generate a plan for the task`,
     schema: PlannerInputSchema,
     func: async (args: PlannerInput): Promise<string> => {
       try {
@@ -76,10 +75,9 @@ export function createPlannerTool(
             : browserState;
 
         // Generate prompts
-        const systemPrompt = generatePlannerSystemPrompt(args.max_steps);
+        const systemPrompt = generatePlannerSystemPrompt();
         const taskPrompt = generatePlannerTaskPrompt(
           args.task,
-          args.max_steps,
           message_history,
           browserStateString,
         );

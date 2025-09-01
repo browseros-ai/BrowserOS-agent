@@ -17,9 +17,7 @@ import { PubSub } from "@/lib/pubsub"; // For static helper methods
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { Logging } from "@/lib/utils/Logging";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
-import { getPlannerPrompt } from "./POCAgent.prompt";
-import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
+import { createPlannerTool } from "@/lib/tools/planning/PlannerTool";
 
 interface SingleTurnResult {
   doneToolCalled: boolean;
@@ -356,48 +354,22 @@ export class POCAgent {
       PubSub.createMessage("Planning next steps...", "thinking"),
     );
 
-    const plannerTool = this._createPlannerTool(this.executionContext);
+    const plannerTool = createPlannerTool(this.executionContext);
 
     const result = await plannerTool.func({
       task,
     });
 
     const parsed = jsonParseToolOutput(result);
-    if (parsed.ok && parsed.output) {
-      return parsed.output;
+    if (parsed.ok && parsed.output?.steps) {
+      // Convert plan steps to natural language
+      const steps = parsed.output.steps
+        .map((step: any) => step.action)
+        .join("\n");
+      return steps;
     }
 
-    return `Navigate to the target website and complete the task: ${task}`;
-  }
-
-  private _createPlannerTool(
-    executionContext: ExecutionContext,
-  ): DynamicStructuredTool {
-    return new DynamicStructuredTool({
-      name: "planner_tool",
-      description: "Generate a natural language plan for the task",
-      schema: z.object({
-        task: z.string(),
-      }),
-      func: async (args) => {
-        try {
-          const llm = await executionContext.getLLM();
-          const prompt = `${getPlannerPrompt()}
-          
-Task: ${args.task}
-
-Generate a concise natural language plan:`;
-
-          const response = await llm.invoke(prompt);
-          const plan =
-            typeof response.content === "string" ? response.content : "";
-
-          return JSON.stringify({ ok: true, output: plan });
-        } catch (error) {
-          return JSON.stringify({ ok: false, error: String(error) });
-        }
-      },
-    });
+    throw new Error(`Unable to generate plan for ${task}`);
   }
 
   private async _captureState(): Promise<CapturedState> {
