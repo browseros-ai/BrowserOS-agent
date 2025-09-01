@@ -356,17 +356,10 @@ export class POCAgent {
       PubSub.createMessage("Planning next steps...", "thinking"),
     );
 
-    const plannerTool = this._createPlannerTool();
-    const history = this.messageManager.getMessages().slice(-10);
-    const historyText = history
-      .map((m) => m.content)
-      .join("\n")
-      .substring(0, 1000);
+    const plannerTool = this._createPlannerTool(this.executionContext);
 
     const result = await plannerTool.func({
       task,
-      current_state: await this._captureState(),
-      history: historyText,
     });
 
     const parsed = jsonParseToolOutput(result);
@@ -377,23 +370,21 @@ export class POCAgent {
     return `Navigate to the target website and complete the task: ${task}`;
   }
 
-  private _createPlannerTool(): DynamicStructuredTool {
+  private _createPlannerTool(
+    executionContext: ExecutionContext,
+  ): DynamicStructuredTool {
     return new DynamicStructuredTool({
       name: "planner_tool",
       description: "Generate a natural language plan for the task",
       schema: z.object({
         task: z.string(),
-        current_state: z.any(),
-        history: z.string(),
       }),
       func: async (args) => {
         try {
-          const llm = await this.executionContext.getLLM();
+          const llm = await executionContext.getLLM();
           const prompt = `${getPlannerPrompt()}
           
 Task: ${args.task}
-Current State: ${JSON.stringify(args.current_state)}
-Recent History: ${args.history}
 
 Generate a concise natural language plan:`;
 

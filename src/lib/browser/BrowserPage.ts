@@ -747,9 +747,6 @@ export class BrowserPage {
     throw new Error("Not implemented");
   }
 
-  /**
-   * Get browser state - compatibility method
-   */
   async getBrowserState(): Promise<any> {
     return {
       tabId: this._tabId,
