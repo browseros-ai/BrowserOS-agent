@@ -83,9 +83,20 @@ export class Execution {
     const startTime = Date.now();
 
     try {
-      // Lock to target tab if specified
-      if (this.options.tabId && this.browserContext) {
-        this.browserContext.lockExecutionToTab(this.options.tabId);
+      // Get a tab for execution
+      let targetTabId = this.options.tabId;
+      if (!targetTabId) {
+        const currentPage = await this.browserContext?.getCurrentPage();
+        targetTabId = currentPage?.tabId;
+      }
+      if (this.browserContext && targetTabId) {
+        this.browserContext.lockExecutionToTab(targetTabId);
+      } else {
+        if (!this.browserContext) {
+          throw new Error("browser context is not initialized");
+        } else if (!targetTabId) {
+          throw new Error("unable to get to a tab for execution");
+        }
       }
 
       // Create fresh execution context with new abort signal
