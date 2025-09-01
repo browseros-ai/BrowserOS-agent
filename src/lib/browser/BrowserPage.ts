@@ -747,11 +747,31 @@ export class BrowserPage {
     throw new Error("Not implemented");
   }
 
-  async getBrowserState(): Promise<any> {
+  /**
+   * Get page details including URL, title, and tab ID
+   */
+  async getPageDetails(): Promise<{
+    url: string;
+    title: string;
+    tabId: number;
+  }> {
+    // Get fresh tab data from Chrome API
+    try {
+      const tab = await chrome.tabs.get(this._tabId);
+      this._url = tab.url || this._url;
+      this._title = tab.title || this._title;
+    } catch (error) {
+      Logging.log(
+        "BrowserPage",
+        `Error getting tab details: ${error}`,
+        "warning",
+      );
+    }
+
     return {
-      tabId: this._tabId,
       url: this._url,
       title: this._title,
+      tabId: this._tabId,
     };
   }
 }

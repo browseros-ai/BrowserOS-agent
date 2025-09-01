@@ -2,7 +2,12 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { ToolManager } from "@/lib/tools/ToolManager";
 import { ExecutionMetadata } from "@/lib/types/messaging";
-import { createDoneTool } from "@/lib/tools/utils/DoneTool";
+import {
+  createDoneTool,
+  createObserveTool,
+  createContinueTool,
+  createReplanTool,
+} from "@/lib/tools/utils/DoneTool";
 import { createNavigationTool } from "@/lib/tools/navigation/NavigationTool";
 import { createInteractionTool } from "@/lib/tools/navigation/InteractionTool";
 import { createScrollTool } from "@/lib/tools/navigation/ScrollTool";
@@ -33,12 +38,10 @@ import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
 
 interface SingleTurnResult {
   doneToolCalled: boolean;
+  observeToolCalled?: boolean;
+  continueToolCalled?: boolean;
+  replanToolCalled?: boolean;
   success?: boolean;
-}
-
-interface ActionResult {
-  doneToolCalled: boolean;
-  output?: any;
 }
 
 interface ObserveDecideResult {
@@ -54,17 +57,23 @@ interface ObserveDecideResult {
     params?: any;
     reasoning: string;
   }>;
+  doneToolCalled?: boolean;
+  observeToolCalled?: boolean;
+  continueToolCalled?: boolean;
+  replanToolCalled?: boolean;
 }
 
 interface Plan {
-  todoMarkdown: string;  // Markdown TODO list format (- [ ] format)
+  todoMarkdown: string; // Markdown TODO list format (- [ ] format)
 }
 
 interface CapturedState {
   screenshot?: string;
   domState?: string;
+  title?: string;
   currentUrl?: string;
   timestamp: number;
+  tabId?: number;
 }
 
 export class POCAgent {
@@ -85,6 +94,7 @@ export class POCAgent {
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
+  private stepCounter: number = 0;
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
@@ -102,6 +112,10 @@ export class POCAgent {
     return this.executionContext.getPubSub();
   }
 
+  public get currentStepCount(): number {
+    return this.stepCounter;
+  }
+
   private checkIfAborted(): void {
     if (this.executionContext.abortSignal.aborted) {
       throw new AbortError();
@@ -112,42 +126,42 @@ export class POCAgent {
 
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     try {
+      // Reset step counter for new execution
+      this.stepCounter = 0;
+
       this._initializeExecution(task);
       this.pubsub.publishMessage(
         PubSub.createMessage("Starting BrowserOS execution...", "thinking"),
       );
-      let stepCount = 0;
       let currentPlan: string | null = null;
       let taskComplete = false;
-      let actionsLeft: any[] = [];
+      let needsReplan = false;
 
-      while (!taskComplete && stepCount < POCAgent.MAX_ITERATIONS) {
+      while (!taskComplete && this.stepCounter < POCAgent.MAX_ITERATIONS) {
         this.checkIfAborted();
 
-        if (this._shouldPlan(stepCount, actionsLeft, currentPlan)) {
+        // Plan if needed (initial, periodic, or requested)
+        if (this._shouldPlan(this.stepCounter, needsReplan, currentPlan)) {
           currentPlan = await this._planningInterface(task, currentPlan);
+          needsReplan = false;
         }
 
+        // Capture current state and decide on actions
         const state = await this._captureState();
         const decision = await this._observeDecide(state, currentPlan, task);
-        actionsLeft = decision.actions;
 
-        for (const action of decision.actions) {
-          this.checkIfAborted();
-
-          const result = await this._executeAction(action);
-          await this._recordObservation(action, result);
-
-          if (result.doneToolCalled) {
-            taskComplete = true;
-            break;
-          }
+        // Handle control flow decisions
+        if (decision.doneToolCalled) {
+          taskComplete = true;
+        } else if (decision.replanToolCalled) {
+          needsReplan = true;
         }
+        // Note: observe_tool and continue_tool just affect the next iteration
 
-        stepCount++;
+        this.stepCounter++;
       }
 
-      if (!taskComplete && stepCount >= POCAgent.MAX_ITERATIONS) {
+      if (!taskComplete && this.stepCounter >= POCAgent.MAX_ITERATIONS) {
         throw new Error(
           `Task did not complete within ${POCAgent.MAX_ITERATIONS} iterations`,
         );
@@ -178,7 +192,12 @@ export class POCAgent {
     this.toolManager.register(createPlannerTool(this.executionContext));
     this.toolManager.register(createTodoManagerTool(this.executionContext));
     this.toolManager.register(createRequirePlanningTool(this.executionContext));
+
+    // Control flow tools
     this.toolManager.register(createDoneTool(this.executionContext));
+    this.toolManager.register(createObserveTool(this.executionContext));
+    this.toolManager.register(createContinueTool(this.executionContext));
+    this.toolManager.register(createReplanTool(this.executionContext));
 
     // Navigation tools
     this.toolManager.register(createNavigationTool(this.executionContext));
@@ -338,8 +357,41 @@ export class POCAgent {
         this.messageManager.addTool(toolResult, toolCallId);
       }
 
-      if (toolName === "done_tool" && parsedResult.ok) {
-        result.doneToolCalled = true;
+      // Check control flow tools
+      if (parsedResult.ok) {
+        // Check by tool name
+        switch (toolName) {
+          case "done_tool":
+            result.doneToolCalled = true;
+            break;
+          case "observe_tool":
+            result.observeToolCalled = true;
+            break;
+          case "continue_tool":
+            result.continueToolCalled = true;
+            break;
+          case "replan_tool":
+            result.replanToolCalled = true;
+            break;
+        }
+        
+        // Also check by parsing the output JSON for status field
+        if (typeof parsedResult.output === "string") {
+          try {
+            const outputData = JSON.parse(parsedResult.output);
+            if (outputData.status === "observe") {
+              result.observeToolCalled = true;
+            } else if (outputData.status === "continue") {
+              result.continueToolCalled = true;
+            } else if (outputData.status === "replan") {
+              result.replanToolCalled = true;
+            } else if (outputData.status === "done") {
+              result.doneToolCalled = true;
+            }
+          } catch {
+            // If not JSON, ignore
+          }
+        }
       }
     }
 
@@ -403,10 +455,10 @@ export class POCAgent {
 
     // Generate the plan with TODO markdown format
     const plan = await this._generatePlan(task);
-    
+
     // Setup and display TODOs
     await this._setupTodos(plan);
-    
+
     // Return the TODO markdown string
     return plan.todoMarkdown;
   }
@@ -415,19 +467,19 @@ export class POCAgent {
     const plannerTool = createPlannerTool(this.executionContext);
     const result = await plannerTool.func({ task });
     const parsed = jsonParseToolOutput(result);
-    
+
     if (parsed.ok && parsed.output?.steps) {
       // Convert steps to markdown TODO format
       const todoMarkdown = parsed.output.steps
         .map((step: any) => `- [ ] ${step.action}`)
         .join("\n");
-      
+
       const message = `Created ${parsed.output.steps.length} step execution plan`;
       this.pubsub.publishMessage(PubSub.createMessage(message, "thinking"));
-      
+
       return { todoMarkdown };
     }
-    
+
     throw new Error(`Unable to generate plan for ${task}`);
   }
 
@@ -437,12 +489,12 @@ export class POCAgent {
 
     // Set the TODOs using the markdown format (todo_manager_tool expects markdown)
     await todoTool.func({ action: "set", todos: plan.todoMarkdown });
-    
+
     // Display the TODO list
     const result = await todoTool.func({ action: "get" });
     const parsedResult = jsonParseToolOutput(result);
     const currentTodos = parsedResult.output || "";
-    
+
     if (currentTodos) {
       this.pubsub.publishMessage(
         PubSub.createMessage(currentTodos, "thinking"),
@@ -451,12 +503,40 @@ export class POCAgent {
   }
 
   private async _captureState(): Promise<CapturedState> {
-    const state: CapturedState = {
-      timestamp: Date.now(),
-      currentUrl: "https://example.com",
-    };
+    try {
+      // Get current page from browser context
+      const currentPage =
+        await this.executionContext.browserContext.getCurrentPage();
 
-    return state;
+      // Get page details (URL, title, tabId)
+      const pageDetails = await currentPage.getPageDetails();
+
+      // Get simplified browser state string (DOM elements)
+      const domState =
+        await this.executionContext.browserContext.getBrowserStateString(true);
+
+      // Take a screenshot (medium size for balance of detail and performance)
+      const screenshot = await currentPage.takeScreenshot("large");
+
+      const state: CapturedState = {
+        timestamp: Date.now(),
+        currentUrl: pageDetails.url,
+        title: pageDetails.title,
+        tabId: pageDetails.tabId,
+        domState: domState,
+        screenshot: screenshot || undefined,
+      };
+
+      return state;
+    } catch (error) {
+      // Log error and return minimal state
+      console.error("Error capturing state:", error);
+      return {
+        timestamp: Date.now(),
+        currentUrl: "unknown",
+        domState: "Failed to capture browser state",
+      };
+    }
   }
 
   private async _observeDecide(
@@ -470,31 +550,54 @@ export class POCAgent {
         "thinking",
       ),
     );
+
+    // Build context instruction for the LLM
+    const instruction = `
+Current browser state:
+- URL: ${state.currentUrl || "Unknown"}
+- Title: ${state.title || "Unknown"}
+- Tab ID: ${state.tabId || "Unknown"}
+- Timestamp: ${new Date(state.timestamp).toISOString()}
+- Step: ${this.stepCounter + 1} / ${POCAgent.MAX_ITERATIONS}
+
+Page elements:
+${state.domState || "No DOM state available"}
+
+Current plan:
+${plan || "No plan established yet"}
+
+Task to complete:
+${task}
+
+Instructions: Based on the current state and plan, execute the necessary browser actions to progress toward completing the task. Plan out as many actions as possible, but stop at the point where you will need to observe the results before continuing.
+
+You can use these control flow tools:
+- observe_tool: When you need to see the current page state before continuing
+- continue_tool: When you know what to do next and want to execute more actions
+- replan_tool: When the current plan isn't working and you need a new approach
+- done_tool: When the task is completed`;
+
+    // Execute tools through single turn - this will handle tool execution
+    const result = await this._executeSingleTurn(instruction);
+
+    // Pass through control flow flags
     return {
-      actions: [],
+      actions: [], // Actions are executed in _executeSingleTurn
+      doneToolCalled: result.doneToolCalled,
+      observeToolCalled: result.observeToolCalled,
+      continueToolCalled: result.continueToolCalled,
+      replanToolCalled: result.replanToolCalled,
     };
-  }
-
-  private async _executeAction(action: any): Promise<ActionResult> {
-    const result: ActionResult = {
-      doneToolCalled: false,
-    };
-
-    return result;
-  }
-
-  private async _recordObservation(action: any, result: any): Promise<void> {
-    console.log("Recording observation:", { action, result });
   }
 
   private _shouldPlan(
     stepCount: number,
-    actionsLeft: any[],
+    needsReplan: boolean,
     currentPlan: string | null,
   ): boolean {
-    if (!currentPlan) return true;
-    if (stepCount % POCAgent.PLANNING_INTERVAL === 0) return true;
-    if (actionsLeft.length === 0) return true;
+    if (!currentPlan) return true; // No plan yet
+    if (needsReplan) return true; // Replan requested
+    if (stepCount % POCAgent.PLANNING_INTERVAL === 0) return true; // Periodic replan
     return false;
   }
 }
