@@ -1,36 +1,40 @@
-import React, { useRef, useEffect } from 'react'
-import { useProviderStore } from '../stores/providerStore'
-import { ChevronDown } from 'lucide-react'
+import React, { useRef, useEffect } from "react";
+import { useProviderStore } from "../stores/providerStore";
+import { ChevronDown } from "lucide-react";
 
 export function ProviderDropdown() {
-  const { 
-    getAllProviders, 
-    selectedProviderId, 
-    isDropdownOpen, 
-    selectProvider, 
+  const {
+    getAllProviders,
+    selectedProviderId,
+    isDropdownOpen,
+    selectProvider,
     toggleDropdown,
     closeDropdown,
-    getSelectedProvider
-  } = useProviderStore()
-  
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const selectedProvider = getSelectedProvider()
-  const providers = getAllProviders()
-  
+    getSelectedProvider,
+  } = useProviderStore();
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const selectedProvider = getSelectedProvider();
+  const providers = getAllProviders();
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        closeDropdown()
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        closeDropdown();
       }
     }
-    
+
     if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [isDropdownOpen, closeDropdown])
-  
+  }, [isDropdownOpen, closeDropdown]);
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Trigger Button */}
@@ -48,21 +52,26 @@ export function ProviderDropdown() {
         aria-expanded={isDropdownOpen}
         aria-haspopup="listbox"
       >
-        <span className="text-foreground">{selectedProvider?.name || 'ChatGPT'}</span>
-        <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+        <span className="text-foreground">
+          {selectedProvider?.name || "ChatGPT"}
+        </span>
+        <ChevronDown
+          className={`w-3 h-3 text-muted-foreground transition-transform ${isDropdownOpen ? "rotate-180" : ""}`}
+        />
       </button>
-      
+
       {/* Dropdown Menu */}
       {isDropdownOpen && (
-        <div className="
+        <div
+          className="
           absolute top-full left-0 mt-1 w-48
           bg-card border border-border rounded-lg shadow-lg
           py-1 z-50
         "
-        role="listbox"
-        aria-label="Provider options"
+          role="listbox"
+          aria-label="Provider options"
         >
-          {providers.map(provider => (
+          {providers.map((provider) => (
             <button
               key={provider.id}
               className={`
@@ -70,7 +79,7 @@ export function ProviderDropdown() {
                 hover:bg-accent transition-colors
                 focus:outline-none focus:bg-accent
                 flex items-center justify-between
-                ${selectedProviderId === provider.id ? 'bg-accent/50' : ''}
+                ${selectedProviderId === provider.id ? "bg-accent/50" : ""}
               `}
               onClick={() => selectProvider(provider.id)}
               role="option"
@@ -85,5 +94,5 @@ export function ProviderDropdown() {
         </div>
       )}
     </div>
-  )
+  );
 }

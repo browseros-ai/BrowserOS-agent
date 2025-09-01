@@ -1,2 +1,2 @@
-export * from './types'
-export { PubSub } from './PubSub'
+export * from "./types";
+export { PubSub } from "./PubSub";

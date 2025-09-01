@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // ==============================================
 // Shared Agent Types - Common types used across agents
@@ -13,13 +13,13 @@ export const TaskOutputSchema = z.object({
   messages: z.array(z.any()),
   duration: z.number(),
   timestamp: z.string(),
-  cancelled: z.boolean()
+  cancelled: z.boolean(),
 });
 
 export const TaskMedataSchema = z.object({
-  id: z.string(),  // Unique identifier for the step
-  instruction: z.string(),  // User instruction/query
-  output: TaskOutputSchema  // Reference the schema directly
+  id: z.string(), // Unique identifier for the step
+  instruction: z.string(), // User instruction/query
+  output: TaskOutputSchema, // Reference the schema directly
 });
 
 export type TaskMetadata = z.infer<typeof TaskMedataSchema>;

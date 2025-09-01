@@ -29,4 +29,4 @@ Typeable elements (<T>):
 - found: true if a matching element exists
 - index: the nodeId (number inside the brackets)
 - confidence: your confidence level
-- reasoning: brief explanation of your choice`
+- reasoning: brief explanation of your choice`;

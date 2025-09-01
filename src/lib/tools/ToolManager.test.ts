@@ -9,20 +9,20 @@ describe("ToolManager", () => {
 
   beforeEach(() => {
     toolManager = new ToolManager();
-    
+
     // Create mock tools
     mockTool1 = new DynamicStructuredTool({
       name: "navigate",
       description: "Navigate to a URL",
       schema: z.object({ url: z.string() }),
-      func: async () => "Navigation successful"
+      func: async () => "Navigation successful",
     });
 
     mockTool2 = new DynamicStructuredTool({
       name: "click",
       description: "Click on an element",
       schema: z.object({ selector: z.string() }),
-      func: async () => "Click successful"
+      func: async () => "Click successful",
     });
   });
 
@@ -72,7 +72,7 @@ describe("ToolManager", () => {
       name: "navigate",
       description: "Updated navigation tool",
       schema: z.object({ url: z.string(), waitTime: z.number() }),
-      func: async () => "Updated navigation"
+      func: async () => "Updated navigation",
     });
 
     // Act

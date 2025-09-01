@@ -4,12 +4,12 @@
 
 interface ExtractedPageContext {
   tabs: Array<{
-    id: number
-    url: string
-    title: string
-    text: string
-  }>
-  isSingleTab: boolean
+    id: number;
+    url: string;
+    title: string;
+    text: string;
+  }>;
+  isSingleTab: boolean;
 }
 
 /**
@@ -36,69 +36,85 @@ export function generateSystemPrompt(): string {
 3. Use tools only when necessary for answering the question
 4. Focus on providing accurate, helpful answers
 
-You're in Q&A mode. Provide direct answers without planning or task management.`
+You're in Q&A mode. Provide direct answers without planning or task management.`;
 }
 
 /**
  * Generate page context message to be added as assistant message
  * This contains the actual page content extracted from tabs
  */
-export function generatePageContextMessage(pageContext: ExtractedPageContext, isUpdate: boolean = false): string {
-  const prefix = isUpdate 
+export function generatePageContextMessage(
+  pageContext: ExtractedPageContext,
+  isUpdate: boolean = false,
+): string {
+  const prefix = isUpdate
     ? "I've detected that the tabs have changed. Here's the updated page content:"
-    : "I've extracted the content from the current page(s). Here's what I found:"
+    : "I've extracted the content from the current page(s). Here's what I found:";
 
   if (pageContext.isSingleTab) {
-    return generateSingleTabContext(pageContext.tabs[0], prefix)
+    return generateSingleTabContext(pageContext.tabs[0], prefix);
   } else {
-    return generateMultiTabContext(pageContext.tabs, prefix)
+    return generateMultiTabContext(pageContext.tabs, prefix);
   }
 }
 
 /**
  * Generate context message for single tab
  */
-function generateSingleTabContext(tab: ExtractedPageContext['tabs'][0], prefix: string): string {
+function generateSingleTabContext(
+  tab: ExtractedPageContext["tabs"][0],
+  prefix: string,
+): string {
   return `${prefix}
 
 **Page: ${tab.title}**
 URL: ${tab.url}
 
 ## Content:
-${tab.text}`
+${tab.text}`;
 }
 
 /**
  * Generate context message for multiple tabs
  */
-function generateMultiTabContext(tabs: ExtractedPageContext['tabs'], prefix: string): string {
-  const tabSections = tabs.map((tab, index) => `
+function generateMultiTabContext(
+  tabs: ExtractedPageContext["tabs"],
+  prefix: string,
+): string {
+  const tabSections = tabs
+    .map(
+      (tab, index) => `
 **Tab ${index + 1}: ${tab.title}**
 URL: ${tab.url}
 
-${tab.text}`).join('\n\n---\n')
+${tab.text}`,
+    )
+    .join("\n\n---\n");
 
   return `${prefix}
 
 I'm analyzing ${tabs.length} tabs:
 
-${tabSections}`
+${tabSections}`;
 }
 
 /**
  * Generate task prompt that wraps the user's query
  * This tells the LLM to refer to the BrowserState content
  */
-export function generateTaskPrompt(query: string, contextJustExtracted: boolean): string {
+export function generateTaskPrompt(
+  query: string,
+  contextJustExtracted: boolean,
+): string {
   if (contextJustExtracted) {
     // Context was just extracted and added above
     return `Based on the page content in the <BrowserState> tags above, please answer the following question:
 
-"${query}"`
+"${query}"`;
   } else {
     // Context already exists from previous extraction
     return `Using the page content from the <BrowserState> tags, please answer:
 
-"${query}"`
+"${query}"`;
   }
 }

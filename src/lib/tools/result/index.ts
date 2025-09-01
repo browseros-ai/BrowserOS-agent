@@ -1,1 +1,1 @@
-export * from './ResultTool';
+export * from "./ResultTool";

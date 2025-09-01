@@ -1,11 +1,11 @@
 // Prompt generation functions for PlannerTool
 // All prompts should be single multi-line strings
 
-import { PLANNING_CONFIG } from './PlannerTool.config';
+import { PLANNING_CONFIG } from "./PlannerTool.config";
 
 export function generatePlannerSystemPrompt(maxSteps?: number): string {
   const stepsLimit = maxSteps ?? PLANNING_CONFIG.STEPS_PER_PLAN;
-  
+
   return `You are a helpful assistant that excels at analyzing tasks and breaking them down into actionable steps.
 
 # RESPONSIBILITIES:
@@ -68,14 +68,14 @@ You must return a JSON object with the following structure:
 - Maximum ${stepsLimit} steps focusing on business objectives. You can generate 1 or 2 step plan as well, if the objective is simple.
 - Keep steps high-level and goal-oriented
 - Consider what has already been accomplished
-- The user can see the page - they often refer to visible elements`
+- The user can see the page - they often refer to visible elements`;
 }
 
 export function generatePlannerTaskPrompt(
   task: string,
   maxSteps: number,
   conversationHistory: string,
-  browserState: string
+  browserState: string,
 ): string {
   return `PLANNING REQUEST:
 - Generate upto ${maxSteps} next steps to accomplish the task. You can generate a plan for fewer steps as well, if the task can achieved in fewer steps.
@@ -93,5 +93,5 @@ ${conversationHistory}
 Browser state:
 --------------------------------
 ${browserState}
-`
+`;
 }

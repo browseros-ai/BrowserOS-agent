@@ -1,126 +1,134 @@
-import { describe, it, expect, vi } from 'vitest'
-import { createExtractTool } from './ExtractTool'
-import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { MessageManager } from '@/lib/runtime/MessageManager'
-import { BrowserContext } from '@/lib/browser/BrowserContext'
-import { EventBus } from '@/lib/events'
+import { describe, it, expect, vi } from "vitest";
+import { createExtractTool } from "./ExtractTool";
+import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
+import { MessageManager } from "@/lib/runtime/MessageManager";
+import { BrowserContext } from "@/lib/browser/BrowserContext";
+import { EventBus } from "@/lib/events";
 
 /**
  * Simple integration test for ExtractTool
  */
-describe('ExtractTool Integration Test', () => {
-  it.skipIf(!process.env.LITELLM_API_KEY || process.env.LITELLM_API_KEY === 'nokey')(
-    'should extract product links from a page',
+describe("ExtractTool Integration Test", () => {
+  it.skipIf(
+    !process.env.LITELLM_API_KEY || process.env.LITELLM_API_KEY === "nokey",
+  )(
+    "should extract product links from a page",
     async () => {
       // Setup
-      const messageManager = new MessageManager()
-      const browserContext = new BrowserContext()
-      const abortController = new AbortController()
-      
-      const eventBus = new EventBus()
+      const messageManager = new MessageManager();
+      const browserContext = new BrowserContext();
+      const abortController = new AbortController();
+
+      const eventBus = new EventBus();
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus
-      })
-      
+        eventBus,
+      });
+
       // Mock the browser page to return sample HTML
       const mockPage = {
         getLinksSnapshot: vi.fn().mockResolvedValue({
-          tree: SAMPLE_LINKS_CONTENT
+          tree: SAMPLE_LINKS_CONTENT,
         }),
-        url: vi.fn().mockResolvedValue('https://example.com/products'),
-        title: vi.fn().mockResolvedValue('Example shop - Products')
-      }
-      
-      browserContext.getPages = vi.fn().mockResolvedValue([mockPage])
-      
-      const extractTool = createExtractTool(executionContext)
-      
+        url: vi.fn().mockResolvedValue("https://example.com/products"),
+        title: vi.fn().mockResolvedValue("Example shop - Products"),
+      };
+
+      browserContext.getPages = vi.fn().mockResolvedValue([mockPage]);
+
+      const extractTool = createExtractTool(executionContext);
+
       // Execute extraction
       const result = await extractTool.func({
-        task: 'Extract all product links from this page',
+        task: "Extract all product links from this page",
         tab_id: 1,
-        extract_type: 'links'
-      })
-      
-      // Verify extraction was successful
-      const parsed = JSON.parse(result)
-      expect(parsed.ok).toBe(true)
-      expect(parsed.output).toBeDefined()
-      expect(parsed.output.content).toBeDefined()
-      expect(parsed.output.reasoning).toBeDefined()
-      expect(typeof parsed.output.content).toBe('string')
-      expect(typeof parsed.output.reasoning).toBe('string')
-      
-      // Check for specific product links
-      expect(parsed.output.content).toContain('widget-premium')
-      expect(parsed.output.content).toContain('widget-standard')
-      expect(parsed.output.content).toContain('gadget-deluxe')
-      
-      console.log('✅ Test passed - ExtractTool extracted product links with real LLM')
-    },
-    30000
-  )
+        extract_type: "links",
+      });
 
-  it.skipIf(!process.env.LITELLM_API_KEY || process.env.LITELLM_API_KEY === 'nokey')(
-    'should extract prices from a page',
+      // Verify extraction was successful
+      const parsed = JSON.parse(result);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.output).toBeDefined();
+      expect(parsed.output.content).toBeDefined();
+      expect(parsed.output.reasoning).toBeDefined();
+      expect(typeof parsed.output.content).toBe("string");
+      expect(typeof parsed.output.reasoning).toBe("string");
+
+      // Check for specific product links
+      expect(parsed.output.content).toContain("widget-premium");
+      expect(parsed.output.content).toContain("widget-standard");
+      expect(parsed.output.content).toContain("gadget-deluxe");
+
+      console.log(
+        "✅ Test passed - ExtractTool extracted product links with real LLM",
+      );
+    },
+    30000,
+  );
+
+  it.skipIf(
+    !process.env.LITELLM_API_KEY || process.env.LITELLM_API_KEY === "nokey",
+  )(
+    "should extract prices from a page",
     async () => {
       // Setup
-      const messageManager = new MessageManager()
-      const browserContext = new BrowserContext()
-      const abortController = new AbortController()
-      
-      const eventBus = new EventBus()
+      const messageManager = new MessageManager();
+      const browserContext = new BrowserContext();
+      const abortController = new AbortController();
+
+      const eventBus = new EventBus();
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
         abortController,
         debugMode: false,
-        eventBus
-      })
-      
+        eventBus,
+      });
+
       // Mock the browser page to return sample HTML
       const mockPage = {
         getTextSnapshot: vi.fn().mockResolvedValue({
-          tree: SAMPLE_TEXT_CONTENT
+          tree: SAMPLE_TEXT_CONTENT,
         }),
-        url: vi.fn().mockResolvedValue('https://example-shop.com/products'),
-        title: vi.fn().mockResolvedValue('Example Shop - Products')
-      }
-      
-      browserContext.getPages = vi.fn().mockResolvedValue([mockPage])
-      
-      const extractTool = createExtractTool(executionContext)
-      
+        url: vi.fn().mockResolvedValue("https://example-shop.com/products"),
+        title: vi.fn().mockResolvedValue("Example Shop - Products"),
+      };
+
+      browserContext.getPages = vi.fn().mockResolvedValue([mockPage]);
+
+      const extractTool = createExtractTool(executionContext);
+
       // Execute extraction
       const result = await extractTool.func({
-        task: 'Extract all product prices from this page',
+        task: "Extract all product prices from this page",
         tab_id: 1,
-        extract_type: 'text'
-      })
-      
+        extract_type: "text",
+      });
+
       // Verify extraction was successful
-      const parsed = JSON.parse(result)
-      expect(parsed.ok).toBe(true)
-      expect(parsed.output).toBeDefined()
-      expect(parsed.output.content).toBeDefined()
-      expect(parsed.output.reasoning).toBeDefined()
-      expect(typeof parsed.output.content).toBe('string')
-      expect(typeof parsed.output.reasoning).toBe('string')
-      
+      const parsed = JSON.parse(result);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.output).toBeDefined();
+      expect(parsed.output.content).toBeDefined();
+      expect(parsed.output.reasoning).toBeDefined();
+      expect(typeof parsed.output.content).toBe("string");
+      expect(typeof parsed.output.reasoning).toBe("string");
+
       // Check for specific prices
-      expect(parsed.output.content).toContain('$49.99')
-      expect(parsed.output.content).toContain('$29.99')
-      expect(parsed.output.content).toContain('$14.99')
-      
-      console.log('✅ Test passed - ExtractTool extracted prices with real LLM')
+      expect(parsed.output.content).toContain("$49.99");
+      expect(parsed.output.content).toContain("$29.99");
+      expect(parsed.output.content).toContain("$14.99");
+
+      console.log(
+        "✅ Test passed - ExtractTool extracted prices with real LLM",
+      );
     },
-    30000
-  )
-})
+    30000,
+  );
+});
 
 // Sample HTML content simulating a simple e-commerce page
 const SAMPLE_LINKS_CONTENT = `
@@ -142,7 +150,7 @@ Footer:
 - Terms of Service [/terms]
 - Sitemap [/sitemap]
 - Support [/support]
-`
+`;
 
 const SAMPLE_TEXT_CONTENT = `
 Example Shop - Products
@@ -178,4 +186,4 @@ In Stock
 
 Footer:
 © 2024 Example Shop | Privacy Policy | Terms of Service | Support
-`
+`;

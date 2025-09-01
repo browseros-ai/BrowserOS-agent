@@ -1,2 +1,6 @@
-export { ClassificationTool, createClassificationTool, ClassificationInputSchema } from './ClassificationTool'
-export type { ClassificationInput } from './ClassificationTool'
+export {
+  ClassificationTool,
+  createClassificationTool,
+  ClassificationInputSchema,
+} from "./ClassificationTool";
+export type { ClassificationInput } from "./ClassificationTool";

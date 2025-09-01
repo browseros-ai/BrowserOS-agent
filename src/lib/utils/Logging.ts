@@ -1,15 +1,15 @@
-import { MessageType } from '@/lib/types/messaging'
-import { parsePortName } from '@/lib/utils/portUtils'
-import { isDevelopmentMode } from '@/config'
-import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
-import { z } from 'zod'
-import posthog from 'posthog-js'
+import { MessageType } from "@/lib/types/messaging";
+import { parsePortName } from "@/lib/utils/portUtils";
+import { isDevelopmentMode } from "@/config";
+import { getBrowserOSAdapter } from "@/lib/browser/BrowserOSAdapter";
+import { z } from "zod";
+import posthog from "posthog-js";
 
 /**
  * Log level type
  */
-export const LogLevelSchema = z.enum(['info', 'error', 'warning'])
-export type LogLevel = z.infer<typeof LogLevelSchema>
+export const LogLevelSchema = z.enum(["info", "error", "warning"]);
+export type LogLevel = z.infer<typeof LogLevelSchema>;
 
 /**
  * Log message schema
@@ -18,16 +18,16 @@ export const LogMessageSchema = z.object({
   source: z.string(),
   message: z.string(),
   level: LogLevelSchema,
-  timestamp: z.string()
-})
+  timestamp: z.string(),
+});
 
-export type LogMessage = z.infer<typeof LogMessageSchema>
+export type LogMessage = z.infer<typeof LogMessageSchema>;
 
 /**
  * Options for initializing the logging utility
  */
 interface LogUtilityOptions {
-  readonly debugMode?: boolean
+  readonly debugMode?: boolean;
 }
 
 /**
@@ -35,127 +35,135 @@ interface LogUtilityOptions {
  * Routes logs to options page when in development mode
  */
 export class Logging {
-  private static connectedPorts = new Map<string, chrome.runtime.Port>()
-  private static debugMode = false
-  private static browserOSAdapter = getBrowserOSAdapter()
-  private static posthogInitialized = false
-  private static posthogApiKey = process.env.POSTHOG_API_KEY
-  
+  private static connectedPorts = new Map<string, chrome.runtime.Port>();
+  private static debugMode = false;
+  private static browserOSAdapter = getBrowserOSAdapter();
+  private static posthogInitialized = false;
+  private static posthogApiKey = process.env.POSTHOG_API_KEY;
+
   public static initialize(options: LogUtilityOptions = {}): void {
-    this.debugMode = options.debugMode || false
-    
+    this.debugMode = options.debugMode || false;
+
     if (this.posthogApiKey && !this.posthogInitialized) {
       posthog.init(this.posthogApiKey, {
-        api_host: 'https://us.i.posthog.com',
-        person_profiles: 'identified_only',
-      })
-      this.posthogInitialized = true
+        api_host: "https://us.i.posthog.com",
+        person_profiles: "identified_only",
+      });
+      this.posthogInitialized = true;
     }
   }
-  
+
   /**
    * Register a connected port
    * @param name - Port name
    * @param port - Connected port
    */
   public static registerPort(name: string, port: chrome.runtime.Port): void {
-    this.connectedPorts.set(name, port)
+    this.connectedPorts.set(name, port);
   }
-  
+
   /**
    * Unregister a port
    * @param name - Port name
    */
   public static unregisterPort(name: string): void {
-    this.connectedPorts.delete(name)
+    this.connectedPorts.delete(name);
   }
-  
+
   /**
    * Log a message
    * @param source - Source component name
    * @param message - Message content
    * @param level - Log level
    */
-  public static log(source: string, message: string, level: LogLevel = 'info'): void {
-    if (!this.debugMode && level === 'info') return
-    
-    const prefix = `[${source}]`
-    
+  public static log(
+    source: string,
+    message: string,
+    level: LogLevel = "info",
+  ): void {
+    if (!this.debugMode && level === "info") return;
+
+    const prefix = `[${source}]`;
+
     // Console logging
     switch (level) {
-      case 'error':
-        console.error(`${prefix} ${message}`)
-        break
-      case 'warning':
-        console.warn(`${prefix} ${message}`)
-        break
+      case "error":
+        console.error(`${prefix} ${message}`);
+        break;
+      case "warning":
+        console.warn(`${prefix} ${message}`);
+        break;
       default:
-        console.log(`${prefix} ${message}`)
+        console.log(`${prefix} ${message}`);
     }
-    
+
     // Prepare log message
     const logMessage: LogMessage = {
       source,
       message,
       level,
-      timestamp: new Date().toISOString()
-    }
-    
+      timestamp: new Date().toISOString(),
+    };
+
     // Try to send via port messaging first
-    let sentViaPort = false
-    
+    let sentViaPort = false;
+
     // In development mode, send to options page
     if (isDevelopmentMode()) {
       // Look for any options page port
-      let optionsPort: chrome.runtime.Port | undefined
-      let optionsPortName: string | undefined
-      
+      let optionsPort: chrome.runtime.Port | undefined;
+      let optionsPortName: string | undefined;
+
       for (const [name, port] of this.connectedPorts.entries()) {
-        const portInfo = parsePortName(name)
-        if (portInfo.type === 'options') {
-          optionsPort = port
-          optionsPortName = name
-          break
+        const portInfo = parsePortName(name);
+        if (portInfo.type === "options") {
+          optionsPort = port;
+          optionsPortName = name;
+          break;
         }
       }
-      
+
       if (optionsPort && optionsPortName) {
         try {
           // Check if port is still connected by accessing a property
           // Chrome will throw if the port is disconnected
-          const isConnected = optionsPort.name !== undefined
-          
+          const isConnected = optionsPort.name !== undefined;
+
           if (isConnected) {
             optionsPort.postMessage({
               type: MessageType.LOG,
-              payload: logMessage
-            })
-            sentViaPort = true
+              payload: logMessage,
+            });
+            sentViaPort = true;
           } else {
             // Port is stale, remove it
-            this.unregisterPort(optionsPortName)
+            this.unregisterPort(optionsPortName);
           }
         } catch (error) {
           // Port is disconnected or stale, remove it and log the issue
-          this.unregisterPort(optionsPortName!)
-          
+          this.unregisterPort(optionsPortName!);
+
           // Only log port errors for non-heartbeat messages to avoid spam
-          if (level !== 'info' || !message.includes('heartbeat')) {
-            console.warn(`Failed to send log to options page: ${error instanceof Error ? error.message : String(error)}`)
+          if (level !== "info" || !message.includes("heartbeat")) {
+            console.warn(
+              `Failed to send log to options page: ${error instanceof Error ? error.message : String(error)}`,
+            );
           }
         }
       }
     }
-    
+
     // Fall back to one-time messaging if port messaging failed
-    if (!sentViaPort && typeof chrome !== 'undefined' && chrome.runtime) {
-      chrome.runtime.sendMessage({
-        type: MessageType.LOG,
-        payload: logMessage
-      }).catch((_error: Error) => {
-        // It's OK if this fails too, just means no UI is open
-        // We've already logged to the console above
-      })
+    if (!sentViaPort && typeof chrome !== "undefined" && chrome.runtime) {
+      chrome.runtime
+        .sendMessage({
+          type: MessageType.LOG,
+          payload: logMessage,
+        })
+        .catch((_error: Error) => {
+          // It's OK if this fails too, just means no UI is open
+          // We've already logged to the console above
+        });
     }
   }
 
@@ -165,38 +173,47 @@ export class Logging {
    * @param properties - Optional properties to include with the event
    * @param sampling - Sampling rate between 0 and 1 (default 1.0 = 100%)
    */
-  public static async logMetric(eventName: string, properties?: Record<string, any>, sampling: number = 1.0): Promise<void> {
+  public static async logMetric(
+    eventName: string,
+    properties?: Record<string, any>,
+    sampling: number = 1.0,
+  ): Promise<void> {
     // Apply sampling
     if (Math.random() > sampling) {
-      return
+      return;
     }
-    
-    const prefixedEventName = `agent.${eventName}`
-    
+
+    const prefixedEventName = `agent.${eventName}`;
+
     // Get manifest version
-    let version: string | undefined
+    let version: string | undefined;
     try {
-      const manifest = chrome.runtime.getManifest()
-      version = manifest.version
+      const manifest = chrome.runtime.getManifest();
+      version = manifest.version;
     } catch {
       // Chrome runtime not available, continue without version
     }
-    
+
     const enhancedProperties = {
       ...properties,
-      ...(version && { version })
-    }
-    
+      ...(version && { version }),
+    };
+
     try {
-      await this.browserOSAdapter.logMetric(prefixedEventName, enhancedProperties)
+      await this.browserOSAdapter.logMetric(
+        prefixedEventName,
+        enhancedProperties,
+      );
     } catch (error) {
       // BrowserOS failed, use PostHog fallback
       if (this.posthogApiKey && this.posthogInitialized) {
         try {
-          posthog.capture('agent.metric_api_failed', { event: eventName, ...(version && { version }) })
-          posthog.capture(prefixedEventName, enhancedProperties)
-        } catch (posthogError) {
-        }
+          posthog.capture("agent.metric_api_failed", {
+            event: eventName,
+            ...(version && { version }),
+          });
+          posthog.capture(prefixedEventName, enhancedProperties);
+        } catch (posthogError) {}
       }
     }
   }

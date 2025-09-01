@@ -1,20 +1,30 @@
-import { Message, PubSubEvent, SubscriptionCallback, Subscription, HumanInputRequest, HumanInputResponse } from './types'
-import { Logging } from '@/lib/utils/Logging'
+import {
+  Message,
+  PubSubEvent,
+  SubscriptionCallback,
+  Subscription,
+  HumanInputRequest,
+  HumanInputResponse,
+} from "./types";
+import { Logging } from "@/lib/utils/Logging";
 
 /**
  * Scoped PubSub channel for a single execution.
  * Provides the same API as PubSub but isolated per execution.
  */
 export class PubSubChannel {
-  readonly executionId: string
-  private subscribers: Set<SubscriptionCallback> = new Set()
-  private messageBuffer: PubSubEvent[] = []
-  private readonly MAX_BUFFER_SIZE = 200  // Max messages to keep
-  private isDestroyed: boolean = false
+  readonly executionId: string;
+  private subscribers: Set<SubscriptionCallback> = new Set();
+  private messageBuffer: PubSubEvent[] = [];
+  private readonly MAX_BUFFER_SIZE = 200; // Max messages to keep
+  private isDestroyed: boolean = false;
 
   constructor(executionId: string) {
-    this.executionId = executionId
-    Logging.log('PubSubChannel', `Created channel for execution ${executionId}`)
+    this.executionId = executionId;
+    Logging.log(
+      "PubSubChannel",
+      `Created channel for execution ${executionId}`,
+    );
   }
 
   /**
@@ -22,15 +32,17 @@ export class PubSubChannel {
    */
   publishMessage(message: Message): void {
     if (this.isDestroyed) {
-      console.warn(`PubSubChannel: Attempted to publish to destroyed channel ${this.executionId}`)
-      return
+      console.warn(
+        `PubSubChannel: Attempted to publish to destroyed channel ${this.executionId}`,
+      );
+      return;
     }
-    
+
     const event: PubSubEvent = {
-      type: 'message',
-      payload: message
-    }
-    this._publish(event)
+      type: "message",
+      payload: message,
+    };
+    this._publish(event);
   }
 
   /**
@@ -38,15 +50,17 @@ export class PubSubChannel {
    */
   publishHumanInputRequest(request: HumanInputRequest): void {
     if (this.isDestroyed) {
-      console.warn(`PubSubChannel: Attempted to publish request to destroyed channel ${this.executionId}`)
-      return
+      console.warn(
+        `PubSubChannel: Attempted to publish request to destroyed channel ${this.executionId}`,
+      );
+      return;
     }
-    
+
     const event: PubSubEvent = {
-      type: 'human-input-request',
-      payload: request
-    }
-    this._publish(event)
+      type: "human-input-request",
+      payload: request,
+    };
+    this._publish(event);
   }
 
   /**
@@ -54,15 +68,17 @@ export class PubSubChannel {
    */
   publishHumanInputResponse(response: HumanInputResponse): void {
     if (this.isDestroyed) {
-      console.warn(`PubSubChannel: Attempted to publish response to destroyed channel ${this.executionId}`)
-      return
+      console.warn(
+        `PubSubChannel: Attempted to publish response to destroyed channel ${this.executionId}`,
+      );
+      return;
     }
-    
+
     const event: PubSubEvent = {
-      type: 'human-input-response',
-      payload: response
-    }
-    this._publish(event)
+      type: "human-input-response",
+      payload: response,
+    };
+    this._publish(event);
   }
 
   /**
@@ -70,42 +86,47 @@ export class PubSubChannel {
    */
   subscribe(callback: SubscriptionCallback): Subscription {
     if (this.isDestroyed) {
-      console.warn(`PubSubChannel: Attempted to subscribe to destroyed channel ${this.executionId}`)
+      console.warn(
+        `PubSubChannel: Attempted to subscribe to destroyed channel ${this.executionId}`,
+      );
       return {
-        unsubscribe: () => {}
-      }
+        unsubscribe: () => {},
+      };
     }
-    
-    this.subscribers.add(callback)
-    
+
+    this.subscribers.add(callback);
+
     // Send buffered messages to new subscriber
-    this.messageBuffer.forEach(event => {
+    this.messageBuffer.forEach((event) => {
       try {
-        callback(event)
+        callback(event);
       } catch (error) {
-        console.error(`PubSubChannel[${this.executionId}]: Error replaying buffered event`, error)
+        console.error(
+          `PubSubChannel[${this.executionId}]: Error replaying buffered event`,
+          error,
+        );
       }
-    })
+    });
 
     return {
       unsubscribe: () => {
-        this.subscribers.delete(callback)
-      }
-    }
+        this.subscribers.delete(callback);
+      },
+    };
   }
 
   /**
    * Get current buffer
    */
   getBuffer(): PubSubEvent[] {
-    return [...this.messageBuffer]
+    return [...this.messageBuffer];
   }
 
   /**
    * Clear buffer
    */
   clearBuffer(): void {
-    this.messageBuffer = []
+    this.messageBuffer = [];
   }
 
   /**
@@ -114,52 +135,55 @@ export class PubSubChannel {
    */
   private _publish(event: PubSubEvent): void {
     // Add to buffer
-    this.messageBuffer.push(event)
-    
+    this.messageBuffer.push(event);
+
     // Trim buffer if too large
     if (this.messageBuffer.length > this.MAX_BUFFER_SIZE) {
-      this.messageBuffer = this.messageBuffer.slice(-this.MAX_BUFFER_SIZE)
+      this.messageBuffer = this.messageBuffer.slice(-this.MAX_BUFFER_SIZE);
     }
-    
+
     // Notify all subscribers
-    this.subscribers.forEach(callback => {
+    this.subscribers.forEach((callback) => {
       try {
-        callback(event)
+        callback(event);
       } catch (error) {
-        console.error(`PubSubChannel[${this.executionId}]: Subscriber error`, error)
+        console.error(
+          `PubSubChannel[${this.executionId}]: Subscriber error`,
+          error,
+        );
       }
-    })
+    });
   }
 
   /**
    * Check if channel is destroyed
    */
   isActive(): boolean {
-    return !this.isDestroyed
+    return !this.isDestroyed;
   }
 
   /**
    * Get number of subscribers
    */
   getSubscriberCount(): number {
-    return this.subscribers.size
+    return this.subscribers.size;
   }
 
   /**
    * Get channel statistics
    */
   getStats(): {
-    executionId: string
-    subscribers: number
-    bufferSize: number
-    isActive: boolean
+    executionId: string;
+    subscribers: number;
+    bufferSize: number;
+    isActive: boolean;
   } {
     return {
       executionId: this.executionId,
       subscribers: this.subscribers.size,
       bufferSize: this.messageBuffer.length,
-      isActive: !this.isDestroyed
-    }
+      isActive: !this.isDestroyed,
+    };
   }
 
   /**
@@ -167,54 +191,64 @@ export class PubSubChannel {
    */
   destroy(): void {
     if (this.isDestroyed) {
-      return
+      return;
     }
-    
+
     // Clear all subscribers
-    this.subscribers.clear()
-    
+    this.subscribers.clear();
+
     // Clear message buffer
-    this.messageBuffer = []
-    
+    this.messageBuffer = [];
+
     // Mark as destroyed
-    this.isDestroyed = true
-    
-    Logging.log('PubSubChannel', `Destroyed channel for execution ${this.executionId}`)
+    this.isDestroyed = true;
+
+    Logging.log(
+      "PubSubChannel",
+      `Destroyed channel for execution ${this.executionId}`,
+    );
   }
-  
+
   // ============================================
   // Static helper methods (mirror PubSub API)
   // ============================================
-  
+
   /**
    * Generate a unique message ID
    * @param prefix - Optional prefix for the ID
    */
-  static generateId(prefix: string = 'msg'): string {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  static generateId(prefix: string = "msg"): string {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-  
+
   /**
    * Create a message object with generated ID
    */
-  static createMessage(content: string, role: Message['role'] = 'thinking'): Message {
+  static createMessage(
+    content: string,
+    role: Message["role"] = "thinking",
+  ): Message {
     return {
       msgId: PubSubChannel.generateId(`msg_${role}`),
       content,
       role,
-      ts: Date.now()
-    }
+      ts: Date.now(),
+    };
   }
-  
+
   /**
    * Create a message with specific ID
    */
-  static createMessageWithId(msgId: string, content: string, role: Message['role'] = 'thinking'): Message {
+  static createMessageWithId(
+    msgId: string,
+    content: string,
+    role: Message["role"] = "thinking",
+  ): Message {
     return {
       msgId,
       content,
       role,
-      ts: Date.now()
-    }
+      ts: Date.now(),
+    };
   }
 }

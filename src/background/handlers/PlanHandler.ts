@@ -1,8 +1,8 @@
-import { MessageType } from '@/lib/types/messaging'
-import { PortMessage } from '@/lib/runtime/PortMessaging'
-import { Logging } from '@/lib/utils/Logging'
-import { ExecutionManager } from '@/lib/execution/ExecutionManager'
-import { PubSub } from '@/lib/pubsub'
+import { MessageType } from "@/lib/types/messaging";
+import { PortMessage } from "@/lib/runtime/PortMessaging";
+import { Logging } from "@/lib/utils/Logging";
+import { ExecutionManager } from "@/lib/execution/ExecutionManager";
+import { PubSub } from "@/lib/pubsub";
 
 /**
  * Handles planning-related messages:
@@ -11,11 +11,11 @@ import { PubSub } from '@/lib/pubsub'
  * - GET_PLAN_HISTORY: Get history of plan changes
  */
 export class PlanHandler {
-  private executionManager: ExecutionManager
-  private planHistory: Map<string, Array<any>> = new Map()  // executionId -> plans
+  private executionManager: ExecutionManager;
+  private planHistory: Map<string, Array<any>> = new Map(); // executionId -> plans
 
   constructor() {
-    this.executionManager = ExecutionManager.getInstance()
+    this.executionManager = ExecutionManager.getInstance();
   }
 
   /**
@@ -24,42 +24,47 @@ export class PlanHandler {
   handleGetCurrentPlan(
     message: PortMessage,
     port: chrome.runtime.Port,
-    executionId?: string
+    executionId?: string,
   ): void {
     try {
-      const execId = executionId || 'default'
-      const execution = this.executionManager.get(execId)
-      
+      const execId = executionId || "default";
+      const execution = this.executionManager.get(execId);
+
       if (!execution) {
-        throw new Error(`No execution found with ID: ${execId}`)
+        throw new Error(`No execution found with ID: ${execId}`);
       }
-      
+
       // Get current plan from execution's message history or state
-      const currentPlan = this.extractCurrentPlan(execution)
-      
+      const currentPlan = this.extractCurrentPlan(execution);
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          data: { 
+        payload: {
+          status: "success",
+          data: {
             plan: currentPlan,
-            executionId: execId
-          }
+            executionId: execId,
+          },
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('PlanHandler', `Error getting current plan: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "PlanHandler",
+        `Error getting current plan: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -69,58 +74,63 @@ export class PlanHandler {
   handleUpdatePlan(
     message: PortMessage,
     port: chrome.runtime.Port,
-    executionId?: string
+    executionId?: string,
   ): void {
     try {
-      const execId = executionId || 'default'
-      const { plan } = message.payload as { plan: any }
-      
+      const execId = executionId || "default";
+      const { plan } = message.payload as { plan: any };
+
       // Store plan in history
       if (!this.planHistory.has(execId)) {
-        this.planHistory.set(execId, [])
+        this.planHistory.set(execId, []);
       }
       this.planHistory.get(execId)!.push({
         plan,
         timestamp: Date.now(),
-        source: 'manual_update'
-      })
-      
+        source: "manual_update",
+      });
+
       // Publish plan update event via PubSub
-      const channel = PubSub.getChannel(execId)
+      const channel = PubSub.getChannel(execId);
       channel.publishMessage({
         msgId: `plan_update_${Date.now()}`,
-        role: 'assistant',  // Use 'assistant' instead of 'system' which doesn't exist
+        role: "assistant", // Use 'assistant' instead of 'system' which doesn't exist
         content: JSON.stringify({
-          type: 'plan_update',
+          type: "plan_update",
           plan,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         }),
-        ts: Date.now()
-      })
-      
-      Logging.log('PlanHandler', `Updated plan for execution ${execId}`)
-      
+        ts: Date.now(),
+      });
+
+      Logging.log("PlanHandler", `Updated plan for execution ${execId}`);
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          message: 'Plan updated',
-          executionId: execId
+        payload: {
+          status: "success",
+          message: "Plan updated",
+          executionId: execId,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('PlanHandler', `Error updating plan: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "PlanHandler",
+        `Error updating plan: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -130,36 +140,41 @@ export class PlanHandler {
   handleGetPlanHistory(
     message: PortMessage,
     port: chrome.runtime.Port,
-    executionId?: string
+    executionId?: string,
   ): void {
     try {
-      const execId = executionId || 'default'
-      const history = this.planHistory.get(execId) || []
-      
+      const execId = executionId || "default";
+      const history = this.planHistory.get(execId) || [];
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          data: { 
+        payload: {
+          status: "success",
+          data: {
             history,
             executionId: execId,
-            count: history.length
-          }
+            count: history.length,
+          },
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('PlanHandler', `Error getting plan history: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "PlanHandler",
+        `Error getting plan history: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -169,21 +184,24 @@ export class PlanHandler {
   private extractCurrentPlan(execution: any): any {
     // Look for plan in execution's message history
     // This would normally parse the MessageManager's history for PlannerTool output
-    
+
     // For now, return a placeholder
     return {
       steps: [],
-      status: 'unknown',
-      timestamp: Date.now()
-    }
+      status: "unknown",
+      timestamp: Date.now(),
+    };
   }
 
   /**
    * Clear plan history for an execution
    */
   clearHistory(executionId: string): void {
-    this.planHistory.delete(executionId)
-    Logging.log('PlanHandler', `Cleared plan history for execution ${executionId}`)
+    this.planHistory.delete(executionId);
+    Logging.log(
+      "PlanHandler",
+      `Cleared plan history for execution ${executionId}`,
+    );
   }
 
   /**
@@ -192,13 +210,13 @@ export class PlanHandler {
   getStats(): any {
     const stats: any = {
       executionsWithPlans: this.planHistory.size,
-      totalPlans: 0
-    }
-    
+      totalPlans: 0,
+    };
+
     for (const history of this.planHistory.values()) {
-      stats.totalPlans += history.length
+      stats.totalPlans += history.length;
     }
-    
-    return stats
+
+    return stats;
   }
 }
