@@ -17,6 +17,9 @@ import { PubSub } from "@/lib/pubsub"; // For static helper methods
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { Logging } from "@/lib/utils/Logging";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
+import { getPlannerPrompt } from "./POCAgent.prompt";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { z } from "zod";
 
 interface SingleTurnResult {
   doneToolCalled: boolean;
@@ -262,7 +265,6 @@ export class POCAgent {
   private async _processToolCalls(toolCalls: any[]): Promise<SingleTurnResult> {
     const result: SingleTurnResult = {
       doneToolCalled: false,
-      requiresHumanInput: false,
     };
 
     for (const toolCall of toolCalls) {
@@ -293,16 +295,6 @@ export class POCAgent {
 
       if (toolName === "done_tool" && parsedResult.ok) {
         result.doneToolCalled = true;
-      }
-
-      if (
-        toolName === "human_input_tool" &&
-        parsedResult.ok &&
-        parsedResult.requiresHumanInput
-      ) {
-        result.requiresHumanInput = true;
-        // Break from the loop immediately to handle human input
-        break;
       }
     }
 
@@ -363,7 +355,58 @@ export class POCAgent {
     this.pubsub.publishMessage(
       PubSub.createMessage("Planning next steps...", "thinking"),
     );
+
+    const plannerTool = this._createPlannerTool();
+    const history = this.messageManager.getMessages().slice(-10);
+    const historyText = history
+      .map((m) => m.content)
+      .join("\n")
+      .substring(0, 1000);
+
+    const result = await plannerTool.func({
+      task,
+      current_state: await this._captureState(),
+      history: historyText,
+    });
+
+    const parsed = jsonParseToolOutput(result);
+    if (parsed.ok && parsed.output) {
+      return parsed.output;
+    }
+
     return `Navigate to the target website and complete the task: ${task}`;
+  }
+
+  private _createPlannerTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "planner_tool",
+      description: "Generate a natural language plan for the task",
+      schema: z.object({
+        task: z.string(),
+        current_state: z.any(),
+        history: z.string(),
+      }),
+      func: async (args) => {
+        try {
+          const llm = await this.executionContext.getLLM();
+          const prompt = `${getPlannerPrompt()}
+          
+Task: ${args.task}
+Current State: ${JSON.stringify(args.current_state)}
+Recent History: ${args.history}
+
+Generate a concise natural language plan:`;
+
+          const response = await llm.invoke(prompt);
+          const plan =
+            typeof response.content === "string" ? response.content : "";
+
+          return JSON.stringify({ ok: true, output: plan });
+        } catch (error) {
+          return JSON.stringify({ ok: false, error: String(error) });
+        }
+      },
+    });
   }
 
   private async _captureState(): Promise<CapturedState> {
