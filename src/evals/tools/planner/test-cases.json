@@ -5,10 +5,20 @@
     "category": "ecommerce",
     "complexity": "complex",
     "expected": {
-      "requiredActions": ["Navigate to Amazon", "Search for toothpaste", "Select a toothpaste", "Add to cart", "Proceed to checkout"],
+      "requiredActions": [
+        "Navigate to Amazon",
+        "Search for toothpaste",
+        "Select a toothpaste",
+        "Add to cart",
+        "Proceed to checkout"
+      ],
       "maxSteps": 7,
       "minSteps": 4,
-      "sequenceOrder": [["Navigate", "Search"], ["Search", "Add to cart"], ["Add to cart", "checkout"]]
+      "sequenceOrder": [
+        ["Navigate", "Search"],
+        ["Search", "Add to cart"],
+        ["Add to cart", "checkout"]
+      ]
     }
   },
   {
@@ -17,7 +27,15 @@
     "category": "research",
     "complexity": "complex",
     "expected": {
-      "requiredActions": ["Navigate to Amazon", "Search MacBook Air M2", "Extract price", "Navigate to Best Buy", "Search MacBook Air M2", "Extract price", "Compare prices"],
+      "requiredActions": [
+        "Navigate to Amazon",
+        "Search MacBook Air M2",
+        "Extract price",
+        "Navigate to Best Buy",
+        "Search MacBook Air M2",
+        "Extract price",
+        "Compare prices"
+      ],
       "maxSteps": 10,
       "minSteps": 6
     }
@@ -52,7 +70,12 @@
     "category": "navigation",
     "complexity": "medium",
     "expected": {
-      "requiredActions": ["Navigate", "Search", "Click first result", "Refresh"],
+      "requiredActions": [
+        "Navigate",
+        "Search",
+        "Click first result",
+        "Refresh"
+      ],
       "maxSteps": 6,
       "minSteps": 3,
       "sequenceOrder": [["Search", "Click first result"]]
@@ -98,10 +121,19 @@
     "category": "auth",
     "complexity": "complex",
     "expected": {
-      "requiredActions": ["Navigate to GitHub", "Click login", "Enter credentials", "Submit login", "Navigate to Repositories"],
+      "requiredActions": [
+        "Navigate to GitHub",
+        "Click login",
+        "Enter credentials",
+        "Submit login",
+        "Navigate to Repositories"
+      ],
       "maxSteps": 7,
       "minSteps": 4,
-      "sequenceOrder": [["Click login", "Enter credentials"], ["Submit login", "Navigate to Repositories"]]
+      "sequenceOrder": [
+        ["Click login", "Enter credentials"],
+        ["Submit login", "Navigate to Repositories"]
+      ]
     }
   },
   {
@@ -110,7 +142,11 @@
     "category": "research",
     "complexity": "medium",
     "expected": {
-      "requiredActions": ["Navigate to search engine", "Search 'weather in Tokyo'", "Extract temperature"],
+      "requiredActions": [
+        "Navigate to search engine",
+        "Search 'weather in Tokyo'",
+        "Extract temperature"
+      ],
       "maxSteps": 5,
       "minSteps": 3,
       "sequenceOrder": [["Search", "Extract temperature"]]

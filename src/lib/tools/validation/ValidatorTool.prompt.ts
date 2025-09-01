@@ -47,7 +47,7 @@ Examples:
 - "Navigate to the confirmation page to verify submission"
 - "Scroll down to find the 'Submit' button"
 
-Remember: You are validating based ONLY on the current browser state and execution history.`
+Remember: You are validating based ONLY on the current browser state and execution history.`;
 }
 
 export function generateValidatorTaskPrompt(
@@ -56,9 +56,11 @@ export function generateValidatorTaskPrompt(
   messageHistory: string,
   screenshot: string,
 ): string {
-  const screenshotSection = screenshot ? `# SCREENSHOT
-${screenshot}` : ''
-  
+  const screenshotSection = screenshot
+    ? `# SCREENSHOT
+${screenshot}`
+    : "";
+
   return `# TASK TO VALIDATE:
 ${task}
 
@@ -70,6 +72,6 @@ ${browserState}
 
 ${screenshotSection}
 
-Based on the browser state and execution history${screenshot ? ', screenshot' : ''}, determine if this task has been FULLY completed.
-Provide clear reasoning, your confidence level, and specific suggestions if the task is incomplete.`
+Based on the browser state and execution history${screenshot ? ", screenshot" : ""}, determine if this task has been FULLY completed.
+Provide clear reasoning, your confidence level, and specific suggestions if the task is incomplete.`;
 }

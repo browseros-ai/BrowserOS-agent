@@ -1,13 +1,13 @@
-import React, { useEffect } from 'react'
-import { useMessageHandler } from './hooks/useMessageHandler'
-import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
-import { Chat } from './components/Chat'
-import { ErrorBoundary } from './components/ErrorBoundary'
-import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
-import { SkipLink } from './components/SkipLink'
-import { useSettingsStore } from './stores/settingsStore'
-import { HumanInputDialog } from './components/HumanInputDialog'
-import './styles.css'
+import React, { useEffect } from "react";
+import { useMessageHandler } from "./hooks/useMessageHandler";
+import { useSidePanelPortMessaging } from "@/sidepanel/hooks";
+import { Chat } from "./components/Chat";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { useAnnouncer, setGlobalAnnouncer } from "./hooks/useAnnouncer";
+import { SkipLink } from "./components/SkipLink";
+import { useSettingsStore } from "./stores/settingsStore";
+import { HumanInputDialog } from "./components/HumanInputDialog";
+import "./styles.css";
 
 /**
  * Root component for sidepanel v2
@@ -15,52 +15,62 @@ import './styles.css'
  */
 export function App() {
   // Get connection status and reconnect function from port messaging
-  const { connected, reconnect } = useSidePanelPortMessaging()
-  
+  const { connected, reconnect } = useSidePanelPortMessaging();
+
   // Initialize message handling and set up reconnect callback
-  const { humanInputRequest, clearHumanInputRequest, setReconnectCallback } = useMessageHandler()
-  
+  const { humanInputRequest, clearHumanInputRequest, setReconnectCallback } =
+    useMessageHandler();
+
   // Wire the reconnect callback
   useEffect(() => {
-    setReconnectCallback(reconnect)
-  }, [setReconnectCallback, reconnect])
-  
+    setReconnectCallback(reconnect);
+  }, [setReconnectCallback, reconnect]);
+
   // Initialize settings
-  const { fontSize, theme } = useSettingsStore()
-  
+  const { fontSize, theme } = useSettingsStore();
+
   // Initialize global announcer for screen readers
-  const announcer = useAnnouncer()
+  const announcer = useAnnouncer();
   useEffect(() => {
-    setGlobalAnnouncer(announcer)
-  }, [announcer])
-  
+    setGlobalAnnouncer(announcer);
+  }, [announcer]);
+
   // Initialize settings on app load
   useEffect(() => {
     // Apply font size
-    document.documentElement.style.setProperty('--app-font-size', `${fontSize}px`)
-    
+    document.documentElement.style.setProperty(
+      "--app-font-size",
+      `${fontSize}px`,
+    );
+
     // Apply theme classes
-    const root = document.documentElement
-    root.classList.remove('dark')
-    root.classList.remove('gray')
-    if (theme === 'dark') root.classList.add('dark')
-    if (theme === 'gray') root.classList.add('gray')
-  }, [fontSize, theme])
-  
+    const root = document.documentElement;
+    root.classList.remove("dark");
+    root.classList.remove("gray");
+    if (theme === "dark") root.classList.add("dark");
+    if (theme === "gray") root.classList.add("gray");
+  }, [fontSize, theme]);
+
   // Announce connection status changes
   useEffect(() => {
-    announcer.announce(connected ? 'Extension connected' : 'Extension disconnected')
-  }, [connected, announcer])
-  
+    announcer.announce(
+      connected ? "Extension connected" : "Extension disconnected",
+    );
+  }, [connected, announcer]);
+
   return (
     <ErrorBoundary
       onError={(error, errorInfo) => {
         // Log to analytics or error reporting service
-        console.error('App level error:', error, errorInfo)
-        announcer.announce('An error occurred. Please try again.', 'assertive')
+        console.error("App level error:", error, errorInfo);
+        announcer.announce("An error occurred. Please try again.", "assertive");
       }}
     >
-      <div className="h-screen bg-background overflow-x-hidden" role="main" aria-label="BrowserOS Chat Assistant">
+      <div
+        className="h-screen bg-background overflow-x-hidden"
+        role="main"
+        aria-label="BrowserOS Chat Assistant"
+      >
         <SkipLink />
         <Chat isConnected={connected} />
         {humanInputRequest && (
@@ -72,5 +82,5 @@ export function App() {
         )}
       </div>
     </ErrorBoundary>
-  )
+  );
 }

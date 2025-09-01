@@ -86,9 +86,25 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    font-size: var(--app-font-size, 14px); /* Use custom font size with fallback */
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      Oxygen,
+      Ubuntu,
+      Cantarell,
+      "Open Sans",
+      "Helvetica Neue",
+      sans-serif;
+    font-size: var(
+      --app-font-size,
+      14px
+    ); /* Use custom font size with fallback */
   }
 }
 
@@ -105,14 +121,35 @@
 }
 
 /* Base styles for sidepanel */
-html, body {
+html,
+body {
   @apply bg-background text-foreground;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  font-size: var(--app-font-size, 14px); /* Use custom font size with fallback */
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+  font-size: var(
+    --app-font-size,
+    14px
+  ); /* Use custom font size with fallback */
 }
 
 /* Apply font size to common text elements */
-p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button {
+p,
+span,
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+li,
+td,
+th,
+label,
+input,
+textarea,
+button {
   font-size: inherit; /* Inherit from parent body */
 }
 
@@ -136,81 +173,81 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Paw print walking animations */
 @keyframes paw-walk-trail {
-  0% { 
+  0% {
     transform: scale(0.8) rotate(-5deg);
     opacity: 0;
   }
-  20% { 
+  20% {
     transform: scale(1) rotate(0deg);
     opacity: 0.9;
   }
-  40% { 
+  40% {
     transform: scale(0.95) rotate(3deg);
     opacity: 0.7;
   }
-  60% { 
+  60% {
     transform: scale(0.9) rotate(1deg);
     opacity: 0.5;
   }
-  80% { 
+  80% {
     transform: scale(0.8) rotate(-2deg);
     opacity: 0.3;
   }
-  100% { 
+  100% {
     transform: scale(0.7) rotate(0deg);
     opacity: 0;
   }
 }
 
 @keyframes paw-walk-trail-left {
-  0% { 
+  0% {
     transform: scale(0.8) rotate(-8deg);
     opacity: 0;
   }
-  20% { 
+  20% {
     transform: scale(1) rotate(-3deg);
     opacity: 0.9;
   }
-  40% { 
+  40% {
     transform: scale(0.95) rotate(1deg);
     opacity: 0.7;
   }
-  60% { 
+  60% {
     transform: scale(0.9) rotate(-1deg);
     opacity: 0.5;
   }
-  80% { 
+  80% {
     transform: scale(0.8) rotate(-4deg);
     opacity: 0.3;
   }
-  100% { 
+  100% {
     transform: scale(0.7) rotate(-2deg);
     opacity: 0;
   }
 }
 
 @keyframes paw-walk-trail-right {
-  0% { 
+  0% {
     transform: scale(0.8) rotate(8deg);
     opacity: 0;
   }
-  20% { 
+  20% {
     transform: scale(1) rotate(3deg);
     opacity: 0.9;
   }
-  40% { 
+  40% {
     transform: scale(0.95) rotate(-1deg);
     opacity: 0.7;
   }
-  60% { 
+  60% {
     transform: scale(0.9) rotate(1deg);
     opacity: 0.5;
   }
-  80% { 
+  80% {
     transform: scale(0.8) rotate(4deg);
     opacity: 0.3;
   }
-  100% { 
+  100% {
     transform: scale(0.7) rotate(2deg);
     opacity: 0;
   }
@@ -218,65 +255,65 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Background paw trail animations - more subtle */
 @keyframes background-paw-fade-in {
-  0% { 
+  0% {
     transform: scale(0.6) rotate(-5deg);
     opacity: 0;
   }
-  30% { 
+  30% {
     transform: scale(0.8) rotate(-2deg);
     opacity: 0.15;
   }
-  60% { 
+  60% {
     transform: scale(0.9) rotate(1deg);
     opacity: 0.12;
   }
-  100% { 
+  100% {
     transform: scale(0.7) rotate(0deg);
     opacity: 0.05;
   }
 }
 
 @keyframes background-paw-trail-left {
-  0% { 
+  0% {
     transform: scale(0.6) rotate(-8deg);
     opacity: 0;
   }
-  25% { 
+  25% {
     transform: scale(0.8) rotate(-4deg);
     opacity: 0.15;
   }
-  50% { 
+  50% {
     transform: scale(0.9) rotate(0deg);
     opacity: 0.12;
   }
-  75% { 
+  75% {
     transform: scale(0.8) rotate(2deg);
     opacity: 0.08;
   }
-  100% { 
+  100% {
     transform: scale(0.6) rotate(0deg);
     opacity: 0.05;
   }
 }
 
 @keyframes background-paw-trail-right {
-  0% { 
+  0% {
     transform: scale(0.6) rotate(8deg);
     opacity: 0;
   }
-  25% { 
+  25% {
     transform: scale(0.8) rotate(4deg);
     opacity: 0.15;
   }
-  50% { 
+  50% {
     transform: scale(0.9) rotate(0deg);
     opacity: 0.12;
   }
-  75% { 
+  75% {
     transform: scale(0.8) rotate(-2deg);
     opacity: 0.08;
   }
-  100% { 
+  100% {
     transform: scale(0.6) rotate(0deg);
     opacity: 0.05;
   }
@@ -284,42 +321,42 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* New animated paw prints running across the screen */
 @keyframes paw-run-across-left-to-right {
-  0% { 
+  0% {
     transform: translateX(-120px) scale(0.8) rotate(-5deg);
     opacity: 0;
     filter: drop-shadow(0 2px 4px rgba(251, 101, 31, 0.3));
   }
-  10% { 
+  10% {
     transform: translateX(-80px) scale(1.1) rotate(-2deg);
     opacity: 1;
     filter: drop-shadow(0 3px 6px rgba(251, 101, 31, 0.4));
   }
-  20% { 
+  20% {
     transform: translateX(-40px) scale(1) rotate(1deg);
     opacity: 0.95;
     filter: drop-shadow(0 4px 8px rgba(251, 101, 31, 0.5));
   }
-  40% { 
+  40% {
     transform: translateX(0px) scale(0.95) rotate(-1deg);
     opacity: 0.85;
     filter: drop-shadow(0 3px 6px rgba(251, 101, 31, 0.4));
   }
-  60% { 
+  60% {
     transform: translateX(40px) scale(0.9) rotate(2deg);
     opacity: 0.7;
     filter: drop-shadow(0 2px 4px rgba(251, 101, 31, 0.3));
   }
-  80% { 
+  80% {
     transform: translateX(80px) scale(0.8) rotate(1deg);
     opacity: 0.4;
     filter: drop-shadow(0 1px 2px rgba(251, 101, 31, 0.2));
   }
-  90% { 
+  90% {
     transform: translateX(100px) scale(0.75) rotate(2deg);
     opacity: 0.2;
     filter: drop-shadow(0 1px 1px rgba(251, 101, 31, 0.1));
   }
-  100% { 
+  100% {
     transform: translateX(140px) scale(0.6) rotate(0deg);
     opacity: 0;
     filter: drop-shadow(0 0px 0px rgba(251, 101, 31, 0));
@@ -327,42 +364,42 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 }
 
 @keyframes paw-run-across-right-to-left {
-  0% { 
+  0% {
     transform: translateX(120px) scale(0.8) rotate(5deg);
     opacity: 0;
     filter: drop-shadow(0 2px 4px rgba(251, 101, 31, 0.3));
   }
-  10% { 
+  10% {
     transform: translateX(80px) scale(1.1) rotate(2deg);
     opacity: 1;
     filter: drop-shadow(0 3px 6px rgba(251, 101, 31, 0.4));
   }
-  20% { 
+  20% {
     transform: translateX(40px) scale(1) rotate(-1deg);
     opacity: 0.95;
     filter: drop-shadow(0 4px 8px rgba(251, 101, 31, 0.5));
   }
-  40% { 
+  40% {
     transform: translateX(0px) scale(0.95) rotate(1deg);
     opacity: 0.85;
     filter: drop-shadow(0 3px 6px rgba(251, 101, 31, 0.4));
   }
-  60% { 
+  60% {
     transform: translateX(-40px) scale(0.9) rotate(-2deg);
     opacity: 0.7;
     filter: drop-shadow(0 2px 4px rgba(251, 101, 31, 0.3));
   }
-  80% { 
+  80% {
     transform: translateX(-80px) scale(0.8) rotate(-1deg);
     opacity: 0.4;
     filter: drop-shadow(0 1px 2px rgba(251, 101, 31, 0.2));
   }
-  90% { 
+  90% {
     transform: translateX(-100px) scale(0.75) rotate(-2deg);
     opacity: 0.2;
     filter: drop-shadow(0 1px 1px rgba(251, 101, 31, 0.1));
   }
-  100% { 
+  100% {
     transform: translateX(-140px) scale(0.6) rotate(0deg);
     opacity: 0;
     filter: drop-shadow(0 0px 0px rgba(251, 101, 31, 0));
@@ -370,42 +407,42 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 }
 
 @keyframes paw-run-across-diagonal {
-  0% { 
+  0% {
     transform: translateX(-120px) translateY(40px) scale(0.8) rotate(-5deg);
     opacity: 0;
     filter: drop-shadow(0 2px 4px rgba(251, 101, 31, 0.3));
   }
-  10% { 
+  10% {
     transform: translateX(-80px) translateY(30px) scale(1.1) rotate(-2deg);
     opacity: 1;
     filter: drop-shadow(0 3px 6px rgba(251, 101, 31, 0.4));
   }
-  20% { 
+  20% {
     transform: translateX(-40px) translateY(20px) scale(1) rotate(1deg);
     opacity: 0.95;
     filter: drop-shadow(0 4px 8px rgba(251, 101, 31, 0.5));
   }
-  40% { 
+  40% {
     transform: translateX(0px) translateY(10px) scale(0.95) rotate(-1deg);
     opacity: 0.85;
     filter: drop-shadow(0 3px 6px rgba(251, 101, 31, 0.4));
   }
-  60% { 
+  60% {
     transform: translateX(40px) translateY(0px) scale(0.9) rotate(2deg);
     opacity: 0.7;
     filter: drop-shadow(0 2px 4px rgba(251, 101, 31, 0.3));
   }
-  80% { 
+  80% {
     transform: translateX(80px) translateY(-10px) scale(0.8) rotate(1deg);
     opacity: 0.4;
     filter: drop-shadow(0 1px 2px rgba(251, 101, 31, 0.2));
   }
-  90% { 
+  90% {
     transform: translateX(100px) translateY(-15px) scale(0.75) rotate(2deg);
     opacity: 0.2;
     filter: drop-shadow(0 1px 1px rgba(251, 101, 31, 0.1));
   }
-  100% { 
+  100% {
     transform: translateX(140px) translateY(-25px) scale(0.6) rotate(0deg);
     opacity: 0;
     filter: drop-shadow(0 0px 0px rgba(251, 101, 31, 0));
@@ -414,10 +451,11 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Floating animation for background elements */
 @keyframes float {
-  0%, 100% { 
+  0%,
+  100% {
     transform: translateY(0px) scale(1);
   }
-  50% { 
+  50% {
     transform: translateY(-10px) scale(1.05);
   }
 }
@@ -428,19 +466,20 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Enhanced floating animation with spotlight interaction */
 @keyframes float-enhanced {
-  0%, 100% { 
+  0%,
+  100% {
     transform: translateY(0px) scale(1);
     filter: blur(30px);
   }
-  25% { 
+  25% {
     transform: translateY(-8px) scale(1.08);
     filter: blur(25px);
   }
-  50% { 
+  50% {
     transform: translateY(-15px) scale(1.12);
     filter: blur(20px);
   }
-  75% { 
+  75% {
     transform: translateY(-8px) scale(1.08);
     filter: blur(25px);
   }
@@ -452,15 +491,15 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Paw print fade-out animation */
 @keyframes paw-fade-out {
-  0% { 
+  0% {
     opacity: 1;
     transform: scale(1) rotate(0deg);
   }
-  50% { 
+  50% {
     opacity: 0.5;
     transform: scale(0.9) rotate(2deg);
   }
-  100% { 
+  100% {
     opacity: 0;
     transform: scale(0.7) rotate(5deg);
   }
@@ -472,11 +511,11 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Fade in animations */
 @keyframes fade-in-up {
-  0% { 
+  0% {
     opacity: 0;
     transform: translateY(20px);
   }
-  100% { 
+  100% {
     opacity: 1;
     transform: translateY(0);
   }
@@ -488,7 +527,7 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Executing message dash-off animation */
 @keyframes dash-off-left {
-  0% { 
+  0% {
     opacity: 1;
     transform: translateX(0) scale(1);
   }
@@ -496,7 +535,7 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
     opacity: 0.7;
     transform: translateX(-50px) scale(0.95);
   }
-  100% { 
+  100% {
     opacity: 0;
     transform: translateX(-150px) scale(0.9);
   }
@@ -514,73 +553,73 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 }
 
 @keyframes paw-walk-1 {
-  0% { 
+  0% {
     transform: translateX(-20px) translateY(0px) scale(0.8);
     opacity: 0;
   }
-  20% { 
+  20% {
     transform: translateX(0px) translateY(-2px) scale(1);
     opacity: 0.8;
   }
-  40% { 
+  40% {
     transform: translateX(20px) translateY(0px) scale(0.9);
     opacity: 0.6;
   }
-  60% { 
+  60% {
     transform: translateX(40px) translateY(-1px) scale(1.1);
     opacity: 0.9;
   }
-  80% { 
+  80% {
     transform: translateX(60px) translateY(0px) scale(0.8);
     opacity: 0.4;
   }
-  100% { 
+  100% {
     transform: translateX(80px) translateY(-2px) scale(0.7);
     opacity: 0;
   }
 }
 
 @keyframes paw-walk-2 {
-  0% { 
+  0% {
     transform: translateX(-30px) translateY(0px) scale(0.7);
     opacity: 0;
   }
-  25% { 
+  25% {
     transform: translateX(-10px) translateY(-1px) scale(0.9);
     opacity: 0.6;
   }
-  50% { 
+  50% {
     transform: translateX(10px) translateY(0px) scale(1);
     opacity: 0.8;
   }
-  75% { 
+  75% {
     transform: translateX(30px) translateY(-2px) scale(0.8);
     opacity: 0.5;
   }
-  100% { 
+  100% {
     transform: translateX(50px) translateY(0px) scale(0.6);
     opacity: 0;
   }
 }
 
 @keyframes paw-walk-3 {
-  0% { 
+  0% {
     transform: translateX(-40px) translateY(0px) scale(0.6);
     opacity: 0;
   }
-  30% { 
+  30% {
     transform: translateX(-20px) translateY(-1px) scale(0.8);
     opacity: 0.5;
   }
-  60% { 
+  60% {
     transform: translateX(0px) translateY(0px) scale(1);
     opacity: 0.7;
   }
-  90% { 
+  90% {
     transform: translateX(20px) translateY(-2px) scale(0.9);
     opacity: 0.4;
   }
-  100% { 
+  100% {
     transform: translateX(40px) translateY(0px) scale(0.5);
     opacity: 0;
   }
@@ -602,27 +641,27 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Spotlight pulse effect from bottom */
 @keyframes spotlight-pulse {
-  0% { 
+  0% {
     transform: translateX(-50%) scale(0.5) translateY(20px);
     opacity: 0;
     filter: blur(15px);
   }
-  25% { 
+  25% {
     transform: translateX(-50%) scale(1.2) translateY(-5px);
     opacity: 0.8;
     filter: blur(8px);
   }
-  50% { 
+  50% {
     transform: translateX(-50%) scale(1) translateY(0px);
     opacity: 1;
     filter: blur(6px);
   }
-  75% { 
+  75% {
     transform: translateX(-50%) scale(1.1) translateY(-3px);
     opacity: 0.7;
     filter: blur(8px);
   }
-  100% { 
+  100% {
     transform: translateX(-50%) scale(0.6) translateY(15px);
     opacity: 0;
     filter: blur(12px);
@@ -630,32 +669,31 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 }
 
 @keyframes spotlight-pulse-delayed {
-  0% { 
+  0% {
     transform: translateX(-50%) scale(0.4) translateY(25px);
     opacity: 0;
     filter: blur(18px);
   }
-  30% { 
+  30% {
     transform: translateX(-50%) scale(1.1) translateY(-8px);
     opacity: 0.6;
     filter: blur(10px);
   }
-  60% { 
+  60% {
     transform: translateX(-50%) scale(0.9) translateY(-2px);
     opacity: 0.8;
     filter: blur(8px);
   }
-  90% { 
+  90% {
     transform: translateX(-50%) scale(1.05) translateY(-5px);
     opacity: 0.5;
     filter: blur(12px);
   }
-  100% { 
+  100% {
     transform: translateX(-50%) scale(0.5) translateY(20px);
     opacity: 0;
     filter: blur(15px);
   }
-
 }
 
 .animate-spotlight-pulse {
@@ -693,15 +731,15 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Draw line animation (left to right) */
 @keyframes draw-line {
-  0% { 
+  0% {
     transform: scaleX(0);
     opacity: 0;
   }
-  50% { 
+  50% {
     transform: scaleX(0.5);
     opacity: 0.7;
   }
-  100% { 
+  100% {
     transform: scaleX(1);
     opacity: 1;
   }
@@ -728,7 +766,8 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 /* Subtle pulse animation for star button */
 @keyframes star-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -740,7 +779,7 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 
 .star-pulse {
   animation: star-pulse 3s ease-in-out infinite;
-  animation-delay: 5s;  /* Wait 5 seconds before first pulse */
+  animation-delay: 5s; /* Wait 5 seconds before first pulse */
 }
 
 .shimmer-container {
@@ -776,11 +815,11 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 }
 
 /* Normalize bullets in Extracted Items card: hide native summary marker */
-.extract-card details > summary::-webkit-details-marker { 
-  display: none; 
+.extract-card details > summary::-webkit-details-marker {
+  display: none;
 }
-.extract-card details > summary::marker { 
-  content: ''; 
+.extract-card details > summary::marker {
+  content: "";
 }
 .extract-card details > summary {
   list-style: none; /* Ensure no list marker across browsers */

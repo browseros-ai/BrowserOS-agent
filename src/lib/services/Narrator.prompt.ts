@@ -42,14 +42,14 @@ export function generateNarrationPrompt(
   thinkingMessage: string,
   currentTask: string | null,
   conversationHistory: string | null,
-  todos: string | null
+  todos: string | null,
 ): string {
   let context = `Current thinking message: "${thinkingMessage}"\n`;
-  
+
   if (currentTask) {
     context += `User's task: "${currentTask}"\n`;
   }
-  
+
   if (todos) {
     context += `TODOs: ${todos}\n`;
   }
@@ -57,7 +57,7 @@ export function generateNarrationPrompt(
   if (conversationHistory) {
     context += `Recent conversation history: "${conversationHistory}"\n`;
   }
-  
+
   return `${context}
 Write a brief, natural narration matching the message's tense.
 Keep it under 20 words and casual. Never use quotes.`;

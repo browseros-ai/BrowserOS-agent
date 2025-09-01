@@ -1,8 +1,8 @@
-import { MessageType } from '@/lib/types/messaging'
-import { PortMessage } from '@/lib/runtime/PortMessaging'
-import { Logging } from '@/lib/utils/Logging'
-import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
-import { MCP_SERVERS } from '@/config/mcpServers'
+import { MessageType } from "@/lib/types/messaging";
+import { PortMessage } from "@/lib/runtime/PortMessaging";
+import { Logging } from "@/lib/utils/Logging";
+import { KlavisAPIManager } from "@/lib/mcp/KlavisAPIManager";
+import { MCP_SERVERS } from "@/config/mcpServers";
 
 /**
  * Handles MCP (Model Context Protocol) related messages:
@@ -15,43 +15,50 @@ import { MCP_SERVERS } from '@/config/mcpServers'
  * - MCP_GET_INSTALLED_SERVERS: Get installed servers
  */
 export class MCPHandler {
-  private mcpServers: Map<string, any> = new Map()
+  private mcpServers: Map<string, any> = new Map();
 
   /**
    * Handle GET_MCP_SERVERS message
    */
   async handleGetMCPServers(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): Promise<void> {
     try {
       // Get list of configured MCP servers
-      const servers = Array.from(this.mcpServers.entries()).map(([name, server]) => ({
-        name,
-        connected: server?.connected || false,
-        tools: server?.tools || []
-      }))
+      const servers = Array.from(this.mcpServers.entries()).map(
+        ([name, server]) => ({
+          name,
+          connected: server?.connected || false,
+          tools: server?.tools || [],
+        }),
+      );
 
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          data: { servers }
+        payload: {
+          status: "success",
+          data: { servers },
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('MCPHandler', `Error getting MCP servers: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "MCPHandler",
+        `Error getting MCP servers: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -60,41 +67,46 @@ export class MCPHandler {
    */
   async handleConnectMCPServer(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): Promise<void> {
     try {
-      const { serverName, config } = message.payload as any
-      
+      const { serverName, config } = message.payload as any;
+
       // TODO: Implement actual MCP server connection
       // For now, just store mock connection
       this.mcpServers.set(serverName, {
         connected: true,
         config,
-        tools: []
-      })
-      
-      Logging.log('MCPHandler', `Connected to MCP server: ${serverName}`)
-      
+        tools: [],
+      });
+
+      Logging.log("MCPHandler", `Connected to MCP server: ${serverName}`);
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          message: `Connected to ${serverName}`
+        payload: {
+          status: "success",
+          message: `Connected to ${serverName}`,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('MCPHandler', `Error connecting to MCP server: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "MCPHandler",
+        `Error connecting to MCP server: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -103,36 +115,41 @@ export class MCPHandler {
    */
   handleDisconnectMCPServer(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): void {
     try {
-      const { serverName } = message.payload as any
-      
+      const { serverName } = message.payload as any;
+
       // Remove server from registry
-      this.mcpServers.delete(serverName)
-      
-      Logging.log('MCPHandler', `Disconnected from MCP server: ${serverName}`)
-      
+      this.mcpServers.delete(serverName);
+
+      Logging.log("MCPHandler", `Disconnected from MCP server: ${serverName}`);
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          message: `Disconnected from ${serverName}`
+        payload: {
+          status: "success",
+          message: `Disconnected from ${serverName}`,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('MCPHandler', `Error disconnecting from MCP server: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "MCPHandler",
+        `Error disconnecting from MCP server: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -141,46 +158,54 @@ export class MCPHandler {
    */
   async handleCallMCPTool(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): Promise<void> {
     try {
-      const { serverName, toolName, args } = message.payload as any
-      
-      const server = this.mcpServers.get(serverName)
+      const { serverName, toolName, args } = message.payload as any;
+
+      const server = this.mcpServers.get(serverName);
       if (!server || !server.connected) {
-        throw new Error(`MCP server ${serverName} not connected`)
+        throw new Error(`MCP server ${serverName} not connected`);
       }
-      
+
       // TODO: Implement actual MCP tool execution
       // For now, return mock result
       const result = {
         success: true,
         output: `Executed ${toolName} on ${serverName}`,
-        args
-      }
-      
-      Logging.log('MCPHandler', `Executed MCP tool ${toolName} on ${serverName}`)
-      
+        args,
+      };
+
+      Logging.log(
+        "MCPHandler",
+        `Executed MCP tool ${toolName} on ${serverName}`,
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          data: result
+        payload: {
+          status: "success",
+          data: result,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('MCPHandler', `Error calling MCP tool: ${errorMessage}`, 'error')
-      
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      Logging.log(
+        "MCPHandler",
+        `Error calling MCP tool: ${errorMessage}`,
+        "error",
+      );
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
+        payload: {
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
+        id: message.id,
+      });
     }
   }
 
@@ -189,23 +214,23 @@ export class MCPHandler {
    */
   async handleInstallServer(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): Promise<void> {
-    const { serverId } = message.payload as any
-    
-    Logging.log('MCPHandler', `MCP server installation requested: ${serverId}`)
-    
+    const { serverId } = message.payload as any;
+
+    Logging.log("MCPHandler", `MCP server installation requested: ${serverId}`);
+
     try {
       // Get the server name from config
-      const serverConfig = MCP_SERVERS.find(s => s.id === serverId)
+      const serverConfig = MCP_SERVERS.find((s) => s.id === serverId);
       if (!serverConfig) {
-        throw new Error(`Unknown server ID: ${serverId}`)
+        throw new Error(`Unknown server ID: ${serverId}`);
       }
-      
+
       // Install the server using KlavisAPIManager
-      const manager = KlavisAPIManager.getInstance()
-      const result = await manager.installServer(serverConfig.name)
-      
+      const manager = KlavisAPIManager.getInstance();
+      const result = await manager.installServer(serverConfig.name);
+
       // Check if authentication was successful
       if (result.oauthUrl && !result.authSuccess) {
         // OAuth was required but failed
@@ -213,55 +238,67 @@ export class MCPHandler {
           type: MessageType.MCP_SERVER_STATUS,
           payload: {
             serverId,
-            status: 'auth_failed',
+            status: "auth_failed",
             serverUrl: result.serverUrl,
             instanceId: result.instanceId,
-            error: 'Authentication required but not completed. Please try installing again and complete the authentication.'
+            error:
+              "Authentication required but not completed. Please try installing again and complete the authentication.",
           },
-          id: message.id
-        })
-        
-        Logging.log('MCPHandler', `MCP server installed but auth failed: ${serverId} (${result.instanceId})`)
-        return
+          id: message.id,
+        });
+
+        Logging.log(
+          "MCPHandler",
+          `MCP server installed but auth failed: ${serverId} (${result.instanceId})`,
+        );
+        return;
       }
-      
+
       // Send success message
       port.postMessage({
         type: MessageType.MCP_SERVER_STATUS,
         payload: {
           serverId,
-          status: 'success',
+          status: "success",
           serverUrl: result.serverUrl,
           instanceId: result.instanceId,
-          authenticated: result.authSuccess !== false
+          authenticated: result.authSuccess !== false,
         },
-        id: message.id
-      })
-      
+        id: message.id,
+      });
+
       // Log metric for successful MCP server connection
-      Logging.logMetric('mcp_server_connected', {
+      Logging.logMetric("mcp_server_connected", {
         server_name: serverConfig.name,
         server_id: serverId,
         instance_id: result.instanceId,
-        authenticated: result.authSuccess !== false
-      })
-      
-      Logging.log('MCPHandler', `MCP server installed successfully: ${serverId} (${result.instanceId}), authenticated: ${result.authSuccess !== false}`)
+        authenticated: result.authSuccess !== false,
+      });
+
+      Logging.log(
+        "MCPHandler",
+        `MCP server installed successfully: ${serverId} (${result.instanceId}), authenticated: ${result.authSuccess !== false}`,
+      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Installation failed'
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Installation failed";
+
       // Send error message
       port.postMessage({
         type: MessageType.MCP_SERVER_STATUS,
         payload: {
           serverId,
-          status: 'error',
-          error: errorMessage
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
-      
-      Logging.log('MCPHandler', `MCP server installation failed: ${serverId} - ${errorMessage}`, 'error')
+        id: message.id,
+      });
+
+      Logging.log(
+        "MCPHandler",
+        `MCP server installation failed: ${serverId} - ${errorMessage}`,
+        "error",
+      );
     }
   }
 
@@ -270,50 +307,58 @@ export class MCPHandler {
    */
   async handleDeleteServer(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): Promise<void> {
-    const { instanceId } = message.payload as any
-    
-    Logging.log('MCPHandler', `MCP server deletion requested: ${instanceId}`)
-    
+    const { instanceId } = message.payload as any;
+
+    Logging.log("MCPHandler", `MCP server deletion requested: ${instanceId}`);
+
     try {
-      const manager = KlavisAPIManager.getInstance()
-      const success = await manager.deleteServer(instanceId)
-      
+      const manager = KlavisAPIManager.getInstance();
+      const success = await manager.deleteServer(instanceId);
+
       if (success) {
         port.postMessage({
           type: MessageType.MCP_SERVER_STATUS,
           payload: {
-            status: 'deleted',
+            status: "deleted",
             instanceId,
-            message: 'Server deleted successfully'
+            message: "Server deleted successfully",
           },
-          id: message.id
-        })
-        
+          id: message.id,
+        });
+
         // Log metric for MCP server disconnection
-        Logging.logMetric('mcp_server_disconnected', {
-          instance_id: instanceId
-        })
-        
-        Logging.log('MCPHandler', `MCP server deleted successfully: ${instanceId}`)
+        Logging.logMetric("mcp_server_disconnected", {
+          instance_id: instanceId,
+        });
+
+        Logging.log(
+          "MCPHandler",
+          `MCP server deleted successfully: ${instanceId}`,
+        );
       } else {
-        throw new Error('Failed to delete server')
+        throw new Error("Failed to delete server");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Deletion failed'
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Deletion failed";
+
       port.postMessage({
         type: MessageType.MCP_SERVER_STATUS,
         payload: {
-          status: 'error',
+          status: "error",
           instanceId,
-          error: errorMessage
+          error: errorMessage,
         },
-        id: message.id
-      })
-      
-      Logging.log('MCPHandler', `MCP server deletion failed: ${instanceId} - ${errorMessage}`, 'error')
+        id: message.id,
+      });
+
+      Logging.log(
+        "MCPHandler",
+        `MCP server deletion failed: ${instanceId} - ${errorMessage}`,
+        "error",
+      );
     }
   }
 
@@ -322,17 +367,17 @@ export class MCPHandler {
    */
   async handleGetInstalledServers(
     message: PortMessage,
-    port: chrome.runtime.Port
+    port: chrome.runtime.Port,
   ): Promise<void> {
-    Logging.log('MCPHandler', 'Getting installed MCP servers')
-    
+    Logging.log("MCPHandler", "Getting installed MCP servers");
+
     try {
-      const manager = KlavisAPIManager.getInstance()
-      const installedServers = await manager.getInstalledServers()
-      
+      const manager = KlavisAPIManager.getInstance();
+      const installedServers = await manager.getInstalledServers();
+
       // Map server data with config icons
-      const serversWithConfig = installedServers.map(server => {
-        const config = MCP_SERVERS.find(s => s.name === server.name)
+      const serversWithConfig = installedServers.map((server) => {
+        const config = MCP_SERVERS.find((s) => s.name === server.name);
         return {
           id: server.id,
           name: server.name,
@@ -340,35 +385,45 @@ export class MCPHandler {
           authenticated: server.isAuthenticated,
           authNeeded: server.authNeeded,
           iconPath: config?.iconPath || null,
-          toolCount: server.tools?.length || 0
-        }
-      })
-      
+          toolCount: server.tools?.length || 0,
+        };
+      });
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
         payload: {
-          status: 'success',
+          status: "success",
           data: {
-            servers: serversWithConfig
-          }
+            servers: serversWithConfig,
+          },
         },
-        id: message.id
-      })
-      
-      Logging.log('MCPHandler', `Found ${serversWithConfig.length} installed MCP servers`)
+        id: message.id,
+      });
+
+      Logging.log(
+        "MCPHandler",
+        `Found ${serversWithConfig.length} installed MCP servers`,
+      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to get installed servers'
-      
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to get installed servers";
+
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
         payload: {
-          status: 'error',
-          error: errorMessage
+          status: "error",
+          error: errorMessage,
         },
-        id: message.id
-      })
-      
-      Logging.log('MCPHandler', `Error getting installed MCP servers: ${errorMessage}`, 'error')
+        id: message.id,
+      });
+
+      Logging.log(
+        "MCPHandler",
+        `Error getting installed MCP servers: ${errorMessage}`,
+        "error",
+      );
     }
   }
 
@@ -378,7 +433,7 @@ export class MCPHandler {
   getStats(): any {
     return {
       connectedServers: this.mcpServers.size,
-      servers: Array.from(this.mcpServers.keys())
-    }
+      servers: Array.from(this.mcpServers.keys()),
+    };
   }
 }

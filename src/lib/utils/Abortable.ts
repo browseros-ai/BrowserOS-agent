@@ -10,10 +10,10 @@ export class AbortError extends Error {
 
 /**
  * Decorator that automatically checks for abort signal before executing async methods.
- * 
+ *
  * This decorator is designed to be used on methods of classes that have an
  * executionContext property with an abortController.
- * 
+ *
  * @example
  * ```typescript
  * class MyAgent {
@@ -23,7 +23,7 @@ export class AbortError extends Error {
  *   }
  * }
  * ```
- * 
+ *
  * For methods with loops, you should still add manual abort checks inside the loop:
  * ```typescript
  * @Abortable
@@ -38,12 +38,14 @@ export class AbortError extends Error {
 export function Abortable(
   target: any,
   propertyKey: string,
-  descriptor: PropertyDescriptor
+  descriptor: PropertyDescriptor,
 ): PropertyDescriptor {
   const originalMethod = descriptor.value;
 
-  if (typeof originalMethod !== 'function') {
-    throw new Error(`@Abortable can only be applied to methods, not to ${typeof originalMethod}`);
+  if (typeof originalMethod !== "function") {
+    throw new Error(
+      `@Abortable can only be applied to methods, not to ${typeof originalMethod}`,
+    );
   }
 
   descriptor.value = async function (this: any, ...args: any[]): Promise<any> {
@@ -51,7 +53,7 @@ export function Abortable(
     if (!this.executionContext?.abortSignal) {
       throw new Error(
         `@Abortable requires the class to have an executionContext with abortSignal. ` +
-        `Make sure ${this.constructor.name} has this property.`
+          `Make sure ${this.constructor.name} has this property.`,
       );
     }
 
@@ -65,16 +67,18 @@ export function Abortable(
       return await originalMethod.apply(this, args);
     } catch (error) {
       // Re-throw abort errors without modification
-      if (error instanceof AbortError || 
-          (error instanceof Error && error.name === "AbortError")) {
+      if (
+        error instanceof AbortError ||
+        (error instanceof Error && error.name === "AbortError")
+      ) {
         throw error;
       }
-      
+
       // For other errors, check if we were aborted during execution
       if (this.executionContext.abortSignal.aborted) {
         throw new AbortError();
       }
-      
+
       // Re-throw the original error
       throw error;
     }
@@ -82,7 +86,7 @@ export function Abortable(
 
   // Note: Function.name is read-only in strict mode, so we can't set it
   // The function name will be preserved automatically by the JS engine
-  
+
   return descriptor;
 }
 

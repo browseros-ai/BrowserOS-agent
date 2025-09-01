@@ -30,9 +30,11 @@ export class ToolManager {
       return "No tools available.";
     }
 
-    const toolDescriptions = tools.map(tool => {
-      return `- ${tool.name}: ${tool.description}`;
-    }).join("\n");
+    const toolDescriptions = tools
+      .map((tool) => {
+        return `- ${tool.name}: ${tool.description}`;
+      })
+      .join("\n");
 
     return `Available tools:\n${toolDescriptions}`;
   }

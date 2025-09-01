@@ -1,91 +1,98 @@
-import { z } from 'zod';
-import BrowserPage from './BrowserPage';
-import { Logging } from '../utils/Logging';
-import { profileAsync } from '../utils/profiler';
+import { z } from "zod";
+import BrowserPage from "./BrowserPage";
+import { Logging } from "../utils/Logging";
+import { profileAsync } from "@/lib/utils/Profiler";
 
 // ============= Browser Context Configuration =============
 
 // Browser context window size schema
 export const BrowserContextWindowSizeSchema = z.object({
-  width: z.number().int().positive(),  // Window width in pixels
-  height: z.number().int().positive()  // Window height in pixels
-})
+  width: z.number().int().positive(), // Window width in pixels
+  height: z.number().int().positive(), // Window height in pixels
+});
 
-export type BrowserContextWindowSize = z.infer<typeof BrowserContextWindowSizeSchema>
+export type BrowserContextWindowSize = z.infer<
+  typeof BrowserContextWindowSizeSchema
+>;
 
 // Browser context configuration schema
 export const BrowserContextConfigSchema = z.object({
-  maximumWaitPageLoadTime: z.number().default(5.0),  // Maximum time to wait for page load
-  waitBetweenActions: z.number().default(0.1),  // Time to wait between multiple actions
-  homePageUrl: z.string().default('https://www.google.com'),  // Home page url
-  useVision: z.boolean().default(true)  // Use vision mode
-})
+  maximumWaitPageLoadTime: z.number().default(5.0), // Maximum time to wait for page load
+  waitBetweenActions: z.number().default(0.1), // Time to wait between multiple actions
+  homePageUrl: z.string().default("https://www.google.com"), // Home page url
+  useVision: z.boolean().default(true), // Use vision mode
+});
 
-export type BrowserContextConfig = z.infer<typeof BrowserContextConfigSchema>
+export type BrowserContextConfig = z.infer<typeof BrowserContextConfigSchema>;
 
 // Default configuration
-export const DEFAULT_BROWSER_CONTEXT_CONFIG: BrowserContextConfig = BrowserContextConfigSchema.parse({})
+export const DEFAULT_BROWSER_CONTEXT_CONFIG: BrowserContextConfig =
+  BrowserContextConfigSchema.parse({});
 
 // Tab info schema
 export const TabInfoSchema = z.object({
-  id: z.number().int().positive(),  // Tab ID
-  url: z.string(),  // Tab URL
-  title: z.string()  // Tab title
-})
+  id: z.number().int().positive(), // Tab ID
+  url: z.string(), // Tab URL
+  title: z.string(), // Tab title
+});
 
-export type TabInfo = z.infer<typeof TabInfoSchema>
+export type TabInfo = z.infer<typeof TabInfoSchema>;
 
 // Browser state schema for V2
 export const BrowserStateSchema = z.object({
   // Current tab info
-  tabId: z.number(),  // Current tab ID
-  url: z.string(),  // Current page URL
-  title: z.string(),  // Current page title
-  
-  // All tabs info
-  tabs: z.array(TabInfoSchema),  // All open tabs
-  
-  // Interactive elements as structured data
-  clickableElements: z.array(z.object({
-    nodeId: z.number(),  // Chrome BrowserOS node ID
-    text: z.string(),  // Element text (axName or tag)
-    tag: z.string()  // HTML tag name
-  })),  // Clickable elements with nodeId, text, and tag
-  
-  typeableElements: z.array(z.object({
-    nodeId: z.number(),  // Chrome BrowserOS node ID
-    text: z.string(),  // Element text (axName or tag)
-    tag: z.string()  // HTML tag name
-  })),  // Typeable elements with nodeId, text, and tag
-  
-  // Pre-formatted strings for display
-  clickableElementsString: z.string(),  // Formatted string of clickable elements
-  typeableElementsString: z.string(),  // Formatted string of typeable elements
-  
-  // Hierarchical structure from BrowserOS API
-  hierarchicalStructure: z.string().nullable().optional(),  // Hierarchical text representation with context
-})
+  tabId: z.number(), // Current tab ID
+  url: z.string(), // Current page URL
+  title: z.string(), // Current page title
 
-export type BrowserState = z.infer<typeof BrowserStateSchema>
+  // All tabs info
+  tabs: z.array(TabInfoSchema), // All open tabs
+
+  // Interactive elements as structured data
+  clickableElements: z.array(
+    z.object({
+      nodeId: z.number(), // Chrome BrowserOS node ID
+      text: z.string(), // Element text (axName or tag)
+      tag: z.string(), // HTML tag name
+    }),
+  ), // Clickable elements with nodeId, text, and tag
+
+  typeableElements: z.array(
+    z.object({
+      nodeId: z.number(), // Chrome BrowserOS node ID
+      text: z.string(), // Element text (axName or tag)
+      tag: z.string(), // HTML tag name
+    }),
+  ), // Typeable elements with nodeId, text, and tag
+
+  // Pre-formatted strings for display
+  clickableElementsString: z.string(), // Formatted string of clickable elements
+  typeableElementsString: z.string(), // Formatted string of typeable elements
+
+  // Hierarchical structure from BrowserOS API
+  hierarchicalStructure: z.string().nullable().optional(), // Hierarchical text representation with context
+});
+
+export type BrowserState = z.infer<typeof BrowserStateSchema>;
 
 // Error classes
 export class BrowserError extends Error {
   constructor(message?: string) {
-    super(message)
-    this.name = 'BrowserError'
+    super(message);
+    this.name = "BrowserError";
   }
 }
 
 export class URLNotAllowedError extends BrowserError {
   constructor(message?: string) {
-    super(message)
-    this.name = 'URLNotAllowedError'
+    super(message);
+    this.name = "URLNotAllowedError";
   }
 }
 
 /**
  * Simplified BrowserContext that uses BrowserPageV2
- * 
+ *
  * Key differences from V1:
  * - No Puppeteer dependencies
  * - No tab attachment/detachment logic (pages are always "attached")
@@ -96,7 +103,7 @@ export class BrowserContext {
   private _config: BrowserContextConfig;
   private _userSelectedTabIds: number[] | null = null;
   private _executionLockedTabId: number | null = null;
-  
+
   // Simple page cache - no attachment state needed
   private _pageCache: Map<number, BrowserPage> = new Map();
 
@@ -119,7 +126,7 @@ export class BrowserContext {
    */
   private async _getOrCreatePage(tab: chrome.tabs.Tab): Promise<BrowserPage> {
     if (!tab.id) {
-      throw new Error('Tab ID is not available');
+      throw new Error("Tab ID is not available");
     }
 
     // Check cache
@@ -127,12 +134,16 @@ export class BrowserContext {
     if (existingPage) {
       return existingPage;
     }
-    
+
     // Create new page
-    const page = new BrowserPage(tab.id, tab.url || 'Unknown URL', tab.title || 'Unknown Title');
+    const page = new BrowserPage(
+      tab.id,
+      tab.url || "Unknown URL",
+      tab.title || "Unknown Title",
+    );
     this._pageCache.set(tab.id, page);
-    
-    Logging.log('BrowserContextV2', `Created page for tab ${tab.id}`);
+
+    Logging.log("BrowserContextV2", `Created page for tab ${tab.id}`);
     return page;
   }
 
@@ -140,21 +151,21 @@ export class BrowserContext {
    * Get the current page
    */
   public async getCurrentPage(): Promise<BrowserPage> {
-    return profileAsync('BrowserContext.getCurrentPage', async () => {
-    const targetTab = await this.getTargetTab();
-    
-    if (!targetTab.id) {
-      throw new Error('Target tab has no ID');
-    }
+    return profileAsync("BrowserContext.getCurrentPage", async () => {
+      const targetTab = await this.getTargetTab();
 
-    const page = await this._getOrCreatePage(targetTab);
-    
-    // Set execution lock for single-tab operations
-    if (!this._executionLockedTabId) {
-      this.lockExecutionToTab(targetTab.id);
-    }
+      if (!targetTab.id) {
+        throw new Error("Target tab has no ID");
+      }
 
-    return page;
+      const page = await this._getOrCreatePage(targetTab);
+
+      // Set execution lock for single-tab operations
+      if (!this._executionLockedTabId) {
+        this.lockExecutionToTab(targetTab.id);
+      }
+
+      return page;
     });
   }
 
@@ -165,15 +176,15 @@ export class BrowserContext {
    */
   public async switchTab(tabId: number): Promise<BrowserPage> {
     return profileAsync(`BrowserContext.switchTab[${tabId}]`, async () => {
-    Logging.log('BrowserContextV2', `Switching to tab ${tabId}`);
+      Logging.log("BrowserContextV2", `Switching to tab ${tabId}`);
 
-    await chrome.tabs.update(tabId, { active: true });
-    const tab = await chrome.tabs.get(tabId);
-    
-    const page = await this._getOrCreatePage(tab);
-    this._executionLockedTabId = tabId;
-    
-    return page;
+      await chrome.tabs.update(tabId, { active: true });
+      const tab = await chrome.tabs.get(tabId);
+
+      const page = await this._getOrCreatePage(tab);
+      this._executionLockedTabId = tabId;
+
+      return page;
     });
   }
 
@@ -197,7 +208,7 @@ export class BrowserContext {
   }
 
   // ============= Navigation Operations =============
-  
+
   /**
    * Navigate to a URL
    */
@@ -205,48 +216,50 @@ export class BrowserContext {
     const page = await this.getCurrentPage();
     await page.navigateTo(url);
   }
-  
+
   /**
    * Open a new tab with URL
    */
   public async openTab(url: string): Promise<BrowserPage> {
-    return profileAsync('BrowserContext.openTab', async () => {
-    // Create the new tab
-    const tab = await chrome.tabs.create({ url, active: true });
-    if (!tab.id) {
-      throw new Error('No tab ID available');
-    }
-    
-    // Wait a bit for tab to initialize
-    await new Promise(resolve => setTimeout(resolve, 100));
+    return profileAsync("BrowserContext.openTab", async () => {
+      // Create the new tab
+      const tab = await chrome.tabs.create({ url, active: true });
+      if (!tab.id) {
+        throw new Error("No tab ID available");
+      }
 
-    // Get updated tab information
-    const updatedTab = await chrome.tabs.get(tab.id);
-    const page = await this._getOrCreatePage(updatedTab);
-    this._executionLockedTabId = tab.id;
+      // Wait a bit for tab to initialize
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    return page;
+      // Get updated tab information
+      const updatedTab = await chrome.tabs.get(tab.id);
+      const page = await this._getOrCreatePage(updatedTab);
+      this._executionLockedTabId = tab.id;
+
+      return page;
     });
   }
-  
+
   /**
    * Close a tab
    */
   public async closeTab(tabId: number): Promise<void> {
     // Remove from cache
     this._pageCache.delete(tabId);
-    
+
     // Close the tab
     await chrome.tabs.remove(tabId);
-    
+
     // Update execution locked tab id if needed
     if (this._executionLockedTabId === tabId) {
       this._executionLockedTabId = null;
     }
-    
+
     // Remove from user selected tabs if present
     if (this._userSelectedTabIds && this._userSelectedTabIds.includes(tabId)) {
-      this._userSelectedTabIds = this._userSelectedTabIds.filter(id => id !== tabId);
+      this._userSelectedTabIds = this._userSelectedTabIds.filter(
+        (id) => id !== tabId,
+      );
     }
   }
 
@@ -255,77 +268,93 @@ export class BrowserContext {
   /**
    * Get detailed browser state description for agents
    */
-  public async getBrowserStateString(simplified: boolean = false): Promise<string> {
-    return profileAsync('BrowserContext.getBrowserStateString', async () => {
-    try {
-      // Use the structured getBrowserState API - pass simplified flag
-      const browserState = await this.getBrowserState(simplified);
-      
-      // Format current tab
-      const currentTab = `{id: ${browserState.tabId}, url: ${browserState.url}, title: ${browserState.title}}`;
-      
-      if (simplified) {
-        // SIMPLIFIED FORMAT - minimal output with just interactive elements
-        const elements: string[] = [];
-        
-        // Combine clickable and typeable with clear labels
-        if (browserState.clickableElementsString) {
-          elements.push('Clickable:\n' + browserState.clickableElementsString);
-        }
-        if (browserState.typeableElementsString) {
-          elements.push('Inputs:\n' + browserState.typeableElementsString);
-        }
-        
-        const elementsText = elements.join('\n\n') || 'No interactive elements found';
-        
-        return `BROWSER STATE:
+  public async getBrowserStateString(
+    simplified: boolean = false,
+  ): Promise<string> {
+    return profileAsync("BrowserContext.getBrowserStateString", async () => {
+      try {
+        // Use the structured getBrowserState API - pass simplified flag
+        const browserState = await this.getBrowserState(simplified);
+
+        // Format current tab
+        const currentTab = `{id: ${browserState.tabId}, url: ${browserState.url}, title: ${browserState.title}}`;
+
+        if (simplified) {
+          // SIMPLIFIED FORMAT - minimal output with just interactive elements
+          const elements: string[] = [];
+
+          // Combine clickable and typeable with clear labels
+          if (browserState.clickableElementsString) {
+            elements.push(
+              "Clickable:\n" + browserState.clickableElementsString,
+            );
+          }
+          if (browserState.typeableElementsString) {
+            elements.push("Inputs:\n" + browserState.typeableElementsString);
+          }
+
+          const elementsText =
+            elements.join("\n\n") || "No interactive elements found";
+
+          return `BROWSER STATE:
 Current tab: ${currentTab}
 
 Elements:
 ${elementsText}`;
-        
-      } else {
-        // FULL FORMAT - existing detailed implementation
-        // Format other tabs
-        const otherTabs = browserState.tabs
-          .filter(tab => tab.id !== browserState.tabId)
-          .map(tab => `- {id: ${tab.id}, url: ${tab.url}, title: ${tab.title}}`);
+        } else {
+          // FULL FORMAT - existing detailed implementation
+          // Format other tabs
+          const otherTabs = browserState.tabs
+            .filter((tab) => tab.id !== browserState.tabId)
+            .map(
+              (tab) =>
+                `- {id: ${tab.id}, url: ${tab.url}, title: ${tab.title}}`,
+            );
 
-        // Get current date/time
-        const timeStr = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          // Get current date/time
+          const timeStr = new Date()
+            .toISOString()
+            .slice(0, 16)
+            .replace("T", " ");
 
-        // Combine clickable and typeable elements
-        let elementsText = '';
-        const parts: string[] = [];
-        if (browserState.clickableElementsString) {
-          parts.push('Clickable elements:\n' + browserState.clickableElementsString);
-        }
-        if (browserState.typeableElementsString) {
-          parts.push('Input fields:\n' + browserState.typeableElementsString);
-        }
-        elementsText = parts.join('\n\n') || 'No interactive elements found';
+          // Combine clickable and typeable elements
+          let elementsText = "";
+          const parts: string[] = [];
+          if (browserState.clickableElementsString) {
+            parts.push(
+              "Clickable elements:\n" + browserState.clickableElementsString,
+            );
+          }
+          if (browserState.typeableElementsString) {
+            parts.push("Input fields:\n" + browserState.typeableElementsString);
+          }
+          elementsText = parts.join("\n\n") || "No interactive elements found";
 
-        // Build state description
-        const stateDescription = `
+          // Build state description
+          const stateDescription = `
 BROWSER STATE:
 Current tab: ${currentTab}
 Other available tabs:
-  ${otherTabs.join('\n  ')}
+  ${otherTabs.join("\n  ")}
 Current date and time: ${timeStr}
 
 Interactive elements from the current page (numbers in [brackets] are nodeIds):
 ${elementsText}
 `;
 
-        return stateDescription;
+          return stateDescription;
+        }
+      } catch (error) {
+        Logging.log(
+          "BrowserContextV2",
+          `Failed to get detailed browser state: ${error}`,
+          "warning",
+        );
+        const currentPage = await this.getCurrentPage();
+        const url = await currentPage.url();
+        const title = await currentPage.title();
+        return `BROWSER STATE:\nCurrent page: ${url} - ${title}`;
       }
-    } catch (error) {
-      Logging.log('BrowserContextV2', `Failed to get detailed browser state: ${error}`, 'warning');
-      const currentPage = await this.getCurrentPage();
-      const url = await currentPage.url();
-      const title = await currentPage.title();
-      return `BROWSER STATE:\nCurrent page: ${url} - ${title}`;
-    }
     });
   }
 
@@ -344,24 +373,30 @@ ${elementsText}
 
       // Get pages for specified tabs
       const pages: BrowserPage[] = [];
-      
+
       for (const tabId of tabIds) {
         try {
           const tab = await chrome.tabs.get(tabId);
           const page = await this._getOrCreatePage(tab);
           pages.push(page);
         } catch (error) {
-          Logging.log('BrowserContextV2', `Failed to get page for tab ${tabId}: ${error}`, 'warning');
+          Logging.log(
+            "BrowserContextV2",
+            `Failed to get page for tab ${tabId}: ${error}`,
+            "warning",
+          );
         }
       }
-      
+
       if (pages.length === 0) {
-        throw new Error(`Failed to get any of the selected tabs (${tabIds.join(', ')})`);
+        throw new Error(
+          `Failed to get any of the selected tabs (${tabIds.join(", ")})`,
+        );
       }
-      
+
       return pages;
     } catch (error) {
-      Logging.log('BrowserContextV2', `Error getting pages: ${error}`, 'error');
+      Logging.log("BrowserContextV2", `Error getting pages: ${error}`, "error");
       return [];
     }
   }
@@ -372,9 +407,17 @@ ${elementsText}
   public async getAllTabIds(): Promise<Set<number>> {
     try {
       const tabs = await chrome.tabs.query({ currentWindow: true });
-      return new Set(tabs.map(tab => tab.id).filter((id): id is number => id !== undefined));
+      return new Set(
+        tabs
+          .map((tab) => tab.id)
+          .filter((id): id is number => id !== undefined),
+      );
     } catch (error) {
-      Logging.log('BrowserContextV2', `Failed to get tab IDs: ${error}`, 'warning');
+      Logging.log(
+        "BrowserContextV2",
+        `Failed to get tab IDs: ${error}`,
+        "warning",
+      );
       return new Set();
     }
   }
@@ -386,42 +429,58 @@ ${elementsText}
    */
   private async _getActiveTab(): Promise<chrome.tabs.Tab> {
     let activeTab: chrome.tabs.Tab | undefined;
-    
+
     // First: Try to get the active tab from the current window
-    [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
+    [activeTab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
     // If no active tab in current window, try the last active (focused) window
     if (!activeTab?.id) {
       const windows = await chrome.windows.getAll({ populate: false });
-      const lastActiveWindow = windows.find(w => w.focused) || windows.find(w => w.state === 'normal');
-      
+      const lastActiveWindow =
+        windows.find((w) => w.focused) ||
+        windows.find((w) => w.state === "normal");
+
       if (lastActiveWindow) {
-        [activeTab] = await chrome.tabs.query({ active: true, windowId: lastActiveWindow.id });
+        [activeTab] = await chrome.tabs.query({
+          active: true,
+          windowId: lastActiveWindow.id,
+        });
       }
     }
-    
+
     // If still no active tab (or it's inaccessible), get any tab from the current window
     if (!activeTab?.id) {
-      const currentWindowTabs = await chrome.tabs.query({ currentWindow: true });
+      const currentWindowTabs = await chrome.tabs.query({
+        currentWindow: true,
+      });
       activeTab = currentWindowTabs[0]; // Just take the first tab, even if it's chrome://
     }
-    
+
     // Last resort: get any tab from any window
     if (!activeTab?.id) {
       const allTabs = await chrome.tabs.query({});
       activeTab = allTabs[0];
     }
-    
+
     // If absolutely no tabs exist, create one
     if (!activeTab?.id) {
-      Logging.log('BrowserContextV2', 'No existing tabs found, creating a new tab');
-      activeTab = await chrome.tabs.create({ url: this._config.homePageUrl, active: true });
+      Logging.log(
+        "BrowserContextV2",
+        "No existing tabs found, creating a new tab",
+      );
+      activeTab = await chrome.tabs.create({
+        url: this._config.homePageUrl,
+        active: true,
+      });
     }
-    
+
     if (!activeTab?.id) {
-      throw new Error('Unable to find or create a tab');
+      throw new Error("Unable to find or create a tab");
     }
-    
+
     return activeTab;
   }
 
@@ -437,11 +496,15 @@ ${elementsText}
           return tab;
         }
       } catch (error) {
-        Logging.log('BrowserContextV2', `Execution-locked tab ${this._executionLockedTabId} no longer exists`, 'warning');
+        Logging.log(
+          "BrowserContextV2",
+          `Execution-locked tab ${this._executionLockedTabId} no longer exists`,
+          "warning",
+        );
         this._executionLockedTabId = null;
       }
     }
-    
+
     // No locked tab - use the active tab
     return this._getActiveTab();
   }
@@ -451,16 +514,19 @@ ${elementsText}
    */
   public lockExecutionToTab(tabId: number): void {
     this._executionLockedTabId = tabId;
-    Logging.log('BrowserContextV2', `Execution locked to tab ${tabId}`);
+    Logging.log("BrowserContextV2", `Execution locked to tab ${tabId}`);
   }
-  
+
   /**
    * Unlock execution
    */
   public async unlockExecution(): Promise<void> {
     const previousLockedTab = this._executionLockedTabId;
     this._executionLockedTabId = null;
-    Logging.log('BrowserContextV2', `Execution unlocked${previousLockedTab ? ` (was locked to tab ${previousLockedTab})` : ''}`);
+    Logging.log(
+      "BrowserContextV2",
+      `Execution unlocked${previousLockedTab ? ` (was locked to tab ${previousLockedTab})` : ""}`,
+    );
   }
 
   // ============= Window Management =============
@@ -475,9 +541,13 @@ ${elementsText}
         }
       }
     } catch (error) {
-      Logging.log('BrowserContextV2', `Failed to get window from target tab: ${error}`, 'warning');
+      Logging.log(
+        "BrowserContextV2",
+        `Failed to get window from target tab: ${error}`,
+        "warning",
+      );
     }
-    
+
     // Fall back to current window
     try {
       const window = await chrome.windows.getCurrent();
@@ -485,83 +555,95 @@ ${elementsText}
         return window;
       }
     } catch (error) {
-      Logging.log('BrowserContextV2', `Failed to get current window: ${error}`, 'error');
+      Logging.log(
+        "BrowserContextV2",
+        `Failed to get current window: ${error}`,
+        "error",
+      );
     }
 
-    throw new Error('No window found');
+    throw new Error("No window found");
   }
 
   /**
    * Get structured browser state (V2 clean API)
    * @returns BrowserState object with current page info and interactive elements
    */
-  public async getBrowserState(simplified: boolean = false): Promise<BrowserState> {
-    return profileAsync('BrowserContext.getBrowserState', async () => {
-    try {
-      const currentPage = await this.getCurrentPage();
-      const tabs = await this.getTabs();
-      
-      // Get current page info
-      const url = await currentPage.url();
-      const title = await currentPage.title();
-      const tabId = currentPage.tabId;
+  public async getBrowserState(
+    simplified: boolean = false,
+  ): Promise<BrowserState> {
+    return profileAsync("BrowserContext.getBrowserState", async () => {
+      try {
+        const currentPage = await this.getCurrentPage();
+        const tabs = await this.getTabs();
 
-      // Get formatted strings from the page - pass simplified flag
-      const clickableElementsString = await currentPage.getClickableElementsString(simplified);
-      const typeableElementsString = await currentPage.getTypeableElementsString(simplified);
-      
-      // Get structured elements from the page
-      const clickableElements = await currentPage.getClickableElements();
-      const typeableElements = await currentPage.getTypeableElements();
-      
-      // Get hierarchical structure - skip if simplified
-      const hierarchicalStructure = simplified ? null : await currentPage.getHierarchicalStructure();
-      
-      
-      // Build structured state
-      const state: BrowserState = {
-        // Current tab info
-        tabId,
-        url,
-        title,
-        
-        // All tabs
-        tabs,
-        
-        // Interactive elements
-        clickableElements,
-        typeableElements,
-        
-        // Pre-formatted strings
-        clickableElementsString,
-        typeableElementsString,
-        
-        // Hierarchical structure
-        hierarchicalStructure,
-      };
-      
-      return state;
-    } catch (error) {
-      Logging.log('BrowserContextV2', `Failed to get state: ${error}`, 'warning');
-      
-      // Return minimal state on error
-      const minimalState: BrowserState = {
-        tabId: 0,
-        url: 'about:blank',
-        title: 'New Tab',
-        tabs: [],
-        clickableElements: [],
-        typeableElements: [],
-        clickableElementsString: '',
-        typeableElementsString: '',
-        hierarchicalStructure: null
-      };
-      
-      return minimalState;
-    }
+        // Get current page info
+        const url = await currentPage.url();
+        const title = await currentPage.title();
+        const tabId = currentPage.tabId;
+
+        // Get formatted strings from the page - pass simplified flag
+        const clickableElementsString =
+          await currentPage.getClickableElementsString(simplified);
+        const typeableElementsString =
+          await currentPage.getTypeableElementsString(simplified);
+
+        // Get structured elements from the page
+        const clickableElements = await currentPage.getClickableElements();
+        const typeableElements = await currentPage.getTypeableElements();
+
+        // Get hierarchical structure - skip if simplified
+        const hierarchicalStructure = simplified
+          ? null
+          : await currentPage.getHierarchicalStructure();
+
+        // Build structured state
+        const state: BrowserState = {
+          // Current tab info
+          tabId,
+          url,
+          title,
+
+          // All tabs
+          tabs,
+
+          // Interactive elements
+          clickableElements,
+          typeableElements,
+
+          // Pre-formatted strings
+          clickableElementsString,
+          typeableElementsString,
+
+          // Hierarchical structure
+          hierarchicalStructure,
+        };
+
+        return state;
+      } catch (error) {
+        Logging.log(
+          "BrowserContextV2",
+          `Failed to get state: ${error}`,
+          "warning",
+        );
+
+        // Return minimal state on error
+        const minimalState: BrowserState = {
+          tabId: 0,
+          url: "about:blank",
+          title: "New Tab",
+          tabs: [],
+          clickableElements: [],
+          typeableElements: [],
+          clickableElementsString: "",
+          typeableElementsString: "",
+          hierarchicalStructure: null,
+        };
+
+        return minimalState;
+      }
     });
   }
-
 
   // ============= Cleanup Operations =============
 
@@ -570,16 +652,23 @@ ${elementsText}
    */
   public async cleanup(): Promise<void> {
     try {
-      Logging.log('BrowserContextV2', 'Cleaning up browser context');
-      
+      Logging.log("BrowserContextV2", "Cleaning up browser context");
+
       // Clear all state
       this._pageCache.clear();
       this._executionLockedTabId = null;
       this._userSelectedTabIds = null;
-      
-      Logging.log('BrowserContextV2', 'Browser context cleaned up successfully');
+
+      Logging.log(
+        "BrowserContextV2",
+        "Browser context cleaned up successfully",
+      );
     } catch (error) {
-      Logging.log('BrowserContextV2', `Error during cleanup: ${error}`, 'error');
+      Logging.log(
+        "BrowserContextV2",
+        `Error during cleanup: ${error}`,
+        "error",
+      );
     }
   }
 }

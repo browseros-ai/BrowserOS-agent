@@ -77,7 +77,7 @@ Message: "Top AI news today\n\n**Key Stories:**\n• **OpenAI Announces GPT-5** 
 export function generateResultTaskPrompt(
   task: string,
   messageHistory: string,
-  browserState: string
+  browserState: string,
 ): string {
   return `# User requested task
 ${task}
@@ -95,4 +95,3 @@ Based on the task, message history, and current browser state, generate a result
 
 Remember to format your response as clean, readable markdown.`;
 }
-

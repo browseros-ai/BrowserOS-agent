@@ -1,4 +1,4 @@
-import { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages'
+import { BaseMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 
 /**
  * Utility for counting tokens in messages and strings.
@@ -6,8 +6,8 @@ import { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages'
  */
 export class TokenCounter {
   // Constants for token approximation
-  private static readonly CHARS_PER_TOKEN = 4
-  private static readonly TOKENS_PER_MESSAGE = 3  // Message overhead
+  private static readonly CHARS_PER_TOKEN = 4;
+  private static readonly TOKENS_PER_MESSAGE = 3; // Message overhead
 
   /**
    * Count tokens in a string
@@ -15,8 +15,8 @@ export class TokenCounter {
    * @returns Estimated token count
    */
   static countString(content: string): number {
-    if (!content) return 0
-    return Math.ceil(content.length / TokenCounter.CHARS_PER_TOKEN)
+    if (!content) return 0;
+    return Math.ceil(content.length / TokenCounter.CHARS_PER_TOKEN);
   }
 
   /**
@@ -27,32 +27,33 @@ export class TokenCounter {
   static countMessage(message: BaseMessage): number {
     // Use exact count from usage_metadata if available
     if (message instanceof AIMessage && message.usage_metadata?.total_tokens) {
-      return message.usage_metadata.total_tokens
+      return message.usage_metadata.total_tokens;
     }
 
     // Extract content as string
-    let content = ''
-    if (typeof message.content === 'string') {
-      content = message.content
+    let content = "";
+    if (typeof message.content === "string") {
+      content = message.content;
     } else if (message.content) {
-      content = JSON.stringify(message.content)
+      content = JSON.stringify(message.content);
     }
 
     // Base token count
-    let tokens = TokenCounter.countString(content) + TokenCounter.TOKENS_PER_MESSAGE
+    let tokens =
+      TokenCounter.countString(content) + TokenCounter.TOKENS_PER_MESSAGE;
 
     // Add extra tokens for tool calls in AI messages
     if (message instanceof AIMessage && message.tool_calls) {
-      const toolCallsStr = JSON.stringify(message.tool_calls)
-      tokens += TokenCounter.countString(toolCallsStr)
+      const toolCallsStr = JSON.stringify(message.tool_calls);
+      tokens += TokenCounter.countString(toolCallsStr);
     }
 
     // Add tokens for tool message IDs
     if (message instanceof ToolMessage && message.tool_call_id) {
-      tokens += TokenCounter.countString(message.tool_call_id)
+      tokens += TokenCounter.countString(message.tool_call_id);
     }
 
-    return tokens
+    return tokens;
   }
 
   /**
@@ -61,7 +62,10 @@ export class TokenCounter {
    * @returns Total estimated token count
    */
   static countMessages(messages: BaseMessage[]): number {
-    return messages.reduce((total, msg) => total + TokenCounter.countMessage(msg), 0)
+    return messages.reduce(
+      (total, msg) => total + TokenCounter.countMessage(msg),
+      0,
+    );
   }
 
   /**
@@ -71,13 +75,13 @@ export class TokenCounter {
    * @returns Formatted string for logging
    */
   static format(tokens: number, label?: string): string {
-    const prefix = label ? `${label}: ` : ''
+    const prefix = label ? `${label}: ` : "";
     if (tokens > 1000000) {
-      return `${prefix}~${(tokens / 1000000).toFixed(1)}M tokens`
+      return `${prefix}~${(tokens / 1000000).toFixed(1)}M tokens`;
     } else if (tokens > 1000) {
-      return `${prefix}~${(tokens / 1000).toFixed(1)}K tokens`
+      return `${prefix}~${(tokens / 1000).toFixed(1)}K tokens`;
     }
-    return `${prefix}~${tokens} tokens`
+    return `${prefix}~${tokens} tokens`;
   }
 
   /**
@@ -86,12 +90,12 @@ export class TokenCounter {
    * @returns Estimated token count
    */
   static count(input: string | BaseMessage | BaseMessage[]): number {
-    if (typeof input === 'string') {
-      return TokenCounter.countString(input)
+    if (typeof input === "string") {
+      return TokenCounter.countString(input);
     } else if (Array.isArray(input)) {
-      return TokenCounter.countMessages(input)
+      return TokenCounter.countMessages(input);
     } else {
-      return TokenCounter.countMessage(input)
+      return TokenCounter.countMessage(input);
     }
   }
 }

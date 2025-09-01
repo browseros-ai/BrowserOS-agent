@@ -1,4 +1,5 @@
 # Tool Evaluation System
+
 Current State:
 LLM-based evaluation system for PlannerTool and ValidatorTool with LLM scoring.
 
@@ -30,6 +31,7 @@ npx braintrust eval src/evals/validator-llm.eval.ts
 ## Prerequisites
 
 Set your OpenAI API key:
+
 ```bash
 $env:OPENAI_API_KEY="sk-your-openai-key"
 ```
@@ -44,6 +46,7 @@ $env:OPENAI_API_KEY="sk-your-openai-key"
 3. Shows summary: passed/total tests and average score
 
 Expected output:
+
 ```
 Running PlannerTool LLM Evaluation
 
@@ -79,7 +82,7 @@ Average Score: 0.767
 ## Benefits of Braintrust Prompt Management
 
 1. **Version Control**: Track prompt changes across experiments
-2. **A/B Testing**: Compare different prompt versions systematically  
+2. **A/B Testing**: Compare different prompt versions systematically
 3. **Performance Analytics**: See which prompts work best
 4. **Team Collaboration**: Share and review prompts
 5. **Experiment Linking**: Connect prompts to evaluation results
@@ -88,6 +91,7 @@ Average Score: 0.767
 ## Current Status
 
 ✅ **PlannerTool evaluation is working!**
+
 - Average score: 0.767 (2/3 tests passing)
 - Successfully generates plans with your actual prompts
 - LLM-as-judge scoring with detailed reasoning
@@ -101,16 +105,19 @@ Average Score: 0.767
 ## Next Steps
 
 **Option A: Improve PlannerTool First**
+
 1. Analyze and improve PlannerTool prompts
 2. Re-run evaluation to confirm improvements
 3. Document baseline vs improved performance
 
 **Option B: Move to Next Tool**
+
 1. Set up ValidatorTool evaluation following same pattern
 2. Add other tool evaluations (ClassificationTool, etc.)
 3. Move to end-to-end agent evaluation
 
 **Option C: Document & Continue**
+
 1. Push current prompts to Braintrust for version control
 2. Document current baseline (0.767)
 3. Move to ValidatorTool while noting areas for improvement

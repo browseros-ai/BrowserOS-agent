@@ -1,23 +1,21 @@
 // Prompt generation functions for PlannerTool
 // All prompts should be single multi-line strings
 
-import { PLANNING_CONFIG } from './PlannerTool.config';
+import { PLANNING_CONFIG } from "./PlannerTool.config";
 
-export function generatePlannerSystemPrompt(maxSteps?: number): string {
-  const stepsLimit = maxSteps ?? PLANNING_CONFIG.STEPS_PER_PLAN;
-  
+export function generatePlannerSystemPrompt(): string {
   return `You are a helpful assistant that excels at analyzing tasks and breaking them down into actionable steps.
 
 # RESPONSIBILITIES:
 1. Analyze the current state and conversation history to understand what has been accomplished
 2. Evaluate progress towards the ultimate goal
 3. Identify potential challenges or roadblocks
-4. Generate specific, actionable next steps (maximum ${stepsLimit} steps)
+4. Generate specific, actionable next steps
 5. Provide clear reasoning for your suggested approach
 
 # PLANNING GUIDELINES:
-- Keep plans SHORT and FOCUSED: Maximum of ${stepsLimit} steps at a time. 
-- You need NOT generate ${stepsLimit} steps if the task is simple, even 1 or 2 step plan is fine.
+- Keep plans SHORT and FOCUSED
+- Generate as many or as few steps as needed for the task
 - Focus on WHAT to achieve, not HOW to do it
 - Each step should be a logical business action or goal
 - Order steps logically with dependencies in mind
@@ -65,24 +63,23 @@ You must return a JSON object with the following structure:
 }
 
 # REMEMBER:
-- Maximum ${stepsLimit} steps focusing on business objectives. You can generate 1 or 2 step plan as well, if the objective is simple.
+- Focus on business objectives
 - Keep steps high-level and goal-oriented
 - Consider what has already been accomplished
-- The user can see the page - they often refer to visible elements`
+- The user can see the page - they often refer to visible elements`;
 }
 
 export function generatePlannerTaskPrompt(
   task: string,
-  maxSteps: number,
   conversationHistory: string,
-  browserState: string
+  browserState: string,
 ): string {
   return `PLANNING REQUEST:
-- Generate upto ${maxSteps} next steps to accomplish the task. You can generate a plan for fewer steps as well, if the task can achieved in fewer steps.
+- Generate the next steps to accomplish the task
 - Task: ${task}
 - DO NOT repeat completed actions, BUILD on current progress.
 
-Below is the conversation history and browser state. Use this to provide a plan with ${maxSteps} actionable steps or fewer steps if the task is simple.
+Below is the conversation history and browser state. Use this to provide a plan with actionable steps.
 
 --------------------------------
 Conversation history:
@@ -93,5 +90,5 @@ ${conversationHistory}
 Browser state:
 --------------------------------
 ${browserState}
-`
+`;
 }

@@ -1,2 +1,2 @@
 // Side panel port messaging
-export { useSidePanelPortMessaging } from './useSidePanelPortMessaging' 
+export { useSidePanelPortMessaging } from "./useSidePanelPortMessaging";

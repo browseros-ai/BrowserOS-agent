@@ -1,26 +1,37 @@
-import React, { memo, useState } from 'react'
-import { Button } from '@/sidepanel/components/ui/button'
-import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
-import { MessageType } from '@/lib/types/messaging'
-import { useAnalytics } from '../hooks/useAnalytics'
-import { SettingsModal } from './SettingsModal'
-import { HelpSection } from './HelpSection'
-import { Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star } from 'lucide-react'
-import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
-import { useEffect } from 'react'
-import { z } from 'zod'
-import { BrowserOSProvidersConfig, BrowserOSProvidersConfigSchema } from '@/lib/llm/settings/types'
-import { MCP_SERVERS, type MCPServerConfig } from '@/config/mcpServers'
+import React, { memo, useState } from "react";
+import { Button } from "@/sidepanel/components/ui/button";
+import { useSidePanelPortMessaging } from "@/sidepanel/hooks";
+import { MessageType } from "@/lib/types/messaging";
+import { useAnalytics } from "../hooks/useAnalytics";
+import { SettingsModal } from "./SettingsModal";
+import { HelpSection } from "./HelpSection";
+import {
+  Settings,
+  Pause,
+  RotateCcw,
+  ChevronDown,
+  Plus,
+  Trash2,
+  Star,
+} from "lucide-react";
+import { useSettingsStore } from "@/sidepanel/stores/settingsStore";
+import { useEffect } from "react";
+import { z } from "zod";
+import {
+  BrowserOSProvidersConfig,
+  BrowserOSProvidersConfigSchema,
+} from "@/lib/llm/settings/types";
+import { MCP_SERVERS, type MCPServerConfig } from "@/config/mcpServers";
 
-const GITHUB_REPO_URL: string = 'https://github.com/browseros-ai/BrowserOS'
+const GITHUB_REPO_URL: string = "https://github.com/browseros-ai/BrowserOS";
 
 // Feature flag to enable/disable MCP connector dropdown
-const MCP_FEATURE_ENABLED = true
+const MCP_FEATURE_ENABLED = true;
 
 interface HeaderProps {
-  onReset: () => void
-  showReset: boolean  // This now means "has messages to reset"
-  isProcessing: boolean
+  onReset: () => void;
+  showReset: boolean; // This now means "has messages to reset"
+  isProcessing: boolean;
 }
 
 /**
@@ -28,190 +39,216 @@ interface HeaderProps {
  * Displays title, connection status, and action buttons (pause/reset)
  * Memoized to prevent unnecessary re-renders
  */
-export const Header = memo(function Header({ onReset, showReset, isProcessing }: HeaderProps) {
-  const { sendMessage, connected, addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
-  const { trackClick } = useAnalytics()
-  const [showSettings, setShowSettings] = useState(false)
-  const [showHelp, setShowHelp] = useState(false)
-  const [showMCPDropdown, setShowMCPDropdown] = useState(false)
-  const [providersConfig, setProvidersConfig] = useState<BrowserOSProvidersConfig | null>(null)
-  const [providersError, setProvidersError] = useState<string | null>(null)
-  const [mcpInstallStatus, setMcpInstallStatus] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
-  const [installedServers, setInstalledServers] = useState<any[]>([])
-  const { theme } = useSettingsStore()
-  
+export const Header = memo(function Header({
+  onReset,
+  showReset,
+  isProcessing,
+}: HeaderProps) {
+  const { sendMessage, connected, addMessageListener, removeMessageListener } =
+    useSidePanelPortMessaging();
+  const { trackClick } = useAnalytics();
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showMCPDropdown, setShowMCPDropdown] = useState(false);
+  const [providersConfig, setProvidersConfig] =
+    useState<BrowserOSProvidersConfig | null>(null);
+  const [providersError, setProvidersError] = useState<string | null>(null);
+  const [mcpInstallStatus, setMcpInstallStatus] = useState<{
+    message: string;
+    type: "error" | "success";
+  } | null>(null);
+  const [installedServers, setInstalledServers] = useState<any[]>([]);
+  const { theme } = useSettingsStore();
+
   const handleCancel = () => {
-    trackClick('pause_task')
+    trackClick("pause_task");
     sendMessage(MessageType.CANCEL_TASK, {
-      reason: 'User clicked pause button',
-      source: 'sidepanel'
-    })
-  }
-  
+      reason: "User clicked pause button",
+      source: "sidepanel",
+    });
+  };
+
   const handleReset = () => {
-    trackClick('reset_conversation')
+    trackClick("reset_conversation");
     // Send reset message to background
     sendMessage(MessageType.RESET_CONVERSATION, {
-      source: 'sidepanel'
-    })
-    
+      source: "sidepanel",
+    });
+
     // Clear local state
-    onReset()
-  }
+    onReset();
+  };
 
   const handleSettingsClick = () => {
-    trackClick('open_settings')
-    setShowSettings(true)
-  }
+    trackClick("open_settings");
+    setShowSettings(true);
+  };
 
   const handleStarClick = () => {
-    trackClick('github_star')
-    window.open(GITHUB_REPO_URL, '_blank', 'noopener,noreferrer')
-  }
+    trackClick("github_star");
+    window.open(GITHUB_REPO_URL, "_blank", "noopener,noreferrer");
+  };
 
   const handleMCPInstall = (serverId: string) => {
-    trackClick(`mcp_install_${serverId}`)
-    setShowMCPDropdown(false)
-    sendMessage(MessageType.MCP_INSTALL_SERVER, { serverId })
-  }
+    trackClick(`mcp_install_${serverId}`);
+    setShowMCPDropdown(false);
+    sendMessage(MessageType.MCP_INSTALL_SERVER, { serverId });
+  };
 
   const handleMCPDelete = (instanceId: string, serverName: string) => {
-    trackClick(`mcp_delete_${serverName}`)
+    trackClick(`mcp_delete_${serverName}`);
     if (confirm(`Are you sure you want to remove ${serverName}?`)) {
-      sendMessage(MessageType.MCP_DELETE_SERVER, { instanceId })
+      sendMessage(MessageType.MCP_DELETE_SERVER, { instanceId });
     }
-  }
+  };
 
   const fetchInstalledServers = () => {
-    sendMessage(MessageType.MCP_GET_INSTALLED_SERVERS, {})
-  }
+    sendMessage(MessageType.MCP_GET_INSTALLED_SERVERS, {});
+  };
 
   // Close dropdown when clicking outside and fetch servers when opening
   useEffect(() => {
-    if (!showMCPDropdown) return
-    
+    if (!showMCPDropdown) return;
+
     // Fetch installed servers when dropdown opens
-    fetchInstalledServers()
-    
+    fetchInstalledServers();
+
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('.mcp-dropdown-container')) {
-        setShowMCPDropdown(false)
+      const target = e.target as HTMLElement;
+      if (!target.closest(".mcp-dropdown-container")) {
+        setShowMCPDropdown(false);
       }
-    }
-    
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showMCPDropdown])
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMCPDropdown]);
 
   // Load providers config for default provider dropdown
   useEffect(() => {
     const handler = (payload: any) => {
-      if (payload && payload.status === 'success' && payload.data) {
+      if (payload && payload.status === "success" && payload.data) {
         // Handle providers config
         if (payload.data.providersConfig) {
           try {
-            const cfg = BrowserOSProvidersConfigSchema.parse(payload.data.providersConfig)
-            setProvidersConfig(cfg)
+            const cfg = BrowserOSProvidersConfigSchema.parse(
+              payload.data.providersConfig,
+            );
+            setProvidersConfig(cfg);
           } catch (err) {
-            setProvidersError(err instanceof Error ? err.message : String(err))
+            setProvidersError(err instanceof Error ? err.message : String(err));
           }
         }
         // Handle installed servers response
         if (payload.data.servers) {
-          setInstalledServers(payload.data.servers)
+          setInstalledServers(payload.data.servers);
         }
       }
-    }
-    addMessageListener<any>(MessageType.WORKFLOW_STATUS, handler)
+    };
+    addMessageListener<any>(MessageType.WORKFLOW_STATUS, handler);
     // Initial fetch
-    sendMessage(MessageType.GET_LLM_PROVIDERS as any, {})
-    return () => removeMessageListener<any>(MessageType.WORKFLOW_STATUS, handler)
-  }, [])
+    sendMessage(MessageType.GET_LLM_PROVIDERS as any, {});
+    return () =>
+      removeMessageListener<any>(MessageType.WORKFLOW_STATUS, handler);
+  }, []);
 
   // Listen for MCP server installation/deletion status
   useEffect(() => {
     const handler = (payload: any) => {
-      if (payload.status === 'success') {
+      if (payload.status === "success") {
         // Get server name from config for display
-        const serverName = MCP_SERVERS.find(s => s.id === payload.serverId)?.name || payload.serverId
+        const serverName =
+          MCP_SERVERS.find((s) => s.id === payload.serverId)?.name ||
+          payload.serverId;
         setMcpInstallStatus({
           message: `${serverName} connected successfully!`,
-          type: 'success'
-        })
+          type: "success",
+        });
         // Refresh installed servers list after successful installation
-        fetchInstalledServers()
-      } else if (payload.status === 'deleted') {
+        fetchInstalledServers();
+      } else if (payload.status === "deleted") {
         setMcpInstallStatus({
-          message: 'Server removed successfully',
-          type: 'success'
-        })
+          message: "Server removed successfully",
+          type: "success",
+        });
         // Refresh installed servers list after successful deletion
-        fetchInstalledServers()
-      } else if (payload.status === 'auth_failed') {
+        fetchInstalledServers();
+      } else if (payload.status === "auth_failed") {
         setMcpInstallStatus({
-          message: payload.error || 'Authentication failed. Please try again.',
-          type: 'error'
-        })
-      } else if (payload.status === 'error') {
+          message: payload.error || "Authentication failed. Please try again.",
+          type: "error",
+        });
+      } else if (payload.status === "error") {
         setMcpInstallStatus({
-          message: payload.error || 'Operation failed. Please try again.',
-          type: 'error'
-        })
+          message: payload.error || "Operation failed. Please try again.",
+          type: "error",
+        });
       }
-      
+
       // Clear message after 5 seconds
-      setTimeout(() => setMcpInstallStatus(null), 5000)
-    }
-    
-    addMessageListener<any>(MessageType.MCP_SERVER_STATUS, handler)
-    return () => removeMessageListener<any>(MessageType.MCP_SERVER_STATUS, handler)
-  }, [])
+      setTimeout(() => setMcpInstallStatus(null), 5000);
+    };
+
+    addMessageListener<any>(MessageType.MCP_SERVER_STATUS, handler);
+    return () =>
+      removeMessageListener<any>(MessageType.MCP_SERVER_STATUS, handler);
+  }, []);
 
   return (
     <>
-      <header 
+      <header
         className="relative flex items-center justify-between h-12 px-3 bg-[hsl(var(--header))] border-b border-border/50"
         role="banner"
       >
-
         <div className="flex items-center ">
           {providersConfig && (
             <div className="relative mt-0.5">
               <select
-                className={`h-9 w-26 pl-2 pr-8 rounded-lg border ${theme === 'gray' ? 'border-white/40' : 'border-border'} bg-[hsl(var(--header))] text-foreground text-xs font-light appearance-none`}
+                className={`h-9 w-26 pl-2 pr-8 rounded-lg border ${theme === "gray" ? "border-white/40" : "border-border"} bg-[hsl(var(--header))] text-foreground text-xs font-light appearance-none`}
                 value={providersConfig.defaultProviderId}
                 onChange={(e) => {
-                  const nextId = e.target.value
-                  const nextProviders = providersConfig.providers.map(p => ({ ...p, isDefault: p.id === nextId }))
+                  const nextId = e.target.value;
+                  const nextProviders = providersConfig.providers.map((p) => ({
+                    ...p,
+                    isDefault: p.id === nextId,
+                  }));
                   const nextConfig: BrowserOSProvidersConfig = {
                     defaultProviderId: nextId,
-                    providers: nextProviders
-                  }
+                    providers: nextProviders,
+                  };
                   try {
-                    BrowserOSProvidersConfigSchema.parse(nextConfig)
-                    setProvidersConfig(nextConfig)
-                    const ok = sendMessage<BrowserOSProvidersConfig>(MessageType.SAVE_LLM_PROVIDERS as any, nextConfig)
-                    if (!ok) setProvidersError('Failed to send save message')
+                    BrowserOSProvidersConfigSchema.parse(nextConfig);
+                    setProvidersConfig(nextConfig);
+                    const ok = sendMessage<BrowserOSProvidersConfig>(
+                      MessageType.SAVE_LLM_PROVIDERS as any,
+                      nextConfig,
+                    );
+                    if (!ok) setProvidersError("Failed to send save message");
                   } catch (err) {
-                    setProvidersError(err instanceof Error ? err.message : String(err))
+                    setProvidersError(
+                      err instanceof Error ? err.message : String(err),
+                    );
                   }
                 }}
                 aria-label="Select default provider"
                 title="Select default provider"
               >
-                {providersConfig.providers.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                {providersConfig.providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground opacity-80" />
             </div>
           )}
         </div>
-        
 
-
-        <nav className="flex items-center gap-2 sm:gap-3" role="navigation" aria-label="Chat controls">
+        <nav
+          className="flex items-center gap-2 sm:gap-3"
+          role="navigation"
+          aria-label="Chat controls"
+        >
           {/* GitHub Star button - First position */}
           <Button
             onClick={handleStarClick}
@@ -238,23 +275,26 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                 <Plus className="w-4 h-4" />
                 <span className="text-xs">MCPs</span>
               </Button>
-              
+
               {showMCPDropdown && (
                 <div className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg bg-background border border-border z-50">
                   <div className="py-1">
                     {MCP_SERVERS.map((server) => {
                       // Check if this server is installed
-                      const installedServer = installedServers.find(s => s.name === server.name)
-                      const isConnected = installedServer?.authenticated === true
-                      
+                      const installedServer = installedServers.find(
+                        (s) => s.name === server.name,
+                      );
+                      const isConnected =
+                        installedServer?.authenticated === true;
+
                       return (
                         <div
                           key={server.id}
                           className="flex items-center justify-between w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
                         >
                           <div className="flex items-center gap-2">
-                            <img 
-                              src={chrome.runtime.getURL(server.iconPath)} 
+                            <img
+                              src={chrome.runtime.getURL(server.iconPath)}
                               alt=""
                               className="w-4 h-4"
                             />
@@ -270,8 +310,8 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                                 ) : (
                                   <button
                                     onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleMCPInstall(server.id)
+                                      e.stopPropagation();
+                                      handleMCPInstall(server.id);
                                     }}
                                     className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
                                   >
@@ -280,8 +320,11 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                                 )}
                                 <button
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleMCPDelete(installedServer.id, server.name)
+                                    e.stopPropagation();
+                                    handleMCPDelete(
+                                      installedServer.id,
+                                      server.name,
+                                    );
                                   }}
                                   className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
                                   title={`Remove ${server.name}`}
@@ -299,7 +342,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                             )}
                           </div>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </div>
@@ -320,7 +363,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               <Pause className="w-4 h-4" />
             </Button>
           )}
-          
+
           {/* Show Reset button if has messages */}
           {showReset && (
             <Button
@@ -348,25 +391,27 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         </nav>
 
         {/* Settings Modal */}
-        <SettingsModal 
+        <SettingsModal
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
           onOpenHelp={() => {
-            setShowSettings(false)
-            setShowHelp(true)
+            setShowSettings(false);
+            setShowHelp(true);
           }}
         />
       </header>
 
       {/* MCP Installation Status Message */}
       {mcpInstallStatus && (
-        <div 
+        <div
           className={`
             fixed top-14 left-1/2 transform -translate-x-1/2 z-50
             px-4 py-2 rounded-lg shadow-lg
-            ${mcpInstallStatus.type === 'error' 
-              ? 'bg-red-500 text-white' 
-              : 'bg-green-500 text-white'}
+            ${
+              mcpInstallStatus.type === "error"
+                ? "bg-red-500 text-white"
+                : "bg-green-500 text-white"
+            }
             animate-in fade-in slide-in-from-top-2 duration-300
           `}
         >
@@ -375,10 +420,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
       )}
 
       {/* Help Section */}
-      <HelpSection 
-        isOpen={showHelp}
-        onClose={() => setShowHelp(false)}
-      />
+      <HelpSection isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </>
-  )
-})
+  );
+});
