@@ -255,6 +255,16 @@ export class POCAgent {
     } else if (llmResponse.content) {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
+    } else {
+      if (
+        llmResponse.content.trim() === "" &&
+        llmResponse.tool_calls &&
+        llmResponse.tool_calls.length > 0
+      ) {
+        // agent is stuck, let's observe
+        Logging.log("POCAgent", "Agent is stuck, let's replan", "info");
+        result.observeToolCalled = true;
+      }
     }
 
     return result;
@@ -593,10 +603,31 @@ export class POCAgent {
   - continue_tool: When you know what to do next and want to execute more actions
   - replan_tool: When the current plan isn't working and you need a new approach
   - done_tool: When the task is completed`;
+      } else {
+        instruction = `
+        Instructions: Continue executing the plan.
+
+        Current plan:
+        ${plan || "No plan established yet"}
+
+        Task to complete:
+        ${task}
+
+        REMEBER: You can use these control flow tools:
+        - observe_tool: When you need to see the current page state before continuing
+        - continue_tool: When you know what to do next and want to execute more actions
+        - replan_tool: When the current plan isn't working and you need a new approach
+        - done_tool: When the task is completed
+        `;
       }
 
       // Execute single turn
       const result = await this._executeSingleTurn(instruction);
+
+      if (this.stepCounter % POCAgent.PLANNING_INTERVAL === 0) {
+        Logging.log("POCAgent", "planning interval reached", "info");
+        return { replanToolCalled: true };
+      }
 
       // Handle control flow decisions
       if (result.doneToolCalled) {
@@ -617,16 +648,6 @@ export class POCAgent {
       }
 
       if (result.continueToolCalled) {
-        if (this.stepCounter % POCAgent.PLANNING_INTERVAL === 0) {
-          Logging.log(
-            "POCAgent",
-            "Continue tool called, but planning interval reached",
-            "info",
-          );
-          return { replanToolCalled: true };
-        }
-
-        // let's continue
         Logging.log(
           "POCAgent",
           "Continue tool called, planning interval not reached",
