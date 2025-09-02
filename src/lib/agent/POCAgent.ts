@@ -580,44 +580,86 @@ export class POCAgent {
         state = await this._captureState();
         captureObservation = false;
         instruction = `
-  Current browser state:
+  ## TASK EXECUTION CONTEXT
+
+  ### Current Browser State
   - URL: ${state.currentUrl || "Unknown"}
   - Title: ${state.title || "Unknown"}
   - Tab ID: ${state.tabId || "Unknown"}
   - Timestamp: ${new Date(state.timestamp).toISOString()}
-  - Step: ${this.stepCounter + 1} / ${POCAgent.MAX_ITERATIONS}
+  - Progress: Step ${this.stepCounter + 1} of ${POCAgent.MAX_ITERATIONS}
 
-  Page elements:
+  ### Available Page Elements
   ${state.domState || "No DOM state available"}
 
-  Current plan:
+  ### Active Execution Plan
   ${plan || "No plan established yet"}
 
-  Task to complete:
+  ### Primary Task
   ${task}
 
-  Instructions: Based on the current state and plan, execute the necessary browser actions to progress toward completing the task. Plan out as many actions as possible, but stop at the point where you will need to observe the results before continuing.
+  ## EXECUTION INSTRUCTIONS
 
-  You can use these control flow tools:
-  - observe_tool: When you need to see the current page state before continuing
-  - continue_tool: When you know what to do next and want to execute more actions
-  - replan_tool: When the current plan isn't working and you need a new approach
-  - done_tool: When the task is completed`;
+  You are a browser automation agent. Your goal is to execute multiple actions efficiently in a single response to complete the task.
+
+  ### Key Principles:
+  1. **BATCH OPERATIONS**: Execute as many sequential actions as possible in ONE response
+  2. **PARALLEL EXECUTION**: When actions are independent, call multiple tools simultaneously
+  3. **MINIMIZE OBSERVATIONS**: Only observe when the page state will significantly change (page loads, form submissions, etc.)
+  4. **PROACTIVE EXECUTION**: Don't wait for confirmation between independent actions
+
+  ### Good Execution Pattern (Multiple Tool Calls):
+  Example of efficient execution with multiple tool calls in one response:
+  - Fill form field "username" → Fill form field "password" → Click submit button → observe_tool
+  - Open tab 1 → Extract data from tab 1 → Open tab 2 → Extract data from tab 2 → continue_tool
+  - Scroll to element → Click button → Wait for modal → Fill modal form → Submit → observe_tool
+
+  ### When to Use Control Flow Tools:
+  - **observe_tool**: ONLY after actions that significantly change page state (navigation, form submission, async content loading)
+  - **continue_tool**: When you have more actions planned but haven't executed them yet
+  - **replan_tool**: When the current plan cannot be executed due to unexpected page state
+  - **done_tool**: When ALL task requirements are verifiably complete
+
+  ### Inefficient Pattern to AVOID:
+  ❌ Single action → observe → single action → observe → single action
+  ✅ Multiple related actions → observe (only if needed) → more actions
+
+  ## ACTION SELECTION
+
+  Based on the current state and plan, execute ALL logical next steps that can be performed without needing to observe intermediate results. Chain multiple tool calls together when they form a logical sequence.
+
+  Remember: The more actions you complete in this turn, the faster the task completes.`;
       } else {
         instruction = `
-        Instructions: Continue executing the plan.
+        ## CONTINUE EXECUTION
 
-        Current plan:
+        ### Active Execution Plan
         ${plan || "No plan established yet"}
 
-        Task to complete:
+        ### Primary Task
         ${task}
 
-        REMEBER: You can use these control flow tools:
-        - observe_tool: When you need to see the current page state before continuing
-        - continue_tool: When you know what to do next and want to execute more actions
-        - replan_tool: When the current plan isn't working and you need a new approach
-        - done_tool: When the task is completed
+        ## EXECUTION INSTRUCTIONS
+
+        Continue executing the plan with maximum efficiency. You should already know the page context from previous observations.
+
+        ### CRITICAL REMINDERS:
+        1. **BATCH YOUR ACTIONS**: Execute multiple sequential actions in ONE response
+        2. **NO UNNECESSARY OBSERVATIONS**: You just chose to continue, so execute remaining steps before observing again
+        3. **CHAIN RELATED OPERATIONS**: If actions are logically connected, execute them all together
+
+        ### Example Continuation Patterns:
+        ✅ GOOD: Click button → Fill form → Select dropdown → Enter text → Submit → observe_tool
+        ✅ GOOD: Navigate to section → Extract data → Process results → Store output → continue_tool
+        ❌ BAD: Single action → observe_tool (inefficient when you already know the context)
+
+        ### Control Flow Tools:
+        - **observe_tool**: Use ONLY after major state changes (page navigation, form submission)
+        - **continue_tool**: Use if you have more planned actions but haven't executed them yet
+        - **replan_tool**: Use if the plan cannot proceed due to unexpected conditions
+        - **done_tool**: Use when the entire task is verifiably complete
+
+        Execute as many actions as possible before needing to observe again. The goal is efficiency through batching.
         `;
       }
 
