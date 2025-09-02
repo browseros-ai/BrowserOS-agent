@@ -35,6 +35,11 @@ import { createResultTool } from "@/lib/tools/result/ResultTool";
 import { createHumanInputTool } from "@/lib/tools/utils/HumanInputTool";
 import { createDateTool } from "@/lib/tools/utility/DateTool";
 import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
+import {
+  generateSystemPrompt,
+  generateObserveDecidePrompt,
+  generateSingleTurnExecutionPrompt,
+} from "./POCAgent.prompt";
 
 interface SingleTurnResult {
   doneToolCalled: boolean;
@@ -148,7 +153,32 @@ export class POCAgent {
 
         // Handle control flow decisions
         if (decision.doneToolCalled) {
-          taskComplete = true;
+          // Validate task completion before marking as complete
+          const validationResult = await this._validateTaskCompletion(task);
+
+          if (validationResult.isComplete) {
+            taskComplete = true;
+            Logging.log(
+              "POCAgent",
+              `Task validated as complete: ${validationResult.reasoning}`,
+              "info",
+            );
+          } else {
+            // Task not actually complete - continue execution
+            Logging.log(
+              "POCAgent",
+              `Task validation failed: ${validationResult.reasoning}`,
+              "info",
+            );
+
+            // Add validation feedback to message history for next iteration
+            if (validationResult.suggestions.length > 0) {
+              const validationMessage = `Task not complete\nReasoning: ${validationResult.reasoning}\nSuggestions: ${validationResult.suggestions.join(", ")}`;
+              this.messageManager.addHuman(validationMessage);
+            }
+
+            needsReplan = true; // Trigger replanning with validation feedback
+          }
         } else if (decision.replanToolCalled) {
           needsReplan = true;
         }
@@ -177,7 +207,12 @@ export class POCAgent {
   private _initializeExecution(task: string): void {
     this.messageManager.removeSystemMessages();
     this.executionContext.setCurrentTask(task);
-    this.messageManager.addSystem("You are a browser automation agent.");
+
+    // Generate system prompt with tool descriptions
+    const systemPrompt = generateSystemPrompt(
+      this.toolManager.getDescriptions(),
+    );
+    this.messageManager.addSystem(systemPrompt);
     this.messageManager.addHuman(task);
   }
 
@@ -579,88 +614,15 @@ export class POCAgent {
         Logging.log("POCAgent", "capturing observation...", "info");
         state = await this._captureState();
         captureObservation = false;
-        instruction = `
-  ## TASK EXECUTION CONTEXT
-
-  ### Current Browser State
-  - URL: ${state.currentUrl || "Unknown"}
-  - Title: ${state.title || "Unknown"}
-  - Tab ID: ${state.tabId || "Unknown"}
-  - Timestamp: ${new Date(state.timestamp).toISOString()}
-  - Progress: Step ${this.stepCounter + 1} of ${POCAgent.MAX_ITERATIONS}
-
-  ### Available Page Elements
-  ${state.domState || "No DOM state available"}
-
-  ### Active Execution Plan
-  ${plan || "No plan established yet"}
-
-  ### Primary Task
-  ${task}
-
-  ## EXECUTION INSTRUCTIONS
-
-  You are a browser automation agent. Your goal is to execute multiple actions efficiently in a single response to complete the task.
-
-  ### Key Principles:
-  1. **BATCH OPERATIONS**: Execute as many sequential actions as possible in ONE response
-  2. **PARALLEL EXECUTION**: When actions are independent, call multiple tools simultaneously
-  3. **MINIMIZE OBSERVATIONS**: Only observe when the page state will significantly change (page loads, form submissions, etc.)
-  4. **PROACTIVE EXECUTION**: Don't wait for confirmation between independent actions
-
-  ### Good Execution Pattern (Multiple Tool Calls):
-  Example of efficient execution with multiple tool calls in one response:
-  - Fill form field "username" → Fill form field "password" → Click submit button → observe_tool
-  - Open tab 1 → Extract data from tab 1 → Open tab 2 → Extract data from tab 2 → continue_tool
-  - Scroll to element → Click button → Wait for modal → Fill modal form → Submit → observe_tool
-
-  ### When to Use Control Flow Tools:
-  - **observe_tool**: ONLY after actions that significantly change page state (navigation, form submission, async content loading)
-  - **continue_tool**: When you have more actions planned but haven't executed them yet
-  - **replan_tool**: When the current plan cannot be executed due to unexpected page state
-  - **done_tool**: When ALL task requirements are verifiably complete
-
-  ### Inefficient Pattern to AVOID:
-  ❌ Single action → observe → single action → observe → single action
-  ✅ Multiple related actions → observe (only if needed) → more actions
-
-  ## ACTION SELECTION
-
-  Based on the current state and plan, execute ALL logical next steps that can be performed without needing to observe intermediate results. Chain multiple tool calls together when they form a logical sequence.
-
-  Remember: The more actions you complete in this turn, the faster the task completes.`;
+        instruction = generateObserveDecidePrompt(
+          state,
+          plan,
+          task,
+          this.stepCounter,
+          POCAgent.MAX_ITERATIONS,
+        );
       } else {
-        instruction = `
-        ## CONTINUE EXECUTION
-
-        ### Active Execution Plan
-        ${plan || "No plan established yet"}
-
-        ### Primary Task
-        ${task}
-
-        ## EXECUTION INSTRUCTIONS
-
-        Continue executing the plan with maximum efficiency. You should already know the page context from previous observations.
-
-        ### CRITICAL REMINDERS:
-        1. **BATCH YOUR ACTIONS**: Execute multiple sequential actions in ONE response
-        2. **NO UNNECESSARY OBSERVATIONS**: You just chose to continue, so execute remaining steps before observing again
-        3. **CHAIN RELATED OPERATIONS**: If actions are logically connected, execute them all together
-
-        ### Example Continuation Patterns:
-        ✅ GOOD: Click button → Fill form → Select dropdown → Enter text → Submit → observe_tool
-        ✅ GOOD: Navigate to section → Extract data → Process results → Store output → continue_tool
-        ❌ BAD: Single action → observe_tool (inefficient when you already know the context)
-
-        ### Control Flow Tools:
-        - **observe_tool**: Use ONLY after major state changes (page navigation, form submission)
-        - **continue_tool**: Use if you have more planned actions but haven't executed them yet
-        - **replan_tool**: Use if the plan cannot proceed due to unexpected conditions
-        - **done_tool**: Use when the entire task is verifiably complete
-
-        Execute as many actions as possible before needing to observe again. The goal is efficiency through batching.
-        `;
+        instruction = generateSingleTurnExecutionPrompt(plan, task);
       }
 
       // Execute single turn
@@ -689,15 +651,15 @@ export class POCAgent {
         continue;
       }
 
-      if (result.continueToolCalled) {
-        Logging.log(
-          "POCAgent",
-          "Continue tool called, planning interval not reached",
-          "info",
-        );
-        captureObservation = false;
-        continue;
-      }
+      // if (result.continueToolCalled) {
+      //   Logging.log(
+      //     "POCAgent",
+      //     "Continue tool called, planning interval not reached",
+      //     "info",
+      //   );
+      //   captureObservation = false;
+      //   continue;
+      // }
     }
 
     // If we get here, we need to replan
@@ -713,5 +675,53 @@ export class POCAgent {
     if (needsReplan) return true; // Replan requested
     if (stepCount % POCAgent.PLANNING_INTERVAL === 0) return true; // Periodic replan
     return false;
+  }
+
+  private async _validateTaskCompletion(task: string): Promise<{
+    isComplete: boolean;
+    reasoning: string;
+    suggestions: string[];
+  }> {
+    const validatorTool = this.toolManager.get("validator_tool");
+    if (!validatorTool) {
+      return {
+        isComplete: false,
+        reasoning: "Validation skipped - tool not available",
+        suggestions: [],
+      };
+    }
+
+    const args = { task };
+    try {
+      const result = await validatorTool.func(args);
+      const parsedResult = jsonParseToolOutput(result);
+
+      if (parsedResult.ok) {
+        const validationData = parsedResult.output;
+        const status = validationData.isComplete ? "Complete" : "Incomplete";
+        this.pubsub.publishMessage(
+          PubSub.createMessage(`Task validation: ${status}`, "thinking"),
+        );
+
+        return {
+          isComplete: validationData.isComplete,
+          reasoning: validationData.reasoning,
+          suggestions: validationData.suggestions || [],
+        };
+      }
+    } catch (error) {
+      this.pubsub.publishMessage(
+        PubSub.createMessage(
+          "Error in validator_tool: Validation failed",
+          "error",
+        ),
+      );
+    }
+
+    return {
+      isComplete: false,
+      reasoning: "Validation failed - continuing execution",
+      suggestions: [],
+    };
   }
 }

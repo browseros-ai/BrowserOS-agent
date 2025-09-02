@@ -608,7 +608,7 @@ export class BrowserAgent {
   }
 
   private async _invokeLLMWithStreaming(): Promise<AIMessage> {
-    const llm = await this.executionContext.getLLM();
+    const llm = await this.executionContext.getLLM({ temperature: 0.2 });
     if (!llm.bindTools || typeof llm.bindTools !== "function") {
       throw new Error("This LLM does not support tool binding");
     }

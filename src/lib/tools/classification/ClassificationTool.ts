@@ -48,7 +48,7 @@ export class ClassificationTool {
           PubSub.createMessage(`Classifying task...`, "thinking"),
         );
       // Get LLM instance
-      const llm = await this.executionContext.getLLM();
+      const llm = await this.executionContext.getLLM({ temperature: 0.2 });
 
       // Get recent message history, excluding system prompts and browser state messages
       // to focus on actual conversation context

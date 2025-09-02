@@ -140,7 +140,7 @@ export function createValidatorTool(
             ),
           );
         // Get LLM instance
-        const llm = await executionContext.getLLM();
+        const llm = await executionContext.getLLM({ temperature: 0.2 });
 
         // Get browser state
         const browserStateString =

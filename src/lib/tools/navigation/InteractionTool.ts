@@ -137,7 +137,7 @@ export class InteractionTool {
         "info",
       );
 
-      const llm = await this.executionContext.getLLM();
+      const llm = await this.executionContext.getLLM({ temperature: 0.2 });
       const structuredLLM = llm.withStructuredOutput(_FindElementSchema);
       return await invokeWithRetry<z.infer<typeof _FindElementSchema>>(
         structuredLLM,

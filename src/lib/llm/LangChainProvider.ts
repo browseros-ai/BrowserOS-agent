@@ -298,10 +298,11 @@ export class LangChainProvider {
     options?: { temperature?: number; maxTokens?: number },
   ): BaseChatModel {
     // Extract parameters from provider config first, then override with options
-    const temperature =
-      options?.temperature ??
-      provider.modelConfig?.temperature ??
-      DEFAULT_TEMPERATURE;
+    // TODO: nikhil: remove temperature override
+    const temperature = 0.2;
+    // options?.temperature ??
+    // provider.modelConfig?.temperature ??
+    // DEFAULT_TEMPERATURE;
 
     const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens);
 

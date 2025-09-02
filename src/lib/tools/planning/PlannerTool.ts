@@ -48,7 +48,7 @@ export function createPlannerTool(
             PubSub.createMessage(`Creating plan for task...`, "thinking"),
           );
         // Get LLM instance from execution context
-        const llm = await executionContext.getLLM();
+        const llm = await executionContext.getLLM({ temperature: 0.2 });
 
         // Get message history excluding initial System Message saying ("Your are a web agent") as that is not required for planning
         // and excluding browser state messages as we will add that separately.
