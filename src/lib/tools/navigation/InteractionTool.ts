@@ -408,20 +408,26 @@ export class InteractionTool {
   }
 
   private async _sendKeys(keys: string): Promise<ToolOutput> {
-    this.executionContext
-      .getPubSub()
-      .publishMessage(
-        PubSub.createMessage(`Sending keys: ${keys}`, "thinking"),
-      );
-    const page = await this.executionContext.browserContext.getCurrentPage();
-    await page.sendKeys(keys);
+    try {
+      this.executionContext
+        .getPubSub()
+        .publishMessage(
+          PubSub.createMessage(`Sending keys: ${keys}`, "thinking"),
+        );
+      const page = await this.executionContext.browserContext.getCurrentPage();
+      await page.sendKeys(keys);
 
-    // Emit status message
-    this.executionContext
-      .getPubSub()
-      .publishMessage(PubSub.createMessage(`Sent keys: ${keys}`, "thinking"));
+      // Emit status message
+      this.executionContext
+        .getPubSub()
+        .publishMessage(PubSub.createMessage(`Sent keys: ${keys}`, "thinking"));
 
-    return toolSuccess(`Sent keys: ${keys}`);
+      return toolSuccess(`Sent keys: ${keys}`);
+    } catch (error) {
+      // Return tool error instead of throwing
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return toolError(`Failed to send keys: ${errorMessage}`);
+    }
   }
 }
 
