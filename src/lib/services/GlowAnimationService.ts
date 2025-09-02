@@ -32,10 +32,6 @@ export class GlowAnimationService {
   async startGlow(tabId: number): Promise<void> {
     try {
       if (this.activeGlows.has(tabId)) {
-        Logging.log(
-          "GlowAnimationService",
-          `Glow already active on tab ${tabId}`,
-        );
         return;
       }
 

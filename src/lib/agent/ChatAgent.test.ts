@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ChatAgent } from "./ChatAgent";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
-import { MessageManager, MessageType } from "@/lib/runtime/MessageManager";
+import { MessageManager, LLMMessageType } from "@/lib/runtime/MessageManager";
 import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { PubSub } from "@/lib/pubsub";
 

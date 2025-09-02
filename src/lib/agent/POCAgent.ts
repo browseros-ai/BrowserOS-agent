@@ -292,6 +292,7 @@ export class POCAgent {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
     } else {
+      // if text is empty and no tool calls, AI is stuck, let's force replan
       if (
         llmResponse.content.trim() === "" &&
         llmResponse.tool_calls &&
@@ -299,7 +300,7 @@ export class POCAgent {
       ) {
         // agent is stuck, let's observe
         Logging.log("POCAgent", "Agent is stuck, let's replan", "info");
-        result.observeToolCalled = true;
+        result.replanToolCalled = true;
       }
     }
 
@@ -381,6 +382,7 @@ export class POCAgent {
       this.checkIfAborted();
 
       const { name: toolName, args, id: toolCallId } = toolCall;
+      Logging.log("POCAgent", `Invoking tool: ${toolName}`, "info");
       const tool = this.toolManager.get(toolName);
       if (!tool) {
         continue;
@@ -559,10 +561,10 @@ export class POCAgent {
 
       // Get simplified browser state string (DOM elements)
       const domState =
-        await this.executionContext.browserContext.getBrowserStateString(true);
+        await this.executionContext.browserContext.getBrowserStateString(false);
 
       // Take a screenshot (medium size for balance of detail and performance)
-      const screenshot = await currentPage.takeScreenshot("large");
+      const screenshot = await currentPage.takeScreenshot("medium");
 
       const state: CapturedState = {
         timestamp: Date.now(),
