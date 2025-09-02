@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { InteractiveNode, InteractiveNodeType } from "./BrowserOSAdapter";
+import { Logging } from "@/lib/utils/Logging";
 
 // ============= Configuration Schema =============
 
@@ -59,14 +60,14 @@ const DEFAULT_CONFIG: Required<ElementDisplayConfig> = {
   showType: true,
   showTag: true,
   showName: true,
-  showContext: true,
-  showPath: true,
-  showViewportStatus: false,
+  showContext: false,
+  showPath: false,
+  showViewportStatus: true,
   nameMaxLength: 40,
   contextMaxLength: 60,
   pathDepth: 3,
   indentSize: 2,
-  separateByViewport: true,
+  separateByViewport: false,
   viewportSeparator:
     "--- IMPORTANT: OUT OF VIEWPORT ELEMENTS, SCROLL TO INTERACT ---",
   prioritizeViewport: true,
@@ -153,6 +154,22 @@ export class ElementFormatter {
       // Merge with defaults
       this.config = { ...DEFAULT_CONFIG, ...config };
     }
+
+    // Log configuration for debugging
+    const configLines = [
+      `ElementFormatter initialized with config:`,
+      `  Format: ${this.config.format}`,
+      `  Display: nodeId=${this.config.showNodeId}, type=${this.config.showType}, tag=${this.config.showTag}, name=${this.config.showName}`,
+      `  Context: show=${this.config.showContext}, maxLength=${this.config.contextMaxLength}`,
+      `  Path: show=${this.config.showPath}, depth=${this.config.pathDepth}`,
+      `  Attributes: ${Array.isArray(this.config.includeAttributes) ? `[${this.config.includeAttributes.join(", ")}]` : this.config.includeAttributes}`,
+      `  Viewport: separate=${this.config.separateByViewport}, prioritize=${this.config.prioritizeViewport}, showStatus=${this.config.showViewportStatus}`,
+      `  Filters: skipEmpty=${this.config.skipEmptyNames}, maxElements=${this.config.maxElements || "unlimited"}, types=${this.config.elementTypes.length > 0 ? `[${this.config.elementTypes.join(", ")}]` : "all"}`,
+      `  Formatting: indent=${this.config.showIndentation} (${this.config.indentSize} spaces), nameMax=${this.config.nameMaxLength}`,
+      `  Sorting: by=${this.config.sortBy}, order=${this.config.sortOrder}`,
+    ];
+
+    Logging.log("ElementFormatter", configLines.join("\n"), "info");
   }
 
   /**
@@ -542,4 +559,3 @@ export class ElementFormatter {
     return { ...DEFAULT_CONFIG, ...overrides };
   }
 }
-
