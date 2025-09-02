@@ -13,13 +13,14 @@ import { Logging } from "@/lib/utils/Logging";
 export const TRIM_THRESHOLD = 0.6; // Start trimming at 60% capacity to maintain buffer
 
 // Message type enum
-export enum MessageType {
+export enum LLMMessageType {
   SYSTEM = "system",
   AI = "ai",
   HUMAN = "human",
   TOOL = "tool",
   BROWSER_STATE = "browser_state",
   TODO_LIST = "todo_list",
+  SCREENSHOT = "screenshot",
 }
 
 // Create a new custom message type for browser state by extending LangChain's AIMessage.
@@ -27,7 +28,7 @@ export enum MessageType {
 export class BrowserStateMessage extends AIMessage {
   constructor(content: string) {
     super(`<BrowserState>${content}</BrowserState>`);
-    this.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
+    this.additional_kwargs = { messageType: LLMMessageType.BROWSER_STATE };
   }
 }
 
@@ -35,7 +36,15 @@ export class BrowserStateMessage extends AIMessage {
 export class TodoListMessage extends AIMessage {
   constructor(content: string) {
     super(`<TodoList>${content}</TodoList>`);
-    this.additional_kwargs = { messageType: MessageType.TODO_LIST };
+    this.additional_kwargs = { messageType: LLMMessageType.TODO_LIST };
+  }
+}
+
+// Custom message type for screenshots by extending LangChain's AIMessage
+export class ScreenshotMessage extends AIMessage {
+  constructor(content: string) {
+    super(`<Screenshot>${content}</Screenshot>`);
+    this.additional_kwargs = { messageType: LLMMessageType.SCREENSHOT };
   }
 }
 
@@ -48,7 +57,7 @@ export class MessageManagerReadOnly {
   }
 
   // Get messages filtered by excluding specific types
-  getFiltered(excludeTypes: MessageType[] = []): BaseMessage[] {
+  getFiltered(excludeTypes: LLMMessageType[] = []): BaseMessage[] {
     if (excludeTypes.length === 0) {
       return this.getAll();
     }
@@ -61,7 +70,7 @@ export class MessageManagerReadOnly {
 
   // Get filtered messages as formatted string (useful for history)
   getFilteredAsString(
-    excludeTypes: MessageType[] = [],
+    excludeTypes: LLMMessageType[] = [],
     separator: string = "\n",
   ): string {
     const messages = this.getFiltered(excludeTypes);
@@ -108,19 +117,24 @@ export class MessageManager {
 
     // Special handling (like removing existing messages) based on message type
     switch (messageType) {
-      case MessageType.SYSTEM:
+      case LLMMessageType.SYSTEM:
         // Remove existing system messages first
         this.removeSystemMessages();
         break;
 
-      case MessageType.BROWSER_STATE:
+      case LLMMessageType.BROWSER_STATE:
         // Only one browser state at a time
-        this.removeMessagesByType(MessageType.BROWSER_STATE);
+        this.removeMessagesByType(LLMMessageType.BROWSER_STATE);
         break;
 
-      case MessageType.TODO_LIST:
+      case LLMMessageType.TODO_LIST:
         // Only one todo list at a time
-        this.removeMessagesByType(MessageType.TODO_LIST);
+        this.removeMessagesByType(LLMMessageType.TODO_LIST);
+        break;
+
+      case LLMMessageType.SCREENSHOT:
+        // Only one screenshot at a time
+        this.removeMessagesByType(LLMMessageType.SCREENSHOT);
         break;
     }
 
@@ -166,6 +180,10 @@ export class MessageManager {
 
   addTodoList(content: string): void {
     this.add(new TodoListMessage(content));
+  }
+
+  addScreenshot(content: string): void {
+    this.add(new ScreenshotMessage(content));
   }
 
   addTool(content: string, toolCallId: string): void {
@@ -228,7 +246,7 @@ export class MessageManager {
   }
 
   // Remove messages by type
-  removeMessagesByType(type: MessageType): void {
+  removeMessagesByType(type: LLMMessageType): void {
     // Filter out messages of the specified type and update tokens
     const newEntries: MessageEntry[] = [];
     let removedTokens = 0;
@@ -246,7 +264,7 @@ export class MessageManager {
   }
 
   removeSystemMessages(): void {
-    this.removeMessagesByType(MessageType.SYSTEM);
+    this.removeMessagesByType(LLMMessageType.SYSTEM);
   }
 
   // Remove last message
@@ -266,18 +284,21 @@ export class MessageManager {
   }
 
   // Get message type (public for MessageManagerReadOnly access)
-  _getMessageType(message: BaseMessage): MessageType {
-    if (message.additional_kwargs?.messageType === MessageType.BROWSER_STATE) {
-      return MessageType.BROWSER_STATE;
+  _getMessageType(message: BaseMessage): LLMMessageType {
+    if (message.additional_kwargs?.messageType === LLMMessageType.BROWSER_STATE) {
+      return LLMMessageType.BROWSER_STATE;
     }
-    if (message.additional_kwargs?.messageType === MessageType.TODO_LIST) {
-      return MessageType.TODO_LIST;
+    if (message.additional_kwargs?.messageType === LLMMessageType.TODO_LIST) {
+      return LLMMessageType.TODO_LIST;
     }
-    if (message instanceof HumanMessage) return MessageType.HUMAN;
-    if (message instanceof AIMessage) return MessageType.AI;
-    if (message instanceof SystemMessage) return MessageType.SYSTEM;
-    if (message instanceof ToolMessage) return MessageType.TOOL;
-    return MessageType.AI;
+    if (message.additional_kwargs?.messageType === LLMMessageType.SCREENSHOT) {
+      return LLMMessageType.SCREENSHOT;
+    }
+    if (message instanceof HumanMessage) return LLMMessageType.HUMAN;
+    if (message instanceof AIMessage) return LLMMessageType.AI;
+    if (message instanceof SystemMessage) return LLMMessageType.SYSTEM;
+    if (message instanceof ToolMessage) return LLMMessageType.TOOL;
+    return LLMMessageType.AI;
   }
 
   // Calculate tokens for a single message
@@ -298,14 +319,15 @@ export class MessageManager {
   // Remove lowest priority message
   private _removeLowestPriority(): boolean {
     // Priority tiers (lower number = remove first)
-    // BROWSER_STATE < AI < TOOL < HUMAN < TODO_LIST < SYSTEM
-    const priorities: Record<MessageType, number> = {
-      [MessageType.AI]: 0,
-      [MessageType.TOOL]: 1,
-      [MessageType.HUMAN]: 2,
-      [MessageType.BROWSER_STATE]: 3,
-      [MessageType.TODO_LIST]: 4, // High priority - keep unless necessary
-      [MessageType.SYSTEM]: 5,
+    // AI < TOOL < HUMAN < BROWSER_STATE < SCREENSHOT < TODO_LIST < SYSTEM
+    const priorities: Record<LLMMessageType, number> = {
+      [LLMMessageType.AI]: 0,
+      [LLMMessageType.TOOL]: 1,
+      [LLMMessageType.HUMAN]: 2,
+      [LLMMessageType.BROWSER_STATE]: 3,
+      [LLMMessageType.SCREENSHOT]: 4, // High priority - keep screenshot context
+      [LLMMessageType.TODO_LIST]: 5, // High priority - keep unless necessary
+      [LLMMessageType.SYSTEM]: 6,
     };
 
     // Keep last 3 messages for context continuity

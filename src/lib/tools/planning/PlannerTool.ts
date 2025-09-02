@@ -1,7 +1,10 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
-import { MessageManagerReadOnly } from "@/lib/runtime/MessageManager";
+import {
+  MessageManagerReadOnly,
+  LLMMessageType,
+} from "@/lib/runtime/MessageManager";
 import {
   generatePlannerSystemPrompt,
   generatePlannerTaskPrompt,
@@ -9,7 +12,6 @@ import {
 import { toolError } from "@/lib/tools/Tool.interface";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { PLANNING_CONFIG } from "./PlannerTool.config";
-import { MessageType } from "@/lib/runtime/MessageManager";
 import { invokeWithRetry } from "@/lib/utils/retryable";
 import { PubSub } from "@/lib/pubsub";
 import { TokenCounter } from "@/lib/utils/TokenCounter";
@@ -56,8 +58,8 @@ export function createPlannerTool(
           executionContext.messageManager,
         );
         const message_history = read_only_message_manager.getFilteredAsString([
-          MessageType.SYSTEM,
-          MessageType.BROWSER_STATE,
+          LLMMessageType.SYSTEM,
+          LLMMessageType.BROWSER_STATE,
         ]);
 
         // Get browser state using BrowserContext's method

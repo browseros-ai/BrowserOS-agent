@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import {
   MessageManagerReadOnly,
-  MessageType,
+  LLMMessageType,
 } from "@/lib/runtime/MessageManager";
 import {
   generateValidatorSystemPrompt,
@@ -185,8 +185,8 @@ export function createValidatorTool(
           executionContext.messageManager,
         );
         const messageHistory = readOnlyMessageManager.getFilteredAsString([
-          MessageType.SYSTEM,
-          MessageType.BROWSER_STATE,
+          LLMMessageType.SYSTEM,
+          LLMMessageType.BROWSER_STATE,
         ]);
 
         let validationData: any;

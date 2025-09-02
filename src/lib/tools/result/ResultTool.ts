@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import {
   MessageManagerReadOnly,
-  MessageType,
+  LLMMessageType,
 } from "@/lib/runtime/MessageManager";
 import {
   generateResultSystemPrompt,
@@ -56,9 +56,9 @@ export function createResultTool(
           executionContext.messageManager,
         );
         const toolMessages = readOnlyMessageManager.getFiltered([
-          MessageType.SYSTEM,
-          MessageType.HUMAN,
-          MessageType.BROWSER_STATE,
+          LLMMessageType.SYSTEM,
+          LLMMessageType.HUMAN,
+          LLMMessageType.BROWSER_STATE,
         ]);
         const messageHistory = toolMessages.map((m) => m.content).join("\n");
 

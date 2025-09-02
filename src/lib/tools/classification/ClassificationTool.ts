@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import {
   MessageManagerReadOnly,
-  MessageType,
+  LLMMessageType,
 } from "@/lib/runtime/MessageManager";
 import { toolSuccess, toolError } from "@/lib/tools/Tool.interface";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
@@ -56,8 +56,8 @@ export class ClassificationTool {
         this.executionContext.messageManager,
       );
       const filteredMessages = reader.getFiltered([
-        MessageType.SYSTEM,
-        MessageType.BROWSER_STATE,
+        LLMMessageType.SYSTEM,
+        LLMMessageType.BROWSER_STATE,
       ]);
       const recentMessages = filteredMessages.slice(-MAX_RECENT_MESSAGES);
 

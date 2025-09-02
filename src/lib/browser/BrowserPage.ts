@@ -97,8 +97,8 @@ export class BrowserPage {
   private _nodeIdToNodeMap: Map<number, InteractiveNode> = new Map();
   // Cache timestamp for expiry
   private _cacheTimestamp: number = 0;
-  // Cache expiry duration in milliseconds (5 seconds)
-  private readonly _cacheExpiryMs = 5000;
+  // Cache expiry duration in milliseconds (1 seconds)
+  private readonly _cacheExpiryMs = 1000;
 
   constructor(tabId: number, url: string, title: string) {
     this._tabId = tabId;

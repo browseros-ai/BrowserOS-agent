@@ -9,7 +9,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { AbortError } from "@/lib/utils/Abortable";
 import {
   MessageManagerReadOnly,
-  MessageType,
+  LLMMessageType,
 } from "@/lib/runtime/MessageManager";
 import { config } from "@/config";
 
@@ -117,7 +117,7 @@ export class NarratorService {
     //   .getAll()
     //   .filter(m => {
     //     // Exclude browser state messages
-    //     if (m.additional_kwargs?.messageType === MessageType.BROWSER_STATE) return false
+    //     if (m.additional_kwargs?.messageType === LLMMessageType.BROWSER_STATE) return false
     //     const msgType = m._getType()
     //     return msgType === 'ai' || msgType === 'tool'
     //   })
