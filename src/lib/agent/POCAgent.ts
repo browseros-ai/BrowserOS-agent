@@ -1,7 +1,7 @@
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { ToolManager } from "@/lib/tools/ToolManager";
-import { ExecutionMetadata } from "@/lib/types/messaging";
+import { ExecutionMetadata, MessageType } from "@/lib/types/messaging";
 import {
   createDoneTool,
   createObserveTool,
@@ -35,6 +35,7 @@ import { createResultTool } from "@/lib/tools/result/ResultTool";
 import { createHumanInputTool } from "@/lib/tools/utils/HumanInputTool";
 import { createDateTool } from "@/lib/tools/utility/DateTool";
 import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
+import { LLMMessageType } from "@/lib/runtime/MessageManager";
 import {
   generateSystemPrompt,
   generateObserveDecidePrompt,
@@ -142,9 +143,8 @@ export class POCAgent {
           needsReplan = false;
         }
 
-        // Capture current state and decide on actions
-        const state = await this._captureState();
-        const decision = await this._observeDecide(state, currentPlan, task);
+        // Decide on actions (state capture happens inside _observeDecide)
+        const decision = await this._observeDecide(currentPlan, task);
         Logging.log(
           "POCAgent",
           `ObserveDecide result: ${JSON.stringify(decision)}`,
@@ -173,7 +173,7 @@ export class POCAgent {
 
             // Add validation feedback to message history for next iteration
             if (validationResult.suggestions.length > 0) {
-              const validationMessage = `Task not complete\nReasoning: ${validationResult.reasoning}\nSuggestions: ${validationResult.suggestions.join(", ")}`;
+              const validationMessage = `Task not complete still\nReasoning: ${validationResult.reasoning}\nSuggestions: ${validationResult.suggestions.join(", ")}`;
               this.messageManager.addHuman(validationMessage);
             }
 
@@ -225,7 +225,7 @@ export class POCAgent {
     // Control flow tools
     this.toolManager.register(createDoneTool(this.executionContext));
     this.toolManager.register(createObserveTool(this.executionContext));
-    this.toolManager.register(createContinueTool(this.executionContext));
+    // this.toolManager.register(createContinueTool(this.executionContext));
     this.toolManager.register(createReplanTool(this.executionContext));
 
     // Navigation tools
@@ -254,7 +254,8 @@ export class POCAgent {
     this.toolManager.register(createResultTool(this.executionContext));
 
     // MCP tool for external integrations
-    this.toolManager.register(createMCPTool(this.executionContext));
+    // TODO: enable MCP backs
+    // this.toolManager.register(createMCPTool(this.executionContext));
 
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
@@ -585,7 +586,6 @@ export class POCAgent {
   }
 
   private async _observeDecide(
-    state: CapturedState,
     plan: string | null,
     task: string,
   ): Promise<ObserveDecideResult> {
@@ -597,6 +597,7 @@ export class POCAgent {
     );
 
     let captureObservation = true;
+    let state: CapturedState;
 
     // ObserveDecide loop - keep executing until we need to exit or recapture state
     while (true && this.stepCounter < POCAgent.MAX_ITERATIONS) {
@@ -614,6 +615,26 @@ export class POCAgent {
         Logging.log("POCAgent", "capturing observation...", "info");
         state = await this._captureState();
         captureObservation = false;
+
+        // Create capture state string similar to the prompt format
+        const captureStateString = `## CURRENT BROWSER STATE
+- URL: ${state.currentUrl || "Unknown"}
+- Title: ${state.title || "Unknown"}
+- Tab ID: ${state.tabId || "Unknown"}
+- Timestamp: ${new Date(state.timestamp).toISOString()}
+
+### Available Page Elements
+${state.domState || "No DOM state available"}`;
+
+        // Add capture state as browser state message
+        this.messageManager.addBrowserState(captureStateString);
+
+        // add screenshot to message history
+        if (state.screenshot) {
+          this.messageManager.addScreenshot(state.screenshot);
+        }
+
+        // add instruction to message history
         instruction = generateObserveDecidePrompt(
           state,
           plan,
@@ -650,6 +671,7 @@ export class POCAgent {
         captureObservation = true;
         continue;
       }
+      captureObservation = true;
 
       // if (result.continueToolCalled) {
       //   Logging.log(

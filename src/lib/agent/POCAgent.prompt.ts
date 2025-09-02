@@ -86,16 +86,6 @@ export function generateObserveDecidePrompt(
   return `
   ## TASK EXECUTION CONTEXT
 
-  ### Current Browser State
-  - URL: ${state.currentUrl || "Unknown"}
-  - Title: ${state.title || "Unknown"}
-  - Tab ID: ${state.tabId || "Unknown"}
-  - Timestamp: ${new Date(state.timestamp).toISOString()}
-  - Progress: Step ${stepCounter + 1} of ${maxIterations}
-
-  ### Available Page Elements
-  ${state.domState || "No DOM state available"}
-
   ### Active Execution Plan
   ${plan || "No plan established yet"}
 
@@ -130,6 +120,7 @@ export function generateObserveDecidePrompt(
   ## ACTION SELECTION
 
   Based on the current state and plan, execute ALL logical next steps that can be performed without needing to observe intermediate results. Chain multiple tool calls together when they form a logical sequence.
+  You should already have the current page state in <BrowserState>  and screenshot in <Screenshot>.
 
   Remember: The more actions you complete in this turn, the faster the task completes.`;
 }
