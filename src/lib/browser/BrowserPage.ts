@@ -9,21 +9,15 @@ import {
   type SnapshotOptions,
   type ScreenshotSizeKey,
 } from "./BrowserOSAdapter";
-import { profileAsync, profileSync } from "../utils/profiler";
+import { profileAsync } from "@/lib/utils/Profiler";
+import {
+  ElementFormatter,
+  type ElementDisplayConfig,
+  PRESETS,
+} from "./ElementFormatter";
 
-// Attributes to include in the compact format
-// Comment out any attributes you want to exclude
-const INCLUDED_ATTRIBUTES = [
-  "type", // Input type (text, email, password, etc.)
-  "placeholder", // Placeholder text for inputs
-  "value", // Current value of inputs
-  // 'href',        // Link URLs (commented out for conciseness)
-  "aria-label", // Accessibility label
-  // 'role',        // ARIA role (commented out - already in tag)
-  // 'autocomplete', // Autocomplete hint
-  // 'checked-state', // Checkbox/radio state
-  // 'input-type',   // Duplicate of 'type'
-] as const;
+// Default formatter for backwards compatibility
+const DEFAULT_FORMATTER = new ElementFormatter("full");
 
 // Schema for interactive elements
 export const InteractiveElementSchema = z.object({
@@ -33,49 +27,6 @@ export const InteractiveElementSchema = z.object({
 });
 
 export type InteractiveElement = z.infer<typeof InteractiveElementSchema>;
-
-// Helper functions for compact format
-function getTypeSymbol(type: string): string {
-  switch (type) {
-    case "clickable":
-    case "selectable": // Treat selectable as clickable
-      return "C";
-    case "typeable":
-      return "T";
-    default:
-      return "O";
-  }
-}
-
-function truncateText(text: string, maxLength: number): string {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + "...";
-}
-
-function formatAttributes(node: InteractiveNode): string {
-  if (!node.attributes) return "";
-
-  const attrs: string[] = [];
-
-  for (const attrKey of INCLUDED_ATTRIBUTES) {
-    const value = node.attributes[attrKey];
-    if (value) {
-      attrs.push(`${attrKey}=${value}`);
-    }
-  }
-
-  return attrs.length > 0 ? `attr:"${attrs.join(" ")}"` : "";
-}
-
-function formatPath(path: string | undefined): string {
-  if (!path) return "";
-
-  // Extract last 3 meaningful parts of the path
-  const parts = path.split(" > ").filter((p) => p && p !== "root");
-  const lastParts = parts.slice(-3);
-
-  return lastParts.length > 0 ? `path:"${lastParts.join(">")}"` : "";
-}
 
 /**
  * BrowserPage - Simple browser page wrapper using Chrome BrowserOS APIs
@@ -147,11 +98,13 @@ export class BrowserPage {
    * Check if the cached snapshot is still valid
    */
   private _isCacheValid(): boolean {
-    return (
-      this._cachedSnapshot !== null &&
-      this._cacheTimestamp > 0 &&
-      Date.now() - this._cacheTimestamp < this._cacheExpiryMs
-    );
+    //TODO: nikhil remove cache validation later
+    return false;
+    // return (
+    //   this._cachedSnapshot !== null &&
+    //   this._cacheTimestamp > 0 &&
+    //   Date.now() - this._cacheTimestamp < this._cacheExpiryMs
+    // );
   }
 
   /**
@@ -203,138 +156,23 @@ export class BrowserPage {
   }
 
   /**
-   * Get all interactive elements as a formatted string
-   * This is what tools should use instead of parsing DOM
-   */
-  async getElementsAsString(): Promise<string> {
-    return profileAsync("BrowserPage.getElementsAsString", async () => {
-      const snapshot = await this._getSnapshot();
-      if (!snapshot) {
-        return "No interactive elements found";
-      }
-
-      const lines: string[] = [];
-
-      for (const node of snapshot.elements) {
-        if (node.type === "other") continue; // Skip non-interactive
-
-        const parts: string[] = [];
-
-        // Add indentation based on depth
-        const depth = parseInt(node.attributes?.depth || "0", 10);
-        const indent = "  ".repeat(depth); // 2 spaces per level
-
-        // [nodeId]
-        parts.push(`${indent}[${node.nodeId}]`);
-
-        // <T> - Type symbol
-        parts.push(`<${getTypeSymbol(node.type)}>`);
-
-        // <tag> - HTML tag or role
-        const tag =
-          node.attributes?.["html-tag"] || node.attributes?.role || "div";
-        parts.push(`<${tag}>`);
-
-        // "name" - Truncated to 40 chars
-        if (node.name) {
-          parts.push(`"${truncateText(node.name, 40)}"`);
-        }
-
-        // ctx:"context" - Truncated to 60 chars
-        if (node.attributes?.context) {
-          parts.push(`ctx:"${truncateText(node.attributes.context, 60)}"`);
-        }
-
-        // path:"...>..." - Last 3 parts
-        if (node.attributes?.path) {
-          parts.push(formatPath(node.attributes.path));
-        }
-
-        // attr:"key=value ..." - Only included attributes
-        const attrString = formatAttributes(node);
-        if (attrString) {
-          parts.push(attrString);
-        }
-
-        lines.push(parts.join(" "));
-      }
-
-      return lines.join("\n");
-    });
-  }
-
-  /**
    * Get clickable elements as a formatted string
    */
   async getClickableElementsString(
     simplified: boolean = false,
+    config?: ElementDisplayConfig,
   ): Promise<string> {
     const snapshot = await this._getSnapshot();
     if (!snapshot) {
       return "";
     }
 
-    const lines: string[] = [];
-
-    if (simplified) {
-      // SIMPLIFIED MODE: Only [nodeId] name
-      for (const node of snapshot.elements) {
-        if (node.type === "clickable" || node.type === "selectable") {
-          // Skip if no name or empty name
-          if (!node.name || node.name.trim() === "") continue;
-
-          // Simple format: [nodeId] name
-          lines.push(`[${node.nodeId}] ${node.name}`);
-        }
-      }
-    } else {
-      // FULL MODE: Current implementation
-      for (const node of snapshot.elements) {
-        if (node.type === "clickable" || node.type === "selectable") {
-          const parts: string[] = [];
-
-          // Add indentation based on depth
-          const depth = parseInt(node.attributes?.depth || "0", 10);
-          const indent = "  ".repeat(depth); // 2 spaces per level
-
-          // [nodeId]
-          parts.push(`${indent}[${node.nodeId}]`);
-
-          // <C> - Clickable type
-          parts.push("<C>");
-
-          // <tag>
-          const tag =
-            node.attributes?.["html-tag"] || node.attributes?.role || "div";
-          parts.push(`<${tag}>`);
-
-          // "name"
-          if (node.name) {
-            parts.push(`"${truncateText(node.name, 40)}"`);
-          }
-
-          // ctx:"context"
-          if (node.attributes?.context) {
-            parts.push(`ctx:"${truncateText(node.attributes.context, 60)}"`);
-          }
-
-          // path:"...>..."
-          if (node.attributes?.path) {
-            parts.push(formatPath(node.attributes.path));
-          }
-
-          // attr:"key=value ..."
-          const attrString = formatAttributes(node);
-          if (attrString) {
-            parts.push(attrString);
-          }
-
-          lines.push(parts.join(" "));
-        }
-      }
-    }
-
-    return lines.join("\n");
+    const presetName = simplified ? "simplified" : "full";
+    const formatter = new ElementFormatter(config || presetName);
+    return formatter.formatElements(
+      snapshot.elements,
+      (node) => node.type === "clickable" || node.type === "selectable",
+    );
   }
 
   /**
@@ -342,77 +180,19 @@ export class BrowserPage {
    */
   async getTypeableElementsString(
     simplified: boolean = false,
+    config?: ElementDisplayConfig,
   ): Promise<string> {
     const snapshot = await this._getSnapshot();
     if (!snapshot) {
       return "";
     }
 
-    const lines: string[] = [];
-
-    if (simplified) {
-      // SIMPLIFIED MODE: Only [nodeId] name/placeholder/type
-      for (const node of snapshot.elements) {
-        if (node.type === "typeable") {
-          // Use name, or placeholder, or type as fallback
-          const displayName =
-            node.name ||
-            node.attributes?.placeholder ||
-            node.attributes?.type ||
-            "input";
-
-          lines.push(`[${node.nodeId}] ${displayName}`);
-        }
-      }
-    } else {
-      // FULL MODE: Current implementation
-      for (const node of snapshot.elements) {
-        if (node.type === "typeable") {
-          const parts: string[] = [];
-
-          // Add indentation based on depth
-          const depth = parseInt(node.attributes?.depth || "0", 10);
-          const indent = "  ".repeat(depth); // 2 spaces per level
-
-          // [nodeId]
-          parts.push(`${indent}[${node.nodeId}]`);
-
-          // <T> - Typeable type
-          parts.push("<T>");
-
-          // <tag>
-          const tag =
-            node.attributes?.["html-tag"] || node.attributes?.role || "input";
-          parts.push(`<${tag}>`);
-
-          // "name" - Often empty for inputs, so include placeholder
-          const displayName = node.name || node.attributes?.placeholder || "";
-          if (displayName) {
-            parts.push(`"${truncateText(displayName, 40)}"`);
-          }
-
-          // ctx:"context"
-          if (node.attributes?.context) {
-            parts.push(`ctx:"${truncateText(node.attributes.context, 60)}"`);
-          }
-
-          // path:"...>..."
-          if (node.attributes?.path) {
-            parts.push(formatPath(node.attributes.path));
-          }
-
-          // attr:"key=value ..." - Includes type, placeholder, value
-          const attrString = formatAttributes(node);
-          if (attrString) {
-            parts.push(attrString);
-          }
-
-          lines.push(parts.join(" "));
-        }
-      }
-    }
-
-    return lines.join("\n");
+    const presetName = simplified ? "simplified" : "full";
+    const formatter = new ElementFormatter(config || presetName);
+    return formatter.formatElements(
+      snapshot.elements,
+      (node) => node.type === "typeable",
+    );
   }
 
   /**
@@ -773,6 +553,96 @@ export class BrowserPage {
       title: this._title,
       tabId: this._tabId,
     };
+  }
+
+  // ============= Experimental Configuration Methods =============
+
+  /**
+   * Get elements with custom configuration for experimentation
+   * @param config - Custom display configuration
+   */
+  async getElementsWithConfig(config: ElementDisplayConfig): Promise<string> {
+    const snapshot = await this._getSnapshot();
+    if (!snapshot) {
+      return "No interactive elements found";
+    }
+
+    const formatter = new ElementFormatter(config);
+    return formatter.formatElements(snapshot.elements);
+  }
+
+  /**
+   * Get elements as JSON format
+   * @param separateByViewport - Whether to separate by viewport visibility
+   */
+  async getElementsAsJSON(separateByViewport: boolean = true): Promise<string> {
+    const snapshot = await this._getSnapshot();
+    if (!snapshot) {
+      return JSON.stringify({ elements: [] });
+    }
+
+    const formatter = new ElementFormatter({
+      format: "json",
+      separateByViewport,
+    });
+    return formatter.formatElements(snapshot.elements);
+  }
+
+  /**
+   * Get elements with preset configuration
+   * @param preset - Preset name: "simplified", "full", "minimal", "debug", "json", "compact"
+   */
+  async getElementsWithPreset(preset: keyof typeof PRESETS): Promise<string> {
+    const snapshot = await this._getSnapshot();
+    if (!snapshot) {
+      return "No interactive elements found";
+    }
+
+    const formatter = new ElementFormatter(preset);
+    return formatter.formatElements(snapshot.elements);
+  }
+
+  /**
+   * Get only visible elements (in viewport)
+   * @param config - Optional display configuration
+   */
+  async getVisibleElements(config?: ElementDisplayConfig): Promise<string> {
+    const snapshot = await this._getSnapshot();
+    if (!snapshot) {
+      return "No interactive elements found";
+    }
+
+    const formatter = new ElementFormatter({
+      ...config,
+      separateByViewport: false, // Don't separate since we're filtering
+    });
+
+    return formatter.formatElements(
+      snapshot.elements,
+      (node) => node.attributes?.in_viewport !== "false",
+    );
+  }
+
+  /**
+   * Get elements sorted by a specific field
+   * @param sortBy - Field to sort by
+   * @param order - Sort order
+   */
+  async getElementsSorted(
+    sortBy: "nodeId" | "name" | "type" | "depth",
+    order: "asc" | "desc" = "asc",
+  ): Promise<string> {
+    const snapshot = await this._getSnapshot();
+    if (!snapshot) {
+      return "No interactive elements found";
+    }
+
+    const formatter = new ElementFormatter({
+      sortBy,
+      sortOrder: order,
+    });
+
+    return formatter.formatElements(snapshot.elements);
   }
 }
 

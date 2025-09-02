@@ -45,6 +45,7 @@ declare namespace chrome.browserOS {
     name?: string;
     rect?: Rect;
     attributes?: {
+      in_viewport?: string;  // "true" if visible in viewport, "false" if not visible
       [key: string]: any;
     };
   }
