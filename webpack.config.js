@@ -29,7 +29,14 @@ const processEnv = {
   'process.env.LITELLM_API_KEY': JSON.stringify(envKeys.LITELLM_API_KEY),
   'process.env.POSTHOG_API_KEY': JSON.stringify(envKeys.POSTHOG_API_KEY || ''),
   'process.env.KLAVIS_API_KEY': JSON.stringify(envKeys.KLAVIS_API_KEY || ''),
-  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  // Braintrust Telemetry Configuration
+  'process.env.ENABLE_TELEMETRY': JSON.stringify(envKeys.ENABLE_TELEMETRY || 'false'),
+  'process.env.BRAINTRUST_API_KEY': JSON.stringify(envKeys.BRAINTRUST_API_KEY || ''),
+  'process.env.BRAINTRUST_PROJECT_UUID': JSON.stringify(envKeys.BRAINTRUST_PROJECT_UUID || ''),
+  // OpenAI Configuration for Scoring
+  'process.env.OPENAI_API_KEY_FOR_SCORING': JSON.stringify(envKeys.OPENAI_API_KEY_FOR_SCORING || ''),
+  'process.env.OPENAI_MODEL_FOR_SCORING': JSON.stringify(envKeys.OPENAI_MODEL_FOR_SCORING || 'gpt-4o')
 }
 
 console.log('API keys will be injected at build time (keys hidden for security)')
