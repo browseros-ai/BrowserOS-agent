@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Agent",
-  "version": "49.0.0.26",
+  "version": "49.1.0.26",
   "description": "Agent",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs1zULZz5eE0U8SEjr/R++dlx6WKFj7GbpnBiE1n17gaylMWDlw6uuBJNjcRrSGwOt53Z3PKf2T3g5DtNES8q6rQc11P/y8J8GKhKuqGrtRJyk5iXzcKJk4CHz6leFSMt8CsZY0r0b7wCZ5QuhomTHGQpNWNS0c13xfVqWt4dncfIRj7fMzfTkicq7Mqqx+JcdprLkiVfETvdkMwwEWmSNwQ6nCDzLtTbyyMiGUEBSJs+WlP1fO7LIX0sHesFVxfPhCZ2K4F1biwenbRL+YYD60ogpVppop2ee/W3D211IN1zYxgnhycFv3m8TrzG+MD/IZgcu13u0bHRn3V7IGW1iwIDAQAB",
   "permissions": [
