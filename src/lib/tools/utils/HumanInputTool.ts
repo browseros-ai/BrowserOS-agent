@@ -18,6 +18,7 @@ export function createHumanInputTool(executionContext: ExecutionContext): Dynami
   return new DynamicStructuredTool({
     name: 'human_input_tool',
     description: `Request human intervention when stuck or need manual action.
+
 Use this when:
 - You need the human to manually complete a step (enter credentials, solve CAPTCHA, etc.)
 - You're blocked and need the human to take over temporarily

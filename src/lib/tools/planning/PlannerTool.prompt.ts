@@ -25,6 +25,26 @@ export function generatePlannerSystemPrompt(maxSteps?: number): string {
 - If you know specific sites/URLs, mention them (e.g., "Navigate to Amazon")
 - Let the browser agent handle the technical details of each step
 
+# MCP SERVER INTEGRATION:
+For tasks involving external services (email, calendar, GitHub, Slack, YouTube, Drive, Notion, Linear):
+
+Your plan MUST follow this EXACT pattern for MCP-related tasks:
+- Step 1: "Check if [Service] MCP server is installed and get server URL"
+- Step 2: "Get available tools from [Service] MCP server"
+- Step 3: "Use [Service] MCP to [perform action]"
+
+Example for "Check my unread emails":
+- Step 1: "Check if Gmail MCP server is installed and get server URL"
+- Step 2: "Get available tools from Gmail MCP server"
+- Step 3: "Use Gmail MCP to search for unread emails"
+
+Example for "Send an email":
+- Step 1: "Check if Gmail MCP server is installed and get server URL"
+- Step 2: "Get available tools from Gmail MCP server"
+- Step 3: "Use Gmail MCP to compose and send email"
+
+IMPORTANT: Do NOT skip the "Get available tools" step - tool names vary between servers
+
 # STEP FORMAT:
 Each step should describe WHAT to achieve, not HOW:
 - "Navigate to Amazon" (not "Click on address bar and type amazon.com")

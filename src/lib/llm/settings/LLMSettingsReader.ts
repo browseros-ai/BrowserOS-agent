@@ -251,7 +251,7 @@ export class LLMSettingsReader {
       openai: {
         id: 'mock_openai',
         name: 'Mock OpenAI',
-        type: 'openai_compatible',
+        type: 'openai',
         isDefault: true,
         isBuiltIn: false,
         baseUrl: 'https://api.openai.com/v1',

@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { z } from 'zod'
+import { MessageType } from '@/lib/types/messaging'
+import { PortMessaging } from '@/lib/runtime/PortMessaging'
 
-// Message schema - simplified for direct PubSub mapping
+// Message schema for chat store with Zod validation
 export const MessageSchema = z.object({
   msgId: z.string(),  // Primary ID for both React keys and PubSub correlation
-  role: z.enum(['user', 'thinking', 'assistant', 'error', 'narration']), 
+  role: z.enum(['user', 'thinking', 'assistant', 'error', 'narration', 'plan_editor']), 
   content: z.string(),  // Message content
   timestamp: z.date(),  // When message was created
   metadata: z.object({
@@ -23,11 +25,11 @@ const ChatStateSchema = z.object({
 
 type ChatState = z.infer<typeof ChatStateSchema>
 
-// PubSub message type for upsert
+// External message format for upsert operations
 export interface PubSubMessage {
   msgId: string
   content: string
-  role: 'thinking' | 'user' | 'assistant' | 'error' | 'narration'
+  role: 'thinking' | 'user' | 'assistant' | 'error' | 'narration' | 'plan_editor'
   ts: number
 }
 
@@ -35,6 +37,8 @@ export interface PubSubMessage {
 interface ChatActions {
   // Message operations - now with upsert
   upsertMessage: (pubsubMessage: PubSubMessage) => void
+  addMessage: (message: Omit<Message, 'timestamp'>) => void
+  updateMessage: (msgId: string, updates: Partial<Message>) => void
   clearMessages: () => void
   
   // Processing state
@@ -43,15 +47,21 @@ interface ChatActions {
   // Error handling
   setError: (error: string | null) => void
   
+  // Plan editing
+  publishPlanEditResponse: (response: { planId: string; action: 'execute' | 'cancel'; steps?: any[] }) => void
+  executedPlans: Record<string, boolean>
+  setPlanExecuted: (planId: string) => void
+  
   // Reset everything
   reset: () => void
 }
 
 // Initial state
-const initialState: ChatState = {
+const initialState: ChatState & { executedPlans: Record<string, boolean> } = {
   messages: [],
   isProcessing: false,
-  error: null
+  error: null,
+  executedPlans: {}
 }
 
 // Create the store
@@ -89,12 +99,41 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
       }
     })
   },
+
+  addMessage: (message) => {
+    set((state) => ({
+      messages: [...state.messages, { ...message, timestamp: new Date() }]
+    }))
+  },
+
+  updateMessage: (msgId, updates) => {
+    set((state) => ({
+      messages: state.messages.map(msg => 
+        msg.msgId === msgId ? { ...msg, ...updates } : msg
+      )
+    }))
+  },
   
   clearMessages: () => set({ messages: [] }),
   
   setProcessing: (processing) => set({ isProcessing: processing }),
   
   setError: (error) => set({ error }),
+  
+  // Send plan edit response to background script
+  publishPlanEditResponse: (response) => {
+    const messaging = PortMessaging.getInstance()
+    const success = messaging.sendMessage(MessageType.PLAN_EDIT_RESPONSE, response)
+    if (!success) {
+      console.error('Failed to send plan edit response - port not connected')
+    }
+  },
+
+  setPlanExecuted: (planId) => {
+    set((state) => ({
+      executedPlans: { ...state.executedPlans, [planId]: true }
+    }))
+  },
   
   reset: () => set(initialState)
 }))

@@ -21,12 +21,12 @@ import { Logging } from '@/lib/utils/Logging'
 // Default constants
 const DEFAULT_TEMPERATURE = 0.7
 const DEFAULT_STREAMING = true
-const DEFAULT_MAX_TOKENS = 128000
+const DEFAULT_MAX_TOKENS = 4096
 const DEFAULT_OPENAI_MODEL = "gpt-4o"
 const DEFAULT_ANTHROPIC_MODEL = 'claude-4-sonnet'
 const DEFAULT_OLLAMA_MODEL = "qwen3:4b"
 const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-const DEFAULT_NXTSCAPE_PROXY_URL = "http://llm.nxtscape.ai"
+const DEFAULT_NXTSCAPE_PROXY_URL = "https://llm.browseros.com/default/"
 const DEFAULT_NXTSCAPE_MODEL = "default-llm"
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
@@ -71,6 +71,16 @@ export class LangChainProvider {
     const llm = this._createLLMFromProvider(provider, options)
     llmCache.set(cacheKey, llm)
     
+    // Log metrics about the LLM configuration
+    const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
+    await Logging.logMetric('llm.created', {
+      provider: provider.name,
+      provider_type: provider.type,
+      model_name: provider.modelId || this._getDefaultModelForProvider(provider.type),
+      max_tokens: maxTokens,
+      temperature: options?.temperature ?? provider.modelConfig?.temperature ?? DEFAULT_TEMPERATURE,
+    })
+    
     return llm
   }
   
@@ -89,6 +99,7 @@ export class LangChainProvider {
         // BrowserOS/Nxtscape uses gemini 2.5 flash by default
         return { maxTokens: 1_000_000 }
         
+      case 'openai':
       case 'openai_compatible':
       case 'openrouter':
         const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
@@ -137,6 +148,30 @@ export class LangChainProvider {
     this.currentProvider = null
   }
   
+  private _isReasoningModel(modelId: string): boolean {
+    const reasoningModels = ['o1', 'o3', 'o4', 'gpt-5', 'gpt-6']
+    return reasoningModels.some(model => modelId.toLowerCase().includes(model))
+  }
+  
+  private _getDefaultModelForProvider(type: string): string {
+    switch (type) {
+      case 'browseros':
+        return DEFAULT_NXTSCAPE_MODEL
+      case 'openai':
+      case 'openai_compatible':
+      case 'openrouter':
+      case 'custom':
+        return DEFAULT_OPENAI_MODEL
+      case 'anthropic':
+        return DEFAULT_ANTHROPIC_MODEL
+      case 'google_gemini':
+        return DEFAULT_GEMINI_MODEL
+      case 'ollama':
+        return DEFAULT_OLLAMA_MODEL
+      default:
+        return 'unknown'
+    }
+  }
   
   /**
    * Patches token counting methods on any chat model for ultra-fast approximation.
@@ -198,6 +233,33 @@ export class LangChainProvider {
     return model
   }
   
+  /**
+   * Calculate appropriate maxTokens based on user request, context window, and defaults
+   * @param provider - The LLM provider configuration
+   * @param requestedMaxTokens - User-requested max tokens (optional)
+   * @returns Calculated max tokens for the response
+   */
+  private _calculateMaxTokens(
+    provider: BrowserOSProvider,
+    requestedMaxTokens?: number
+  ): number {
+    const contextWindow = provider.modelConfig?.contextWindow
+    
+    if (requestedMaxTokens) {
+      // User explicitly requested a limit - respect it but cap at context window
+      return contextWindow 
+        ? Math.min(requestedMaxTokens, contextWindow)
+        : requestedMaxTokens
+    } else if (contextWindow) {
+      // No explicit request - use reasonable default capped by 50% of context window
+      // This leaves room for input and conversation history
+      return Math.min(DEFAULT_MAX_TOKENS, Math.floor(contextWindow * 0.5))
+    } else {
+      // No context window info - use conservative default
+      return DEFAULT_MAX_TOKENS
+    }
+  }
+  
   private _createLLMFromProvider(
     provider: BrowserOSProvider,
     options?: { temperature?: number; maxTokens?: number }
@@ -207,9 +269,7 @@ export class LangChainProvider {
                        provider.modelConfig?.temperature ?? 
                        DEFAULT_TEMPERATURE
     
-    const maxTokens = options?.maxTokens ?? 
-                     (provider.modelConfig?.contextWindow ? 
-                       provider.modelConfig.contextWindow : DEFAULT_MAX_TOKENS)
+    const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
     
     const streaming = DEFAULT_STREAMING
     
@@ -218,6 +278,7 @@ export class LangChainProvider {
       case 'browseros':
         return this._createBrowserOSLLM(temperature, maxTokens, streaming)
       
+      case 'openai':
       case 'openai_compatible':
       case 'openrouter':
       case 'custom':
@@ -251,10 +312,10 @@ export class LangChainProvider {
       temperature,
       maxTokens,
       streaming,
-      openAIApiKey: process.env.LITELLM_API_KEY || 'nokey',
+      openAIApiKey: 'nokey',
       configuration: {
         baseURL: DEFAULT_NXTSCAPE_PROXY_URL,
-        apiKey: process.env.LITELLM_API_KEY || 'nokey',
+        apiKey: 'nokey',
         dangerouslyAllowBrowser: true
       }
     })
@@ -262,7 +323,7 @@ export class LangChainProvider {
     return this._patchTokenCounting(model)
   }
   
-  // OpenAI-compatible providers (OpenAI, OpenRouter, Custom)
+  // OpenAI-compatible providers (OpenAI, OpenAI-compatible, OpenRouter, Custom)
   private _createOpenAICompatibleLLM(
     provider: BrowserOSProvider,
     temperature: number,
@@ -275,10 +336,11 @@ export class LangChainProvider {
         'warning')
     }
     
-    const model = new ChatOpenAI({
-      modelName: provider.modelId || DEFAULT_OPENAI_MODEL,
-      temperature,
-      maxTokens,
+    const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
+    const isReasoningModel = this._isReasoningModel(modelId)
+    
+    const config: any = {
+      modelName: modelId,
       streaming,
       openAIApiKey: provider.apiKey || 'nokey',
       configuration: {
@@ -286,8 +348,23 @@ export class LangChainProvider {
         apiKey: provider.apiKey || 'nokey',
         dangerouslyAllowBrowser: true
       }
-    })
+    }
     
+    if (isReasoningModel) {
+      config.temperature = 1
+      if (maxTokens) {
+        config.modelKwargs = {
+          max_completion_tokens: maxTokens
+        }
+      }
+    } else {
+      config.temperature = temperature
+      if (maxTokens) {
+        config.maxTokens = maxTokens
+      }
+    }
+    
+    const model = new ChatOpenAI(config)
     return this._patchTokenCounting(model)
   }
   

@@ -199,7 +199,7 @@ export class KlavisAPIManager {
   async isServerReady(serverName: string): Promise<{
     installed: boolean
     authenticated: boolean
-    serverUrl?: string
+    instanceId?: string
   }> {
     const servers = await this.getInstalledServers()
     const server = servers.find(s => 
@@ -213,7 +213,7 @@ export class KlavisAPIManager {
     return {
       installed: true,
       authenticated: server.isAuthenticated,
-      serverUrl: server.serverUrl
+      instanceId: server.id
     }
   }
 }

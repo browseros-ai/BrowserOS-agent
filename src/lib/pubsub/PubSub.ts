@@ -1,4 +1,4 @@
-import { Message, PubSubEvent, SubscriptionCallback, Subscription, ExecutionStatus, HumanInputRequest, HumanInputResponse } from './types'
+import { Message, PubSubEvent, SubscriptionCallback, Subscription, ExecutionStatus, HumanInputRequest, HumanInputResponse, PlanEditRequest, PlanEditResponse } from './types'
 
 /**
  * Core pub-sub implementation for message passing
@@ -56,6 +56,23 @@ export class PubSub {
   publishHumanInputResponse(response: HumanInputResponse): void {
     const event: PubSubEvent = {
       type: 'human-input-response',
+      payload: response
+    }
+    this._publish(event)
+  }
+
+  // Publish plan edit request (called from agent)
+  publishPlanEditRequest(request: PlanEditRequest): void {
+    const event: PubSubEvent = {
+      type: 'plan-edit-request',
+      payload: request
+    }
+    this._publish(event)
+  }
+
+  publishPlanEditResponse(response: PlanEditResponse): void {
+    const event: PubSubEvent = {
+      type: 'plan-edit-response',
       payload: response
     }
     this._publish(event)

@@ -36,10 +36,10 @@ export class ExecutionContext {
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
   private _currentTask: string | null = null  // Current user task being executed
+  private _chatMode: boolean = false  // Whether ChatAgent mode is enabled
   private _taskNumber: number = 0  // Track number of user tasks in this session
   private _humanInputRequestId: string | undefined  // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
-  private _chatMode: boolean = false  // Whether chat mode is enabled
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime with proper type checking
