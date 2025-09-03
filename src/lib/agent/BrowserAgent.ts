@@ -274,49 +274,44 @@ export class BrowserAgent {
   }
 
   private _registerTools(): void {
-    // Register tools without wrapping - wrapping happens dynamically at execution time
-    // This ensures tools can be wrapped with the correct parent span when available
-    const registerTool = (tool: DynamicStructuredTool) => {
-      this.toolManager.register(tool);
-    };
-
-    // Register all tools (telemetry wrapping happens in _processToolCalls)
-    registerTool(createPlannerTool(this.executionContext));
-    registerTool(createTodoManagerTool(this.executionContext));
-    registerTool(createDoneTool(this.executionContext));
+    // Register all tools first
+    this.toolManager.register(createPlannerTool(this.executionContext));
+    this.toolManager.register(createTodoManagerTool(this.executionContext));
+    this.toolManager.register(createRequirePlanningTool(this.executionContext));
+    this.toolManager.register(createDoneTool(this.executionContext));
     
     // Navigation tools
-    registerTool(createNavigationTool(this.executionContext));
+    this.toolManager.register(createNavigationTool(this.executionContext));
     // Note: FindElementTool is no longer registered - InteractionTool now handles finding and interacting
-    registerTool(createInteractionTool(this.executionContext));
-    registerTool(createScrollTool(this.executionContext));
-    registerTool(createSearchTool(this.executionContext));
-    registerTool(createRefreshStateTool(this.executionContext));
-
+    this.toolManager.register(createInteractionTool(this.executionContext));
+    this.toolManager.register(createScrollTool(this.executionContext));
+    this.toolManager.register(createSearchTool(this.executionContext));
+    this.toolManager.register(createRefreshStateTool(this.executionContext));
+    
     // Tab tools
-    registerTool(createTabOperationsTool(this.executionContext));
-    registerTool(createGroupTabsTool(this.executionContext));
-    registerTool(createGetSelectedTabsTool(this.executionContext));
+    this.toolManager.register(createTabOperationsTool(this.executionContext));
+    this.toolManager.register(createGroupTabsTool(this.executionContext));
+    this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
     
     // Validation tool
-    registerTool(createValidatorTool(this.executionContext));
+    this.toolManager.register(createValidatorTool(this.executionContext));
 
     // util tools
-    registerTool(createScreenshotTool(this.executionContext));
+    this.toolManager.register(createScreenshotTool(this.executionContext));
     this.toolManager.register(createStorageTool(this.executionContext));
-    registerTool(createExtractTool(this.executionContext));
+    this.toolManager.register(createExtractTool(this.executionContext));
     this.toolManager.register(createHumanInputTool(this.executionContext));
     this.toolManager.register(createDateTool(this.executionContext));
     
     // Result tool
-    registerTool(createResultTool(this.executionContext));
+    this.toolManager.register(createResultTool(this.executionContext));
     
     // MCP tool for external integrations
     this.toolManager.register(createMCPTool(this.executionContext));
     
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
-    registerTool(createClassificationTool(this.executionContext, toolDescriptions));
+    this.toolManager.register(createClassificationTool(this.executionContext, toolDescriptions));
   }
 
   private async _classifyTask(task: string): Promise<ClassificationResult> {
