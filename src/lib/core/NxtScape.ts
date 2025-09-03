@@ -1,20 +1,26 @@
 import { z } from "zod";
+import { PubSub } from "@/lib/pubsub";
 import { Logging } from "@/lib/utils/Logging";
 import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { profileStart, profileEnd, profileAsync } from "@/lib/utils/profiler";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
-import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
-import { PubSub } from "@/lib/pubsub/PubSub";
+
+// Import telemetry module - only used if enabled
+import { BraintrustEventCollector } from "@/evals/BraintrustEventCollector";
+// Import LLMJudge statically to avoid dynamic import issues in service worker
+import { LLMJudge } from "@/evals/scoring/LLMJudge";
 import { ExecutionMetadata } from "@/lib/types/messaging";
+import { BRAINTRUST_API_KEY } from "@/config";
 
 /**
  * Configuration schema for NxtScape agent
  */
 export const NxtScapeConfigSchema = z.object({
   debug: z.boolean().default(false).optional(), // Debug mode flag
+  experimentId: z.string().optional(), // Optional experiment ID for logging to experiments
 });
 
 /**
@@ -28,12 +34,25 @@ export type NxtScapeConfig = z.infer<typeof NxtScapeConfigSchema>;
  */
 export const RunOptionsSchema = z.object({
   query: z.string(), // Natural language user query
-  mode: z.enum(['chat', 'browse']), // Execution mode: 'chat' for Q&A, 'browse' for automation
+  mode: z.enum(['chat', 'browse']).optional(), // Execution mode
   tabIds: z.array(z.number()).optional(), // Optional array of tab IDs for context (e.g., which tabs to summarize) - NOT for agent operation
   metadata: z.any().optional(), // Execution metadata for controlling execution mode
 });
 
 export type RunOptions = z.infer<typeof RunOptionsSchema>;
+
+/**
+ * Result schema for NxtScape execution
+ */
+export const NxtScapeResultSchema = z.object({
+  success: z.boolean(), // Whether the operation succeeded
+  error: z.string().optional(), // Error message if failed
+});
+
+/**
+ * Result type for NxtScape execution
+ */
+export type NxtScapeResult = z.infer<typeof NxtScapeResultSchema>;
 
 /**
  * Main orchestration class for the NxtScape framework.
@@ -45,7 +64,18 @@ export class NxtScape {
   private executionContext!: ExecutionContext; // Will be initialized in initialize()
   private messageManager!: MessageManager; // Will be initialized in initialize()
   private browserAgent: BrowserAgent | null = null; // The browser agent for task execution
-  private chatAgent: ChatAgent | null = null; // The chat agent for Q&A mode
+
+  private currentQuery: string | null = null; // Track current query for better cancellation messages
+  
+  // Telemetry session management for conversation tracking
+  private telemetrySessionId: string | null = null;
+  private telemetryParentSpan: string | null = null;
+  private telemetry: BraintrustEventCollector | null = null; // Direct use of BraintrustEventCollector
+  private conversationStartTime: number = 0;
+  private taskCount: number = 0; // Track number of tasks in conversation
+  private taskStartTime: number = 0; // Track individual task timing
+  private sessionWeightedTotals: number[] = []; // Track all weighted_total scores for session average
+  private experimentId: string | null = null; // Optional experiment ID for dual logging
 
   /**
    * Creates a new NxtScape orchestration agent
@@ -54,6 +84,9 @@ export class NxtScape {
   constructor(config: NxtScapeConfig) {
     // Validate config with Zod schema
     this.config = NxtScapeConfigSchema.parse(config);
+
+    // Store experiment ID if provided for dual logging
+    this.experimentId = this.config.experimentId || null;
 
     // Create new browser context with vision configuration
     this.browserContext = new BrowserContext({
@@ -97,7 +130,10 @@ export class NxtScape {
         
         // Initialize the browser agent with execution context
         this.browserAgent = new BrowserAgent(this.executionContext);
-        this.chatAgent = new ChatAgent(this.executionContext);
+        
+        // Note: Telemetry session initialization is deferred until first task execution
+        // This prevents creating empty sessions when extension is just opened/closed
+
         Logging.log(
           "NxtScape",
           "NxtScape initialization completed successfully",
@@ -113,6 +149,7 @@ export class NxtScape {
 
         // Clean up partial initialization
         this.browserContext = null as any;
+        this.browserAgent = null;
 
         throw new Error(`NxtScape initialization failed: ${errorMessage}`);
       }
@@ -124,7 +161,15 @@ export class NxtScape {
    * @returns True if initialized, false otherwise
    */
   public isInitialized(): boolean {
-    return this.browserContext !== null && !!this.browserAgent && !!this.chatAgent;
+    return this.browserContext !== null && this.browserAgent !== null;
+  }
+
+  /**
+   * Set chat mode (for backward compatibility)
+   * @param enabled - Whether chat mode is enabled
+   */
+  public setChatMode(enabled: boolean): void {
+    this.executionContext.setChatMode(enabled);
   }
 
   /**
@@ -141,57 +186,52 @@ export class NxtScape {
   }> {
     // Ensure initialization
     if (!this.isInitialized()) {
-      await this.initialize();
-    }
-
-    // Refresh token limit in case provider settings changed
-    const modelCapabilities = await langChainProvider.getModelCapabilities();
-    if (modelCapabilities.maxTokens !== this.messageManager.getMaxTokens()) {
-      Logging.log("NxtScape", 
-        `Updating MessageManager token limit from ${this.messageManager.getMaxTokens()} to ${modelCapabilities.maxTokens}`);
-      this.messageManager.setMaxTokens(modelCapabilities.maxTokens);
+        await this.initialize();
     }
 
     const parsedOptions = RunOptionsSchema.parse(options);
-    const { query, tabIds, mode, metadata } = parsedOptions;
+    const { query, tabIds, mode = 'browse', metadata } = parsedOptions;
+
     const startTime = Date.now();
 
     Logging.log(
       "NxtScape",
-      `Processing user query in ${mode} mode: ${query}${
+      `Processing user query with unified classification: ${query}${
         tabIds ? ` (${tabIds.length} tabs)` : ""
       }`,
     );
 
-    // Validate browser context
     if (!this.browserContext) {
       throw new Error("NxtScape.initialize() must be awaited before run()");
     }
 
-    // Clean up any running task (after initialization ensures executionContext exists)
     if (this.isRunning()) {
-      Logging.log("NxtScape", "Another task is already running. Cleaning up...");
+      Logging.log(
+        "NxtScape",
+        "Another task is already running. Cleaning up...",
+      );
       this._internalCancel();
     }
 
-    // Reset abort controller if needed (executionContext guaranteed to exist after init)
-    if (this.executionContext && this.executionContext.abortController.signal.aborted) {
+    // Reset abort controller if it's aborted (from pause or previous execution)
+    if (this.executionContext.abortController.signal.aborted) {
       this.executionContext.resetAbortController();
     }
 
-    // Get current page and lock execution
+    // Always get the current page from browser context - this is the tab the agent will operate on
     profileStart("NxtScape.getCurrentPage");
     const currentPage = await this.browserContext.getCurrentPage();
     const currentTabId = currentPage.tabId;
     profileEnd("NxtScape.getCurrentPage");
 
-    // Lock browser context to current tab
+    // Lock browser context to the current tab to prevent tab switches during execution
     this.browserContext.lockExecutionToTab(currentTabId);
 
-    // Start execution context
+    // Mark execution as started
     this.executionContext.startExecution(currentTabId);
 
-    // Set selected tab IDs for context
+    // Set selected tab IDs for context (e.g., for summarizing multiple tabs)
+    // These are NOT the tabs the agent operates on, just context for tools like ExtractTool
     this.executionContext.setSelectedTabIds(tabIds || [currentTabId]);
 
     // Publish running status
@@ -204,35 +244,86 @@ export class NxtScape {
    * Executes the appropriate agent based on mode
    * @private
    */
-  private async _executeAgent(query: string, mode: 'chat' | 'browse', metadata?: any): Promise<void> {
+  private async _executeAgent(query: string, mode: 'chat' | 'browse', metadata?: any, tabIds?: number[]): Promise<void> {
+    // Chat mode is not currently implemented, always use browse mode
     if (mode === 'chat') {
-      if (!this.chatAgent) {
-        throw new Error('Chat agent not initialized');
+      throw new Error('Chat mode is not currently implemented');
+    }
+    this.currentQuery = query;
+    
+    // Initialize telemetry session on first task if not already initialized
+    // This ensures we only create sessions when there's actual work
+    if (!this.telemetrySessionId) {
+      await this._initializeTelemetrySession();
+    }
+    
+    // Track task start with telemetry
+    if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
+      try {
+        // Log this task as a child of the conversation
+        this.taskCount++;
+        this.taskStartTime = Date.now();
+        
+        // Log task start event
+        await this.telemetry.logEvent({
+          type: 'decision_point',
+          name: `task_${this.taskCount}_start`,
+          data: {
+            task: query,
+            taskNumber: this.taskCount,
+            selectedTabIds: tabIds || [],
+            conversationSessionId: this.telemetrySessionId,
+            phase: 'task_start'
+          }
+        }, {
+          parent: this.telemetryParentSpan,
+          name: `task_${this.taskCount}_start`
+        });
+        
+        console.log(`%c→ Task ${this.taskCount}: "${query.substring(0, 40)}..."`, 'color: #00ff00; font-size: 10px');
+      } catch (error) {
+        console.warn('Failed to create task span:', error);
       }
-      await this.chatAgent.execute(query);
-    } else {
-      if (!this.browserAgent) {
-        throw new Error('Browser agent not initialized');
-      }
-      await this.browserAgent.execute(query, metadata as ExecutionMetadata | undefined);
+    }
+    
+    // Pass telemetry to execution context for BrowserAgent
+    this.executionContext.telemetry = this.telemetry;
+    this.executionContext.parentSpanId = this.telemetryParentSpan;
+    
+    // Ensure execution context is set in telemetry for enrichment
+    if (this.telemetry && this.executionContext) {
+      this.telemetry.setExecutionContext(this.executionContext);
     }
 
-    Logging.log("NxtScape", "Agent execution completed");
-  }
+    try {
+      // Check that browser agent is initialized
+      if (!this.browserAgent) {
+        throw new Error("BrowserAgent not initialized");
+      }
 
-  /**
-   * Handles execution errors and publishes appropriate status
-   * @private
-   */
-  private _handleExecutionError(error: unknown): void {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const wasCancelled = error instanceof Error && error.name === "AbortError";
+      // Execute the browser agent with the task
+      await this.browserAgent.execute(query, metadata as ExecutionMetadata | undefined);
+      
+      // Log task completion with telemetry and holistic scoring
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
+        const taskDuration = Date.now() - this.taskStartTime;
+        
+        // Finalize task with scoring and telemetry
+        await this._finalizeTask("success", query, "Task completed successfully");
+      }
+      
+      // BrowserAgent handles all logging and result management internally
+      Logging.log("NxtScape", "Agent execution completed");
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const wasCancelled = error instanceof Error && error.name === "AbortError";
 
-    if (wasCancelled) {
-      Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
-      PubSub.getInstance().publishExecutionStatus('cancelled', errorMessage);
-    } else {
-      Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
+      if (wasCancelled) {
+        Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
+      } else {
+        Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
+      }
       
       // Publish error status
       PubSub.getInstance().publishExecutionStatus('error', errorMessage);
@@ -289,14 +380,30 @@ export class NxtScape {
       executionContext = await this._prepareExecution(options);
       
       // Phase 2: Execute agent
-      await this._executeAgent(executionContext.query, executionContext.mode, executionContext.metadata);
+      await this._executeAgent(executionContext.query, executionContext.mode, executionContext.metadata, executionContext.tabIds);
       
       // Success: Publish done status
       PubSub.getInstance().publishExecutionStatus('done');
       
     } catch (error) {
       // Phase 3: Handle errors
-      this._handleExecutionError(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const wasCancelled = error instanceof Error && error.name === "AbortError";
+      
+      if (wasCancelled) {
+        Logging.log("NxtScape", `Execution cancelled: ${errorMessage}`);
+      } else {
+        Logging.log("NxtScape", `Execution error: ${errorMessage}`, "error");
+      }
+      
+      // Publish error status
+      PubSub.getInstance().publishExecutionStatus('error', errorMessage);
+      
+      // Log task error with telemetry and holistic scoring
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan && !wasCancelled && executionContext) {
+        // Finalize task with scoring and telemetry - pass the full error object
+        await this._finalizeTask("error", executionContext.query, "Task failed", error);
+      }
     } finally {
       // Phase 4: Always cleanup
       if (executionContext) {
@@ -308,19 +415,33 @@ export class NxtScape {
 
 
   public isRunning(): boolean {
-    return this.executionContext && this.executionContext.isExecuting();
+    return this.executionContext.isExecuting();
   }
 
   /**
    * Cancel the currently running task
+   * @returns Object with cancellation info including the query that was cancelled
    */
-  public cancel(): void {
-    if (this.executionContext) {
-      Logging.log("NxtScape", "User cancelling current task execution");
-      this.executionContext.cancelExecution( true);
+  public async cancel(): Promise<{ wasCancelled: boolean; query?: string }> {
+    if (this.executionContext && !this.executionContext.abortController.signal.aborted) {
+      const cancelledQuery = this.currentQuery;
+      Logging.log(
+        "NxtScape",
+        `User cancelling current task execution: "${cancelledQuery}"`,
+      );
       
-      // Publish cancelled status with message
-      PubSub.getInstance().publishExecutionStatus('cancelled', 'Task cancelled by user');
+      // Log task paused event with telemetry and holistic scoring
+      if (this.telemetry?.isEnabled() && this.telemetryParentSpan && this.taskCount > 0) {
+        const taskDuration = Date.now() - this.taskStartTime;
+        
+        // Finalize task with scoring and telemetry
+        await this._finalizeTask("paused", cancelledQuery || "", "Task paused by user");
+      }
+      
+      this.executionContext.cancelExecution(
+        /*isUserInitiatedsCancellation=*/ true,
+      );
+      
       // Emit a friendly pause message so UI shows clear state
       PubSub.getInstance().publishMessage(
         PubSub.createMessageWithId(
@@ -329,7 +450,11 @@ export class NxtScape {
           'assistant'
         )
       );
+      
+      return { wasCancelled: true, query: cancelledQuery || undefined };
     }
+
+    return { wasCancelled: false };
   }
 
   /**
@@ -339,30 +464,14 @@ export class NxtScape {
    * @private
    */
   private _internalCancel(): void {
-    if (this.executionContext) {
-      Logging.log("NxtScape", "Internal cleanup: cancelling previous execution");
+    if (this.executionContext && !this.executionContext.abortController.signal.aborted) {
+      Logging.log(
+        "NxtScape",
+        "Internal cleanup: cancelling previous execution",
+      );
       // false = not user-initiated, this is internal cleanup
       this.executionContext.cancelExecution(false);
     }
-  }
-
-  /**
-   * Enable or disable chat mode (Q&A mode)
-   * @param enabled - Whether to enable chat mode
-   */
-  public setChatMode(enabled: boolean): void {
-    if (this.executionContext) {
-      this.executionContext.setChatMode(enabled);
-      Logging.log("NxtScape", `Chat mode ${enabled ? 'enabled' : 'disabled'}`);
-    }
-  }
-
-  /**
-   * Check if chat mode is enabled
-   * @returns Whether chat mode is enabled
-   */
-  public isChatMode(): boolean {
-    return this.executionContext ? this.executionContext.isChatMode() : false;
   }
 
   /**
@@ -372,10 +481,12 @@ export class NxtScape {
   public getExecutionStatus(): {
     isRunning: boolean;
     lockedTabId: number | null;
+    query: string | null;
   } {
     return {
       isRunning: this.isRunning(),
       lockedTabId: this.executionContext.getLockedTabId(),
+      query: this.currentQuery,
     };
   }
 
@@ -383,43 +494,326 @@ export class NxtScape {
    * Clear conversation history (useful for reset functionality)
    */
   public reset(): void {
-    // 1. Stop current task if running
+    // stop the current task if it is running
     if (this.isRunning()) {
-      // Use internal cancel to avoid publishing status
-      this._internalCancel();
+      this.cancel();
     }
-    
-    // 2. Clean up existing agents (call cleanup to unsubscribe)
-    if (this.browserAgent) {
-      this.browserAgent.cleanup();
-      this.browserAgent = null;
-    }
-    if (this.chatAgent) {
-      this.chatAgent.cleanup();
-      this.chatAgent = null;
-    }
-    
-    // 3. Clear PubSub buffer only (NOT subscribers - UI needs to stay subscribed!)
-    PubSub.getInstance().clearBuffer();
 
-    // 4. Clear message history
+    // Clear current query to ensure clean state
+    this.currentQuery = null;
+
+    // End current telemetry session if one exists
+    if (this.telemetrySessionId) {
+      this._endTelemetrySession('user_reset');
+    }
+    this.taskCount = 0; // Reset task counter for new conversation
+    // Note: New session will be created on next task execution
+
+    // Recreate MessageManager to clear history
     this.messageManager.clear();
 
-    // 5. Reset execution context and abort controller
+    // reset the execution context
     this.executionContext.reset();
-    // Ensure abort controller is reset for next run
-    if (this.executionContext.abortController.signal.aborted) {
-      this.executionContext.resetAbortController();
-    }
-    
-    // 6. Recreate agents with fresh state (they will subscribe themselves)
-    this.browserAgent = new BrowserAgent(this.executionContext);
-    this.chatAgent = new ChatAgent(this.executionContext);
+
+    // forces initalize of nextscape again
+    // this would pick-up new mew message mangaer context length, etc
+    this.browserAgent = null;
 
     Logging.log(
       "NxtScape",
       "Conversation history and state cleared completely",
     );
+  }
+  
+  /**
+   * Initialize telemetry session for conversation tracking
+   * This creates a parent session that spans multiple tasks
+   */
+  private async _initializeTelemetrySession(): Promise<void> {
+    try {
+      // Get telemetry instance (singleton)
+      this.telemetry = BraintrustEventCollector.getInstance();
+      
+      // Check if telemetry is enabled (this now does lazy initialization)
+      if (!this.telemetry.isEnabled()) {
+        // Silent when disabled - no logs
+        this.telemetry = null;
+        return;
+      }
+      this.conversationStartTime = Date.now();
+      this.telemetrySessionId = crypto.randomUUID();
+      
+      // Reset session scores for new conversation
+      this.sessionWeightedTotals = [];
+      
+      // Start conversation-level session with actual user query
+      const { parent } = await this.telemetry.startSession({
+        sessionId: this.telemetrySessionId,
+        task: this.currentQuery || 'No query provided',  // Use actual user query as task
+        timestamp: this.conversationStartTime,
+        browserInfo: {
+          version: typeof chrome !== 'undefined' ? chrome.runtime.getManifest().version : 'unknown',
+          tabCount: 0  // Will be updated with actual tab count later
+        }
+      });
+      
+      this.telemetryParentSpan = parent || null;
+      
+      // Set execution context for event enrichment
+      if (this.executionContext) {
+        this.telemetry.setExecutionContext(this.executionContext);
+      }
+      
+      // Telemetry session started
+      if (this.telemetryParentSpan) {
+        console.log('%c✓ Telemetry session initialized (first task)', 'color: #00ff00; font-size: 10px');
+        console.log(`%c  Session ID: ${this.telemetrySessionId}`, 'color: #888; font-size: 10px');
+      }
+      
+    } catch (error) {
+      // Telemetry initialization failed silently
+    }
+  }
+  
+  /**
+   * End the current telemetry session
+   * @param reason - Why the session is ending (reset, close, timeout, etc.)
+   */
+  private async _endTelemetrySession(reason: string = 'unknown'): Promise<void> {
+    if (!this.telemetry?.isEnabled() || !this.telemetrySessionId || !this.telemetryParentSpan) {
+      return;
+    }
+    
+    try {
+      const duration = Date.now() - this.conversationStartTime;
+      
+      // Calculate average weighted_total for session success score
+      const avgSuccess = this.sessionWeightedTotals.length > 0
+        ? this.sessionWeightedTotals.reduce((sum, score) => sum + score, 0) / this.sessionWeightedTotals.length
+        : 1.0  // Default to 1.0 if no scores available
+      
+      console.log(`%c📈 Session average success: ${avgSuccess.toFixed(2)} from ${this.sessionWeightedTotals.length} tasks`, 'color: #4caf50; font-weight: bold; font-size: 11px')
+      
+      await this.telemetry.endSession(this.telemetryParentSpan, this.telemetrySessionId, {
+        success: true,
+        summary: `Conversation ended: ${reason}`,
+        duration_ms: duration,
+        userScore: avgSuccess  // Pass average as userScore for now
+      });
+      
+      console.log(`%c← Telemetry session ended (${reason})`, 'color: #888; font-size: 10px');
+      
+      // Clear telemetry state
+      this.telemetrySessionId = null;
+      this.telemetryParentSpan = null;
+      this.sessionWeightedTotals = [];  // Reset scores for next session
+    } catch (error) {
+      console.warn('Failed to end telemetry session:', error);
+    }
+  }
+  
+  /**
+   * Finalize task with scoring and telemetry (deduplicates code)
+   * Used by success, error, and paused paths
+   */
+  private async _finalizeTask(
+    outcome: 'success' | 'error' | 'paused',
+    query: string,
+    message: string,
+    error?: any  // Can be Error object or string
+  ): Promise<void> {
+    if (!this.telemetry?.isEnabled()) return
+    
+    const taskDuration = Date.now() - this.taskStartTime
+    const taskPhase = outcome === 'error' ? 'task_error' : outcome === 'paused' ? 'task_paused' : 'task_complete'
+    
+    // Score the task completion with LLM judge using full ExecutionContext
+    let multiDimensionalScores: Record<string, number> | undefined
+    let scoringDetails: any = undefined
+    
+    try {
+      const judge = new LLMJudge()
+      
+      // Use the new method that accepts ExecutionContext directly
+      if (this.executionContext) {
+        const result = await judge.scoreTaskCompletionWithContext(
+          query,
+          this.executionContext,
+          {
+            outcome: outcome,
+            duration_ms: taskDuration
+          }
+        )
+        
+        // Handle multi-dimensional scores
+        if (result.scores && Object.keys(result.scores).length > 0) {
+          multiDimensionalScores = result.scores
+          scoringDetails = result.scoringDetails
+        } else if (result.score >= 0) {
+          // Fallback to single score if multi-dimensional not available
+          multiDimensionalScores = {
+            task_completion: result.score,
+            weighted_total: result.score
+          }
+          scoringDetails = result.scoringDetails
+        } else {
+          console.log('%c→ No holistic score (API key missing or error)', 'color: #888; font-size: 10px')
+        }
+      }
+    } catch (error) {
+      console.error('Holistic scoring failed:', error)
+    }
+    
+    // Build scores object with all dimensions
+    const scores: Record<string, number> = {}
+    
+    // Add all multi-dimensional scores first (including weighted_total for this task)
+    if (multiDimensionalScores) {
+      Object.assign(scores, multiDimensionalScores)
+      
+      // Track weighted_total for session average calculation
+      if (multiDimensionalScores.weighted_total !== undefined && multiDimensionalScores.weighted_total >= 0) {
+        this.sessionWeightedTotals.push(multiDimensionalScores.weighted_total)
+        console.log(`%c📊 Session scores so far: [${this.sessionWeightedTotals.map(s => s.toFixed(2)).join(', ')}]`, 'color: #9c27b0; font-size: 10px')
+      }
+    }
+    
+    // Add binary completion status as a separate metric
+    scores.task_completed = outcome === 'success' ? 1.0 : 0.0
+    
+    // Don't set 'success' here - it will be calculated at session end as avg of all weighted_totals
+    
+    // Debug log to see what scores are being sent to Braintrust
+    console.log('%c📤 Scores being sent to Braintrust:', 'color: #4caf50; font-weight: bold; font-size: 11px')
+    console.log(JSON.stringify(scores, null, 2))
+    
+    // Determine event type and name based on outcome
+    const eventType = outcome === 'error' ? 'error' : 'decision_point'
+    const eventName = `task_${this.taskCount}_${outcome}`
+    const phase = outcome === 'error' ? 'task_error' :
+                 outcome === 'paused' ? 'task_paused' :
+                 'task_complete'
+    
+    // Build event data with proper error structure for Braintrust
+    const eventData: any = {
+      task: query,
+      taskNumber: this.taskCount,
+      duration_ms: taskDuration,
+      success: outcome === 'success',
+      phase,
+      ...(outcome === 'paused' && { reason: 'User clicked pause button' })
+    }
+    
+    // Build the event object
+    const event: any = {
+      type: eventType,
+      name: eventName,
+      data: eventData,
+      scores,
+      ...(scoringDetails && { scoring_details: scoringDetails })
+    }
+    
+    // Add structured error for Braintrust if this is an error outcome
+    if (outcome === 'error' && error) {
+      let errorName = 'TaskExecutionError'
+      let errorMessage: string
+      let errorStack: string | undefined
+      
+      // Handle Error objects vs string errors
+      if (error instanceof Error) {
+        errorName = error.name || 'Error'
+        errorMessage = error.message
+        errorStack = error.stack
+      } else {
+        // String error - try to parse it
+        errorMessage = String(error)
+        
+        // Check if it's an LLM error (e.g., BadRequestError)
+        if (errorMessage.includes('BadRequestError') || errorMessage.includes('Exception')) {
+          errorName = 'LLMError'
+          // Extract the actual error message
+          const match = errorMessage.match(/(\w+Error): (.+?)(?:No fallback|$)/s)
+          if (match) {
+            errorName = match[1]
+            errorMessage = match[2].trim()
+          }
+        }
+      }
+      
+      // Add structured error for Braintrust's error tracking
+      event.error = {
+        name: errorName,
+        message: errorMessage,
+        stack: errorStack
+      }
+      
+      // Also keep the original error in data for backward compatibility
+      eventData.error = error instanceof Error ? error.message : error
+    }
+    
+    // Log telemetry event
+    await this.telemetry.logEvent(event, {
+      parent: this.telemetryParentSpan || undefined,
+      name: eventName
+    })
+    
+    // Also log to experiment if we're in experiment mode (dual logging)
+    if (this.experimentId && BRAINTRUST_API_KEY) {
+      try {
+        // Format event data for experiment (v2 format from ExperimentRunner)
+        const experimentEvent = {
+          id: `v2_${Date.now()}_${this.taskCount}`,
+          input: query,
+          output: message || (outcome === 'success' ? 'Task completed successfully' : 
+                             outcome === 'error' ? `Error: ${error}` : 
+                             'Task paused'),
+          // Use the same scores that were just logged to telemetry
+          scores: scores,
+          tags: ['new'],
+          metadata: {
+            type: 'new',
+            timestamp: new Date().toISOString(),
+            duration_ms: taskDuration,
+            tool_calls: this.executionContext?.messageManager?.getMessages()?.filter(m => m._getType() === 'tool').length || 0,
+            failed_tool_calls: 0, // Would need to track this separately
+            scoringDetails: scoringDetails,
+            phase: phase,
+            outcome: outcome
+          }
+        }
+        
+        // Send to Braintrust experiment via API
+        const response = await fetch('https://api.braintrust.dev/v1/insert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${BRAINTRUST_API_KEY}`
+          },
+          body: JSON.stringify({
+            experiment: {
+              [this.experimentId]: {
+                events: [experimentEvent]
+              }
+            }
+          })
+        })
+        
+        if (!response.ok) {
+          console.warn(`Failed to log to experiment: ${response.status}`)
+        } else {
+          console.log(`%c→ Also logged to experiment ${this.experimentId}`, 'color: #9c27b0; font-size: 10px')
+        }
+      } catch (error) {
+        // Don't let experiment logging failures break the flow
+        console.warn('Failed to log to experiment:', error)
+      }
+    }
+    
+    // Log status to console
+    const statusIcon = outcome === 'success' ? '✓' : outcome === 'error' ? '✗' : '⏸'
+    const statusColor = outcome === 'success' ? '#00ff00' : outcome === 'error' ? '#ff0000' : '#ffaa00'
+    const statusMsg = outcome === 'error' ? `failed: ${error}` : outcome
+    console.log(`%c${statusIcon} Task ${this.taskCount} ${statusMsg} (${taskDuration}ms)`, `color: ${statusColor}; font-size: 10px`)
   }
 
 }

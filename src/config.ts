@@ -46,4 +46,27 @@ export function isMockLLMSettings(): boolean {
   return config.MOCK_LLM_SETTINGS
 }
 
+export function isPocMode(): boolean {
+  return false;
+}
+
+/**
+ * Evaluation configuration for development/debugging
+ * 
+ * To enable telemetry:
+ * 1. Set ENABLE_TELEMETRY = true in your .env file
+ * 2. Add your Braintrust API key to BRAINTRUST_API_KEY in your .env file
+ * 3. Add your OpenAI API key to OPENAI_API_KEY_FOR_SCORING in your .env file (for LLM-as-judge scoring)
+ * 4. Optionally change OPENAI_MODEL_FOR_SCORING in your .env file (defaults to gpt-4o)
+ * 5. Rebuild
+ * 
+ * 6. To experiment, you will need BRAINTRUST_PROJECT_UUID from your Braintrust dashboard in your .env file
+ * 
+ */
+export const ENABLE_TELEMETRY = process.env.ENABLE_TELEMETRY === 'true';
+export const BRAINTRUST_API_KEY = process.env.BRAINTRUST_API_KEY || '';
+export const OPENAI_API_KEY_FOR_SCORING = process.env.OPENAI_API_KEY_FOR_SCORING || '';
+export const OPENAI_MODEL_FOR_SCORING = process.env.OPENAI_MODEL_FOR_SCORING || 'gpt-4o';
+export const BRAINTRUST_PROJECT_UUID = process.env.BRAINTRUST_PROJECT_UUID || '';
+
 export default config 

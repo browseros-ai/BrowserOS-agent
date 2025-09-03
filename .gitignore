@@ -1,7 +1,6 @@
 # Dependencies
 node_modules/
 bak/
-screenshots/
 **/__test_output__/
 
 # docs

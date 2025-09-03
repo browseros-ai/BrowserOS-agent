@@ -5,7 +5,8 @@ import { MessageType } from '@/lib/types/messaging'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
-import { Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star } from 'lucide-react'
+import { ExperimentModal } from './ExperimentModal'
+import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus,  Trash2, Star } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
 import { z } from 'zod'
@@ -226,7 +227,15 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             <span className="hidden sm:inline text-xs font-medium">Star</span>
           </Button>
 
-          {/* MCP Integrations dropdown - Second position */}
+          {/* Experiment Modal - renders its own button */}
+          <ExperimentModal
+            trackClick={trackClick}
+            sendMessage={sendMessage}
+            addMessageListener={addMessageListener}
+            removeMessageListener={removeMessageListener}
+            isProcessing={isProcessing}
+          />
+
           {MCP_FEATURE_ENABLED && (
             <div className="relative mcp-dropdown-container">
               <Button
