@@ -90,13 +90,8 @@ export class KlavisAPIClient {
       }
     )
     
-    // Add serverUrl to each instance for easier access
-    const instances = data.instances || []
-    return instances.map(instance => ({
-      ...instance,
-      // Construct serverUrl from instance ID if not provided
-      serverUrl: `https://mcp-${instance.name.toLowerCase()}.klavis.ai/${instance.id}`
-    }))
+    // Return instances directly without constructing serverUrl
+    return data.instances || []
   }
 
   /**
@@ -124,7 +119,10 @@ export class KlavisAPIClient {
    * List available tools for an MCP server
    * POST /mcp-server/list-tools
    */
-  async listTools(serverUrl: string): Promise<any[]> {
+  async listTools(instanceId: string, serverSubdomain: string): Promise<any[]> {
+    // Construct serverUrl from instanceId and serverSubdomain
+    const serverUrl = `https://${serverSubdomain}-mcp-server.klavis.ai/mcp/?instance_id=${instanceId}`
+    
     const data = await this.request<{
       success: boolean
       tools?: any[]
@@ -134,7 +132,7 @@ export class KlavisAPIClient {
       '/mcp-server/list-tools',
       {
         serverUrl,
-        format: 'mcp_native',  // Use native format for flexibility
+        format: 'openai',  // Use native format for flexibility
         connectionType: 'StreamableHttp'
       }
     )
@@ -151,10 +149,14 @@ export class KlavisAPIClient {
    * POST /mcp-server/call-tool
    */
   async callTool(
-    serverUrl: string,
+    instanceId: string,
+    serverSubdomain: string,
     toolName: string,
     toolArgs: any
   ): Promise<ToolCallResult> {
+    // Construct serverUrl from instanceId and serverSubdomain
+    const serverUrl = `https://${serverSubdomain}-mcp-server.klavis.ai/mcp/?instance_id=${instanceId}`
+    
     try {
       const response = await this.request<ToolCallResult>(
         'POST',
@@ -163,6 +165,7 @@ export class KlavisAPIClient {
           serverUrl,
           toolName,
           toolArgs: toolArgs || {},
+          format: 'openai',
           connectionType: 'StreamableHttp'
         }
       )

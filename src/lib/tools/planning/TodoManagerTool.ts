@@ -26,6 +26,7 @@ Keep todos single-level without nesting.`,
     schema: TodoInputSchema,
     func: async (args: TodoInput): Promise<string> => {
       try {
+        const resultMessage = 'Success'
         switch (args.action) {
           case 'set':
             const markdownTodos = args.todos || ''

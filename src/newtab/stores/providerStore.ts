@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { MessageType } from '@/lib/types/messaging'
 import { PortName } from '@/lib/runtime/PortMessaging'
 import { Agent } from '../stores/agentsStore'
+import { Logging } from '@/lib/utils/Logging'
 
 // Provider schema
 export const ProviderSchema = z.object({
@@ -95,7 +96,7 @@ interface ProviderActions {
   removeCustomProvider: (id: string) => void
   getAllProviders: () => Provider[]
   executeProviderAction: (provider: Provider, query: string) => Promise<void>
-  executeAgent: (agent: Agent, query: string) => Promise<void>
+  executeAgent: (agent: Agent, query: string, isBuilder?: boolean) => Promise<void>
 }
 
 export const useProviderStore = create<ProviderState & ProviderActions>()(
@@ -155,6 +156,11 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
       },
       
       executeProviderAction: async (provider, query) => {
+        Logging.logMetric('newtab.execute_provider', {
+          providerName: provider.name,
+          actionType: provider.actionType
+        })
+        
         // URL-based providers (both custom and built-in)
         if (provider.actionType === 'url' && provider.urlPattern) {
           const url = provider.urlPattern.replace('%s', encodeURIComponent(query))
@@ -208,7 +214,11 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
         }
       },
       
-      executeAgent: async (agent, query) => {
+      executeAgent: async (agent, query, isBuilder) => {
+        Logging.logMetric('newtab.execute_agent', {
+          agentName: agent.name
+        })
+        
         try {
           // Get current tab
           const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -217,6 +227,11 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
             console.error('No active tab found')
             return
           }
+          
+          // Prepend "Create new tab" if running from builder
+          const finalSteps = isBuilder 
+            ? ['Create new tab', ...agent.steps]
+            : agent.steps
           
           // Open the sidepanel for the current tab
           await chrome.sidePanel.open({ tabId: activeTab.id })
@@ -238,7 +253,7 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
                 executionMode: 'predefined',
                 predefinedPlan: {
                   agentId: agent.id,
-                  steps: agent.steps,
+                  steps: finalSteps,
                   goal: agent.goal,
                   name: agent.name
                 }

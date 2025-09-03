@@ -290,7 +290,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     if (!connectionOk) return 'Disconnected'
     if (!providerOk) return 'Provider error'
     if (isProcessing) return 'Task running…'
-    return chatMode ? 'Ask about this page... (/ to pick an agent)' : 'Ask me anything... (/ to pick an agent)'
+    return chatMode ? 'Ask about this page...' : 'Ask me anything... (/ to pick an agent)'
   }
   
   const getHintText = () => {

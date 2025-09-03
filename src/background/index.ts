@@ -515,6 +515,14 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
         }
         break
         
+      case MessageType.PLAN_EDIT_RESPONSE:
+        // Forward plan edit response to the execution context
+        if (nxtScape) {
+          const pubsub = PubSub.getInstance()
+          pubsub.publishPlanEditResponse(payload as any)
+        }
+        break
+        
       case MessageType.RESET_CONVERSATION:
         handleResetConversationPort(payload as ResetConversationMessage['payload'], port, id)
         break
@@ -553,6 +561,14 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
         handleMCPInstallServerPort(payload as { serverId: string }, port, id)
         break
 
+      case MessageType.MCP_GET_INSTALLED_SERVERS:
+        handleMCPGetInstalledServersPort(port, id)
+        break
+      
+      case MessageType.MCP_DELETE_SERVER:
+        handleMCPDeleteServerPort(payload as { instanceId: string }, port, id)
+        break
+
       // Plan generation and refinement from New Tab
       case MessageType.GENERATE_PLAN:
         handleGeneratePlanPort(payload as { input: string; context?: string; maxSteps?: number }, port, id)
@@ -569,6 +585,7 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
       case MessageType.FETCH_AVAILABLE_TAGS:
         fetchAvailableTags(port, id)
         break
+
         
       default:
         // Unknown port message type
@@ -1065,6 +1082,14 @@ async function handleMCPInstallServerPort(
       id
     })
     
+    // Log metric for successful MCP server connection
+    Logging.logMetric('mcp_server_connected', {
+      server_name: serverConfig.name,
+      server_id: serverId,
+      instance_id: result.instanceId,
+      authenticated: result.authSuccess !== false
+    })
+    
     debugLog(`MCP server installed successfully: ${serverId} (${result.instanceId}), authenticated: ${result.authSuccess !== false}`)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Installation failed'
@@ -1081,6 +1106,119 @@ async function handleMCPInstallServerPort(
     })
     
     debugLog(`MCP server installation failed: ${serverId} - ${errorMessage}`, 'error')
+  }
+}
+
+/**
+ * Handles getting installed MCP servers
+ * @param port - Port to send response through
+ * @param id - Optional message ID for correlation
+ */
+async function handleMCPGetInstalledServersPort(
+  port: chrome.runtime.Port,
+  id?: string
+): Promise<void> {
+  debugLog('Getting installed MCP servers')
+  
+  try {
+    const manager = KlavisAPIManager.getInstance()
+    const installedServers = await manager.getInstalledServers()
+    
+    // Map server data with config icons
+    const serversWithConfig = installedServers.map(server => {
+      const config = MCP_SERVERS.find(s => s.name === server.name)
+      return {
+        id: server.id,
+        name: server.name,
+        description: server.description,
+        authenticated: server.isAuthenticated,
+        authNeeded: server.authNeeded,
+        iconPath: config?.iconPath || null,
+        toolCount: server.tools?.length || 0
+      }
+    })
+    
+    port.postMessage({
+      type: MessageType.WORKFLOW_STATUS,
+      payload: {
+        status: 'success',
+        data: {
+          servers: serversWithConfig
+        }
+      },
+      id
+    })
+    
+    debugLog(`Found ${serversWithConfig.length} installed MCP servers`)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to get installed servers'
+    
+    port.postMessage({
+      type: MessageType.WORKFLOW_STATUS,
+      payload: {
+        status: 'error',
+        error: errorMessage
+      },
+      id
+    })
+    
+    debugLog(`Error getting installed MCP servers: ${errorMessage}`, 'error')
+  }
+}
+
+/**
+ * Handles deleting an MCP server
+ * @param payload - Contains instanceId of server to delete
+ * @param port - Port to send response through
+ * @param id - Optional message ID for correlation
+ */
+async function handleMCPDeleteServerPort(
+  payload: { instanceId: string },
+  port: chrome.runtime.Port,
+  id?: string
+): Promise<void> {
+  const { instanceId } = payload
+  
+  debugLog(`MCP server deletion requested: ${instanceId}`)
+  
+  try {
+    const manager = KlavisAPIManager.getInstance()
+    const success = await manager.deleteServer(instanceId)
+    
+    if (success) {
+      port.postMessage({
+        type: MessageType.MCP_SERVER_STATUS,
+        payload: {
+          status: 'deleted',
+          instanceId,
+          message: 'Server deleted successfully'
+        },
+        id
+      })
+      
+      // Log metric for MCP server disconnection
+      Logging.logMetric('mcp_server_disconnected', {
+        instance_id: instanceId
+      })
+      
+      debugLog(`MCP server deleted successfully: ${instanceId}`)
+    } else {
+      throw new Error('Failed to delete server')
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Deletion failed'
+    
+    port.postMessage({
+      type: MessageType.MCP_SERVER_STATUS,
+      payload: {
+        status: 'error',
+        instanceId,
+        error: errorMessage
+      },
+      id
+    })
+    
+    debugLog(`MCP server deletion failed: ${instanceId} - ${errorMessage}`, 'error')
   }
 }
 

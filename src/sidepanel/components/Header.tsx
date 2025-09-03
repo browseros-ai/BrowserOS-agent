@@ -6,7 +6,7 @@ import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
 import { ExperimentModal } from './ExperimentModal'
-import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus } from 'lucide-react'
+import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus,  Trash2, Star } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
 import { z } from 'zod'
@@ -16,7 +16,7 @@ import { MCP_SERVERS, type MCPServerConfig } from '@/config/mcpServers'
 const GITHUB_REPO_URL: string = 'https://github.com/browseros-ai/BrowserOS'
 
 // Feature flag to enable/disable MCP connector dropdown
-const MCP_FEATURE_ENABLED = false
+const MCP_FEATURE_ENABLED = true
 
 interface HeaderProps {
   onReset: () => void
@@ -38,6 +38,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   const [providersConfig, setProvidersConfig] = useState<BrowserOSProvidersConfig | null>(null)
   const [providersError, setProvidersError] = useState<string | null>(null)
   const [mcpInstallStatus, setMcpInstallStatus] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
+  const [installedServers, setInstalledServers] = useState<any[]>([])
   const { theme } = useSettingsStore()
   
   
@@ -65,9 +66,9 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
     setShowSettings(true)
   }
 
-  const handleHelpClick = () => {
-    trackClick('open_help')
-    setShowHelp(true)
+  const handleStarClick = () => {
+    trackClick('github_star')
+    window.open(GITHUB_REPO_URL, '_blank', 'noopener,noreferrer')
   }
 
   const handleMCPInstall = (serverId: string) => {
@@ -76,9 +77,23 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
     sendMessage(MessageType.MCP_INSTALL_SERVER, { serverId })
   }
 
-  // Close dropdown when clicking outside
+  const handleMCPDelete = (instanceId: string, serverName: string) => {
+    trackClick(`mcp_delete_${serverName}`)
+    if (confirm(`Are you sure you want to remove ${serverName}?`)) {
+      sendMessage(MessageType.MCP_DELETE_SERVER, { instanceId })
+    }
+  }
+
+  const fetchInstalledServers = () => {
+    sendMessage(MessageType.MCP_GET_INSTALLED_SERVERS, {})
+  }
+
+  // Close dropdown when clicking outside and fetch servers when opening
   useEffect(() => {
     if (!showMCPDropdown) return
+    
+    // Fetch installed servers when dropdown opens
+    fetchInstalledServers()
     
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement
@@ -94,12 +109,19 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   // Load providers config for default provider dropdown
   useEffect(() => {
     const handler = (payload: any) => {
-      if (payload && payload.status === 'success' && payload.data && payload.data.providersConfig) {
-        try {
-          const cfg = BrowserOSProvidersConfigSchema.parse(payload.data.providersConfig)
-          setProvidersConfig(cfg)
-        } catch (err) {
-          setProvidersError(err instanceof Error ? err.message : String(err))
+      if (payload && payload.status === 'success' && payload.data) {
+        // Handle providers config
+        if (payload.data.providersConfig) {
+          try {
+            const cfg = BrowserOSProvidersConfigSchema.parse(payload.data.providersConfig)
+            setProvidersConfig(cfg)
+          } catch (err) {
+            setProvidersError(err instanceof Error ? err.message : String(err))
+          }
+        }
+        // Handle installed servers response
+        if (payload.data.servers) {
+          setInstalledServers(payload.data.servers)
         }
       }
     }
@@ -109,7 +131,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
     return () => removeMessageListener<any>(MessageType.WORKFLOW_STATUS, handler)
   }, [])
 
-  // Listen for MCP server installation status
+  // Listen for MCP server installation/deletion status
   useEffect(() => {
     const handler = (payload: any) => {
       if (payload.status === 'success') {
@@ -119,6 +141,15 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           message: `${serverName} connected successfully!`,
           type: 'success'
         })
+        // Refresh installed servers list after successful installation
+        fetchInstalledServers()
+      } else if (payload.status === 'deleted') {
+        setMcpInstallStatus({
+          message: 'Server removed successfully',
+          type: 'success'
+        })
+        // Refresh installed servers list after successful deletion
+        fetchInstalledServers()
       } else if (payload.status === 'auth_failed') {
         setMcpInstallStatus({
           message: payload.error || 'Authentication failed. Please try again.',
@@ -126,7 +157,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         })
       } else if (payload.status === 'error') {
         setMcpInstallStatus({
-          message: payload.error || 'Installation failed. Please try again.',
+          message: payload.error || 'Operation failed. Please try again.',
           type: 'error'
         })
       }
@@ -182,27 +213,18 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         
 
 
-        <nav className="flex items-center gap-3" role="navigation" aria-label="Chat controls">
-          {/* Help button */}
+        <nav className="flex items-center gap-2 sm:gap-3" role="navigation" aria-label="Chat controls">
+          {/* GitHub Star button - First position */}
           <Button
-            onClick={handleHelpClick}
+            onClick={handleStarClick}
             variant="ghost"
             size="sm"
-            className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
-            aria-label="Open help"
+            className="h-9 px-2 sm:px-3 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20 hover:text-yellow-600 dark:hover:text-yellow-400 transition-all duration-300 flex items-center gap-1.5 group"
+            aria-label="Star on GitHub"
+            title="Star us on GitHub"
           >
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-
-          {/* Settings button */}
-          <Button
-            onClick={handleSettingsClick}
-            variant="ghost"
-            size="sm"
-            className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
-            aria-label="Open settings"
-          >
-            <Settings className="w-4 h-4" />
+            <Star className="w-4 h-4 group-hover:fill-current" />
+            <span className="hidden sm:inline text-xs font-medium">Star</span>
           </Button>
 
           {/* Experiment Modal - renders its own button */}
@@ -214,48 +236,104 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             isProcessing={isProcessing}
           />
 
-          {/* MCP Integrations dropdown - Hidden until feature is enabled */}
           {MCP_FEATURE_ENABLED && (
             <div className="relative mcp-dropdown-container">
               <Button
                 onClick={() => setShowMCPDropdown(!showMCPDropdown)}
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
+                className="flex items-center gap-1 h-9 px-2 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
                 aria-label="Connect integrations"
               >
                 <Plus className="w-4 h-4" />
+                <span className="text-xs">MCPs</span>
               </Button>
               
               {showMCPDropdown && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50">
+                <div className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg bg-background border border-border z-50">
                   <div className="py-1">
-                    {MCP_SERVERS.map((server) => (
-                      <button
-                        key={server.id}
-                        onClick={() => handleMCPInstall(server.id)}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <img 
-                          src={chrome.runtime.getURL(server.iconPath)} 
-                          alt=""
-                          className="w-4 h-4"
-                        />
-                        <span>{server.name}</span>
-                      </button>
-                    ))}
+                    {MCP_SERVERS.map((server) => {
+                      // Check if this server is installed
+                      const installedServer = installedServers.find(s => s.name === server.name)
+                      const isConnected = installedServer?.authenticated === true
+                      
+                      return (
+                        <div
+                          key={server.id}
+                          className="flex items-center justify-between w-full px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <img 
+                              src={chrome.runtime.getURL(server.iconPath)} 
+                              alt=""
+                              className="w-4 h-4"
+                            />
+                            <span>{server.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {installedServer ? (
+                              <>
+                                {isConnected ? (
+                                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                    Connected
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleMCPInstall(server.id)
+                                    }}
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                                  >
+                                    Connect
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleMCPDelete(installedServer.id, server.name)
+                                  }}
+                                  className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
+                                  title={`Remove ${server.name}`}
+                                >
+                                  <Trash2 className="w-3 h-3 text-red-600 dark:text-red-400" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleMCPInstall(server.id)}
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Connect
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
             </div>
           )}
 
+          {/* Settings button - Third position */}
+          <Button
+            onClick={handleSettingsClick}
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
+            aria-label="Open settings"
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+
           {isProcessing && (
             <Button
               onClick={handleCancel}
               variant="ghost"
               size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300"
+              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
               aria-label="Pause current task"
             >
               <Pause className="w-4 h-4" />
@@ -281,6 +359,10 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         <SettingsModal 
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
+          onOpenHelp={() => {
+            setShowSettings(false)
+            setShowHelp(true)
+          }}
         />
       </header>
 

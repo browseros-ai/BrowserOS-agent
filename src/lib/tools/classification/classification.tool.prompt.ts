@@ -19,14 +19,21 @@ Complex tasks require multiple steps or planning, such as:
 - "Research the latest news about AI"
 - "Compare prices across multiple websites"
 - "Fill out a form with specific information"
-- "Check my emails"
-- "List my YouTube videos"
-- "Show my GitHub pull requests"
-- "Check my calendar"
-- "List my Slack messages"
-- "Search my Google Drive"
-- "Show my Notion pages"
-- "List my Linear issues"
+
+MCP-related tasks should be classified as COMPLEX to ensure proper planning:
+- "Check my emails" (Gmail MCP)
+- "List my YouTube videos" (YouTube MCP)
+- "Show my GitHub pull requests" (GitHub MCP)
+- "Check my calendar" (Google Calendar MCP)
+- "List my Slack messages" (Slack MCP)
+- "Search my Google Drive" (Google Drive MCP)
+- "Show my Notion pages" (Notion MCP)
+- "List my Linear issues" (Linear MCP)
+
+These tasks need planning to:
+1. Check if the MCP server is installed
+2. Get available tools from the server
+3. Execute the appropriate tool
 
 You must respond with a JSON object in this exact format:
 {
