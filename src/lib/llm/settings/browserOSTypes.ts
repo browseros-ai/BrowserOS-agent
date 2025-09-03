@@ -5,6 +5,7 @@ import { z } from 'zod'
  */
 export const BrowserOSProviderTypeSchema = z.enum([
   'browseros',
+  'openai',
   'openai_compatible',
   'anthropic',
   'google_gemini',

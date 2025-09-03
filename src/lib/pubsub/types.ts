@@ -4,7 +4,7 @@ import { z } from 'zod'
 export const MessageSchema = z.object({
   msgId: z.string(),  // Stable ID for message (e.g., "msg_think_1", "msg_tool_result_2")
   content: z.string(),  // Full markdown content
-  role: z.enum(['thinking', 'user', 'assistant', 'error', 'narration']),  // Message role (added narration)
+  role: z.enum(['thinking', 'user', 'assistant', 'error', 'narration', 'plan_editor']),  // Message role (added plan_editor)
   ts: z.number(),  // Timestamp in milliseconds
 })
 
@@ -34,6 +34,34 @@ export const HumanInputResponseSchema = z.object({
 
 export type HumanInputResponse = z.infer<typeof HumanInputResponseSchema>
 
+// Plan editing schemas
+export const PlanStepSchema = z.object({
+  id: z.string(),  // Unique step identifier
+  action: z.string(),  // Step description/action
+  reasoning: z.string().optional(),  // Why this step is needed
+  order: z.number(),  // Display order
+  isEditable: z.boolean().default(true)  // Whether step can be edited
+})
+
+export type PlanStep = z.infer<typeof PlanStepSchema>
+
+export const PlanEditRequestSchema = z.object({
+  planId: z.string(),  // Unique plan identifier
+  steps: z.array(PlanStepSchema),  // Array of plan steps
+  task: z.string(),  // Original task description
+  isPreview: z.boolean().default(true)  // Whether this is a preview or final plan
+})
+
+export type PlanEditRequest = z.infer<typeof PlanEditRequestSchema>
+
+export const PlanEditResponseSchema = z.object({
+  planId: z.string(),  // Matching plan identifier
+  action: z.enum(['execute', 'cancel']),  // User's choice
+  steps: z.array(PlanStepSchema).optional()  // Modified steps (if action is 'execute')
+})
+
+export type PlanEditResponse = z.infer<typeof PlanEditResponseSchema>
+
 // Pub-sub event types
 export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -51,6 +79,14 @@ export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('human-input-response'),
     payload: HumanInputResponseSchema
+  }),
+  z.object({
+    type: z.literal('plan-edit-request'),
+    payload: PlanEditRequestSchema
+  }),
+  z.object({
+    type: z.literal('plan-edit-response'),
+    payload: PlanEditResponseSchema
   }),
 ])
 

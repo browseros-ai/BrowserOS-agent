@@ -726,6 +726,23 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
   animation: shimmer 2s linear infinite;
 }
 
+/* Subtle pulse animation for star button */
+@keyframes star-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.star-pulse {
+  animation: star-pulse 3s ease-in-out infinite;
+  animation-delay: 5s;  /* Wait 5 seconds before first pulse */
+}
+
 .shimmer-container {
   position: relative;
   overflow: hidden;

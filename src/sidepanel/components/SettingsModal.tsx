@@ -3,7 +3,7 @@ import { Button } from '@/sidepanel/components/ui/button'
 import { Slider } from './ui/slider'
 import { cn } from '@/sidepanel/lib/utils'
 import { z } from 'zod'
-import { X } from 'lucide-react'
+import { X, HelpCircle, ExternalLink, Monitor } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks/useSidePanelPortMessaging'
 import { MessageType } from '@/lib/types/messaging'
@@ -13,13 +13,14 @@ const DISCORD_URL = 'https://discord.com/invite/YKwjt5vuKr'
 // Define the props schema with Zod
 const SettingsModalPropsSchema = z.object({
   isOpen: z.boolean(),  // Whether the modal is open
-  onClose: z.function().args().returns(z.void())  // Function to close the modal
+  onClose: z.function().args().returns(z.void()),  // Function to close the modal
+  onOpenHelp: z.function().args().returns(z.void()).optional()  // Function to open help modal
 })
 
 // Infer the type from the schema
 type SettingsModalProps = z.infer<typeof SettingsModalPropsSchema>
 
-export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, onOpenHelp }: SettingsModalProps) {
   const { fontSize, theme, autoScroll, autoCollapseTools, chatMode, setFontSize, setTheme, setAutoScroll, setAutoCollapseTools, setChatMode } = useSettingsStore()
   const [glowEnabled, setGlowEnabled] = useState<boolean>(true)
   const [agentVersion, setAgentVersion] = useState<string>('1.0.0')
@@ -250,7 +251,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* More settings can be added here */}
+          {/* Help section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-foreground">Help & Support</h3>
+            <div className="p-4 rounded-xl bg-card border border-border/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-foreground">Need help getting started?</p>
+                  <p className="text-xs text-muted-foreground mt-1">View examples, tips, and documentation</p>
+                </div>
+                <Button
+                  onClick={onOpenHelp}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 rounded-lg"
+                  aria-label="Open help guide"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span className="text-xs font-medium">Open Guide</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* About section */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-foreground">About</h3>
             <div className="p-4 rounded-xl bg-card border border-border/50">

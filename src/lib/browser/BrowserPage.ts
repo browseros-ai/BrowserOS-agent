@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { type BrowserContextConfig } from './BrowserContext';
 import { Logging } from '../utils/Logging';
-import { getBrowserOSAdapter, type InteractiveNode, type InteractiveSnapshot, type Snapshot, type SnapshotOptions } from './BrowserOSAdapter';
+import { getBrowserOSAdapter, type InteractiveNode, type InteractiveSnapshot, type Snapshot, type SnapshotOptions, type ScreenshotSizeKey } from './BrowserOSAdapter';
 import { profileAsync, profileSync } from '../utils/profiler';
 
 // Attributes to include in the compact format
@@ -628,12 +628,10 @@ export class BrowserPage {
     });
   }
 
-  async takeScreenshot(): Promise<string | null> {
+  async takeScreenshot(size?: ScreenshotSizeKey): Promise<string | null> {
     try {
-      const dataUrl = await this._browserOS.captureScreenshot(this._tabId);
-      // Extract base64 data from data URL (remove the data:image/jpeg;base64, prefix)
-      const base64Data = dataUrl.split(',')[1] || dataUrl;
-      return base64Data;
+      // Return the full data URL directly from BrowserOS
+      return await this._browserOS.captureScreenshot(this._tabId, size);
     } catch (error) {
       Logging.log('BrowserPage', `Failed to take screenshot: ${error}`, 'error');
       return null;

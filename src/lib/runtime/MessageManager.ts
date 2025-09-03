@@ -152,7 +152,7 @@ export class MessageManager {
     this.add(new AIMessage(content));
   }
 
-  addSystem(content: string, position?: number): void {
+  addSystem(content: string, position: number = 0): void {
     this.add(new SystemMessage(content), position);
   }
 
