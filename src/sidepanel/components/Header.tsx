@@ -329,42 +329,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             isProcessing={isProcessing}
           />
 
-          {/* MCP Integrations dropdown - Hidden until feature is enabled */}
-          {MCP_FEATURE_ENABLED && (
-            <div className="relative mcp-dropdown-container">
-              <Button
-                onClick={() => setShowMCPDropdown(!showMCPDropdown)}
-                variant="ghost"
-                size="sm"
-                className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
-                aria-label="Connect integrations"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-              
-              {showMCPDropdown && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 z-50">
-                  <div className="py-1">
-                    {MCP_SERVERS.map((server) => (
-                      <button
-                        key={server.id}
-                        onClick={() => handleMCPInstall(server.id)}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <img 
-                          src={chrome.runtime.getURL(server.iconPath)} 
-                          alt=""
-                          className="w-4 h-4"
-                        />
-                        <span>{server.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {isProcessing && (
             <Button
               onClick={handleCancel}
