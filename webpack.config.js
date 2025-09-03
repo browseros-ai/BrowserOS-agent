@@ -23,6 +23,7 @@ if (!env.parsed) {
 const processEnv = {
   'process.env.POSTHOG_API_KEY': JSON.stringify(envKeys.POSTHOG_API_KEY || ''),
   'process.env.KLAVIS_API_KEY': JSON.stringify(envKeys.KLAVIS_API_KEY || ''),
+  'process.env.MOONDREAM_API_KEY': JSON.stringify(envKeys.MOONDREAM_API_KEY || ''),
   'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
 }
 

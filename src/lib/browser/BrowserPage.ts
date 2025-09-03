@@ -10,14 +10,11 @@ import {
   type ScreenshotSizeKey,
 } from "./BrowserOSAdapter";
 import { profileAsync } from "@/lib/utils/Profiler";
-import {
-  ElementFormatter,
-  type ElementDisplayConfig,
-  PRESETS,
-} from "./ElementFormatter";
+import { ElementFormatter } from "./ElementFormatter";
 
-// Default formatter for backwards compatibility
-const DEFAULT_FORMATTER = new ElementFormatter("full");
+// Default formatter instances
+const FULL_FORMATTER = new ElementFormatter(false); // Full format
+const SIMPLIFIED_FORMATTER = new ElementFormatter(true); // Simplified format
 
 // Schema for interactive elements
 export const InteractiveElementSchema = z.object({
@@ -160,19 +157,17 @@ export class BrowserPage {
    */
   async getClickableElementsString(
     simplified: boolean = false,
-    config?: ElementDisplayConfig,
   ): Promise<string> {
     const snapshot = await this._getSnapshot();
     if (!snapshot) {
       return "";
     }
 
-    const presetName = simplified ? "simplified" : "full";
-    const formatter = new ElementFormatter(config || presetName);
-    return formatter.formatElements(
-      snapshot.elements,
+    const formatter = simplified ? SIMPLIFIED_FORMATTER : FULL_FORMATTER;
+    const clickables = snapshot.elements.filter(
       (node) => node.type === "clickable" || node.type === "selectable",
     );
+    return formatter.formatElements(clickables);
   }
 
   /**
@@ -180,19 +175,17 @@ export class BrowserPage {
    */
   async getTypeableElementsString(
     simplified: boolean = false,
-    config?: ElementDisplayConfig,
   ): Promise<string> {
     const snapshot = await this._getSnapshot();
     if (!snapshot) {
       return "";
     }
 
-    const presetName = simplified ? "simplified" : "full";
-    const formatter = new ElementFormatter(config || presetName);
-    return formatter.formatElements(
-      snapshot.elements,
+    const formatter = simplified ? SIMPLIFIED_FORMATTER : FULL_FORMATTER;
+    const typeables = snapshot.elements.filter(
       (node) => node.type === "typeable",
     );
+    return formatter.formatElements(typeables);
   }
 
   /**
@@ -308,6 +301,47 @@ export class BrowserPage {
    */
   async scrollToElement(nodeId: number): Promise<boolean> {
     return await this._browserOS.scrollToNode(this._tabId, nodeId);
+  }
+
+  /**
+   * Ensures element is in viewport, scrolling if necessary
+   * @param nodeId - The node ID to check and potentially scroll to
+   * @returns Object with element and scroll status
+   */
+  async ensureElementInViewport(nodeId: number): Promise<{
+    element: InteractiveNode | null;
+    scrollMessage: string;
+  }> {
+    // Get element
+    const element = await this.getElementByIndex(nodeId);
+    if (!element) {
+      return {
+        element: null,
+        scrollMessage: "",
+      };
+    }
+
+    // Check if out of viewport and scroll if needed
+    let scrollMessage = "";
+    if (element.attributes?.in_viewport === "false") {
+      const scrolled = await this.scrollToElement(nodeId);
+
+      // Wait for scroll to complete
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Force refresh snapshot after scrolling
+      this._invalidateCache();
+      await this._getSnapshot();
+
+      scrollMessage = scrolled
+        ? " (auto-scrolled to element)"
+        : " (attempted scroll)";
+    }
+
+    return {
+      element,
+      scrollMessage,
+    };
   }
 
   /**
@@ -471,10 +505,17 @@ export class BrowserPage {
     });
   }
 
-  async takeScreenshot(size?: ScreenshotSizeKey): Promise<string | null> {
+  async takeScreenshot(
+    size?: ScreenshotSizeKey,
+    showHighlights?: boolean,
+  ): Promise<string | null> {
     try {
       // Return the full data URL directly from BrowserOS
-      return await this._browserOS.captureScreenshot(this._tabId, size);
+      return await this._browserOS.captureScreenshot(
+        this._tabId,
+        size,
+        showHighlights,
+      );
     } catch (error) {
       Logging.log(
         "BrowserPage",
@@ -483,6 +524,171 @@ export class BrowserPage {
       );
       return null;
     }
+  }
+
+  /**
+   * Take a screenshot with specific dimensions
+   * @param width - The exact width of the screenshot
+   * @param height - The exact height of the screenshot
+   * @param showHighlights - Optional flag to show element highlights
+   * @returns The screenshot as a data URL or null on failure
+   */
+  async takeScreenshotWithDimensions(
+    width: number,
+    height: number,
+    showHighlights?: boolean,
+  ): Promise<string | null> {
+    try {
+      // Return the full data URL directly from BrowserOS with exact dimensions
+      return await this._browserOS.captureScreenshot(
+        this._tabId,
+        undefined, // size is undefined when using exact dimensions
+        showHighlights,
+        width,
+        height,
+      );
+    } catch (error) {
+      Logging.log(
+        "BrowserPage",
+        `Failed to take screenshot with dimensions: ${error}`,
+        "error",
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Execute JavaScript code in the page context
+   * @param code - The JavaScript code to execute
+   * @returns The result of the execution
+   */
+  async executeJavaScript(code: string): Promise<any> {
+    try {
+      return await this._browserOS.executeJavaScript(this._tabId, code);
+    } catch (error) {
+      Logging.log(
+        "BrowserPage",
+        `Failed to execute JavaScript: ${error}`,
+        "error",
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Click at specific viewport coordinates
+   * @param x - X coordinate in viewport pixels
+   * @param y - Y coordinate in viewport pixels
+   */
+  async clickAtCoordinates(x: number, y: number): Promise<void> {
+    await profileAsync(
+      `BrowserPage.clickAtCoordinates[${x},${y}]`,
+      async () => {
+        // Show pointer before clicking
+        await this.showPointer(x, y, "Click");
+        await this._browserOS.clickCoordinates(this._tabId, x, y);
+        this._invalidateCache(); // Invalidate cache after click
+        await this.waitForStability();
+      },
+    );
+  }
+
+  /**
+   * Type text at specific viewport coordinates
+   * Clicks at the location first to ensure focus, then types the text
+   * @param x - X coordinate in viewport pixels
+   * @param y - Y coordinate in viewport pixels
+   * @param text - Text to type at the location
+   */
+  async typeAtCoordinates(x: number, y: number, text: string): Promise<void> {
+    await profileAsync(`BrowserPage.typeAtCoordinates[${x},${y}]`, async () => {
+      // Show pointer before typing
+      await this.showPointer(x, y, `Type: ${text.substring(0, 20)}`);
+      // First click to focus the element at coordinates
+      // await this._browserOS.clickAtCoordinates(this._tabId, x, y);
+      // Small delay to ensure focus is established
+      // await new Promise(resolve => setTimeout(resolve, 100));
+      // Then type the text
+      await this._browserOS.typeAtCoordinates(this._tabId, x, y, text);
+      this._invalidateCache(); // Invalidate cache after typing
+      await this.waitForStability();
+    });
+  }
+
+  /**
+   * Shows a visual pointer at coordinates with optional text
+   * Auto-removes after 3 seconds
+   */
+  async showPointer(x: number, y: number, text?: string): Promise<void> {
+    const pointerId = `nxtscape-pointer-${Date.now()}`;
+
+    await this.executeJavaScript(`
+      (function() {
+        // Remove any existing pointer
+        const existing = document.querySelector('.nxtscape-pointer');
+        if (existing) existing.remove();
+        
+        // Create pointer container
+        const pointer = document.createElement('div');
+        pointer.className = 'nxtscape-pointer';
+        pointer.id = '${pointerId}';
+        
+        // Style the pointer container
+        pointer.style.cssText = \`
+          position: fixed;
+          left: \${${x}}px;
+          top: \${${y}}px;
+          z-index: 2147483647;
+          pointer-events: none;
+        \`;
+        
+        // Create large CSS arrow cursor
+        const arrow = document.createElement('div');
+        arrow.style.cssText = \`
+          position: absolute;
+          width: 0;
+          height: 0;
+          border-style: solid;
+          border-width: 0 12px 20px 12px;
+          border-color: transparent transparent #FB6618 transparent;
+          transform: translate(-3px, -3px) rotate(45deg);
+          filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.4));
+        \`;
+        pointer.appendChild(arrow);
+        
+        // Add optional text label
+        ${
+          text
+            ? `
+        const label = document.createElement('div');
+        label.textContent = '${text.replace(/'/g, "\\'")}';
+        label.style.cssText = \`
+          position: absolute;
+          top: 20px;
+          left: 12px;
+          background: rgba(0,0,0,0.9);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 4px;
+          font-size: 12px;
+          white-space: nowrap;
+          font-family: monospace;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        \`;
+        pointer.appendChild(label);
+        `
+            : ""
+        }
+        
+        document.body.appendChild(pointer);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+          const el = document.getElementById('${pointerId}');
+          if (el) el.remove();
+        }, 10000);
+      })();
+    `);
   }
 
   async close(): Promise<void> {
@@ -511,6 +717,52 @@ export class BrowserPage {
    */
   async getLinksSnapshot(options?: SnapshotOptions): Promise<Snapshot> {
     return await this._browserOS.getLinksSnapshot(this._tabId, options);
+  }
+
+  /**
+   * Get text content as a simple string
+   * @param options - Optional snapshot options
+   * @returns Plain text string from all sections
+   */
+  async getTextSnapshotString(options?: SnapshotOptions): Promise<string> {
+    const snapshot = await this.getTextSnapshot(options);
+
+    // Extract text from all sections
+    const textParts: string[] = [];
+
+    for (const section of snapshot.sections) {
+      if (section.textResult?.text) {
+        textParts.push(section.textResult.text);
+      }
+    }
+
+    // Join with double newline for readability
+    return textParts.join("\n\n").trim();
+  }
+
+  /**
+   * Get links as a simple formatted string
+   * @param options - Optional snapshot options
+   * @returns Formatted string with link text and URLs
+   */
+  async getLinksSnapshotString(options?: SnapshotOptions): Promise<string> {
+    const snapshot = await this.getLinksSnapshot(options);
+
+    // Extract all links from sections
+    const linkStrings: string[] = [];
+
+    for (const section of snapshot.sections) {
+      if (section.linksResult?.links) {
+        for (const link of section.linksResult.links) {
+          // Format: "text: url" or just "url" if no text
+          const linkStr = link.text ? `${link.text}: ${link.url}` : link.url;
+          linkStrings.push(linkStr);
+        }
+      }
+    }
+
+    // Join with newlines, no duplicates
+    return [...new Set(linkStrings)].join("\n").trim();
   }
 
   isFileUploader(element: any): boolean {
@@ -553,96 +805,6 @@ export class BrowserPage {
       title: this._title,
       tabId: this._tabId,
     };
-  }
-
-  // ============= Experimental Configuration Methods =============
-
-  /**
-   * Get elements with custom configuration for experimentation
-   * @param config - Custom display configuration
-   */
-  async getElementsWithConfig(config: ElementDisplayConfig): Promise<string> {
-    const snapshot = await this._getSnapshot();
-    if (!snapshot) {
-      return "No interactive elements found";
-    }
-
-    const formatter = new ElementFormatter(config);
-    return formatter.formatElements(snapshot.elements);
-  }
-
-  /**
-   * Get elements as JSON format
-   * @param separateByViewport - Whether to separate by viewport visibility
-   */
-  async getElementsAsJSON(separateByViewport: boolean = true): Promise<string> {
-    const snapshot = await this._getSnapshot();
-    if (!snapshot) {
-      return JSON.stringify({ elements: [] });
-    }
-
-    const formatter = new ElementFormatter({
-      format: "json",
-      separateByViewport,
-    });
-    return formatter.formatElements(snapshot.elements);
-  }
-
-  /**
-   * Get elements with preset configuration
-   * @param preset - Preset name: "simplified", "full", "minimal", "debug", "json", "compact"
-   */
-  async getElementsWithPreset(preset: keyof typeof PRESETS): Promise<string> {
-    const snapshot = await this._getSnapshot();
-    if (!snapshot) {
-      return "No interactive elements found";
-    }
-
-    const formatter = new ElementFormatter(preset);
-    return formatter.formatElements(snapshot.elements);
-  }
-
-  /**
-   * Get only visible elements (in viewport)
-   * @param config - Optional display configuration
-   */
-  async getVisibleElements(config?: ElementDisplayConfig): Promise<string> {
-    const snapshot = await this._getSnapshot();
-    if (!snapshot) {
-      return "No interactive elements found";
-    }
-
-    const formatter = new ElementFormatter({
-      ...config,
-      separateByViewport: false, // Don't separate since we're filtering
-    });
-
-    return formatter.formatElements(
-      snapshot.elements,
-      (node) => node.attributes?.in_viewport !== "false",
-    );
-  }
-
-  /**
-   * Get elements sorted by a specific field
-   * @param sortBy - Field to sort by
-   * @param order - Sort order
-   */
-  async getElementsSorted(
-    sortBy: "nodeId" | "name" | "type" | "depth",
-    order: "asc" | "desc" = "asc",
-  ): Promise<string> {
-    const snapshot = await this._getSnapshot();
-    if (!snapshot) {
-      return "No interactive elements found";
-    }
-
-    const formatter = new ElementFormatter({
-      sortBy,
-      sortOrder: order,
-    });
-
-    return formatter.formatElements(snapshot.elements);
   }
 }
 

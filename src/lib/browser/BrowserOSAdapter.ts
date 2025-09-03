@@ -300,36 +300,80 @@ export class BrowserOSAdapter {
    * Capture a screenshot of the tab
    * @param tabId - The tab ID to capture
    * @param size - Optional screenshot size ('small', 'medium', or 'large')
+   * @param showHighlights - Optional flag to show element highlights
+   * @param width - Optional exact width for screenshot
+   * @param height - Optional exact height for screenshot
    */
   async captureScreenshot(
     tabId: number,
     size?: ScreenshotSizeKey,
+    showHighlights?: boolean,
+    width?: number,
+    height?: number,
   ): Promise<string> {
     try {
       const sizeDesc = size ? ` (${size})` : "";
+      const highlightDesc = showHighlights ? " with highlights" : "";
+      const dimensionsDesc = width && height ? ` (${width}x${height})` : "";
       console.log(
-        `[BrowserOSAdapter] Capturing screenshot for tab ${tabId}${sizeDesc}`,
+        `[BrowserOSAdapter] Capturing screenshot for tab ${tabId}${sizeDesc}${highlightDesc}${dimensionsDesc}`,
       );
 
       return new Promise<string>((resolve, reject) => {
-        // Convert size string to pixels only when calling Chrome API
-        if (size !== undefined) {
-          const pixelSize = SCREENSHOT_SIZES[size];
-          // Use the new API with thumbnail size
+        // Use exact dimensions if provided
+        if (width !== undefined && height !== undefined) {
           chrome.browserOS.captureScreenshot(
             tabId,
-            pixelSize,
+            0, // thumbnailSize ignored when width/height specified
+            showHighlights || false,
+            width,
+            height,
             (dataUrl: string) => {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
               } else {
                 console.log(
-                  `[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${size}: ${pixelSize}px)`,
+                  `[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${width}x${height})${highlightDesc}`,
                 );
                 resolve(dataUrl);
               }
             },
           );
+        } else if (size !== undefined || showHighlights !== undefined) {
+          const pixelSize = size ? SCREENSHOT_SIZES[size] : 0;
+          // Use the API with thumbnail size and highlights
+          if (showHighlights !== undefined) {
+            chrome.browserOS.captureScreenshot(
+              tabId,
+              pixelSize,
+              showHighlights,
+              (dataUrl: string) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  console.log(
+                    `[BrowserOSAdapter] Screenshot captured for tab ${tabId}${sizeDesc}${highlightDesc}`,
+                  );
+                  resolve(dataUrl);
+                }
+              },
+            );
+          } else {
+            chrome.browserOS.captureScreenshot(
+              tabId,
+              pixelSize,
+              (dataUrl: string) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  console.log(
+                    `[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${size}: ${pixelSize}px)`,
+                  );
+                  resolve(dataUrl);
+                }
+              },
+            );
+          }
         } else {
           // Use the original API without size (backwards compatibility)
           chrome.browserOS.captureScreenshot(tabId, (dataUrl: string) => {
@@ -560,6 +604,140 @@ export class BrowserOSAdapter {
         error instanceof Error ? error.message : String(error);
       console.error(`[BrowserOSAdapter] Failed to log metric: ${errorMessage}`);
       return;
+    }
+  }
+
+  /**
+   * Execute JavaScript code in the specified tab
+   * @param tabId - The tab ID to execute code in
+   * @param code - The JavaScript code to execute
+   * @returns The result of the execution
+   */
+  async executeJavaScript(tabId: number, code: string): Promise<any> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Executing JavaScript in tab ${tabId}`,
+      );
+
+      return new Promise<any>((resolve, reject) => {
+        // Check if executeJavaScript API is available
+        if (
+          "executeJavaScript" in chrome.browserOS &&
+          typeof chrome.browserOS.executeJavaScript === "function"
+        ) {
+          chrome.browserOS.executeJavaScript(tabId, code, (result: any) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] JavaScript executed successfully in tab ${tabId}`,
+              );
+              resolve(result);
+            }
+          });
+        } else {
+          reject(new Error("executeJavaScript API not available"));
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to execute JavaScript: ${errorMessage}`,
+      );
+      throw new Error(`Failed to execute JavaScript: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Click at specific viewport coordinates
+   * @param tabId - The tab ID to click in
+   * @param x - X coordinate in viewport pixels
+   * @param y - Y coordinate in viewport pixels
+   */
+  async clickCoordinates(tabId: number, x: number, y: number): Promise<void> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Clicking at coordinates (${x}, ${y}) in tab ${tabId}`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        // Check if clickCoordinates API is available
+        if (
+          "clickCoordinates" in chrome.browserOS &&
+          typeof chrome.browserOS.clickCoordinates === "function"
+        ) {
+          chrome.browserOS.clickCoordinates(tabId, x, y, () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Successfully clicked at (${x}, ${y}) in tab ${tabId}`,
+              );
+              resolve();
+            }
+          });
+        } else {
+          reject(new Error("clickCoordinates API not available"));
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to click at coordinates: ${errorMessage}`,
+      );
+      throw new Error(`Failed to click at coordinates (${x}, ${y}): ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Type text at specific viewport coordinates
+   * @param tabId - The tab ID to type in
+   * @param x - X coordinate in viewport pixels
+   * @param y - Y coordinate in viewport pixels
+   * @param text - Text to type at the location
+   */
+  async typeAtCoordinates(
+    tabId: number,
+    x: number,
+    y: number,
+    text: string,
+  ): Promise<void> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Typing at coordinates (${x}, ${y}) in tab ${tabId}`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        // Check if typeAtCoordinates API is available
+        if (
+          "typeAtCoordinates" in chrome.browserOS &&
+          typeof chrome.browserOS.typeAtCoordinates === "function"
+        ) {
+          chrome.browserOS.typeAtCoordinates(tabId, x, y, text, () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Successfully typed "${text}" at (${x}, ${y}) in tab ${tabId}`,
+              );
+              resolve();
+            }
+          });
+        } else {
+          reject(new Error("typeAtCoordinates API not available"));
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to type at coordinates: ${errorMessage}`,
+      );
+      throw new Error(
+        `Failed to type at coordinates (${x}, ${y}): ${errorMessage}`,
+      );
     }
   }
 }

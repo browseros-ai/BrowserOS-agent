@@ -7,6 +7,28 @@ import { TodoStore } from "@/lib/runtime/TodoStore";
 import { KlavisAPIManager } from "@/lib/mcp/KlavisAPIManager";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { HumanInputResponse } from "@/lib/pubsub/types";
+import {
+  HumanMessage,
+  AIMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
+
+// ExecutionMetrics type from NewAgent.prompt.ts
+export interface ExecutionMetrics {
+  toolCalls: number;
+  observations: number;
+  errors: number;
+  startTime: number;
+  endTime: number;
+}
+
+// ToolResult interface for parsing tool messages
+interface ToolResult {
+  ok: boolean;
+  output?: any;
+  error?: string;
+}
 
 /**
  * Configuration options for ExecutionContext
@@ -40,10 +62,20 @@ export class ExecutionContext {
   private _isExecuting: boolean = false; // Track actual execution state
   private _lockedTabId: number | null = null; // Tab that execution is locked to
   private _currentTask: string | null = null; // Current user task being executed
+  private _todoList: string = ""; // Markdown formatted todo list for the current task
   private _chatMode: boolean = false; // Whether ChatAgent mode is enabled
   private _humanInputRequestId: string | undefined; // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined; // Human input response
   private _scopedPubSub: PubSubChannel | null = null; // Scoped PubSub channel
+  private _reasoningHistory: string[] = []; // Planner reasoning history
+  private _executionMetrics: ExecutionMetrics = {
+    // Tool execution metrics
+    toolCalls: 0,
+    observations: 0,
+    errors: 0,
+    startTime: Date.now(),
+    endTime: 0,
+  };
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
@@ -165,7 +197,17 @@ export class ExecutionContext {
     this._lockedTabId = null;
     this.userInitiatedCancel = false;
     this._currentTask = null;
+    this._todoList = "";
+    this._reasoningHistory = []; // Clear reasoning history
     this.todoStore.reset();
+    // Reset metrics
+    this._executionMetrics = {
+      toolCalls: 0,
+      observations: 0,
+      errors: 0,
+      startTime: Date.now(),
+      endTime: 0,
+    };
   }
 
   /**
@@ -194,6 +236,22 @@ export class ExecutionContext {
    */
   public getCurrentTask(): string | null {
     return this._currentTask;
+  }
+
+  /**
+   * Set the todo list for the current task
+   * @param todos - The markdown formatted todo list
+   */
+  public setTodoList(todos: string): void {
+    this._todoList = todos;
+  }
+
+  /**
+   * Get the todo list for the current task
+   * @returns The markdown formatted todo list
+   */
+  public getTodoList(): string {
+    return this._todoList;
   }
 
   /**
@@ -254,5 +312,147 @@ export class ExecutionContext {
    */
   public shouldAbort(): boolean {
     return this.abortSignal.aborted;
+  }
+
+  /**
+   * Get execution metrics
+   * @returns The ExecutionMetrics object
+   */
+  public getExecutionMetrics(): ExecutionMetrics {
+    return this._executionMetrics;
+  }
+
+  /**
+   * Set execution metrics
+   * @param metrics - The ExecutionMetrics to set
+   */
+  public setExecutionMetrics(metrics: ExecutionMetrics): void {
+    this._executionMetrics = metrics;
+  }
+
+  /**
+   * Increment a specific metric
+   * @param metric - The metric to increment
+   */
+  public incrementMetric(
+    metric: "toolCalls" | "observations" | "errors",
+  ): void {
+    this._executionMetrics[metric]++;
+  }
+
+  /**
+   * Add reasoning from planner to history
+   * @param reasoning - The reasoning text to add
+   */
+  public addReasoning(reasoning: string): void {
+    this._reasoningHistory.push(reasoning);
+    // Keep last 10 reasoning entries
+    if (this._reasoningHistory.length > 10) {
+      this._reasoningHistory.shift();
+    }
+  }
+
+  /**
+   * Get recent reasoning history
+   * @param count - Number of recent reasoning entries to retrieve
+   * @returns Array of reasoning strings
+   */
+  public getReasoningHistory(count: number = 5): string[] {
+    return this._reasoningHistory.slice(-count);
+  }
+
+  /**
+   * Get recent conversation history formatted as strings
+   * @param count - Number of recent messages to retrieve
+   * @returns Array of formatted message strings
+   */
+  public getSimplifiedMessageHistory(count: number = 5): string[] {
+    // Get last N messages for context
+    const messages = this.messageManager.getMessages();
+    const recent = messages.slice(-count);
+    const history = recent
+      .map((msg) => {
+        const msgType = msg._getType();
+        let result = "";
+
+        if (msgType === "human") {
+          const humanMsg = msg as HumanMessage;
+          // Handle multimodal content (screenshots)
+          if (Array.isArray(humanMsg.content)) {
+            const textParts = humanMsg.content
+              .filter((c: any) => c.type === "text")
+              .map((c: any) => c.text);
+            const hasImage = humanMsg.content.some(
+              (c: any) => c.type === "image_url",
+            );
+            const prefix = hasImage ? "Human [with screenshot]" : "Human";
+            result = `${prefix}: ${textParts.join(" ") || "Visual content only"}`;
+          } else {
+            result = `Human: ${humanMsg.content}`;
+          }
+          return result;
+        } else if (msgType === "ai") {
+          const aiMsg = msg as AIMessage;
+          // Handle tool calls
+          if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+            const tools = aiMsg.tool_calls
+              .map((tc) => {
+                // Include args for better context (limited to avoid verbosity)
+                const argsStr = tc.args
+                  ? JSON.stringify(tc.args).substring(0, 50)
+                  : "";
+                return argsStr.length > 45 ? `${tc.name}(...)` : `${tc.name}()`;
+              })
+              .join(", ");
+            result = `AI called: ${tools}`;
+          }
+          // Handle system reminders wrapped in AI messages
+          else if (
+            typeof aiMsg.content === "string" &&
+            aiMsg.content.includes("<SystemReminder>")
+          ) {
+            result = `System reminder: ${aiMsg.content.replace(/<\/?SystemReminder>/g, "")}`;
+          } else {
+            result = `AI: ${aiMsg.content || "Thinking..."}`;
+          }
+          return result;
+        } else if (msgType === "tool") {
+          const toolMsg = msg as ToolMessage;
+          try {
+            const parsed = JSON.parse(toolMsg.content as string) as ToolResult;
+            // Include more context about tool results
+            if (parsed.ok && parsed.output) {
+              // Truncate output if too long
+              const outputStr =
+                typeof parsed.output === "string"
+                  ? parsed.output
+                  : JSON.stringify(parsed.output);
+              const truncated =
+                outputStr.length > 100
+                  ? outputStr.substring(0, 100) + "..."
+                  : outputStr;
+              result = `Tool success: ${truncated}`;
+            } else if (parsed.ok) {
+              result = `Tool success`;
+            } else {
+              result = `Tool error: ${parsed.error || "Unknown error"}`;
+            }
+          } catch {
+            // Handle non-JSON tool messages
+            const content = String(toolMsg.content);
+            result = `Tool: ${content.substring(0, 100)}${content.length > 100 ? "..." : ""}`;
+          }
+          return result;
+        } else if (msgType === "system") {
+          const sysMsg = msg as SystemMessage;
+          // Usually not in recent history, but handle if present
+          result = `System: ${String(sysMsg.content).substring(0, 100)}...`;
+          return result;
+        }
+
+        return result;
+      })
+      .filter(Boolean);
+    return history;
   }
 }

@@ -10,7 +10,7 @@ import { TokenCounter } from "@/lib/utils/TokenCounter";
 import { Logging } from "@/lib/utils/Logging";
 
 // Constants
-export const TRIM_THRESHOLD = 0.6; // Start trimming at 60% capacity to maintain buffer
+export const TRIM_THRESHOLD = 0.9; // Start trimming at 90% capacity to maintain buffer
 
 // Message type enum
 export enum LLMMessageType {
@@ -106,6 +106,7 @@ export class MessageManager {
   private entries: MessageEntry[] = [];
   private totalTokens: number = 0;
   private maxTokens: number;
+  private messageQueue: BaseMessage[] = []; // Queue for tool-generated messages
 
   constructor(maxTokens = 8192) {
     this.maxTokens = maxTokens;
@@ -182,8 +183,30 @@ export class MessageManager {
     this.add(new TodoListMessage(content));
   }
 
-  addScreenshot(content: string): void {
-    this.add(new ScreenshotMessage(content));
+  addScreenshot(
+    screenshotDataUrl: string,
+    text: string = "Screenshot of current page state",
+  ): void {
+    // Add screenshot as multimodal HumanMessage with screenshot type marker
+    const screenshotMessage = new HumanMessage({
+      content: [
+        {
+          type: "image_url",
+          image_url: {
+            url: screenshotDataUrl,
+          },
+        },
+        {
+          type: "text",
+          text: text,
+        },
+      ],
+    });
+    // Mark as screenshot type for removal handling
+    screenshotMessage.additional_kwargs = {
+      messageType: LLMMessageType.SCREENSHOT,
+    };
+    this.add(screenshotMessage);
   }
 
   addTool(content: string, toolCallId: string): void {
@@ -283,9 +306,76 @@ export class MessageManager {
     this.totalTokens = 0;
   }
 
+  // Queue API for tools to use during execution
+  queueMessage(message: BaseMessage): void {
+    this.messageQueue.push(message);
+  }
+
+  // Flush all queued messages to the main message list
+  flushQueue(): void {
+    for (const message of this.messageQueue) {
+      this.add(message);
+    }
+    this.messageQueue = [];
+  }
+
+  // Clear queue without adding messages (for error cases)
+  clearQueue(): void {
+    this.messageQueue = [];
+  }
+
+  // Get current queue size
+  getQueueSize(): number {
+    return this.messageQueue.length;
+  }
+
+  // Queue methods for tools - these queue messages instead of adding directly
+  queueHuman(content: string): void {
+    this.queueMessage(new HumanMessage(content));
+  }
+
+  queueScreenshot(
+    screenshotDataUrl: string,
+    text: string = "Screenshot of current page state",
+  ): void {
+    // Create screenshot as multimodal HumanMessage with screenshot type marker
+    const screenshotMessage = new HumanMessage({
+      content: [
+        {
+          type: "image_url",
+          image_url: {
+            url: screenshotDataUrl,
+          },
+        },
+        {
+          type: "text",
+          text: text,
+        },
+      ],
+    });
+    // Mark as screenshot type for removal handling
+    screenshotMessage.additional_kwargs = {
+      messageType: LLMMessageType.SCREENSHOT,
+    };
+    this.queueMessage(screenshotMessage);
+  }
+
+  queueBrowserState(content: string): void {
+    this.queueMessage(new BrowserStateMessage(content));
+  }
+
+  queueSystemReminder(content: string): void {
+    // For Anthropic, can't have SystemMessage after first message
+    this.queueMessage(
+      new AIMessage(`<SystemReminder>${content}</SystemReminder>`),
+    );
+  }
+
   // Get message type (public for MessageManagerReadOnly access)
   _getMessageType(message: BaseMessage): LLMMessageType {
-    if (message.additional_kwargs?.messageType === LLMMessageType.BROWSER_STATE) {
+    if (
+      message.additional_kwargs?.messageType === LLMMessageType.BROWSER_STATE
+    ) {
       return LLMMessageType.BROWSER_STATE;
     }
     if (message.additional_kwargs?.messageType === LLMMessageType.TODO_LIST) {

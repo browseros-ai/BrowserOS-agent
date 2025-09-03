@@ -8,7 +8,7 @@ import posthog from "posthog-js";
 /**
  * Log level type
  */
-export const LogLevelSchema = z.enum(["info", "error", "warning"]);
+export const LogLevelSchema = z.enum(["debug", "info", "error", "warning"]);
 export type LogLevel = z.infer<typeof LogLevelSchema>;
 
 /**
@@ -81,7 +81,8 @@ export class Logging {
     message: string,
     level: LogLevel = "info",
   ): void {
-    if (!this.debugMode && level === "info") return;
+    // Skip debug and info logs if not in debug mode
+    if (!this.debugMode && (level === "info" || level === "debug")) return;
 
     const prefix = `[${source}]`;
 
@@ -92,6 +93,9 @@ export class Logging {
         break;
       case "warning":
         console.warn(`${prefix} ${message}`);
+        break;
+      case "debug":
+        console.debug(`${prefix} ${message}`);
         break;
       default:
         console.log(`${prefix} ${message}`);

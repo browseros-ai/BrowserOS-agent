@@ -268,6 +268,28 @@ export class InteractionTool {
           );
         }
 
+        // Check if element is out of viewport
+        const isOutOfViewport = element.attributes?.in_viewport === "false";
+        let scrollMessage = "";
+        
+        if (isOutOfViewport) {
+          // Element is out of viewport, scroll to it first
+          Logging.log(
+            "InteractionTool",
+            `Element "${description}" [${nodeId}] is out of viewport, scrolling to it first`,
+            "info",
+          );
+          
+          const scrolled = await page.scrollToElement(nodeId);
+          if (scrolled) {
+            scrollMessage = " (element was out of viewport - scrolled into view first)";
+            // Add small delay after scrolling for stability
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          } else {
+            scrollMessage = " (element was reported out of viewport but scroll wasn't needed)";
+          }
+        }
+
         // Click element
         await page.clickElement(nodeId);
         await new Promise((resolve) =>
@@ -275,12 +297,17 @@ export class InteractionTool {
         );
 
         // Emit status message
+        let statusMessage = `Clicked element: ${description}${scrollMessage}`;
+        if (isOutOfViewport) {
+          statusMessage += ". Note: Element was out of viewport, verify the click succeeded.";
+        }
+        
         this.executionContext
           .getPubSub()
           .publishMessage(
-            PubSub.createMessage(`Clicked element: ${description}`, "thinking"),
+            PubSub.createMessage(statusMessage, "thinking"),
           );
-        return toolSuccess(`Clicked element: "${description}"`);
+        return toolSuccess(statusMessage);
       } catch (error) {
         if (attempt === NUM_RETRIES) {
           return toolError(

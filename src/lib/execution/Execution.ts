@@ -3,7 +3,7 @@ import { BrowserContext } from "@/lib/browser/BrowserContext";
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
-import { POCAgent } from "../agent/POCAgent";
+import { NewAgent } from "@/lib/agent/NewAgent";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
@@ -118,7 +118,7 @@ export class Execution {
         this.options.mode === "chat"
           ? new ChatAgent(executionContext)
           : isPocMode()
-            ? new POCAgent(executionContext)
+            ? new NewAgent(executionContext)
             : new BrowserAgent(executionContext);
 
       // Execute

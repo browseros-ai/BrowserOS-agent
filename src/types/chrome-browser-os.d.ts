@@ -190,6 +190,24 @@ declare namespace chrome.browserOS {
     callback: () => void,
   ): void;
 
+  // Capture screenshot with all optional parameters
+  function captureScreenshot(
+    tabId: number,
+    thumbnailSize: number,
+    showHighlights: boolean,
+    width: number,
+    height: number,
+    callback: (dataUrl: string) => void,
+  ): void;
+
+  // Capture screenshot with tab ID, thumbnail size, and highlights
+  function captureScreenshot(
+    tabId: number,
+    thumbnailSize: number,
+    showHighlights: boolean,
+    callback: (dataUrl: string) => void,
+  ): void;
+
   // Capture screenshot with tab ID and thumbnail size
   function captureScreenshot(
     tabId: number,
@@ -308,4 +326,46 @@ declare namespace chrome.browserOS {
   function logMetric(eventName: string, properties?: Record<string, any>): void;
 
   function logMetric(eventName: string): void;
+
+  // Execute JavaScript in a tab
+  function executeJavaScript(
+    tabId: number,
+    code: string,
+    callback: (result: any) => void,
+  ): void;
+
+  function executeJavaScript(
+    code: string,
+    callback: (result: any) => void,
+  ): void;
+
+  // Click at specific viewport coordinates
+  function clickCoordinates(
+    tabId: number,
+    x: number,
+    y: number,
+    callback: () => void,
+  ): void;
+
+  function clickCoordinates(
+    x: number,
+    y: number,
+    callback: () => void,
+  ): void;
+
+  // Type text at specific viewport coordinates
+  function typeAtCoordinates(
+    tabId: number,
+    x: number,
+    y: number,
+    text: string,
+    callback: () => void,
+  ): void;
+
+  function typeAtCoordinates(
+    x: number,
+    y: number,
+    text: string,
+    callback: () => void,
+  ): void;
 }
