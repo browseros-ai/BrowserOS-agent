@@ -870,7 +870,7 @@ limit: 500`
   }> {
     const startTime = Date.now()
     let output = ''
-    let scores: any = { success: 0 }
+    const scores: any = { success: 0 }
     
     // Perform cleanup BEFORE test to ensure clean state
     if (index === 0) {
