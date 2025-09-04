@@ -72,8 +72,6 @@ import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
 import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-// Import telemetry wrapper statically so webpack includes it
-import { createTrackedTool } from '@/evals/tool-wrapper';
 // Import evals2 lightweight tool wrapper
 import { wrapToolForMetrics } from '@/evals2/SimpleToolWrapper';
 import { NarratorService } from '@/lib/services/NarratorService';
@@ -209,9 +207,8 @@ export class BrowserAgent {
       // 3. STANDARD FLOW: CLASSIFY task type
       const classification = await this._classifyTask(task);
       
-      // The classification tool execution is already tracked via automatic tool wrapping
-      // Just log to console for visibility
-      if (this.executionContext.telemetry?.isEnabled()) {
+      // Log classification result to console for visibility
+      if (process.env.ENABLE_EVALS2 === 'true') {
         console.log(`%c→ Classification: ${classification.is_simple_task ? 'simple' : 'complex'}`, 'color: #888; font-size: 10px');
       }
       
@@ -629,14 +626,8 @@ export class BrowserAgent {
 
       await this._maybeStartGlowAnimation(toolName);
 
-      // Dynamically wrap tool with telemetry if session is active
-      let toolFunc = tool.func;
-      if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
-        const wrappedTool = createTrackedTool(tool, this.executionContext);
-        toolFunc = wrappedTool.func;
-      }
-      
       // Add evals2 lightweight wrapping if enabled
+      let toolFunc = tool.func;
       if (process.env.ENABLE_EVALS2 === 'true') {
         const wrappedTool = wrapToolForMetrics(tool, this.executionContext, toolCallId);
         toolFunc = wrappedTool.func;
@@ -1010,33 +1001,5 @@ export class BrowserAgent {
       // Clean up subscription
       subscription.unsubscribe();
     }
-  }
-
-  // Helper methods for telemetry
-  private async _getTabCount(): Promise<number> {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.tabs) {
-        const tabs = await chrome.tabs.query({});
-        return tabs.length;
-      }
-    } catch {
-      // Ignore errors
-    }
-    return 0;
-  }
-
-  private async _getCurrentUrl(): Promise<string | undefined> {
-    try {
-      // Get current tab URL if available
-      if (typeof chrome !== 'undefined' && chrome.tabs) {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tabs.length > 0) {
-          return tabs[0].url;
-        }
-      }
-    } catch {
-      // Ignore errors
-    }
-    return undefined;
   }
 }

@@ -30,8 +30,7 @@ export class ExecutionContext {
   debugMode: boolean  // Whether debug logging is enabled
   selectedTabIds: number[] | null = null  // Selected tab IDs
   todoStore: TodoStore  // TODO store for complex task management
-  telemetry: any | null = null  // Telemetry integration for online evaluation (typed as any to avoid circular deps)
-  parentSpanId: string | null = null  // Parent span ID for telemetry tracing
+  parentSpanId: string | null = null  // Parent span ID for evals2 tracing
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
