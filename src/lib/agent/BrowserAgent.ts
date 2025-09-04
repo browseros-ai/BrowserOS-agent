@@ -74,6 +74,8 @@ import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Import telemetry wrapper statically so webpack includes it
 import { createTrackedTool } from '@/evals/tool-wrapper';
+// Import evals2 lightweight tool wrapper
+import { wrapToolForMetrics } from '@/evals2/SimpleToolWrapper';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
 import { HumanInputResponse } from '@/lib/pubsub/types';
@@ -631,6 +633,12 @@ export class BrowserAgent {
       let toolFunc = tool.func;
       if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
         const wrappedTool = createTrackedTool(tool, this.executionContext);
+        toolFunc = wrappedTool.func;
+      }
+      
+      // Add evals2 lightweight wrapping if enabled
+      if (process.env.ENABLE_EVALS2 === 'true') {
+        const wrappedTool = wrapToolForMetrics(tool, this.executionContext, toolCallId);
         toolFunc = wrappedTool.func;
       }
 

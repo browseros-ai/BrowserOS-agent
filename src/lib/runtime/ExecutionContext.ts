@@ -40,6 +40,15 @@ export class ExecutionContext {
   private _taskNumber: number = 0  // Track number of user tasks in this session
   private _humanInputRequestId: string | undefined  // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
+  
+  // Tool metrics Map for evals2 lightweight tracking
+  toolMetrics: Map<string, {
+    toolName: string
+    duration: number
+    success: boolean
+    timestamp: number
+    error?: string
+  }> | undefined
 
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime with proper type checking
@@ -149,6 +158,9 @@ export class ExecutionContext {
     this.userInitiatedCancel = false;
     this._currentTask = null;
     this.todoStore.reset();
+    // Clear tool metrics for evals2
+    this.toolMetrics?.clear();
+    this.toolMetrics = undefined;
   }
 
   /**

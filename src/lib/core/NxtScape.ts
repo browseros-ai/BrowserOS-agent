@@ -12,6 +12,8 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { BraintrustEventCollector } from "@/evals/BraintrustEventCollector";
 // Import LLMJudge statically to avoid dynamic import issues in service worker
 import { LLMJudge } from "@/evals/scoring/LLMJudge";
+// Import evals2 components
+import { SimpleBraintrustEventManager, SimplifiedScorer } from "@/evals2";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { BRAINTRUST_API_KEY } from "@/config";
 
@@ -76,6 +78,10 @@ export class NxtScape {
   private taskStartTime: number = 0; // Track individual task timing
   private sessionWeightedTotals: number[] = []; // Track all weighted_total scores for session average
   private experimentId: string | null = null; // Optional experiment ID for dual logging
+  
+  // Evals2 simplified evaluation components
+  private evals2Manager: SimpleBraintrustEventManager | null = null;
+  private evals2Enabled: boolean = false;
 
   /**
    * Creates a new NxtScape orchestration agent
@@ -304,8 +310,52 @@ export class NxtScape {
       // Execute the browser agent with the task
       await this.browserAgent.execute(query, metadata as ExecutionMetadata | undefined);
       
-      // Log task completion with telemetry and holistic scoring
-      if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
+      // Add evals2 scoring if enabled
+      if (this.evals2Enabled && this.evals2Manager) {
+        const taskEndTime = Date.now();
+        const duration = this.taskStartTime ? taskEndTime - this.taskStartTime : 0;
+        
+        try {
+          // Score the task
+          const scorer = new SimplifiedScorer();
+          const score = await scorer.scoreFromMessages(
+            this.messageManager.getMessages(),
+            query,
+            this.executionContext.toolMetrics  // Pass tool metrics for duration data
+          );
+          
+          // Log to console
+          console.log('Evals2 Score:', {
+            goal: score.goalCompletion.toFixed(2),
+            plan: score.planCorrectness.toFixed(2),
+            errors: score.errorFreeExecution.toFixed(2),
+            context: score.contextEfficiency.toFixed(2),
+            total: score.weightedTotal.toFixed(2)
+          });
+          
+          // Upload to Braintrust with parent span
+          const { braintrustLogger } = await import('@/evals2/SimpleBraintrustLogger');
+          await braintrustLogger.logTaskScore(
+            query,
+            score,
+            duration,
+            {
+              selectedTabIds: tabIds || [],
+              mode: mode || 'browse'
+            },
+            this.telemetryParentSpan || undefined
+          );
+          
+          // Add score to session manager for averaging
+          this.evals2Manager.addTaskScore(score.weightedTotal);
+          
+        } catch (error) {
+          console.warn('Evals2 scoring failed:', error);
+          // Don't break execution if scoring fails
+        }
+      } 
+      // Log task completion with original telemetry and holistic scoring
+      else if (this.telemetry?.isEnabled() && this.telemetryParentSpan) {
         const taskDuration = Date.now() - this.taskStartTime;
         
         // Finalize task with scoring and telemetry
@@ -530,6 +580,47 @@ export class NxtScape {
    * This creates a parent session that spans multiple tasks
    */
   private async _initializeTelemetrySession(): Promise<void> {
+    // Check if evals2 is enabled first
+    this.evals2Enabled = process.env.ENABLE_EVALS2 === 'true';
+    
+    if (this.evals2Enabled) {
+      // Use simplified evals2 system
+      try {
+        this.evals2Manager = SimpleBraintrustEventManager.getInstance();
+        
+        if (!this.evals2Manager.isEnabled()) {
+          this.evals2Manager = null;
+          this.evals2Enabled = false;
+          return;
+        }
+        
+        const sessionId = crypto.randomUUID();
+        const { parent } = await this.evals2Manager.startSession({
+          sessionId,
+          task: this.currentQuery || 'No query provided',
+          timestamp: Date.now(),
+          browserInfo: {
+            version: typeof chrome !== 'undefined' ? chrome.runtime.getManifest().version : 'unknown',
+            tabCount: 0
+          }
+        });
+        
+        this.telemetrySessionId = sessionId;
+        this.telemetryParentSpan = parent || null;
+        
+        // Also update execution context for tool wrapping
+        if (this.executionContext) {
+          this.executionContext.parentSpanId = this.telemetryParentSpan;
+        }
+        
+        return;
+      } catch (error) {
+        // Silent failure
+        this.evals2Enabled = false;
+      }
+    }
+    
+    // Fall back to original telemetry if evals2 is not enabled
     try {
       // Get telemetry instance (singleton)
       this.telemetry = BraintrustEventCollector.getInstance();
@@ -580,6 +671,15 @@ export class NxtScape {
    * @param reason - Why the session is ending (reset, close, timeout, etc.)
    */
   private async _endTelemetrySession(reason: string = 'unknown'): Promise<void> {
+    // Handle evals2 session end
+    if (this.evals2Enabled && this.evals2Manager) {
+      await this.evals2Manager.endSession(reason);
+      this.telemetrySessionId = null;
+      this.telemetryParentSpan = null;
+      return;
+    }
+    
+    // Original telemetry session end
     if (!this.telemetry?.isEnabled() || !this.telemetrySessionId || !this.telemetryParentSpan) {
       return;
     }
