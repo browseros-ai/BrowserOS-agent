@@ -9,7 +9,7 @@ export const SCORE_WEIGHTS = {
 // Default scoring model
 export const DEFAULT_SCORING_MODEL = "gpt-4o-mini";
 
-// Environment variable names
+// Environment variable names (for reference)
 export const ENV_VARS = {
   ENABLE: "ENABLE_EVALS2",
   BRAINTRUST_KEY: "BRAINTRUST_API_KEY",

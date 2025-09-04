@@ -26,6 +26,7 @@ const processEnv = {
   'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
   // Braintrust Telemetry Configuration
   'process.env.ENABLE_TELEMETRY': JSON.stringify(envKeys.ENABLE_TELEMETRY || 'false'),
+  'process.env.ENABLE_EVALS2': JSON.stringify(envKeys.ENABLE_EVALS2 || 'false'),
   'process.env.BRAINTRUST_API_KEY': JSON.stringify(envKeys.BRAINTRUST_API_KEY || ''),
   'process.env.BRAINTRUST_PROJECT_UUID': JSON.stringify(envKeys.BRAINTRUST_PROJECT_UUID || ''),
   // OpenAI Configuration for Scoring

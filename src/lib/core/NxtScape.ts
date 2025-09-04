@@ -11,6 +11,7 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 // Import evals2 components
 import { SimpleBraintrustEventManager, SimplifiedScorer } from "@/evals2";
 import { ExecutionMetadata } from "@/lib/types/messaging";
+import { ENABLE_EVALS2 } from "@/config";
 
 /**
  * Configuration schema for NxtScape agent
@@ -523,7 +524,7 @@ export class NxtScape {
    */
   private async _initializeTelemetrySession(): Promise<void> {
     // Check if evals2 is enabled
-    this.evals2Enabled = process.env.ENABLE_EVALS2 === 'true';
+    this.evals2Enabled = ENABLE_EVALS2;
     
     if (!this.evals2Enabled) {
       return;

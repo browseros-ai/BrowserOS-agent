@@ -1,4 +1,4 @@
-import { BRAINTRUST_API_KEY } from '@/config';
+import { ENABLE_EVALS2, BRAINTRUST_API_KEY } from '@/config';
 import { z } from 'zod';
 
 // Session metadata schema
@@ -47,7 +47,7 @@ export class SimpleBraintrustEventManager {
   isEnabled(): boolean {
     if (!this.initialized) {
       this.initialized = true;
-      this.enabled = process.env.ENABLE_EVALS2 === 'true' && !!BRAINTRUST_API_KEY;
+      this.enabled = ENABLE_EVALS2 && !!BRAINTRUST_API_KEY;
       if (this.enabled) {
         console.log('%c✓ Evals2 enabled', 'color: #00ff00; font-size: 10px');
       }

@@ -74,6 +74,7 @@ import { AbortError } from '@/lib/utils/Abortable';
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Import evals2 lightweight tool wrapper
 import { wrapToolForMetrics } from '@/evals2/SimpleToolWrapper';
+import { ENABLE_EVALS2 } from '@/config';
 import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
 import { HumanInputResponse } from '@/lib/pubsub/types';
@@ -208,7 +209,7 @@ export class BrowserAgent {
       const classification = await this._classifyTask(task);
       
       // Log classification result to console for visibility
-      if (process.env.ENABLE_EVALS2 === 'true') {
+      if (ENABLE_EVALS2) {
         console.log(`%c→ Classification: ${classification.is_simple_task ? 'simple' : 'complex'}`, 'color: #888; font-size: 10px');
       }
       
@@ -628,7 +629,7 @@ export class BrowserAgent {
 
       // Add evals2 lightweight wrapping if enabled
       let toolFunc = tool.func;
-      if (process.env.ENABLE_EVALS2 === 'true') {
+      if (ENABLE_EVALS2) {
         const wrappedTool = wrapToolForMetrics(tool, this.executionContext, toolCallId);
         toolFunc = wrappedTool.func;
       }

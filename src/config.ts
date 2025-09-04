@@ -62,8 +62,13 @@ export function isPocMode(): boolean {
  * 
  * 6. To experiment, you will need BRAINTRUST_PROJECT_UUID from your Braintrust dashboard in your .env file
  * 
+ * For the simplified evals2 system:
+ * 1. Set ENABLE_EVALS2 = true in your .env file
+ * 2. Set BRAINTRUST_API_KEY in your .env file
+ * 3. Rebuild
  */
 export const ENABLE_TELEMETRY = process.env.ENABLE_TELEMETRY === 'true';
+export const ENABLE_EVALS2 = process.env.ENABLE_EVALS2 === 'true';
 export const BRAINTRUST_API_KEY = process.env.BRAINTRUST_API_KEY || '';
 export const OPENAI_API_KEY_FOR_SCORING = process.env.OPENAI_API_KEY_FOR_SCORING || '';
 export const OPENAI_MODEL_FOR_SCORING = process.env.OPENAI_MODEL_FOR_SCORING || 'gpt-4o';
