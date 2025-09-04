@@ -232,59 +232,74 @@ Implement the lightweight tool wrapper and simplified scorer.
 
 ```typescript
 import { DynamicStructuredTool } from '@langchain/core/tools';
-import { z } from 'zod';
-
-// Simple in-memory storage for durations
-const toolDurations = new Map<string, number>();
+import type { ExecutionContext } from '@/lib/runtime/ExecutionContext';
 
 /**
- * Wrap a tool to track execution duration
- * Minimal overhead - just Date.now() calls
+ * Wrap a tool to track execution duration in ExecutionContext
+ * Stores metrics in context.toolMetrics Map
  */
-export function wrapToolForDuration(tool: DynamicStructuredTool): DynamicStructuredTool {
-  const originalFunc = tool.func;
-  
-  const wrappedFunc = async (input: any) => {
-    const start = Date.now();
-    const callId = `${tool.name}_${start}`;
-    
-    try {
-      const result = await originalFunc(input);
-      const duration = Date.now() - start;
-      
-      // Store duration for later retrieval
-      toolDurations.set(callId, duration);
-      
-      // Option A: Add duration to result metadata
-      try {
-        const parsed = JSON.parse(result);
-        parsed._metrics = { duration_ms: duration };
-        return JSON.stringify(parsed);
-      } catch {
-        // If not JSON, return as-is
-        return result;
-      }
-    } catch (error) {
-      const duration = Date.now() - start;
-      toolDurations.set(callId, duration);
-      throw error;
-    }
-  };
-  
+export function wrapToolForMetrics(
+  tool: DynamicStructuredTool,
+  context: ExecutionContext,
+  toolCallId: string
+): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: tool.name,
     description: tool.description,
     schema: tool.schema,
-    func: wrappedFunc
+    func: async (input: any) => {
+      const start = Date.now();
+      
+      try {
+        const result = await tool.func(input);
+        const duration = Date.now() - start;
+        
+        // Parse result to check success
+        let success = true;
+        try {
+          const parsed = JSON.parse(result);
+          success = parsed.ok !== false;
+        } catch {
+          // If not JSON, assume success
+        }
+        
+        // Store metrics in ExecutionContext
+        if (!context.toolMetrics) {
+          context.toolMetrics = new Map();
+        }
+        context.toolMetrics.set(toolCallId, {
+          toolName: tool.name,
+          duration,
+          success,
+          timestamp: start
+        });
+        
+        console.log(`⚡ Tool: ${tool.name} (${duration}ms)`);
+        return result;
+        
+      } catch (error: any) {
+        const duration = Date.now() - start;
+        
+        // Store error metrics
+        if (!context.toolMetrics) {
+          context.toolMetrics = new Map();
+        }
+        context.toolMetrics.set(toolCallId, {
+          toolName: tool.name,
+          duration,
+          success: false,
+          timestamp: start,
+          error: error.message
+        });
+        
+        console.error(`❌ Tool: ${tool.name} failed (${duration}ms)`);
+        throw error;
+      }
+    }
   });
 }
 
-// Helper to get all durations and clear
-export function getAndClearDurations(): Map<string, number> {
-  const durations = new Map(toolDurations);
-  toolDurations.clear();
-  return durations;
-}
+export { wrapToolForMetrics as wrapToolForDuration }; // Alias for compatibility
 ```
 
 #### 2. SimplifiedScorer.ts
@@ -341,35 +356,46 @@ export class SimplifiedScorer {
     };
   }
   
-  private extractToolCalls(messages: BaseMessage[]): ToolExecution[] {
+  private extractToolCalls(messages: BaseMessage[], toolMetrics?: Map<string, any>): ToolExecution[] {
     const toolCalls: ToolExecution[] = [];
     
+    // Simple iteration using instanceof
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       
-      // Find AI messages with tool calls
-      if (msg._getType() === 'ai') {
-        const aiMsg = msg as AIMessage;
-        if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
-          // Look for corresponding tool result
-          for (const toolCall of aiMsg.tool_calls) {
-            const toolResult = messages.slice(i + 1).find(
-              m => m._getType() === 'tool' && 
-                   (m as ToolMessage).tool_call_id === toolCall.id
-            ) as ToolMessage | undefined;
-            
-            if (toolResult) {
-              const result = this.parseToolResult(toolResult.content as string);
-              toolCalls.push({
-                toolName: toolCall.name,
-                duration: result.duration || 100, // Default if not tracked
-                success: result.ok !== false,
-                timestamp: Date.now(),
-                args: toolCall.args,
-                error: result.error
-              });
+      // Check if it's an AIMessage with tool calls
+      if (msg instanceof AIMessage && msg.tool_calls && msg.tool_calls.length > 0) {
+        for (const toolCall of msg.tool_calls) {
+          // Find the next ToolMessage with matching ID
+          const toolMsg = messages.slice(i + 1).find(
+            m => m instanceof ToolMessage && m.tool_call_id === toolCall.id
+          ) as ToolMessage | undefined;
+          
+          // Get metrics from ExecutionContext if available
+          const metrics = toolMetrics?.get(toolCall.id);
+          
+          let success = true;
+          let error: string | undefined;
+          
+          if (toolMsg) {
+            // Parse tool result to check success
+            try {
+              const result = JSON.parse(toolMsg.content as string);
+              success = result.ok !== false;
+              error = result.error;
+            } catch {
+              // Not JSON, assume success
             }
           }
+          
+          toolCalls.push({
+            toolName: toolCall.name,
+            duration: metrics?.duration || 100,  // Use tracked duration or default
+            success: metrics?.success ?? success,
+            timestamp: metrics?.timestamp || Date.now(),
+            args: toolCall.args,
+            error: metrics?.error || error
+          });
         }
       }
     }
@@ -377,83 +403,122 @@ export class SimplifiedScorer {
     return toolCalls;
   }
   
-  private parseToolResult(content: string): any {
+  private async scoreGoalCompletion(messages: BaseMessage[], query: string): Promise<number> {
+    if (!this.openai) {
+      // Simple heuristic: check if done_tool was called
+      const hasDone = messages.some(msg => 
+        msg instanceof AIMessage && 
+        msg.tool_calls?.some(tc => tc.name === 'done_tool')
+      );
+      return hasDone ? 0.8 : 0.3;
+    }
+    
+    // Simple prompt for LLM scoring
+    const lastMessages = messages.slice(-5);
+    const prompt = `Task: "${query}"
+
+Last messages:
+${lastMessages.map(m => `${m.constructor.name}: ${typeof m.content === 'string' ? m.content.slice(0, 100) : '...'}`).join('\n')}
+
+Did the agent complete the task? Reply with a number 0-1:
+1 = fully completed
+0.5 = partial completion  
+0 = no completion`;
+
     try {
-      const parsed = JSON.parse(content);
-      // Check for duration in metadata
-      if (parsed._metrics?.duration_ms) {
-        parsed.duration = parsed._metrics.duration_ms;
-      }
-      return parsed;
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 10,
+        temperature: 0
+      });
+      
+      const score = parseFloat(response.choices[0].message.content || '0.5');
+      return Math.min(1, Math.max(0, score));
     } catch {
-      return { output: content, ok: true };
+      return 0.5;
     }
   }
   
-  private async scoreGoalCompletion(messages: BaseMessage[], query: string): Promise<number> {
-    // Use LLM to assess if goal was completed
-    // For now, simple heuristic: check if DoneTool was called successfully
-    const doneToolCalled = messages.some(msg => {
-      if (msg._getType() === 'ai') {
-        const aiMsg = msg as AIMessage;
-        return aiMsg.tool_calls?.some(tc => tc.name === 'done_tool');
-      }
-      return false;
-    });
+  private async scorePlanCorrectness(toolCalls: ToolExecution[], query: string): Promise<number> {
+    if (!this.openai) {
+      // Simple heuristic based on tool count and pattern
+      if (toolCalls.length === 0) return 0;
+      if (toolCalls.length > 20) return 0.3;
+      
+      const hasPlanning = toolCalls.some(t => 
+        t.toolName === 'classification_tool' || 
+        t.toolName === 'planner_tool'
+      );
+      return hasPlanning ? 0.7 : 0.5;
+    }
     
-    return doneToolCalled ? 0.9 : 0.3;
-  }
-  
-  private scorePlanCorrectness(toolCalls: ToolExecution[], query: string): number {
-    // Assess plan quality based on tool sequence
-    // Heuristics: logical order, no excessive loops, appropriate tools
-    
-    if (toolCalls.length === 0) return 0.0;
-    if (toolCalls.length > 20) return 0.3; // Too many calls
-    
-    // Check for classification → planning → execution pattern
-    const hasClassification = toolCalls.some(t => t.toolName === 'classification_tool');
-    const hasPlanning = toolCalls.some(t => t.toolName === 'planner_tool');
-    
-    if (hasClassification && hasPlanning) return 0.8;
-    if (hasClassification || hasPlanning) return 0.6;
-    return 0.5;
+    // Simple prompt for plan quality
+    const toolSequence = toolCalls.map(t => t.toolName).join(' → ');
+    const prompt = `Task: "${query}"
+
+Tools used: ${toolSequence}
+
+Was this an efficient plan? Reply with a number 0-1:
+1 = very efficient
+0.5 = okay
+0 = very inefficient`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 10,
+        temperature: 0
+      });
+      
+      const score = parseFloat(response.choices[0].message.content || '0.5');
+      return Math.min(1, Math.max(0, score));
+    } catch {
+      return 0.5;
+    }
   }
   
   private scoreSuccessRatio(toolCalls: ToolExecution[]): number {
     if (toolCalls.length === 0) return 1.0;
     
     const successCount = toolCalls.filter(t => t.success).length;
-    return successCount / toolCalls.length;
+    const errorCount = toolCalls.filter(t => !t.success).length;
+    const retryCount = this.countRetries(toolCalls);
+    
+    // Simple formula: success ratio minus penalties
+    const baseRatio = successCount / toolCalls.length;
+    const retryPenalty = retryCount * 0.05;  // 5% per retry
+    const errorPenalty = errorCount * 0.10;   // 10% per error
+    
+    return Math.max(0, baseRatio - retryPenalty - errorPenalty);
   }
   
-  private scoreContextEfficiency(messages: BaseMessage[], toolCalls: ToolExecution[]): number {
-    // Assess efficient use of context
-    // Metrics: message count, redundant calls, context switches
+  private scoreContextEfficiency(messages: BaseMessage[]): number {
+    // Simple token estimation: ~4 chars per token
+    const totalChars = messages.reduce((sum, msg) => {
+      const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+      return sum + content.length;
+    }, 0);
     
-    const messageCount = messages.length;
-    const retries = this.countRetries(toolCalls);
+    const estimatedTokens = totalChars / 4;
     
-    // Penalize excessive messages or retries
-    if (messageCount > 50) return 0.3;
-    if (retries > 3) return 0.4;
-    if (messageCount > 30) return 0.6;
-    if (retries > 1) return 0.7;
-    
-    return 0.9;
+    // Simple scoring based on requirements
+    if (estimatedTokens <= 32000) return 1.0;   // 5/5
+    if (estimatedTokens <= 64000) return 0.8;   // 4/5
+    if (estimatedTokens <= 128000) return 0.6;  // 3/5
+    if (estimatedTokens <= 256000) return 0.4;  // 2/5
+    return 0.2;  // 1/5
   }
   
   private countRetries(toolCalls: ToolExecution[]): number {
     let retries = 0;
-    let lastTool = '';
-    
-    for (const call of toolCalls) {
-      if (call.toolName === lastTool && !call.success) {
+    for (let i = 1; i < toolCalls.length; i++) {
+      // Same tool called consecutively = likely retry
+      if (toolCalls[i].toolName === toolCalls[i-1].toolName) {
         retries++;
       }
-      lastTool = call.toolName;
     }
-    
     return retries;
   }
 }
