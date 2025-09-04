@@ -4,6 +4,8 @@
 
 Implement a simplified evaluation system (evals2) that combines lightweight tool duration tracking with message-based analysis. The system will use minimal hooks in the existing code and extract all scoring data from the MessageManager history.
 
+// NTN -- youc an use ExecutionContext as well. Need not be just MessageManager
+
 ## Current State Analysis
 
 The current evaluation system in `src/evals/` has:
@@ -25,23 +27,27 @@ A clean, simple evaluation system in `src/evals2/` that:
 - Tracks tool duration with minimal overhead (just Date.now() calls)
 - Scores executions based on MessageManager history
 - Uses 4 scoring categories with specific weights
+- Logs scores to Braintrust for visualization and tracking
 - Has only 2 integration points in existing code
 - Can be easily enabled/disabled via environment variable
 
 ### Key Requirements:
 - 4 scoring categories: goal (40%), plan (30%), errors (15%), context (15%)
 - Duration tracking via lightweight wrapper (no spans, no telemetry)
-- All scoring data extracted from messages post-execution
-- No singletons, no complex initialization
+- All scoring data extracted from messages post-execution and any maps we create in execution context
+- Simple Braintrust logger for uploading scores (no complex spans)
+- Use existing LangChainProvider for LLM scoring
 
 ## What We're NOT Doing
 
+// NTN -- let's keep parent-child relationships still
 - NOT creating complex telemetry spans or parent-child relationships
-- NOT using Braintrust's wrapTraced or telemetry infrastructure
+- NOT using Braintrust's wrapTraced or complex span tracing
 - NOT tracking individual tool metrics beyond duration
 - NOT modifying execution flow or adding callbacks
 - NOT creating session management or experiment infrastructure
-- NOT adding any runtime dependencies beyond OpenAI for scoring
+- NOT creating a new OpenAI client (use LangChainProvider)
+- NOT implementing the full 6-dimensional scoring system
 
 ## Implementation Approach
 
@@ -68,6 +74,9 @@ Clean up existing telemetry and evaluation hooks from the main codebase.
 - import { LLMJudge } from "@/evals/scoring/LLMJudge";
 - import { BRAINTRUST_API_KEY } from "@/config";
 
+// NTN -- need not remove this -- we can just delete not useful ones.
+// NTN -- like if we want session id and parent spane we can keep that
+// NTN -- we can write a much simpler BrainTrustEventManager
 // Remove telemetry properties (lines 71-78)
 - private telemetrySessionId: string | null = null;
 - private telemetryParentSpan: string | null = null;
@@ -93,7 +102,6 @@ Clean up existing telemetry and evaluation hooks from the main codebase.
 // Remove import (line 76)
 - import { createTrackedTool } from '@/evals/tool-wrapper';
 
-// Remove telemetry wrapping (lines 631-635)
 - if (this.executionContext.telemetry?.isEnabled() && this.executionContext.parentSpanId) {
 -   const wrappedTool = createTrackedTool(tool, this.executionContext);
 -   toolFunc = wrappedTool.func;
@@ -134,11 +142,12 @@ Create the new simplified evaluation system directory structure.
 **Files to create**:
 ```
 src/evals2/
-├── SimpleToolWrapper.ts    # Lightweight duration tracking
-├── SimplifiedScorer.ts      # 4-category scoring from messages
-├── types.ts                 # Simple types/schemas with Zod
-├── index.ts                 # Clean exports
-└── config.ts                # Configuration constants
+├── SimpleToolWrapper.ts      # Lightweight duration tracking
+├── SimplifiedScorer.ts       # 4-category scoring from messages
+├── SimpleBraintrustLogger.ts # Minimal Braintrust integration
+├── types.ts                  # Simple types/schemas with Zod
+├── index.ts                  # Clean exports
+└── config.ts                 # Configuration constants
 ```
 
 #### 2. types.ts
@@ -164,6 +173,7 @@ export type ToolExecution = z.infer<typeof ToolExecutionSchema>;
 export const ScoreResultSchema = z.object({
   goalCompletion: z.number().min(0).max(1),  // How well goal was achieved
   planCorrectness: z.number().min(0).max(1),  // Quality of the plan
+  // NTN -- let's call this errorFreeExecution
   successRatio: z.number().min(0).max(1),  // Error-free execution ratio
   contextEfficiency: z.number().min(0).max(1),  // Efficient context usage
   weightedTotal: z.number().min(0).max(1),  // Weighted average
@@ -201,7 +211,7 @@ export const DEFAULT_SCORING_MODEL = "gpt-4o-mini";
 // Environment variable names
 export const ENV_VARS = {
   ENABLE: "ENABLE_EVALS2",
-  OPENAI_KEY: "OPENAI_API_KEY_FOR_SCORING",
+  BRAINTRUST_KEY: "BRAINTRUST_API_KEY",
   SCORING_MODEL: "OPENAI_MODEL_FOR_SCORING"
 } as const;
 ```
@@ -308,14 +318,28 @@ export { wrapToolForMetrics as wrapToolForDuration }; // Alias for compatibility
 
 ```typescript
 import { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { getLLM } from '@/lib/llm/LangChainProvider';
 import { SCORE_WEIGHTS, DEFAULT_SCORING_MODEL } from './config';
 import { ScoreResult, ToolExecution } from './types';
 
 export class SimplifiedScorer {
   private model: string;
+  private llm: BaseChatModel | null = null;
   
   constructor(model?: string) {
     this.model = model || process.env.OPENAI_MODEL_FOR_SCORING || DEFAULT_SCORING_MODEL;
+  }
+  
+  private async getLLM(): Promise<BaseChatModel | null> {
+    if (!this.llm) {
+      try {
+        this.llm = await getLLM({ temperature: 0, maxTokens: 100 });
+      } catch {
+        return null;
+      }
+    }
+    return this.llm;
   }
   
   /**
@@ -356,6 +380,11 @@ export class SimplifiedScorer {
     };
   }
   
+  /**
+   * Extract tool calls from message history
+   * @param messages - Message history from MessageManager
+   * @param toolMetrics - Optional metrics Map from ExecutionContext
+   */
   private extractToolCalls(messages: BaseMessage[], toolMetrics?: Map<string, any>): ToolExecution[] {
     const toolCalls: ToolExecution[] = [];
     
@@ -404,7 +433,8 @@ export class SimplifiedScorer {
   }
   
   private async scoreGoalCompletion(messages: BaseMessage[], query: string): Promise<number> {
-    if (!this.openai) {
+    const llm = await this.getLLM();
+    if (!llm) {
       // Simple heuristic: check if done_tool was called
       const hasDone = messages.some(msg => 
         msg instanceof AIMessage && 
@@ -417,31 +447,29 @@ export class SimplifiedScorer {
     const lastMessages = messages.slice(-5);
     const prompt = `Task: "${query}"
 
-Last messages:
+Last 5 messages:
 ${lastMessages.map(m => `${m.constructor.name}: ${typeof m.content === 'string' ? m.content.slice(0, 100) : '...'}`).join('\n')}
 
-Did the agent complete the task? Reply with a number 0-1:
+Score task completion (0-1):
 1 = fully completed
-0.5 = partial completion  
-0 = no completion`;
+0.5 = partial  
+0 = not done
+
+Reply with ONLY a number:`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 10,
-        temperature: 0
-      });
-      
-      const score = parseFloat(response.choices[0].message.content || '0.5');
-      return Math.min(1, Math.max(0, score));
+      const response = await llm.invoke(prompt);
+      const content = typeof response.content === 'string' ? response.content : '0.5';
+      const score = parseFloat(content.trim());
+      return Math.min(1, Math.max(0, isNaN(score) ? 0.5 : score));
     } catch {
       return 0.5;
     }
   }
   
   private async scorePlanCorrectness(toolCalls: ToolExecution[], query: string): Promise<number> {
-    if (!this.openai) {
+    const llm = await this.getLLM();
+    if (!llm) {
       // Simple heuristic based on tool count and pattern
       if (toolCalls.length === 0) return 0;
       if (toolCalls.length > 20) return 0.3;
@@ -454,32 +482,29 @@ Did the agent complete the task? Reply with a number 0-1:
     }
     
     // Simple prompt for plan quality
-    const toolSequence = toolCalls.map(t => t.toolName).join(' → ');
+    const toolSequence = toolCalls.slice(0, 20).map(t => t.toolName).join(' → ');
     const prompt = `Task: "${query}"
 
-Tools used: ${toolSequence}
+Tools: ${toolSequence}
 
-Was this an efficient plan? Reply with a number 0-1:
-1 = very efficient
+Rate efficiency (0-1):
+1 = efficient
 0.5 = okay
-0 = very inefficient`;
+0 = inefficient
+
+Reply with ONLY a number:`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 10,
-        temperature: 0
-      });
-      
-      const score = parseFloat(response.choices[0].message.content || '0.5');
-      return Math.min(1, Math.max(0, score));
+      const response = await llm.invoke(prompt);
+      const content = typeof response.content === 'string' ? response.content : '0.5';
+      const score = parseFloat(content.trim());
+      return Math.min(1, Math.max(0, isNaN(score) ? 0.5 : score));
     } catch {
       return 0.5;
     }
   }
   
-  private scoreSuccessRatio(toolCalls: ToolExecution[]): number {
+  private scoreErrorFreeExecution(toolCalls: ToolExecution[]): number {
     if (toolCalls.length === 0) return 1.0;
     
     const successCount = toolCalls.filter(t => t.success).length;
@@ -524,6 +549,111 @@ Was this an efficient plan? Reply with a number 0-1:
 }
 ```
 
+#### 3. SimpleBraintrustLogger.ts
+**File**: `src/evals2/SimpleBraintrustLogger.ts`
+**Changes**: Minimal Braintrust integration for score logging
+
+```typescript
+import { BRAINTRUST_API_KEY } from '@/config';
+import { ScoreResult } from './types';
+
+// Lazy load Braintrust to avoid module loading issues
+let initLogger: any = null;
+
+/**
+ * Simple Braintrust logger that only uploads scores
+ * No complex spans, no session management, just scores
+ */
+export class SimpleBraintrustLogger {
+  private logger: any = null;
+  private initialized: boolean = false;
+  
+  async initialize(): Promise<boolean> {
+    if (this.initialized) return true;
+    this.initialized = true;
+    
+    if (!BRAINTRUST_API_KEY) {
+      console.log('%c⚠️ No Braintrust API key, scores won\'t be uploaded', 'color: #ff9900; font-size: 10px');
+      return false;
+    }
+    
+    try {
+      // Lazy load braintrust module
+      if (!initLogger) {
+        const braintrust = require('braintrust');
+        initLogger = braintrust.initLogger;
+      }
+      
+      // Initialize simple logger (not experiment)
+      this.logger = initLogger({
+        apiKey: BRAINTRUST_API_KEY,
+        projectName: 'browseros-agent-online'
+      });
+      
+      console.log('%c✓ Braintrust logger initialized', 'color: #00ff00; font-size: 10px');
+      return true;
+    } catch (error) {
+      console.warn('Failed to initialize Braintrust:', error);
+      return false;
+    }
+  }
+  
+  async logTaskScore(
+    query: string,
+    score: ScoreResult,
+    duration_ms: number,
+    metadata?: any
+  ): Promise<void> {
+    if (!this.logger) {
+      const success = await this.initialize();
+      if (!success) return;
+    }
+    
+    try {
+      // Log as a simple traced event with scores
+      await this.logger.traced(async (span: any) => {
+        span.log({
+          input: query,
+          output: `Task completed with score: ${score.weightedTotal.toFixed(2)}`,
+          scores: {
+            // Our 4 simplified scores
+            goal_completion: score.goalCompletion,
+            plan_correctness: score.planCorrectness,
+            success_ratio: score.successRatio,
+            context_efficiency: score.contextEfficiency,
+            weighted_total: score.weightedTotal
+          },
+          metadata: {
+            type: 'evals2_task',
+            duration_ms,
+            tool_calls: score.details.toolCalls,
+            failed_calls: score.details.failedCalls,
+            retries: score.details.retries,
+            ...metadata
+          }
+        });
+      }, {
+        name: 'evals2_task_score'
+      });
+      
+      console.log('%c📊 Scores uploaded to Braintrust', 'color: #4caf50; font-size: 10px');
+    } catch (error) {
+      // Silent failure - don't break execution
+      console.debug('Failed to log to Braintrust:', error);
+    }
+  }
+  
+  async flush(): Promise<void> {
+    if (this.logger && this.logger.flush) {
+      await this.logger.flush();
+    }
+  }
+}
+
+// Export singleton instance
+export const braintrustLogger = new SimpleBraintrustLogger();
+```
+
 ### Success Criteria:
 
 #### Automated Verification:
@@ -535,6 +665,7 @@ Was this an efficient plan? Reply with a number 0-1:
 - [ ] Tool wrapper adds minimal overhead (<5ms)
 - [ ] Scorer extracts correct tool calls from messages
 - [ ] Scores are in 0-1 range
+- [ ] Scores appear in Braintrust dashboard
 
 ---
 
@@ -551,14 +682,16 @@ Add minimal hooks in existing code to enable evals2.
 
 ```typescript
 // Add import at top
-import { wrapToolForDuration } from '@/evals2/SimpleToolWrapper';
+import { wrapToolForMetrics } from '@/evals2/SimpleToolWrapper';
 
 // In _processToolCalls method (around line 630)
 let toolFunc = tool.func;
 
-// Add evals2 wrapping
+// Add evals2 wrapping (pass tool call ID for metrics tracking)
 if (process.env.ENABLE_EVALS2 === 'true') {
-  const wrappedTool = wrapToolForDuration(tool);
+  const toolCallId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // NTN -- I think tools might have an id field already
+  const wrappedTool = wrapToolForMetrics(tool, this.executionContext, toolCallId);
   toolFunc = wrappedTool.func;
 }
 
@@ -567,24 +700,32 @@ const toolResult = await toolFunc(args);
 
 #### 2. NxtScape Integration
 **File**: `src/lib/core/NxtScape.ts`
-**Changes**: Add scoring after task completion
+**Changes**: Add scoring and Braintrust logging after task completion
 
 ```typescript
-// Add import at top
+// Add imports at top
 import { SimplifiedScorer } from '@/evals2/SimplifiedScorer';
+import { braintrustLogger } from '@/evals2/SimpleBraintrustLogger';
 
 // In _executeAgent method, after successful execution (around line 316)
 // Right after: await this.browserAgent.execute(query, metadata);
 
-// Add evals2 scoring
+// Add evals2 scoring and logging
 if (process.env.ENABLE_EVALS2 === 'true') {
+  const taskStartTime = Date.now();
+  
   try {
+    // Score the task
     const scorer = new SimplifiedScorer();
     const score = await scorer.scoreFromMessages(
       this.messageManager.getMessages(),
-      query
+      query,
+      this.executionContext.toolMetrics  // Pass tool metrics for duration data
     );
     
+    const duration = Date.now() - taskStartTime;
+    
+    // Log to console
     console.log('Evals2 Score:', {
       goal: score.goalCompletion.toFixed(2),
       plan: score.planCorrectness.toFixed(2),
@@ -593,14 +734,17 @@ if (process.env.ENABLE_EVALS2 === 'true') {
       total: score.weightedTotal.toFixed(2)
     });
     
-    // Optionally save to file or send somewhere
-    if (process.env.EVALS2_OUTPUT_FILE) {
-      const fs = await import('fs/promises');
-      await fs.appendFile(
-        process.env.EVALS2_OUTPUT_FILE,
-        JSON.stringify({ query, score, timestamp: Date.now() }) + '\n'
-      );
-    }
+    // Upload to Braintrust
+    await braintrustLogger.logTaskScore(
+      query,
+      score,
+      duration,
+      {
+        selectedTabIds: tabIds || [],
+        mode: mode || 'browse'
+      }
+    );
+    
   } catch (error) {
     console.warn('Evals2 scoring failed:', error);
     // Don't break execution if scoring fails
@@ -684,7 +828,33 @@ describe('SimplifiedScorer', () => {
 rm -rf src/evals/
 ```
 
-#### 3. Update Package.json Scripts
+#### 3. Update ExecutionContext
+**File**: `src/lib/runtime/ExecutionContext.ts`
+**Changes**: Add toolMetrics Map
+
+```typescript
+export class ExecutionContext {
+  // ... existing properties ...
+  
+  // Add tool metrics Map for evals2
+  toolMetrics: Map<string, {
+    toolName: string;
+    duration: number;
+    success: boolean;
+    timestamp: number;
+    error?: string;
+  }> | undefined;
+  
+  // In reset() method, add:
+  public reset(): void {
+    // ... existing reset code ...
+    this.toolMetrics?.clear();
+    this.toolMetrics = undefined;
+  }
+}
+```
+
+#### 4. Update Package.json Scripts
 **File**: `package.json`
 **Changes**: Add evals2 test script
 
@@ -707,6 +877,7 @@ rm -rf src/evals/
 #### Manual Verification:
 - [ ] Extension works with ENABLE_EVALS2=true
 - [ ] Scores are reasonable for sample tasks
+- [ ] Scores appear in Braintrust dashboard at https://braintrust.dev/app/Felafax/p/browseros-agent-online/logs
 - [ ] No performance degradation
 - [ ] Clean console output
 
@@ -725,12 +896,21 @@ rm -rf src/evals/
 - Check duration tracking accuracy
 
 ### Manual Testing Steps:
-1. Build extension with `ENABLE_EVALS2=true`
-2. Execute task: "Navigate to google.com"
-3. Verify console shows scores
-4. Execute complex task: "Find the weather in San Francisco"
-5. Verify plan score reflects multi-step execution
-6. Check that durations are reasonable
+1. Set environment variables:
+   ```bash
+   export ENABLE_EVALS2=true
+   export BRAINTRUST_API_KEY=your-key  # From config.ts
+   ```
+2. Build extension: `npm run build:dev`
+3. Execute simple task: "Navigate to google.com"
+4. Verify:
+   - Console shows 4 scores (goal, plan, errors, context)
+   - Braintrust dashboard shows the task with scores
+5. Execute complex task: "Find the weather in San Francisco"
+6. Verify:
+   - Plan score reflects multi-step execution
+   - Tool durations are reasonable
+   - Scores uploaded to Braintrust
 
 ## Performance Considerations
 
@@ -745,10 +925,39 @@ rm -rf src/evals/
 - Can run both systems in parallel during transition
 - Old telemetry can be removed after validation
 - Scores may differ slightly due to simplified heuristics
+- Braintrust scores will appear under 'evals2_task_score' events
+
+## Key Differences from Old System
+
+| Aspect | Old Evals | New Evals2 |
+|--------|-----------|------------|
+| Scoring Dimensions | 6 (complex weights) | 4 (simple weights) |
+| Telemetry | Complex span hierarchy | Single task event |
+| Tool Tracking | Braintrust wrapTraced | Simple duration Map |
+| LLM Client | Direct OpenAI | LangChainProvider |
+| Initialization | Lazy singleton | Direct instantiation |
+| Session Management | Yes (parent spans) | No (just task scores) |
+| Code Complexity | ~2000 lines | ~500 lines |
+| Dependencies | Braintrust SDK, OpenAI | Braintrust SDK only |
+
+## Implementation Summary
+
+This plan creates a drastically simplified evaluation system that:
+
+1. **Reduces complexity** from 2000+ lines to ~500 lines
+2. **Keeps Braintrust integration** for score visualization and tracking
+3. **Simplifies scoring** from 6 dimensions to 4 clear metrics
+4. **Uses existing infrastructure** (LangChainProvider) instead of creating new clients
+5. **Minimizes performance impact** with simple Map-based duration tracking
+6. **Maintains compatibility** with existing Braintrust dashboards
+
+The key insight is that we don't need complex telemetry infrastructure to get valuable evaluation data. By focusing on the essential metrics (goal completion, plan quality, error rate, context efficiency) and using simple, direct Braintrust logging, we achieve the same visibility with much less code.
 
 ## References
 
 - Original research: `thoughts/shared/research/2025-09-04_braintrust_evaluation_research.md`
+- Current eval architecture: `docs/CURRENT_EVALS_ARCHITECTURE.md`
 - Current eval code: `src/evals/`
 - Message types: `src/lib/runtime/MessageManager.ts`
 - Tool execution: `src/lib/agent/BrowserAgent.ts:630-640`
+- LangChain Provider: `src/lib/llm/LangChainProvider.ts`
