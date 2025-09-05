@@ -25,7 +25,7 @@
  * ```
  * 
  * ### Stream Chunk Structure
- * 
+ *
  * Each chunk contains:
  * ```
  * {
@@ -66,6 +66,8 @@ import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { createHumanInputTool } from '@/lib/tools/utils/HumanInputTool';
 import { createDateTool } from '@/lib/tools/utility/DateTool';
 import { createMCPTool } from '@/lib/tools/mcp/MCPTool';
+import { createMemoryTool } from '@/lib/tools/memory/MemoryTool';
+import { MemoryCategory } from '@/lib/memory/types';
 import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
@@ -135,7 +137,7 @@ export class BrowserAgent {
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
     this.narrator = new NarratorService(executionContext);
-    
+
     this._registerTools();
   }
 
@@ -186,7 +188,7 @@ export class BrowserAgent {
         this.pubsub.publishMessage(PubSub.createMessage(`Executing agent: ${predefined.name || 'Custom Agent'}`, 'thinking'));
         // Convert predefined steps to Plan structure
         const initialPlan: Plan = {
-          steps: predefined.steps.map(step => ({ action: step, reasoning: `Part of agent: ${predefined.name || 'Custom'}` }))
+          steps: predefined.steps.map((step) => ({ action: step, reasoning: `Part of agent: ${predefined.name || 'Custom'}` }))
         };
         if (predefined.goal) {
           this.messageManager.addHuman(`User's goal is: ${predefined.goal} and this is the task: ${task}`);
@@ -202,13 +204,13 @@ export class BrowserAgent {
 
       // 3. STANDARD FLOW: CLASSIFY task type
       const classification = await this._classifyTask(task);
-      
+
       // Clear message history if this is not a follow-up task
       if (!classification.is_followup_task) {
         this.messageManager.clear();
         this._initializeExecution(task);
       }
-      
+
       let message: string;
       if (classification.is_followup_task && this.messageManager.getMessages().length > 0) {
         message = 'Following up on previous task...';
@@ -233,9 +235,9 @@ export class BrowserAgent {
     } finally {
       // Cleanup narrator service
       this.narrator?.cleanup();
-      
+
       // No status subscription cleanup needed; cancellation is centralized via AbortController
-      
+
       // Ensure glow animation is stopped at the end of execution
       try {
         // Get all active glow tabs from the service
@@ -267,7 +269,7 @@ export class BrowserAgent {
     this.toolManager.register(createTodoManagerTool(this.executionContext));
     this.toolManager.register(createRequirePlanningTool(this.executionContext));
     this.toolManager.register(createDoneTool(this.executionContext));
-    
+
     // Navigation tools
     this.toolManager.register(createNavigationTool(this.executionContext));
     // Note: FindElementTool is no longer registered - InteractionTool now handles finding and interacting
@@ -275,12 +277,12 @@ export class BrowserAgent {
     this.toolManager.register(createScrollTool(this.executionContext));
     this.toolManager.register(createSearchTool(this.executionContext));
     this.toolManager.register(createRefreshStateTool(this.executionContext));
-    
+
     // Tab tools
     this.toolManager.register(createTabOperationsTool(this.executionContext));
     this.toolManager.register(createGroupTabsTool(this.executionContext));
     this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
-    
+
     // Validation tool
     this.toolManager.register(createValidatorTool(this.executionContext));
 
@@ -290,13 +292,16 @@ export class BrowserAgent {
     this.toolManager.register(createExtractTool(this.executionContext));
     this.toolManager.register(createHumanInputTool(this.executionContext));
     this.toolManager.register(createDateTool(this.executionContext));
-    
+
+    // Memory tools for task continuity and learning
+    this.toolManager.register(createMemoryTool(this.executionContext));
+
     // Result tool
     this.toolManager.register(createResultTool(this.executionContext));
-    
+
     // MCP tool for external integrations
     this.toolManager.register(createMCPTool(this.executionContext));
-    
+
     // Register classification tool last with all tool descriptions
     const toolDescriptions = this.toolManager.getDescriptions();
     this.toolManager.register(createClassificationTool(this.executionContext, toolDescriptions));
@@ -310,7 +315,7 @@ export class BrowserAgent {
     }
 
     const args = { task };
-    
+
     try {
       // Tool start notification not needed in new pub-sub system
       const result = await classificationTool.func(args);
@@ -319,15 +324,15 @@ export class BrowserAgent {
       if (parsedResult.ok) {
         const classification = parsedResult.output;
         // Tool end notification not needed in new pub-sub system
-        return { 
+        return {
           is_simple_task: classification.is_simple_task,
-          is_followup_task: classification.is_followup_task 
+          is_followup_task: classification.is_followup_task
         };
       }
     } catch (error) {
       // Tool end notification not needed in new pub-sub system
     }
-    
+
     // Default to complex task on any failure
     return { is_simple_task: false, is_followup_task: false };
   }
@@ -357,30 +362,30 @@ export class BrowserAgent {
       if (turnResult.doneToolCalled) {
         return;  // SUCCESS - task result will be generated in execute()
       }
-      
+
       if (turnResult.requiresHumanInput) {
         // Human input requested - wait for response
         const humanResponse = await this._waitForHumanInput();
-        
+
         if (humanResponse === 'abort') {
           // Human aborted the task
           this.pubsub.publishMessage(PubSub.createMessage('❌ Task aborted by human', 'assistant'));
           throw new AbortError('Task aborted by human');
         }
-        
+
         // Human clicked "Done" - continue with next iteration
         this.pubsub.publishMessage(PubSub.createMessage('✅ Human completed manual action. Continuing...', 'thinking'));
         this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
-        
+
         // Clear human input state
         this.executionContext.clearHumanInputState();
-        
+
         // Continue to next attempt
         continue;
       }
-      
+
       // Note: require_planning_tool doesn't make sense for simple tasks
-      // but if called, we could escalate to complex strategy      
+      // but if called, we could escalate to complex strategy
     }
 
     throw new Error(`Task failed to complete after ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS} attempts.`);
@@ -422,56 +427,56 @@ export class BrowserAgent {
 
       // 3. EXECUTE: Inner loop with one TODO per turn
       let inner_loop_index = 0;
-      
+
       // Continue while there are uncompleted tasks (- [ ]) in the markdown
       while (inner_loop_index < BrowserAgent.MAX_STEPS_INNER_LOOP && currentTodos.includes('- [ ]')) {
         this.checkIfAborted();
-        
+
         // Check for loop before continuing
         if (this._detectLoop()) {
           console.warn('Detected repetitive behavior. Breaking out of potential infinite loop.');
-          
+
           // break out of loop
           throw new Error("Agent is stuck, please restart your task.");
         }
-        
+
         // Use the generateTodoExecutionPrompt for TODO execution
         const instruction = generateSingleTurnExecutionPrompt(task);
-        
+
         const turnResult = await this._executeSingleTurn(instruction);
         inner_loop_index++;
-        
+
         if (turnResult.doneToolCalled) {
           return; // Task fully complete - exit entire strategy
         }
-        
+
         if (turnResult.requirePlanningCalled) {
           // Agent explicitly requested re-planning
           console.log('Agent requested re-planning, breaking inner loop');
           break; // Exit inner loop to trigger re-planning
         }
-        
+
         if (turnResult.requiresHumanInput) {
           // Human input requested - wait for response
           const humanResponse = await this._waitForHumanInput();
-          
+
           if (humanResponse === 'abort') {
             // Human aborted the task
             this.pubsub.publishMessage(PubSub.createMessage('❌ Task aborted by human', 'assistant'));
             throw new AbortError('Task aborted by human');
           }
-          
+
           // Human clicked "Done" - add to message history and trigger re-planning
           this.pubsub.publishMessage(PubSub.createMessage('✅ Human completed manual action. Re-planning...', 'thinking'));
           this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
-          
+
           // Clear human input state
           this.executionContext.clearHumanInputState();
-          
+
           // Break inner loop to trigger re-planning
           break;
         }
-        
+
         // Update currentTodos for the next iteration
         if (todoTool) {
           const result = await todoTool.func({ action: 'get' });
@@ -507,7 +512,7 @@ export class BrowserAgent {
    */
   private async _executeSingleTurn(instruction: string): Promise<SingleTurnResult> {
     this.messageManager.addHuman(instruction);
-    
+
     // This method encapsulates the streaming logic
     const llmResponse = await this._invokeLLMWithStreaming();
 
@@ -529,7 +534,7 @@ export class BrowserAgent {
       result.doneToolCalled = toolsResult.doneToolCalled;
       result.requirePlanningCalled = toolsResult.requirePlanningCalled;
       result.requiresHumanInput = toolsResult.requiresHumanInput;
-      
+
     } else if (llmResponse.content) {
       // If the AI responds with text, just add it to the history
       this.messageManager.addAI(llmResponse.content as string);
@@ -550,7 +555,7 @@ export class BrowserAgent {
     const stream = await llmWithTools.stream(message_history, {
       signal: this.executionContext.abortController.signal
     });
-    
+
     let accumulatedChunk: AIMessageChunk | undefined;
     let accumulatedText = '';
     let hasStartedThinking = false;
@@ -567,10 +572,10 @@ export class BrowserAgent {
           // Create message ID on first content chunk
           currentMsgId = PubSub.generateId('msg_assistant');
         }
-        
+
         // Stream thought chunk - will be handled via assistant message streaming
         accumulatedText += chunk.content;
-        
+
         // Publish/update the message with accumulated content in real-time
         if (currentMsgId) {
           this.pubsub.publishMessage(PubSub.createMessageWithId(currentMsgId, accumulatedText, 'thinking'));
@@ -578,15 +583,15 @@ export class BrowserAgent {
       }
       accumulatedChunk = !accumulatedChunk ? chunk : accumulatedChunk.concat(chunk);
     }
-    
+
     // Only finish thinking if we started and have content
     if (hasStartedThinking && accumulatedText.trim() && currentMsgId) {
       // Final publish with complete message (in case last chunk was missed)
       this.pubsub.publishMessage(PubSub.createMessageWithId(currentMsgId, accumulatedText, 'thinking'));
     }
-    
+
     if (!accumulatedChunk) return new AIMessage({ content: '' });
-    
+
     // Convert the final chunk back to a standard AIMessage
     return new AIMessage({
       content: accumulatedChunk.content,
@@ -600,7 +605,7 @@ export class BrowserAgent {
       requirePlanningCalled: false,
       requiresHumanInput: false
     };
-    
+
     for (const toolCall of toolCalls) {
       this.checkIfAborted();
 
@@ -616,10 +621,11 @@ export class BrowserAgent {
       const parsedResult = jsonParseToolOutput(toolResult);
       
 
+
       // Add the result back to the message history for context
       if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
-        const simplifiedResult = JSON.stringify({ 
-          ok: true, 
+        const simplifiedResult = JSON.stringify({
+          ok: true,
           output: "Emergency browser state refresh completed - full DOM analysis available" 
         });
         this.messageManager.addTool(simplifiedResult, toolCallId);
@@ -627,6 +633,9 @@ export class BrowserAgent {
       } else {
         this.messageManager.addTool(toolResult, toolCallId);
       }
+
+      // Store important tool results in memory (if memory is enabled)
+      await this._maybeStoreToolResultInMemory(toolName, toolResult, parsedResult);
 
       // Special handling for todo_manager_tool, replace existing todo list message
       if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action === 'set') {
@@ -639,18 +648,18 @@ export class BrowserAgent {
       if (toolName === 'done_tool' && parsedResult.ok) {
         result.doneToolCalled = true;
       }
-      
+
       if (toolName === 'require_planning_tool' && parsedResult.ok) {
         result.requirePlanningCalled = true;
       }
-      
+
       if (toolName === 'human_input_tool' && parsedResult.ok && parsedResult.requiresHumanInput) {
         result.requiresHumanInput = true;
         // Break from the loop immediately to handle human input
         break;
       }
     }
-    
+
     return result;
   }
 
@@ -670,14 +679,14 @@ export class BrowserAgent {
       // Throw with actual error from tool
       throw new Error(parsedResult.output || 'Planning failed');
     }
-    
+
     // Publish planner result
     if (parsedResult.output?.steps) {
       const message = `Created ${parsedResult.output.steps.length} step execution plan`;
       this.pubsub.publishMessage(PubSub.createMessage(message, 'thinking'));
       return { steps: parsedResult.output.steps };
     }
-    
+
     throw new Error('Invalid plan format - no steps returned');
   }
 
@@ -765,7 +774,7 @@ export class BrowserAgent {
         const status = validationData.isComplete ? 'Complete' : 'Incomplete';
         this.pubsub.publishMessage(PubSub.createMessage(`Task validation: ${status}`, 'thinking'));
       }
-      
+
       if (parsedResult.ok) {
         // Use the validation data from output
         const validationData = parsedResult.output;
@@ -779,7 +788,7 @@ export class BrowserAgent {
       // Publish validator error
       this.pubsub.publishMessage(PubSub.createMessage('Error in validator_tool: Validation failed', 'error'));
     }
-    
+
     return {
       isComplete: false,
       reasoning: 'Validation failed - continuing execution',
@@ -821,12 +830,12 @@ export class BrowserAgent {
   private async _updateTodosFromPlan(plan: Plan): Promise<void> {
     const todoTool = this.toolManager.get('todo_manager_tool');
     if (!todoTool || plan.steps.length === 0) return;
-    
+
     // Convert plan steps to markdown TODO list
     const markdown = plan.steps
       .map(step => `- [ ] ${step.action}`)
       .join('\n');
-    
+
     const args = { action: 'set' as const, todos: markdown };
     await todoTool.func(args);
   }
@@ -980,6 +989,87 @@ export class BrowserAgent {
     } finally {
       // Clean up subscription
       subscription.unsubscribe();
+    }
+  }
+  /**
+   * Store important tool results in memory for future reference
+   * @param toolName - Name of the tool that was executed
+   * @param result - Raw tool result
+   * @param parsedResult - Parsed tool result
+   */
+  private async _maybeStoreToolResultInMemory(toolName: string, result: string, parsedResult: any): Promise<void> {
+    const memoryManager = this.executionContext.getMemoryManager();
+    if (!memoryManager || !memoryManager.isEnabled()) {
+      return;
+    }
+
+    // Only store results for important tools and successful operations
+    const importantTools = new Set([
+      'extract_tool',
+      'search_tool',
+      'navigation_tool',
+      'planner_tool',
+      'validator_tool'
+    ]);
+
+    if (!importantTools.has(toolName) || !parsedResult.ok) {
+      return;
+    }
+
+    try {
+      let content = '';
+      let category = MemoryCategory.TOOL_RESULT;
+      let importance = 0.5;
+
+      // Customize storage based on tool type
+      switch (toolName) {
+        case 'extract_tool':
+          if (parsedResult.output?.data) {
+            content = `Extracted data: ${JSON.stringify(parsedResult.output.data).substring(0, 500)}`;
+            category = MemoryCategory.RESEARCH_DATA;
+            importance = 0.7;
+          }
+          break;
+
+        case 'search_tool':
+          if (parsedResult.output?.results) {
+            content = `Search results: ${JSON.stringify(parsedResult.output.results).substring(0, 500)}`;
+            category = MemoryCategory.SEARCH_RESULT;
+            importance = 0.8;
+          }
+          break;
+
+        case 'navigation_tool':
+          if (parsedResult.output?.url) {
+            content = `Successfully navigated to: ${parsedResult.output.url}`;
+            importance = 0.4;
+          }
+          break;
+
+        case 'planner_tool':
+          if (parsedResult.output?.steps) {
+            content = `Successful plan with ${parsedResult.output.steps.length} steps`;
+            category = MemoryCategory.SUCCESSFUL_PLAN;
+            importance = 0.8;
+          }
+          break;
+
+        case 'validator_tool':
+          if (parsedResult.output) {
+            content = `Validation result: ${JSON.stringify(parsedResult.output)}`;
+            importance = 0.6;
+          }
+          break;
+      }
+
+      if (content) {
+        await memoryManager.storeToolResult(toolName, parsedResult.output, true, {
+          category,
+          importance
+        });
+      }
+    } catch (error) {
+      Logging.log('BrowserAgent', `Failed to store tool result in memory: ${error}`, 'warning');
     }
   }
 }

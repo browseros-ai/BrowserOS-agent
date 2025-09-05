@@ -9,6 +9,10 @@ import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { PubSub } from "@/lib/pubsub/PubSub";
 import { ExecutionMetadata } from "@/lib/types/messaging";
+import { initializeMemorySystem } from "@/lib/memory";
+import { MemoryManager } from "@/lib/memory/MemoryManager";
+import { getMemoryConfig } from "@/lib/memory/config";
+
 
 /**
  * Configuration schema for NxtScape agent
@@ -45,6 +49,7 @@ export class NxtScape {
   private executionContext!: ExecutionContext; // Will be initialized in initialize()
   private messageManager!: MessageManager; // Will be initialized in initialize()
   private browserAgent: BrowserAgent | null = null; // The browser agent for task execution
+  private memoryManager: MemoryManager | null = null; // Memory manager for task continuity
   private chatAgent: ChatAgent | null = null; // The chat agent for Q&A mode
 
   /**
@@ -78,23 +83,50 @@ export class NxtScape {
     await profileAsync("NxtScape.initialize", async () => {
       try {
         // BrowserContextV2 doesn't need initialization
-        
+
         // Get model capabilities to set appropriate token limit
         const modelCapabilities = await langChainProvider.getModelCapabilities();
         const maxTokens = modelCapabilities.maxTokens;
-        
+
         Logging.log("NxtScape", `Initializing MessageManager with ${maxTokens} token limit`);
-        
+
         // Initialize message manager with correct token limit
         this.messageManager = new MessageManager(maxTokens);
-        
+
+        // Initialize memory system (optional, continues if fails)
+        try {
+          console.log("Initializing memory system...");
+          const memoryConfig = getMemoryConfig();
+          // console.log("Memory Configuration",memoryConfig);
+          if (memoryConfig.enabled && memoryConfig.apiKey) {
+            this.memoryManager = await initializeMemorySystem(
+              memoryConfig.apiKey,
+              `nxtscape`
+            );
+            Logging.log("NxtScape", "Memory system initialized successfully");
+          } else {
+            Logging.log(
+              "NxtScape",
+              "Memory system disabled (no API key or disabled in config)"
+            );
+          }
+        } catch (error) {
+          Logging.log(
+            "NxtScape",
+            `Memory system initialization failed: ${error}`,
+            "warning"
+          );
+          this.memoryManager = null;
+        }
+
         // Create execution context with properly configured message manager
         this.executionContext = new ExecutionContext({
           browserContext: this.browserContext,
           messageManager: this.messageManager,
           debugMode: this.config.debug || false,
+          memoryManager: this.memoryManager || undefined,
         });
-        
+
         // Initialize the browser agent with execution context
         this.browserAgent = new BrowserAgent(this.executionContext);
         this.chatAgent = new ChatAgent(this.executionContext);

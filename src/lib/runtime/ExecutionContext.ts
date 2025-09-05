@@ -7,6 +7,7 @@ import { TodoStore } from '@/lib/runtime/TodoStore'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
 import { PubSub } from '@/lib/pubsub'
 import { HumanInputResponse } from '@/lib/pubsub/types'
+import { MemoryManager } from '@/lib/memory/MemoryManager'
 
 /**
  * Configuration options for ExecutionContext
@@ -15,7 +16,8 @@ export const ExecutionContextOptionsSchema = z.object({
   browserContext: z.instanceof(BrowserContext),  // Browser context for page operations
   messageManager: z.instanceof(MessageManager),  // Message manager for communication
   debugMode: z.boolean().default(false),  // Whether to enable debug logging
-  todoStore: z.instanceof(TodoStore).optional()  // TODO store for complex task management
+  todoStore: z.instanceof(TodoStore).optional(),  // TODO store for complex task management
+  memoryManager: z.instanceof(MemoryManager).optional(), // Memory manager for task continuity
 })
 
 export type ExecutionContextOptions = z.infer<typeof ExecutionContextOptionsSchema>
@@ -30,6 +32,7 @@ export class ExecutionContext {
   debugMode: boolean  // Whether debug logging is enabled
   selectedTabIds: number[] | null = null  // Selected tab IDs
   todoStore: TodoStore  // TODO store for complex task management
+  memoryManager: MemoryManager | null = null // Memory manager for task continuity
   private userInitiatedCancel: boolean = false  // Track if cancellation was user-initiated
   private _isExecuting: boolean = false  // Track actual execution state
   private _lockedTabId: number | null = null  // Tab that execution is locked to
@@ -41,11 +44,12 @@ export class ExecutionContext {
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
-    
+
     // Create our own AbortController - single source of truth
     this.abortController = new AbortController()
     this.browserContext = validatedOptions.browserContext
     this.messageManager = validatedOptions.messageManager
+    this.memoryManager = validatedOptions.memoryManager || null
     this.debugMode = validatedOptions.debugMode || false
     this.todoStore = validatedOptions.todoStore || new TodoStore()
     this.userInitiatedCancel = false
@@ -64,7 +68,7 @@ export class ExecutionContext {
   public isChatMode(): boolean {
     return this._chatMode
   }
-  
+
   public setSelectedTabIds(tabIds: number[]): void {
     this.selectedTabIds = tabIds;
   }
@@ -232,5 +236,12 @@ export class ExecutionContext {
   public shouldAbort(): boolean {
     return this.abortController.signal.aborted
   }
+
+  /**
+   * Get the current memory manager
+   * @returns The memory manager or null if not set
+   */
+  public getMemoryManager(): MemoryManager | null {
+    return this.memoryManager
+  }
 }
- 
