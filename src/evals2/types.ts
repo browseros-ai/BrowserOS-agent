@@ -14,15 +14,16 @@ export type ToolExecution = z.infer<typeof ToolExecutionSchema>;
 
 // Scoring result schema
 export const ScoreResultSchema = z.object({
-  goalCompletion: z.number().min(0).max(1),  // How well goal was achieved
-  planCorrectness: z.number().min(0).max(1),  // Quality of the plan
-  errorFreeExecution: z.number().min(0).max(1),  // Error-free execution ratio (renamed per NTN feedback)
-  contextEfficiency: z.number().min(0).max(1),  // Efficient context usage
-  weightedTotal: z.number().min(0).max(1),  // Weighted average
+  goalCompletion: z.number().min(1).max(10),  // How well goal was achieved (1-10 scale)
+  planCorrectness: z.number().min(1).max(10),  // Quality and efficiency of the plan (1-10 scale)
+  errorFreeExecution: z.number().min(1).max(10),  // Error-free execution score (1-10 scale)
+  contextEfficiency: z.number().min(1).max(10),  // Efficient context usage (1-10 scale)
+  weightedTotal: z.number().min(1).max(10),  // Weighted average (1-10 scale)
   details: z.object({  // Scoring details
     toolCalls: z.number(),  // Total number of tool calls
     failedCalls: z.number(),  // Number of failed calls
     retries: z.number(),  // Number of retried calls
+    totalDurationMs: z.number().optional(),  // Total execution duration in ms
     reasoning: z.string().optional()  // LLM reasoning
   })
 });

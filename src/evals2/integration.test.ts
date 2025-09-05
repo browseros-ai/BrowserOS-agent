@@ -104,15 +104,28 @@ describe('Evals2 Integration', () => {
       })
     ];
     
-    // Score the messages
     const scorer = new SimplifiedScorer();
-    const score = await scorer.scoreFromMessages(messages, 'Navigate to example.com', toolMetrics);
     
-    // Verify scores
-    expect(score).toBeDefined();
-    expect(score.weightedTotal).toBeGreaterThanOrEqual(0);
-    expect(score.weightedTotal).toBeLessThanOrEqual(1);
-    expect(score.details.toolCalls).toBe(2); // navigation_tool and done_tool
-    expect(score.details.failedCalls).toBe(0);
+    // Test 1: Without API key, it should throw
+    if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+      await expect(scorer.scoreFromMessages(messages, 'Navigate to example.com', toolMetrics))
+        .rejects.toThrow('Gemini API key is required');
+    } else {
+      // Test 2: With API key, it should work
+      const score = await scorer.scoreFromMessages(messages, 'Navigate to example.com', toolMetrics);
+      expect(score).toBeDefined();
+      expect(score.weightedTotal).toBeGreaterThanOrEqual(1);
+      expect(score.weightedTotal).toBeLessThanOrEqual(10);
+      expect(score.details.toolCalls).toBe(2); // navigation_tool and done_tool
+      expect(score.details.failedCalls).toBe(0);
+    }
+    
+    // Test 3: With llm set to null, should use heuristics
+    scorer['llm'] = null;
+    const heuristicScore = await scorer.scoreFromMessages(messages, 'Navigate to example.com', toolMetrics);
+    expect(heuristicScore).toBeDefined();
+    expect(heuristicScore.weightedTotal).toBeGreaterThanOrEqual(1);
+    expect(heuristicScore.weightedTotal).toBeLessThanOrEqual(10);
+    expect(heuristicScore.details.reasoning).toContain('Heuristic');
   });
 });

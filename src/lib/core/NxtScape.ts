@@ -10,6 +10,7 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 
 // Import evals2 components
 import { SimpleBraintrustEventManager, SimplifiedScorer } from "@/evals2";
+import { TokenCounter } from "@/lib/utils/TokenCounter";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { ENABLE_EVALS2 } from "@/config";
 
@@ -270,51 +271,6 @@ export class NxtScape {
       // Execute the browser agent with the task
       await this.browserAgent.execute(query, metadata as ExecutionMetadata | undefined);
       
-      // Add evals2 scoring if enabled
-      if (this.evals2Enabled && this.evals2Manager) {
-        const taskEndTime = Date.now();
-        const duration = this.taskStartTime ? taskEndTime - this.taskStartTime : 0;
-        
-        try {
-          // Score the task
-          const scorer = new SimplifiedScorer();
-          const score = await scorer.scoreFromMessages(
-            this.messageManager.getMessages(),
-            query,
-            this.executionContext.toolMetrics  // Pass tool metrics for duration data
-          );
-          
-          // Log to console
-          console.log('Evals2 Score:', {
-            goal: score.goalCompletion.toFixed(2),
-            plan: score.planCorrectness.toFixed(2),
-            errors: score.errorFreeExecution.toFixed(2),
-            context: score.contextEfficiency.toFixed(2),
-            total: score.weightedTotal.toFixed(2)
-          });
-          
-          // Upload to Braintrust with parent span
-          const { braintrustLogger } = await import('@/evals2/SimpleBraintrustLogger');
-          await braintrustLogger.logTaskScore(
-            query,
-            score,
-            duration,
-            {
-              selectedTabIds: tabIds || [],
-              mode: mode || 'browse'
-            },
-            this.telemetryParentSpan || undefined
-          );
-          
-          // Add score to session manager for averaging
-          this.evals2Manager.addTaskScore(score.weightedTotal);
-          
-        } catch (error) {
-          console.warn('Evals2 scoring failed:', error);
-          // Don't break execution if scoring fails
-        }
-      }
-      
       // BrowserAgent handles all logging and result management internally
       Logging.log("NxtScape", "Agent execution completed");
       
@@ -337,6 +293,67 @@ export class NxtScape {
         'error'
       );
       PubSub.getInstance().publishMessage(errorMsg);
+    } finally {
+      // Add evals2 scoring if enabled - runs even if task was paused or errored
+      if (this.evals2Enabled && this.evals2Manager) {
+        const taskEndTime = Date.now();
+        const duration = this.taskStartTime ? taskEndTime - this.taskStartTime : 0;
+        
+        try {
+          // Score the task
+          const scorer = new SimplifiedScorer();
+          const messages = this.messageManager.getMessages();
+          const score = await scorer.scoreFromMessages(
+            messages,
+            query,
+            this.executionContext.toolMetrics  // Pass tool metrics for duration data
+          );
+          
+          // Calculate context metrics using TokenCounter for accuracy
+          const messageCount = messages.length;
+          const totalCharacters = messages.reduce((sum, msg) => {
+            const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            return sum + content.length;
+          }, 0);
+          const estimatedTokens = TokenCounter.countMessages(messages); // Use proper token counting
+          
+          // Log to console with more details
+          console.log('Evals2 Score:', {
+            goal: score.goalCompletion.toFixed(2),
+            plan: score.planCorrectness.toFixed(2),
+            errors: score.errorFreeExecution.toFixed(2),
+            context: score.contextEfficiency.toFixed(2),
+            total: score.weightedTotal.toFixed(2),
+            messages: messageCount,
+            tokens: estimatedTokens
+          });
+          
+          // Upload to Braintrust with parent span and context metrics
+          const { braintrustLogger } = await import('@/evals2/SimpleBraintrustLogger');
+          await braintrustLogger.logTaskScore(
+            query,
+            score,
+            duration,
+            {
+              selectedTabIds: tabIds || [],
+              mode: mode || 'browse'
+            },
+            this.telemetryParentSpan || undefined,
+            {
+              messageCount,
+              totalCharacters,
+              estimatedTokens
+            }
+          );
+          
+          // Add score to session manager for averaging
+          this.evals2Manager.addTaskScore(score.weightedTotal);
+          
+        } catch (error) {
+          console.warn('Evals2 scoring failed:', error);
+          // Don't break execution if scoring fails
+        }
+      }
     }
   }
 

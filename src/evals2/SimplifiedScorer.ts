@@ -1,23 +1,49 @@
 import { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { getLLM } from '@/lib/llm/LangChainProvider';
-import { SCORE_WEIGHTS, DEFAULT_SCORING_MODEL } from './config';
+import { SCORE_WEIGHTS, DEFAULT_SCORING_MODEL, GEMINI_SCORING_CONFIG, TIME_EFFICIENCY_BUCKETS } from './config';
 import { ScoreResult, ToolExecution } from './types';
+import { 
+  getGoalCompletionPrompt, 
+  getPlanEfficiencyPrompt, 
+  getErrorHandlingPrompt, 
+  getContextEfficiencyPrompt 
+} from './SimplifiedScorer.prompt';
 
 export class SimplifiedScorer {
   private model: string;
-  private llm: BaseChatModel | null = null;
+  private llm: BaseChatModel | null | undefined = undefined;
   
   constructor(model?: string) {
     this.model = model || process.env.OPENAI_MODEL_FOR_SCORING || DEFAULT_SCORING_MODEL;
   }
   
   private async getLLM(): Promise<BaseChatModel | null> {
-    if (!this.llm) {
+    // If llm is explicitly set to null (for testing), return null
+    if (this.llm === null) {
+      return null;
+    }
+    
+    if (this.llm === undefined) {
+      // Always require Gemini 2.5 Pro - no fallbacks
+      const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error('Gemini API key is required for evals2 scoring. Set GOOGLE_GENAI_API_KEY or GEMINI_API_KEY environment variable.');
+      }
+      
       try {
-        this.llm = await getLLM({ temperature: 0, maxTokens: 100 });
-      } catch {
-        return null;
+        // Directly instantiate Gemini 2.5 Pro
+        this.llm = new ChatGoogleGenerativeAI({
+          model: GEMINI_SCORING_CONFIG.modelId,
+          temperature: GEMINI_SCORING_CONFIG.temperature,
+          maxOutputTokens: GEMINI_SCORING_CONFIG.maxTokens,
+          apiKey: apiKey,
+          convertSystemMessageToHumanContent: true
+        });
+      } catch (error) {
+        console.error('Failed to initialize Gemini 2.5 Pro for scoring:', error);
+        throw error; // Re-throw to fail fast
       }
     }
     return this.llm;
@@ -31,35 +57,58 @@ export class SimplifiedScorer {
     query: string,
     toolMetrics?: Map<string, any>
   ): Promise<ScoreResult> {
-    // Extract tool calls from messages
+    // Extract tool calls with metrics
     const toolCalls = this.extractToolCalls(messages, toolMetrics);
+    const totalDurationMs = this.getTotalDuration(toolCalls);
     
-    // Calculate individual scores
-    const goalScore = await this.scoreGoalCompletion(messages, query);
-    const planScore = await this.scorePlanCorrectness(toolCalls, query);
-    const errorScore = this.scoreErrorFreeExecution(toolCalls);
-    const contextScore = this.scoreContextEfficiency(messages, toolCalls);
-    
-    // Calculate weighted total
-    const weightedTotal = 
-      goalScore * SCORE_WEIGHTS.goalCompletion +
-      planScore * SCORE_WEIGHTS.planCorrectness +
-      errorScore * SCORE_WEIGHTS.errorFreeExecution +
-      contextScore * SCORE_WEIGHTS.contextEfficiency;
-    
-    return {
-      goalCompletion: goalScore,
-      planCorrectness: planScore,
-      errorFreeExecution: errorScore,
-      contextEfficiency: contextScore,
-      weightedTotal,
-      details: {
-        toolCalls: toolCalls.length,
-        failedCalls: toolCalls.filter(t => !t.success).length,
-        retries: this.countRetries(toolCalls),
-        reasoning: `Scored ${toolCalls.length} tool calls for query: ${query}`
+    try {
+      // Get LLM for scoring - this will throw if no API key
+      const llm = await this.getLLM();
+      
+      if (!llm) {
+        // Only use heuristic if explicitly set to null for testing
+        return this.getHeuristicScores(messages, toolCalls, totalDurationMs, query);
       }
-    };
+      
+      // Score each dimension separately with focused prompts
+      const [goalScore, planScore, errorScore, contextScore] = await Promise.all([
+        this.scoreGoalCompletion(llm, query, messages, toolCalls),
+        this.scorePlanEfficiency(llm, query, toolCalls, totalDurationMs),
+        this.scoreErrorHandling(llm, toolCalls),
+        this.scoreContextEfficiency(llm, messages, toolCalls)
+      ]);
+      
+      // Calculate weighted total (1-10 scale)
+      const weightedTotal = 
+        goalScore * SCORE_WEIGHTS.goalCompletion +
+        planScore * SCORE_WEIGHTS.planCorrectness +
+        errorScore * SCORE_WEIGHTS.errorFreeExecution +
+        contextScore * SCORE_WEIGHTS.contextEfficiency;
+      
+      return {
+        goalCompletion: goalScore,
+        planCorrectness: planScore,
+        errorFreeExecution: errorScore,
+        contextEfficiency: contextScore,
+        weightedTotal: Math.round(weightedTotal),
+        details: {
+          toolCalls: toolCalls.length,
+          failedCalls: toolCalls.filter(t => !t.success).length,
+          retries: this.countRetries(toolCalls),
+          totalDurationMs,
+          reasoning: `Scored with individual LLM calls: ${toolCalls.length} tools in ${totalDurationMs}ms`
+        }
+      };
+    } catch (error) {
+      // If getLLM throws (no API key), let it bubble up
+      // Don't fall back to heuristics for configuration errors
+      if (error instanceof Error && error.message.includes('API key is required')) {
+        throw error;
+      }
+      // For other scoring errors, we can still use heuristics
+      console.error('LLM scoring failed:', error);
+      return this.getHeuristicScores(messages, toolCalls, totalDurationMs, query);
+    }
   }
   
   /**
@@ -113,111 +162,6 @@ export class SimplifiedScorer {
     
     return toolCalls;
   }
-  
-  private async scoreGoalCompletion(messages: BaseMessage[], query: string): Promise<number> {
-    const llm = await this.getLLM();
-    if (!llm) {
-      // Simple heuristic: check if done_tool was called
-      const hasDone = messages.some(msg => 
-        msg instanceof AIMessage && 
-        msg.tool_calls?.some(tc => tc.name === 'done_tool')
-      );
-      return hasDone ? 0.8 : 0.3;
-    }
-    
-    // Simple prompt for LLM scoring
-    const lastMessages = messages.slice(-5);
-    const prompt = `Task: "${query}"
-
-Last 5 messages:
-${lastMessages.map(m => `${m.constructor.name}: ${typeof m.content === 'string' ? m.content.slice(0, 100) : '...'}`).join('\n')}
-
-Score task completion (0-1):
-1 = fully completed
-0.5 = partial  
-0 = not done
-
-Reply with ONLY a number:`;
-
-    try {
-      const response = await llm.invoke(prompt);
-      const content = typeof response.content === 'string' ? response.content : '0.5';
-      const score = parseFloat(content.trim());
-      return Math.min(1, Math.max(0, isNaN(score) ? 0.5 : score));
-    } catch {
-      return 0.5;
-    }
-  }
-  
-  private async scorePlanCorrectness(toolCalls: ToolExecution[], query: string): Promise<number> {
-    const llm = await this.getLLM();
-    if (!llm) {
-      // Simple heuristic based on tool count and pattern
-      if (toolCalls.length === 0) return 0;
-      if (toolCalls.length > 20) return 0.3;
-      
-      const hasPlanning = toolCalls.some(t => 
-        t.toolName === 'classification_tool' || 
-        t.toolName === 'planner_tool'
-      );
-      return hasPlanning ? 0.7 : 0.5;
-    }
-    
-    // Simple prompt for plan quality
-    const toolSequence = toolCalls.slice(0, 20).map(t => t.toolName).join(' → ');
-    const prompt = `Task: "${query}"
-
-Tools: ${toolSequence}
-
-Rate efficiency (0-1):
-1 = efficient
-0.5 = okay
-0 = inefficient
-
-Reply with ONLY a number:`;
-
-    try {
-      const response = await llm.invoke(prompt);
-      const content = typeof response.content === 'string' ? response.content : '0.5';
-      const score = parseFloat(content.trim());
-      return Math.min(1, Math.max(0, isNaN(score) ? 0.5 : score));
-    } catch {
-      return 0.5;
-    }
-  }
-  
-  private scoreErrorFreeExecution(toolCalls: ToolExecution[]): number {
-    if (toolCalls.length === 0) return 1.0;
-    
-    const successCount = toolCalls.filter(t => t.success).length;
-    const errorCount = toolCalls.filter(t => !t.success).length;
-    const retryCount = this.countRetries(toolCalls);
-    
-    // Simple formula: success ratio minus penalties
-    const baseRatio = successCount / toolCalls.length;
-    const retryPenalty = retryCount * 0.05;  // 5% per retry
-    const errorPenalty = errorCount * 0.10;   // 10% per error
-    
-    return Math.max(0, baseRatio - retryPenalty - errorPenalty);
-  }
-  
-  private scoreContextEfficiency(messages: BaseMessage[], toolCalls: ToolExecution[]): number {
-    // Simple token estimation: ~4 chars per token
-    const totalChars = messages.reduce((sum, msg) => {
-      const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-      return sum + content.length;
-    }, 0);
-    
-    const estimatedTokens = totalChars / 4;
-    
-    // Simple scoring based on requirements
-    if (estimatedTokens <= 32000) return 1.0;   // 5/5
-    if (estimatedTokens <= 64000) return 0.8;   // 4/5
-    if (estimatedTokens <= 128000) return 0.6;  // 3/5
-    if (estimatedTokens <= 256000) return 0.4;  // 2/5
-    return 0.2;  // 1/5
-  }
-  
   private countRetries(toolCalls: ToolExecution[]): number {
     let retries = 0;
     for (let i = 1; i < toolCalls.length; i++) {
@@ -227,5 +171,159 @@ Reply with ONLY a number:`;
       }
     }
     return retries;
+  }
+  
+  /**
+   * Calculate total duration from tool metrics
+   */
+  private getTotalDuration(toolCalls: ToolExecution[]): number {
+    return toolCalls.reduce((sum, tool) => sum + (tool.duration || 0), 0);
+  }
+  
+  /**
+   * Score efficiency based on execution time
+   * NTN: Direct 10-point scale, no conversion needed
+   */
+  /**
+   * Score goal completion using focused prompt
+   */
+  private async scoreGoalCompletion(
+    llm: BaseChatModel,
+    query: string,
+    messages: BaseMessage[],
+    toolCalls: ToolExecution[]
+  ): Promise<number> {
+    const prompt = getGoalCompletionPrompt(query, messages, toolCalls);
+    return this.invokeLLMForScore(llm, prompt, 'goal completion');
+  }
+  
+  /**
+   * Score plan efficiency using focused prompt
+   */
+  private async scorePlanEfficiency(
+    llm: BaseChatModel,
+    query: string,
+    toolCalls: ToolExecution[],
+    totalDurationMs: number
+  ): Promise<number> {
+    const prompt = getPlanEfficiencyPrompt(query, toolCalls, totalDurationMs);
+    return this.invokeLLMForScore(llm, prompt, 'plan efficiency');
+  }
+  
+  /**
+   * Score error handling using focused prompt
+   */
+  private async scoreErrorHandling(
+    llm: BaseChatModel,
+    toolCalls: ToolExecution[]
+  ): Promise<number> {
+    const prompt = getErrorHandlingPrompt(toolCalls);
+    return this.invokeLLMForScore(llm, prompt, 'error handling');
+  }
+  
+  /**
+   * Score context efficiency using focused prompt
+   */
+  private async scoreContextEfficiency(
+    llm: BaseChatModel,
+    messages: BaseMessage[],
+    toolCalls: ToolExecution[]
+  ): Promise<number> {
+    const prompt = getContextEfficiencyPrompt(messages, toolCalls);
+    return this.invokeLLMForScore(llm, prompt, 'context efficiency');
+  }
+  
+  /**
+   * Invoke LLM and parse score response
+   */
+  private async invokeLLMForScore(
+    llm: BaseChatModel,
+    prompt: string,
+    dimension: string
+  ): Promise<number> {
+    try {
+      const response = await llm.invoke(prompt);
+      let content = typeof response.content === 'string' ? response.content : '5';
+      
+      // Clean up any formatting
+      content = content.trim().replace(/[^0-9.]/g, '');
+      
+      const score = parseFloat(content);
+      const validScore = Math.min(10, Math.max(1, isNaN(score) ? 5 : score));
+      
+      console.log(`Scored ${dimension}: ${validScore}`);
+      return validScore;
+    } catch (error) {
+      console.error(`Failed to score ${dimension}:`, error);
+      return 5; // Default middle score on error
+    }
+  }
+  
+  private scoreTimeEfficiency(durationMs: number): number {
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.perfect) return 10;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.exceptional) return 9;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.excellent) return 8;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.veryGood) return 7;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.good) return 6;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.average) return 5;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.belowAverage) return 4;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.poor) return 3;
+    if (durationMs <= TIME_EFFICIENCY_BUCKETS.veryPoor) return 2;
+    return 1;
+  }
+  
+  /**
+   * Heuristic scoring fallback when LLM is unavailable
+   * NTN: Returns 1-10 scores based on simple heuristics
+   */
+  private getHeuristicScores(
+    messages: BaseMessage[],
+    toolCalls: ToolExecution[],
+    totalDurationMs: number,
+    query: string
+  ): ScoreResult {
+    // Goal completion heuristic
+    const hasDone = messages.some(msg => 
+      msg instanceof AIMessage && 
+      msg.tool_calls?.some(tc => tc.name === 'done_tool')
+    );
+    const goalScore = hasDone ? 7 : 3;
+    
+    // Plan efficiency based on time
+    const planScore = this.scoreTimeEfficiency(totalDurationMs);
+    
+    // Error handling based on failure rate
+    const failureRate = toolCalls.filter(t => !t.success).length / Math.max(1, toolCalls.length);
+    const errorScore = Math.round(10 * (1 - failureRate));
+    
+    // Context efficiency based on message count
+    const messageCount = messages.length;
+    let contextScore = 5;
+    if (messageCount < 10) contextScore = 9;
+    else if (messageCount < 20) contextScore = 7;
+    else if (messageCount < 30) contextScore = 5;
+    else if (messageCount < 50) contextScore = 3;
+    else contextScore = 2;
+    
+    const weightedTotal = 
+      goalScore * SCORE_WEIGHTS.goalCompletion +
+      planScore * SCORE_WEIGHTS.planCorrectness +
+      errorScore * SCORE_WEIGHTS.errorFreeExecution +
+      contextScore * SCORE_WEIGHTS.contextEfficiency;
+    
+    return {
+      goalCompletion: goalScore,
+      planCorrectness: planScore,
+      errorFreeExecution: errorScore,
+      contextEfficiency: contextScore,
+      weightedTotal: Math.round(weightedTotal),
+      details: {
+        toolCalls: toolCalls.length,
+        failedCalls: toolCalls.filter(t => !t.success).length,
+        retries: this.countRetries(toolCalls),
+        totalDurationMs,
+        reasoning: 'Heuristic scoring (LLM unavailable)'
+      }
+    };
   }
 }
