@@ -1,4 +1,4 @@
-import { MessageType, LogMessage, ExecuteQueryMessage, AgentStreamUpdateMessage, CancelTaskMessage, ResetConversationMessage, GetTabsMessage, RunExperimentMessage, ExperimentUpdateMessage } from '@/lib/types/messaging'
+import { MessageType, LogMessage, ExecuteQueryMessage, CancelTaskMessage, ResetConversationMessage, GetTabsMessage } from '@/lib/types/messaging'
 import { LLMSettingsReader } from '@/lib/llm/settings/LLMSettingsReader'
 import { langChainProvider } from '@/lib/llm/LangChainProvider'
 import { BrowserOSProvidersConfigSchema, BROWSEROS_PREFERENCE_KEYS } from '@/lib/llm/settings/browserOSTypes'
@@ -11,7 +11,6 @@ import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
 import { MCP_SERVERS } from '@/config/mcpServers'
 import { PubSub, PubSubEvent } from '@/lib/pubsub'
 import { PlanGeneratorService } from '@/lib/services/PlanGeneratorService'
-import { ExperimentHelper, EXPERIMENT_CONFIG } from '@/evals/ExperimentRunner'
 
 /**
  * Background script for the ParallelManus extension
@@ -27,185 +26,6 @@ const nxtScape = new NxtScape({
 
 // Global initialization flag to ensure we only initialize once
 let isNxtScapeInitialized = false
-
-/**
- * Fetch available tags for experiments
- */
-async function fetchAvailableTags(port: chrome.runtime.Port, id?: string) {
-  try {
-    // Import required modules
-    const { BRAINTRUST_API_KEY } = await import('@/config')
-    const { ExperimentHelper } = await import('@/evals/ExperimentRunner')
-    
-    if (!BRAINTRUST_API_KEY) {
-      throw new Error('BRAINTRUST_API_KEY not found in config')
-    }
-    
-    // Use the abstracted method from ExperimentHelper
-    const tagsWithCounts = await ExperimentHelper.fetchAvailableTags(BRAINTRUST_API_KEY)
-    
-    // Send response
-    port.postMessage({
-      type: MessageType.AVAILABLE_TAGS_RESPONSE,
-      payload: {
-        status: 'success',
-        tags: tagsWithCounts
-      },
-      id
-    })
-    
-  } catch (error) {
-    port.postMessage({
-      type: MessageType.AVAILABLE_TAGS_RESPONSE,
-      payload: {
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Failed to fetch available tags'
-      },
-      id
-    })
-  }
-}
-
-/**
- * Run experiment for prompt testing (dev only)
- */
-async function handleRunExperimentPort(
-  payload: RunExperimentMessage['payload'],
-  port: chrome.runtime.Port,
-  id?: string
-): Promise<void> {
-  if (!isDevelopmentMode()) {
-    port.postMessage({
-      type: MessageType.EXPERIMENT_UPDATE,
-      payload: {
-        status: 'error',
-        error: 'Experiments are only available in development mode'
-      },
-      id
-    })
-    return
-  }
-
-  try {
-    // Import required modules
-    const { BRAINTRUST_API_KEY, OPENAI_API_KEY_FOR_SCORING } = await import('@/config')
-    const { ExperimentHelper } = await import('@/evals/ExperimentRunner')
-    
-    // Configuration
-    const LOGS_TAG = payload.logsTag || 'v1'
-    const MAX_LOGS = EXPERIMENT_CONFIG.DEFAULT_MAX_LOGS
-    
-    if (!BRAINTRUST_API_KEY) {
-      throw new Error('BRAINTRUST_API_KEY not found in config')
-    }
-    
-    // Send initial status
-    port.postMessage({
-      type: MessageType.EXPERIMENT_UPDATE,
-      payload: {
-        status: 'running',
-        message: `Fetching logs with tag: ${LOGS_TAG}...`,
-        progress: { current: 0, total: 0 }
-      },
-      id
-    })
-    
-    // Fetch and validate logs using abstracted method
-    let logs
-    try {
-      logs = await ExperimentHelper.fetchAndValidateLogs(LOGS_TAG, MAX_LOGS, BRAINTRUST_API_KEY)
-    } catch (error) {
-      // Error already contains helpful message with available tags
-      port.postMessage({
-        type: MessageType.EXPERIMENT_UPDATE,
-        payload: {
-          status: 'error',
-          error: error instanceof Error ? error.message : String(error)
-        },
-        id
-      })
-      throw error
-    }
-    
-    port.postMessage({
-      type: MessageType.EXPERIMENT_UPDATE,
-      payload: {
-        status: 'running',
-        message: `Creating Braintrust experiments for comparison...`,
-        progress: { current: 0, total: logs.length }
-      },
-      id
-    })
-    
-    // Create experiments using abstracted method
-    const experiments = await ExperimentHelper.createExperiments(LOGS_TAG, BRAINTRUST_API_KEY)
-    const { v1ExperimentId, v2ExperimentId, v1ExperimentName, v2ExperimentName, urls } = experiments
-    
-    // Run each test and log to experiments
-    const results = []
-    for (let i = 0; i < logs.length; i++) {
-      const log = logs[i]
-      const currentIndex = i + 1
-      
-      port.postMessage({
-        type: MessageType.EXPERIMENT_UPDATE,
-        payload: {
-          status: 'running',
-          message: `Running test ${currentIndex}/${logs.length}: ${log.input?.substring(0, 50)}...`,
-          progress: { current: currentIndex, total: logs.length }
-        },
-        id
-      })
-      
-      // Run single test using abstracted method
-      const result = await ExperimentHelper.runSingleTest(
-        log,
-        i,
-        v1ExperimentId,
-        v2ExperimentId,
-        BRAINTRUST_API_KEY,
-        OPENAI_API_KEY_FOR_SCORING
-      )
-      
-      results.push(result)
-    }
-    
-    // Send completion message
-    port.postMessage({
-      type: MessageType.EXPERIMENT_UPDATE,
-      payload: {
-        status: 'completed',
-        message: `Experiments completed! Compare at: ${urls.compareUrl}`,
-        results: {
-          logsTag: LOGS_TAG,
-          v1ExperimentName,
-          v2ExperimentName,
-          v1ExperimentId,
-          v2ExperimentId,
-          v1ExperimentUrl: urls.v1ExperimentUrl,
-          v2ExperimentUrl: urls.v2ExperimentUrl,
-          compareUrl: urls.compareUrl,
-          resultsCount: results.length,
-          successCount: results.filter(r => r.success).length,
-          timestamp: new Date().toISOString()
-        }
-      },
-      id
-    })
-    
-    
-  } catch (error) {
-    port.postMessage({
-      type: MessageType.EXPERIMENT_UPDATE,
-      payload: {
-        status: 'error',
-        error: error instanceof Error ? error.message : String(error)
-      },
-      id
-    })
-    console.error('Experiment failed:', error)
-  }
-}
 
 
 /**
@@ -229,15 +49,15 @@ function debugLog(message: string, level: 'info' | 'error' | 'warning' = 'info')
   Logging.log('Background', message, level)
 }
 
-// Active tabs map (tabId -> information)
-const activeTabs = new Map<number, { url: string }>()
+// Active tabs map (tabId -> information) - currently unused but preserved for future use
+// const activeTabs = new Map<number, { url: string }>()
 
-// Navigation history tracking (tabId -> array of navigation entries)
-const tabHistory = new Map<number, Array<{
-  url: string
-  title: string
-  timestamp: number
-}>>()
+// Navigation history tracking (tabId -> array of navigation entries) - currently unused but preserved for future use
+// const tabHistory = new Map<number, Array<{
+//   url: string
+//   title: string
+//   timestamp: number
+// }>>()
 
 // Connected ports (name -> port)  
 const connectedPorts = new Map<string, chrome.runtime.Port>();
@@ -310,7 +130,7 @@ function initialize(): void {
         const raw = typeof change.newValue === 'string' ? JSON.parse(change.newValue) : change.newValue
         const config = BrowserOSProvidersConfigSchema.parse(raw)
         lastProvidersConfigJson = JSON.stringify(config)
-        try { langChainProvider.clearCache() } catch (_) {}
+        try { langChainProvider.clearCache() } catch (_) { /* Ignore error */ }
         broadcastProvidersConfig(config)
       } catch (_e) {
         // Ignore parse/validation errors
@@ -578,13 +398,6 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
         handleRefinePlanPort(payload as { currentPlan: { goal?: string; steps: string[] }; feedback: string; maxSteps?: number }, port, id)
         break
 
-      case MessageType.RUN_EXPERIMENT:
-        handleRunExperimentPort(payload as RunExperimentMessage['payload'], port, id)
-        break
-      
-      case MessageType.FETCH_AVAILABLE_TAGS:
-        fetchAvailableTags(port, id)
-        break
         
       default:
         // Unknown port message type
@@ -608,27 +421,14 @@ function handlePortMessage(message: PortMessage, port: chrome.runtime.Port): voi
 
 /**
  * Handles log messages
- * @param payload - Log message payload
+ * @param _payload - Log message payload
  */
-function handleLogMessage(payload: LogMessage['payload']): void {
-  const { source, message, level = 'info' } = payload;
-  // Forward log message from other components
+function handleLogMessage(_payload: LogMessage['payload']): void {
+  // const { source, message, level = 'info' } = _payload;
+  // Forward log message from other components - currently no-op
 }
 
-/**
- * Helper function to determine status from action string
- */
-function getStatusFromAction(action: string): 'thinking' | 'executing' | 'completed' | 'error' {
-  if (action.includes('Error') || action.includes('Failed')) {
-    return 'error'
-  } else if (action.includes('Thinking') || action.includes('Processing')) {
-    return 'thinking'
-  } else if (action.includes('Executing')) {
-    return 'executing'
-  } else {
-    return 'executing'
-  }
-}
+// Helper function removed - was only used by old experiment functionality
 
 
 /**
@@ -717,14 +517,14 @@ function handleHeartbeatMessage(payload: { timestamp: number }, port: chrome.run
 
 /**
  * Handles conversation reset requests via port messaging
- * @param payload - Reset conversation payload
- * @param port - Port to send response through
- * @param id - Optional message ID for correlation
+ * @param _payload - Reset conversation payload
+ * @param _port - Port to send response through
+ * @param _id - Optional message ID for correlation
  */
 function handleResetConversationPort(
-  payload: ResetConversationMessage['payload'],
-  port: chrome.runtime.Port,
-  id?: string
+  _payload: ResetConversationMessage['payload'],
+  _port: chrome.runtime.Port,
+  _id?: string
 ): void {
   try {
     nxtScape.reset()
@@ -845,7 +645,7 @@ function handleSaveLlmProvidersPort(
         undefined,
         (success?: boolean) => {
           if (success) {
-            try { langChainProvider.clearCache() } catch (_) {}
+            try { langChainProvider.clearCache() } catch (_) { /* Ignore error */ }
             lastProvidersConfigJson = JSON.stringify(config)
             broadcastProvidersConfig(config)
           }
@@ -861,7 +661,7 @@ function handleSaveLlmProvidersPort(
       try {
         const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
         chrome.storage?.local?.set({ [key]: JSON.stringify(config) }, () => {
-          try { langChainProvider.clearCache() } catch (_) {}
+          try { langChainProvider.clearCache() } catch (_) { /* Ignore error */ }
           lastProvidersConfigJson = JSON.stringify(config)
           broadcastProvidersConfig(config)
           port.postMessage({

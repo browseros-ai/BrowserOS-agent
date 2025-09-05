@@ -5,7 +5,7 @@ import { MessageType } from '@/lib/types/messaging'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
-import { ExperimentModal } from './ExperimentModal'
+// import { ExperimentModal } from './ExperimentModal'  // Removed - old evals system deprecated
 import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
@@ -321,13 +321,13 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           </Button>
 
           {/* Experiment Modal - renders its own button */}
-          <ExperimentModal
+          {/* <ExperimentModal
             trackClick={trackClick}
             sendMessage={sendMessage}
             addMessageListener={addMessageListener}
             removeMessageListener={removeMessageListener}
             isProcessing={isProcessing}
-          />
+          /> */}  {/* Commented out - old evals system deprecated */}
 
           {isProcessing && (
             <Button
