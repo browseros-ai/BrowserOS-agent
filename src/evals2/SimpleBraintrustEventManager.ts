@@ -1,4 +1,4 @@
-import { ENABLE_EVALS2, BRAINTRUST_API_KEY } from '@/config';
+import { ENABLE_EVALS2, BRAINTRUST_API_KEY, BRAINTRUST_PROJECT_NAME } from '@/config';
 import { z } from 'zod';
 
 // Session metadata schema
@@ -75,7 +75,7 @@ export class SimpleBraintrustEventManager {
       // Initialize simple logger
       this.logger = initLogger({
         apiKey: BRAINTRUST_API_KEY,
-        projectName: 'browseros-agent-online'
+        projectName: BRAINTRUST_PROJECT_NAME
       });
       
       return true;

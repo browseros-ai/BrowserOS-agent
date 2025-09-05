@@ -1,4 +1,4 @@
-import { BRAINTRUST_API_KEY } from '@/config';
+import { BRAINTRUST_API_KEY, BRAINTRUST_PROJECT_NAME } from '@/config';
 import { ScoreResult } from './types';
 
 // Lazy load Braintrust to avoid module loading issues
@@ -31,7 +31,7 @@ export class SimpleBraintrustLogger {
       // Initialize simple logger (not experiment)
       this.logger = initLogger({
         apiKey: BRAINTRUST_API_KEY,
-        projectName: 'browseros-agent-online'
+        projectName: BRAINTRUST_PROJECT_NAME
       });
       
       console.log('%c✓ Braintrust logger initialized', 'color: #00ff00; font-size: 10px');

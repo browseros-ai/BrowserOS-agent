@@ -17,7 +17,7 @@ let wrapTraced: any;
 import { z } from 'zod'
 import { Logging } from '@/lib/utils/Logging'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { ENABLE_TELEMETRY, BRAINTRUST_API_KEY, OPENAI_API_KEY_FOR_SCORING } from '@/config'
+import { ENABLE_TELEMETRY, BRAINTRUST_API_KEY, OPENAI_API_KEY_FOR_SCORING, BRAINTRUST_PROJECT_NAME } from '@/config'
 
 // Event types we track during agent execution
 // Each type represents a different aspect of agent behavior
@@ -148,7 +148,7 @@ export class BraintrustEventCollector {
       // Logger pattern is lighter weight than full experiments
       this.logger = initLogger({
         apiKey,
-        projectName: 'browseros-agent-online'
+        projectName: BRAINTRUST_PROJECT_NAME
         // Note: SDK handles batching and retry logic automatically
       })
       
