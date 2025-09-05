@@ -30,9 +30,9 @@ const processEnv = {
   'process.env.BRAINTRUST_API_KEY': JSON.stringify(envKeys.BRAINTRUST_API_KEY || ''),
   'process.env.BRAINTRUST_PROJECT_UUID': JSON.stringify(envKeys.BRAINTRUST_PROJECT_UUID || ''),
   'process.env.BRAINTRUST_PROJECT_NAME': JSON.stringify(envKeys.BRAINTRUST_PROJECT_NAME || 'browseros-agent-online'),
-  // OpenAI Configuration for Scoring
-  'process.env.OPENAI_API_KEY_FOR_SCORING': JSON.stringify(envKeys.OPENAI_API_KEY_FOR_SCORING || ''),
-  'process.env.OPENAI_MODEL_FOR_SCORING': JSON.stringify(envKeys.OPENAI_MODEL_FOR_SCORING || 'gpt-4o')
+  // Gemini API keys for evals2 scoring
+  'process.env.GOOGLE_GENAI_API_KEY': JSON.stringify(envKeys.GOOGLE_GENAI_API_KEY || ''),
+  'process.env.GEMINI_API_KEY': JSON.stringify(envKeys.GEMINI_API_KEY || '')
 }
 
 console.log('API keys will be injected at build time (keys hidden for security)')
@@ -130,9 +130,10 @@ module.exports = {
     ],
   },
   plugins: [
-    // Limit chunks to only main entry points (4 total: sidepanel, background, glow-animation, newtab)
+    // Limit chunks to entry points only - prevents dynamic chunk creation
+    // This forces all imports (including dynamic) to be bundled into their parent entry
     new webpack.optimize.LimitChunkCountPlugin({
-      maxChunks: 4
+      maxChunks: 4  // One chunk per entry point (sidepanel, background, glow-animation, newtab)
     }),
     new HtmlWebpackPlugin({
       template: './src/sidepanel/index.html',

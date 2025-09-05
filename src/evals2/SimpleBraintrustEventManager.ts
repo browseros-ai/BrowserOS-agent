@@ -1,21 +1,16 @@
 import { ENABLE_EVALS2, BRAINTRUST_API_KEY, BRAINTRUST_PROJECT_NAME } from '@/config';
 import { z } from 'zod';
+import { initLogger } from 'braintrust';
 
 // Session metadata schema
 export const SessionMetadataSchema = z.object({
   sessionId: z.string(),
   task: z.string(),
   timestamp: z.number(),
-  browserInfo: z.object({
-    version: z.string(),
-    tabCount: z.number()
-  }).optional()
+  agentVersion: z.string().optional()
 });
 
 export type SessionMetadata = z.infer<typeof SessionMetadataSchema>;
-
-// Lazy load Braintrust to avoid module loading issues
-let initLogger: any = null;
 
 /**
  * Simplified Braintrust event manager that maintains session and parent span tracking
@@ -56,9 +51,9 @@ export class SimpleBraintrustEventManager {
   }
   
   /**
-   * Initialize Braintrust logger lazily
+   * Initialize Braintrust logger
    */
-  private async ensureLogger(): Promise<boolean> {
+  private ensureLogger(): boolean {
     if (this.logger) return true;
     
     if (!BRAINTRUST_API_KEY) {
@@ -66,13 +61,7 @@ export class SimpleBraintrustEventManager {
     }
     
     try {
-      // Lazy load braintrust module
-      if (!initLogger) {
-        const braintrust = require('braintrust');
-        initLogger = braintrust.initLogger;
-      }
-      
-      // Initialize simple logger
+      // Initialize Braintrust logger
       this.logger = initLogger({
         apiKey: BRAINTRUST_API_KEY,
         projectName: BRAINTRUST_PROJECT_NAME
@@ -93,7 +82,7 @@ export class SimpleBraintrustEventManager {
       return {};
     }
     
-    const hasLogger = await this.ensureLogger();
+    const hasLogger = this.ensureLogger();
     if (!hasLogger) {
       return {};
     }
@@ -110,7 +99,7 @@ export class SimpleBraintrustEventManager {
           metadata: {
             sessionId: metadata.sessionId,
             timestamp: metadata.timestamp,
-            browserInfo: metadata.browserInfo,
+            agentVersion: metadata.agentVersion,
             type: 'session_start',
             conversation: true
           }

@@ -24,6 +24,7 @@ export const ScoreResultSchema = z.object({
     failedCalls: z.number(),  // Number of failed calls
     retries: z.number(),  // Number of retried calls
     totalDurationMs: z.number().optional(),  // Total execution duration in ms
+    toolExecutionMs: z.number().optional(),  // Sum of tool execution durations in ms
     reasoning: z.string().optional()  // LLM reasoning
   })
 });

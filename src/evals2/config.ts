@@ -6,8 +6,7 @@ export const SCORE_WEIGHTS = {
   contextEfficiency: 0.15  // 15% - Efficiency
 } as const;
 
-// Default scoring model
-export const DEFAULT_SCORING_MODEL = "gpt-4o-mini";
+// Default scoring model - removed, using Gemini 2.5 Pro exclusively
 
 // Gemini 2.5 Pro configuration (hardcoded for evals2)
 export const GEMINI_SCORING_CONFIG = {
@@ -37,5 +36,5 @@ export const TIME_EFFICIENCY_BUCKETS = {
 export const ENV_VARS = {
   ENABLE: "ENABLE_EVALS2",
   BRAINTRUST_KEY: "BRAINTRUST_API_KEY",
-  SCORING_MODEL: "OPENAI_MODEL_FOR_SCORING"
+  GEMINI_KEY: "GOOGLE_GENAI_API_KEY"  // Or GEMINI_API_KEY
 } as const;

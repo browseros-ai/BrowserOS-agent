@@ -1,9 +1,7 @@
 import { BRAINTRUST_API_KEY, BRAINTRUST_PROJECT_NAME } from '@/config';
 import { ScoreResult } from './types';
 import { TIME_EFFICIENCY_BUCKETS } from './config';
-
-// Lazy load Braintrust to avoid module loading issues
-let initLogger: any = null;
+import { initLogger } from 'braintrust';
 
 /**
  * Get human-readable time efficiency bucket
@@ -29,7 +27,7 @@ export class SimpleBraintrustLogger {
   private logger: any = null;
   private initialized: boolean = false;
   
-  async initialize(): Promise<boolean> {
+  initialize(): boolean {
     if (this.initialized) return true;
     this.initialized = true;
     
@@ -39,13 +37,7 @@ export class SimpleBraintrustLogger {
     }
     
     try {
-      // Lazy load braintrust module
-      if (!initLogger) {
-        const braintrust = require('braintrust');
-        initLogger = braintrust.initLogger;
-      }
-      
-      // Initialize simple logger (not experiment)
+      // Initialize Braintrust logger
       this.logger = initLogger({
         apiKey: BRAINTRUST_API_KEY,
         projectName: BRAINTRUST_PROJECT_NAME
@@ -72,7 +64,7 @@ export class SimpleBraintrustLogger {
     }
   ): Promise<void> {
     if (!this.logger) {
-      const success = await this.initialize();
+      const success = this.initialize();
       if (!success) return;
     }
     
@@ -113,9 +105,6 @@ export class SimpleBraintrustLogger {
                 : '0%',
               retries: score.details.retries,
               total_tool_duration_ms: score.details.totalDurationMs || 0,
-              avg_tool_duration_ms: score.details.toolCalls > 0 
-                ? Math.round((score.details.totalDurationMs || 0) / score.details.toolCalls)
-                : 0
             },
             
             // Context usage metrics

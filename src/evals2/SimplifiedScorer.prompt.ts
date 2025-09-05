@@ -1,4 +1,4 @@
-import { BaseMessage, AIMessage } from '@langchain/core/messages';
+import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ToolExecution } from './types';
 import { TokenCounter } from '@/lib/utils/TokenCounter';
 
@@ -6,6 +6,76 @@ import { TokenCounter } from '@/lib/utils/TokenCounter';
  * Individual scoring prompts for Gemini 2.5 Pro - each dimension scored separately
  * NTN: Focused prompts with only required context for each dimension
  */
+
+/**
+ * Helper to wrap any content in XML tags with proper formatting
+ */
+function wrapInXML(tagName: string, content: string): string {
+  return `<${tagName}>
+${content}
+</${tagName}>`;
+}
+
+/**
+ * Format message history with XML structure and descriptive title
+ */
+function formatMessageHistoryXML(messages: BaseMessage[]): string {
+  if (!messages || messages.length === 0) {
+    return wrapInXML('MessageHistory', 'No messages recorded');
+  }
+  
+  const formattedMessages = messages.map(msg => {
+    const role = msg instanceof HumanMessage ? 'Human' : 
+                 msg instanceof AIMessage ? 'Assistant' : 
+                 msg instanceof SystemMessage ? 'System' : 'Unknown';
+    
+    const content = typeof msg.content === 'string' ? 
+      msg.content : JSON.stringify(msg.content);
+    
+    // Truncate very long messages
+    const truncatedContent = content.length > 500 ? 
+      content.substring(0, 500) + '...' : content;
+    
+    return `${role}: ${truncatedContent}`;
+  }).join('\n');
+  
+  return wrapInXML('MessageHistory', 
+    `## Message History from actual run
+${formattedMessages}`);
+}
+
+/**
+ * Format failed tools list with XML structure
+ */
+function formatFailedToolsXML(failedCalls: ToolExecution[]): string {
+  if (!failedCalls || failedCalls.length === 0) {
+    return wrapInXML('FailedTools', 'No failed tool executions');
+  }
+  
+  const toolList = failedCalls.map(t => t.toolName).join(', ');
+  return wrapInXML('FailedTools', 
+    `## Failed Tools from actual run
+${toolList}`);
+}
+
+/**
+ * Format error details with XML structure
+ */
+function formatErrorDetailsXML(failedCalls: ToolExecution[]): string {
+  if (!failedCalls || failedCalls.length === 0) {
+    return wrapInXML('ErrorDetails', 'No errors occurred');
+  }
+  
+  const errors = failedCalls.slice(0, 5).map((call, idx) => {
+    const errorMsg = call.error || 'Unknown error';
+    const duration = call.duration !== undefined ? `${call.duration}ms` : 'N/A';
+    return `${idx + 1}. ${call.toolName} (${duration}): ${errorMsg}`;
+  }).join('\n');
+  
+  return wrapInXML('ErrorDetails', 
+    `## Error Details from actual run (first 5)
+${errors}`);
+}
 
 /**
  * Score goal completion - did the agent achieve what was asked?
@@ -33,23 +103,43 @@ export function getGoalCompletionPrompt(
     t.toolName === 'done_tool'
   );
   
-  return `Evaluate if an AI agent completed the user's goal.
+  // Build prompt with proper structure
+  let prompt = `Evaluate if an AI agent completed the user's goal.
 
-## USER REQUEST
-"${query}"
-
-## EXECUTION SUMMARY
+`;
+  
+  // Add user request in XML
+  prompt += wrapInXML('UserRequest', 
+    `## User Request from actual run
+"${query}"`);
+  
+  prompt += '\n\n';
+  
+  // Add execution summary in XML
+  prompt += wrapInXML('ExecutionSummary',
+    `## Execution Summary from actual run
 - Total tools executed: ${toolCalls.length}
 - Done tool called: ${hasDoneTool ? 'Yes' : 'No'}
-- Result/Extract tools used: ${resultTools.length}
-
-## FINAL MESSAGES (last 5)
-${lastMessages}
-
-## KEY TOOL RESULTS
-${resultTools.map(t => `${t.toolName}: success=${t.success}`).join('\n') || 'No result tools used'}
-
-## SCORING INSTRUCTIONS
+- Result/Extract tools used: ${resultTools.length}`);
+  
+  prompt += '\n\n';
+  
+  // Add final messages in XML
+  prompt += wrapInXML('FinalMessages',
+    `## Final Messages from actual run (last 5)
+${lastMessages}`);
+  
+  prompt += '\n\n';
+  
+  // Add key tool results in XML
+  prompt += wrapInXML('KeyToolResults',
+    `## Key Tool Results from actual run
+${resultTools.map(t => `${t.toolName}: success=${t.success}`).join('\n') || 'No result tools used'}`);
+  
+  prompt += '\n\n';
+  
+  // Add scoring instructions
+  prompt += `## SCORING INSTRUCTIONS
 Rate goal completion on a 1-10 scale:
 
 10: Perfect - Task fully completed, results delivered clearly
@@ -70,6 +160,13 @@ Consider:
 - If done_tool was called, task was likely completed
 
 Return ONLY a number between 1-10:`;
+  
+  // ALWAYS append message history at the END
+  if (messages) {
+    prompt += '\n\n' + formatMessageHistoryXML(messages);
+  }
+  
+  return prompt;
 }
 
 /**
@@ -78,7 +175,8 @@ Return ONLY a number between 1-10:`;
 export function getPlanEfficiencyPrompt(
   query: string,
   toolCalls: ToolExecution[],
-  totalDurationMs: number
+  totalDurationMs: number,
+  messages?: BaseMessage[]
 ): string {
   // Analyze tool sequence for patterns
   const toolSequence = toolCalls.map(t => t.toolName).join(' → ');
@@ -95,23 +193,38 @@ export function getPlanEfficiencyPrompt(
   const durationSeconds = totalDurationMs / 1000;
   const avgTimePerTool = totalDurationMs / Math.max(1, toolCalls.length);
   
-  return `Evaluate the efficiency of an AI agent's execution plan.
+  // Build prompt with proper structure
+  let prompt = `Evaluate the efficiency of an AI agent's execution plan.
 
-## TASK
-"${query}"
-
-## EXECUTION METRICS
+`;
+  
+  // Add task in XML
+  prompt += wrapInXML('Task',
+    `## Task from actual run
+"${query}"`);
+  
+  prompt += '\n\n';
+  
+  // Add execution metrics in XML
+  prompt += wrapInXML('ExecutionMetrics',
+    `## Execution Metrics from actual run
 - Duration: ${durationSeconds.toFixed(1)} seconds
 - Tool calls: ${toolCalls.length}
 - Unique tools: ${uniqueTools}
 - Consecutive retries: ${retries}
-- Used planning: ${hasPlanning ? 'Yes' : 'No'}
-- Avg time per tool: ${(avgTimePerTool/1000).toFixed(1)}s
-
-## TOOL SEQUENCE
-${toolSequence || 'No tools executed'}
-
-## SCORING INSTRUCTIONS
+- Used planning: ${hasPlanning ? 'Yes' : 'No'}`);
+  
+  prompt += '\n\n';
+  
+  // Add tool sequence in XML
+  prompt += wrapInXML('ToolSequence',
+    `## Tool Sequence from actual run
+${toolSequence || 'No tools executed'}`);
+  
+  prompt += '\n\n';
+  
+  // Add scoring instructions
+  prompt += `## SCORING INSTRUCTIONS
 Rate execution efficiency on a 1-10 scale:
 
 10: Lightning fast (<30s), optimal tool sequence
@@ -132,42 +245,52 @@ Consider:
 - Whether planning was needed/used appropriately
 
 Return ONLY a number between 1-10:`;
+  
+  // ALWAYS append message history at the END
+  if (messages) {
+    prompt += '\n\n' + formatMessageHistoryXML(messages);
+  }
+  
+  return prompt;
 }
 
 /**
  * Score error handling - how well were errors managed?
  */
 export function getErrorHandlingPrompt(
-  toolCalls: ToolExecution[]
+  toolCalls: ToolExecution[],
+  messages?: BaseMessage[]
 ): string {
   const totalCalls = toolCalls.length;
   const failedCalls = toolCalls.filter(t => !t.success);
   const failureRate = totalCalls > 0 ? (failedCalls.length / totalCalls) * 100 : 0;
-  
-  // Analyze error patterns
-  const errorMessages = failedCalls
-    .filter(t => t.error)
-    .map(t => `${t.toolName}: ${t.error}`)
-    .slice(0, 5);
-  
-  // Check for recovery attempts
   const recoveryAttempts = analyzeRecoveryPatterns(toolCalls);
   
-  return `Evaluate how well an AI agent handled errors during execution.
+  // Build prompt without message history
+  let prompt = `Evaluate how well an AI agent handled errors during execution.
 
-## ERROR STATISTICS
+`;
+  
+  // Add structured statistics
+  prompt += wrapInXML('ErrorStatistics', 
+    `## Error Statistics from actual run
 - Total tool calls: ${totalCalls}
 - Failed calls: ${failedCalls.length}
 - Failure rate: ${failureRate.toFixed(1)}%
-- Recovery attempts: ${recoveryAttempts}
-
-## ERROR DETAILS (first 5)
-${errorMessages.join('\n') || 'No errors occurred'}
-
-## FAILED TOOLS
-${failedCalls.map(t => t.toolName).join(', ') || 'None'}
-
-## SCORING INSTRUCTIONS
+- Recovery attempts: ${recoveryAttempts}`);
+  
+  prompt += '\n\n';
+  
+  // Add failed tools list
+  prompt += formatFailedToolsXML(failedCalls);
+  prompt += '\n\n';
+  
+  // Add error details
+  prompt += formatErrorDetailsXML(failedCalls);
+  prompt += '\n\n';
+  
+  // Add scoring instructions
+  prompt += `## SCORING INSTRUCTIONS
 Rate error handling on a 1-10 scale:
 
 10: Flawless - No errors occurred
@@ -188,6 +311,13 @@ Consider:
 - Were errors handled gracefully?
 
 Return ONLY a number between 1-10:`;
+  
+  // ALWAYS append message history at the END
+  if (messages) {
+    prompt += '\n\n' + formatMessageHistoryXML(messages);
+  }
+  
+  return prompt;
 }
 
 /**
@@ -211,35 +341,47 @@ export function getContextEfficiencyPrompt(
   const duplicateTools = toolNames.length - new Set(toolNames).size;
   const redundancyRate = toolNames.length > 0 ? (duplicateTools / toolNames.length) * 100 : 0;
   
-  return `Evaluate how efficiently an AI agent used context and tokens.
+  // Build prompt with proper formatting
+  let prompt = `Evaluate how efficiently an AI agent used context and tokens.
 
-## CONTEXT USAGE
+`;
+  
+  // Add context usage stats in XML
+  prompt += wrapInXML('ContextUsage',
+    `## Context Usage from actual run
 - Messages: ${messageCount}
 - Total characters: ${totalChars.toLocaleString()}
 - Estimated tokens: ${estimatedTokens.toLocaleString()} (accurate with message overhead)
 - Tools called: ${toolCalls.length}
 - Duplicate tool calls: ${duplicateTools}
-- Redundancy rate: ${redundancyRate.toFixed(1)}%
-
-## EFFICIENCY INDICATORS
+- Redundancy rate: ${redundancyRate.toFixed(1)}%`);
+  
+  prompt += '\n\n';
+  
+  // Add efficiency indicators in XML
+  prompt += wrapInXML('EfficiencyIndicators',
+    `## Efficiency Indicators from actual run
 - Tokens per tool: ${toolCalls.length > 0 ? Math.round(estimatedTokens / toolCalls.length) : 'N/A'}
 - Average message length: ${Math.round(totalChars / Math.max(1, messageCount))} chars
 - Unique vs total tools: ${new Set(toolNames).size}/${toolNames.length}
-- Token estimation method: TokenCounter with overhead
-
-## SCORING INSTRUCTIONS
+- Token estimation method: TokenCounter with overhead`);
+  
+  prompt += '\n\n';
+  
+  // Add scoring instructions
+  prompt += `## SCORING INSTRUCTIONS
 Rate context efficiency on a 1-10 scale:
 
-10: Extremely concise (<10K tokens)
-9: Very efficient (<25K tokens)
-8: Efficient (<50K tokens)
-7: Good usage (<75K tokens)
-6: Acceptable (<100K tokens)
-5: Average (<150K tokens)
-4: Somewhat wasteful (<200K tokens)
-3: Inefficient (<300K tokens)
-2: Very wasteful (<500K tokens)
-1: Extremely wasteful (>500K tokens)
+10: Extremely concise (<32K tokens)
+9: Very efficient (<64K tokens)
+8: Efficient (<100K tokens)
+7: Good usage (<128K tokens)
+6: Acceptable (<200K tokens)
+5: Average (<300K tokens)
+4: Somewhat wasteful (<500K tokens)
+3: Inefficient (<750K tokens)
+2: Very wasteful (<1000K tokens)
+1: Extremely wasteful (>1000K tokens)
 
 Consider:
 - Token usage vs task complexity
@@ -248,6 +390,13 @@ Consider:
 - Efficient tool usage
 
 Return ONLY a number between 1-10:`;
+
+  // ALWAYS append message history at the END
+  if (messages) {
+    prompt += '\n\n' + formatMessageHistoryXML(messages);
+  }
+  
+  return prompt;
 }
 
 /**

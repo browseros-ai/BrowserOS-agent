@@ -306,7 +306,8 @@ export class NxtScape {
           const score = await scorer.scoreFromMessages(
             messages,
             query,
-            this.executionContext.toolMetrics  // Pass tool metrics for duration data
+            this.executionContext.toolMetrics,  // Pass tool metrics for duration data
+            duration  // Pass actual task execution duration
           );
           
           // Calculate context metrics using TokenCounter for accuracy
@@ -562,10 +563,7 @@ export class NxtScape {
         sessionId,
         task: this.currentQuery || 'No query provided',
         timestamp: Date.now(),
-        browserInfo: {
-          version: typeof chrome !== 'undefined' ? chrome.runtime.getManifest().version : 'unknown',
-          tabCount: 0
-        }
+        agentVersion: typeof chrome !== 'undefined' ? chrome.runtime.getManifest().version : 'unknown'
       });
       
       this.telemetrySessionId = sessionId;
