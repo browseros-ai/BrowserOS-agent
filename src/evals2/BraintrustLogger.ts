@@ -1,6 +1,6 @@
 import { BRAINTRUST_API_KEY, BRAINTRUST_PROJECT_NAME } from '@/config';
-import { ScoreResult } from './types';
-import { TIME_EFFICIENCY_BUCKETS } from './config';
+import { ScoreResult } from './EvalScorer.types';
+import { TIME_EFFICIENCY_BUCKETS } from './Evals.config';
 import { initLogger } from 'braintrust';
 
 /**

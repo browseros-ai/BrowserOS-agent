@@ -1,11 +1,11 @@
 // Main exports from evals2 simplified evaluation system
-export { SimplifiedScorer } from './SimplifiedScorer';
-export { SimpleBraintrustLogger, braintrustLogger } from './SimpleBraintrustLogger';
-export { SimpleBraintrustEventManager } from './SimpleBraintrustEventManager';
-export { wrapToolForMetrics, wrapToolForDuration } from './SimpleToolWrapper';
+export { SimplifiedScorer } from './EvalScorer';
+export { SimpleBraintrustLogger, braintrustLogger } from './BraintrustLogger';
+export { SimpleBraintrustEventManager } from './BraintrustEventManager';
+export { wrapToolForMetrics, wrapToolForDuration } from './EvalToolWrapper';
 
 // Type exports
-export * from './types';
+export * from './EvalScorer.types';
 
 // Config exports
-export * from './config';
+export * from './Evals.config';

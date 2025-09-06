@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SimplifiedScorer } from './SimplifiedScorer';
+import { SimplifiedScorer } from './EvalScorer';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 
 describe('SimplifiedScorer with Gemini', () => {

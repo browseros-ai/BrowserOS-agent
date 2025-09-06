@@ -330,7 +330,7 @@ export class NxtScape {
           });
           
           // Upload to Braintrust with parent span and context metrics
-          const { braintrustLogger } = await import('@/evals2/SimpleBraintrustLogger');
+          const { braintrustLogger } = await import('@/evals2/BraintrustLogger');
           await braintrustLogger.logTaskScore(
             query,
             score,

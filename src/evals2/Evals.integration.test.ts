@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SimpleBraintrustEventManager } from './SimpleBraintrustEventManager';
-import { SimplifiedScorer } from './SimplifiedScorer';
-import { wrapToolForMetrics } from './SimpleToolWrapper';
+import { SimpleBraintrustEventManager } from './BraintrustEventManager';
+import { SimplifiedScorer } from './EvalScorer';
+import { wrapToolForMetrics } from './EvalToolWrapper';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';

@@ -1,5 +1,5 @@
 import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { ToolExecution } from './types';
+import { ToolExecution } from './EvalScorer.types';
 import { TokenCounter } from '@/lib/utils/TokenCounter';
 
 /**

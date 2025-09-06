@@ -2,15 +2,15 @@ import { BaseMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { getLLM } from '@/lib/llm/LangChainProvider';
-import { SCORE_WEIGHTS, GEMINI_SCORING_CONFIG, TIME_EFFICIENCY_BUCKETS } from './config';
-import { ScoreResult, ToolExecution } from './types';
+import { SCORE_WEIGHTS, GEMINI_SCORING_CONFIG, TIME_EFFICIENCY_BUCKETS } from './Evals.config';
+import { ScoreResult, ToolExecution } from './EvalScorer.types';
 import { GOOGLE_GENAI_API_KEY, GEMINI_API_KEY } from '@/config';
 import { 
   getGoalCompletionPrompt, 
   getPlanEfficiencyPrompt, 
   getErrorHandlingPrompt, 
   getContextEfficiencyPrompt 
-} from './SimplifiedScorer.prompt';
+} from './EvalScorer.prompt';
 
 export class SimplifiedScorer {
   private llm: BaseChatModel | null | undefined = undefined;
