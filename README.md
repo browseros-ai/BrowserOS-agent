@@ -1,7 +1,6 @@
 # BrowserOS Agent
 
-> **⚠️ Note:** This is only the submodule for the browserOS agent.  
-> **Main repository:** [https://github.com/browseros-ai/BrowserOS](https://github.com/browseros-ai/BrowserOS)
+> **⚠️ Note:** This is only the submodule for the browserOS agent -- https://github.com/browseros-ai/BrowserOS-agent  
 
 ## Contributing
 
