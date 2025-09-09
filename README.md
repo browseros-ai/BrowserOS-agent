@@ -4,7 +4,7 @@
 
 ## Contributing
 
-For information on how to contribute to this project and set up your development environment, please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+For information on how to contribute to this project and set up your development environment, please refer to the [CONTRIBUTING.md](DEV.md) file.
 
 ## License
 
