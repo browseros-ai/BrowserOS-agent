@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import BrowserPage from './BrowserPage';
 import { Logging } from '../utils/Logging';
-import { profileAsync } from '../utils/profiler';
+import { profileAsync } from '@/lib/utils/Profiler';
 
 // ============= Browser Context Configuration =============
 
