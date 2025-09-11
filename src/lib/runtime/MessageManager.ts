@@ -380,6 +380,7 @@ export class MessageManager {
 
   // Get message type (public for MessageManagerReadOnly access)
   _getMessageType(message: BaseMessage): LLMMessageType {
+    // Check explicit message type first
     if (
       message.additional_kwargs?.messageType === LLMMessageType.BROWSER_STATE
     ) {
@@ -391,6 +392,18 @@ export class MessageManager {
     if (message.additional_kwargs?.messageType === LLMMessageType.SCREENSHOT) {
       return LLMMessageType.SCREENSHOT;
     }
+    
+    // Check if ANY message contains image_url (multimodal screenshot)
+    if (Array.isArray(message.content)) {
+      const hasImage = message.content.some(
+        (item: any) => item.type === "image_url" && item.image_url?.url
+      );
+      if (hasImage) {
+        return LLMMessageType.SCREENSHOT;
+      }
+    }
+    
+    // Fall back to standard message type detection
     if (message instanceof HumanMessage) return LLMMessageType.HUMAN;
     if (message instanceof AIMessage) return LLMMessageType.AI;
     if (message instanceof SystemMessage) return LLMMessageType.SYSTEM;

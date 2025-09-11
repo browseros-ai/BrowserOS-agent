@@ -4,7 +4,7 @@
  */
 
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
-import { MessageManager } from "@/lib/runtime/MessageManager";
+import { MessageManager, MessageManagerReadOnly, MessageType } from "@/lib/runtime/MessageManager";
 import { ToolManager } from "@/lib/tools/ToolManager";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
@@ -24,12 +24,11 @@ import { Logging } from "@/lib/utils/Logging";
 import { AbortError } from "@/lib/utils/Abortable";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
 import { isDevelopmentMode } from "@/config";
+import { invokeWithRetry } from "@/lib/utils/retryable";
 import {
   generateExecutorPrompt,
   generatePlannerPrompt,
-  generateExecutionInstructions,
 } from "./NewAgent.prompt";
-import { ExecutionMetrics } from "@/lib/runtime/ExecutionContext";
 import {
   createClickTool,
   createTypeTool,
@@ -50,7 +49,6 @@ import {
 } from "@/lib/tools/NewTools";
 
 // Constants
-const MAX_ITERATIONS = 30;
 const MAX_PLANNER_ITERATIONS = 50;
 const MAX_EXECUTOR_ITERATIONS = 1;
 
@@ -338,7 +336,7 @@ export class NewAgent {
     if (includeScreenshot) {
       // Get current page and take screenshot
       const page = await this.executionContext.browserContext.getCurrentPage();
-      const screenshot = await page.takeScreenshot("large", true);
+      const screenshot = await page.takeScreenshot("medium", true);
 
       if (screenshot) {
         // Return multimodal message with state + screenshot
@@ -362,10 +360,19 @@ export class NewAgent {
       // Get browser state message with screenshot
       const browserStateMessage = await this.getStateMessage(true, true);
 
+      // Get execution metrics for analysis
+      const metrics = this.executionContext.getExecutionMetrics();
+      const errorRate = metrics.toolCalls > 0 
+        ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
+        : "0";
+      const elapsed = Date.now() - metrics.startTime;
+
+      // Get messagey history
+      const readOnlyMM = new MessageManagerReadOnly(this.messageManager);
+      const fullHistory = readOnlyMM.getFilteredAsString([MessageType.SYSTEM, MessageType.SCREENSHOT, MessageType.BROWSER_STATE]);
+
       // Get reasoning history for context
       const recentReasoning = this.executionContext.getReasoningHistory(5);
-      const recentHistory =
-        this.executionContext.getSimplifiedMessageHistory(10);
 
       // Get LLM with structured output
       const llm = await getLLM({
@@ -377,19 +384,38 @@ export class NewAgent {
       // System prompt for planner
       const systemPrompt = generatePlannerPrompt();
 
-      const userPrompt = `Task: ${task}
+      const userPrompt = `TASK: ${task}
+
+EXECUTION METRICS:
+- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
+- Observations taken: ${metrics.observations}
+- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
+${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
+${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+
+FULL EXECUTION HISTORY:
+${fullHistory || "No execution history yet"}
 
 ${
   recentReasoning.length > 0
-    ? `Previous reasoning:
-${recentReasoning.join("\n")}
+    ? `YOUR PREVIOUS REASONING (what you thought would work):
+${recentReasoning.map(r => {
+  try {
+    const parsed = JSON.parse(r);
+    return `- ${parsed.reasoning || r}`;
+  } catch {
+    return `- ${r}`;
+  }
+}).join("\n")}
 
 `
     : ""
-}Recent actions:
-${recentHistory.join("\n")}
+}ANALYZE the execution history above to understand:
+1. What the executor actually attempted (check tool calls and results)
+2. What failed and why (check error messages)
+3. Whether your previous plan was executed correctly
 
-Based on what you observe, what should we do next?`;
+Based on the metrics, execution history, and current browser state, what should we do next?`;
 
       // Build messages
       const messages = [
@@ -398,8 +424,13 @@ Based on what you observe, what should we do next?`;
         browserStateMessage, // Browser state with screenshot
       ];
 
-      // Get structured response from LLM
-      const result = (await structuredLLM.invoke(messages)) as PlannerOutput;
+      // Get structured response from LLM with retry logic
+      const result = await invokeWithRetry<PlannerOutput>(
+        structuredLLM,
+        messages,
+        3,
+        { signal: this.executionContext.abortSignal }
+      );
 
       // Store structured reasoning in context as JSON
       const plannerState = {
@@ -438,12 +469,25 @@ Based on what you observe, what should we do next?`;
     let isFirstPass = true;
 
     // Initial instruction with all actions
-    const initialInstruction = `Based on the browser state and screenshot above, execute these actions:
+    const initialInstruction = `## CRITICAL: Screenshot Analysis Required
+
+The screenshot above shows the webpage with nodeId numbers overlaid as visual labels on elements.
+These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+
+**YOU MUST LOOK AT THE SCREENSHOT FIRST** to identify which nodeId belongs to which element.
+
+Execute these actions:
 ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
 
+### Visual Execution Process:
+1. **EXAMINE THE SCREENSHOT** - See the webpage with nodeId labels overlaid on elements
+2. **LOCATE** the element you need to interact with visually
+3. **IDENTIFY** its nodeId from the label shown on that element in the screenshot
+4. **EXECUTE** using that nodeId in your tool call
+
 ### REMEMBER:
-- Use the nodeIds [brackets] from the browser state to interact with elements
-- Refer to the screenshot to verify you're targeting the right elements
+- The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+- The text-based browser state is supplementary - the screenshot is your primary reference
 - Batch multiple tool calls in one response when possible (reduces latency)
 - Create a todo list to track progress if helpful
 - Call 'done' when all actions are completed`;

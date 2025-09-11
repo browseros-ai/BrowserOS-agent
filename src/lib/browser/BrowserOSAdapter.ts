@@ -25,8 +25,8 @@ export type SnapshotOptions = chrome.browserOS.SnapshotOptions;
 
 // Screenshot size constants
 export const SCREENSHOT_SIZES = {
-  small: 256, // Low token usage
-  medium: 512, // Balanced (default)
+  small: 512, // Low token usage
+  medium: 768, // Balanced (default)
   large: 1028, // High detail (note: 1028 not 1024)
 } as const;
 

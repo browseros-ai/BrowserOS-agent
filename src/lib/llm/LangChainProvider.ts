@@ -60,16 +60,16 @@ export class LangChainProvider {
     this.currentProvider = provider
     
     // Check cache
-    const cacheKey = this._getCacheKey(provider, options)
-    if (llmCache.has(cacheKey)) {
-      Logging.log('LangChainProvider', `Using cached LLM for provider: ${provider.name}`, 'info')
-      return llmCache.get(cacheKey)!
-    }
-    
-    // Create new LLM instance based on provider type
-    Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
+    // const cacheKey = this._getCacheKey(provider, options)
+    // if (llmCache.has(cacheKey)) {
+    //   Logging.log('LangChainProvider', `Using cached LLM for provider: ${provider.name}`, 'info')
+    //   return llmCache.get(cacheKey)!
+    // }
+    //
+    // // Create new LLM instance based on provider type
+    // Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
     const llm = this._createLLMFromProvider(provider, options)
-    llmCache.set(cacheKey, llm)
+    // llmCache.set(cacheKey, llm)
     
     // Log metrics about the LLM configuration
     const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
