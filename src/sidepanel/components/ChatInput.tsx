@@ -138,13 +138,8 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       ts: Date.now()
     })
     
-    // Add a "Thinking..." narration message immediately after user query
-    upsertMessage({
-      msgId: `thinking_${Date.now()}`,
-      role: 'thinking',
-      content: 'Thinking...',
-      ts: Date.now()
-    })
+    // Processing state will be handled by TypingIndicator component
+    // No need to inject hardcoded "Thinking..." message
     
     // Get selected tab IDs from tabsStore
     const contextTabs = getContextTabs()
@@ -304,7 +299,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
   
   return (
-    <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-2 py-1 flex-shrink-0 overflow-hidden z-20">
+    <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-3 py-2 pb-4 flex-shrink-0 overflow-hidden z-20">
       
       {/* Mode Toggle - top left, above input */}
       <div className="px-2 mb-2">
@@ -335,7 +330,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               {selectedContextTabs.map(tab => (
                 <div
                   key={tab.id}
-                  className="selected-tab-chip flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-muted text-foreground/90 border border-border shadow-sm shrink-0"
+                  className="selected-tab-chip flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-muted text-foreground/90 border border-border shadow-sm shrink-0 smooth-hover hover:bg-muted/80 hover:shadow-md message-enter"
                   title={tab.title}
                 >
                   <div className="w-4 h-4 rounded-sm overflow-hidden bg-muted-foreground/10 flex items-center justify-center">
@@ -372,7 +367,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="w-full px-2" role="form" aria-label="Chat input form">
+        <form onSubmit={handleSubmit} className="w-full" role="form" aria-label="Chat input form">
           <div className="relative flex items-end w-full transition-all duration-300 ease-out">
             {/* Textarea grows to fill available width */}
             <div className="relative flex-1">
@@ -386,12 +381,13 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               className={cn(
                 'max-h-[200px] resize-none pr-16 text-sm w-full',
                 'bg-background/80 backdrop-blur-sm border-2 border-brand/30',
-                'focus-visible:outline-none focus-visible:border-brand/60',
-                'focus:outline-none focus:border-brand/60',
-                'hover:border-brand/50 hover:bg-background/90',
-                'rounded-2xl shadow-lg',
+                'focus-visible:outline-none focus-visible:border-brand/60 focus-visible:shadow-lg focus-visible:shadow-brand/10',
+                'focus:outline-none focus:border-brand/60 focus:shadow-lg focus:shadow-brand/10',
+                'hover:border-brand/50 hover:bg-background/90 hover:shadow-md',
+                'rounded-2xl shadow-sm',
                 'px-3 py-2',
-                'transition-all duration-300 ease-out',
+                'smooth-focus smooth-hover',
+                'placeholder:text-muted-foreground/60',
                  !uiConnected && 'opacity-50 cursor-not-allowed bg-muted'
               )}
               rows={1}
@@ -411,13 +407,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
                       onSelectAgent={(agentId) => {
                         const agent = agents.find(a => a.id === agentId)
                         if (!agent) return
-                        // Add a quick narration message
-                        upsertMessage({
-                          msgId: `thinking_${Date.now()}`,
-                          role: 'thinking',
-                          content: `Executing agent: ${agent.name}`,
-                          ts: Date.now()
-                        })
+                        // Agent execution will show status via TypingIndicator
                         // Send predefined plan execution request
                         const contextTabs = getContextTabs()
                         const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
@@ -466,15 +456,6 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
           </div>
         </form>
         
-        <div 
-          id="input-hint" 
-          className="mt-1 sm:mt-2 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2 px-2"
-          role="status"
-          aria-live="polite"
-        >
-          {/*getLoadingIndicator()*/}
-          <span>{getHintText()}</span>
-        </div>
       </div>
     </div>
   )

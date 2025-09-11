@@ -2,6 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animations for smooth UI interactions */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes fade-in-up {
+  0% { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes scale-in {
+  0% { 
+    opacity: 0; 
+    transform: scale(0.95); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+@keyframes typing-dot {
+  0%, 60%, 100% { 
+    transform: translateY(0); 
+  }
+  30% { 
+    transform: translateY(-6px); 
+  }
+}
+
+@keyframes slide-in-smooth {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Smooth transitions for interactive elements */
+.smooth-hover {
+  transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.smooth-focus {
+  transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.smooth-transform {
+  transition: transform 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Enhanced message animations */
+.message-enter {
+  animation: slide-in-smooth 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.message-thinking {
+  animation: fade-in-up 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Improved shimmer effect */
+.shimmer-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-effect::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 2s infinite;
+}
+
 @layer base {
   :root {
     --background: 0 0% 96%;
@@ -723,7 +813,7 @@ p, span, div, h1, h2, h3, h4, h5, h6, li, td, th, label, input, textarea, button
 }
 
 .animate-shimmer {
-  animation: shimmer 2s linear infinite;
+  animation: shimmer 1.5s linear infinite;
 }
 
 /* Subtle pulse animation for star button */

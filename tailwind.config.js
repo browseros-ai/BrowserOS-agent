@@ -136,11 +136,52 @@ module.exports = {
           "0%": { transform: "translateY(-20px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
         },
+        "shimmer": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" }
+        },
+        "scale-in": {
+          "0%": { 
+            opacity: "0", 
+            transform: "scale(0.95)" 
+          },
+          "100%": { 
+            opacity: "1", 
+            transform: "scale(1)" 
+          }
+        },
+        "typing-dot": {
+          "0%, 60%, 100%": { 
+            transform: "translateY(0)" 
+          },
+          "30%": { 
+            transform: "translateY(-6px)" 
+          }
+        },
+        "slide-in-smooth": {
+          "0%": {
+            opacity: "0",
+            transform: "translateY(8px) scale(0.98)"
+          },
+          "100%": {
+            opacity: "1",
+            transform: "translateY(0) scale(1)"
+          }
+        },
+        "pulse-subtle": {
+          "0%, 100%": { 
+            opacity: "1", 
+            transform: "scale(1)" 
+          },
+          "50%": { 
+            opacity: "0.95", 
+            transform: "scale(1.005)" 
+          }
+        },
         "list-cycle": {
           "0%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-60px)" },
           "51%": { transform: "translateY(0)" },
-          "100%": { transform: "translateY(0)" },
         },
         "list-move-down": {
           "0%": { transform: "translateY(0)" },
@@ -195,7 +236,12 @@ module.exports = {
         'paw-walk': 'paw-walk 1.5s ease-in-out forwards',
         'paw-walk-trail': 'paw-walk-trail 2s ease-in-out forwards',
         'paw-walk-trail-left': 'paw-walk-trail-left 2s ease-in-out forwards',
-        'paw-walk-trail-right': 'paw-walk-trail-right 2s ease-in-out forwards'
+        'paw-walk-trail-right': 'paw-walk-trail-right 2s ease-in-out forwards',
+        "shimmer": "shimmer 2s infinite",
+        "scale-in": "scale-in 0.3s ease-out",
+        "typing-dot": "typing-dot 1.4s ease-in-out infinite",
+        "slide-in-smooth": "slide-in-smooth 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)",
+        "pulse-subtle": "pulse-subtle 2s ease-in-out infinite"
       },
     },
   },

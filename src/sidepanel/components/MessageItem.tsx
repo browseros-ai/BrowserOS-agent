@@ -419,6 +419,8 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
     }
   }, [feedback, feedbackUI.showModal])
 
+
+
   // Dynamic message styling based on role and content type
   const messageStyling = useMemo(() => {
     // User message styling
@@ -489,48 +491,23 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
             />
           )
         }
-        // Regular thinking message - use shimmer if it's the latest
-        if (isLatestThinking && !isTodoTable) {
-          return (
-            <div className="shimmer-container">
-              <MarkdownContent
-                content={message.content}
-                className="break-words"
-                compact={false}
-              />
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-transparent via-background/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
-            </div>
-          )
-        }
-        // Regular thinking message - use markdown
+        
+        // Regular thinking message - use MarkdownContent
         return (
           <MarkdownContent
             content={message.content}
-            className="break-words"
-            compact={false}
+            className="break-words text-xs text-muted-foreground/80"
+            compact={true}
           />
         )
 
       case 'narration':
-        // Narration messages with shimmer effect if latest
-        if (isLatestNarration && !isTodoTable) {
-          return (
-            <div className="shimmer-container">
-              <MarkdownContent
-                content={message.content}
-                className="break-words text-muted-foreground"
-                compact={false}
-              />
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-transparent via-background/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
-            </div>
-          )
-        }
-        // Regular narration message
+        // Regular narration message - use MarkdownContent
         return (
           <MarkdownContent
             content={message.content}
-            className="break-words text-muted-foreground"
-            compact={false}
+            className="break-words text-xs text-muted-foreground/80"
+            compact={true}
           />
         )
 
@@ -547,14 +524,29 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
         )
 
       case 'error':
-        // Error messages with red styling
+        // Simple, minimalistic error messages with clickable links
+        const urlRegex = /(https?:\/\/[^\s]+)/g
+        const parts = message.content.split(urlRegex)
+        
         return (
-          <div className="text-red-500 font-medium">
-            <MarkdownContent
-              content={message.content}
-              className="break-words"
-              compact={false}
-            />
+          <div className="text-red-500 text-sm">
+            <span className="font-medium">⚠️ Error: </span>
+            {parts.map((part, index) => {
+              if (urlRegex.test(part)) {
+                return (
+                  <a
+                    key={index}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline hover:text-blue-400 transition-colors"
+                  >
+                    {part}
+                  </a>
+                )
+              }
+              return <span key={index}>{part}</span>
+            })}
           </div>
         )
 
@@ -642,18 +634,24 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
       {/* Removed DOM queries for these - they're now handled by parent component */}
 
 
-      {/* Message content - with or without bubble */}
-      {shouldShowBubble ? (
-        // Message bubble layout
+      {/* Show content in bubble if it's a bubble message */}
+      {shouldShowBubble && messageStyling && (
         <div className={cn(
-          'relative max-w-[85%] rounded-2xl px-3 py-1 transition-all duration-300',
-          messageStyling?.shadow,
-          messageStyling?.bubble,
-          // Slightly darker text for indented bubble messages to improve contrast
-          shouldIndent && 'opacity-90 text-foreground'
+          'relative rounded-2xl px-4 py-3 max-w-[85%] shadow-sm',
+          'bg-gradient-to-br from-brand to-brand/90 text-white',
+          messageStyling.bubble,
+          'group'
         )}>
+          {/* Shadow/glow effect */}
+          {messageStyling.shadow && (
+            <div className={cn(
+              'absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300',
+              messageStyling.shadow
+            )} />
+          )}
+
           {/* Glow effect */}
-          {messageStyling?.glow && (
+          {messageStyling.glow && (
             <div className={cn(
               'absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300',
               messageStyling.glow
@@ -664,19 +662,16 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           <div className="relative z-10">
             {renderContent()}
           </div>
-
-          {/* Timestamp - only show for user and TODO messages */}
-          {(isUser || isTodoTable) && (
-            <div className={cn('text-xs opacity-50', isUser ? 'text-right' : 'text-left')}>
-              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
         </div>
-      ) : (
-        // Non-bubble messages (thinking, assistant, error)
+      )}
+
+      {/* Show content without bubble for other message types */}
+      {!shouldShowBubble && (
         <div className={cn(
-          'mr-4 max-w-[85%] relative group',
-          'mt-1',
+          'relative px-4 py-2 transition-all duration-200',
+          // Indentation styling
+          shouldIndent && applyIndentMargin && 'ml-4',
+          shouldIndent && showLocalIndentLine && 'border-l border-border/30 pl-3 ml-1',
           // Add subtle styling for indented messages
           shouldIndent && 'opacity-90',
           // Error messages get special styling
@@ -691,11 +686,11 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
             <button
               onClick={handleCopyMessage}
               className={cn(
-                'absolute top-1 right-1 p-1.5 rounded-md transition-all duration-200',
-                'opacity-0 group-hover:opacity-100',
-                'hover:bg-muted/80 active:bg-muted',
+                'absolute top-2 right-2 opacity-0 group-hover:opacity-100',
+                'p-1.5 rounded-lg bg-background/80 backdrop-blur-sm border border-border/50',
+                'hover:bg-muted/80 transition-all duration-200',
                 'text-muted-foreground hover:text-foreground',
-                'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand/20'
+                'smooth-hover'
               )}
               title={isCopied ? 'Copied!' : 'Copy response'}
               aria-label={isCopied ? 'Copied to clipboard' : 'Copy response to clipboard'}

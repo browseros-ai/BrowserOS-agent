@@ -74,6 +74,7 @@ export function Chat({ isConnected }: ChatProps) {
             
             <MessageList 
               messages={messages} 
+              isProcessing={isProcessing}
               onScrollStateChange={setIsUserScrolling}
               scrollToBottom={handleScrollToBottom}
               containerRef={messageListRef}

@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { MessageItem } from './MessageItem'
-import { ChevronRight, ChevronDown } from 'lucide-react'
-import type { Message } from '../stores/chatStore'
 import { cn } from '@/sidepanel/lib/utils'
+import type { Message } from '../stores/chatStore'
+import { ChevronUp, ChevronDown, ChevronRight } from 'lucide-react'
+import { ANIMATION_DURATIONS } from '@/sidepanel/lib/animations'
 
 interface CollapsibleThoughtsProps {
   messages: Message[]  // Older narration messages to collapse
@@ -33,7 +34,7 @@ export function CollapsibleThoughts({ messages, isExpanded: controlledExpanded, 
         className={cn(
           "flex items-center gap-1.5 px-2 py-1 text-xs font-medium",
           "text-muted-foreground hover:text-foreground",
-          "transition-all duration-200 rounded-md",
+          "smooth-hover smooth-transform hover:scale-105 rounded-md",
           messages.length > 0 ? "hover:bg-muted/50 cursor-pointer" : "cursor-default opacity-70"
         )}
         aria-expanded={isExpanded}
@@ -53,9 +54,13 @@ export function CollapsibleThoughts({ messages, isExpanded: controlledExpanded, 
       
       {/* Expanded messages - only show if expanded AND has messages */}
       {isExpanded && messages.length > 0 && (
-        <div className="relative">
-          {messages.map((message) => (
-            <div key={message.msgId} className="relative">
+        <div className="relative animate-in fade-in slide-in-from-top-1 duration-300">
+          {messages.map((message, index) => (
+            <div 
+              key={message.msgId} 
+              className="relative message-enter"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
               <MessageItem 
                 message={message} 
                 shouldIndent={true}

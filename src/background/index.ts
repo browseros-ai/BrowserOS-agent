@@ -481,6 +481,9 @@ async function handleExecuteQueryPort(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     debugLog(`[Background] Error executing query: ${errorMessage}`, 'error')
+    
+    // Publish error to UI via pubsub
+    pubsub.publishMessage(PubSub.createMessage(errorMessage, 'error'))
   }
 }
 

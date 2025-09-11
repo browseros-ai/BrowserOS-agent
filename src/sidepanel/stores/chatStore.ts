@@ -98,7 +98,10 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
           content: pubsubMessage.content,
           timestamp: new Date(pubsubMessage.ts)
         }
-        return { messages: updated, error: null }
+        return { 
+          messages: updated, 
+          error: null
+        }
       } else {
         // Add new message
         const newMessage: Message = {

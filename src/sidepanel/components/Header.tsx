@@ -219,7 +219,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             onClick={handleStarClick}
             variant="ghost"
             size="sm"
-            className="h-9 px-2 sm:px-3 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20 hover:text-yellow-600 dark:hover:text-yellow-400 transition-all duration-300 flex items-center gap-1.5 group"
+            className="h-9 px-2 sm:px-3 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20 hover:text-yellow-600 dark:hover:text-yellow-400 smooth-hover smooth-transform hover:scale-105 flex items-center gap-1.5 group"
             aria-label="Star on GitHub"
             title="Star us on GitHub"
           >
@@ -234,7 +234,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                 onClick={() => setShowMCPDropdown(!showMCPDropdown)}
                 variant="ghost"
                 size="sm"
-                className="flex items-center gap-1 h-9 px-2 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
+                className="flex items-center gap-1 h-9 px-2 rounded-xl hover:bg-brand/10 hover:text-brand smooth-hover smooth-transform hover:scale-105"
                 aria-label="Connect integrations"
               >
                 <Plus className="w-4 h-4" />
@@ -314,7 +314,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             onClick={handleSettingsClick}
             variant="ghost"
             size="sm"
-            className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
+            className="h-9 w-9 p-0 rounded-xl hover:bg-brand/10 hover:text-brand smooth-hover smooth-transform hover:scale-105"
             aria-label="Open settings"
           >
             <Settings className="w-4 h-4" />
@@ -334,7 +334,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               onClick={handleCancel}
               variant="ghost"
               size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
+              className="text-xs hover:bg-brand/5 hover:text-brand smooth-hover smooth-transform hover:scale-105 flex items-center gap-1"
               aria-label="Pause current task"
             >
               <Pause className="w-4 h-4" />
@@ -347,7 +347,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               onClick={handleReset}
               variant="ghost"
               size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
+              className="text-xs hover:bg-brand/5 hover:text-brand smooth-hover smooth-transform hover:scale-105 flex items-center gap-1"
               aria-label="Reset conversation"
             >
               <RotateCcw className="w-4 h-4" />
