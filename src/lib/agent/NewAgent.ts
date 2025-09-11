@@ -46,11 +46,13 @@ import {
   createExtractTool,
   createHumanInputTool,
   createDoneTool,
+  createMoondreamVisualClickTool,
+  createMoondreamVisualTypeTool,
 } from "@/lib/tools/NewTools";
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
-const MAX_EXECUTOR_ITERATIONS = 1;
+const MAX_EXECUTOR_ITERATIONS = 3;
 
 // Planner output schema
 const PlannerOutputSchema = z.object({
@@ -169,6 +171,10 @@ export class NewAgent {
     this.toolManager.register(createTypeTool(this.executionContext)); // NodeId-based type
     this.toolManager.register(createClearTool(this.executionContext)); // NodeId-based clear
 
+    // Visual fallback tools (Moondream-powered)
+    this.toolManager.register(createMoondreamVisualClickTool(this.executionContext)); // Visual click fallback
+    this.toolManager.register(createMoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
+
     // Navigation and utility tools
     this.toolManager.register(createScrollTool(this.executionContext));
     this.toolManager.register(createNavigateTool(this.executionContext));
@@ -278,7 +284,8 @@ export class NewAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
-        this._publishMessage(completionMessage, "success");
+        // Publish final result with 'assistant' role to match BrowserAgent pattern
+        this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
         break;
       }
 
@@ -321,7 +328,7 @@ export class NewAgent {
   }
 
   /**
-   * Get current browser state as a HumanMessage for LLM context
+   * Get current browser state as a properly tagged message for LLM context
    */
   private async getStateMessage(
     includeScreenshot: boolean,
@@ -339,18 +346,23 @@ export class NewAgent {
       const screenshot = await page.takeScreenshot("medium", true);
 
       if (screenshot) {
-        // Return multimodal message with state + screenshot
-        return new HumanMessage({
+        // Return multimodal message with state + screenshot, properly tagged as browser state
+        const message = new HumanMessage({
           content: [
-            { type: "text", text: browserStateString },
+            { type: "text", text: `<BrowserState>${browserStateString}</BrowserState>` },
             { type: "image_url", image_url: { url: screenshot } },
           ],
         });
+        // Tag this as a browser state message for proper handling in MessageManager
+        message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
+        return message;
       }
     }
 
-    // Return text-only message
-    return new HumanMessage(browserStateString);
+    // Return text-only message tagged as browser state
+    const message = new HumanMessage(`<BrowserState>${browserStateString}</BrowserState>`);
+    message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
+    return message;
   }
 
   private async _runPlanner(task: string): Promise<PlannerResult> {
@@ -499,7 +511,11 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
       // Add instruction and browser state to message history
       if (isFirstPass) {
         // Add current browser state with screenshot
-        const browserStateMessage = await this.getStateMessage(true, true);
+        const browserStateMessage = await this.getStateMessage(false, true);
+        // remove old state and screenshot messages first
+        this.messageManager.removeMessagesByType(MessageType.BROWSER_STATE);
+        this.messageManager.removeMessagesByType(MessageType.SCREENSHOT);
+        // add new state
         this.messageManager.add(browserStateMessage);
 
         this.messageManager.addHuman(initialInstruction);
@@ -637,25 +653,12 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
 
       const { name: toolName, args, id: toolCallId } = toolCall;
 
-      // Emit thinking token in development mode
-      if (isDevelopmentMode()) {
-        const argsStr = JSON.stringify(args);
-        const truncatedArgs =
-          argsStr.length > 60 ? argsStr.substring(0, 60) + "..." : argsStr;
-        const thinkingMessage = `[DEV MODE] Calling tool: ${toolName} with args: ${truncatedArgs}`;
-        this.pubsub.publishMessage(
-          PubSub.createMessage(thinkingMessage, "thinking"),
-        );
-      }
-
-      // For now, skip tool ID validation as requested
-      // TODO: Add missing tool ID handling later
+      this._emitDevModeDebug(`Calling tool ${toolName} with args`, JSON.stringify(args));
 
       const tool = this.toolManager.get(toolName);
 
       let toolResult: string;
       if (!tool) {
-        // CRITICAL: Always add tool result for unknown tools to satisfy Anthropic API
         Logging.log("NewAgent", `Unknown tool: ${toolName}`, "warning");
         const errorMsg = `Unknown tool: ${toolName}`;
         toolResult = JSON.stringify({
@@ -663,25 +666,11 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
           error: errorMsg,
         });
 
-        // Publish error as thinking in development mode
-        if (isDevelopmentMode()) {
-          this.pubsub.publishMessage(
-            PubSub.createMessage(`[DEV MODE] Error: ${errorMsg}`, "thinking"),
-          );
-        }
+        this._emitDevModeDebug("Error", errorMsg);
       } else {
         try {
           // Execute tool
           toolResult = await tool.func(args);
-
-          // Handle special tool behaviors for NewTools
-          if (toolName === "todo_set") {
-            const markdown = args.todos || "";
-            this.messageManager.addTodoList(markdown);
-            this.pubsub.publishMessage(
-              PubSub.createMessage(markdown, "thinking"),
-            );
-          }
         } catch (error) {
           // Even on execution error, we must add a tool result
           const errorMsg = `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -699,26 +688,19 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
             "error",
           );
 
-          // Publish error as thinking in development mode
-          if (isDevelopmentMode()) {
-            this.pubsub.publishMessage(
-              PubSub.createMessage(
-                `[DEV MODE] Error executing ${toolName}: ${errorMsg}`,
-                "thinking",
-              ),
-            );
-          }
+          this._emitDevModeDebug(`Error executing ${toolName}`, errorMsg);
         }
       }
 
       // Parse result to check for special flags
       const parsedResult = jsonParseToolOutput(toolResult);
+      
       this.messageManager.addTool(toolResult, toolCallId);
 
-      // Check for special tool outcomes
+      // Check for special tool outcomes but DON'T break early
+      // We must process ALL tool calls to ensure all get responses
       if (toolName === "done" && parsedResult.ok) {
         result.doneToolCalled = true;
-        break;
       }
 
       if (
@@ -727,12 +709,11 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
         parsedResult.requiresHumanInput
       ) {
         result.requiresHumanInput = true;
-        break;
       }
     }
 
     // Flush any queued messages from tools (screenshots, browser states, etc.)
-    // This is from NewAgent and is CRITICAL for Anthropic's required ordering
+    // This is from NewAgent and is CRITICAL for API's required ordering
     this.messageManager.flushQueue();
 
     return result;
@@ -740,9 +721,25 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
 
   private _publishMessage(
     content: string,
-    type: "thinking" | "success" | "error",
+    type: "thinking" | "assistant" | "error",
   ): void {
     this.pubsub.publishMessage(PubSub.createMessage(content, type as any));
+  }
+
+  // Emit debug information in development mode
+  private _emitDevModeDebug(action: string, details?: string, maxLength: number = 60): void {
+    if (isDevelopmentMode()) {
+      let message = action;
+      if (details) {
+        const truncated = details.length > maxLength 
+          ? details.substring(0, maxLength) + "..." 
+          : details;
+        message = `${action}: ${truncated}`;
+      }
+      this.pubsub.publishMessage(
+        PubSub.createMessage(`[DEV MODE] ${message}`, "thinking"),
+      );
+    }
   }
 
   private _handleExecutionError(error: unknown): void {

@@ -100,6 +100,11 @@ export function createVisualObserveTool(
     func: async (args: ObserveInput) => {
       try {
         context.incrementMetric("observations");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("🔍 Observing page state...", "thinking")
+        );
 
         // Constants for context building
         const RECENT_HISTORY_COUNT = 10;
@@ -273,6 +278,11 @@ export function createObserveTool(
     func: async (args: ObserveInput) => {
       try {
         context.incrementMetric("observations");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("🔍 Observing page state...", "thinking")
+        );
 
         // Constants for context building
         const RECENT_HISTORY_COUNT = 10;
@@ -519,6 +529,11 @@ export function createTypeTool(
     func: async (args: TypeInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(`Typing "${args.text}"...`, "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -572,6 +587,11 @@ export function createClearTool(
     func: async (args: ClearInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Clearing text...", "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -637,6 +657,11 @@ export function createScrollTool(
     func: async (args: ScrollInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Scrolling...", "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -695,6 +720,11 @@ export function createNavigateTool(
     func: async (args: NavigateInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Navigating...", "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -749,6 +779,11 @@ export function createKeyTool(
     func: async (args: KeyInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Pressing key...", "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -791,6 +826,11 @@ export function createWaitTool(
     func: async (args: WaitInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(`Waiting for ${args.seconds}...`, "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -835,6 +875,10 @@ export function createTodoSetTool(
     func: async (args: TodoSetInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(args.todos, "thinking")
+        );
         context.setTodoList(args.todos);
 
         Logging.log(
@@ -902,6 +946,11 @@ export function createTabsTool(
     func: async (args: TabsInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Listing browser tabs...", "thinking")
+        );
 
         // Get current window
         const currentWindow = await chrome.windows.getCurrent();
@@ -956,6 +1005,11 @@ export function createTabOpenTool(
     func: async (args: TabOpenInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Opening tab...", "thinking")
+        );
 
         const targetUrl = args.url || "chrome://newtab/";
         const page = await context.browserContext.openTab(targetUrl);
@@ -994,6 +1048,11 @@ export function createTabFocusTool(
     func: async (args: TabFocusInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Switching tab...", "thinking")
+        );
 
         // Switch to tab using browserContext
         await context.browserContext.switchTab(args.tabId);
@@ -1035,6 +1094,11 @@ export function createTabCloseTool(
     func: async (args: TabCloseInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Closing tab...", "thinking")
+        );
 
         // Verify tab exists
         const tab = await chrome.tabs.get(args.tabId);
@@ -1081,6 +1145,11 @@ export function createExtractTool(
     func: async ({ format, task }: { format: any; task: string }) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Extracting data from page...", "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -1197,6 +1266,11 @@ The human will either click "Done" (after taking action) or "Abort task" (to can
     func: async (args: HumanInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("⏸️ Requesting human input...", "thinking")
+        );
 
         // Generate unique request ID
         const requestId = PubSubChannel.generateId("human_input");
@@ -1260,17 +1334,10 @@ export function createDoneTool(
     func: async (args: DoneInput) => {
       context.incrementMetric("toolCalls");
 
-      const finalMessage =
-        args.message ||
-        (args.success
-          ? "Task completed successfully"
-          : "Task could not be completed");
-
       return JSON.stringify({
         ok: true,
         output: {
           success: args.success,
-          message: finalMessage,
         },
       });
     },
@@ -1312,6 +1379,11 @@ export function createMoondreamVisualClickTool(
     func: async (args: MoondreamVisualClickInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("🎯 Clicking...", "thinking")
+        );
 
         // Get API key from args or environment
         const apiKey = process.env.MOONDREAM_API_KEY;
@@ -1428,6 +1500,11 @@ export function createMoondreamVisualTypeTool(
     func: async (args: MoondreamVisualTypeInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(`⌨️ Typing "${args.text}"...`, "thinking")
+        );
 
         // Get API key from environment
         const apiKey = process.env.MOONDREAM_API_KEY;
@@ -1539,6 +1616,11 @@ export function createClickAtCoordinatesTool(
     func: async (args: ClickAtCoordinatesInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("Clicking...", "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
@@ -1600,6 +1682,11 @@ export function createTypeAtCoordinatesTool(
     func: async (args: TypeAtCoordinatesInput) => {
       try {
         context.incrementMetric("toolCalls");
+        
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(`Typing "${args.text}"...`, "thinking")
+        );
 
         // Get current page from browserContext
         const page = await context.browserContext.getCurrentPage();
