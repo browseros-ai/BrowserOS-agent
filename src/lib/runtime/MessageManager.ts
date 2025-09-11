@@ -75,7 +75,13 @@ export class MessageManagerReadOnly {
     separator: string = "\n",
   ): string {
     const messages = this.getFiltered(excludeTypes);
-    return messages.map((m) => `${m._getType()}: ${m.content}`).join(separator);
+    return messages.map((m) => {
+      const type = m._getType();
+      const content = typeof m.content === "string" 
+        ? m.content 
+        : JSON.stringify(m.content);
+      return `${type}: ${content}`;
+    }).join(separator);
   }
 
   getRecentBrowserState(): string | null {
