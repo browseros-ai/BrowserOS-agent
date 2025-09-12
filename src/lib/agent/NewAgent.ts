@@ -6,6 +6,7 @@
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager, MessageManagerReadOnly, MessageType } from "@/lib/runtime/MessageManager";
 import { ToolManager } from "@/lib/tools/ToolManager";
+import { ExecutionMetadata } from "@/lib/types/messaging";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
   AIMessage,
@@ -59,6 +60,7 @@ import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
 const MAX_EXECUTOR_ITERATIONS = 3;
+const MAX_PREDEFINED_PLAN_ITERATIONS = 20;
 
 // Human input constants
 const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
@@ -239,7 +241,7 @@ export class NewAgent {
     );
   }
 
-  async execute(task: string, _metadata?: any): Promise<void> {
+  async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     try {
       this.executionContext.setExecutionMetrics({
         ...this.executionContext.getExecutionMetrics(),
@@ -248,7 +250,13 @@ export class NewAgent {
 
       Logging.log("NewAgent", `Starting execution`, "info");
       await this._initialize();
-      await this._run(task);
+      
+      // Check for predefined plan
+      if (metadata?.executionMode === 'predefined' && metadata.predefinedPlan) {
+        await this._runPredefinedPlan(task, metadata.predefinedPlan);
+      } else {
+        await this._run(task);
+      }
     } catch (error) {
       this._handleExecutionError(error);
       throw error;
@@ -270,6 +278,84 @@ export class NewAgent {
       } catch (error) {
         console.error(`Could not stop glow animation: ${error}`);
       }
+    }
+  }
+
+  private async _runPredefinedPlan(task: string, plan: any): Promise<void> {
+    // Set current task in context
+    this.executionContext.setCurrentTask(task);
+    
+    // Use standard executor prompt
+    const systemPrompt = generateExecutorPrompt();
+    this.messageManager.addSystem(systemPrompt);
+    
+    // Validate LLM is initialized with tools bound
+    if (!this.executorLlmWithTools) {
+      throw new Error("LLM with tools not initialized");
+    }
+    
+    // Publish start message
+    this._publishMessage(
+      `Executing agent: ${plan.name || 'Custom Agent'}`,
+      "thinking"
+    );
+    
+    // If there's a goal, add it for context
+    if (plan.goal) {
+      this.messageManager.addHuman(`User's goal is: ${plan.goal}`);
+    }
+    
+    // Get initial browser state
+    const browserStateMessage = await this.getStateMessage(true, true);
+    this.messageManager.add(browserStateMessage);
+    
+    let stepIndex = 0;
+    let iteration = 0;
+    
+    while (stepIndex < plan.steps.length && iteration < MAX_PREDEFINED_PLAN_ITERATIONS) {
+      this.checkIfAborted();
+      iteration++;
+      
+      const step = plan.steps[stepIndex];
+      Logging.log("NewAgent", `Executing step ${stepIndex + 1}/${plan.steps.length}: ${step}`, "info");
+      
+      // Pass single step to executor
+      const executionResult = await this._runExecutor([step]);
+      
+      if (executionResult.doneToolCalled) {
+        stepIndex++;
+        this._publishMessage(`✅ Completed step ${stepIndex}/${plan.steps.length}`, 'thinking');
+      }
+      
+      if (executionResult.requiresHumanInput) {
+        // Handle human input
+        const humanResponse = await this._waitForHumanInput();
+        if (humanResponse === 'abort') {
+          this._publishMessage('❌ Task aborted by human', 'assistant');
+          throw new AbortError('Task aborted by human');
+        }
+        // Continue to next step after human completes action
+        this._publishMessage('✅ Human completed manual action. Continuing...', 'thinking');
+      }
+    }
+
+
+    // Check if we exited due to max iterations
+    if (iteration >= MAX_PREDEFINED_PLAN_ITERATIONS && stepIndex < plan.steps.length) {
+      this._publishMessage(
+        `Predefined plan did not complete within ${MAX_PREDEFINED_PLAN_ITERATIONS} iterations`,
+        "error",
+      );
+      throw new Error(
+        `Maximum predefined plan iterations (${MAX_PREDEFINED_PLAN_ITERATIONS}) reached`,
+      );
+    }
+    else {
+      Logging.log("NewAgent", `Predefined plan execution complete`, "info");
+      this._publishMessage(
+        `Completed all ${plan.steps.length} steps for "${plan.name || 'Custom Agent'}"`,
+        "assistant"
+      );
     }
   }
 
