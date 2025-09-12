@@ -265,10 +265,70 @@ export class BrowserPage {
   // ============= Actions =============
 
   /**
+   * Show visual pointer for an element before performing an action
+   * @param nodeId - The node ID to show pointer for
+   * @param action - The action being performed (Click, Type, Clear)
+   * @returns Promise<void>
+   */
+  private async _showPointerForElement(
+    nodeId: number,
+    action: string,
+  ): Promise<void> {
+    try {
+      // Get the element
+      const element = await this.getElementByIndex(nodeId);
+      if (!element || !element.rect) {
+        // No element or no coordinates, skip pointer
+        return;
+      }
+
+      const rect = element.rect;
+      let x: number;
+      let y: number;
+
+      // Calculate pointer position based on action type
+      switch (action.toLowerCase()) {
+        case "click":
+          // Center of element
+          x = rect.x + rect.width / 2;
+          y = rect.y + rect.height / 2;
+          break;
+        case "type":
+        case "input":
+          // Left-center of element (where text cursor typically appears)
+          x = rect.x + 10;
+          y = rect.y + rect.height / 2;
+          break;
+        case "clear":
+          // Right side of element (near clear button if present)
+          x = rect.x + rect.width - 10;
+          y = rect.y + rect.height / 2;
+          break;
+        default:
+          // Default to center
+          x = rect.x + rect.width / 2;
+          y = rect.y + rect.height / 2;
+      }
+
+      // Show the pointer with action description
+      await this.showPointer(x, y, action);
+    } catch (error) {
+      // Log but don't fail the action if pointer fails
+      Logging.log(
+        "BrowserPage",
+        `Failed to show pointer for element ${nodeId}: ${error}`,
+        "warning",
+      );
+    }
+  }
+
+  /**
    * Click element by node ID
    */
   async clickElement(nodeId: number): Promise<void> {
     await profileAsync(`BrowserPage.clickElement[${nodeId}]`, async () => {
+      // Show pointer before clicking
+      await this._showPointerForElement(nodeId, "Click");
       await this._browserOS.click(this._tabId, nodeId);
       this._invalidateCache(); // Invalidate cache after click
       await this.waitForStability();
@@ -280,6 +340,9 @@ export class BrowserPage {
    */
   async inputText(nodeId: number, text: string): Promise<void> {
     await profileAsync(`BrowserPage.inputText[${nodeId}]`, async () => {
+      // Show pointer before typing, with preview of text
+      const displayText = text.length > 20 ? `${text.substring(0, 20)}...` : text;
+      await this._showPointerForElement(nodeId, `Type: ${displayText}`);
       await this._browserOS.clear(this._tabId, nodeId);
       await this._browserOS.inputText(this._tabId, nodeId, text);
       this._invalidateCache(); // Invalidate cache after text input
@@ -291,6 +354,8 @@ export class BrowserPage {
    * Clear element by node ID
    */
   async clearElement(nodeId: number): Promise<void> {
+    // Show pointer before clearing
+    await this._showPointerForElement(nodeId, "Clear");
     await this._browserOS.clear(this._tabId, nodeId);
     this._invalidateCache(); // Invalidate cache after clearing
     await this.waitForStability();
@@ -336,6 +401,13 @@ export class BrowserPage {
       scrollMessage = scrolled
         ? " (auto-scrolled to element)"
         : " (attempted scroll)";
+
+      // Show pointer at the element after scrolling
+      if (scrolled && element.rect) {
+        const x = element.rect.x + element.rect.width / 2;
+        const y = element.rect.y + element.rect.height / 2;
+        await this.showPointer(x, y, "Scrolled to element");
+      }
     }
 
     return {
