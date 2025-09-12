@@ -754,11 +754,11 @@ export class BrowserPage {
         
         document.body.appendChild(pointer);
         
-        // Auto-remove after 10 seconds
+        // Auto-remove after 3 seconds
         setTimeout(() => {
           const el = document.getElementById('${pointerId}');
           if (el) el.remove();
-        }, 10000);
+        }, 3000);
       })();
     `);
   }
