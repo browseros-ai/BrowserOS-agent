@@ -20,6 +20,7 @@ import { getLLM } from "@/lib/llm/LangChainProvider";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
+import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
 import { AbortError } from "@/lib/utils/Abortable";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
@@ -53,6 +54,10 @@ import {
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
 const MAX_EXECUTOR_ITERATIONS = 3;
+
+// Human input constants
+const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
+const HUMAN_INPUT_CHECK_INTERVAL = 500;  // Check every 500ms
 
 // Planner output schema
 const PlannerOutputSchema = z.object({
@@ -259,7 +264,8 @@ export class NewAgent {
 
       // Get reasoning and high-level actions
       const planResult = await this._runPlanner(task);
-      this.messageManager.flushQueue(); // CRITICAL: Flush any queued messages from planning
+      // CRITICAL: Flush any queued messages from planning
+      this.messageManager.flushQueue();
 
       if (!planResult.ok) {
         Logging.log(
@@ -273,9 +279,6 @@ export class NewAgent {
       const plan = planResult.output!;
       this.pubsub.publishMessage(
         PubSub.createMessage(plan.reasoning, "thinking"),
-      );
-      this.messageManager.addSystemReminder(
-        `OBSERVATION: ${plan.observation}\nCHALLENGES: ${plan.challenges}\nREASONING: ${plan.reasoning}`,
       );
 
       // Check if task is complete
@@ -305,13 +308,31 @@ export class NewAgent {
         "info",
       );
 
+      // Build unified execution context with planning + execution instructions
+      const executionContext = this._buildExecutionContext(plan, plan.actions);
+      this.messageManager.addSystemReminder(executionContext);
+
       const executionResult = await this._runExecutor(plan.actions);
 
       // Check execution outcomes
       if (executionResult.requiresHumanInput) {
-        // Handle human input
-        Logging.log("NewAgent", "Human input required", "info");
-        break;
+        // Human input requested - wait for response
+        const humanResponse = await this._waitForHumanInput();
+        
+        if (humanResponse === 'abort') {
+          // Human aborted the task
+          this._publishMessage('❌ Task aborted by human', 'assistant');
+          throw new AbortError('Task aborted by human');
+        }
+        
+        // Human clicked "Done" - continue with next planning iteration
+        this._publishMessage('✅ Human completed manual action. Re-planning...', 'thinking');
+        this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
+        
+        // Clear human input state
+        this.executionContext.clearHumanInputState();
+        
+        // Continue to next planning iteration
       }
     }
 
@@ -327,9 +348,6 @@ export class NewAgent {
     }
   }
 
-  /**
-   * Get current browser state as a properly tagged message for LLM context
-   */
   private async getStateMessage(
     includeScreenshot: boolean,
     simplified: boolean = true,
@@ -343,13 +361,13 @@ export class NewAgent {
     if (includeScreenshot) {
       // Get current page and take screenshot
       const page = await this.executionContext.browserContext.getCurrentPage();
-      const screenshot = await page.takeScreenshot("medium", true);
+      const screenshot = await page.takeScreenshot("large", true);
 
       if (screenshot) {
         // Return multimodal message with state + screenshot, properly tagged as browser state
         const message = new HumanMessage({
           content: [
-            { type: "text", text: `<browser-state>${browserStateString}</browser-state>` }
+            { type: "text", text: `<browser-state>${browserStateString}</browser-state>` },
             { type: "image_url", image_url: { url: screenshot } },
           ],
         });
@@ -480,35 +498,11 @@ Based on the metrics, execution history, and current browser state, what should 
     let executorIterations = 0;
     let isFirstPass = true;
 
-    // Initial instruction with all actions
-    const initialInstruction = `## CRITICAL: Screenshot Analysis Required
-
-The screenshot above shows the webpage with nodeId numbers overlaid as visual labels on elements.
-These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
-
-**YOU MUST LOOK AT THE SCREENSHOT FIRST** to identify which nodeId belongs to which element.
-
-Execute these actions:
-${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
-
-### Visual Execution Process:
-1. **EXAMINE THE SCREENSHOT** - See the webpage with nodeId labels overlaid on elements
-2. **LOCATE** the element you need to interact with visually
-3. **IDENTIFY** its nodeId from the label shown on that element in the screenshot
-4. **EXECUTE** using that nodeId in your tool call
-
-### REMEMBER:
-- The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-- The text-based browser state is supplementary - the screenshot is your primary reference
-- Batch multiple tool calls in one response when possible (reduces latency)
-- Create a todo list to track progress if helpful
-- Call 'done' when all actions are completed`;
-
     while (executorIterations < MAX_EXECUTOR_ITERATIONS) {
       this.checkIfAborted();
       executorIterations++;
 
-      // Add instruction and browser state to message history
+      // Add browser state and simple prompt
       if (isFirstPass) {
         // Add current browser state with screenshot
         const browserStateMessage = await this.getStateMessage(false, true);
@@ -518,7 +512,10 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
         // add new state
         this.messageManager.add(browserStateMessage);
 
-        this.messageManager.addHuman(initialInstruction);
+        // Simple prompt - all context is already in system reminder
+        this.messageManager.addHuman(
+          "Please execute the actions specified in the system reminder above."
+        );
         isFirstPass = false;
       } else {
         this.messageManager.addHuman(
@@ -786,5 +783,97 @@ ${actions.map((action: string, i: number) => `${i + 1}. ${action}`).join("\n")}
   private _cleanup(): void {
     this.iterations = 0;
     Logging.log("NewAgent", "Cleanup complete", "info");
+  }
+
+  /**
+   * Wait for human input with timeout
+   * @returns 'done' if human clicked Done, 'abort' if clicked Skip/Abort, 'timeout' if timed out
+   */
+  private async _waitForHumanInput(): Promise<'done' | 'abort' | 'timeout'> {
+    const startTime = Date.now();
+    const requestId = this.executionContext.getHumanInputRequestId();
+    
+    if (!requestId) {
+      console.error('No human input request ID found');
+      return 'abort';
+    }
+    
+    // Subscribe to human input responses
+    const subscription = this.pubsub.subscribe((event: PubSubEvent) => {
+      if (event.type === 'human-input-response') {
+        const response = event.payload as HumanInputResponse;
+        if (response.requestId === requestId) {
+          this.executionContext.setHumanInputResponse(response);
+        }
+      }
+    });
+    
+    try {
+      // Poll for response or timeout
+      while (!this.executionContext.shouldAbort()) {
+        // Check if response received
+        const response = this.executionContext.getHumanInputResponse();
+        if (response) {
+          return response.action;  // 'done' or 'abort'
+        }
+        
+        // Check timeout
+        if (Date.now() - startTime > HUMAN_INPUT_TIMEOUT) {
+          this._publishMessage('⏱️ Human input timed out after 10 minutes', 'error');
+          return 'timeout';
+        }
+        
+        // Wait before checking again
+        await new Promise(resolve => setTimeout(resolve, HUMAN_INPUT_CHECK_INTERVAL));
+      }
+      
+      // Aborted externally
+      return 'abort';
+      
+    } finally {
+      // Clean up subscription
+      subscription.unsubscribe();
+    }
+  }
+
+  /**
+   * Build unified execution context combining planning and execution instructions
+   */
+  private _buildExecutionContext(
+    plan: PlannerOutput,
+    actions: string[]
+  ): string {
+    return `<planning-context>
+  <observation>${plan.observation}</observation>
+  <challenges>${plan.challenges}</challenges>
+  <reasoning>${plan.reasoning}</reasoning>
+</planning-context>
+
+<execution-instructions>
+  <screenshot-analysis>
+    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+  </screenshot-analysis>
+  
+  <actions-to-execute>
+${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
+  </actions-to-execute>
+  
+  <visual-execution-process>
+    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+    2. LOCATE the element you need to interact with visually
+    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+    4. EXECUTE using that nodeId in your tool call
+  </visual-execution-process>
+  
+  <execution-guidelines>
+    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+    - The text-based browser state is supplementary - the screenshot is your primary reference
+    - Batch multiple tool calls in one response when possible (reduces latency)
+    - Create a todo list to track progress if helpful
+    - Call 'done' when all actions are completed
+  </execution-guidelines>
+</execution-instructions>`;
   }
 }
