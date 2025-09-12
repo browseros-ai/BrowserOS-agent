@@ -54,6 +54,7 @@ import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
 import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
 import { createDateTool } from "@/lib/tools/utility/DateTool";
 import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
+import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -111,9 +112,26 @@ interface SingleTurnResult {
 }
 
 export class NewAgent {
+  // Tools that trigger glow animation when executed
+  private static readonly GLOW_ENABLED_TOOLS = new Set([
+    'click',
+    'type',
+    'clear',
+    'moondream_visual_click',
+    'moondream_visual_type',
+    'scroll',
+    'navigate',
+    'key',
+    'tab_open',
+    'tab_focus',
+    'tab_close',
+    'extract'
+  ]);
+
   // Core dependencies
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
+  private readonly glowService: GlowAnimationService;
   private executorLlmWithTools: Runnable<
     BaseLanguageModelInput,
     AIMessageChunk
@@ -126,6 +144,7 @@ export class NewAgent {
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
+    this.glowService = GlowAnimationService.getInstance();
     Logging.log("NewAgent", "Agent instance created", "info");
   }
 
@@ -240,6 +259,17 @@ export class NewAgent {
       });
       this._logMetrics();
       this._cleanup();
+      
+      // Ensure glow animation is stopped at the end of execution
+      try {
+        // Get all active glow tabs from the service
+        const activeGlows = await this.glowService.getAllActiveGlows();
+        for (const tabId of activeGlows) {
+          await this.glowService.stopGlow(tabId);
+        }
+      } catch (error) {
+        console.error(`Could not stop glow animation: ${error}`);
+      }
     }
   }
 
@@ -662,6 +692,9 @@ Based on the metrics, execution history, and current browser state, what should 
 
       this._emitDevModeDebug(`Calling tool ${toolName} with args`, JSON.stringify(args));
 
+      // Start glow animation for visual tools
+      await this._maybeStartGlowAnimation(toolName);
+
       const tool = this.toolManager.get(toolName);
 
       let toolResult: string;
@@ -793,6 +826,32 @@ Based on the metrics, execution history, and current browser state, what should 
   private _cleanup(): void {
     this.iterations = 0;
     Logging.log("NewAgent", "Cleanup complete", "info");
+  }
+
+  /**
+   * Handle glow animation for tools that interact with the browser
+   * @param toolName - Name of the tool being executed
+   */
+  private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
+    // Check if this tool should trigger glow animation
+    if (!NewAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
+      return false;
+    }
+
+    try {
+      const currentPage = await this.executionContext.browserContext.getCurrentPage();
+      const tabId = currentPage.tabId;
+      
+      if (tabId && !this.glowService.isGlowActive(tabId)) {
+        await this.glowService.startGlow(tabId);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      // Log but don't fail if we can't manage glow
+      console.error(`Could not manage glow for tool ${toolName}: ${error}`);
+      return false;
+    }
   }
 
   /**
