@@ -116,9 +116,48 @@ Tab Control:
 Data Operations:
 - extract(format, task): Extract structured data matching JSON schema
 
+MCP Integration:
+- mcp(action, instanceId?, toolName?, toolArgs?): Access external services (Gmail, GitHub, etc.)
+  ↳ ALWAYS follow 3-step process: getUserInstances → listTools → callTool
+  ↳ Use exact IDs and tool names from responses
+
 Completion:
 - done(success, message): Call when ALL actions are executed
 </tools>
+
+<mcp-instructions>
+MCP TOOL USAGE (for Gmail, GitHub, Slack, etc.):
+CRITICAL: Never skip steps or guess tool names. Always execute in exact order:
+
+Step 1: Get installed servers
+mcp(action: 'getUserInstances')
+→ Returns: {instances: [{id: 'a146...', name: 'Gmail', authenticated: true}]}
+→ SAVE the exact instance ID
+
+Step 2: List available tools (MANDATORY - NEVER SKIP)
+mcp(action: 'listTools', instanceId: 'exact-id-from-step-1')
+→ Returns: {tools: [{name: 'gmail_search_emails', description: '...'}]}
+→ USE exact tool names from this response
+
+Step 3: Call the tool
+mcp(action: 'callTool', instanceId: 'exact-id', toolName: 'exact-name', toolArgs: {key: value})
+→ toolArgs must be JSON object, not string
+
+Common Mistakes to Avoid:
+❌ Guessing tool names like 'gmail_list_messages'
+❌ Skipping listTools step
+❌ Using partial instance IDs
+✅ Always use exact values from previous responses
+
+Available MCP Servers:
+- Google Calendar: Calendar operations (events, scheduling)
+- Gmail: Email operations (search, read, send)
+- Google Sheets: Spreadsheet operations (read, write, formulas)
+- Google Docs: Document operations (read, write, format)
+- Notion: Note management (pages, databases)
+
+Use MCP when task involves these services instead of browser automation.
+</mcp-instructions>
 
 <element-format>
 Elements appear as: [nodeId] <indicator> <tag> "text" context
@@ -200,8 +239,20 @@ Mark taskComplete=true ONLY when:
 - Be concise and user-friendly
 - Directly address what the user asked for
 
+# MCP SERVICES AVAILABLE:
+The executor has MCP (Model Context Protocol) integration for these services:
+- Google Calendar: Calendar operations (events, scheduling)
+- Gmail: Email operations (search, read, send)
+- Google Sheets: Spreadsheet operations (read, write, formulas)
+- Google Docs: Document operations (read, write, format)
+- Notion: Note management (pages, databases)
+
+PREFER MCP for these services instead of browser automation when possible.
+Example: "Use MCP to search Gmail for unread emails" instead of "Navigate to gmail.com"
+
 # ACTION PLANNING RULES:
 ADAPTIVE PLANNING based on execution analysis:
+- If task involves Gmail/Calendar/Sheets/Docs/Notion → prefer MCP actions
 - If click failed repeatedly → try visual click with descriptive text ("blue submit button", "search icon")
 - If element not found → page may have changed, use visual approach or re-observe
 - If nodeId-based interactions failing → switch to visual descriptions: "Click the blue login button" instead of "Click element"
@@ -223,6 +274,9 @@ GOOD high-level actions:
 - "Scroll down and find the price information"
 - "Wait for results to load then extract data"
 - "Try visual click on the search icon in the header"
+- "Use MCP to search Gmail for unread emails"
+- "Use MCP to get today's calendar events"
+- "Use MCP to read data from Google Sheets"
 
 BAD low-level actions:
 - "Click element [123]"
