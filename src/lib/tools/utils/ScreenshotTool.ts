@@ -19,8 +19,8 @@ export function createScreenshotTool(executionContext: ExecutionContext): Dynami
     description: `Capture a screenshot of the current page. Use liberally - screenshots are fast and free!
 
 SIZE OPTIONS:
-• small (256px): Low detail, minimal token usage - for quick checks
-• medium (512px): Balanced quality and token usage - DEFAULT
+• small (256px): Low detail, minimal token usage - just visual layout checks
+• medium (768px): Balanced quality and token usage - DEFAULT
 • large (1028px): High detail - for complex pages or detailed analysis
 
 USE FOR DECISION-MAKING:

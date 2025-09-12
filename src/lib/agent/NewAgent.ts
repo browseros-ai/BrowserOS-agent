@@ -50,6 +50,10 @@ import {
   createMoondreamVisualClickTool,
   createMoondreamVisualTypeTool,
 } from "@/lib/tools/NewTools";
+import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
+import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
+import { createDateTool } from "@/lib/tools/utility/DateTool";
+import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -195,10 +199,16 @@ export class NewAgent {
     this.toolManager.register(createTabOpenTool(this.executionContext));
     this.toolManager.register(createTabFocusTool(this.executionContext));
     this.toolManager.register(createTabCloseTool(this.executionContext));
+    this.toolManager.register(createGroupTabsTool(this.executionContext)); // Group tabs together
+    this.toolManager.register(createGetSelectedTabsTool(this.executionContext)); // Get selected tabs
 
     // Utility tools
     this.toolManager.register(createExtractTool(this.executionContext));
     this.toolManager.register(createHumanInputTool(this.executionContext));
+    this.toolManager.register(createDateTool(this.executionContext)); // Date/time utilities
+    
+    // External integration tools
+    this.toolManager.register(createMCPTool(this.executionContext)); // MCP server integration
 
     // Completion tool
     this.toolManager.register(createDoneTool(this.executionContext));
