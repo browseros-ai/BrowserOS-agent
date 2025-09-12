@@ -26,13 +26,13 @@ export function generateSystemPrompt(): string {
 - You have access to scroll_tool to navigate content
 
 ## Important: Browser State
-- The current web page content is provided in <BrowserState> tags
-- Always refer to the content within <BrowserState> tags when answering questions about the page
+- The current web page content is provided in <browser-state> tags
+- Always refer to the content within <browser-state> tags when answering questions about the page
 - This browser state is automatically updated when tabs change
 
 ## Instructions
 1. Be concise and direct in your responses
-2. Answer based on the page content within <BrowserState> tags
+2. Answer based on the page content within <browser-state> tags
 3. Use tools only when necessary for answering the question
 4. Focus on providing accurate, helpful answers
 
@@ -92,12 +92,12 @@ ${tabSections}`
 export function generateTaskPrompt(query: string, contextJustExtracted: boolean): string {
   if (contextJustExtracted) {
     // Context was just extracted and added above
-    return `Based on the page content in the <BrowserState> tags above, please answer the following question:
+    return `Based on the page content in the <browser-state> tags above, please answer the following question:
 
 "${query}"`
   } else {
     // Context already exists from previous extraction
-    return `Using the page content from the <BrowserState> tags, please answer:
+    return `Using the page content from the <browser-state> tags, please answer:
 
 "${query}"`
   }

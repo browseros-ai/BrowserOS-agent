@@ -349,7 +349,7 @@ export class NewAgent {
         // Return multimodal message with state + screenshot, properly tagged as browser state
         const message = new HumanMessage({
           content: [
-            { type: "text", text: `<BrowserState>${browserStateString}</BrowserState>` },
+            { type: "text", text: `<browser-state>${browserStateString}</browser-state>` }
             { type: "image_url", image_url: { url: screenshot } },
           ],
         });
@@ -360,7 +360,7 @@ export class NewAgent {
     }
 
     // Return text-only message tagged as browser state
-    const message = new HumanMessage(`<BrowserState>${browserStateString}</BrowserState>`);
+    const message = new HumanMessage(`<browser-state>${browserStateString}</browser-state>`);
     message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
     return message;
   }

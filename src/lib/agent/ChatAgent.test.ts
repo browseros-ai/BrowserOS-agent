@@ -118,19 +118,19 @@ describe('ChatAgent', () => {
     // Add initial browser state
     messageManager.addBrowserState('First page content')
     let messages = messageManager.getMessages()
-    expect(messages.some(m => m.content?.includes('<BrowserState>First page content</BrowserState>'))).toBe(true)
+    expect(messages.some(m => m.content?.includes('<browser-state>First page content</browser-state>'))).toBe(true)
     
     // Replace browser state (addBrowserState automatically replaces)
     messageManager.addBrowserState('Second page content')
     messages = messageManager.getMessages()
     
     // Should only have the new browser state, not both
-    expect(messages.some(m => m.content?.includes('<BrowserState>Second page content</BrowserState>'))).toBe(true)
+    expect(messages.some(m => m.content?.includes('<browser-state>Second page content</browser-state>'))).toBe(true)
     expect(messages.some(m => m.content?.includes('First page content'))).toBe(false)
     
     // Should only have one browser state message
     const browserStateCount = messages.filter(m => 
-      m.content?.includes('<BrowserState>') && m.content?.includes('</BrowserState>')
+      m.content?.includes('<browser-state>') && m.content?.includes('</browser-state>')
     ).length
     expect(browserStateCount).toBe(1)
   })

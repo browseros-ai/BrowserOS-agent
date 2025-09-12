@@ -432,9 +432,9 @@ export class ExecutionContext {
           // Handle system reminders wrapped in AI messages
           else if (
             typeof aiMsg.content === "string" &&
-            aiMsg.content.includes("<SystemReminder>")
+            aiMsg.content.includes("<system-reminder>")
           ) {
-            result = `System reminder: ${aiMsg.content.replace(/<\/?SystemReminder>/g, "")}`;
+            result = `System reminder: ${aiMsg.content.replace(/<\/?system-reminder>/g, "")}`;
           } else {
             result = `AI: ${aiMsg.content || "Thinking..."}`;
           }

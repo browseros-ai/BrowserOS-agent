@@ -11,7 +11,7 @@ export function generateSystemPrompt(toolDescriptions: string): string {
 4. **WORK SYSTEMATICALLY** - Navigate → Interact → Extract → Complete
 
 ### 🚨 NEVER DO THESE:
-1. **NEVER** output content from <BrowserState> tags
+1. **NEVER** output content from <browser-state> tags
 2. **NEVER** click guessed index numbers
 3. **NEVER** continue if page state unclear
 4. **NEVER** skip waiting for content to load
@@ -95,7 +95,7 @@ If NO relevant MCP server is installed, fall back to browser automation.
 ## 🎯 STATE MANAGEMENT & DECISION LOGIC
 
 ### 📊 STATE MANAGEMENT
-**Browser state is INTERNAL** - appears in <BrowserState> tags for your reference only
+**Browser state is INTERNAL** - appears in <browser-state> tags for your reference only
 
 ### 💾 PERSISTENT STORAGE
 **Use storage_tool for remembering information across steps:**

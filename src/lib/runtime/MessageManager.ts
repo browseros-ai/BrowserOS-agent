@@ -28,7 +28,7 @@ export const MessageType = LLMMessageType;
 // The langchain messages have messageType which can be set set to a custom value.
 export class BrowserStateMessage extends AIMessage {
   constructor(content: string) {
-    super(`<BrowserState>${content}</BrowserState>`);
+    super(`<browser-state>${content}</browser-state>`);
     this.additional_kwargs = { messageType: LLMMessageType.BROWSER_STATE };
   }
 }
@@ -90,9 +90,9 @@ export class MessageManagerReadOnly {
       if (messages[i] instanceof BrowserStateMessage) {
         const content = messages[i].content;
         // Extract content from BrowserState tags if needed
-        if (typeof content === "string" && content.includes("<BrowserState>")) {
+        if (typeof content === "string" && content.includes("<browser-state>")) {
           return (
-            content.match(/<BrowserState>(.*?)<\/BrowserState>/s)?.[1] ||
+            content.match(/<browser-state>(.*?)<\/browser-state>/s)?.[1] ||
             content
           );
         }
@@ -223,7 +223,7 @@ export class MessageManager {
   addSystemReminder(content: string): void {
     // For Anthropic, you can't have SystemMessage after first message
     // So we wrap it in an AIMessage
-    this.add(new AIMessage(`<SystemReminder>${content}</SystemReminder>`));
+    this.add(new AIMessage(`<system-reminder>${content}</system-reminder>`));
   }
 
   // Get messages array
@@ -374,7 +374,7 @@ export class MessageManager {
   queueSystemReminder(content: string): void {
     // For Anthropic, can't have SystemMessage after first message
     this.queueMessage(
-      new AIMessage(`<SystemReminder>${content}</SystemReminder>`),
+      new AIMessage(`<system-reminder>${content}</system-reminder>`),
     );
   }
 
