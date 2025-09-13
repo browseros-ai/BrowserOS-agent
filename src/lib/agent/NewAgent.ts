@@ -282,9 +282,9 @@ export class NewAgent {
       
       // Check for predefined plan
       if (metadata?.executionMode === 'predefined' && metadata.predefinedPlan) {
-        await this._runPredefined(task, metadata.predefinedPlan);
+        await this._executePredefined(task, metadata.predefinedPlan);
       } else {
-        await this._runDynamic(task);
+        await this._executeDynamic(task);
       }
     } catch (error) {
       this._handleExecutionError(error);
@@ -310,7 +310,7 @@ export class NewAgent {
     }
   }
 
-  private async _runPredefined(task: string, plan: any): Promise<void> {
+  private async _executePredefined(task: string, plan: any): Promise<void> {
     this.executionContext.setCurrentTask(task);
 
     // Convert predefined steps to TODO markdown
@@ -421,7 +421,7 @@ export class NewAgent {
     Logging.log("NewAgent", `Predefined plan execution complete`, "info");
   }
 
-  private async _runDynamic(task: string): Promise<void> {
+  private async _executeDynamic(task: string): Promise<void> {
     // Set current task in context
     this.executionContext.setCurrentTask(task);
 
