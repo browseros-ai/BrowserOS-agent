@@ -1,8 +1,3 @@
-/**
- * NewAgent - Experimental browser automation agent with minimal tool set
- * Migrated to use BrowserAgent's proven patterns for LLM interaction
- */
-
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager, MessageManagerReadOnly, MessageType } from "@/lib/runtime/MessageManager";
 import { ToolManager } from "@/lib/tools/ToolManager";
@@ -181,7 +176,7 @@ export class NewAgent {
     Logging.log("NewAgent", "Agent instance created", "info");
   }
 
-  private get messageManager(): MessageManager {
+  private get executorMessageManager(): MessageManager {
     return this.executionContext.messageManager;
   }
 
@@ -272,6 +267,9 @@ export class NewAgent {
     );
   }
 
+  // There are basically two modes of operation:
+  // 1. Dynamic planning - the agent plans and executes in a loop until done
+  // 2. Predefined plan - the agent executes a predefined set of steps in a loop until all are done
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     try {
       this.executionContext.setExecutionMetrics({
@@ -284,9 +282,9 @@ export class NewAgent {
       
       // Check for predefined plan
       if (metadata?.executionMode === 'predefined' && metadata.predefinedPlan) {
-        await this._runPredefinedPlan(task, metadata.predefinedPlan);
+        await this._runPredefined(task, metadata.predefinedPlan);
       } else {
-        await this._run(task);
+        await this._runDynamic(task);
       }
     } catch (error) {
       this._handleExecutionError(error);
@@ -312,8 +310,7 @@ export class NewAgent {
     }
   }
 
-  private async _runPredefinedPlan(task: string, plan: any): Promise<void> {
-    // Set current task in context
+  private async _runPredefined(task: string, plan: any): Promise<void> {
     this.executionContext.setCurrentTask(task);
 
     // Convert predefined steps to TODO markdown
@@ -322,7 +319,7 @@ export class NewAgent {
 
     // executor system prompt
     const systemPrompt = generateExecutorPrompt();
-    this.messageManager.addSystem(systemPrompt);
+    this.executorMessageManager.addSystem(systemPrompt);
 
     // Validate LLM is initialized with tools bound
     if (!this.executorLlmWithTools) {
@@ -334,11 +331,10 @@ export class NewAgent {
       `Executing agent: ${plan.name || 'Custom Agent'}`,
       "thinking"
     );
-    this._publishMessage(todoMarkdown, "thinking");
 
     // Add goal for context
     const goalMessage = plan.goal || task;
-    this.messageManager.addHuman(`Goal: ${goalMessage}`);
+    this.executorMessageManager.addHuman(`Goal: ${goalMessage}`);
 
     let iterations = 0;
     let allComplete = false;
@@ -393,20 +389,20 @@ export class NewAgent {
 
       // Build execution context with planner output
       const executionContext = this._buildPredefinedExecutionContext(plan, plan.actions);
-      this.messageManager.addSystemReminder(executionContext);
+      this.executorMessageManager.addSystemReminder(executionContext);
 
       // Execute the actions
-      const execResult = await this._runExecutor(plan.actions);
+      const executorResult = await this._runExecutor(plan.actions);
 
       // Handle human input if needed
-      if (execResult.requiresHumanInput) {
+      if (executorResult.requiresHumanInput) {
         const humanResponse = await this._waitForHumanInput();
         if (humanResponse === 'abort') {
           this._publishMessage('❌ Task aborted by human', 'assistant');
           throw new AbortError('Task aborted by human');
         }
         this._publishMessage('✅ Human completed manual action. Continuing...', 'thinking');
-        this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
+        this.executorMessageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
         this.executionContext.clearHumanInputState();
       }
     }
@@ -425,13 +421,13 @@ export class NewAgent {
     Logging.log("NewAgent", `Predefined plan execution complete`, "info");
   }
 
-  private async _run(task: string): Promise<void> {
+  private async _runDynamic(task: string): Promise<void> {
     // Set current task in context
     this.executionContext.setCurrentTask(task);
 
     // executor system prompt
     const systemPrompt = generateExecutorPrompt();
-    this.messageManager.addSystem(systemPrompt);
+    this.executorMessageManager.addSystem(systemPrompt);
 
     // Validate LLM is initialized with tools bound
     if (!this.executorLlmWithTools) {
@@ -455,9 +451,9 @@ export class NewAgent {
       );
 
       // Get reasoning and high-level actions
-      const planResult = await this._runPlanner(task);
+      const planResult = await this._runDynamicPlanner(task);
       // CRITICAL: Flush any queued messages from planning
-      this.messageManager.flushQueue();
+      this.executorMessageManager.flushQueue();
 
       if (!planResult.ok) {
         Logging.log(
@@ -501,13 +497,13 @@ export class NewAgent {
       );
 
       // Build unified execution context with planning + execution instructions
-      const executionContext = this._buildExecutionContext(plan, plan.actions);
-      this.messageManager.addSystemReminder(executionContext);
+      const executionContext = this._buildDynamicExecutionContext(plan, plan.actions);
+      this.executorMessageManager.addSystemReminder(executionContext);
 
-      const executionResult = await this._runExecutor(plan.actions);
+      const executorResult = await this._runExecutor(plan.actions);
 
       // Check execution outcomes
-      if (executionResult.requiresHumanInput) {
+      if (executorResult.requiresHumanInput) {
         // Human input requested - wait for response
         const humanResponse = await this._waitForHumanInput();
         
@@ -519,7 +515,7 @@ export class NewAgent {
         
         // Human clicked "Done" - continue with next planning iteration
         this._publishMessage('✅ Human completed manual action. Re-planning...', 'thinking');
-        this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
+        this.executorMessageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
         
         // Clear human input state
         this.executionContext.clearHumanInputState();
@@ -540,7 +536,7 @@ export class NewAgent {
     }
   }
 
-  private async getStateMessage(
+  private async _getBrowserStateMessage(
     includeScreenshot: boolean,
     simplified: boolean = true,
   ): Promise<HumanMessage> {
@@ -575,12 +571,12 @@ export class NewAgent {
     return message;
   }
 
-  private async _runPlanner(task: string): Promise<PlannerResult> {
+  private async _runDynamicPlanner(task: string): Promise<PlannerResult> {
     try {
       this.executionContext.incrementMetric("observations");
 
       // Get browser state message with screenshot
-      const browserStateMessage = await this.getStateMessage(true, true);
+      const browserStateMessage = await this._getBrowserStateMessage(true, true);
 
       // Get execution metrics for analysis
       const metrics = this.executionContext.getExecutionMetrics();
@@ -590,7 +586,7 @@ export class NewAgent {
       const elapsed = Date.now() - metrics.startTime;
 
       // Get messagey history
-      const readOnlyMM = new MessageManagerReadOnly(this.messageManager);
+      const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
       const fullHistory = readOnlyMM.getFilteredAsString([MessageType.SYSTEM, MessageType.SCREENSHOT, MessageType.BROWSER_STATE]);
 
       // Get reasoning history for context
@@ -697,20 +693,20 @@ Based on the metrics, execution history, and current browser state, what should 
       // Add browser state and simple prompt
       if (isFirstPass) {
         // Add current browser state with screenshot
-        const browserStateMessage = await this.getStateMessage(false, true);
+        const browserStateMessage = await this._getBrowserStateMessage(false, true);
         // remove old state and screenshot messages first
-        this.messageManager.removeMessagesByType(MessageType.BROWSER_STATE);
-        this.messageManager.removeMessagesByType(MessageType.SCREENSHOT);
+        this.executorMessageManager.removeMessagesByType(MessageType.BROWSER_STATE);
+        this.executorMessageManager.removeMessagesByType(MessageType.SCREENSHOT);
         // add new state
-        this.messageManager.add(browserStateMessage);
+        this.executorMessageManager.add(browserStateMessage);
 
         // Simple prompt - all context is already in system reminder
-        this.messageManager.addHuman(
+        this.executorMessageManager.addHuman(
           "Please execute the actions specified in the system reminder above."
         );
         isFirstPass = false;
       } else {
-        this.messageManager.addHuman(
+        this.executorMessageManager.addHuman(
           "Please continue or call 'done' tool if all actions are completed.",
         );
       }
@@ -720,7 +716,7 @@ Based on the metrics, execution history, and current browser state, what should 
 
       if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
         // Process tool calls
-        this.messageManager.add(llmResponse);
+        this.executorMessageManager.add(llmResponse);
         const toolsResult = await this._processToolCalls(
           llmResponse.tool_calls,
         );
@@ -749,8 +745,8 @@ Based on the metrics, execution history, and current browser state, what should 
         // Continue to next iteration
       } else if (llmResponse.content) {
         // LLM responded with text only
-        this.messageManager.addAI(llmResponse.content as string);
-        this.messageManager.flushQueue();
+        this.executorMessageManager.addAI(llmResponse.content as string);
+        this.executorMessageManager.flushQueue();
       } else {
         // No response, might be done
         break;
@@ -781,7 +777,7 @@ Based on the metrics, execution history, and current browser state, what should 
       '</system-reminder>'
     ];
 
-    const message_history = this.messageManager.getMessages();
+    const message_history = this.executorMessageManager.getMessages();
 
     const stream = await this.executorLlmWithTools.stream(message_history, {
       signal: this.executionContext.abortSignal,
@@ -818,7 +814,7 @@ Based on the metrics, execution history, and current browser state, what should 
             }
             
             // Queue warning for agent's next iteration
-            this.messageManager.queueSystemReminder(
+            this.executorMessageManager.queueSystemReminder(
               "WARNING: Never output <browser-state> or <system-reminder> tags or their contents. You were doing it now." +
               "These are internal markers only."
             );
@@ -936,7 +932,7 @@ Based on the metrics, execution history, and current browser state, what should 
       // Parse result to check for special flags
       const parsedResult = jsonParseToolOutput(toolResult);
       
-      this.messageManager.addTool(toolResult, toolCallId);
+      this.executorMessageManager.addTool(toolResult, toolCallId);
 
       // Check for special tool outcomes but DON'T break early
       // We must process ALL tool calls to ensure all get responses
@@ -955,7 +951,7 @@ Based on the metrics, execution history, and current browser state, what should 
 
     // Flush any queued messages from tools (screenshots, browser states, etc.)
     // This is from NewAgent and is CRITICAL for API's required ordering
-    this.messageManager.flushQueue();
+    this.executorMessageManager.flushQueue();
 
     return result;
   }
@@ -1117,10 +1113,10 @@ Based on the metrics, execution history, and current browser state, what should 
       this.executionContext.incrementMetric("observations");
 
       // Get browser state with screenshot
-      const browserStateMessage = await this.getStateMessage(true, true);
+      const browserStateMessage = await this._getBrowserStateMessage(true, true);
 
       // Get execution history (simplified)
-      const readOnlyMM = new MessageManagerReadOnly(this.messageManager);
+      const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
       const fullHistory = readOnlyMM.getFilteredAsString([
         MessageType.SYSTEM,
         MessageType.SCREENSHOT,
@@ -1230,7 +1226,7 @@ ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   /**
    * Build unified execution context combining planning and execution instructions
    */
-  private _buildExecutionContext(
+  private _buildDynamicExecutionContext(
     plan: PlannerOutput,
     actions: string[]
   ): string {
