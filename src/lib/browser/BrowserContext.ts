@@ -17,8 +17,7 @@ export type BrowserContextWindowSize = z.infer<typeof BrowserContextWindowSizeSc
 export const BrowserContextConfigSchema = z.object({
   maximumWaitPageLoadTime: z.number().default(5.0),  // Maximum time to wait for page load
   waitBetweenActions: z.number().default(0.1),  // Time to wait between multiple actions
-  homePageUrl: z.string().default('https://www.google.com'),  // Home page url
-  useVision: z.boolean().default(true)  // Use vision mode
+  homePageUrl: z.string().default('https://www.google.com')  // Home page url
 })
 
 export type BrowserContextConfig = z.infer<typeof BrowserContextConfigSchema>

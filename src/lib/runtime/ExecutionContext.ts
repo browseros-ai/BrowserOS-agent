@@ -41,6 +41,7 @@ export const ExecutionContextOptionsSchema = z.object({
   debugMode: z.boolean().default(false), // Whether to enable debug logging
   todoStore: z.instanceof(TodoStore).optional(), // TODO store for complex task management
   pubsub: z.any().optional(), // Scoped PubSub channel (NEW - will be PubSubChannel)
+  supportsVision: z.boolean().default(true), // Whether the model supports image inputs
 });
 
 export type ExecutionContextOptions = z.infer<
@@ -69,6 +70,7 @@ export class ExecutionContext {
   private _humanInputRequestId: string | undefined  // Current human input request ID
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
   private _scopedPubSub: PubSubChannel | null = null  // Scoped PubSub channel
+  private _supportsVision: boolean = true  // Whether the model supports vision/images
   private _reasoningHistory: string[] = []; // Planner reasoning history
   private _executionMetrics: ExecutionMetrics = {
     // Tool execution metrics
@@ -106,6 +108,16 @@ export class ExecutionContext {
 
     // Store scoped PubSub if provided
     this._scopedPubSub = validatedOptions.pubsub;
+
+    // Store vision support flag
+    this._supportsVision = validatedOptions.supportsVision;
+  }
+
+  /**
+   * Check if the model supports vision/image inputs
+   */
+  public supportsVision(): boolean {
+    return this._supportsVision;
   }
 
   /**

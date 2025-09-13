@@ -26,8 +26,7 @@ describe('ValidatorTool-unit-test', () => {
       getBrowserStateString: vi.fn().mockResolvedValue(
         'Current URL: https://example.com\nPage title: Example Page\nClickable elements: [1] Submit button'
       ),
-      getCurrentPage: vi.fn().mockResolvedValue(mockPage),
-      getConfig: vi.fn().mockReturnValue({ useVision: true })
+      getCurrentPage: vi.fn().mockResolvedValue(mockPage)
     }
     
     // Mock LLM with structured output
@@ -47,6 +46,7 @@ describe('ValidatorTool-unit-test', () => {
       getLLM: vi.fn().mockResolvedValue(mockLLM),
       messageManager: mockMessageManager,
       browserContext: mockBrowserContext,
+      supportsVision: vi.fn().mockReturnValue(true),
       getPubSub: vi.fn().mockReturnValue({
         publishMessage: vi.fn()
       }),
@@ -191,9 +191,9 @@ describe('ValidatorTool-unit-test', () => {
     expect(mockLLM.withStructuredOutput).toHaveBeenCalled()
   })
 
-  it('tests that screenshot is not captured when useVision is false', async () => {
-    // Override config to disable vision
-    mockBrowserContext.getConfig.mockReturnValue({ useVision: false })
+  it('tests that screenshot is not captured when vision is not supported', async () => {
+    // Override to disable vision support
+    mockExecutionContext.supportsVision.mockReturnValue(false)
     
     const tool = createValidatorTool(mockExecutionContext)
     
@@ -234,14 +234,15 @@ describe('ValidatorTool-integration-test', () => {
       const messageManager = new MessageManager()
       const browserContext = new BrowserContext()
       const abortController = new AbortController()
-      const pubSub = new PubSub()
-      
+      const pubSub = PubSub.getChannel('test-execution')
+
       const executionContext = new ExecutionContext({
         browserContext,
         messageManager,
-        abortController,
+        abortSignal: abortController.signal,
         debugMode: false,
-        pubSub
+        pubsub: pubSub,
+        supportsVision: true
       })
       
       // Mock page with screenshot capability
@@ -250,7 +251,6 @@ describe('ValidatorTool-integration-test', () => {
       }
       
       // Mock browser context methods
-      const getConfigSpy = vi.spyOn(browserContext, 'getConfig').mockReturnValue({ useVision: true } as any)
       const getCurrentPageSpy = vi.spyOn(browserContext, 'getCurrentPage').mockResolvedValue(mockPage as any)
       const getBrowserStateStringSpy = vi.spyOn(browserContext, 'getBrowserStateString').mockResolvedValue(`
 Current URL: https://www.amazon.com/gp/cart/view.html

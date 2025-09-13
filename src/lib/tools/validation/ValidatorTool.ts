@@ -126,9 +126,8 @@ export function createValidatorTool(executionContext: ExecutionContext): Dynamic
         
         // Get screenshot only if vision is enabled AND model has enough tokens (>128K)
         let screenshot = ''
-        const config = executionContext.browserContext.getConfig()
-        
-        if (config.useVision && maxTokens >= MIN_TOKENS_FOR_USING_VISION) {
+
+        if (executionContext.supportsVision() && maxTokens >= MIN_TOKENS_FOR_USING_VISION) {
           try {
             const currentPage = await executionContext.browserContext.getCurrentPage()
             if (currentPage) {
@@ -141,7 +140,7 @@ export function createValidatorTool(executionContext: ExecutionContext): Dynamic
             // Log but don't fail if screenshot capture fails
             console.warn('Failed to capture screenshot for validation:', error)
           }
-        } else if (config.useVision && maxTokens < MIN_TOKENS_FOR_USING_VISION) {
+        } else if (executionContext.supportsVision() && maxTokens < MIN_TOKENS_FOR_USING_VISION) {
           Logging.log('ValidatorTool', `Skipping vision - model token limit (${maxTokens}) is below ${MIN_TOKENS_FOR_USING_VISION}`, 'info')
         }
         

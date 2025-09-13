@@ -80,18 +80,12 @@ export class Execution {
    * Creates browser context and message manager if needed
    */
   private async _ensureInitialized(): Promise<void> {
-    // Get model capabilities first to determine image support
-    const modelCapabilities = await langChainProvider.getModelCapabilities();
-
-    // Create browser context with dynamic vision support based on model capabilities
     if (!this.browserContext) {
-      this.browserContext = new BrowserContext({
-        useVision: modelCapabilities.supportsImages,
-      });
+      this.browserContext = new BrowserContext();
     }
 
-    // Create message manager with model's max tokens
     if (!this.messageManager) {
+      const modelCapabilities = await langChainProvider.getModelCapabilities();
       this.messageManager = new MessageManager(modelCapabilities.maxTokens);
     }
   }
@@ -132,6 +126,9 @@ export class Execution {
         }
       }
 
+      // Get model capabilities for vision support
+      const modelCapabilities = await langChainProvider.getModelCapabilities();
+
       // Create fresh execution context with new abort signal
       const executionContext = new ExecutionContext({
         executionId: this.id,
@@ -140,6 +137,7 @@ export class Execution {
         pubsub: this.pubsub,
         abortSignal: this.currentAbortController.signal,
         debugMode: this.options.debug || false,
+        supportsVision: modelCapabilities.supportsImages,
       });
 
       // Set selected tab IDs for context

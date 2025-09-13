@@ -546,7 +546,7 @@ export class NewAgent {
         simplified,
       );
 
-    if (includeScreenshot) {
+    if (includeScreenshot && this.executionContext.supportsVision()) {
       // Get current page and take screenshot
       const page = await this.executionContext.browserContext.getCurrentPage();
       const screenshot = await page.takeScreenshot("large", true);
@@ -693,7 +693,7 @@ Based on the metrics, execution history, and current browser state, what should 
       // Add browser state and simple prompt
       if (isFirstPass) {
         // Add current browser state with screenshot
-        const browserStateMessage = await this._getBrowserStateMessage(false, true);
+        const browserStateMessage = await this._getBrowserStateMessage(false, false);
         // remove old state and screenshot messages first
         this.executorMessageManager.removeMessagesByType(MessageType.BROWSER_STATE);
         this.executorMessageManager.removeMessagesByType(MessageType.SCREENSHOT);
