@@ -8,12 +8,12 @@ import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
+import { PubSub } from "@/lib/pubsub";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { isPocMode } from "@/config";
 
-// Execution options schema
+// Execution options schema (without executionId since it's now fixed)
 export const ExecutionOptionsSchema = z.object({
-  executionId: z.string(), // Unique execution identifier
   mode: z.enum(["chat", "browse"]), // Execution mode
   tabId: z.number().optional(), // Target tab ID
   tabIds: z.array(z.number()).optional(), // Multiple tab context
@@ -24,11 +24,14 @@ export const ExecutionOptionsSchema = z.object({
 export type ExecutionOptions = z.infer<typeof ExecutionOptionsSchema>;
 
 /**
- * Represents a single, isolated execution instance.
- * Each execution has its own persistent conversation (MessageManager) and browser context.
+ * Singleton execution instance.
+ * Manages a single persistent conversation (MessageManager) and browser context.
  * Fresh ExecutionContext and agents are created per run.
  */
 export class Execution {
+  private static instance: Execution | null = null;
+  private static readonly EXECUTION_ID = "main";  // Fixed execution ID
+  
   readonly id: string;
   private browserContext: BrowserContext | null = null;
   private messageManager: MessageManager | null = null;
@@ -36,13 +39,39 @@ export class Execution {
   private options: ExecutionOptions;
   private currentAbortController: AbortController | null = null;
 
-  constructor(options: ExecutionOptions, pubsub: PubSubChannel) {
-    this.options = ExecutionOptionsSchema.parse(options);
-    this.id = this.options.executionId;
-    this.pubsub = pubsub;
+  private constructor() {
+    this.id = Execution.EXECUTION_ID;
+    this.pubsub = PubSub.getChannel(Execution.EXECUTION_ID);
+    // Initialize with default options
+    this.options = {
+      mode: "browse",
+      debug: false
+    };
     Logging.log(
       "Execution",
-      `Created execution ${this.id} in ${this.options.mode} mode`,
+      `Created singleton execution instance`,
+    );
+  }
+
+  /**
+   * Get the singleton instance of Execution
+   */
+  static getInstance(): Execution {
+    if (!Execution.instance) {
+      Execution.instance = new Execution();
+    }
+    return Execution.instance;
+  }
+
+  /**
+   * Update execution options before running
+   * @param options - Partial options to update
+   */
+  updateOptions(options: Partial<ExecutionOptions>): void {
+    this.options = { ...this.options, ...options };
+    Logging.log(
+      "Execution",
+      `Updated options: mode=${this.options.mode}, tabIds=${this.options.tabIds?.length || 0}`,
     );
   }
 
@@ -126,7 +155,7 @@ export class Execution {
 
       Logging.log(
         "Execution",
-        `Completed execution ${this.id} in ${Date.now() - startTime}ms`,
+        `Completed execution in ${Date.now() - startTime}ms`,
       );
     } catch (error) {
       const errorMessage =
@@ -136,7 +165,7 @@ export class Execution {
 
       if (!wasCancelled) {
         this.pubsub?.publishMessage({
-          msgId: `error_${this.id}`,
+          msgId: `error_main`,
           content: `❌ Error: ${errorMessage}`,
           role: "error",
           ts: Date.now(),
@@ -161,7 +190,7 @@ export class Execution {
    */
   cancel(): void {
     if (!this.currentAbortController) {
-      Logging.log("Execution", `No active execution to cancel for ${this.id}`);
+      Logging.log("Execution", `No active execution to cancel`);
       return;
     }
 
@@ -184,7 +213,7 @@ export class Execution {
     this.currentAbortController.abort(abortReason);
     this.currentAbortController = null;
 
-    Logging.log("Execution", `Cancelled execution ${this.id}`);
+    Logging.log("Execution", `Cancelled execution`);
   }
 
   /**
@@ -208,12 +237,12 @@ export class Execution {
     // Clear PubSub buffer
     this.pubsub?.clearBuffer();
 
-    Logging.log("Execution", `Reset execution ${this.id}`);
+    Logging.log("Execution", `Reset execution`);
   }
 
   /**
    * Dispose of the execution completely
-   * Called when execution is being removed from manager
+   * Note: In singleton pattern, this is rarely used except for cleanup
    */
   async dispose(): Promise<void> {
     // Cancel if still running
@@ -232,7 +261,7 @@ export class Execution {
     this.messageManager = null;
     this.pubsub = null;
 
-    Logging.log("Execution", `Disposed execution ${this.id}`);
+    Logging.log("Execution", `Disposed execution`);
   }
 
   /**

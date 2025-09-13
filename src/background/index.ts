@@ -2,7 +2,6 @@ import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
 import { isDevelopmentMode } from '@/config'
-import { parsePortName } from '@/lib/utils/portUtils'
 
 // Import router and managers
 import { MessageRouter } from './router/MessageRouter'
@@ -36,10 +35,9 @@ const providersHandler = new ProvidersHandler()
 const mcpHandler = new MCPHandler()
 const planHandler = new PlanHandler()
 
-// Side panel state per tab
-const tabPanelState = new Map<number, { isOpen: boolean; isToggling: boolean }>()
-// Port to tab ID mapping
-const portToTabMap = new Map<chrome.runtime.Port, number>()
+// Simple panel state for singleton
+let isPanelOpen = false
+let isPanelToggling = false
 
 /**
  * Register all message handlers with the router
@@ -48,22 +46,22 @@ function registerHandlers(): void {
   // Execution handlers
   messageRouter.registerHandler(
     MessageType.EXECUTE_QUERY,
-    (msg, port, execId) => executionHandler.handleExecuteQuery(msg, port, execId)
+    (msg, port) => executionHandler.handleExecuteQuery(msg, port)
   )
   
   messageRouter.registerHandler(
     MessageType.CANCEL_TASK,
-    (msg, port, execId) => executionHandler.handleCancelTask(msg, port, execId)
+    (msg, port) => executionHandler.handleCancelTask(msg, port)
   )
   
   messageRouter.registerHandler(
     MessageType.RESET_CONVERSATION,
-    (msg, port, execId) => executionHandler.handleResetConversation(msg, port, execId)
+    (msg, port) => executionHandler.handleResetConversation(msg, port)
   )
 
   messageRouter.registerHandler(
     MessageType.HUMAN_INPUT_RESPONSE,
-    (msg, port, execId) => executionHandler.handleHumanInputResponse(msg, port, execId)
+    (msg, port) => executionHandler.handleHumanInputResponse(msg, port)
   )
   
   // Provider handlers
@@ -117,17 +115,17 @@ function registerHandlers(): void {
   // Plan handlers
   messageRouter.registerHandler(
     MessageType.GET_CURRENT_PLAN,
-    (msg, port, execId) => planHandler.handleGetCurrentPlan(msg, port, execId)
+    (msg, port) => planHandler.handleGetCurrentPlan(msg, port)
   )
   
   messageRouter.registerHandler(
     MessageType.UPDATE_PLAN,
-    (msg, port, execId) => planHandler.handleUpdatePlan(msg, port, execId)
+    (msg, port) => planHandler.handleUpdatePlan(msg, port)
   )
   
   messageRouter.registerHandler(
     MessageType.GET_PLAN_HISTORY,
-    (msg, port, execId) => planHandler.handleGetPlanHistory(msg, port, execId)
+    (msg, port) => planHandler.handleGetPlanHistory(msg, port)
   )
   
   // Log handler
@@ -165,16 +163,8 @@ function registerHandlers(): void {
   messageRouter.registerHandler(
     MessageType.CLOSE_PANEL,
     async (msg, port) => {
-      // Close the side panel
       try {
-        const tabId = portToTabMap.get(port)
-        if (tabId) {
-          // Update state for specific tab
-          const state = tabPanelState.get(tabId)
-          if (state) {
-            state.isOpen = false
-          }
-        }
+        isPanelOpen = false
         
         port.postMessage({
           type: MessageType.WORKFLOW_STATUS,
@@ -196,21 +186,11 @@ function registerHandlers(): void {
 function handlePortConnection(port: chrome.runtime.Port): void {
   const portId = portManager.registerPort(port)
   
-  // Handle sidepanel connections with tab ID in port name
-  const portInfo = parsePortName(port.name)
-  if (portInfo.type === 'sidepanel' && portInfo.tabId) {
-    const tabId = portInfo.tabId
-    
-    // Store the port-to-tab mapping
-    portToTabMap.set(port, tabId)
-    
-    // Update panel state for this tab
-    tabPanelState.set(tabId, { isOpen: true, isToggling: false })
-    
-    Logging.log('Background', `Side panel connected for tab ${tabId} with port name: ${port.name}`)
-    Logging.logMetric('side_panel_opened', { source: 'port_connection', tabId })
-  } else if (portInfo.type === 'sidepanel') {
-    Logging.log('Background', `Side panel connected but no tab ID in port name: ${port.name}`)
+  // Handle sidepanel connections
+  if (port.name === 'sidepanel') {
+    isPanelOpen = true
+    Logging.log('Background', `Side panel connected`)
+    Logging.logMetric('side_panel_opened', { source: 'port_connection' })
   }
   
   // Register with logging system
@@ -225,20 +205,11 @@ function handlePortConnection(port: chrome.runtime.Port): void {
   port.onDisconnect.addListener(() => {
     portManager.unregisterPort(port)
     
-    // Clean up tab-specific state
-    const tabId = portToTabMap.get(port)
-    if (tabId) {
-      // Remove from port-to-tab mapping
-      portToTabMap.delete(port)
-      
-      // Update panel state
-      const state = tabPanelState.get(tabId)
-      if (state) {
-        state.isOpen = false
-      }
-      
-      Logging.log('Background', `Side panel disconnected for tab ${tabId}`)
-      Logging.logMetric('side_panel_closed', { source: 'port_disconnection', tabId })
+    // Update panel state if this was the sidepanel
+    if (port.name === 'sidepanel') {
+      isPanelOpen = false
+      Logging.log('Background', `Side panel disconnected`)
+      Logging.logMetric('side_panel_closed', { source: 'port_disconnection' })
     }
     
     // Unregister from logging
@@ -247,61 +218,44 @@ function handlePortConnection(port: chrome.runtime.Port): void {
 }
 
 /**
- * Toggle the side panel for a specific tab
+ * Toggle the side panel
  */
 async function toggleSidePanel(tabId: number): Promise<void> {
-  // Get or create state for this tab
-  let state = tabPanelState.get(tabId)
-  if (!state) {
-    state = { isOpen: false, isToggling: false }
-    tabPanelState.set(tabId, state)
-  }
+  if (isPanelToggling) return
   
-  if (state.isToggling) return
-  
-  state.isToggling = true
+  isPanelToggling = true
   
   try {
-    if (state.isOpen) {
-      // Find and close the panel for this specific tab
-      for (const [port, mappedTabId] of portToTabMap.entries()) {
-        if (mappedTabId === tabId) {
-          port.postMessage({
-            type: MessageType.CLOSE_PANEL,
-            payload: { reason: 'toggle', tabId }
-          })
-          break
-        }
-      }
-      state.isOpen = false
+    if (isPanelOpen) {
+      // Panel is open, close it (browser handles this)
+      isPanelOpen = false
+      Logging.log('Background', 'Panel toggled off')
     } else {
       // Open the panel for this tab
       await chrome.sidePanel.open({ tabId })
-      state.isOpen = true
-      Logging.logMetric('side_panel_toggled', { tabId })
+      isPanelOpen = true
+      Logging.log('Background', 'Panel toggled on')
+      Logging.logMetric('side_panel_toggled')
     }
   } catch (error) {
-    Logging.log('Background', `Error toggling side panel for tab ${tabId}: ${error}`, 'error')
+    Logging.log('Background', `Error toggling side panel: ${error}`, 'error')
     
     // Try fallback with windowId
-    if (!state.isOpen) {
+    if (!isPanelOpen) {
       try {
         const tab = await chrome.tabs.get(tabId)
         if (tab.windowId) {
           await chrome.sidePanel.open({ windowId: tab.windowId })
-          state.isOpen = true
+          isPanelOpen = true
         }
       } catch (fallbackError) {
-        Logging.log('Background', `Fallback failed for tab ${tabId}: ${fallbackError}`, 'error')
+        Logging.log('Background', `Fallback failed: ${fallbackError}`, 'error')
       }
     }
   } finally {
     // Reset toggle flag
     setTimeout(() => {
-      const currentState = tabPanelState.get(tabId)
-      if (currentState) {
-        currentState.isToggling = false
-      }
+      isPanelToggling = false
     }, 300)
   }
 }
@@ -340,13 +294,16 @@ function initialize(): void {
   
   // Clean up on tab removal
   chrome.tabs.onRemoved.addListener(async (tabId) => {
-    // Clean up tab-specific panel state
-    tabPanelState.delete(tabId)
-    
-    // Clean up tab execution
-    await executionHandler.cleanupTabExecution(tabId)
-    
-    Logging.log('Background', `Tab ${tabId} removed, cleaned up panel state and execution`)
+    // With singleton execution, just log the tab removal
+    Logging.log('Background', `Tab ${tabId} removed`)
+  })
+  
+  // Handle messages from newtab
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'NEWTAB_EXECUTE_QUERY') {
+      executionHandler.handleNewtabQuery(message, sendResponse)
+      return true  // Keep message channel open for async response
+    }
   })
   
   Logging.log('Background', 'Nxtscape extension initialized successfully')
@@ -355,16 +312,3 @@ function initialize(): void {
 // Initialize the extension
 initialize()
 
-// Export for debugging
-if (isDevelopmentMode()) {
-  (globalThis as any).__nxtscape = {
-    router: messageRouter,
-    portManager,
-    handlers: {
-      execution: executionHandler,
-      providers: providersHandler,
-      mcp: mcpHandler,
-      plan: planHandler
-    }
-  }
-}

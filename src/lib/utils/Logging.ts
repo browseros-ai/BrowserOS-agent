@@ -1,5 +1,4 @@
 import { MessageType } from '@/lib/types/messaging'
-import { parsePortName } from '@/lib/utils/portUtils'
 import { isDevelopmentMode } from '@/config'
 import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
 import { z } from 'zod'
@@ -111,8 +110,7 @@ export class Logging {
       let optionsPortName: string | undefined
       
       for (const [name, port] of this.connectedPorts.entries()) {
-        const portInfo = parsePortName(name)
-        if (portInfo.type === 'options') {
+        if (name === 'options') {
           optionsPort = port
           optionsPortName = name
           break
