@@ -318,9 +318,21 @@ TODO Management Rules:
 - If a TODO fails after 3 attempts, mark it with [!] and move on
 - Update format: "- [ ] Pending", "- [x] Complete", "- [!] Failed"
 
+MCP SERVICES AVAILABLE:
+The executor has MCP (Model Context Protocol) integration for these services:
+- Google Calendar: Calendar operations (events, scheduling)
+- Gmail: Email operations (search, read, send)
+- Google Sheets: Spreadsheet operations (read, write, formulas)
+- Google Docs: Document operations (read, write, format)
+- Notion: Note management (pages, databases)
+
+PREFER MCP for these services instead of browser automation when possible.
+Example: "Use MCP to search Gmail for unread emails" instead of "Navigate to gmail.com"
+
 Action Generation:
 - Provide 1-5 concrete actions for the executor
 - Actions should map to available tools (click, type, navigate, etc.)
+- If task involves Gmail/Calendar/Sheets/Docs/Notion → prefer MCP: "Use MCP to get today's calendar events"
 - Be specific: "Click the blue submit button" not "Submit the form"
 - If visual identification needed: "Use visual click on the login button"
 - Include fallback strategies: "If element not found, use visual click"
