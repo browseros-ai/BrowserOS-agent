@@ -7,7 +7,6 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager, MessageManagerReadOnly, MessageType } from "@/lib/runtime/MessageManager";
 import { ToolManager } from "@/lib/tools/ToolManager";
 import { ExecutionMetadata } from "@/lib/types/messaging";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import {
   AIMessage,
   AIMessageChunk,
@@ -684,6 +683,7 @@ Based on the metrics, execution history, and current browser state, what should 
       } else if (llmResponse.content) {
         // LLM responded with text only
         this.messageManager.addAI(llmResponse.content as string);
+        this.messageManager.flushQueue();
       } else {
         // No response, might be done
         break;
@@ -706,6 +706,14 @@ Based on the metrics, execution history, and current browser state, what should 
       throw new Error("LLM not initialized - ensure _initialize() was called");
     }
 
+    // Tags that should never be output to users
+    const PROHIBITED_TAGS = [
+      '<browser-state>',
+      '<system-reminder>',
+      '</browser-state>',
+      '</system-reminder>'
+    ];
+
     const message_history = this.messageManager.getMessages();
 
     const stream = await this.executorLlmWithTools.stream(message_history, {
@@ -716,39 +724,79 @@ Based on the metrics, execution history, and current browser state, what should 
     let accumulatedText = "";
     let hasStartedThinking = false;
     let currentMsgId: string | null = null;
+    let hasProhibitedContent = false;
 
     for await (const chunk of stream) {
       this.checkIfAborted(); // Manual check during streaming
 
       if (chunk.content && typeof chunk.content === "string") {
-        // Start thinking on first real content
-        if (!hasStartedThinking) {
-          hasStartedThinking = true;
-          // Create message ID on first content chunk
-          currentMsgId = PubSub.generateId("msg_assistant");
-        }
-
-        // Stream thought chunk
+        // Accumulate text first
         accumulatedText += chunk.content;
 
-        // Publish/update the message with accumulated content in real-time
-        if (currentMsgId) {
-          this.pubsub.publishMessage(
-            PubSub.createMessageWithId(
-              currentMsgId,
-              accumulatedText,
-              "thinking",
-            ),
-          );
+        // Check for prohibited tags if not already detected
+        if (!hasProhibitedContent) {
+          const detectedTag = PROHIBITED_TAGS.find(tag => accumulatedText.includes(tag));
+          if (detectedTag) {
+            hasProhibitedContent = true;
+            
+            // If we were streaming, replace with "Processing..."
+            if (currentMsgId) {
+              this.pubsub.publishMessage(
+                PubSub.createMessageWithId(
+                  currentMsgId,
+                  "Processing...",
+                  "thinking",
+                ),
+              );
+            }
+            
+            // Queue warning for agent's next iteration
+            this.messageManager.queueSystemReminder(
+              "WARNING: Never output <browser-state> or <system-reminder> tags or their contents. You were doing it now." +
+              "These are internal markers only."
+            );
+            
+            // Log for debugging
+            Logging.log("NewAgent", 
+              "LLM output contained prohibited tags, streaming stopped", 
+              "warning"
+            );
+            
+            // Increment error metric
+            this.executionContext.incrementMetric("errors");
+          }
+        }
+
+        // Only stream to UI if no prohibited content detected
+        if (!hasProhibitedContent) {
+          // Start thinking on first real content
+          if (!hasStartedThinking) {
+            hasStartedThinking = true;
+            // Create message ID on first content chunk
+            currentMsgId = PubSub.generateId("msg_assistant");
+          }
+
+          // Publish/update the message with accumulated content in real-time
+          if (currentMsgId) {
+            this.pubsub.publishMessage(
+              PubSub.createMessageWithId(
+                currentMsgId,
+                accumulatedText,
+                "thinking",
+              ),
+            );
+          }
         }
       }
+      
+      // Always accumulate chunks for final AIMessage (even with prohibited content)
       accumulatedChunk = !accumulatedChunk
         ? chunk
         : accumulatedChunk.concat(chunk);
     }
 
-    // Only finish thinking if we started and have content
-    if (hasStartedThinking && accumulatedText.trim() && currentMsgId) {
+    // Only finish thinking if we started, have clean content, and have a message ID
+    if (hasStartedThinking && !hasProhibitedContent && accumulatedText.trim() && currentMsgId) {
       // Final publish with complete message
       this.pubsub.publishMessage(
         PubSub.createMessageWithId(currentMsgId, accumulatedText, "thinking"),
