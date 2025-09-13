@@ -238,8 +238,8 @@ export class NewAgent {
     this.toolManager.register(createWaitTool(this.executionContext));
 
     // Planning/Todo tools
-    this.toolManager.register(createTodoSetTool(this.executionContext));
-    this.toolManager.register(createTodoGetTool(this.executionContext));
+    // this.toolManager.register(createTodoSetTool(this.executionContext));
+    // this.toolManager.register(createTodoGetTool(this.executionContext));
 
     // Tab management tools
     this.toolManager.register(createTabsTool(this.executionContext));
@@ -1115,6 +1115,13 @@ Based on the metrics, execution history, and current browser state, what should 
       // Get browser state with screenshot
       const browserStateMessage = await this._getBrowserStateMessage(true, true);
 
+      // Get execution metrics for analysis
+      const metrics = this.executionContext.getExecutionMetrics();
+      const errorRate = metrics.toolCalls > 0
+        ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
+        : "0";
+      const elapsed = Date.now() - metrics.startTime;
+
       // Get execution history (simplified)
       const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
       const fullHistory = readOnlyMM.getFilteredAsString([
@@ -1122,6 +1129,9 @@ Based on the metrics, execution history, and current browser state, what should 
         MessageType.SCREENSHOT,
         MessageType.BROWSER_STATE
       ]);
+
+      // Get reasoning history for context
+      const recentReasoning = this.executionContext.getReasoningHistory(5);
 
       // Get LLM with structured output
       const llm = await getLLM({
@@ -1136,12 +1146,38 @@ Based on the metrics, execution history, and current browser state, what should 
       const userPrompt = `Current TODO List:
 ${currentTodos}
 
-Execution History:
+EXECUTION METRICS:
+- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
+- Observations taken: ${metrics.observations}
+- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
+${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
+${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+
+FULL EXECUTION HISTORY:
 ${fullHistory || "No execution yet"}
 
-Task Goal: ${task}
+${
+  recentReasoning.length > 0
+    ? `YOUR PREVIOUS REASONING (what you thought would work):
+${recentReasoning.map(r => {
+  try {
+    const parsed = JSON.parse(r);
+    return `- ${parsed.reasoning || r}`;
+  } catch {
+    return `- ${r}`;
+  }
+}).join("\n")}
 
-Based on the browser state and execution history:
+`
+    : ""
+}Task Goal: ${task}
+
+ANALYZE the execution history above to understand:
+1. What the executor actually attempted (check tool calls and results)
+2. What failed and why (check error messages)
+3. Whether your previous plan was executed correctly
+
+Based on the metrics, execution history, and current browser state:
 1. Update the TODO list marking completed items with [x]
 2. Identify the next uncompleted TODO to work on
 3. Provide specific actions to complete that TODO
@@ -1161,6 +1197,16 @@ Based on the browser state and execution history:
         { signal: this.executionContext.abortSignal }
       );
 
+      // Store structured reasoning in context as JSON
+      const plannerState = {
+        todoMarkdown: plan.todoMarkdown,
+        observation: plan.observation,
+        reasoning: plan.reasoning,
+        allTodosComplete: plan.allTodosComplete,
+        actionsPlanned: plan.actions.length,
+      };
+      this.executionContext.addReasoning(JSON.stringify(plannerState));
+
       // Publish updated TODO list
       this._publishMessage(plan.todoMarkdown, "thinking");
       this.executionContext.setTodoList(plan.todoMarkdown);
@@ -1168,6 +1214,15 @@ Based on the browser state and execution history:
       // Publish reasoning
       this.pubsub.publishMessage(
         PubSub.createMessage(plan.reasoning, "thinking")
+      );
+
+      // Log planner decision
+      Logging.log(
+        "NewAgent",
+        plan.allTodosComplete
+          ? `Predefined Planner: All TODOs complete with final answer`
+          : `Predefined Planner: ${plan.actions.length} actions planned for current TODO`,
+        "info",
       );
 
 

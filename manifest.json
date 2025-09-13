@@ -18,7 +18,9 @@
     "webNavigation"
   ],
   "update_url": "https://cdn.browseros.com/extensions/update-manifest.xml",
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js"
   },
