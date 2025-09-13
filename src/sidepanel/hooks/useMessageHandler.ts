@@ -79,38 +79,36 @@ export function useMessageHandler() {
     // This avoids race conditions and provides immediate UI feedback
   }, [setProcessing])
   
+  // Set up runtime message listener for execution starting notification
   useEffect(() => {
-    // Register listeners
-    addMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
-    addMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
-    
-    // Listen for queries forwarded from newtab
     const handleRuntimeMessage = (message: any) => {
-      if (message?.type === MessageType.EXECUTE_IN_SIDEPANEL) {
-        const { query, metadata } = message
-        
-        console.log(`[SidePanel] Received query from newtab: "${query}"`)
-        
-        // Execute the query through the normal flow
-        sendMessage(MessageType.EXECUTE_QUERY, {
-          query,
-          metadata
-        })
-        
+      // Handle execution starting from newtab
+      if (message?.type === MessageType.EXECUTION_STARTING) {
+        console.log(`[SidePanel] Execution starting from ${message.source}`)
         // Set processing state to show UI feedback
         setProcessing(true)
       }
     }
-    
+
     chrome.runtime.onMessage.addListener(handleRuntimeMessage)
-    
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
+    }
+  }, [setProcessing])  // Only depend on setProcessing which is stable
+
+  // Set up port message listeners
+  useEffect(() => {
+    // Register listeners
+    addMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
+    addMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
+
     // Cleanup
     return () => {
       removeMessageListener(MessageType.AGENT_STREAM_UPDATE, handleStreamUpdate)
       removeMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
-      chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
     }
-  }, [addMessageListener, removeMessageListener, handleStreamUpdate, handleWorkflowStatus, sendMessage, reset, setProcessing])
+  }, [addMessageListener, removeMessageListener, handleStreamUpdate, handleWorkflowStatus])
   
   return {
     humanInputRequest,

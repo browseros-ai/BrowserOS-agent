@@ -177,39 +177,65 @@ export class ExecutionHandler {
   }
 
   /**
-   * Handle NEWTAB_EXECUTE_QUERY - simple message from newtab
+   * Handle NEWTAB_EXECUTE_QUERY - message from newtab
+   * Opens sidepanel for display and executes directly
    */
   async handleNewtabQuery(
     message: any,
     sendResponse: (response: any) => void
   ): Promise<void> {
     const { tabId, query, metadata } = message
-    
-    Logging.log('ExecutionHandler', 
+
+    Logging.log('ExecutionHandler',
       `Received query from newtab for tab ${tabId}: "${query}"`)
-    
+
+    // Log metrics
+    Logging.logMetric('query_initiated', {
+      query,
+      source: metadata?.source || 'newtab',
+      mode: 'browse',
+      executionMode: metadata?.executionMode || 'dynamic',
+    })
+
     try {
-      // Open sidepanel
+      // Open sidepanel for UI display
       await chrome.sidePanel.open({ tabId })
-      
-      // Wait for sidepanel to initialize
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Forward to sidepanel
+
+      // Small delay to ensure sidepanel starts listening to PubSub
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Notify sidepanel that execution is starting (for processing state)
       chrome.runtime.sendMessage({
-        type: MessageType.EXECUTE_IN_SIDEPANEL,
-        tabId,
-        query,
-        metadata
+        type: MessageType.EXECUTION_STARTING,
+        source: 'newtab'
       }).catch(() => {
-        // Sidepanel might not be listening yet, that's OK
+        // Sidepanel might not be ready yet, that's OK - it will pick up state from stream
       })
-      
+
+      // Cancel any running execution
+      if (this.execution.isRunning()) {
+        Logging.log('ExecutionHandler', `Cancelling previous task`)
+        this.execution.cancel()
+      }
+
+      // Update execution options
+      this.execution.updateOptions({
+        mode: 'browse',
+        tabIds: [tabId],
+        metadata,
+        debug: false
+      })
+
+      // Execute directly (sidepanel will receive updates via PubSub)
+      await this.execution.run(query, metadata)
+
       sendResponse({ ok: true })
+
     } catch (error) {
-      Logging.log('ExecutionHandler', 
-        `Failed to handle newtab query: ${error}`, 'error')
-      sendResponse({ ok: false, error: String(error) })
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logging.log('ExecutionHandler',
+        `Failed to handle newtab query: ${errorMessage}`, 'error')
+      sendResponse({ ok: false, error: errorMessage })
     }
   }
 

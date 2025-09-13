@@ -38,8 +38,9 @@ export enum MessageType {
   // Logging
   LOG_MESSAGE = 'LOG_MESSAGE',
   LOG_METRIC = 'LOG_METRIC',
-  // Newtab to sidepanel forwarding
-  EXECUTE_IN_SIDEPANEL = 'EXECUTE_IN_SIDEPANEL'
+  // Newtab to sidepanel communication
+  EXECUTE_IN_SIDEPANEL = 'EXECUTE_IN_SIDEPANEL',
+  EXECUTION_STARTING = 'EXECUTION_STARTING'
 }
 
 // Create a zod enum for MessageType
