@@ -39,14 +39,14 @@ export class BrowserPage {
   private _title: string;
   private _browserOS = getBrowserOSAdapter();
 
-  // Cache for the latest interactive snapshot
-  private _cachedSnapshot: InteractiveSnapshot | null = null;
+  // Snapshot cache for the latest interactive snapshot
+  private _snapshotCache: InteractiveSnapshot | null = null;
   // Map from nodeId to interactive node
   private _nodeIdToNodeMap: Map<number, InteractiveNode> = new Map();
-  // Cache timestamp for expiry
-  private _cacheTimestamp: number = 0;
-  // Cache expiry duration in milliseconds (1 seconds)
-  private readonly _cacheExpiryMs = 1000;
+  // Snapshot cache timestamp for expiry
+  private _snapshotCacheTimestamp: number = 0;
+  // Snapshot cache TTL in milliseconds (1 second)
+  private readonly _snapshotCacheTTL = 1000;
 
   constructor(tabId: number, url: string, title: string) {
     this._tabId = tabId;
@@ -78,30 +78,28 @@ export class BrowserPage {
   // ============= Core BrowserOS Integration =============
 
   /**
-   * Invalidate the cached snapshot
+   * Invalidate the snapshot cache
    */
   private _invalidateCache(): void {
-    this._cachedSnapshot = null;
-    this._cacheTimestamp = 0;
+    this._snapshotCache = null;
+    this._snapshotCacheTimestamp = 0;
     this._nodeIdToNodeMap.clear();
     Logging.log(
       "BrowserPage",
-      `Cache invalidated for tab ${this._tabId}`,
+      `Snapshot cache invalidated for tab ${this._tabId}`,
       "info",
     );
   }
 
   /**
-   * Check if the cached snapshot is still valid
+   * Check if the snapshot cache is still valid
    */
   private _isCacheValid(): boolean {
-    //TODO: nikhil remove cache validation later
-    return false;
-    // return (
-    //   this._cachedSnapshot !== null &&
-    //   this._cacheTimestamp > 0 &&
-    //   Date.now() - this._cacheTimestamp < this._cacheExpiryMs
-    // );
+    return (
+      this._snapshotCache !== null &&
+      this._snapshotCacheTimestamp > 0 &&
+      Date.now() - this._snapshotCacheTimestamp < this._snapshotCacheTTL
+    );
   }
 
   /**
@@ -116,7 +114,7 @@ export class BrowserPage {
           `Using cached snapshot for tab ${this._tabId}`,
           "info",
         );
-        return this._cachedSnapshot;
+        return this._snapshotCache;
       }
 
       try {
@@ -128,8 +126,8 @@ export class BrowserPage {
         const snapshot = await this._browserOS.getInteractiveSnapshot(
           this._tabId,
         );
-        this._cachedSnapshot = snapshot;
-        this._cacheTimestamp = Date.now();
+        this._snapshotCache = snapshot;
+        this._snapshotCacheTimestamp = Date.now();
 
         // Rebuild nodeId map for interactive elements only
         this._nodeIdToNodeMap.clear();
@@ -240,7 +238,7 @@ export class BrowserPage {
    * Get element by nodeId
    */
   async getElementByIndex(nodeId: number): Promise<InteractiveNode | null> {
-    if (!this._cachedSnapshot) {
+    if (!this._snapshotCache) {
       await this._getSnapshot();
     }
     return this._nodeIdToNodeMap.get(nodeId) || null;
