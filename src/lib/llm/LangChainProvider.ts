@@ -30,8 +30,6 @@ const DEFAULT_NXTSCAPE_PROXY_URL = "https://llm.browseros.com/default/"
 const DEFAULT_NXTSCAPE_MODEL = "default-llm"
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
-// Simple cache for LLM instances
-const llmCache = new Map<string, BaseChatModel>()
 
 // Model capabilities interface
 export interface ModelCapabilities {
@@ -59,17 +57,9 @@ export class LangChainProvider {
     const provider = await LLMSettingsReader.read()
     this.currentProvider = provider
     
-    // Check cache
-    // const cacheKey = this._getCacheKey(provider, options)
-    // if (llmCache.has(cacheKey)) {
-    //   Logging.log('LangChainProvider', `Using cached LLM for provider: ${provider.name}`, 'info')
-    //   return llmCache.get(cacheKey)!
-    // }
-    //
-    // // Create new LLM instance based on provider type
-    // Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
+    // Create new LLM instance based on provider type
+    Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
     const llm = this._createLLMFromProvider(provider, options)
-    // llmCache.set(cacheKey, llm)
     
     // Log metrics about the LLM configuration
     const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
@@ -144,7 +134,6 @@ export class LangChainProvider {
   }
   
   clearCache(): void {
-    llmCache.clear()
     this.currentProvider = null
   }
   
@@ -433,38 +422,6 @@ export class LangChainProvider {
     const model = new ChatOllama(ollamaConfig)
     
     return this._patchTokenCounting(model)
-  }
-  
-  // Cache key includes all relevant provider settings and options
-  private _getCacheKey(
-    provider: BrowserOSProvider, 
-    options?: { temperature?: number; maxTokens?: number }
-  ): string {
-    // Create a deterministic string from all cache-relevant values
-    // Using string concatenation is faster than JSON.stringify for simple cases
-    const keyParts = [
-      provider.id,
-      provider.type,
-      provider.modelId || 'd',
-      provider.baseUrl || 'd',
-      provider.apiKey ? provider.apiKey.slice(-8) : 'n',  // Last 8 chars of API key
-      provider.modelConfig?.temperature?.toString() || 'd',
-      provider.modelConfig?.contextWindow?.toString() || 'd',
-      options?.temperature?.toString() || 'd',
-      options?.maxTokens?.toString() || 'd',
-      provider.updatedAt  // Include update timestamp to invalidate cache on provider changes
-    ]
-    
-    // Use FNV-1a hash (very fast, good distribution for short strings)
-    const str = keyParts.join('|')
-    let hash = 2166136261  // FNV offset basis
-    for (let i = 0; i < str.length; i++) {
-      hash ^= str.charCodeAt(i)
-      hash = (hash * 16777619) >>> 0  // FNV prime, keep as 32-bit unsigned
-    }
-    
-    // Return provider ID with hash for readability (base36 is compact)
-    return `${provider.id}-${hash.toString(36)}`
   }
 }
 
