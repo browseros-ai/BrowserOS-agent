@@ -80,14 +80,18 @@ export class Execution {
    * Creates browser context and message manager if needed
    */
   private async _ensureInitialized(): Promise<void> {
+    // Get model capabilities first to determine image support
+    const modelCapabilities = await langChainProvider.getModelCapabilities();
+
+    // Create browser context with dynamic vision support based on model capabilities
     if (!this.browserContext) {
       this.browserContext = new BrowserContext({
-        useVision: true,
+        useVision: modelCapabilities.supportsImages,
       });
     }
 
+    // Create message manager with model's max tokens
     if (!this.messageManager) {
-      const modelCapabilities = await langChainProvider.getModelCapabilities();
       this.messageManager = new MessageManager(modelCapabilities.maxTokens);
     }
   }

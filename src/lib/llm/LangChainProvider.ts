@@ -34,6 +34,7 @@ const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 // Model capabilities interface
 export interface ModelCapabilities {
   maxTokens: number;  // Maximum context window size
+  supportsImages: boolean;  // Whether the provider supports image inputs
 }
 
 export class LangChainProvider {
@@ -77,56 +78,75 @@ export class LangChainProvider {
   // Get model capabilities based on provider
   async getModelCapabilities(): Promise<ModelCapabilities> {
     const provider = await LLMSettingsReader.read()
-    
+
+    // Get image support from provider capabilities or defaults
+    const supportsImages = provider.capabilities?.supportsImages ??
+                          this._getDefaultImageSupport(provider.type)
+
+    // Get max tokens
+    let maxTokens: number
+
     // Use provider's context window if available
     if (provider.modelConfig?.contextWindow) {
-      return { maxTokens: provider.modelConfig.contextWindow }
+      maxTokens = provider.modelConfig.contextWindow
+    } else {
+      // Otherwise determine based on provider type and model
+      switch (provider.type) {
+        case 'browseros':
+          // BrowserOS/Nxtscape uses gemini 2.5 flash by default
+          maxTokens = 1_000_000
+          break
+
+        case 'openai':
+        case 'openai_compatible':
+        case 'openrouter':
+          const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
+          if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
+            maxTokens = 128_000
+          } else {
+            maxTokens = 32_768
+          }
+          break
+
+        case 'anthropic':
+          const anthropicModel = provider.modelId || DEFAULT_ANTHROPIC_MODEL
+          if (anthropicModel.includes('claude-3.7') || anthropicModel.includes('claude-4')) {
+            maxTokens = 200_000
+          } else {
+            maxTokens = 100_000
+          }
+          break
+
+        case 'google_gemini':
+          const geminiModel = provider.modelId || DEFAULT_GEMINI_MODEL
+          if (geminiModel.includes('2.5') || geminiModel.includes('2.0')) {
+            maxTokens = 1_500_000
+          } else {
+            maxTokens = 1_000_000
+          }
+          break
+
+        case 'ollama':
+          const ollamaModel = provider.modelId || DEFAULT_OLLAMA_MODEL
+          if (ollamaModel.includes('mixtral') || ollamaModel.includes('llama') ||
+              ollamaModel.includes('qwen') || ollamaModel.includes('deepseek')) {
+            maxTokens = 32_768
+          } else {
+            maxTokens = 8_192
+          }
+          break
+
+        case 'custom':
+          // Custom providers - conservative default
+          maxTokens = 32_768
+          break
+
+        default:
+          maxTokens = 8_192
+      }
     }
-    
-    // Otherwise determine based on provider type and model
-    switch (provider.type) {
-      case 'browseros':
-        // BrowserOS/Nxtscape uses gemini 2.5 flash by default
-        return { maxTokens: 1_000_000 }
-        
-      case 'openai':
-      case 'openai_compatible':
-      case 'openrouter':
-        const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
-        if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
-          return { maxTokens: 128_000 }
-        }
-        return { maxTokens: 32_768 }
-        
-      case 'anthropic':
-        const anthropicModel = provider.modelId || DEFAULT_ANTHROPIC_MODEL
-        if (anthropicModel.includes('claude-3.7') || anthropicModel.includes('claude-4')) {
-          return { maxTokens: 200_000 }
-        }
-        return { maxTokens: 100_000 }
-        
-      case 'google_gemini':
-        const geminiModel = provider.modelId || DEFAULT_GEMINI_MODEL
-        if (geminiModel.includes('2.5') || geminiModel.includes('2.0')) {
-          return { maxTokens: 1_500_000 }
-        }
-        return { maxTokens: 1_000_000 }
-        
-      case 'ollama':
-        const ollamaModel = provider.modelId || DEFAULT_OLLAMA_MODEL
-        if (ollamaModel.includes('mixtral') || ollamaModel.includes('llama') || 
-            ollamaModel.includes('qwen') || ollamaModel.includes('deepseek')) {
-          return { maxTokens: 32_768 }
-        }
-        return { maxTokens: 8_192 }
-        
-      case 'custom':
-        // Custom providers - conservative default
-        return { maxTokens: 32_768 }
-        
-      default:
-        return { maxTokens: 8_192 }
-    }
+
+    return { maxTokens, supportsImages }
   }
   
   getCurrentProvider(): BrowserOSProvider | null {
@@ -159,6 +179,26 @@ export class LangChainProvider {
         return DEFAULT_OLLAMA_MODEL
       default:
         return 'unknown'
+    }
+  }
+
+  private _getDefaultImageSupport(type: string): boolean {
+    switch (type) {
+      case 'browseros':
+      case 'openai':
+      case 'openai_compatible':
+      case 'anthropic':
+      case 'google_gemini':
+      case 'openrouter':
+        return true
+      case 'ollama':
+        // Most Ollama models don't support images by default
+        return false
+      case 'custom':
+        // Conservative default for custom providers
+        return false
+      default:
+        return false
     }
   }
   
