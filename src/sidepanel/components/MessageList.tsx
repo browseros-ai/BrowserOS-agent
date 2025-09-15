@@ -307,8 +307,7 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
   if (messages.length === 0) {
     return (
       <div 
-        className="flex-1 flex flex-col items-center justify-start p-8 text-center relative overflow-hidden pt-16"
-        style={{ paddingBottom: '180px' }}
+        className="h-full overflow-y-auto flex flex-col items-center justify-start p-8 pt-16 pb-6 text-center relative"
         role="region"
         aria-label="Welcome screen with example prompts"
       >
