@@ -3,10 +3,7 @@ import { z } from 'zod';
 
 /**
  * Port name prefixes for different extension contexts
- * Actual port names follow patterns:
- * - sidepanel:<tabId>:<executionId>
- * - newtab:<executionId>
- * - options:<executionId>
+ * Port names are now simplified to just use the prefix directly
  */
 export enum PortPrefix {
   OPTIONS = 'options',

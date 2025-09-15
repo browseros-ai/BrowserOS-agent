@@ -112,20 +112,15 @@ function registerHandlers(): void {
   )
   
   
-  // Plan handlers
+  // Plan generation handlers (for AI plan generation in newtab)
   messageRouter.registerHandler(
-    MessageType.GET_CURRENT_PLAN,
-    (msg, port) => planHandler.handleGetCurrentPlan(msg, port)
+    MessageType.GENERATE_PLAN,
+    (msg, port) => planHandler.handleGeneratePlan(msg, port)
   )
-  
+
   messageRouter.registerHandler(
-    MessageType.UPDATE_PLAN,
-    (msg, port) => planHandler.handleUpdatePlan(msg, port)
-  )
-  
-  messageRouter.registerHandler(
-    MessageType.GET_PLAN_HISTORY,
-    (msg, port) => planHandler.handleGetPlanHistory(msg, port)
+    MessageType.REFINE_PLAN,
+    (msg, port) => planHandler.handleRefinePlan(msg, port)
   )
   
   // Log handler

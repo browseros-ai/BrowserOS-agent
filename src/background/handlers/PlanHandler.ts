@@ -1,106 +1,89 @@
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Logging } from '@/lib/utils/Logging'
-import { Execution } from '@/lib/execution/Execution'
-import { PubSub } from '@/lib/pubsub'
+import { PlanGeneratorService } from '@/lib/services/PlanGeneratorService'
 
 /**
- * Handles planning-related messages:
- * - GET_CURRENT_PLAN: Get the current execution plan
- * - UPDATE_PLAN: Modify the execution plan
- * - GET_PLAN_HISTORY: Get history of plan changes
+ * Handles AI plan generation messages from the newtab UI:
+ * - GENERATE_PLAN: Generate a new plan using AI
+ * - REFINE_PLAN: Refine an existing plan with feedback
  */
 export class PlanHandler {
-  private execution: Execution
-  private planHistory: Array<any> = []  // Single plan history for singleton
+  private planHistory: Array<any> = []  // Plan generation history
+  private planGeneratorService: PlanGeneratorService
 
   constructor() {
-    this.execution = Execution.getInstance()
+    this.planGeneratorService = new PlanGeneratorService()
   }
 
+
   /**
-   * Handle GET_CURRENT_PLAN message
+   * Handle GENERATE_PLAN message
    */
-  handleGetCurrentPlan(
+  async handleGeneratePlan(
     message: PortMessage,
     port: chrome.runtime.Port
-  ): void {
+  ): Promise<void> {
     try {
-      // Get current plan from execution's message history or state
-      const currentPlan = this.extractCurrentPlan(this.execution)
-      
+      const { input, context, maxSteps } = message.payload as {
+        input: string
+        context?: string
+        maxSteps?: number
+      }
+
+      Logging.log('PlanHandler', `Generating plan for: ${input}`, 'info')
+
+      // Generate plan with status updates
+      const plan = await this.planGeneratorService.generatePlan(input, {
+        context,
+        maxSteps,
+        onUpdate: (update) => {
+          // Send status updates back to the UI
+          port.postMessage({
+            type: MessageType.PLAN_GENERATION_UPDATE,
+            payload: {
+              status: update.status,
+              content: update.content,
+              plan: update.structured ? {
+                goal: update.structured.goal,
+                name: update.structured.name,
+                steps: update.structured.steps.map(s => s.action)
+              } : undefined,
+              error: update.error
+            },
+            id: message.id
+          })
+        }
+      })
+
+      // Send final success response
       port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          data: { 
-            plan: currentPlan
+        type: MessageType.PLAN_GENERATION_UPDATE,
+        payload: {
+          status: 'done',
+          plan: {
+            goal: plan.goal,
+            name: plan.name,
+            steps: plan.steps.map(s => s.action)
           }
         },
         id: message.id
       })
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('PlanHandler', `Error getting current plan: ${errorMessage}`, 'error')
-      
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
-        },
-        id: message.id
-      })
-    }
-  }
 
-  /**
-   * Handle UPDATE_PLAN message
-   */
-  handleUpdatePlan(
-    message: PortMessage,
-    port: chrome.runtime.Port
-  ): void {
-    try {
-      const { plan } = message.payload as { plan: any }
-      
-      // Store plan in history
+      // Store in history
       this.planHistory.push({
         plan,
         timestamp: Date.now(),
-        source: 'manual_update'
+        source: 'generated'
       })
-      
-      // Publish plan update event via PubSub
-      const channel = PubSub.getChannel("main")
-      channel.publishMessage({
-        msgId: `plan_update_${Date.now()}`,
-        role: 'assistant',  // Use 'assistant' instead of 'system' which doesn't exist
-        content: JSON.stringify({
-          type: 'plan_update',
-          plan,
-          timestamp: Date.now()
-        }),
-        ts: Date.now()
-      })
-      
-      Logging.log('PlanHandler', `Updated plan`)
-      
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          message: 'Plan updated'
-        },
-        id: message.id
-      })
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('PlanHandler', `Error updating plan: ${errorMessage}`, 'error')
-      
+      Logging.log('PlanHandler', `Error generating plan: ${errorMessage}`, 'error')
+
       port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
+        type: MessageType.PLAN_GENERATION_UPDATE,
+        payload: {
           status: 'error',
           error: errorMessage
         },
@@ -110,59 +93,76 @@ export class PlanHandler {
   }
 
   /**
-   * Handle GET_PLAN_HISTORY message
+   * Handle REFINE_PLAN message
    */
-  handleGetPlanHistory(
+  async handleRefinePlan(
     message: PortMessage,
     port: chrome.runtime.Port
-  ): void {
+  ): Promise<void> {
     try {
+      const { currentPlan, feedback, maxSteps } = message.payload as {
+        currentPlan: { goal?: string; steps: string[] }
+        feedback: string
+        maxSteps?: number
+      }
+
+      Logging.log('PlanHandler', `Refining plan with feedback: ${feedback}`, 'info')
+
+      // Refine plan with status updates
+      const plan = await this.planGeneratorService.refinePlan(currentPlan, feedback, {
+        maxSteps,
+        onUpdate: (update) => {
+          // Send status updates back to the UI
+          port.postMessage({
+            type: MessageType.PLAN_GENERATION_UPDATE,
+            payload: {
+              status: update.status,
+              content: update.content,
+              plan: update.structured ? {
+                goal: update.structured.goal,
+                name: update.structured.name,
+                steps: update.structured.steps.map(s => s.action)
+              } : undefined,
+              error: update.error
+            },
+            id: message.id
+          })
+        }
+      })
+
+      // Send final success response
       port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'success',
-          data: { 
-            history: this.planHistory,
-            count: this.planHistory.length
+        type: MessageType.PLAN_GENERATION_UPDATE,
+        payload: {
+          status: 'done',
+          plan: {
+            goal: plan.goal,
+            name: plan.name,
+            steps: plan.steps.map(s => s.action)
           }
         },
         id: message.id
       })
+
+      // Store in history
+      this.planHistory.push({
+        plan,
+        timestamp: Date.now(),
+        source: 'refined'
+      })
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('PlanHandler', `Error getting plan history: ${errorMessage}`, 'error')
-      
+      Logging.log('PlanHandler', `Error refining plan: ${errorMessage}`, 'error')
+
       port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
+        type: MessageType.PLAN_GENERATION_UPDATE,
+        payload: {
           status: 'error',
           error: errorMessage
         },
         id: message.id
       })
     }
-  }
-
-  /**
-   * Extract current plan from execution
-   */
-  private extractCurrentPlan(execution: any): any {
-    // Look for plan in execution's message history
-    // This would normally parse the MessageManager's history for PlannerTool output
-    
-    // For now, return a placeholder
-    return {
-      steps: [],
-      status: 'unknown',
-      timestamp: Date.now()
-    }
-  }
-
-  /**
-   * Clear plan history
-   */
-  clearHistory(): void {
-    this.planHistory = []
-    Logging.log('PlanHandler', `Cleared plan history`)
   }
 }

@@ -7,6 +7,7 @@ import { MessageManager } from '@/lib/runtime/MessageManager'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { TokenCounter } from '@/lib/utils/TokenCounter'
 import { invokeWithRetry } from '@/lib/utils/retryable'
+import { PubSub } from '@/lib/pubsub'
 
 // Here let's use a higher max steps
 const MAX_PLANNER_STEPS = 20
@@ -187,7 +188,9 @@ export class PlanGeneratorService {
     return new ExecutionContext({
       browserContext,
       messageManager,
-      debugMode: false
+      debugMode: false,
+      supportsVision: false,
+      pubsub: PubSub.getChannel('default')  // Use default channel for plan generation
     })
   }
 }
