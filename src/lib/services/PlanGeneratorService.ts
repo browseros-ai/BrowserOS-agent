@@ -190,6 +190,8 @@ export class PlanGeneratorService {
       messageManager,
       debugMode: false,
       supportsVision: false,
+      limitedContextMode: false,  // Plan generation doesn't use limited context mode
+      maxTokens: 128000,  // Default max tokens for plan generation
       pubsub: PubSub.getChannel('default')  // Use default channel for plan generation
     })
   }

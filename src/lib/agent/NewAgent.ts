@@ -388,6 +388,35 @@ export class NewAgent {
         "info"
       );
 
+      // In limited context mode, start fresh for each planning iteration
+      if (this.executionContext.isLimitedContextMode()) {
+        // Store the system prompt and goal message before clearing
+        const messages = this.executorMessageManager.getMessages();
+        const systemMessages = messages.filter(msg => msg instanceof SystemMessage);
+        const goalMessage = messages.find(msg =>
+          msg instanceof HumanMessage &&
+          typeof msg.content === 'string' &&
+          msg.content.startsWith('Goal:')
+        );
+
+        // Clear all messages
+        this.executorMessageManager.clear();
+
+        // Re-add system prompt and goal
+        if (systemMessages.length > 0) {
+          this.executorMessageManager.add(systemMessages[0], 0);
+        }
+        if (goalMessage) {
+          this.executorMessageManager.add(goalMessage);
+        }
+
+        Logging.log(
+          "NewAgent",
+          "Limited context mode: Reset executor message history",
+          "info"
+        );
+      }
+
       // Build execution context with planner output
       const executionContext = this._buildPredefinedExecutionContext(plan, plan.actions);
       this.executorMessageManager.addSystemReminder(executionContext);
@@ -496,6 +525,28 @@ export class NewAgent {
         `Executing ${plan.actions.length} actions from plan`,
         "info",
       );
+
+      // In limited context mode, start fresh for each planning iteration
+      if (this.executionContext.isLimitedContextMode()) {
+        // Store the system prompt before clearing
+        const systemMessages = this.executorMessageManager.getMessages().filter(
+          msg => msg instanceof SystemMessage
+        );
+
+        // Clear all messages
+        this.executorMessageManager.clear();
+
+        // Re-add system prompt if it exists
+        if (systemMessages.length > 0) {
+          this.executorMessageManager.add(systemMessages[0], 0);
+        }
+
+        Logging.log(
+          "NewAgent",
+          "Limited context mode: Reset executor message history",
+          "info"
+        );
+      }
 
       // Build unified execution context with planning + execution instructions
       const executionContext = this._buildDynamicExecutionContext(plan, plan.actions);
@@ -1277,34 +1328,60 @@ Based on the metrics, execution history, and current browser state:
     plan: PredefinedPlannerOutput,
     actions: string[]
   ): string {
+    const supportsVision = this.executionContext.supportsVision();
+
+    const analysisSection = supportsVision
+      ? `  <screenshot-analysis>
+    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+  </screenshot-analysis>`
+      : `  <text-only-analysis>
+    You are operating in TEXT-ONLY mode without screenshots.
+    Use the browser state text to identify elements by their nodeId, text content, and attributes.
+    Focus on element descriptions and hierarchical structure in the browser state.
+  </text-only-analysis>`;
+
+    const processSection = supportsVision
+      ? `  <visual-execution-process>
+    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+    2. LOCATE the element you need to interact with visually
+    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+    4. EXECUTE using that nodeId in your tool call
+  </visual-execution-process>`
+      : `  <text-execution-process>
+    1. ANALYZE the browser state text to understand page structure
+    2. LOCATE elements by their text content, type, and attributes
+    3. IDENTIFY the correct nodeId from the browser state
+    4. EXECUTE using that nodeId in your tool call
+  </text-execution-process>`;
+
+    const guidelines = supportsVision
+      ? `    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+    - The text-based browser state is supplementary - the screenshot is your primary reference
+    - Batch multiple tool calls in one response when possible (reduces latency)
+    - Call 'done' when the current actions are completed`
+      : `    - Use the text-based browser state as your primary reference
+    - Match elements by their text content and attributes
+    - Batch multiple tool calls in one response when possible (reduces latency)
+    - Call 'done' when the current actions are completed`;
+
     return `<predefined-plan-context>
   <observation>${plan.observation}</observation>
   <reasoning>${plan.reasoning}</reasoning>
 </predefined-plan-context>
 
 <execution-instructions>
-  <screenshot-analysis>
-    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
-    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
-    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
-  </screenshot-analysis>
+${analysisSection}
 
   <actions-to-execute>
 ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   </actions-to-execute>
 
-  <visual-execution-process>
-    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
-    2. LOCATE the element you need to interact with visually
-    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-    4. EXECUTE using that nodeId in your tool call
-  </visual-execution-process>
+${processSection}
 
   <execution-guidelines>
-    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-    - The text-based browser state is supplementary - the screenshot is your primary reference
-    - Batch multiple tool calls in one response when possible (reduces latency)
-    - Call 'done' when the current actions are completed
+${guidelines}
   </execution-guidelines>
 </execution-instructions>`;
   }
@@ -1316,6 +1393,46 @@ ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
     plan: PlannerOutput,
     actions: string[]
   ): string {
+    const supportsVision = this.executionContext.supportsVision();
+
+    const analysisSection = supportsVision
+      ? `  <screenshot-analysis>
+    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+  </screenshot-analysis>`
+      : `  <text-only-analysis>
+    You are operating in TEXT-ONLY mode without screenshots.
+    Use the browser state text to identify elements by their nodeId, text content, and attributes.
+    Focus on element descriptions and hierarchical structure in the browser state.
+  </text-only-analysis>`;
+
+    const processSection = supportsVision
+      ? `  <visual-execution-process>
+    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+    2. LOCATE the element you need to interact with visually
+    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+    4. EXECUTE using that nodeId in your tool call
+  </visual-execution-process>`
+      : `  <text-execution-process>
+    1. ANALYZE the browser state text to understand page structure
+    2. LOCATE elements by their text content, type, and attributes
+    3. IDENTIFY the correct nodeId from the browser state
+    4. EXECUTE using that nodeId in your tool call
+  </text-execution-process>`;
+
+    const guidelines = supportsVision
+      ? `    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+    - The text-based browser state is supplementary - the screenshot is your primary reference
+    - Batch multiple tool calls in one response when possible (reduces latency)
+    - Create a todo list to track progress if helpful
+    - Call 'done' when all actions are completed`
+      : `    - Use the text-based browser state as your primary reference
+    - Match elements by their text content and attributes
+    - Batch multiple tool calls in one response when possible (reduces latency)
+    - Create a todo list to track progress if helpful
+    - Call 'done' when all actions are completed`;
+
     return `<planning-context>
   <observation>${plan.observation}</observation>
   <challenges>${plan.challenges}</challenges>
@@ -1323,29 +1440,16 @@ ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
 </planning-context>
 
 <execution-instructions>
-  <screenshot-analysis>
-    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
-    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
-    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
-  </screenshot-analysis>
-  
+${analysisSection}
+
   <actions-to-execute>
 ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   </actions-to-execute>
-  
-  <visual-execution-process>
-    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
-    2. LOCATE the element you need to interact with visually
-    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-    4. EXECUTE using that nodeId in your tool call
-  </visual-execution-process>
-  
+
+${processSection}
+
   <execution-guidelines>
-    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-    - The text-based browser state is supplementary - the screenshot is your primary reference
-    - Batch multiple tool calls in one response when possible (reduces latency)
-    - Create a todo list to track progress if helpful
-    - Call 'done' when all actions are completed
+${guidelines}
   </execution-guidelines>
 </execution-instructions>`;
   }

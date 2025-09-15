@@ -43,6 +43,8 @@ export const ExecutionContextOptionsSchema = z.object({
   todoStore: z.instanceof(TodoStore).optional(), // TODO store for complex task management
   pubsub: z.any().optional(), // Scoped PubSub channel (NEW - will be PubSubChannel)
   supportsVision: z.boolean().default(true), // Whether the model supports image inputs
+  limitedContextMode: z.boolean().default(false), // Whether to use limited context mode for small models (<32k tokens)
+  maxTokens: z.number().default(128000), // Maximum token limit of the model
 });
 
 export type ExecutionContextOptions = z.infer<
@@ -72,6 +74,8 @@ export class ExecutionContext {
   private _humanInputResponse: HumanInputResponse | undefined  // Human input response
   private _scopedPubSub: PubSubChannel | null = null  // Scoped PubSub channel
   private _supportsVision: boolean = true  // Whether the model supports vision/images
+  private _limitedContextMode: boolean = false  // Whether limited context mode is enabled
+  private _maxTokens: number = 128000  // Maximum token limit of the model
   private _reasoningHistory: string[] = []; // Planner reasoning history
   private _executionMetrics: ExecutionMetrics = {
     // Tool execution metrics
@@ -113,6 +117,10 @@ export class ExecutionContext {
 
     // Store vision support flag
     this._supportsVision = validatedOptions.supportsVision;
+
+    // Store limited context mode and max tokens
+    this._limitedContextMode = validatedOptions.limitedContextMode;
+    this._maxTokens = validatedOptions.maxTokens;
   }
 
   /**
@@ -120,6 +128,20 @@ export class ExecutionContext {
    */
   public supportsVision(): boolean {
     return this._supportsVision;
+  }
+
+  /**
+   * Check if limited context mode is enabled (for models with <32k tokens)
+   */
+  public isLimitedContextMode(): boolean {
+    return this._limitedContextMode;
+  }
+
+  /**
+   * Get the maximum token limit of the model
+   */
+  public getMaxTokens(): number {
+    return this._maxTokens;
   }
 
   /**

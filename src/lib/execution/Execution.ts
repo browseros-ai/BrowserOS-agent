@@ -129,8 +129,19 @@ export class Execution {
         }
       }
 
-      // Get model capabilities for vision support
+      // Get model capabilities for vision support and context size
       const modelCapabilities = await langChainProvider.getModelCapabilities();
+
+      // Determine if limited context mode should be enabled (< 32k tokens)
+      const limitedContextMode = modelCapabilities.maxTokens < 32_000;
+
+      if (limitedContextMode) {
+        Logging.log(
+          "Execution",
+          `Limited context mode enabled (maxTokens: ${modelCapabilities.maxTokens})`,
+          "info"
+        );
+      }
 
       // Create fresh execution context with new abort signal
       const executionContext = new ExecutionContext({
@@ -141,6 +152,8 @@ export class Execution {
         abortSignal: this.currentAbortController.signal,
         debugMode: this.options.debug || false,
         supportsVision: modelCapabilities.supportsImages,
+        limitedContextMode: limitedContextMode,
+        maxTokens: modelCapabilities.maxTokens,
       });
 
       // Set selected tab IDs for context
