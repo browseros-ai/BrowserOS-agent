@@ -448,6 +448,7 @@ export class LangChainProvider {
     maxTokens?: number
   ): ChatOllama {
     // Ensure we use 127.0.0.1 instead of localhost for better compatibility
+    // TODO: move this to C++ patch
     let baseUrl = provider.baseUrl || DEFAULT_OLLAMA_BASE_URL
     if (baseUrl.includes('localhost')) {
       baseUrl = baseUrl.replace('localhost', '127.0.0.1')

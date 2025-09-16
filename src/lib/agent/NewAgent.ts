@@ -393,21 +393,12 @@ export class NewAgent {
         // Store the system prompt and goal message before clearing
         const messages = this.executorMessageManager.getMessages();
         const systemMessages = messages.filter(msg => msg instanceof SystemMessage);
-        const goalMessage = messages.find(msg =>
-          msg instanceof HumanMessage &&
-          typeof msg.content === 'string' &&
-          msg.content.startsWith('Goal:')
-        );
-
         // Clear all messages
         this.executorMessageManager.clear();
 
         // Re-add system prompt and goal
         if (systemMessages.length > 0) {
           this.executorMessageManager.add(systemMessages[0], 0);
-        }
-        if (goalMessage) {
-          this.executorMessageManager.add(goalMessage);
         }
 
         Logging.log(
@@ -1347,7 +1338,7 @@ Based on the metrics, execution history, and current browser state:
     1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
     2. LOCATE the element you need to interact with visually
     3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-    4. EXECUTE using that nodeId in your tool call
+    // 4. EXECUTE using that nodeId in your tool call
   </visual-execution-process>`
       : `  <text-execution-process>
     1. ANALYZE the browser state text to understand page structure
