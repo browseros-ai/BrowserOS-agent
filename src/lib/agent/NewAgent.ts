@@ -6,6 +6,7 @@ import { type ScreenshotSizeKey } from "@/lib/browser/BrowserOSAdapter";
 import {
   AIMessage,
   AIMessageChunk,
+  BaseMessage,
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
@@ -22,6 +23,7 @@ import { AbortError } from "@/lib/utils/Abortable";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
 import { isDevelopmentMode } from "@/config";
 import { invokeWithRetry } from "@/lib/utils/retryable";
+import { TokenCounter } from "@/lib/utils/TokenCounter";
 import {
   generateExecutorPrompt,
   generatePlannerPrompt,
@@ -621,7 +623,7 @@ export class NewAgent {
 
       // Get browser state message with screenshot
       const browserStateMessage = await this._getBrowserStateMessage(
-        /* includeScreenshot */ true,
+        /* includeScreenshot */ this.executionContext.supportsVision(),
         /* simplified */ true,
         /* screenshotSize */ "large"
       );
@@ -716,6 +718,9 @@ export class NewAgent {
         browserStateMessage, // Browser state with screenshot
       ];
 
+      // Log token counts for individual messages and total
+      this._logMessageTokens(messages, `Dynamic Planner (iteration ${this.executionContext.getExecutionMetrics().observations})`);
+
       // Get structured response from LLM with retry logic
       const result = await invokeWithRetry<PlannerOutput>(
         structuredLLM,
@@ -768,7 +773,7 @@ export class NewAgent {
       if (isFirstPass) {
         // Add current browser state without screenshot
         const browserStateMessage = await this._getBrowserStateMessage(
-          /* includeScreenshot */ true,
+          /* includeScreenshot */ this.executionContext.supportsVision(),
           /* simplified */ false,
           /* screenshotSize */ "medium"
         );
@@ -857,6 +862,9 @@ export class NewAgent {
     ];
 
     const message_history = this.executorMessageManager.getMessages();
+
+    // Log token counts for individual messages and total
+    this._logMessageTokens(message_history, `Executor (iteration ${this.iterations + 1})`);
 
     const stream = await this.executorLlmWithTools.stream(message_history, {
       signal: this.executionContext.abortSignal,
@@ -1042,6 +1050,55 @@ export class NewAgent {
     this.pubsub.publishMessage(PubSub.createMessage(content, type as any));
   }
 
+  /**
+   * Log token counts for individual messages and total
+   * @param messages - Array of messages to log tokens for
+   * @param context - Context string for logging (e.g., "Dynamic Planner", "Executor")
+   */
+  private _logMessageTokens(messages: BaseMessage[], context: string): void {
+    // Count tokens for each message
+    const messageCounts: string[] = [];
+    let totalTokens = 0;
+
+    for (const message of messages) {
+      const tokenCount = TokenCounter.countMessage(message);
+      totalTokens += tokenCount;
+
+      // Format message type and token count
+      const messageType = message.getType();
+      if (messageType === 'human') {
+        // Check if it's a browser state message
+        const isBrowserState = (message as any).additional_kwargs?.messageType === MessageType.BROWSER_STATE;
+        if (isBrowserState) {
+          messageCounts.push(`HumanMessage (browser-state): ${TokenCounter.format(tokenCount)}`);
+        } else {
+          messageCounts.push(`HumanMessage: ${TokenCounter.format(tokenCount)}`);
+        }
+      } else if (messageType === 'system') {
+        messageCounts.push(`SystemMessage: ${TokenCounter.format(tokenCount)}`);
+      } else if (messageType === 'ai') {
+        messageCounts.push(`AIMessage: ${TokenCounter.format(tokenCount)}`);
+      } else if (messageType === 'tool') {
+        messageCounts.push(`ToolMessage: ${TokenCounter.format(tokenCount)}`);
+      } else {
+        messageCounts.push(`${messageType}: ${TokenCounter.format(tokenCount)}`);
+      }
+    }
+
+    // Log to standard logging
+    const logMessage = `${context} token usage:\n  ${messageCounts.join('\n  ')}\n  Total: ${TokenCounter.format(totalTokens)}`;
+    Logging.log("NewAgent", logMessage, "info");
+
+    // Also emit in dev mode if enabled
+    if (isDevelopmentMode()) {
+      this._emitDevModeDebug(
+        `${context} tokens`,
+        `Total: ${TokenCounter.format(totalTokens)} (${messages.length} messages)`,
+        200  // Allow longer detail for token info
+      );
+    }
+  }
+
   // Emit debug information in development mode
   private _emitDevModeDebug(action: string, details?: string, maxLength: number = 60): void {
     if (isDevelopmentMode()) {
@@ -1209,7 +1266,7 @@ export class NewAgent {
 
       // Get browser state with screenshot
       const browserStateMessage = await this._getBrowserStateMessage(
-        /* includeScreenshot */ true,
+        /* includeScreenshot */ this.executionContext.supportsVision(),
         /* simplified */ true,
         /* screenshotSize */ "large"
       );
@@ -1312,6 +1369,9 @@ export class NewAgent {
         new HumanMessage(userPrompt),
         browserStateMessage,
       ];
+
+      // Log token counts for individual messages and total
+      this._logMessageTokens(messages, `Predefined Planner (iteration ${this.executionContext.getExecutionMetrics().observations})`);
 
       // Get structured response with retry
       const plan = await invokeWithRetry<PredefinedPlannerOutput>(
