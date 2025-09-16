@@ -628,16 +628,23 @@ export class NewAgent {
 
       // Get execution metrics for analysis
       const metrics = this.executionContext.getExecutionMetrics();
-      const errorRate = metrics.toolCalls > 0 
+      const errorRate = metrics.toolCalls > 0
         ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
         : "0";
       const elapsed = Date.now() - metrics.startTime;
 
-      // Get messagey history
-      const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
-      const fullHistory = readOnlyMM.getFilteredAsString([MessageType.SYSTEM, MessageType.SCREENSHOT, MessageType.BROWSER_STATE]);
+      // Check if we're in limited context mode
+      const isLimitedContext = this.executionContext.isLimitedContextMode();
 
-      // Get reasoning history for context
+      // Get history only if NOT in limited context mode
+      let fullHistory = "";
+      if (!isLimitedContext) {
+        // Get message history
+        const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
+        fullHistory = readOnlyMM.getFilteredAsString([MessageType.SYSTEM, MessageType.SCREENSHOT, MessageType.BROWSER_STATE]);
+      }
+
+      // Get reasoning history for context (always include this as it's lightweight)
       const recentReasoning = this.executionContext.getReasoningHistory(5);
 
       // Get LLM with structured output
@@ -650,38 +657,57 @@ export class NewAgent {
       // System prompt for planner
       const systemPrompt = generatePlannerPrompt();
 
-      const userPrompt = `TASK: ${task}
+      // Build user prompt incrementally
+      let userPrompt = `TASK: ${task}\n\n`;
 
-EXECUTION METRICS:
-- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
-- Observations taken: ${metrics.observations}
-- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
-${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+      // Add execution metrics
+      userPrompt += `EXECUTION METRICS:\n`;
+      userPrompt += `- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)\n`;
+      userPrompt += `- Observations taken: ${metrics.observations}\n`;
+      userPrompt += `- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds\n`;
 
-FULL EXECUTION HISTORY:
-${fullHistory || "No execution history yet"}
+      // Add warning flags if needed
+      if (parseInt(errorRate) > 30) {
+        userPrompt += `⚠️ HIGH ERROR RATE - Current approach may be failing\n`;
+      }
+      if (metrics.toolCalls > 10 && metrics.errors > 5) {
+        userPrompt += `⚠️ MANY ATTEMPTS - May be stuck in a loop\n`;
+      }
 
-${
-  recentReasoning.length > 0
-    ? `YOUR PREVIOUS REASONING (what you thought would work):
-${recentReasoning.map(r => {
-  try {
-    const parsed = JSON.parse(r);
-    return `- ${parsed.reasoning || r}`;
-  } catch {
-    return `- ${r}`;
-  }
-}).join("\n")}
+      // Add full execution history if not in limited context
+      if (!isLimitedContext && fullHistory) {
+        userPrompt += `\nFULL EXECUTION HISTORY:\n`;
+        userPrompt += `${fullHistory}\n\n`;
+      }
 
-`
-    : ""
-}ANALYZE the execution history above to understand:
-1. What the executor actually attempted (check tool calls and results)
-2. What failed and why (check error messages)
-3. Whether your previous plan was executed correctly
+      // Add reasoning history (always, as it's lightweight)
+      if (recentReasoning.length > 0) {
+        userPrompt += `YOUR PREVIOUS REASONING (what you thought would work):\n`;
+        userPrompt += recentReasoning.map(r => {
+          try {
+            const parsed = JSON.parse(r);
+            return `- ${parsed.reasoning || r}`;
+          } catch {
+            return `- ${r}`;
+          }
+        }).join("\n");
+        userPrompt += "\n\n";
+      }
 
-Based on the metrics, execution history, and current browser state, what should we do next?`;
+      // Add analysis instructions if we have history
+      if (!isLimitedContext && fullHistory) {
+        userPrompt += `ANALYZE the execution history above to understand:\n`;
+        userPrompt += `1. What the executor actually attempted (check tool calls and results)\n`;
+        userPrompt += `2. What failed and why (check error messages)\n`;
+        userPrompt += `3. Whether your previous plan was executed correctly\n\n`;
+      }
+
+      // Add final question
+      userPrompt += `Based on the `;
+      if (!isLimitedContext) {
+        userPrompt += `metrics, execution history, and `;
+      }
+      userPrompt += `current browser state, what should we do next?`;
 
       // Build messages
       const messages = [
@@ -1195,15 +1221,21 @@ Based on the metrics, execution history, and current browser state, what should 
         : "0";
       const elapsed = Date.now() - metrics.startTime;
 
-      // Get execution history (simplified)
-      const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
-      const fullHistory = readOnlyMM.getFilteredAsString([
-        MessageType.SYSTEM,
-        MessageType.SCREENSHOT,
-        MessageType.BROWSER_STATE
-      ]);
+      // Check if we're in limited context mode
+      const isLimitedContext = this.executionContext.isLimitedContextMode();
 
-      // Get reasoning history for context
+      // Get execution history only if NOT in limited context mode
+      let fullHistory = "";
+      if (!isLimitedContext) {
+        const readOnlyMM = new MessageManagerReadOnly(this.executorMessageManager);
+        fullHistory = readOnlyMM.getFilteredAsString([
+          MessageType.SYSTEM,
+          MessageType.SCREENSHOT,
+          MessageType.BROWSER_STATE
+        ]);
+      }
+
+      // Get reasoning history for context (always include as it's lightweight)
       const recentReasoning = this.executionContext.getReasoningHistory(5);
 
       // Get LLM with structured output
@@ -1216,45 +1248,64 @@ Based on the metrics, execution history, and current browser state, what should 
       // Predefined planner prompt
       const systemPrompt = generatePredefinedPlannerPrompt();
 
-      const userPrompt = `Current TODO List:
-${currentTodos}
+      // Build user prompt incrementally
+      let userPrompt = `Current TODO List:\n${currentTodos}\n\n`;
 
-EXECUTION METRICS:
-- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
-- Observations taken: ${metrics.observations}
-- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
-${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+      // Add execution metrics
+      userPrompt += `EXECUTION METRICS:\n`;
+      userPrompt += `- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)\n`;
+      userPrompt += `- Observations taken: ${metrics.observations}\n`;
+      userPrompt += `- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds\n`;
 
-FULL EXECUTION HISTORY:
-${fullHistory || "No execution yet"}
+      // Add warning flags if needed
+      if (parseInt(errorRate) > 30) {
+        userPrompt += `⚠️ HIGH ERROR RATE - Current approach may be failing\n`;
+      }
+      if (metrics.toolCalls > 10 && metrics.errors > 5) {
+        userPrompt += `⚠️ MANY ATTEMPTS - May be stuck in a loop\n`;
+      }
 
-${
-  recentReasoning.length > 0
-    ? `YOUR PREVIOUS REASONING (what you thought would work):
-${recentReasoning.map(r => {
-  try {
-    const parsed = JSON.parse(r);
-    return `- ${parsed.reasoning || r}`;
-  } catch {
-    return `- ${r}`;
-  }
-}).join("\n")}
+      // Add full execution history if not in limited context
+      if (!isLimitedContext && fullHistory) {
+        userPrompt += `\nFULL EXECUTION HISTORY:\n`;
+        userPrompt += `${fullHistory || "No execution yet"}\n\n`;
+      }
 
-`
-    : ""
-}Task Goal: ${task}
+      // Add reasoning history (always, as it's lightweight)
+      if (recentReasoning.length > 0) {
+        userPrompt += `YOUR PREVIOUS REASONING (what you thought would work):\n`;
+        userPrompt += recentReasoning.map(r => {
+          try {
+            const parsed = JSON.parse(r);
+            return `- ${parsed.reasoning || r}`;
+          } catch {
+            return `- ${r}`;
+          }
+        }).join("\n");
+        userPrompt += "\n\n";
+      }
 
-ANALYZE the execution history above to understand:
-1. What the executor actually attempted (check tool calls and results)
-2. What failed and why (check error messages)
-3. Whether your previous plan was executed correctly
+      // Add task goal
+      userPrompt += `Task Goal: ${task}\n\n`;
 
-Based on the metrics, execution history, and current browser state:
-1. Update the TODO list marking completed items with [x]
-2. Identify the next uncompleted TODO to work on
-3. Provide specific actions to complete that TODO
-4. If all TODOs are complete, set allTodosComplete=true and provide a finalAnswer`;
+      // Add analysis instructions if we have history
+      if (!isLimitedContext && fullHistory) {
+        userPrompt += `ANALYZE the execution history above to understand:\n`;
+        userPrompt += `1. What the executor actually attempted (check tool calls and results)\n`;
+        userPrompt += `2. What failed and why (check error messages)\n`;
+        userPrompt += `3. Whether your previous plan was executed correctly\n\n`;
+      }
+
+      // Add final instructions
+      userPrompt += `Based on the `;
+      if (!isLimitedContext) {
+        userPrompt += `metrics, execution history, and `;
+      }
+      userPrompt += `current browser state:\n`;
+      userPrompt += `1. Update the TODO list marking completed items with [x]\n`;
+      userPrompt += `2. Identify the next uncompleted TODO to work on\n`;
+      userPrompt += `3. Provide specific actions to complete that TODO\n`;
+      userPrompt += `4. If all TODOs are complete, set allTodosComplete=true and provide a finalAnswer`;
 
       const messages = [
         new SystemMessage(systemPrompt),
