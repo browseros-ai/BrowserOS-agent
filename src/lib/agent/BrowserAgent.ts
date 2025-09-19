@@ -66,7 +66,6 @@ import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
 import { createResultTool } from '@/lib/tools/result/ResultTool';
 import { createHumanInputTool } from '@/lib/tools/utils/HumanInputTool';
 import { createDateTool } from '@/lib/tools/utility/DateTool';
-import { createBrowserOSInfoTool } from '@/lib/tools/utility/BrowserOSInfoTool';
 import { createMCPTool } from '@/lib/tools/mcp/MCPTool';
 import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
@@ -304,7 +303,6 @@ export class BrowserAgent {
     this.toolManager.register(createExtractTool(this.executionContext));
     this.toolManager.register(createHumanInputTool(this.executionContext));
     this.toolManager.register(createDateTool(this.executionContext));
-    // this.toolManager.register(createBrowserOSInfoTool(this.executionContext));
     
     // Result tool
     this.toolManager.register(createResultTool(this.executionContext));
