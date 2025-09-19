@@ -54,6 +54,8 @@ import { createDateTool } from "@/lib/tools/utility/DateTool";
 import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
+import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
+import { ENABLE_EVALS2 } from '@/config';
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -306,9 +308,6 @@ export class NewAgent27 {
       Logging.log("NewAgent", `Starting execution`, "info");
       await this._initialize();
 
-      // Initialize current iteration message manager
-      this.executionContext.resetCurrentIterationMessageManager();
-
       // Check for predefined plan
       if (metadata?.executionMode === 'predefined' && metadata.predefinedPlan) {
         await this._executePredefined(task, metadata.predefinedPlan);
@@ -346,11 +345,6 @@ export class NewAgent27 {
     const todoMarkdown = plan.steps.map((step: string) => `- [ ] ${step}`).join('\n');
     this.executionContext.setTodoList(todoMarkdown);
 
-    // executor system prompt
-    const systemPrompt = generateExecutorPrompt();
-    this.executorMessageManager.addSystem(systemPrompt);
-    this.executionContext.currentIterationMessageManager.addSystem(systemPrompt);
-
     // Validate LLM is initialized with tools bound
     if (!this.executorLlmWithTools) {
       throw new Error("LLM with tools not initialized");
@@ -364,7 +358,6 @@ export class NewAgent27 {
 
     // Add goal for context
     const goalMessage = plan.goal || task;
-    this.executorMessageManager.addHuman(`Goal: ${goalMessage}`);
 
     let iterations = 0;
     let allComplete = false;
@@ -434,9 +427,6 @@ export class NewAgent27 {
         this.executionContext.clearHumanInputState();
       }
 
-      // Reset current iteration message manager for next planning iteration
-      this.executionContext.resetCurrentIterationMessageManager();
-      this.executionContext.currentIterationMessageManager.addSystem(systemPrompt);
     }
 
     // Check if we hit iteration limit
@@ -456,11 +446,6 @@ export class NewAgent27 {
   private async _executeDynamic(task: string): Promise<void> {
     // Set current task in context
     this.executionContext.setCurrentTask(task);
-
-    // executor system prompt
-    const systemPrompt = generateExecutorPrompt();
-    this.executorMessageManager.addSystem(systemPrompt);
-    this.executionContext.currentIterationMessageManager.addSystem(systemPrompt);
 
     // Validate LLM is initialized with tools bound
     if (!this.executorLlmWithTools) {
@@ -486,7 +471,6 @@ export class NewAgent27 {
       // Get reasoning and high-level actions
       const planResult = await this._runDynamicPlanner(task);
       // CRITICAL: Flush any queued messages from planning
-      this.executorMessageManager.flushQueue();
 
       if (!planResult.ok) {
         Logging.log(
@@ -551,10 +535,6 @@ export class NewAgent27 {
         // Clear human input state
         this.executionContext.clearHumanInputState();
       }
-
-      // Reset current iteration message manager for next planning iteration
-      this.executionContext.resetCurrentIterationMessageManager();
-      this.executionContext.currentIterationMessageManager.addSystem(systemPrompt);
     }
 
     // Check if we hit planning iteration limit
@@ -628,7 +608,7 @@ export class NewAgent27 {
         /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
         /* simplified */ true,
         /* screenshotSize */ "large",
-        /* includeBrowserState */ !(this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode())
+        /* includeBrowserState */ true
       );
 
       // Get execution metrics for analysis
@@ -684,6 +664,7 @@ ${fullHistory}
         new HumanMessage(userPrompt),
         browserStateMessage, // Browser state with screenshot
       ];
+      // this.executionContext.messageManager.setMessages(messages);
 
       // Get structured response from LLM with retry logic
       const result = await invokeWithRetry<PlannerOutput>(
@@ -733,7 +714,8 @@ ${fullHistory}
     plannerOutput: PlannerOutput | PredefinedPlannerOutput
   ): Promise<ExecutorResult> {
     // Use the current iteration message manager from execution context
-    const executorMM = this.executionContext.currentIterationMessageManager;
+    const executorMM = new MessageManager();
+    executorMM.addSystem(generateExecutorPrompt(this._buildExecutionContext()));
     const currentIterationToolMessages: string[] = [];
     let executorIterations = 0;
     let isFirstPass = true;
@@ -754,17 +736,19 @@ ${fullHistory}
         executorMM.add(browserStateMessage);
 
         // Build execution context with planner output
-        const executionContext = this._buildExecutionContext(plannerOutput, actions);
-        executorMM.addSystemReminder(executionContext);
+        const plannerOutputForExecutor = this._formatPlannerOutputForExecutor(plannerOutput);
 
-        // Simple prompt - all context is already in system reminder
+        const executionContext = this._buildExecutionContext();
+        executorMM.addSystemReminder(executionContext + '\n I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. I will provide what tools to be executed based on provided actions in sequence until I call "done" tool.');
+
+        // Pass planner output to executor to provide context and corresponding actions to be executed
         executorMM.addHuman(
-          "Please execute the actions specified in the system reminder above."
+          `${plannerOutputForExecutor}\nPlease execute the actions specified above.`
         );
         isFirstPass = false;
       } else {
         executorMM.addHuman(
-          "Please continue or call 'done' tool if all actions are completed.",
+          "Please verify if all actions are completed and call 'done' tool if all actions are completed.",
         );
       }
 
@@ -794,6 +778,12 @@ ${fullHistory}
             plannerOutput,
             toolMessages: currentIterationToolMessages
           });
+
+          // Add all messages to message manager
+          for (const message of executorMM.getMessages()) {
+            this.executorMessageManager.add(message);
+          }
+
           return {
             completed: true,
             doneToolCalled: true,
@@ -806,6 +796,12 @@ ${fullHistory}
             plannerOutput,
             toolMessages: currentIterationToolMessages
           });
+
+          // Add all messages to message manager
+          for (const message of executorMM.getMessages()) {
+            this.executorMessageManager.add(message);
+          }
+
           return {
             completed: false,
             requiresHumanInput: true,
@@ -817,6 +813,11 @@ ${fullHistory}
         // No tool calls, might be done
         break;
       }
+    }
+
+    // Add all messages to message manager
+    for (const message of executorMM.getMessages()) {
+      this.executorMessageManager.add(message);
     }
 
     // Hit max iterations without explicit completion
@@ -888,8 +889,7 @@ ${fullHistory}
             
             // Queue warning for agent's next iteration
             mm.queueSystemReminder(
-              "WARNING: Never output <browser-state> or <system-reminder> tags or their contents. You were doing it now." +
-              "These are internal markers only."
+              "I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. If I have completed all actions, I will complete the task and call 'done' tool."
             );
             
             // Log for debugging
@@ -983,8 +983,14 @@ ${fullHistory}
         this._emitDevModeDebug("Error", errorMsg);
       } else {
         try {
-          // Execute tool
-          toolResult = await tool.func(args);
+          // Execute tool (wrap for evals2 metrics if enabled)
+          let toolFunc = tool.func;
+          if (ENABLE_EVALS2) {
+            const wrapped = wrapToolForMetrics(tool, this.executionContext, toolCallId);
+            toolFunc = wrapped.func;
+          }
+          toolResult = await toolFunc(args);
+
         } catch (error) {
           // Even on execution error, we must add a tool result
           const errorMsg = `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -1213,7 +1219,7 @@ ${fullHistory}
         /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
         /* simplified */ true,
         /* screenshotSize */ "large",
-        /* includeBrowserState */ !(this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode())
+        /* includeBrowserState */ true
       );
 
       // Get execution metrics for analysis
@@ -1382,13 +1388,15 @@ ${fullHistory}
    * Build execution context for current iteration
    */
   private _buildExecutionContext(
-    plannerOutput: PlannerOutput | PredefinedPlannerOutput,
-    actions: string[]
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput | null = null,
+    actions: string[] | null = null,
   ): string {
-    if ('proposedActions' in plannerOutput) {
-      return this._buildDynamicExecutionContext(plannerOutput as PlannerOutput, actions);
-    } else {
+    if (plannerOutput && 'todoMarkdown' in plannerOutput) {
+      // It's a PredefinedPlannerOutput
       return this._buildPredefinedExecutionContext(plannerOutput as PredefinedPlannerOutput, actions);
+    } else {
+      // It's a PlannerOutput or null
+      return this._buildDynamicExecutionContext(plannerOutput as PlannerOutput | null, actions);
     }
   }
 
@@ -1396,137 +1404,176 @@ ${fullHistory}
    * Build execution context for predefined plans
    */
   private _buildPredefinedExecutionContext(
-    plan: PredefinedPlannerOutput,
-    actions: string[]
+    plan: PredefinedPlannerOutput | null = null,
+    actions: string[] | null = null,
   ): string {
     const supportsVision = this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode();
 
     const analysisSection = supportsVision
-      ? `  <screenshot-analysis>
-    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
-    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
-    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
-  </screenshot-analysis>`
-      : `  <text-only-analysis>
-    You are operating in TEXT-ONLY mode without screenshots.
-    Use the browser state text to identify elements by their nodeId, text content, and attributes.
-    Focus on element descriptions and hierarchical structure in the browser state.
-  </text-only-analysis>`;
+      ? `<screenshot-analysis>
+  The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+  These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+  YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+</screenshot-analysis>`
+      : `<text-only-analysis>
+  You are operating in TEXT-ONLY mode without screenshots.
+  Use the browser state text to identify elements by their nodeId, text content, and attributes.
+  Focus on element descriptions and hierarchical structure in the browser state.
+</text-only-analysis>`;
 
     const processSection = supportsVision
-      ? `  <visual-execution-process>
-    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
-    2. LOCATE the element you need to interact with visually
-    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-    // 4. EXECUTE using that nodeId in your tool call
-  </visual-execution-process>`
-      : `  <text-execution-process>
-    1. ANALYZE the browser state text to understand page structure
-    2. LOCATE elements by their text content, type, and attributes
-    3. IDENTIFY the correct nodeId from the browser state
-    4. EXECUTE using that nodeId in your tool call
-  </text-execution-process>`;
+      ? `<visual-execution-process>
+  1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+  2. LOCATE the element you need to interact with visually
+  3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+  4. EXECUTE using that nodeId in your tool call
+</visual-execution-process>`
+      : `<text-execution-process>
+  1. ANALYZE the browser state text to understand page structure
+  2. LOCATE elements by their text content, type, and attributes
+  3. IDENTIFY the correct nodeId from the browser state
+  4. EXECUTE using that nodeId in your tool call
+</text-execution-process>`;
 
     const guidelines = supportsVision
-      ? `    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-    - The text-based browser state is supplementary - the screenshot is your primary reference
-    - Batch multiple tool calls in one response when possible (reduces latency)
-    - Call 'done' when the current actions are completed`
-      : `    - Use the text-based browser state as your primary reference
-    - Match elements by their text content and attributes
-    - Batch multiple tool calls in one response when possible (reduces latency)
-    - Call 'done' when the current actions are completed`;
+      ? `<execution-guidelines>
+  - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+  - The text-based browser state is supplementary - the screenshot is your primary reference
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when the current actions are completed
+</execution-guidelines>`
+      : `<execution-guidelines>
+  - Use the text-based browser state as your primary reference
+  - Match elements by their text content and attributes
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when the current actions are completed
+</execution-guidelines>`;
 
-    return `<predefined-plan-context>
+    let predefinedPlanContext = '';
+    if (plan) {
+      predefinedPlanContext = `<predefined-plan-context>
   <userTask>${plan.userTask}</userTask>
   <executionHistory>${plan.executionHistory}</executionHistory>
   <currentState>${plan.currentState}</currentState>
   <challengesIdentified>${plan.challengesIdentified}</challengesIdentified>
   <reasoning>${plan.stepByStepReasoning}</reasoning>
-</predefined-plan-context>
-
-<execution-instructions>
-${analysisSection}
-
-  <actions-to-execute>
+</predefined-plan-context> `;
+    }
+    let actionsToExecute = '';
+    if (actions) {
+      actionsToExecute = `<actions-to-execute>
 ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   </actions-to-execute>
-
+`;
+    }
+    return `${predefinedPlanContext}<execution-instructions>
+${analysisSection}
 ${processSection}
+<element-format>
+Elements appear as: [nodeId] <indicator> <tag> "text" context
 
-  <execution-guidelines>
+Legend:
+- [nodeId]: Use this number in click/type calls
+- <C>/<T>: Clickable or Typeable
+</element-format>
 ${guidelines}
-  </execution-guidelines>
+${actionsToExecute}
 </execution-instructions>`;
   }
 
   /**
    * Build unified execution context combining planning and execution instructions
    */
+
+  private _formatPlannerOutputForExecutor(plan: PlannerOutput | PredefinedPlannerOutput): string {
+    return `BrowserOS Agent Output:
+- Task: ${plan.userTask}
+- Current State: ${plan.currentState}
+- Execution History: ${plan.executionHistory}
+- Challenges Identified: ${plan.challengesIdentified}
+- Reasoning: ${plan.stepByStepReasoning}
+
+# Actions (to be performed by you)
+${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
+`;
+  }
   private _buildDynamicExecutionContext(
-    plan: PlannerOutput,
-    actions: string[]
+    plan: PlannerOutput | null = null,
+    actions: string[] | null = null,
   ): string {
     const supportsVision = this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode();
 
     const analysisSection = supportsVision
-      ? `  <screenshot-analysis>
-    The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
-    These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
-    YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
-  </screenshot-analysis>`
-      : `  <text-only-analysis>
-    You are operating in TEXT-ONLY mode without screenshots.
-    Use the browser state text to identify elements by their nodeId, text content, and attributes.
-    Focus on element descriptions and hierarchical structure in the browser state.
-  </text-only-analysis>`;
+      ? `<screenshot-analysis>
+  The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+  These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+  YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+</screenshot-analysis>`
+      : `<text-only-analysis>
+  You are operating in TEXT-ONLY mode without screenshots.
+  Use the browser state text to identify elements by their nodeId, text content, and attributes.
+  Focus on element descriptions and hierarchical structure in the browser state.
+</text-only-analysis>`;
 
     const processSection = supportsVision
-      ? `  <visual-execution-process>
-    1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
-    2. LOCATE the element you need to interact with visually
-    3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-    4. EXECUTE using that nodeId in your tool call
-  </visual-execution-process>`
-      : `  <text-execution-process>
-    1. ANALYZE the browser state text to understand page structure
-    2. LOCATE elements by their text content, type, and attributes
-    3. IDENTIFY the correct nodeId from the browser state
-    4. EXECUTE using that nodeId in your tool call
-  </text-execution-process>`;
+      ? `<visual-execution-process>
+  1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+  2. LOCATE the element you need to interact with visually
+  3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+  4. EXECUTE using that nodeId in your tool call
+</visual-execution-process>`
+      : `<text-execution-process>
+  1. ANALYZE the browser state text to understand page structure
+  2. LOCATE elements by their text content, type, and attributes
+  3. IDENTIFY the correct nodeId from the browser state
+  4. EXECUTE using that nodeId in your tool call
+</text-execution-process>`;
 
     const guidelines = supportsVision
-      ? `    - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-    - The text-based browser state is supplementary - the screenshot is your primary reference
-    - Batch multiple tool calls in one response when possible (reduces latency)
-    - Create a todo list to track progress if helpful
-    - Call 'done' when all actions are completed`
-      : `    - Use the text-based browser state as your primary reference
-    - Match elements by their text content and attributes
-    - Batch multiple tool calls in one response when possible (reduces latency)
-    - Create a todo list to track progress if helpful
-    - Call 'done' when all actions are completed`;
+      ? `<execution-guidelines>
+  - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+  - The text-based browser state is supplementary - the screenshot is your primary reference
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when all actions are completed
+</execution-guidelines>`
+      : `<execution-guidelines>
+  - Use the text-based browser state as your primary reference
+  - Match elements by their text content and attributes
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when all actions are completed
+</execution-guidelines>`;
 
-    return `<planning-context>
+    let planningContext = '';
+    if (plan) {
+      planningContext = `<planning-context>
   <userTask>${plan.userTask}</userTask>
   <currentState>${plan.currentState}</currentState>
   <executionHistory>${plan.executionHistory}</executionHistory>
   <challengesIdentified>${plan.challengesIdentified}</challengesIdentified>
   <reasoning>${plan.stepByStepReasoning}</reasoning>
 </planning-context>
-
-<execution-instructions>
-${analysisSection}
-
-  <actions-to-execute>
+`;
+    }
+    let actionsToExecute = '';
+    if (actions) {
+      actionsToExecute = `<actions-to-execute>
 ${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
-  </actions-to-execute>
+</actions-to-execute>
+`;
+    }
 
+    return `${planningContext}<execution-instructions>
+${analysisSection}
 ${processSection}
+<element-format>
+Elements appear as: [nodeId] <indicator> <tag> "text" context
 
-  <execution-guidelines>
+Legend:
+- [nodeId]: Use this number in click/type calls
+- <C>/<T>: Clickable or Typeable
+</element-format>
 ${guidelines}
-  </execution-guidelines>
+${actionsToExecute}
 </execution-instructions>`;
   }
 }

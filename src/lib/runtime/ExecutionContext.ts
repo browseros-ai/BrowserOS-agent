@@ -45,7 +45,6 @@ export const ExecutionContextOptionsSchema = z.object({
   supportsVision: z.boolean().default(true), // Whether the model supports image inputs
   limitedContextMode: z.boolean().default(false), // Whether to use limited context mode for small models (<32k tokens)
   maxTokens: z.number().default(128000), // Maximum token limit of the model
-  currentIterationMessageManager: z.instanceof(MessageManager).optional(), // Message manager for current iteration
 });
 
 export type ExecutionContextOptions = z.infer<
@@ -60,7 +59,6 @@ export class ExecutionContext {
   abortSignal: AbortSignal  // Abort signal for task cancellation
   browserContext: BrowserContext  // Browser context for page operations
   messageManager: MessageManager  // Message manager for communication
-  currentIterationMessageManager: MessageManager  // Message manager for current iteration
   debugMode: boolean  // Whether debug logging is enabled
   selectedTabIds: number[] | null = null  // Selected tab IDs
   todoStore: TodoStore  // TODO store for complex task management
@@ -110,7 +108,6 @@ export class ExecutionContext {
       validatedOptions.abortSignal || new AbortController().signal;
     this.browserContext = validatedOptions.browserContext;
     this.messageManager = validatedOptions.messageManager;
-    this.currentIterationMessageManager = validatedOptions.currentIterationMessageManager || new MessageManager();
     this.debugMode = validatedOptions.debugMode || false;
     this.todoStore = validatedOptions.todoStore || new TodoStore();
     this.userInitiatedCancel = false;
@@ -430,10 +427,6 @@ export class ExecutionContext {
    */
   public getReasoningHistory(count: number = 5): string[] {
     return this._reasoningHistory.slice(-count);
-  }
-
-  public resetCurrentIterationMessageManager(): void {
-    this.currentIterationMessageManager.clear();
   }
 
   /**
