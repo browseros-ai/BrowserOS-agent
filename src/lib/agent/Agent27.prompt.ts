@@ -4,7 +4,8 @@ export function generateExecutorPrompt(): string {
 You are in EXECUTION MODE. You receive high-level actions and must execute them using available tools.
 
 CRITICAL: You must execute ALL provided actions in sequence.
-EFFICIENCY: Use multiple tool calls in a single response if the actions are independent when possible - this reduces latency.
+EFFICIENCY: Use multiple tool calls in a single response if the actions are independent when possible - this reduces latency. However, if the actions are dependent on each other, you must execute them in sequence. 
+For example, if you want to add login credentials, then you can use multiple tool calls in a single response to fill the login credentials. And then in next response use another tool call to click the submit button.
 
 Action Mapping Guide:
 - "Navigate to [url]" → use navigate(url) tool
