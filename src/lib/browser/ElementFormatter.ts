@@ -57,148 +57,97 @@ export class ElementFormatter {
    * Format a single element
    */
   formatElement(node: InteractiveNode): string {
+    const SHOW_INDENTATION = true;
+    const SHOW_NODEID = true;
+    const SHOW_TYPE = true;
+    const SHOW_TAG = true;
+    const SHOW_NAME = true;
+    let SHOW_CONTEXT = true;
+    const SHOW_PATH = false;
+    const SHOW_ATTRIBUTES = false;
+    const SHOW_VALUE_FOR_TYPEABLE = true; // Show value attribute for typeable elements
+    let APPEND_VIEWPORT_STATUS = false; // Append (visible)/(hidden) to indicate viewport status
+    const INDENT_SIZE = 2;
     if (this.simplified) {
-      // Simplified format flags
-      const SHOW_NODEID = true;
-      const SHOW_TAG = true;
-      const SHOW_NAME = true;
-      const SHOW_VALUE_FOR_TYPEABLE = true; // Show value attribute for typeable elements
-      const APPEND_VIEWPORT_STATUS = true; // Append (visible)/(hidden) to indicate viewport status
+      SHOW_CONTEXT = false;
+      APPEND_VIEWPORT_STATUS = true;
+    } 
+    const parts: string[] = [];
 
-      const parts: string[] = [];
-
-      if (SHOW_NODEID) {
-        parts.push(`[${node.nodeId}]`);
-      }
-
-      if (SHOW_TAG) {
-        const tag =
-          node.attributes?.["html-tag"] || node.attributes?.role || "div";
-        parts.push(`<${tag}>`);
-      }
-
-      if (SHOW_NAME && node.name) {
-        const truncated = this._truncateText(node.name, 40);
-        parts.push(`"${truncated}"`);
-      } else if (node.type === "typeable") {
-        // For typeable elements without names, show placeholder or input type
-        const placeholder = node.attributes?.placeholder;
-        const inputType = node.attributes?.["input-type"] || "text";
-        if (placeholder) {
-          parts.push(`placeholder="${this._truncateText(placeholder, 30)}"`);
-        } else {
-          parts.push(`type="${inputType}"`);
-        }
-      }
-
-      // Show value for typeable elements
-      if (
-        SHOW_VALUE_FOR_TYPEABLE &&
-        node.type === "typeable" &&
-        node.attributes?.value
-      ) {
-        const value = this._truncateText(node.attributes.value, 30);
-        parts.push(`value="${value}"`);
-      }
-
-      // Append viewport status
-      if (APPEND_VIEWPORT_STATUS) {
-        const isInViewport = node.attributes?.in_viewport !== "false";
-        parts.push(isInViewport ? "(visible)" : "(hidden)");
-      }
-
-      return parts.join(" ");
-    } else {
-      // Full format flags
-      const SHOW_INDENTATION = true;
-      const SHOW_NODEID = true;
-      const SHOW_TYPE = true;
-      const SHOW_TAG = true;
-      const SHOW_NAME = true;
-      const SHOW_CONTEXT = false;
-      const SHOW_PATH = false;
-      const SHOW_ATTRIBUTES = false;
-      const SHOW_VALUE_FOR_TYPEABLE = true; // Show value attribute for typeable elements
-      const APPEND_VIEWPORT_STATUS = true; // Append (visible)/(hidden) to indicate viewport status
-      const INDENT_SIZE = 2;
-
-      const parts: string[] = [];
-
-      if (SHOW_INDENTATION) {
-        const depth = parseInt(node.attributes?.depth || "0", 10);
-        const indent = " ".repeat(INDENT_SIZE * depth);
-        parts.push(indent);
-      }
-
-      if (SHOW_NODEID) {
-        parts.push(`[${node.nodeId}]`);
-      }
-
-      if (SHOW_TYPE) {
-        parts.push(`<${this._getTypeSymbol(node.type)}>`);
-      }
-
-      if (SHOW_TAG) {
-        const tag =
-          node.attributes?.["html-tag"] || node.attributes?.role || "div";
-        parts.push(`<${tag}>`);
-      }
-
-      if (SHOW_NAME && node.name) {
-        const truncated = this._truncateText(node.name, 40);
-        parts.push(`"${truncated}"`);
-      } else if (node.type === "typeable") {
-        // For typeable elements without names, show placeholder, id, or input type
-        const placeholder = node.attributes?.placeholder;
-        const id = node.attributes?.id;
-        const inputType = node.attributes?.["input-type"] || "text";
-        if (placeholder) {
-          parts.push(`placeholder="${this._truncateText(placeholder, 30)}"`);
-        } else if (id) {
-          parts.push(`id="${this._truncateText(id, 10)}"`);
-        } else {
-          parts.push(`type="${inputType}"`);
-        }
-      }
-
-      if (SHOW_CONTEXT && node.attributes?.context) {
-        const truncated = this._truncateText(node.attributes.context, 60);
-        parts.push(`ctx:"${truncated}"`);
-      }
-
-      if (SHOW_PATH && node.attributes?.path) {
-        const formatted = this._formatPath(node.attributes.path);
-        if (formatted) {
-          parts.push(`path:"${formatted}"`);
-        }
-      }
-
-      if (SHOW_ATTRIBUTES) {
-        const attrString = this._formatAttributes(node);
-        if (attrString) {
-          parts.push(`attr:"${attrString}"`);
-        }
-      }
-
-      // Show value for typeable elements (if not already shown in attributes)
-      if (
-        SHOW_VALUE_FOR_TYPEABLE &&
-        !SHOW_ATTRIBUTES &&
-        node.type === "typeable" &&
-        node.attributes?.value
-      ) {
-        const value = this._truncateText(node.attributes.value, 40);
-        parts.push(`value="${value}"`);
-      }
-
-      // Append viewport status
-      if (APPEND_VIEWPORT_STATUS) {
-        const isInViewport = node.attributes?.in_viewport !== "false";
-        parts.push(isInViewport ? "(visible)" : "(hidden)");
-      }
-
-      return parts.join(" ");
+    if (SHOW_INDENTATION) {
+      const depth = parseInt(node.attributes?.depth || "0", 10);
+      const indent = " ".repeat(INDENT_SIZE * depth);
+      parts.push(indent);
     }
+
+    if (SHOW_NODEID) {
+      parts.push(`[${node.nodeId}]`);
+    }
+
+    if (SHOW_TYPE) {
+      parts.push(`<${this._getTypeSymbol(node.type)}>`);
+    }
+
+    if (SHOW_TAG) {
+      const tag =
+        node.attributes?.["html-tag"] || node.attributes?.role || "div";
+      parts.push(`<${tag}>`);
+    }
+
+    if (SHOW_NAME && node.name) {
+      const truncated = this._truncateText(node.name, 40);
+      parts.push(`"${truncated}"`);
+    } else if (node.type === "typeable") {
+      // For typeable elements without names, show placeholder, id, or input type
+      const placeholder = node.attributes?.placeholder;
+      const id = node.attributes?.id;
+      const inputType = node.attributes?.["input-type"] || "text";
+      if (placeholder) {
+        parts.push(`placeholder="${this._truncateText(placeholder, 30)}"`);
+      } else if (id) {
+        parts.push(`id="${this._truncateText(id, 10)}"`);
+      } else {
+        parts.push(`type="${inputType}"`);
+      }
+    }
+
+    if (SHOW_CONTEXT && node.attributes?.context) {
+      const truncated = this._truncateText(node.attributes.context, 60);
+      parts.push(`ctx:"${truncated}"`);
+    }
+
+    if (SHOW_PATH && node.attributes?.path) {
+      const formatted = this._formatPath(node.attributes.path);
+      if (formatted) {
+        parts.push(`path:"${formatted}"`);
+      }
+    }
+
+    if (SHOW_ATTRIBUTES) {
+      const attrString = this._formatAttributes(node);
+      if (attrString) {
+        parts.push(`attr:"${attrString}"`);
+      }
+    }
+
+    // Show value for typeable elements (if not already shown in attributes)
+    if (
+      SHOW_VALUE_FOR_TYPEABLE &&
+      !SHOW_ATTRIBUTES &&
+      node.type === "typeable" &&
+      node.attributes?.value
+    ) {
+      const value = this._truncateText(node.attributes.value, 40);
+      parts.push(`value="${value}"`);
+    }
+
+    // Append viewport status
+    if (APPEND_VIEWPORT_STATUS) {
+      const isInViewport = node.attributes?.in_viewport !== "false";
+      parts.push(isInViewport ? "(visible)" : "(hidden)");
+    }
+
+    return parts.join(" ");
   }
 
   // ============= Private Helper Methods =============

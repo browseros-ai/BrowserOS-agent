@@ -4,6 +4,8 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { NewAgent } from "@/lib/agent/NewAgent";
+import { NewAgent27 } from "@/lib/agent/Agent27";
+// import { SmallAgent27 } from "@/lib/agent/SmallAgent27";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
@@ -176,7 +178,7 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
         this.options.mode === "chat"
           ? new ChatAgent(executionContext)
           : getFeatureFlags().isEnabled('NEW_AGENT')
-            ? new NewAgent(executionContext)
+            ? new NewAgent27(executionContext)
             : new BrowserAgent(executionContext);
 
       // Execute

@@ -149,7 +149,7 @@ export class MessageManager {
     // Calculate tokens once using TokenCounter utility
     const tokens = TokenCounter.countMessage(message);
 
-    this._ensureSpace(tokens);
+    // this._ensureSpace(tokens); # No need to trim messages (as compation is already built in for planner while for executor, we dont need to trim)
 
     // Add entry at position or end
     const entry = { message, tokens };

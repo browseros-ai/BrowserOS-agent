@@ -86,7 +86,7 @@ export function createClickTool(
         if (!element) {
           return JSON.stringify({
             ok: false,
-            error: `Element [${args.nodeId}] not found`,
+            error: `Element not found`,
           });
         }
 
@@ -95,13 +95,13 @@ export function createClickTool(
 
         return JSON.stringify({
           ok: true,
-          output: `Successfully clicked element [${args.nodeId}]${scrollMessage}`,
+          output: `Successfully clicked element ${scrollMessage}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
         return JSON.stringify({
           ok: false,
-          error: `Failed to click [${args.nodeId}]: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to click : ${error instanceof Error ? error.message : String(error)}`,
         });
       }
     },
@@ -145,7 +145,7 @@ export function createTypeTool(
         if (!element) {
           return JSON.stringify({
             ok: false,
-            error: `Element [${args.nodeId}] not found`,
+            error: `Element not found`,
           });
         }
 
@@ -154,13 +154,13 @@ export function createTypeTool(
 
         return JSON.stringify({
           ok: true,
-          output: `Successfully typed "${args.text}" into element [${args.nodeId}]${scrollMessage}`,
+          output: `Successfully typed "${args.text}" into element ${scrollMessage}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
         return JSON.stringify({
           ok: false,
-          error: `Failed to type into [${args.nodeId}]: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to type into : ${error instanceof Error ? error.message : String(error)}`,
         });
       }
     },
@@ -203,7 +203,7 @@ export function createClearTool(
         if (!element) {
           return JSON.stringify({
             ok: false,
-            error: `Element [${args.nodeId}] not found`,
+            error: `Element not found`,
           });
         }
 
@@ -212,13 +212,13 @@ export function createClearTool(
 
         return JSON.stringify({
           ok: true,
-          output: `Successfully cleared element [${args.nodeId}]${scrollMessage}`,
+          output: `Successfully cleared element ${scrollMessage}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
         return JSON.stringify({
           ok: false,
-          error: `Failed to clear [${args.nodeId}]: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to clear : ${error instanceof Error ? error.message : String(error)}`,
         });
       }
     },
@@ -272,7 +272,7 @@ export function createScrollTool(
           const scrolled = await page.scrollToElement(args.nodeId);
           return JSON.stringify({
             ok: true,
-            output: `Scrolled to element [${args.nodeId}]: ${scrolled ? "success" : "already visible"}`,
+            output: `Scrolled to element : ${scrolled ? "success" : "already visible"}`,
           });
         } else if (args.direction) {
           if (args.direction === "down") {
@@ -916,7 +916,7 @@ The human will either click "Done" (after taking action) or "Abort task" (to can
 
 // Done tool input schema
 const DoneInputSchema = z.object({
-  success: z.boolean().describe("Whether the task was completed successfully"),
+  success: z.boolean().describe("Whether the actions have been completed successfully"),
   message: z
     .string()
     .optional()
@@ -929,7 +929,7 @@ export function createDoneTool(
 ): DynamicStructuredTool {
   return new DynamicStructuredTool({
     name: "done",
-    description: "Mark the task as complete",
+    description: "Mark the actions as complete",
     schema: DoneInputSchema,
     func: async (args: DoneInput) => {
       context.incrementMetric("toolCalls");
@@ -1328,6 +1328,143 @@ export function createTypeAtCoordinatesTool(
     },
   });
 }
+
+
+// Enhanced Grep tool - returns structured NodeId information
+const EnhancedGrepInputSchema = z.object({
+  query: z.string().describe("What to search for (e.g., 'login button', 'email input', 'submit elements', 'navigation links')"),
+  elementType: z.enum(["button", "input", "link", "form", "all"]).optional().default("all")
+    .describe("Type of elements to focus on (optional, defaults to 'all')"),
+});
+type EnhancedGrepInput = z.infer<typeof EnhancedGrepInputSchema>;
+
+interface GrepElement {
+  nodeId: number;  // The nodeId that can be used for clicking/typing
+  elementType: string;  // button, input, link, etc.
+  text?: string;  // Visible text content
+  placeholder?: string;  // Placeholder text for inputs
+  context: string;  // Surrounding context to help understand the element
+  attributes?: Record<string, string>;  // Relevant attributes like type, role, etc.
+}
+
+export function createGrepTool(context: ExecutionContext): DynamicStructuredTool {
+  return new DynamicStructuredTool({
+    name: "grep",
+    description: "Search for elements on the current page and get their NodeIds with context. Returns structured information about matching elements that can be used for clicking/typing.",
+    schema: EnhancedGrepInputSchema,
+    func: async (args: EnhancedGrepInput) => {
+      try {
+        context.incrementMetric("toolCalls");
+
+        // Emit thinking message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(`Searching for "${args.query}"...`, "thinking")
+        );
+
+        // Validate query is not empty
+        if (!args.query || args.query.trim() === "") {
+          return JSON.stringify({
+            ok: false,
+            error: "Query is empty",
+          });
+        }
+
+        // Get current page from browserContext
+        const browserState = await context.browserContext.getBrowserStateString();
+
+        // Parse browser state to extract elements with NodeIds
+        const elements: GrepElement[] = [];
+        const lines = browserState.split('\n');
+
+        for (const line of lines) {
+          // Look for lines with NodeId pattern: [nodeId] <C/T> <tag> "text" attributes
+          const nodeIdMatch = line.match(/\[(\d+)\]\s*<([CT])>\s*<(\w+)>(?:\s*"([^"]*)")?(?:\s*(.*))?/);
+          if (nodeIdMatch) {
+            const [, nodeIdStr, interactionType, tagName, text, attributes] = nodeIdMatch;
+            const nodeId = parseInt(nodeIdStr);
+
+            // Filter by element type if specified
+            if (args.elementType !== "all") {
+              const elementTypeMap: Record<string, string[]> = {
+                button: ["button", "input"],
+                input: ["input", "textarea"],
+                link: ["a"],
+                form: ["form", "fieldset"]
+              };
+
+              const allowedTags = elementTypeMap[args.elementType] || [];
+              if (!allowedTags.includes(tagName.toLowerCase())) {
+                continue;
+              }
+            }
+
+            // Check if this element matches the query
+            const searchText = [
+              text || "",
+              attributes || "",
+              tagName
+            ].join(" ").toLowerCase();
+
+            const queryLower = args.query.toLowerCase();
+            const queryParts = queryLower.split(/\s+/);
+
+            // Check if all query parts match somewhere in the element
+            const matches = queryParts.every(part =>
+              searchText.includes(part) ||
+              tagName.toLowerCase().includes(part) ||
+              (text && text.toLowerCase().includes(part))
+            );
+
+            if (matches) {
+              // Parse attributes
+              const parsedAttributes: Record<string, string> = {};
+              if (attributes) {
+                const attrMatches = attributes.matchAll(/(\w+)="([^"]*)"/g);
+                for (const match of attrMatches) {
+                  parsedAttributes[match[1]] = match[2];
+                }
+              }
+
+              elements.push({
+                nodeId,
+                elementType: tagName.toLowerCase(),
+                text: text || undefined,
+                placeholder: parsedAttributes.placeholder,
+                context: line.trim(),
+                attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : undefined
+              });
+            }
+          }
+        }
+
+        if (elements.length === 0) {
+          return JSON.stringify({
+            ok: false,
+            error: `No elements found matching "${args.query}"`,
+          });
+        }
+
+        // Emit result message
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage(`Found ${elements.length} matching elements`, "assistant")
+        );
+
+        return JSON.stringify({
+          ok: true,
+          output: `Found ${elements.length} matching elements: ${elements.map(element => element.context).join("\n")}`,
+          elements: elements
+        });
+      } catch (error) {
+        context.incrementMetric("errors");
+        return JSON.stringify({
+          ok: false,
+          error: `Failed to search for "${args.query}": ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
+    },
+  });
+}
+
 
 // VisualClick coordinate type (no schema needed since we parse XML)
 // type VisualClickCoordinate = {
