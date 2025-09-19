@@ -1,245 +1,364 @@
-import React, { useState, useEffect } from 'react'
-import { GripVertical, X, Plus } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { GripVertical, X, Plus, Trash2 } from 'lucide-react'
+import { useProviderStore, type Provider } from '../stores/providerStore'
 
-interface Provider {
-  id: string
-  name: string
-  icon: string
+function ensureProtocol(url: string) {
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) {
+    return url
+  }
+  return `https://${url}`
 }
 
-const ALL_PROVIDERS: Provider[] = [
-  { id: 'google', name: 'Google', icon: '/assets/new_tab_search/google.svg' },
-  { id: 'chatgpt', name: 'ChatGPT', icon: '/assets/new_tab_search/openai.svg' },
-  { id: 'claude', name: 'Claude', icon: '/assets/new_tab_search/claude.svg' },
-  { id: 'browseros', name: 'BrowserOS Agent', icon: '/assets/new_tab_search/browseros.svg' }
-]
+function getFaviconFromPattern(urlPattern: string) {
+  try {
+    const sample = urlPattern.includes('%s') ? urlPattern.replace('%s', 'search') : urlPattern
+    const normalized = ensureProtocol(sample)
+    const parsed = new URL(normalized)
+    return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=64`
+  } catch {
+    return undefined
+  }
+}
+
+function getProviderIcon(provider: Provider) {
+  if (provider.iconUrl) return provider.iconUrl
+  if (provider.urlPattern) {
+    return getFaviconFromPattern(provider.urlPattern)
+  }
+  return '/assets/new_tab_search/browseros.svg'
+}
+
+interface AddProviderFormState {
+  name: string
+  urlPattern: string
+}
 
 export function ProviderSettings() {
-  const [enabled, setEnabled] = useState<Provider[]>(ALL_PROVIDERS)
-  const [disabled, setDisabled] = useState<Provider[]>([])
-  const [draggedItem, setDraggedItem] = useState<Provider | null>(null)
-  const [draggedFrom, setDraggedFrom] = useState<'enabled' | 'disabled' | null>(null)
-  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null)
+  const enabledProviders = useProviderStore(state => state.getEnabledProviders())
+  const disabledProviders = useProviderStore(state => state.getDisabledProviders())
+  const enableProvider = useProviderStore(state => state.enableProvider)
+  const disableProvider = useProviderStore(state => state.disableProvider)
+  const reorderEnabledProviders = useProviderStore(state => state.reorderEnabledProviders)
+  const reorderDisabledProviders = useProviderStore(state => state.reorderDisabledProviders)
+  const addCustomProvider = useProviderStore(state => state.addCustomProvider)
+  const removeCustomProvider = useProviderStore(state => state.removeCustomProvider)
+  const hasLegacySynced = useProviderStore(state => state.hasLegacySynced)
+  const importLegacyProviderSettings = useProviderStore(state => state.importLegacyProviderSettings)
 
-  // Load from localStorage on mount
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [formState, setFormState] = useState<AddProviderFormState>({ name: '', urlPattern: '' })
+  const [formError, setFormError] = useState<string | null>(null)
+  const [draggedProvider, setDraggedProvider] = useState<Provider | null>(null)
+  const [dragSource, setDragSource] = useState<'enabled' | 'disabled' | null>(null)
+  const [dragOver, setDragOver] = useState<{ list: 'enabled' | 'disabled'; index: number } | null>(null)
+
+  // Legacy migration from localStorage on first load
   useEffect(() => {
-    const stored = localStorage.getItem('searchProviders')
-    if (stored) {
-      try {
-        const data = JSON.parse(stored)
-        if (data.enabled && data.enabled.length > 0) {
-          setEnabled(data.enabled)
-          setDisabled(data.disabled || [])
-        } else {
-          // If no enabled providers, use defaults
-          setEnabled(ALL_PROVIDERS)
-          setDisabled([])
-        }
-      } catch {
-        setEnabled(ALL_PROVIDERS)
-        setDisabled([])
-      }
-    } else {
-      // First time - set all providers as enabled
-      setEnabled(ALL_PROVIDERS)
-      setDisabled([])
+    if (!hasLegacySynced) {
+      importLegacyProviderSettings()
     }
-  }, [])
+  }, [hasLegacySynced, importLegacyProviderSettings])
 
-  // Save to localStorage on changes
-  useEffect(() => {
-    localStorage.setItem('searchProviders', JSON.stringify({
-      enabled,
-      disabled
-    }))
-  }, [enabled, disabled])
+  const faviconPreview = useMemo(() => {
+    if (!formState.urlPattern) return undefined
+    return getFaviconFromPattern(formState.urlPattern)
+  }, [formState.urlPattern])
 
-  const handleDragStart = (provider: Provider, from: 'enabled' | 'disabled') => {
-    setDraggedItem(provider)
-    setDraggedFrom(from)
+  const resetDragState = () => {
+    setDraggedProvider(null)
+    setDragSource(null)
+    setDragOver(null)
   }
 
-  const handleDragEnd = () => {
-    setDraggedItem(null)
-    setDraggedFrom(null)
-    setDraggedOverIndex(null)
+  const handleDragStart = (provider: Provider, source: 'enabled' | 'disabled') => {
+    setDraggedProvider(provider)
+    setDragSource(source)
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-  }
+  const handleDropOnProvider = (
+    event: React.DragEvent,
+    targetIndex: number,
+    targetList: 'enabled' | 'disabled'
+  ) => {
+    event.preventDefault()
+    if (!draggedProvider || !dragSource) return
 
-  const handleDropOnProvider = (e: React.DragEvent, targetIndex: number, targetList: 'enabled' | 'disabled') => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!draggedItem || !draggedFrom) return
-
-    if (draggedFrom === targetList) {
-      // Reordering within same list
-      const list = targetList === 'enabled' ? enabled : disabled
-      const newList = [...list]
-      const currentIndex = newList.findIndex(p => p.id === draggedItem.id)
-      
-      // Remove from current position
-      newList.splice(currentIndex, 1)
-      // Insert at new position
-      newList.splice(targetIndex, 0, draggedItem)
-      
+    if (dragSource === targetList) {
       if (targetList === 'enabled') {
-        setEnabled(newList)
+        reorderEnabledProviders(
+          enabledProviders.findIndex(provider => provider.id === draggedProvider.id),
+          targetIndex
+        )
       } else {
-        setDisabled(newList)
+        reorderDisabledProviders(
+          disabledProviders.findIndex(provider => provider.id === draggedProvider.id),
+          targetIndex
+        )
       }
+    } else if (dragSource === 'enabled') {
+      disableProvider(draggedProvider.id, targetIndex)
     } else {
-      // Moving between lists
-      if (draggedFrom === 'enabled') {
-        const newEnabled = enabled.filter(p => p.id !== draggedItem.id)
-        const newDisabled = [...disabled]
-        newDisabled.splice(targetIndex, 0, draggedItem)
-        setEnabled(newEnabled)
-        setDisabled(newDisabled)
-      } else {
-        const newDisabled = disabled.filter(p => p.id !== draggedItem.id)
-        const newEnabled = [...enabled]
-        newEnabled.splice(targetIndex, 0, draggedItem)
-        setDisabled(newDisabled)
-        setEnabled(newEnabled)
-      }
+      enableProvider(draggedProvider.id, targetIndex)
     }
 
-    setDraggedItem(null)
-    setDraggedFrom(null)
-    setDraggedOverIndex(null)
+    resetDragState()
   }
 
-  const handleDrop = (e: React.DragEvent, to: 'enabled' | 'disabled') => {
-    e.preventDefault()
-    if (!draggedItem || !draggedFrom) return
+  const handleDropOnList = (event: React.DragEvent, targetList: 'enabled' | 'disabled') => {
+    event.preventDefault()
+    if (!draggedProvider || !dragSource) return
 
-    if (draggedFrom === to) {
-      // If dropping in same list without specific position, do nothing
+    if (dragSource === targetList) {
+      resetDragState()
       return
     }
 
-    // Moving between lists (append to end)
-    if (draggedFrom === 'enabled') {
-      setEnabled(prev => prev.filter(p => p.id !== draggedItem.id))
-      setDisabled(prev => [...prev, draggedItem])
+    if (targetList === 'enabled') {
+      enableProvider(draggedProvider.id)
     } else {
-      setDisabled(prev => prev.filter(p => p.id !== draggedItem.id))
-      setEnabled(prev => [...prev, draggedItem])
+      disableProvider(draggedProvider.id)
     }
 
-    setDraggedItem(null)
-    setDraggedFrom(null)
-    setDraggedOverIndex(null)
+    resetDragState()
   }
 
-  const disableProvider = (providerId: string) => {
-    const provider = enabled.find(p => p.id === providerId)
-    if (provider) {
-      setEnabled(prev => prev.filter(p => p.id !== providerId))
-      setDisabled(prev => [...prev, provider])
+  const validateForm = () => {
+    const name = formState.name.trim()
+    const urlPattern = formState.urlPattern.trim()
+
+    if (!name) {
+      setFormError('Enter a provider name.')
+      return false
     }
+
+    if (!urlPattern) {
+      setFormError('Enter a provider URL.')
+      return false
+    }
+
+    try {
+      const normalized = ensureProtocol(urlPattern)
+      new URL(normalized)
+    } catch {
+      setFormError('Enter a valid URL (e.g. https://example.com).')
+      return false
+    }
+
+    setFormError(null)
+    return true
   }
 
-  const enableProvider = (providerId: string) => {
-    const provider = disabled.find(p => p.id === providerId)
-    if (provider) {
-      setDisabled(prev => prev.filter(p => p.id !== providerId))
-      setEnabled(prev => [...prev, provider])
-    }
+  const handleAddProvider = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!validateForm()) return
+
+    addCustomProvider({
+      name: formState.name.trim(),
+      category: 'search',
+      actionType: 'url',
+      urlPattern: formState.urlPattern.trim(),
+      openIn: 'newTab'
+    })
+
+    setFormState({ name: '', urlPattern: '' })
+    setIsFormOpen(false)
+  }
+
+  const handleRemoveProvider = (provider: Provider) => {
+    removeCustomProvider(provider.id)
+  }
+
+  const renderProviderRow = (
+    provider: Provider,
+    index: number,
+    list: 'enabled' | 'disabled'
+  ) => {
+    const isEnabledList = list === 'enabled'
+    const isDragTarget = dragOver?.list === list && dragOver.index === index
+    const iconUrl = getProviderIcon(provider)
+
+    return (
+      <div
+        key={provider.id}
+        draggable
+        onDragStart={() => handleDragStart(provider, list)}
+        onDragEnd={resetDragState}
+        onDragOver={event => {
+          event.preventDefault()
+          setDragOver({ list, index })
+        }}
+        onDrop={event => handleDropOnProvider(event, index, list)}
+        onDragLeave={() => setDragOver(current => (current?.index === index && current.list === list ? null : current))}
+        className={`flex items-center gap-2 p-2 rounded transition-all cursor-move ${
+          isEnabledList ? 'hover:bg-accent' : 'hover:bg-accent/70 opacity-70'
+        } ${isDragTarget ? 'border border-dashed border-primary' : ''}`}
+      >
+        <GripVertical className="w-4 h-4 text-muted-foreground" />
+        <img
+          src={iconUrl}
+          alt={provider.name}
+          className="w-5 h-5 rounded"
+          onError={event => {
+            (event.target as HTMLImageElement).style.visibility = 'hidden'
+          }}
+        />
+        <div className="flex-1 min-w-0">
+          <span className="text-sm text-foreground block truncate">{provider.name}</span>
+          {provider.isCustom && (
+            <span className="text-[11px] text-muted-foreground block truncate">{provider.urlPattern}</span>
+          )}
+        </div>
+        {isEnabledList ? (
+          <button
+            type="button"
+            onClick={() => disableProvider(provider.id)}
+            className="p-1 hover:bg-background rounded"
+            aria-label={`Disable ${provider.name}`}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => enableProvider(provider.id)}
+              className="p-1 hover:bg-background rounded"
+              aria-label={`Enable ${provider.name}`}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            {provider.isCustom && (
+              <button
+                type="button"
+                onClick={() => handleRemoveProvider(provider)}
+                className="p-1 hover:bg-background rounded"
+                aria-label={`Remove ${provider.name}`}
+              >
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium">Manage Search Providers</h3>
-      <p className="text-xs text-muted-foreground">Drag providers to reorder or move between enabled/disabled</p>
-
-      {/* Enabled Providers */}
-      <div>
-        <label className="text-sm font-medium mb-2 block">Visible in search dropdown</label>
-        <div
-          className="border rounded-lg p-2 min-h-[100px] bg-card"
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, 'enabled')}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium">Manage Search Providers</h3>
+          <p className="text-xs text-muted-foreground">
+            Reorder providers, disable ones you do not use, or add your own search shortcuts.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsFormOpen(open => !open)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
         >
-          {enabled.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">
-              Drag providers here to enable
+          <Plus className="w-3 h-3" />
+          {isFormOpen ? 'Cancel' : 'Add provider'}
+        </button>
+      </div>
+
+      {isFormOpen && (
+        <form
+          onSubmit={handleAddProvider}
+          className="space-y-3 rounded-lg border border-dashed border-border/80 bg-card/50 p-4"
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground/90">
+              Provider name
+              <input
+                type="text"
+                value={formState.name}
+                onChange={event => setFormState(state => ({ ...state, name: event.target.value }))}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                placeholder="Example Search"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground/90">
+              Provider URL
+              <input
+                type="text"
+                value={formState.urlPattern}
+                onChange={event => setFormState(state => ({ ...state, urlPattern: event.target.value }))}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                placeholder="https://example.com"
+              />
+            </label>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Paste the provider home or search URL. We will grab the favicon automatically.
+          </p>
+
+          {faviconPreview && (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>Preview icon:</span>
+              <img src={faviconPreview} alt="Favicon preview" className="h-4 w-4" />
+            </div>
+          )}
+
+          {formError && (
+            <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {formError}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsFormOpen(false)
+                setFormState({ name: '', urlPattern: '' })
+                setFormError(null)
+              }}
+              className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Save provider
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div>
+        <label className="mb-2 block text-sm font-medium">Visible in search dropdown</label>
+        <div
+          className="min-h-[120px] rounded-lg border border-border bg-card p-2"
+          onDragOver={event => event.preventDefault()}
+          onDrop={event => handleDropOnList(event, 'enabled')}
+        >
+          {enabledProviders.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted-foreground">
+              Drag providers here to enable them.
             </p>
           ) : (
-            enabled.map((provider, index) => (
-              <div
-                key={provider.id}
-                draggable
-                onDragStart={() => handleDragStart(provider, 'enabled')}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  setDraggedOverIndex(index)
-                }}
-                onDrop={(e) => handleDropOnProvider(e, index, 'enabled')}
-                onDragLeave={() => setDraggedOverIndex(null)}
-                className={`flex items-center gap-2 p-2 rounded hover:bg-accent cursor-move transition-all ${
-                  draggedOverIndex === index && draggedFrom === 'enabled' ? 'border-t-2 border-primary' : ''
-                }`}
-              >
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
-                <img src={provider.icon} alt={provider.name} className="w-5 h-5" />
-                <span className="flex-1 text-sm">{provider.name}</span>
-                <button
-                  onClick={() => disableProvider(provider.id)}
-                  className="p-1 hover:bg-background rounded"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))
+            enabledProviders.map((provider, index) => renderProviderRow(provider, index, 'enabled'))
           )}
         </div>
       </div>
 
-      {/* Disabled Providers */}
       <div>
-        <label className="text-sm font-medium mb-2 block">Disabled providers</label>
+        <label className="mb-2 block text-sm font-medium">Disabled providers</label>
         <div
-          className="border rounded-lg p-2 min-h-[60px] bg-muted/20"
-          onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, 'disabled')}
+          className="min-h-[80px] rounded-lg border border-border bg-muted/10 p-2"
+          onDragOver={event => event.preventDefault()}
+          onDrop={event => handleDropOnList(event, 'disabled')}
         >
-          {disabled.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-2">
-              Drag here to disable a provider
+          {disabledProviders.length === 0 ? (
+            <p className="py-3 text-center text-xs text-muted-foreground">
+              Drag providers here to hide them from the dropdown.
             </p>
           ) : (
-            disabled.map((provider, index) => (
-              <div
-                key={provider.id}
-                draggable
-                onDragStart={() => handleDragStart(provider, 'disabled')}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  setDraggedOverIndex(index)
-                }}
-                onDrop={(e) => handleDropOnProvider(e, index, 'disabled')}
-                onDragLeave={() => setDraggedOverIndex(null)}
-                className={`flex items-center gap-2 p-2 rounded hover:bg-accent cursor-move opacity-60 transition-all ${
-                  draggedOverIndex === index && draggedFrom === 'disabled' ? 'border-t-2 border-primary' : ''
-                }`}
-              >
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
-                <img src={provider.icon} alt={provider.name} className="w-5 h-5" />
-                <span className="flex-1 text-sm">{provider.name}</span>
-                <button
-                  onClick={() => enableProvider(provider.id)}
-                  className="p-1 hover:bg-background rounded"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-            ))
+            disabledProviders.map((provider, index) => renderProviderRow(provider, index, 'disabled'))
           )}
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { ProviderDropdown } from './ProviderDropdown'
 import { CommandPalette } from './CommandPalette'
 import { SearchDropdown } from './SearchDropdown'
-import { useProviderStore } from '../stores/providerStore'
+import { useProviderStore, type Provider } from '../stores/providerStore'
 import { useAgentsStore } from '../stores/agentsStore'
 
 interface CommandInputProps {
@@ -18,7 +18,7 @@ export function CommandInput({ onCreateAgent }: CommandInputProps = {}) {
   const [executingAgentName, setExecutingAgentName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const { getSelectedProvider, executeProviderAction, executeAgent, getAllProviders } = useProviderStore()
+  const { getSelectedProvider, executeProviderAction, executeAgent } = useProviderStore()
   const { agents, selectedAgentId } = useAgentsStore()
   
   const selectedProvider = getSelectedProvider()
@@ -28,24 +28,10 @@ export function CommandInput({ onCreateAgent }: CommandInputProps = {}) {
     inputRef.current?.focus()
   }, [])
   
-  const handleProviderSelect = async (provider: any, query: string) => {
+  const handleProviderSelect = async (provider: Provider, query: string) => {
     setShowSearchDropdown(false)
-    
-    // Find the full provider configuration from the store
-    let fullProvider = getAllProviders().find(p => p.id === provider.id)
-    
-    // Handle special case for browseros dropdown option
-    if (provider.id === 'browseros') {
-      fullProvider = getAllProviders().find(p => p.id === 'browseros-agent')
-    }
-    
-    if (fullProvider) {
-      // Use centralized executeProviderAction for all providers
-      await executeProviderAction(fullProvider, query)
-    } else {
-      console.warn('Provider not found:', provider.id)
-    }
-    
+
+    await executeProviderAction(provider, query)
     setValue('')
   }
 

@@ -54,6 +54,9 @@ import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
 import { createDateTool } from "@/lib/tools/utility/DateTool";
 import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
+// Evals2: lightweight tool wrapper + flag
+import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
+import { ENABLE_EVALS2 } from '@/config';
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -993,8 +996,13 @@ export class NewAgent {
         this._emitDevModeDebug("Error", errorMsg);
       } else {
         try {
-          // Execute tool
-          toolResult = await tool.func(args);
+          // Execute tool (wrap for evals2 metrics if enabled)
+          let toolFunc = tool.func;
+          if (ENABLE_EVALS2) {
+            const wrapped = wrapToolForMetrics(tool, this.executionContext, toolCallId);
+            toolFunc = wrapped.func;
+          }
+          toolResult = await toolFunc(args);
         } catch (error) {
           // Even on execution error, we must add a tool result
           const errorMsg = `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;

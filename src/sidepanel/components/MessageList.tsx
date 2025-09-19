@@ -203,24 +203,26 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
         role="region"
         aria-label="Welcome screen with example prompts"
       >
-              {/* Animated paw prints running across the screen */}
-      {/*<AnimatedPawPrints />*/}
-
-      {/* Orange glow spotlights removed */}
-
-        {/* Main content */}
-        <div className="relative z-0">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-foreground animate-fade-in-up">
-              Welcome to BrowserOS
+        {/* Main content - vertically centered */}
+        <div className="relative z-0 flex flex-col items-center justify-center min-h-0 max-w-md w-full">
+          {/* Main tagline with logo */}
+          <div className="mb-8 flex flex-col items-center">
+            <h2 className="text-3xl font-bold text-muted-foreground animate-fade-in-up flex items-baseline flex-wrap justify-center gap-2">
+              <span>Your <span className="text-brand">Agentic</span></span>
+              <span className="flex items-baseline gap-2">
+                web assistant
+                <img 
+                  src="/assets/browseros.svg" 
+                  alt="BrowserOS" 
+                  className="w-7 h-7 inline-block animate-fade-in-up"
+                  style={{ marginBottom: '2px' }}
+                />
+              </span>
             </h2>
-            <p className="text-muted-foreground text-lg animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              Your <span className="text-brand">agentic</span> web assistant
-            </p>
           </div>
 
           {/* Example Prompts */}
-          <div className="mb-8 mt-16">
+          <div className="mb-8 mt-2">
             <h3 className="text-lg font-semibold text-foreground mb-6 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
               What would you like to do?
             </h3>

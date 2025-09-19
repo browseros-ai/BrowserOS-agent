@@ -16,8 +16,8 @@ export type SessionMetadata = z.infer<typeof SessionMetadataSchema>;
  * Simplified Braintrust event manager that maintains session and parent span tracking
  * Much simpler than the original BraintrustEventCollector but keeps the useful parts
  */
-export class SimpleBraintrustEventManager {
-  private static instance: SimpleBraintrustEventManager | null = null;
+export class BraintrustEventManager {
+  private static instance: BraintrustEventManager | null = null;
   private logger: any = null;
   private initialized: boolean = false;
   private enabled: boolean = false;
@@ -27,11 +27,11 @@ export class SimpleBraintrustEventManager {
   private sessionScores: number[] = [];  // Track task scores for session average
   
   // Singleton pattern
-  static getInstance(): SimpleBraintrustEventManager {
-    if (!SimpleBraintrustEventManager.instance) {
-      SimpleBraintrustEventManager.instance = new SimpleBraintrustEventManager();
+  static getInstance(): BraintrustEventManager {
+    if (!BraintrustEventManager.instance) {
+      BraintrustEventManager.instance = new BraintrustEventManager();
     }
-    return SimpleBraintrustEventManager.instance;
+    return BraintrustEventManager.instance;
   }
   
   private constructor() {}

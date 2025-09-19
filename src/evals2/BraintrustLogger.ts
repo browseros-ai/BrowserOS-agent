@@ -23,7 +23,7 @@ function getTimeEfficiencyBucket(durationMs: number): string {
  * Simple Braintrust logger that only uploads scores
  * No complex spans, no session management, just scores
  */
-export class SimpleBraintrustLogger {
+export class BraintrustLogger {
   private logger: any = null;
   private initialized: boolean = false;
   
@@ -145,4 +145,4 @@ export class SimpleBraintrustLogger {
 }
 
 // Export singleton instance
-export const braintrustLogger = new SimpleBraintrustLogger();
+export const braintrustLogger = new BraintrustLogger();

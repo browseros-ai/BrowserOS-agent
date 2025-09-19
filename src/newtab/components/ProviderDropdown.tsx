@@ -1,10 +1,10 @@
 import React, { useRef, useEffect } from 'react'
 import { useProviderStore } from '../stores/providerStore'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Check } from 'lucide-react'
 
 export function ProviderDropdown() {
   const { 
-    getAllProviders, 
+    getEnabledProviders, 
     selectedProviderId, 
     isDropdownOpen, 
     selectProvider, 
@@ -15,7 +15,7 @@ export function ProviderDropdown() {
   
   const dropdownRef = useRef<HTMLDivElement>(null)
   const selectedProvider = getSelectedProvider()
-  const providers = getAllProviders()
+  const providers = getEnabledProviders()
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -78,7 +78,7 @@ export function ProviderDropdown() {
             >
               <span className="text-sm text-foreground">{provider.name}</span>
               {selectedProviderId === provider.id && (
-                <span className="text-primary text-xs">✓</span>
+                <Check className="w-3 h-3 text-primary" />
               )}
             </button>
           ))}
