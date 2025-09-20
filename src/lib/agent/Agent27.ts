@@ -194,8 +194,9 @@ export class NewAgent27 {
 
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
-    plannerOutput: PlannerOutput | PredefinedPlannerOutput;
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput | ExecutionHistorySummary;
     toolMessages: string[];
+    plannerIterations: number;
   }> = [];
   private toolDescriptions: string = getToolDescriptions();
 
@@ -359,16 +360,15 @@ export class NewAgent27 {
     // Add goal for context
     const goalMessage = plan.goal || task;
 
-    let iterations = 0;
     let allComplete = false;
 
-    while (!allComplete && iterations < MAX_PREDEFINED_PLAN_ITERATIONS) {
+    while (!allComplete && this.iterations < MAX_PREDEFINED_PLAN_ITERATIONS) {
       this.checkIfAborted();
-      iterations++;
+      this.iterations++;
 
       Logging.log(
         "NewAgent",
-        `Predefined plan iteration ${iterations}/${MAX_PREDEFINED_PLAN_ITERATIONS}`,
+        `Predefined plan iteration ${this.iterations}/${MAX_PREDEFINED_PLAN_ITERATIONS}`,
         "info"
       );
 
@@ -430,7 +430,7 @@ export class NewAgent27 {
     }
 
     // Check if we hit iteration limit
-    if (!allComplete && iterations >= MAX_PREDEFINED_PLAN_ITERATIONS) {
+    if (!allComplete && this.iterations >= MAX_PREDEFINED_PLAN_ITERATIONS) {
       this._publishMessage(
         `Predefined plan did not complete within ${MAX_PREDEFINED_PLAN_ITERATIONS} iterations`,
         "error"
@@ -453,18 +453,17 @@ export class NewAgent27 {
     }
 
     let done = false;
-    let plannerIterations = 0;
 
     // Publish start message
     this._publishMessage("Starting task execution...", "thinking");
 
-    while (!done && plannerIterations < MAX_PLANNER_ITERATIONS) {
+    while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
       this.checkIfAborted();
-      plannerIterations++;
+      this.iterations++;
 
       Logging.log(
         "NewAgent",
-        `Planning iteration ${plannerIterations}/${MAX_PLANNER_ITERATIONS}`,
+        `Planning iteration ${this.iterations}/${MAX_PLANNER_ITERATIONS}`,
         "info",
       );
 
@@ -538,7 +537,7 @@ export class NewAgent27 {
     }
 
     // Check if we hit planning iteration limit
-    if (!done && plannerIterations >= MAX_PLANNER_ITERATIONS) {
+    if (!done && this.iterations >= MAX_PLANNER_ITERATIONS) {
       this._publishMessage(
         `Task did not complete within ${MAX_PLANNER_ITERATIONS} planning iterations`,
         "error",
@@ -633,7 +632,15 @@ export class NewAgent27 {
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
         // Summarize execution history
         const summary = await this.summarizeExecutionHistory(fullHistory);
-        fullHistory = summary;
+        fullHistory = summary.summary;
+
+        // Clear the planner execution history after summarizing and add summarized state to the history
+        this.plannerExecutionHistory = [];
+        this.plannerExecutionHistory.push({
+          plannerOutput: summary,
+          toolMessages: [],
+          plannerIterations: this.iterations - 1, // Subtract 1 because the summary is for the previous iterations
+        });
       }
 
       Logging.log("NewAgent", `Full execution history: ${fullHistory}`, "info");
@@ -765,7 +772,7 @@ ${fullHistory}
         );
 
         // Update iteration count and metrics
-        this.iterations += llmResponse.tool_calls.length;
+        // this.iterations += llmResponse.tool_calls.length;
         for (const toolCall of llmResponse.tool_calls) {
           this.executionContext.incrementMetric("toolCalls");
           this.executionContext.incrementToolUsageMetrics(toolCall.name);
@@ -776,7 +783,8 @@ ${fullHistory}
           // Store the tool messages from this iteration before returning
           this.plannerExecutionHistory.push({
             plannerOutput,
-            toolMessages: currentIterationToolMessages
+            toolMessages: currentIterationToolMessages,
+            plannerIterations : this.iterations,
           });
 
           // Add all messages to message manager
@@ -794,7 +802,8 @@ ${fullHistory}
           // Store the tool messages from this iteration before returning
           this.plannerExecutionHistory.push({
             plannerOutput,
-            toolMessages: currentIterationToolMessages
+            toolMessages: currentIterationToolMessages,
+            plannerIterations : this.iterations,
           });
 
           // Add all messages to message manager
@@ -830,7 +839,8 @@ ${fullHistory}
     // Store the tool messages from this iteration
     this.plannerExecutionHistory.push({
       plannerOutput,
-      toolMessages: currentIterationToolMessages
+      toolMessages: currentIterationToolMessages,
+      plannerIterations : this.iterations,
     });
 
     return { completed: false };
@@ -1232,13 +1242,22 @@ ${fullHistory}
       // Get accumulated execution history from all iterations
       var fullHistory = this._buildPlannerExecutionHistory();
 
-      const systemPrompt = generatePredefinedPlannerPrompt();
+      const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
       const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
       Logging.log("NewAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
         const summary = await this.summarizeExecutionHistory(fullHistory);
-        fullHistory = summary;
+
+        // Clear the planner execution history after summarizing and add summarized state to the history
+        this.plannerExecutionHistory = [];
+        this.plannerExecutionHistory.push({
+          plannerOutput: summary,
+          toolMessages: [],
+          plannerIterations: this.iterations - 1, // Subtract 1 because the summary is for the previous iterations
+        });
+
+        fullHistory = summary.summary;
       }
 
       // Get LLM with structured output
@@ -1330,10 +1349,17 @@ ${fullHistory}
     }
 
     return this.plannerExecutionHistory.map((entry, index) => {
-      const iteration = index + 1;
       let plannerSection = "";
 
-      if ('proposedActions' in entry.plannerOutput) {
+      if ('summary' in entry.plannerOutput) {
+        // Type is of ExecutionHistorySummary
+        const summary = entry.plannerOutput as ExecutionHistorySummary;
+        const iterationNumber = entry.plannerIterations;
+
+        return `=== ITERATIONS 1-${iterationNumber} SUMMARY ===\n${summary.summary}`;
+      }
+
+      if (!('todoMarkdown' in entry.plannerOutput)) {
         // Dynamic planner output
         const plan = entry.plannerOutput as PlannerOutput;
         plannerSection = `PLANNER OUTPUT:
@@ -1353,19 +1379,20 @@ ${fullHistory}
 - Challenges Identified: ${plan.challengesIdentified}
 - Reasoning: ${plan.stepByStepReasoning}
 - TODO Markdown: ${plan.todoMarkdown}
-- Proposed Actions: ${plan.proposedActions.join(', ')}
-- All TODOs Complete: ${plan.allTodosComplete}`;
+- Proposed Actions: ${plan.proposedActions.join(', ')}`;
       }
 
       const toolSection = entry.toolMessages.length > 0
         ? `TOOL EXECUTIONS:\n${entry.toolMessages.join('\n')}`
         : "No tool executions";
 
-      return `=== ITERATION ${iteration} ===\n${plannerSection}\n\n${toolSection}`;
+      const iterationNumber = entry.plannerIterations;
+
+      return `=== ITERATION ${iterationNumber} ===\n${plannerSection}\n\n${toolSection}`;
     }).join('\n\n');
   }
 
-  private async summarizeExecutionHistory(history: string): Promise<string> {
+  private async summarizeExecutionHistory(history: string): Promise<ExecutionHistorySummary> {
 
     // Get LLM with structured output
     const llm = await getLLM({
@@ -1380,7 +1407,7 @@ ${fullHistory}
       new HumanMessage(userPrompt),
     ];
     const result = await invokeWithRetry<ExecutionHistorySummary>(structuredLLM, messages, 3, { signal: this.executionContext.abortSignal });
-    return result.summary;
+    return result;
 
   }
 
