@@ -1242,7 +1242,7 @@ ${fullHistory}
       // Get accumulated execution history from all iterations
       var fullHistory = this._buildPlannerExecutionHistory();
 
-      const systemPrompt = generatePredefinedPlannerPrompt();
+      const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
       const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
       Logging.log("NewAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
