@@ -339,12 +339,6 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
     return lastMessage?.msgId === message.msgId
   }, [message.role, message.msgId, messages])
   
-  // Check if this is the latest narration message (for shimmer effect)
-  const isLatestNarration = useMemo(() => {
-    if (message.role !== 'narration') return false
-    const lastMessage = messages[messages.length - 1]
-    return lastMessage?.msgId === message.msgId
-  }, [message.role, message.msgId, messages])
   
   // Handle copy action for assistant messages
   const handleCopyMessage = useCallback(async () => {
@@ -357,7 +351,6 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
   const isUser = message.role === 'user'
   const isError = message.role === 'error'
   const isThinking = message.role === 'thinking'
-  const isNarration = message.role === 'narration'
   const isAssistant = message.role === 'assistant'
   
   // Special cases we still need to detect
@@ -501,15 +494,6 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           />
         )
 
-      case 'narration':
-        // Regular narration message - use MarkdownContent
-        return (
-          <MarkdownContent
-            content={message.content}
-            className="break-words text-xs text-muted-foreground/80"
-            compact={true}
-          />
-        )
 
       case 'assistant':
         // Final results - rich markdown with emphasis
@@ -610,7 +594,7 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           />
         )
     }
-  }, [message.role, message.content, message.msgId, message.metadata?.toolName, isTodoTable, autoCollapseTools, shouldIndent, isLatestThinking, isLatestNarration])
+  }, [message.role, message.content, message.msgId, message.metadata?.toolName, isTodoTable, autoCollapseTools, shouldIndent, isLatestThinking])
 
   return (
     <div 
