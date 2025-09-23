@@ -1,6 +1,7 @@
 import { Logging } from '@/lib/utils/Logging'
 import { RecordingSession } from '@/lib/teach-mode/recording/RecordingSession'
 import type { TeachModeMessage, TeachModeRecording, CapturedEvent } from '@/lib/teach-mode/types'
+import { BrowserContext } from '@/lib/browser/BrowserContext'
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 
@@ -11,6 +12,7 @@ const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 export class TeachModeService {
   private static instance: TeachModeService
   private currentSession: RecordingSession | null = null
+  private browserContext: BrowserContext | null = null
   private navigationListener: ((details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void) | null = null
   private messageListener: ((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => void) | null = null
 
@@ -42,8 +44,19 @@ export class TeachModeService {
         throw new Error('Tab has no URL')
       }
 
-      // Create new recording session
-      this.currentSession = new RecordingSession(tabId, tab.url)
+      // Initialize browser context for state capture
+      try {
+        this.browserContext = new BrowserContext()
+        // BrowserContext will automatically manage the tab when we request pages
+        Logging.log('TeachModeService', `Initialized browser context for tab ${tabId}`)
+      } catch (error) {
+        Logging.log('TeachModeService', `Failed to initialize browser context: ${error}`, 'warning')
+        // Continue without browser context - state capture will be skipped
+        this.browserContext = null
+      }
+
+      // Create new recording session with browser context
+      this.currentSession = new RecordingSession(tabId, tab.url, this.browserContext || undefined)
 
       // Capture viewport information
       const viewport = await this._captureViewport(tabId)
@@ -93,6 +106,16 @@ export class TeachModeService {
       // Stop session and get recording
       const recording = this.currentSession.stop()
       this.currentSession = null
+
+      // Clean up browser context
+      if (this.browserContext) {
+        try {
+          await this.browserContext.cleanup()
+        } catch (error) {
+          Logging.log('TeachModeService', `Failed to clean up browser context: ${error}`, 'warning')
+        }
+        this.browserContext = null
+      }
 
       // Save recording to storage
       await this._saveRecording(recording)
@@ -302,5 +325,18 @@ export class TeachModeService {
       Logging.log('TeachModeService', `Recording tab ${tabId} was closed, stopping recording`)
       this.stopRecording()
     }
+  }
+
+  /**
+   * Clean up resources
+   */
+  cleanup(): void {
+    if (this.browserContext) {
+      this.browserContext.cleanup().catch((error: any) => {
+        Logging.log('TeachModeService', `Failed to clean up browser context: ${error}`, 'warning')
+      })
+      this.browserContext = null
+    }
+    this.currentSession = null
   }
 }

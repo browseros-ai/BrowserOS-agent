@@ -62,10 +62,32 @@ export const CapturedEventSchema = z.object({
   deviceScaleFactor: z.number().optional(),
   isMobile: z.boolean().optional(),
   hasTouch: z.boolean().optional(),
-  isLandscape: z.boolean().optional()
+  isLandscape: z.boolean().optional(),
+
+  // State captured after event (100ms delay)
+  state: z.object({
+    timestamp: z.number(),  // When state was captured
+    browserStateString: z.string(),  // Text representation of page state
+    screenshot: z.string().optional(),  // Base64 encoded screenshot
+    url: z.string(),  // Current URL
+    title: z.string(),  // Page title
+    tabId: z.number()  // Tab ID
+  }).optional()
 })
 
 export type CapturedEvent = z.infer<typeof CapturedEventSchema>
+
+// Browser state captured after events
+export const BrowserStateSchema = z.object({
+  timestamp: z.number(),  // When state was captured
+  browserStateString: z.string(),  // Text representation of page state
+  screenshot: z.string().optional(),  // Base64 encoded screenshot
+  url: z.string(),  // Current URL
+  title: z.string(),  // Page title
+  tabId: z.number()  // Tab ID
+})
+
+export type BrowserState = z.infer<typeof BrowserStateSchema>
 
 // Recording session metadata
 export const RecordingMetadataSchema = z.object({
