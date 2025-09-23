@@ -84,7 +84,7 @@ export class RecordingSession {
 
     // Schedule state capture for significant interaction events (100ms delay)
     // We capture state after actions that change the page state
-    const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation']
+    const stateChangeEvents = ['click', 'dblclick', 'change', 'scroll', 'type', 'navigation', 'session_start', 'session_end']
     if (stateChangeEvents.includes(event.action.type) && this.browserContext) {
       this._scheduleStateCapture(event)
     }
