@@ -93,24 +93,30 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
     private computeSelectors(element: Element): Selectors {
       const selectors: Selectors = {}
 
-      // CSS selector - simple for Phase 1
+      // CSS selector - improved
       try {
-        if (element.id) {
-          selectors.css = `#${element.id}`
-        } else if (element.className) {
-          selectors.css = `.${element.className.split(' ').join('.')}`
-        } else {
-          selectors.css = element.tagName.toLowerCase()
-        }
+        selectors.css = this.getCSSSelector(element)
       } catch (e) {
         console.error('[TeachModeRecorder] Failed to compute CSS selector', e)
       }
 
-      // XPath - simple for Phase 1
+      // XPath
       try {
         selectors.xpath = this.getXPath(element)
       } catch (e) {
         console.error('[TeachModeRecorder] Failed to compute XPath', e)
+      }
+
+      // ARIA selector
+      const ariaLabel = element.getAttribute('aria-label')
+      const ariaLabelledBy = element.getAttribute('aria-labelledby')
+      const role = element.getAttribute('role')
+
+      if (ariaLabel) {
+        selectors.ariaLabel = ariaLabel
+      }
+      if (role) {
+        selectors.css = `[role="${role}"]${selectors.css ? ` ${selectors.css}` : ''}`
       }
 
       // Text content
@@ -122,7 +128,53 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       // Tag name
       selectors.tagName = element.tagName.toLowerCase()
 
+      // Data test id (common in modern apps)
+      const dataTestId = element.getAttribute('data-testid') || element.getAttribute('data-test-id')
+      if (dataTestId) {
+        selectors.dataTestId = dataTestId
+      }
+
       return selectors
+    }
+
+    /**
+     * Get better CSS selector for element
+     */
+    private getCSSSelector(element: Element): string {
+      // Priority: ID > data-testid > specific class > tag with attributes
+      if (element.id) {
+        return `#${CSS.escape(element.id)}`
+      }
+
+      const dataTestId = element.getAttribute('data-testid') || element.getAttribute('data-test-id')
+      if (dataTestId) {
+        return `[data-testid="${CSS.escape(dataTestId)}"]`
+      }
+
+      // Build selector with classes
+      let selector = element.tagName.toLowerCase()
+
+      if (element.className && typeof element.className === 'string') {
+        const classes = element.className.trim().split(/\s+/)
+          .filter(cls => cls.length > 0)
+          .map(cls => `.${CSS.escape(cls)}`)
+          .join('')
+        if (classes) {
+          selector += classes
+        }
+      }
+
+      // Add key attributes for better specificity
+      const type = element.getAttribute('type')
+      const name = element.getAttribute('name')
+      if (type) {
+        selector += `[type="${CSS.escape(type)}"]`
+      }
+      if (name) {
+        selector += `[name="${CSS.escape(name)}"]`
+      }
+
+      return selector
     }
 
     /**
@@ -221,44 +273,38 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
 
       this.setInitialInputTarget(event)
 
-      this.sendEvent({
-        type: 'keydown',
-        key: event.key,
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey
-      })
+      // Only record special navigation keys, not regular typing
+      const specialKeys = ['Enter', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']
+      if (specialKeys.includes(event.key)) {
+        this.sendEvent({
+          type: 'keydown',
+          key: event.key,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey
+        })
+      }
     }
 
     private handleKeyUp = (event: KeyboardEvent): void => {
       if (!event.isTrusted) return
 
-      this.sendEvent({
-        type: 'keyup',
-        key: event.key
-      })
+      // Only record keyup for special keys
+      const specialKeys = ['Enter', 'Tab', 'Escape']
+      if (specialKeys.includes(event.key)) {
+        this.sendEvent({
+          type: 'keyup',
+          key: event.key
+        })
+      }
     }
 
     private handleInput = (event: Event): void => {
+      // We don't record individual input events anymore
+      // The 'change' event will capture the final value
       if (!event.isTrusted) return
-
       this.setInitialInputTarget(event)
-      const { element, selectors } = this.initialInputTarget
-
-      // Get value from element
-      let value = ''
-      if ('value' in element) {
-        value = (element as HTMLInputElement).value
-      } else if (element.textContent) {
-        value = element.textContent
-      }
-
-      this.sendEvent({
-        type: 'input',
-        selectors,
-        value
-      })
     }
 
     private handleChange = (event: Event): void => {
@@ -297,12 +343,19 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (!event.isTrusted) return
 
       this.setInitialPointerTarget(event)
-      const { selectors } = this.initialPointerTarget
+      const { element, selectors } = this.initialPointerTarget
+
+      // Calculate offset position within the element
+      const rect = element.getBoundingClientRect()
+      const offsetX = event.clientX - rect.left
+      const offsetY = event.clientY - rect.top
 
       this.sendEvent({
         type: 'click',
         selectors,
         button: event.button,
+        offsetX: Math.round(offsetX),
+        offsetY: Math.round(offsetY),
         altKey: event.altKey,
         ctrlKey: event.ctrlKey,
         metaKey: event.metaKey,
@@ -314,12 +367,19 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (!event.isTrusted) return
 
       this.setInitialPointerTarget(event)
-      const { selectors } = this.initialPointerTarget
+      const { element, selectors } = this.initialPointerTarget
+
+      // Calculate offset position within the element
+      const rect = element.getBoundingClientRect()
+      const offsetX = event.clientX - rect.left
+      const offsetY = event.clientY - rect.top
 
       this.sendEvent({
         type: 'dblclick',
         selectors,
-        button: event.button
+        button: event.button,
+        offsetX: Math.round(offsetX),
+        offsetY: Math.round(offsetY)
       })
     }
 

@@ -28,6 +28,23 @@ export class RecordingSession {
   }
 
   /**
+   * Add viewport information
+   */
+  addViewport(viewport: {
+    width: number
+    height: number
+    deviceScaleFactor: number
+    isMobile: boolean
+    hasTouch: boolean
+    isLandscape: boolean
+  }): void {
+    this.addEvent({
+      type: 'setViewport',
+      ...viewport
+    })
+  }
+
+  /**
    * Add a captured event to the session
    */
   addEvent(eventData: Partial<CapturedEvent> & { type: EventType }): void {
