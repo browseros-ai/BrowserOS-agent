@@ -19,6 +19,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
   class TeachModeRecorder {
     private isRecording = false
     private eventCounter = 0
+    private port: chrome.runtime.Port | null = null  // Port connection to service
 
     // Track initial targets for precise selector computation
     private initialInputTarget: { element: Element; context: ElementContext } | null = null
@@ -49,6 +50,21 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Starting recording')
       this.isRecording = true
+
+      // Establish port connection to service for lifecycle monitoring
+      try {
+        this.port = chrome.runtime.connect({ name: 'teach-mode-recorder' })
+        console.log('[TeachModeRecorder] Port connection established')
+
+        // Port disconnect handler (in case service disconnects us)
+        this.port.onDisconnect.addListener(() => {
+          console.log('[TeachModeRecorder] Port disconnected by service')
+          this.port = null
+          // If we're still supposed to be recording, the service will re-inject us
+        })
+      } catch (error) {
+        console.error('[TeachModeRecorder] Failed to establish port connection', error)
+      }
 
       // Initialize scroll position
       this.lastScrollPosition = {
@@ -82,6 +98,17 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Stopping recording')
       this.isRecording = false
+
+      // Disconnect port connection
+      if (this.port) {
+        try {
+          this.port.disconnect()
+          console.log('[TeachModeRecorder] Port disconnected')
+        } catch (error) {
+          // Port might already be disconnected
+        }
+        this.port = null
+      }
 
       // Clear any pending scroll timer
       if (this.scrollTimer) {

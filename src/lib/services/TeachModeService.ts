@@ -16,10 +16,13 @@ export class TeachModeService {
   private browserContext: BrowserContext | null = null
   private navigationListener: ((details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void) | null = null
   private messageListener: ((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => void) | null = null
+  private recorderPort: chrome.runtime.Port | null = null  // Track active recorder port connection
+  private injectedTabId: number | null = null  // Track which tab has the content script injected
 
   private constructor() {
     this._setupNavigationListener()
     this._setupMessageListener()
+    this._setupPortListener()
   }
 
   static getInstance(): TeachModeService {
@@ -67,6 +70,7 @@ export class TeachModeService {
 
       // Inject content script
       await this._injectContentScript(tabId)
+      this.injectedTabId = tabId  // Track that we've injected into this tab
 
       // Send start message
       await chrome.tabs.sendMessage(tabId, {
@@ -107,6 +111,17 @@ export class TeachModeService {
       // Stop session and get recording
       const recording = this.currentSession.stop()
       this.currentSession = null
+      this.injectedTabId = null  // Clear injected tab tracking
+
+      // Clean up port if exists
+      if (this.recorderPort) {
+        try {
+          this.recorderPort.disconnect()
+        } catch (error) {
+          // Port might already be disconnected
+        }
+        this.recorderPort = null
+      }
 
       // Clean up browser context
       if (this.browserContext) {
@@ -218,6 +233,7 @@ export class TeachModeService {
     }
 
     chrome.webNavigation.onCommitted.addListener(this.navigationListener)
+    chrome.webNavigation.onHistoryStateUpdated.addListener(this.navigationListener)  // Also listen for SPA navigation
   }
 
   /**
@@ -232,6 +248,7 @@ export class TeachModeService {
 
       // Re-inject script
       await this._injectContentScript(tabId)
+      this.injectedTabId = tabId  // Update tracking
 
       // Restart recording
       await chrome.tabs.sendMessage(tabId, {
@@ -364,6 +381,8 @@ export class TeachModeService {
       this.browserContext = null
     }
     this.currentSession = null
+    this.injectedTabId = null
+    this.recorderPort = null
   }
 
   // ============= Storage Management =============
@@ -430,5 +449,38 @@ export class TeachModeService {
   async searchRecordings(query: string): Promise<any[]> {
     const storage = RecordingStorage.getInstance()
     return await storage.search(query)
+  }
+
+  /**
+   * Setup port listener for content script connection monitoring
+   */
+  private _setupPortListener(): void {
+    chrome.runtime.onConnect.addListener((port) => {
+      // Only handle teach mode recorder ports
+      if (port.name !== 'teach-mode-recorder') return
+
+      // Store the port reference
+      this.recorderPort = port
+      Logging.log('TeachModeService', `Recorder connected from tab ${port.sender?.tab?.id}`)
+
+      // Handle port disconnect - content script died or page navigated
+      port.onDisconnect.addListener(() => {
+        Logging.log('TeachModeService', `Recorder disconnected from tab ${port.sender?.tab?.id}`)
+        this.recorderPort = null
+
+        // Only re-inject if we're still recording and this is the recording tab
+        if (this.currentSession && this.injectedTabId &&
+            this.currentSession.getTabId() === this.injectedTabId) {
+          Logging.log('TeachModeService', `Re-injecting content script after disconnect on tab ${this.injectedTabId}`)
+
+          // Re-inject after a small delay to let the page settle
+          setTimeout(() => {
+            if (this.currentSession && this.injectedTabId) {
+              this._reinjectContentScript(this.injectedTabId)
+            }
+          }, 100)
+        }
+      })
+    })
   }
 }
