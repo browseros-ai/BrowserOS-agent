@@ -1,5 +1,8 @@
 import { CapturedEvent, EventType, RecordingMetadata, TeachModeRecording } from '@/lib/teach-mode/types'
 import { Logging } from '@/lib/utils/Logging'
+import { isDevelopmentMode } from '@/config'
+import { PubSub } from '@/lib/pubsub'
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 
 /**
  * Manages a single recording session
@@ -9,6 +12,8 @@ export class RecordingSession {
   private metadata: RecordingMetadata
   private events: CapturedEvent[] = []
   private eventCounter = 0
+  private isDebugMode = isDevelopmentMode()
+  private pubsub: PubSubChannel
 
   constructor(tabId: number, url: string) {
     this.metadata = {
@@ -17,6 +22,9 @@ export class RecordingSession {
       tabId,
       url
     }
+
+    // Use the main PubSub channel for messages
+    this.pubsub = PubSub.getChannel('main')
 
     // Add session start event
     this.addEvent({
@@ -56,6 +64,9 @@ export class RecordingSession {
 
     this.events.push(event)
     Logging.log('RecordingSession', `Added event: ${event.type} (${event.id})`)
+
+    // Emit debug message to sidepanel in dev mode
+    this._emitDebugMessage(event.type, eventData)
   }
 
   /**
@@ -112,5 +123,18 @@ export class RecordingSession {
    */
   getTabId(): number {
     return this.metadata.tabId
+  }
+
+  /**
+   * Emit debug message to sidepanel in dev mode
+   */
+  private _emitDebugMessage(eventType: EventType, eventData: Partial<CapturedEvent>): void {
+    if (!this.isDebugMode) return
+
+
+    // Publish message to sidepanel
+    this.pubsub.publishMessage(
+      PubSub.createMessage(`[TEACH MODE] ${eventType}`, 'thinking')
+    )
   }
 }
