@@ -25,6 +25,12 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     private initialPointerTarget: { element: Element; context: ElementContext } | null = null
     private pointerDownTimestamp = 0
 
+    // Scroll tracking
+    private scrollTimer: NodeJS.Timeout | null = null
+    private lastScrollPosition = { x: 0, y: 0 }
+    private scrollStartPosition = { x: 0, y: 0 }
+    private scrollTarget: { element: Element; context: ElementContext } | null = null
+
     constructor() {
       console.log('[TeachModeRecorder] Initialized')
 
@@ -44,6 +50,12 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       console.log('[TeachModeRecorder] Starting recording')
       this.isRecording = true
 
+      // Initialize scroll position
+      this.lastScrollPosition = {
+        x: window.scrollX,
+        y: window.scrollY
+      }
+
       // Add event listeners in capture phase (following Chrome pattern)
       window.addEventListener('keydown', this.handleKeyDown, true)
       window.addEventListener('keyup', this.handleKeyUp, true)
@@ -54,6 +66,10 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       window.addEventListener('click', this.handleClick, true)
       window.addEventListener('auxclick', this.handleClick, true)
       window.addEventListener('dblclick', this.handleDoubleClick, true)
+
+      // Scroll events - capture phase for both window and element scrolls
+      window.addEventListener('scroll', this.handleScroll, true)
+      window.addEventListener('wheel', this.handleWheel, { passive: true, capture: true })
 
       window.addEventListener('beforeunload', this.handleBeforeUnload, true)
     }
@@ -67,6 +83,12 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       console.log('[TeachModeRecorder] Stopping recording')
       this.isRecording = false
 
+      // Clear any pending scroll timer
+      if (this.scrollTimer) {
+        clearTimeout(this.scrollTimer)
+        this.scrollTimer = null
+      }
+
       // Remove event listeners
       window.removeEventListener('keydown', this.handleKeyDown, true)
       window.removeEventListener('keyup', this.handleKeyUp, true)
@@ -77,6 +99,9 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       window.removeEventListener('click', this.handleClick, true)
       window.removeEventListener('auxclick', this.handleClick, true)
       window.removeEventListener('dblclick', this.handleDoubleClick, true)
+
+      window.removeEventListener('scroll', this.handleScroll, true)
+      window.removeEventListener('wheel', this.handleWheel, true)
 
       window.removeEventListener('beforeunload', this.handleBeforeUnload, true)
     }
@@ -451,6 +476,111 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
         type: 'beforeunload',
         action: {}
       })
+    }
+
+    private handleScroll = (event: Event): void => {
+      if (!event.isTrusted) return
+
+      // Clear any pending timer
+      if (this.scrollTimer) {
+        clearTimeout(this.scrollTimer)
+      }
+
+      // Get the scrolling target
+      const target = event.target
+
+      // Check if it's a document/window scroll or element scroll
+      const isDocumentScroll = target === document || target === document.documentElement || target === document.body || target === window
+
+      if (isDocumentScroll) {
+        // Window/document scroll
+        if (!this.scrollTarget) {
+          this.scrollStartPosition = {
+            x: window.scrollX,
+            y: window.scrollY
+          }
+          this.scrollTarget = null  // No element context for document scroll
+        }
+      } else if (target instanceof Element) {
+        // Element scroll
+        const element = target
+
+        // Track scroll start position on first scroll or element change
+        if (!this.scrollTarget || this.scrollTarget.element !== element) {
+          this.scrollStartPosition = {
+            x: element.scrollLeft,
+            y: element.scrollTop
+          }
+
+          this.scrollTarget = {
+            element,
+            context: this.computeElementContext(element)
+          }
+        }
+      } else {
+        // Not a valid scroll target
+        return
+      }
+
+      // Throttle scroll events - only record after scrolling stops for 150ms
+      this.scrollTimer = setTimeout(() => {
+        this.recordScrollEvent()
+      }, 150) as any
+    }
+
+    private handleWheel = (event: WheelEvent): void => {
+      // Wheel events can trigger scroll, but we'll capture via scroll event
+      // This is just to detect user intent to scroll
+      if (!event.isTrusted) return
+
+      // We don't need to record wheel separately since scroll event will fire
+      // But we could use this to detect scroll direction intent if needed
+    }
+
+    private recordScrollEvent(): void {
+      // Get current scroll position
+      let currentX = 0
+      let currentY = 0
+      let deltaX = 0
+      let deltaY = 0
+
+      if (!this.scrollTarget) {
+        // Window/document scroll
+        currentX = window.scrollX
+        currentY = window.scrollY
+        deltaX = currentX - this.scrollStartPosition.x
+        deltaY = currentY - this.scrollStartPosition.y
+      } else {
+        // Element scroll
+        const element = this.scrollTarget.element
+        currentX = element.scrollLeft
+        currentY = element.scrollTop
+        deltaX = currentX - this.scrollStartPosition.x
+        deltaY = currentY - this.scrollStartPosition.y
+      }
+
+      // Only record if there was actual scrolling
+      if (deltaX === 0 && deltaY === 0) return
+
+      // Send scroll event
+      this.sendEvent({
+        type: 'scroll',
+        target: this.scrollTarget?.context,
+        action: {
+          scroll: {
+            x: currentX,
+            y: currentY,
+            deltaX,
+            deltaY
+          }
+        }
+      })
+
+      // Update last position
+      this.lastScrollPosition = { x: currentX, y: currentY }
+
+      // Reset scroll tracking
+      this.scrollTarget = null
     }
   }
 
