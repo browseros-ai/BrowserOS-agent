@@ -1,135 +1,281 @@
 import { z } from 'zod'
 
-// Event types that we'll capture
-export const EventTypeSchema = z.enum([
-  'session_start',
-  'session_end',
-  'setViewport',
-  'click',
-  'dblclick',
-  'input',
-  'change',
-  'keydown',
-  'keyup',
-  'beforeunload',
-  'navigation'
+// ============================================
+// Action Types
+// ============================================
+
+// Action types - unified and clear
+export const ActionTypeSchema = z.enum([
+  'session_start',  // Recording session start
+  'session_end',    // Recording session end
+  'click',          // Mouse click
+  'dblclick',       // Double click
+  'input',          // Text input
+  'change',         // Input change
+  'keydown',        // Key down event
+  'keyup',          // Key up event
+  'beforeunload',   // Page unload
+  'navigation',     // URL navigation
+  'scroll',         // Page scroll
+  'type',           // Text input/typing (alias for input)
+  'keypress',       // Keyboard press (non-text)
+  'navigate'        // URL navigation (alias for navigation)
 ])
 
-export type EventType = z.infer<typeof EventTypeSchema>
+// ============================================
+// Element Context (Rich target information)
+// ============================================
 
-// Selectors for elements (improved with ARIA and data-testid)
-export const SelectorsSchema = z.object({
-  css: z.string().optional(),  // CSS selector
-  xpath: z.string().optional(),  // XPath selector
-  text: z.string().optional(),  // Text content
-  ariaLabel: z.string().optional(),  // ARIA label
-  dataTestId: z.string().optional(),  // data-testid attribute
-  tagName: z.string().optional()  // Tag name for context
+export const ElementContextSchema = z.object({
+  nodeId: z.number().optional(),  // BrowserOS nodeId if available
+
+  // Multiple selector strategies for resilience
+  selectors: z.object({
+    css: z.string().optional(),  // CSS selector
+    xpath: z.string().optional(),  // XPath
+    text: z.string().optional(),  // Text content selector
+    ariaLabel: z.string().optional(),  // ARIA label
+    dataTestId: z.string().optional(),  // data-testid
+    id: z.string().optional(),  // Element ID
+    className: z.string().optional()  // Class names
+  }),
+
+  // Element details for context
+  element: z.object({
+    tagName: z.string(),  // HTML tag
+    type: z.string().optional(),  // Input type
+    text: z.string().optional(),  // Inner text
+    value: z.string().optional(),  // Current value
+    placeholder: z.string().optional(),  // Placeholder text
+    attributes: z.record(z.string(), z.string()),  // All attributes
+
+    // Visual information
+    boundingBox: z.object({
+      x: z.number(),  // X position
+      y: z.number(),  // Y position
+      width: z.number(),  // Width
+      height: z.number()  // Height
+    }),
+
+    isVisible: z.boolean(),  // Visibility state
+    isInteractive: z.boolean().optional(),  // Can interact
+    isDisabled: z.boolean().optional()  // Disabled state
+  }),
 })
 
-export type Selectors = z.infer<typeof SelectorsSchema>
+// ============================================
+// State Snapshot
+// ============================================
 
-// Basic captured event for Phase 1
-export const CapturedEventSchema = z.object({
-  id: z.string(),  // Unique event ID
-  type: EventTypeSchema,  // Event type
-  timestamp: z.number(),  // When it occurred
+export const StateSnapshotSchema = z.object({
+  timestamp: z.number(),  // When captured
 
-  // Element selectors (for interaction events)
-  selectors: SelectorsSchema.optional(),
-
-  // Event-specific data
-  value: z.string().optional(),  // Input value
-  key: z.string().optional(),  // Key pressed
-  button: z.number().optional(),  // Mouse button
-
-  // Click position
-  offsetX: z.number().optional(),  // X position within element
-  offsetY: z.number().optional(),  // Y position within element
-
-  // Modifiers
-  altKey: z.boolean().optional(),
-  ctrlKey: z.boolean().optional(),
-  metaKey: z.boolean().optional(),
-  shiftKey: z.boolean().optional(),
-
-  // Navigation data
-  url: z.string().optional(),
-
-  // Viewport data (for setViewport event)
-  width: z.number().optional(),
-  height: z.number().optional(),
-  deviceScaleFactor: z.number().optional(),
-  isMobile: z.boolean().optional(),
-  hasTouch: z.boolean().optional(),
-  isLandscape: z.boolean().optional(),
-
-  // State captured after event (100ms delay)
-  state: z.object({
-    timestamp: z.number(),  // When state was captured
-    browserStateString: z.string(),  // Text representation of page state
-    screenshot: z.string().optional(),  // Base64 encoded screenshot
+  // Page information
+  page: z.object({
     url: z.string(),  // Current URL
     title: z.string(),  // Page title
-    tabId: z.number()  // Tab ID
+  }),
+
+  // BrowserOS interactive snapshot
+  browserState: z.object({
+    string: z.string(),  // Text representation
+  }).optional(),
+
+  // Visual capture
+  screenshot: z.string().optional(),  // Base64 screenshot
+
+  // Additional context
+  viewport: z.object({
+    scrollX: z.number(),  // Scroll position X
+    scrollY: z.number(),  // Scroll position Y
+    innerWidth: z.number(),  // Viewport width
+    innerHeight: z.number()  // Viewport height
   }).optional()
 })
 
-export type CapturedEvent = z.infer<typeof CapturedEventSchema>
+// ============================================
+// Event Structure
+// ============================================
 
-// Browser state captured after events
-export const BrowserStateSchema = z.object({
-  timestamp: z.number(),  // When state was captured
-  browserStateString: z.string(),  // Text representation of page state
-  screenshot: z.string().optional(),  // Base64 encoded screenshot
-  url: z.string(),  // Current URL
-  title: z.string(),  // Page title
-  tabId: z.number()  // Tab ID
+// Captured event with rich context
+export const CapturedEventSchema = z.object({
+  id: z.string(),  // Unique event ID
+  timestamp: z.number(),  // Unix timestamp
+
+  // Core action description
+  action: z.object({
+    type: ActionTypeSchema,  // Action type
+
+    // For text input
+    value: z.string().optional(),  // Input value
+
+    // For keyboard events
+    key: z.object({
+      key: z.string(),  // Key name (e.g., "Enter", "a")
+      code: z.string().optional(),  // Key code (e.g., "KeyA")
+      altKey: z.boolean().optional(),  // Alt modifier
+      ctrlKey: z.boolean().optional(),  // Ctrl modifier
+      metaKey: z.boolean().optional(),  // Meta/Cmd modifier
+      shiftKey: z.boolean().optional()  // Shift modifier
+    }).optional(),
+
+    // For mouse events
+    mouse: z.object({
+      button: z.number(),  // Mouse button (0=left, 1=middle, 2=right)
+      x: z.number(),  // Page X coordinate
+      y: z.number(),  // Page Y coordinate
+      offsetX: z.number().optional(),  // Element relative X
+      offsetY: z.number().optional()  // Element relative Y
+    }).optional(),
+
+    // For navigation
+    url: z.string().optional(),  // Target URL
+
+    // For scroll
+    scroll: z.object({
+      x: z.number(),  // Horizontal scroll position
+      y: z.number(),  // Vertical scroll position
+      deltaX: z.number().optional(),  // Scroll delta X
+      deltaY: z.number().optional()  // Scroll delta Y
+    }).optional()
+  }),
+
+  // Target element information (for interactions)
+  target: ElementContextSchema.optional(),
+
+  // State before and after the event
+  state: StateSnapshotSchema.optional(),
+
+  // Optional narration segment for this event
+  narration: z.string().optional()
 })
 
-export type BrowserState = z.infer<typeof BrowserStateSchema>
+// ============================================
+// Core Recording Structure
+// ============================================
 
-// Recording session metadata
-export const RecordingMetadataSchema = z.object({
-  id: z.string(),  // Recording ID
-  startTime: z.number(),  // Start timestamp
-  endTime: z.number().optional(),  // End timestamp
-  tabId: z.number(),  // Tab being recorded
-  url: z.string()  // Initial URL
-})
-
-export type RecordingMetadata = z.infer<typeof RecordingMetadataSchema>
-
-// Complete recording for Phase 1
 export const TeachModeRecordingSchema = z.object({
-  metadata: RecordingMetadataSchema,
+  // Session metadata
+  session: z.object({
+    id: z.string(),  // Unique session ID
+    startTimestamp: z.number(),  // Unix timestamp
+    endTimestamp: z.number().optional(),  // Unix timestamp when stopped
+    tabId: z.number(),  // Chrome tab ID
+    url: z.string()  // Initial URL
+  }),
+
+  // Voice narration/transcript
+  narration: z.object({
+    transcript: z.string(),
+  }).optional(),
+
+  // Viewport configuration
+  viewport: z.object({
+    width: z.number(),  // Viewport width
+    height: z.number(),  // Viewport height
+    deviceScaleFactor: z.number(),  // DPR
+    isMobile: z.boolean(),  // Mobile emulation
+    hasTouch: z.boolean(),  // Touch support
+    isLandscape: z.boolean()  // Orientation
+  }).optional(),
+
+  // Captured events with full context
   events: z.array(CapturedEventSchema)
 })
 
-export type TeachModeRecording = z.infer<typeof TeachModeRecordingSchema>
+// ============================================
+// Semantic Workflow (Processed output)
+// ============================================
 
-// Messages between content script and service
+export const SemanticWorkflowSchema = z.object({
+  metadata: z.object({
+    recordingId: z.string(),  // Source recording ID
+    goal: z.string(),  // High-level goal
+    description: z.string().optional(),  // Detailed description
+    createdAt: z.number(),  // Creation timestamp
+    duration: z.number().optional()  // Total duration in ms
+  }),
+
+  steps: z.array(z.object({
+    id: z.string(),  // Step ID
+    intent: z.string(),  // What the step accomplishes
+
+    action: z.object({
+      type: z.string(),  // Action type
+      description: z.string(),  // Human-readable description
+      target: z.string(),  // Target description
+      validation: z.string().optional()  // How to verify success
+    }),
+
+    // Reference to source events
+    sourceEventIds: z.array(z.string()),
+
+    // State context
+    stateBefore: StateSnapshotSchema.optional(),
+    stateAfter: StateSnapshotSchema.optional()
+  }))
+})
+
+// ============================================
+// Type exports
+// ============================================
+
+export type TeachModeRecording = z.infer<typeof TeachModeRecordingSchema>
+export type CapturedEvent = z.infer<typeof CapturedEventSchema>
+export type ActionType = z.infer<typeof ActionTypeSchema>
+export type ElementContext = z.infer<typeof ElementContextSchema>
+export type StateSnapshot = z.infer<typeof StateSnapshotSchema>
+export type SemanticWorkflow = z.infer<typeof SemanticWorkflowSchema>
+
+// ============================================
+// Message types for communication
+// ============================================
+
 export const TeachModeMessageSchema = z.discriminatedUnion('action', [
-  // From service to content script
+  // Service → Content Script
   z.object({
     action: z.literal('START_RECORDING'),
-    source: z.literal('TeachModeService')
+    source: z.literal('TeachModeService'),
+    config: z.object({
+      captureVoice: z.boolean().optional(),  // Enable voice capture
+      captureScreenshots: z.boolean().optional(),  // Enable screenshots
+      captureBeforeState: z.boolean().optional()  // Capture before states
+    }).optional()
   }),
+
   z.object({
     action: z.literal('STOP_RECORDING'),
     source: z.literal('TeachModeService')
   }),
 
-  // From content script to service
+  // Content Script → Service
   z.object({
     action: z.literal('EVENT_CAPTURED'),
     source: z.literal('TeachModeRecorder'),
     event: CapturedEventSchema
   }),
+
   z.object({
     action: z.literal('RECORDER_READY'),
-    source: z.literal('TeachModeRecorder')
+    source: z.literal('TeachModeRecorder'),
+    viewport: z.object({
+      width: z.number(),
+      height: z.number(),
+      deviceScaleFactor: z.number()
+    }).optional()
+  }),
+
+  // Voice/Narration messages
+  z.object({
+    action: z.literal('NARRATION_UPDATE'),
+    source: z.literal('TeachModeRecorder'),
+    segment: z.object({
+      text: z.string(),
+      startTime: z.number(),
+      endTime: z.number()
+    })
   })
 ])
 
 export type TeachModeMessage = z.infer<typeof TeachModeMessageSchema>
+

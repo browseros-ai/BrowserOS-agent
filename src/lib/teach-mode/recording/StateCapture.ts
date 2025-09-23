@@ -1,7 +1,7 @@
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 import BrowserPage from '@/lib/browser/BrowserPage'
 import { Logging } from '@/lib/utils/Logging'
-import { BrowserState } from '@/lib/teach-mode/types'
+import { StateSnapshot } from '@/lib/teach-mode/types'
 
 /**
  * Captures browser state and screenshots
@@ -22,7 +22,7 @@ export class StateCapture {
    * Schedule state capture after a delay
    * Uses debouncing to avoid multiple captures for rapid events
    */
-  scheduleCapture(eventId: string, tabId: number, delay: number = 100): Promise<BrowserState | null> {
+  scheduleCapture(eventId: string, tabId: number, delay: number = 100): Promise<StateSnapshot | null> {
     return new Promise((resolve) => {
       // Cancel any pending capture for this event
       const existing = this.captureQueue.get(eventId)
@@ -44,7 +44,7 @@ export class StateCapture {
   /**
    * Capture current browser state
    */
-  async captureState(tabId: number): Promise<BrowserState | null> {
+  async captureState(tabId: number): Promise<StateSnapshot | null> {
     try {
       if (!this.browserContext) {
         Logging.log('StateCapture', 'No browser context available', 'warning')
@@ -67,14 +67,18 @@ export class StateCapture {
       // Get current tab info
       const tab = await chrome.tabs.get(tabId)
 
-      // Build state object with both state string and screenshot
-      const state: BrowserState = {
+      // Build state object matching StateSnapshot schema
+      const state: StateSnapshot = {
         timestamp: Date.now(),
-        browserStateString,
+        page: {
+          url: tab.url || '',
+          title: tab.title || ''
+        },
+        browserState: {
+          string: browserStateString
+        },
         screenshot: screenshot || undefined,
-        url: tab.url || '',
-        title: tab.title || '',
-        tabId
+        viewport: undefined  // Could be populated if needed
       }
 
       Logging.log('StateCapture', `Captured state for tab ${tabId} - state string: ${browserStateString.length} chars, screenshot: ${screenshot ? 'yes' : 'no'}`)

@@ -1,4 +1,4 @@
-import { TeachModeRecording, RecordingMetadata } from '@/lib/teach-mode/types'
+import { TeachModeRecording } from '@/lib/teach-mode/types'
 import { Logging } from '@/lib/utils/Logging'
 
 /**
@@ -10,8 +10,8 @@ interface StorageMetadata {
   description?: string
   url: string
   tabId: number
-  startTime: number
-  endTime: number
+  startTimestamp: number  // Match new schema
+  endTimestamp: number  // Match new schema
   eventCount: number
   sizeBytes: number
   createdAt: number
@@ -52,7 +52,7 @@ export class RecordingStorage {
    */
   async save(recording: TeachModeRecording, title?: string, description?: string): Promise<string> {
     try {
-      const recordingId = recording.metadata.id
+      const recordingId = recording.session.id
       const storageKey = `${STORAGE_KEY_PREFIX}${recordingId}`
 
       // Serialize recording to JSON
@@ -71,12 +71,12 @@ export class RecordingStorage {
       // Create storage metadata
       const metadata: StorageMetadata = {
         id: recordingId,
-        title: title || `Recording ${new Date(recording.metadata.startTime).toLocaleString()}`,
+        title: title || `Recording ${new Date(recording.session.startTimestamp).toLocaleString()}`,
         description,
-        url: recording.metadata.url,
-        tabId: recording.metadata.tabId,
-        startTime: recording.metadata.startTime,
-        endTime: recording.metadata.endTime || Date.now(),
+        url: recording.session.url,
+        tabId: recording.session.tabId,
+        startTimestamp: recording.session.startTimestamp,
+        endTimestamp: recording.session.endTimestamp || Date.now(),
         eventCount: recording.events.length,
         sizeBytes,
         createdAt: Date.now()
@@ -201,25 +201,24 @@ export class RecordingStorage {
         throw new Error(`Recording ${recordingId} not found`)
       }
 
-      // Create JSON blob
+      // Create JSON string
       const json = JSON.stringify(recording, null, 2)
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
 
       // Generate filename
-      const date = new Date(recording.metadata.startTime)
+      const date = new Date(recording.session.startTimestamp)
       const dateStr = date.toISOString().slice(0, 19).replace(/[:.]/g, '-')
       const filename = `teach-mode-recording-${dateStr}.json`
 
-      // Trigger download
+      // Convert JSON to base64 data URL for service worker compatibility
+      const base64 = btoa(unescape(encodeURIComponent(json)))
+      const dataUrl = `data:application/json;base64,${base64}`
+
+      // Trigger download using data URL
       await chrome.downloads.download({
-        url,
+        url: dataUrl,
         filename,
         saveAs: true
       })
-
-      // Clean up
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
 
       Logging.log('RecordingStorage', `Exported recording ${recordingId} as ${filename}`)
 
@@ -238,17 +237,17 @@ export class RecordingStorage {
       const recording = JSON.parse(json) as TeachModeRecording
 
       // Validate structure
-      if (!recording.metadata || !recording.events || !Array.isArray(recording.events)) {
+      if (!recording.session || !recording.events || !Array.isArray(recording.events)) {
         throw new Error('Invalid recording format')
       }
 
       // Generate new ID for imported recording
-      recording.metadata.id = `recording_imported_${Date.now()}`
+      recording.session.id = `recording_imported_${Date.now()}`
 
       // Save imported recording
       const recordingId = await this.save(
         recording,
-        title || `Imported: ${recording.metadata.id}`,
+        title || `Imported: ${recording.session.id}`,
         'Imported recording'
       )
 

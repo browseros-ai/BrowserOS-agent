@@ -1,4 +1,4 @@
-import { CapturedEvent, EventType, RecordingMetadata, TeachModeRecording, BrowserState } from '@/lib/teach-mode/types'
+import { CapturedEvent, ActionType, TeachModeRecording, StateSnapshot } from '@/lib/teach-mode/types'
 import { Logging } from '@/lib/utils/Logging'
 import { isDevelopmentMode } from '@/config'
 import { PubSub } from '@/lib/pubsub'
@@ -11,18 +11,20 @@ import { BrowserContext } from '@/lib/browser/BrowserContext'
  * Collects events and metadata during recording
  */
 export class RecordingSession {
-  private metadata: RecordingMetadata
+  private session: TeachModeRecording['session']
   private events: CapturedEvent[] = []
   private eventCounter = 0
   private isDebugMode = isDevelopmentMode()
   private pubsub: PubSubChannel
   private stateCapture: StateCapture
   private browserContext: BrowserContext | null = null
+  private viewport?: TeachModeRecording['viewport']
+  private narration?: TeachModeRecording['narration']
 
   constructor(tabId: number, url: string, browserContext?: BrowserContext) {
-    this.metadata = {
+    this.session = {
       id: `recording_${Date.now()}`,
-      startTime: Date.now(),
+      startTimestamp: Date.now(),
       tabId,
       url
     }
@@ -40,10 +42,12 @@ export class RecordingSession {
     // Add session start event
     this.addEvent({
       type: 'session_start',
-      url
+      action: {
+        url
+      }
     })
 
-    Logging.log('RecordingSession', `Started recording session ${this.metadata.id} on tab ${tabId}`)
+    Logging.log('RecordingSession', `Started recording session ${this.session.id} on tab ${tabId}`)
   }
 
   /**
@@ -57,34 +61,36 @@ export class RecordingSession {
     hasTouch: boolean
     isLandscape: boolean
   }): void {
-    this.addEvent({
-      type: 'setViewport',
-      ...viewport
-    })
+    this.viewport = viewport
+    Logging.log('RecordingSession', `Set viewport: ${viewport.width}x${viewport.height}`)
   }
 
   /**
    * Add a captured event to the session
    */
-  addEvent(eventData: Partial<CapturedEvent> & { type: EventType }): void {
+  addEvent(eventData: { type: ActionType; action?: Partial<CapturedEvent['action']>; target?: CapturedEvent['target'] }): void {
     const event: CapturedEvent = {
-      id: `event_${this.metadata.id}_${this.eventCounter++}`,
+      id: `event_${this.session.id}_${this.eventCounter++}`,
       timestamp: Date.now(),
-      ...eventData
+      action: {
+        type: eventData.type,
+        ...eventData.action
+      },
+      target: eventData.target
     }
 
     this.events.push(event)
-    Logging.log('RecordingSession', `Added event: ${event.type} (${event.id})`)
+    Logging.log('RecordingSession', `Added event: ${event.action.type} (${event.id})`)
 
     // Schedule state capture for significant interaction events (100ms delay)
     // We capture state after actions that change the page state
-    const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation', 'setViewport']
-    if (stateChangeEvents.includes(event.type) && this.browserContext) {
+    const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation']
+    if (stateChangeEvents.includes(event.action.type) && this.browserContext) {
       this._scheduleStateCapture(event)
     }
 
     // Emit debug message to sidepanel in dev mode
-    this._emitDebugMessage(event.type, eventData)
+    this._emitDebugMessage(event.action.type, eventData)
   }
 
   /**
@@ -93,7 +99,9 @@ export class RecordingSession {
   handleNavigation(url: string, transitionType?: string): void {
     this.addEvent({
       type: 'navigation',
-      url
+      action: {
+        url
+      }
     })
   }
 
@@ -103,21 +111,24 @@ export class RecordingSession {
   stop(): TeachModeRecording {
     // Add session end event
     this.addEvent({
-      type: 'session_end'
+      type: 'session_end',
+      action: {}
     })
 
     // Update end time
-    this.metadata.endTime = Date.now()
+    this.session.endTimestamp = Date.now()
 
     // Cancel any pending state captures
     this.stateCapture.cleanup()
 
     const recording: TeachModeRecording = {
-      metadata: this.metadata,
+      session: this.session,
+      narration: this.narration,
+      viewport: this.viewport,
       events: this.events
     }
 
-    Logging.log('RecordingSession', `Stopped recording session ${this.metadata.id} with ${this.events.length} events`)
+    Logging.log('RecordingSession', `Stopped recording session ${this.session.id} with ${this.events.length} events`)
 
     return recording
   }
@@ -127,7 +138,9 @@ export class RecordingSession {
    */
   getRecording(): TeachModeRecording {
     return {
-      metadata: { ...this.metadata },
+      session: { ...this.session },
+      narration: this.narration,
+      viewport: this.viewport,
       events: [...this.events]
     }
   }
@@ -135,15 +148,15 @@ export class RecordingSession {
   /**
    * Get session metadata
    */
-  getMetadata(): RecordingMetadata {
-    return { ...this.metadata }
+  getSession(): TeachModeRecording['session'] {
+    return { ...this.session }
   }
 
   /**
    * Get tab ID being recorded
    */
   getTabId(): number {
-    return this.metadata.tabId
+    return this.session.tabId
   }
 
   /**
@@ -162,7 +175,7 @@ export class RecordingSession {
       // Schedule state capture with 100ms delay
       const state = await this.stateCapture.scheduleCapture(
         event.id,
-        this.metadata.tabId,
+        this.session.tabId,
         100
       )
 
@@ -174,8 +187,8 @@ export class RecordingSession {
           Logging.log('RecordingSession', `Added state to event ${event.id}`)
 
           // Emit debug message with state info only after successful capture
-          if (this.isDebugMode) {
-            const stateInfo = `📸 State captured: ${state.browserStateString.length} chars, screenshot: ${state.screenshot ? 'yes' : 'no'}`
+          if (this.isDebugMode && state.browserState) {
+            const stateInfo = `📸 State captured: ${state.browserState.string.length} chars, screenshot: ${state.screenshot ? 'yes' : 'no'}`
             this.pubsub.publishMessage(
               PubSub.createMessage(`[TEACH MODE] ${stateInfo}`, 'thinking')
             )
@@ -190,7 +203,7 @@ export class RecordingSession {
   /**
    * Emit debug message to sidepanel in dev mode
    */
-  private _emitDebugMessage(eventType: EventType, eventData: Partial<CapturedEvent>): void {
+  private _emitDebugMessage(eventType: ActionType, eventData: any): void {
     if (!this.isDebugMode) return
 
     // Publish message to sidepanel

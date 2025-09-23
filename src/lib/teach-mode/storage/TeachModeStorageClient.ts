@@ -219,8 +219,8 @@ export class TeachModeStorageClient {
   /**
    * Format duration for display
    */
-  static formatDuration(startTime: number, endTime?: number): string {
-    const duration = (endTime || Date.now()) - startTime
+  static formatDuration(startTimestamp: number, endTimestamp?: number): string {
+    const duration = (endTimestamp || Date.now()) - startTimestamp
     const seconds = Math.floor(duration / 1000)
     const minutes = Math.floor(seconds / 60)
     const hours = Math.floor(minutes / 60)

@@ -141,8 +141,6 @@ function formatMessage(message: string): string {
     formatted = '▶️ ' + formatted
   } else if (formatted.includes('session_end')) {
     formatted = '⏹️ ' + formatted
-  } else if (formatted.includes('setViewport')) {
-    formatted = '📐 ' + formatted
   }
 
   return formatted

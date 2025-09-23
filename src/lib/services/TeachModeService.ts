@@ -293,8 +293,12 @@ export class TeachModeService {
       return
     }
 
-    // Add event to session
-    this.currentSession.addEvent(event)
+    // Add event to session - convert from CapturedEvent to expected format
+    this.currentSession.addEvent({
+      type: event.action.type,
+      action: event.action,
+      target: event.target
+    })
   }
 
   /**
@@ -305,8 +309,8 @@ export class TeachModeService {
       const storage = RecordingStorage.getInstance()
 
       // Generate title based on URL and time
-      const url = new URL(recording.metadata.url)
-      const date = new Date(recording.metadata.startTime)
+      const url = new URL(recording.session.url)
+      const date = new Date(recording.session.startTimestamp)
       const title = `${url.hostname} - ${date.toLocaleString()}`
 
       // Save to storage

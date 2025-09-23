@@ -4,7 +4,7 @@
  * Captures user interactions and sends them to the service
  */
 
-import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mode/types'
+import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from '@/lib/teach-mode/types'
 
 (() => {
   const RECORDER_INITIALIZED_KEY = 'nxtscape-teach-recorder-initialized'
@@ -21,14 +21,8 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
     private eventCounter = 0
 
     // Track initial targets for precise selector computation
-    private initialInputTarget: { element: Element; selectors: Selectors } = {
-      element: document.documentElement,
-      selectors: {}
-    }
-    private initialPointerTarget: { element: Element; selectors: Selectors } = {
-      element: document.documentElement,
-      selectors: {}
-    }
+    private initialInputTarget: { element: Element; context: ElementContext } | null = null
+    private initialPointerTarget: { element: Element; context: ElementContext } | null = null
     private pointerDownTimestamp = 0
 
     constructor() {
@@ -88,10 +82,10 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
     }
 
     /**
-     * Compute selectors for an element
+     * Compute element context for an element
      */
-    private computeSelectors(element: Element): Selectors {
-      const selectors: Selectors = {}
+    private computeElementContext(element: Element): ElementContext {
+      const selectors: ElementContext['selectors'] = {}
 
       // CSS selector - improved
       try {
@@ -125,8 +119,12 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
         selectors.text = text
       }
 
-      // Tag name
-      selectors.tagName = element.tagName.toLowerCase()
+      // Build element context
+      const rect = element.getBoundingClientRect()
+      const attributes: Record<string, string> = {}
+      for (const attr of element.attributes) {
+        attributes[attr.name] = attr.value
+      }
 
       // Data test id (common in modern apps)
       const dataTestId = element.getAttribute('data-testid') || element.getAttribute('data-test-id')
@@ -134,7 +132,28 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
         selectors.dataTestId = dataTestId
       }
 
-      return selectors
+      const context: ElementContext = {
+        selectors,
+        element: {
+          tagName: element.tagName.toLowerCase(),
+          type: element.getAttribute('type') || undefined,
+          text: element.textContent?.trim() || undefined,
+          value: 'value' in element ? (element as HTMLInputElement).value : undefined,
+          placeholder: element.getAttribute('placeholder') || undefined,
+          attributes,
+          boundingBox: {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height
+          },
+          isVisible: rect.width > 0 && rect.height > 0,
+          isInteractive: !element.hasAttribute('disabled'),
+          isDisabled: element.hasAttribute('disabled')
+        }
+      }
+
+      return context
     }
 
     /**
@@ -209,18 +228,27 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
     /**
      * Send event to service
      */
-    private sendEvent(event: Partial<CapturedEvent>): void {
+    private sendEvent(eventData: {
+      type: ActionType
+      target?: ElementContext
+      action?: Partial<CapturedEvent['action']>
+    }): void {
       if (!this.isRecording) return
+
+      const capturedEvent: CapturedEvent = {
+        id: `content_event_${this.eventCounter++}`,
+        timestamp: Date.now(),
+        action: {
+          type: eventData.type,
+          ...eventData.action
+        },
+        target: eventData.target
+      }
 
       const message: TeachModeMessage = {
         action: 'EVENT_CAPTURED',
         source: 'TeachModeRecorder',
-        event: {
-          id: `content_event_${this.eventCounter++}`,
-          timestamp: Date.now(),
-          type: 'click',  // Will be overridden
-          ...event
-        } as CapturedEvent
+        event: capturedEvent
       }
 
       this.sendMessage(message)
@@ -244,11 +272,11 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       const element = event.composedPath()[0]
       if (!(element instanceof Element)) return
 
-      if (this.initialInputTarget.element === element) return
+      if (this.initialInputTarget?.element === element) return
 
       this.initialInputTarget = {
         element,
-        selectors: this.computeSelectors(element)
+        context: this.computeElementContext(element)
       }
     }
 
@@ -259,11 +287,11 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       const element = event.composedPath()[0]
       if (!(element instanceof Element)) return
 
-      if (this.initialPointerTarget.element === element) return
+      if (this.initialPointerTarget?.element === element) return
 
       this.initialPointerTarget = {
         element,
-        selectors: this.computeSelectors(element)
+        context: this.computeElementContext(element)
       }
     }
 
@@ -278,11 +306,16 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (specialKeys.includes(event.key)) {
         this.sendEvent({
           type: 'keydown',
-          key: event.key,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          shiftKey: event.shiftKey
+          action: {
+            key: {
+              key: event.key,
+              code: event.code,
+              altKey: event.altKey,
+              ctrlKey: event.ctrlKey,
+              metaKey: event.metaKey,
+              shiftKey: event.shiftKey
+            }
+          }
         })
       }
     }
@@ -295,7 +328,12 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (specialKeys.includes(event.key)) {
         this.sendEvent({
           type: 'keyup',
-          key: event.key
+          action: {
+            key: {
+              key: event.key,
+              code: event.code
+            }
+          }
         })
       }
     }
@@ -311,7 +349,9 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (!event.isTrusted) return
 
       this.setInitialInputTarget(event)
-      const { element, selectors } = this.initialInputTarget
+      if (!this.initialInputTarget) return
+
+      const { element, context } = this.initialInputTarget
 
       // Skip checkboxes and radios as they're handled by click
       if (element instanceof HTMLInputElement) {
@@ -327,8 +367,10 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
 
       this.sendEvent({
         type: 'change',
-        selectors,
-        value
+        target: context,
+        action: {
+          value
+        }
       })
     }
 
@@ -343,7 +385,9 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (!event.isTrusted) return
 
       this.setInitialPointerTarget(event)
-      const { element, selectors } = this.initialPointerTarget
+      if (!this.initialPointerTarget) return
+
+      const { element, context } = this.initialPointerTarget
 
       // Calculate offset position within the element
       const rect = element.getBoundingClientRect()
@@ -352,14 +396,23 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
 
       this.sendEvent({
         type: 'click',
-        selectors,
-        button: event.button,
-        offsetX: Math.round(offsetX),
-        offsetY: Math.round(offsetY),
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey
+        target: context,
+        action: {
+          mouse: {
+            button: event.button,
+            x: event.pageX,
+            y: event.pageY,
+            offsetX: Math.round(offsetX),
+            offsetY: Math.round(offsetY)
+          },
+          key: (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) ? {
+            key: '',
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey
+          } : undefined
+        }
       })
     }
 
@@ -367,7 +420,9 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (!event.isTrusted) return
 
       this.setInitialPointerTarget(event)
-      const { element, selectors } = this.initialPointerTarget
+      if (!this.initialPointerTarget) return
+
+      const { element, context } = this.initialPointerTarget
 
       // Calculate offset position within the element
       const rect = element.getBoundingClientRect()
@@ -376,10 +431,16 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
 
       this.sendEvent({
         type: 'dblclick',
-        selectors,
-        button: event.button,
-        offsetX: Math.round(offsetX),
-        offsetY: Math.round(offsetY)
+        target: context,
+        action: {
+          mouse: {
+            button: event.button,
+            x: event.pageX,
+            y: event.pageY,
+            offsetX: Math.round(offsetX),
+            offsetY: Math.round(offsetY)
+          }
+        }
       })
     }
 
@@ -387,7 +448,8 @@ import type { CapturedEvent, Selectors, TeachModeMessage } from '@/lib/teach-mod
       if (!event.isTrusted) return
 
       this.sendEvent({
-        type: 'beforeunload'
+        type: 'beforeunload',
+        action: {}
       })
     }
   }
