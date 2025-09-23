@@ -5,6 +5,7 @@ import { MessageType } from '@/lib/types/messaging'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
+import { TeachModeButton } from './TeachModeButton'
 // import { ExperimentModal } from './ExperimentModal'  // Removed - old evals system deprecated
 import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star, Copy } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
@@ -356,6 +357,9 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               )}
             </div>
           )}
+
+          {/* Teach Mode button */}
+          <TeachModeButton />
 
           {/* Show Pause button if processing */}
           {isProcessing && (

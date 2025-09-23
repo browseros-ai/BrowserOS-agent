@@ -12,6 +12,7 @@ import { ExecutionHandler } from './handlers/ExecutionHandler'
 import { ProvidersHandler } from './handlers/ProvidersHandler'
 import { MCPHandler } from './handlers/MCPHandler'
 import { PlanHandler } from './handlers/PlanHandler'
+import { setupTeachModeHandler } from './handlers/TeachModeHandler'
 
 /**
  * Background script for the Nxtscape extension
@@ -269,7 +270,10 @@ function initialize(): void {
   
   // Register all handlers
   registerHandlers()
-  
+
+  // Set up teach mode handler
+  setupTeachModeHandler()
+
   // Set up port connection listener
   chrome.runtime.onConnect.addListener(handlePortConnection)
   
