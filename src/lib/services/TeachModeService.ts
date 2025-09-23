@@ -45,6 +45,12 @@ export class TeachModeService {
       // Create new recording session
       this.currentSession = new RecordingSession(tabId, tab.url)
 
+      // Capture viewport information
+      const viewport = await this._captureViewport(tabId)
+      if (viewport) {
+        this.currentSession.addViewport(viewport)
+      }
+
       // Inject content script
       await this._injectContentScript(tabId)
 
@@ -112,6 +118,39 @@ export class TeachModeService {
    */
   getCurrentSession(): RecordingSession | null {
     return this.currentSession
+  }
+
+  /**
+   * Capture viewport information from tab
+   */
+  private async _captureViewport(tabId: number): Promise<{
+    width: number
+    height: number
+    deviceScaleFactor: number
+    isMobile: boolean
+    hasTouch: boolean
+    isLandscape: boolean
+  } | null> {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          deviceScaleFactor: window.devicePixelRatio || 1,
+          isMobile: false,
+          hasTouch: 'ontouchstart' in window,
+          isLandscape: window.innerWidth > window.innerHeight
+        })
+      })
+
+      if (results && results[0]?.result) {
+        return results[0].result
+      }
+    } catch (error) {
+      Logging.log('TeachModeService', `Failed to capture viewport: ${error}`, 'warning')
+    }
+    return null
   }
 
   /**

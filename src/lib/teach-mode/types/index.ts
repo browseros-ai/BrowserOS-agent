@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const EventTypeSchema = z.enum([
   'session_start',
   'session_end',
+  'setViewport',
   'click',
   'dblclick',
   'input',
@@ -16,11 +17,13 @@ export const EventTypeSchema = z.enum([
 
 export type EventType = z.infer<typeof EventTypeSchema>
 
-// Selectors for elements (Phase 1: just basic selectors)
+// Selectors for elements (improved with ARIA and data-testid)
 export const SelectorsSchema = z.object({
   css: z.string().optional(),  // CSS selector
   xpath: z.string().optional(),  // XPath selector
   text: z.string().optional(),  // Text content
+  ariaLabel: z.string().optional(),  // ARIA label
+  dataTestId: z.string().optional(),  // data-testid attribute
   tagName: z.string().optional()  // Tag name for context
 })
 
@@ -40,6 +43,10 @@ export const CapturedEventSchema = z.object({
   key: z.string().optional(),  // Key pressed
   button: z.number().optional(),  // Mouse button
 
+  // Click position
+  offsetX: z.number().optional(),  // X position within element
+  offsetY: z.number().optional(),  // Y position within element
+
   // Modifiers
   altKey: z.boolean().optional(),
   ctrlKey: z.boolean().optional(),
@@ -47,7 +54,15 @@ export const CapturedEventSchema = z.object({
   shiftKey: z.boolean().optional(),
 
   // Navigation data
-  url: z.string().optional()
+  url: z.string().optional(),
+
+  // Viewport data (for setViewport event)
+  width: z.number().optional(),
+  height: z.number().optional(),
+  deviceScaleFactor: z.number().optional(),
+  isMobile: z.boolean().optional(),
+  hasTouch: z.boolean().optional(),
+  isLandscape: z.boolean().optional()
 })
 
 export type CapturedEvent = z.infer<typeof CapturedEventSchema>
