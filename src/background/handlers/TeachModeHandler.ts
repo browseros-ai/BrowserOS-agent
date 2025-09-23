@@ -38,6 +38,55 @@ export function setupTeachModeHandler(): void {
         })
         break
 
+      // Storage management actions
+      case 'TEACH_MODE_LIST':
+        teachModeService.getRecordings()
+          .then(recordings => sendResponse({ success: true, recordings }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_GET':
+        teachModeService.getRecording(message.recordingId)
+          .then(recording => sendResponse({ success: true, recording }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_DELETE':
+        teachModeService.deleteRecording(message.recordingId)
+          .then(result => sendResponse({ success: result }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_CLEAR':
+        teachModeService.clearAllRecordings()
+          .then(() => sendResponse({ success: true }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_EXPORT':
+        teachModeService.exportRecording(message.recordingId)
+          .then(() => sendResponse({ success: true }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_IMPORT':
+        teachModeService.importRecording(message.json, message.title)
+          .then(recordingId => sendResponse({ success: true, recordingId }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_STATS':
+        teachModeService.getStorageStats()
+          .then(stats => sendResponse({ success: true, stats }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
+      case 'TEACH_MODE_SEARCH':
+        teachModeService.searchRecordings(message.query)
+          .then(recordings => sendResponse({ success: true, recordings }))
+          .catch(error => sendResponse({ success: false, error: error.message }))
+        return true
+
       default:
         return
     }

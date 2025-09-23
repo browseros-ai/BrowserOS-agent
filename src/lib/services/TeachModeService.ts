@@ -2,6 +2,7 @@ import { Logging } from '@/lib/utils/Logging'
 import { RecordingSession } from '@/lib/teach-mode/recording/RecordingSession'
 import type { TeachModeMessage, TeachModeRecording, CapturedEvent } from '@/lib/teach-mode/types'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
+import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 
@@ -297,23 +298,44 @@ export class TeachModeService {
   }
 
   /**
-   * Save recording to storage (Phase 1: simple JSON file)
+   * Save recording to storage using RecordingStorage
    */
-  private async _saveRecording(recording: TeachModeRecording): Promise<void> {
+  private async _saveRecording(recording: TeachModeRecording): Promise<string | null> {
     try {
-      // For Phase 1, just log the recording
-      // In later phases, this will save to chrome.storage and offer download
-      const json = JSON.stringify(recording, null, 2)
+      const storage = RecordingStorage.getInstance()
 
-      // Store in chrome.storage.local
-      const key = `teach_recording_${recording.metadata.id}`
-      await chrome.storage.local.set({ [key]: json })
+      // Generate title based on URL and time
+      const url = new URL(recording.metadata.url)
+      const date = new Date(recording.metadata.startTime)
+      const title = `${url.hostname} - ${date.toLocaleString()}`
 
-      Logging.log('TeachModeService', `Saved recording ${recording.metadata.id} (${json.length} bytes)`)
+      // Save to storage
+      const recordingId = await storage.save(recording, title)
 
-      // TODO: In future phases, offer download as JSON file
+      Logging.log('TeachModeService', `Saved recording ${recordingId} with ${recording.events.length} events`)
+
+      // Optionally export immediately
+      if (await this._shouldAutoExport()) {
+        await storage.export(recordingId)
+        Logging.log('TeachModeService', `Auto-exported recording ${recordingId}`)
+      }
+
+      return recordingId
     } catch (error) {
       Logging.log('TeachModeService', `Failed to save recording: ${error}`, 'error')
+      return null
+    }
+  }
+
+  /**
+   * Check if auto-export is enabled
+   */
+  private async _shouldAutoExport(): Promise<boolean> {
+    try {
+      const result = await chrome.storage.local.get('teachMode_autoExport')
+      return result.teachMode_autoExport === true
+    } catch {
+      return false
     }
   }
 
@@ -338,5 +360,71 @@ export class TeachModeService {
       this.browserContext = null
     }
     this.currentSession = null
+  }
+
+  // ============= Storage Management =============
+
+  /**
+   * Get list of all recordings
+   */
+  async getRecordings(): Promise<any[]> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.list()
+  }
+
+  /**
+   * Get a specific recording
+   */
+  async getRecording(recordingId: string): Promise<TeachModeRecording | null> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.get(recordingId)
+  }
+
+  /**
+   * Delete a recording
+   */
+  async deleteRecording(recordingId: string): Promise<boolean> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.delete(recordingId)
+  }
+
+  /**
+   * Clear all recordings
+   */
+  async clearAllRecordings(): Promise<void> {
+    const storage = RecordingStorage.getInstance()
+    await storage.clear()
+  }
+
+  /**
+   * Export a recording as JSON file
+   */
+  async exportRecording(recordingId: string): Promise<void> {
+    const storage = RecordingStorage.getInstance()
+    await storage.export(recordingId)
+  }
+
+  /**
+   * Import a recording from JSON
+   */
+  async importRecording(json: string, title?: string): Promise<string> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.import(json, title)
+  }
+
+  /**
+   * Get storage statistics
+   */
+  async getStorageStats(): Promise<any> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.getStats()
+  }
+
+  /**
+   * Search recordings by query
+   */
+  async searchRecordings(query: string): Promise<any[]> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.search(query)
   }
 }
