@@ -233,30 +233,31 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
         role="region"
         aria-label="Welcome screen with example prompts"
       >
-        {/* Fixed tagline near the top */}
-        <div className="absolute left-0 right-0 top-16 md:top-20 flex items-center justify-center pointer-events-none select-none">
-          <h2 className="text-3xl font-bold text-muted-foreground animate-fade-in-up flex items-baseline flex-wrap justify-center gap-2 text-center w-full">
-            <span>Your <span className="text-brand">Agentic</span></span>
-            <span>
-              web assistant{' '}
-              <img 
-                src="/assets/browseros.svg" 
-                alt="BrowserOS" 
-                className="w-7 h-7 inline-block align-text-bottom animate-fade-in-up"
-              />
-            </span>
-          </h2>
-        </div>
-
         {/* Main content - vertically centered (Examples remain centered) */}
-        <div className="relative z-0 flex flex-col items-center justify-center min-h-0 max-w-md w-full">
+        <div className="relative z-0 flex flex-col items-center justify-center min-h-0 max-w-lg w-full">
+          
+          {/* Tagline */}
+          <div className="flex items-center justify-center -mt-4">
+            <h2 className="text-3xl font-bold text-muted-foreground animate-fade-in-up flex items-baseline flex-wrap justify-center gap-2 text-center px-2">
+              <span>Your <span className="text-brand">Agentic</span></span>
+              <span>
+                web assistant{' '}
+                <img 
+                  src="/assets/browseros.svg" 
+                  alt="BrowserOS" 
+                  className="w-8 h-8 inline-block align-text-bottom animate-fade-in-up"
+                />
+              </span>
+            </h2>
+          </div>
+
           {/* Example Prompts */}
           <div className="mb-8 mt-2">
             <h3 className="text-lg font-semibold text-foreground mb-6 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
               What would you like to do?
             </h3>
             <div 
-              className={`flex flex-col items-center max-w-md w-full space-y-3 transition-transform duration-500 ease-in-out ${
+              className={`flex flex-col items-center max-w-lg w-full space-y-3 transition-transform duration-500 ease-in-out ${
                 isAnimating ? 'translate-y-5' : ''
               }`}
               role="group"

@@ -62,6 +62,7 @@ module.exports = {
     sidepanel: './src/sidepanel/index.tsx',
     background: './src/background/index.ts',
     'glow-animation': './src/content/glow-animation.ts',
+    'teach-mode-recorder': './src/content/teach-mode-recorder.ts',
     newtab: './src/newtab/index.tsx'
   },
   output: {

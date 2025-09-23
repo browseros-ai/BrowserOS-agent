@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useMessageHandler } from './hooks/useMessageHandler'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { Chat } from './components/Chat'
+import { TeachModeView } from './components/teachmode/TeachModeView'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
 import { SkipLink } from './components/SkipLink'
@@ -16,12 +17,15 @@ import './styles.css'
 export function App() {
   // Get connection status from port messaging
   const { connected } = useSidePanelPortMessaging()
-  
+
   // Initialize message handling
   const { humanInputRequest, clearHumanInputRequest } = useMessageHandler()
-  
+
   // Initialize settings
   const { fontSize, theme } = useSettingsStore()
+
+  // Track teach mode state
+  const [isTeachMode, setIsTeachMode] = useState(false)
   
   // Initialize global announcer for screen readers
   const announcer = useAnnouncer()
@@ -57,7 +61,15 @@ export function App() {
     >
       <div className="h-screen bg-background overflow-x-hidden" role="main" aria-label="BrowserOS Chat Assistant">
         <SkipLink />
-        <Chat isConnected={connected} />
+        {isTeachMode ? (
+          <TeachModeView onBack={() => setIsTeachMode(false)} />
+        ) : (
+          <Chat
+            isConnected={connected}
+            onTeachModeToggle={() => setIsTeachMode(!isTeachMode)}
+            isTeachMode={isTeachMode}
+          />
+        )}
         {humanInputRequest && (
           <HumanInputDialog
             requestId={humanInputRequest.requestId}
