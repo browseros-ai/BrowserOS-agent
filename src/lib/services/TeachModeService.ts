@@ -1,10 +1,8 @@
 import { Logging } from '@/lib/utils/Logging'
 import { RecordingSession } from '@/lib/teach-mode/recording/RecordingSession'
-import type { TeachModeMessage, TeachModeRecording, CapturedEvent, SemanticWorkflow } from '@/lib/teach-mode/types'
+import type { TeachModeMessage, TeachModeRecording, CapturedEvent } from '@/lib/teach-mode/types'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
-import { PreprocessAgent } from '@/lib/agent/PreprocessAgent'
-// Note: VoiceRecordingService moved to sidepanel context due to media API limitations in service worker
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 
@@ -18,15 +16,13 @@ export class TeachModeService {
   private browserContext: BrowserContext | null = null
   private navigationListener: ((details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void) | null = null
   private messageListener: ((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => void) | null = null
-  private voiceRecordingEnabled = false
-  private voiceTranscript = ''
-  private voiceDuration = 0
-  private voiceSegments: any[] = []
-  private voiceSessionId: string | null = null
+  private recorderPort: chrome.runtime.Port | null = null  // Track active recorder port connection
+  private injectedTabId: number | null = null  // Track which tab has the content script injected
 
   private constructor() {
     this._setupNavigationListener()
     this._setupMessageListener()
+    this._setupPortListener()
   }
 
   static getInstance(): TeachModeService {
@@ -39,7 +35,7 @@ export class TeachModeService {
   /**
    * Start recording on a specific tab
    */
-  async startRecording(tabId: number, options?: { captureVoice?: boolean }): Promise<void> {
+  async startRecording(tabId: number): Promise<void> {
     try {
       // Stop any existing recording
       if (this.currentSession) {
@@ -63,9 +59,6 @@ export class TeachModeService {
         this.browserContext = null
       }
 
-      // Set voice recording preference
-      this.voiceRecordingEnabled = options?.captureVoice || false
-
       // Create new recording session with browser context
       this.currentSession = new RecordingSession(tabId, tab.url, this.browserContext || undefined)
 
@@ -77,22 +70,15 @@ export class TeachModeService {
 
       // Inject content script
       await this._injectContentScript(tabId)
-
-      // Voice recording will be handled by sidepanel - just log the intent
-      if (this.voiceRecordingEnabled) {
-        Logging.log('TeachModeService', `Voice recording enabled - will be handled by sidepanel`)
-      }
+      this.injectedTabId = tabId  // Track that we've injected into this tab
 
       // Send start message
       await chrome.tabs.sendMessage(tabId, {
         action: 'START_RECORDING',
-        source: 'TeachModeService',
-        config: {
-          captureVoice: this.voiceRecordingEnabled
-        }
+        source: 'TeachModeService'
       } as TeachModeMessage)
 
-      Logging.log('TeachModeService', `Started recording on tab ${tabId}${this.voiceRecordingEnabled ? ' with voice' : ''}`)
+      Logging.log('TeachModeService', `Started recording on tab ${tabId}`)
     } catch (error) {
       Logging.log('TeachModeService', `Failed to start recording: ${error}`, 'error')
       throw error
@@ -122,35 +108,20 @@ export class TeachModeService {
         Logging.log('TeachModeService', `Failed to send stop message: ${error}`, 'warning')
       }
 
-      // Voice recording data will be provided by sidepanel
-      let voiceResult = null
-      if (this.voiceRecordingEnabled && this.voiceTranscript) {
-        voiceResult = {
-          transcript: this.voiceTranscript,
-          duration: this.voiceDuration,
-          segments: this.voiceSegments,
-          vapiSessionId: this.voiceSessionId
-        }
-        Logging.log('TeachModeService', `Using voice recording: ${voiceResult.transcript.length} chars, ${voiceResult.segments.length} segments`)
-      }
-
       // Stop session and get recording
       const recording = this.currentSession.stop()
-
-      // Add voice narration to recording if available
-      if (voiceResult && voiceResult.transcript.trim()) {
-        recording.narration = {
-          transcript: voiceResult.transcript,
-          duration: voiceResult.duration,
-          segments: voiceResult.segments,
-          vapiSessionId: voiceResult.vapiSessionId || undefined,
-          language: 'en'
-        }
-      }
-
       this.currentSession = null
-      this.voiceRecordingEnabled = false
-      this._resetVoiceData()
+      this.injectedTabId = null  // Clear injected tab tracking
+
+      // Clean up port if exists
+      if (this.recorderPort) {
+        try {
+          this.recorderPort.disconnect()
+        } catch (error) {
+          // Port might already be disconnected
+        }
+        this.recorderPort = null
+      }
 
       // Clean up browser context
       if (this.browserContext) {
@@ -262,6 +233,7 @@ export class TeachModeService {
     }
 
     chrome.webNavigation.onCommitted.addListener(this.navigationListener)
+    chrome.webNavigation.onHistoryStateUpdated.addListener(this.navigationListener)  // Also listen for SPA navigation
   }
 
   /**
@@ -276,6 +248,7 @@ export class TeachModeService {
 
       // Re-inject script
       await this._injectContentScript(tabId)
+      this.injectedTabId = tabId  // Update tracking
 
       // Restart recording
       await chrome.tabs.sendMessage(tabId, {
@@ -357,27 +330,8 @@ export class TeachModeService {
       const date = new Date(recording.session.startTimestamp)
       const title = `${url.hostname} - ${date.toLocaleString()}`
 
-      // Process recording with PreprocessAgent
-      let workflow: SemanticWorkflow | null = null
-      try {
-        console.log('Processing recording into workflow...')
-        const preprocessAgent = new PreprocessAgent()
-        workflow = await preprocessAgent.processRecording(recording)
-        console.log(`Created workflow with ${workflow.steps.length} steps`)
-        Logging.log('TeachModeService', `Created workflow with ${workflow.steps.length} steps`)
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        console.log(`Failed to process recording: ${errorMessage}`)
-        Logging.log('TeachModeService', `PreprocessAgent failed: ${errorMessage}`, 'error')
-      }
-
-      // Save recording to storage
+      // Save to storage
       const recordingId = await storage.save(recording, title)
-
-      // Save workflow separately if processing succeeded
-      if (workflow) {
-        await storage.saveWorkflow(recordingId, workflow)
-      }
 
       Logging.log('TeachModeService', `Saved recording ${recordingId} with ${recording.events.length} events`)
 
@@ -427,6 +381,8 @@ export class TeachModeService {
       this.browserContext = null
     }
     this.currentSession = null
+    this.injectedTabId = null
+    this.recorderPort = null
   }
 
   // ============= Storage Management =============
@@ -448,27 +404,11 @@ export class TeachModeService {
   }
 
   /**
-   * Get a workflow for a recording
-   */
-  async getWorkflow(recordingId: string): Promise<SemanticWorkflow | null> {
-    const storage = RecordingStorage.getInstance()
-    return await storage.getWorkflow(recordingId)
-  }
-
-  /**
    * Delete a recording
    */
   async deleteRecording(recordingId: string): Promise<boolean> {
     const storage = RecordingStorage.getInstance()
     return await storage.delete(recordingId)
-  }
-
-  /**
-   * Delete a workflow
-   */
-  async deleteWorkflow(recordingId: string): Promise<boolean> {
-    const storage = RecordingStorage.getInstance()
-    return await storage.deleteWorkflow(recordingId)
   }
 
   /**
@@ -512,28 +452,35 @@ export class TeachModeService {
   }
 
   /**
-   * Set voice recording data from sidepanel
+   * Setup port listener for content script connection monitoring
    */
-  setVoiceData(data: {
-    transcript: string
-    duration: number
-    segments: any[]
-    vapiSessionId?: string | null
-  }): void {
-    this.voiceTranscript = data.transcript
-    this.voiceDuration = data.duration
-    this.voiceSegments = data.segments
-    this.voiceSessionId = data.vapiSessionId || null
-    Logging.log('TeachModeService', `Voice data set: ${data.transcript.length} chars`)
-  }
+  private _setupPortListener(): void {
+    chrome.runtime.onConnect.addListener((port) => {
+      // Only handle teach mode recorder ports
+      if (port.name !== 'teach-mode-recorder') return
 
-  /**
-   * Reset voice recording data
-   */
-  private _resetVoiceData(): void {
-    this.voiceTranscript = ''
-    this.voiceDuration = 0
-    this.voiceSegments = []
-    this.voiceSessionId = null
+      // Store the port reference
+      this.recorderPort = port
+      Logging.log('TeachModeService', `Recorder connected from tab ${port.sender?.tab?.id}`)
+
+      // Handle port disconnect - content script died or page navigated
+      port.onDisconnect.addListener(() => {
+        Logging.log('TeachModeService', `Recorder disconnected from tab ${port.sender?.tab?.id}`)
+        this.recorderPort = null
+
+        // Only re-inject if we're still recording and this is the recording tab
+        if (this.currentSession && this.injectedTabId &&
+            this.currentSession.getTabId() === this.injectedTabId) {
+          Logging.log('TeachModeService', `Re-injecting content script after disconnect on tab ${this.injectedTabId}`)
+
+          // Re-inject after a small delay to let the page settle
+          setTimeout(() => {
+            if (this.currentSession && this.injectedTabId) {
+              this._reinjectContentScript(this.injectedTabId)
+            }
+          }, 100)
+        }
+      })
+    })
   }
 }
