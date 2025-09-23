@@ -5,7 +5,6 @@ import { MessageType } from '@/lib/types/messaging'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
-import { TeachModeButton } from './TeachModeButton'
 // import { ExperimentModal } from './ExperimentModal'  // Removed - old evals system deprecated
 import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star, Copy } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
@@ -23,6 +22,8 @@ interface HeaderProps {
   onReset: () => void
   showReset: boolean  // This now means "has messages to reset"
   isProcessing: boolean
+  onTeachModeToggle?: () => void
+  isTeachMode?: boolean
 }
 
 /**
@@ -30,7 +31,7 @@ interface HeaderProps {
  * Displays title, connection status, and action buttons (pause/reset)
  * Memoized to prevent unnecessary re-renders
  */
-export const Header = memo(function Header({ onReset, showReset, isProcessing }: HeaderProps) {
+export const Header = memo(function Header({ onReset, showReset, isProcessing, onTeachModeToggle, isTeachMode }: HeaderProps) {
   const { sendMessage, connected, addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
   const { trackClick } = useAnalytics()
   const [showSettings, setShowSettings] = useState(false)
@@ -359,7 +360,29 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           )}
 
           {/* Teach Mode button */}
-          <TeachModeButton />
+          {onTeachModeToggle && (
+            <Button
+              onClick={onTeachModeToggle}
+              variant={isTeachMode ? 'default' : 'ghost'}
+              size="sm"
+              className={`
+                h-9 px-2 sm:px-3 rounded-xl smooth-hover smooth-transform
+                ${
+                  isTeachMode
+                    ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                    : 'hover:bg-purple-100 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-105'
+                }
+                flex items-center gap-1.5
+              `}
+              aria-label={isTeachMode ? 'Exit teach mode' : 'Enter teach mode'}
+              title={isTeachMode ? 'Exit teach mode' : 'Enter teach mode'}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              <span className="hidden sm:inline text-xs font-medium">Teach</span>
+            </Button>
+          )}
 
           {/* Show Pause button if processing */}
           {isProcessing && (

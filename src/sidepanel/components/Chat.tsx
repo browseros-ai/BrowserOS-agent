@@ -12,13 +12,15 @@ import { MessageType } from '@/lib/types/messaging'
 
 interface ChatProps {
   isConnected: boolean
+  onTeachModeToggle?: () => void
+  isTeachMode?: boolean
 }
 
 /**
  * Main chat container component
  * Orchestrates the layout and manages the overall chat interface
  */
-export function Chat({ isConnected }: ChatProps) {
+export function Chat({ isConnected, onTeachModeToggle, isTeachMode }: ChatProps) {
   const { messages, isProcessing, reset, upsertMessage } = useChatStore()
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const [showSelectTabsButton, setShowSelectTabsButton] = useState(false)
@@ -47,10 +49,12 @@ export function Chat({ isConnected }: ChatProps) {
     <div className="flex flex-col h-full bg-background-alt">
 
       {/* Header */}
-      <Header 
+      <Header
         onReset={reset}
         showReset={messages.length > 0}
         isProcessing={isProcessing}
+        onTeachModeToggle={onTeachModeToggle}
+        isTeachMode={isTeachMode}
       />
       
       {/* Main content - takes remaining space and scrolls */}
