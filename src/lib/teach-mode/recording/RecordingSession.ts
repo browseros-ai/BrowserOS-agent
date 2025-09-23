@@ -78,10 +78,10 @@ export class RecordingSession {
 
     // Schedule state capture for significant interaction events (100ms delay)
     // We capture state after actions that change the page state
-    // const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation', 'setViewport']
-    // if (stateChangeEvents.includes(event.type) && this.browserContext) {
-    this._scheduleStateCapture(event)
-    // }
+    const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation', 'setViewport']
+    if (stateChangeEvents.includes(event.type) && this.browserContext) {
+      this._scheduleStateCapture(event)
+    }
 
     // Emit debug message to sidepanel in dev mode
     this._emitDebugMessage(event.type, eventData)
@@ -159,13 +159,6 @@ export class RecordingSession {
    */
   private async _scheduleStateCapture(event: CapturedEvent): Promise<void> {
     try {
-      // Emit debug message that we're capturing state
-      if (this.isDebugMode) {
-        this.pubsub.publishMessage(
-          PubSub.createMessage(`[TEACH MODE] Capturing state after ${event.type}...`, 'thinking')
-        )
-      }
-
       // Schedule state capture with 100ms delay
       const state = await this.stateCapture.scheduleCapture(
         event.id,
@@ -180,11 +173,11 @@ export class RecordingSession {
           this.events[eventIndex].state = state
           Logging.log('RecordingSession', `Added state to event ${event.id}`)
 
-          // Emit debug message with state info
+          // Emit debug message with state info only after successful capture
           if (this.isDebugMode) {
-            const stateInfo = `state: ${state.browserStateString.length} chars, screenshot: ${state.screenshot ? 'yes' : 'no'}`
+            const stateInfo = `📸 State captured: ${state.browserStateString.length} chars, screenshot: ${state.screenshot ? 'yes' : 'no'}`
             this.pubsub.publishMessage(
-              PubSub.createMessage(`[TEACH MODE] Captured ${stateInfo}`, 'thinking')
+              PubSub.createMessage(`[TEACH MODE] ${stateInfo}`, 'thinking')
             )
           }
         }
@@ -199,7 +192,6 @@ export class RecordingSession {
    */
   private _emitDebugMessage(eventType: EventType, eventData: Partial<CapturedEvent>): void {
     if (!this.isDebugMode) return
-
 
     // Publish message to sidepanel
     this.pubsub.publishMessage(
