@@ -76,11 +76,12 @@ export class RecordingSession {
     this.events.push(event)
     Logging.log('RecordingSession', `Added event: ${event.type} (${event.id})`)
 
-    // Schedule state capture for interaction events (100ms delay)
-    const interactionEvents = ['click', 'dblclick', 'change', 'input', 'keydown', 'navigation', 'setViewport']
-    if (interactionEvents.includes(event.type) && this.browserContext) {
-      this._scheduleStateCapture(event)
-    }
+    // Schedule state capture for significant interaction events (100ms delay)
+    // We capture state after actions that change the page state
+    // const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation', 'setViewport']
+    // if (stateChangeEvents.includes(event.type) && this.browserContext) {
+    this._scheduleStateCapture(event)
+    // }
 
     // Emit debug message to sidepanel in dev mode
     this._emitDebugMessage(event.type, eventData)
@@ -158,6 +159,13 @@ export class RecordingSession {
    */
   private async _scheduleStateCapture(event: CapturedEvent): Promise<void> {
     try {
+      // Emit debug message that we're capturing state
+      if (this.isDebugMode) {
+        this.pubsub.publishMessage(
+          PubSub.createMessage(`[TEACH MODE] Capturing state after ${event.type}...`, 'thinking')
+        )
+      }
+
       // Schedule state capture with 100ms delay
       const state = await this.stateCapture.scheduleCapture(
         event.id,
@@ -171,6 +179,14 @@ export class RecordingSession {
         if (eventIndex !== -1) {
           this.events[eventIndex].state = state
           Logging.log('RecordingSession', `Added state to event ${event.id}`)
+
+          // Emit debug message with state info
+          if (this.isDebugMode) {
+            const stateInfo = `state: ${state.browserStateString.length} chars, screenshot: ${state.screenshot ? 'yes' : 'no'}`
+            this.pubsub.publishMessage(
+              PubSub.createMessage(`[TEACH MODE] Captured ${stateInfo}`, 'thinking')
+            )
+          }
         }
       }
     } catch (error) {
