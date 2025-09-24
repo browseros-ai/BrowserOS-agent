@@ -280,7 +280,7 @@ export class NewAgent27 {
     this.toolManager.register(createGetSelectedTabsTool(this.executionContext)); // Get selected tabs
 
     // Utility tools
-    this.toolManager.register(createExtractTool(this.executionContext));
+    this.toolManager.register(createExtractTool(this.executionContext)); // Extract text from page
     this.toolManager.register(createHumanInputTool(this.executionContext));
     this.toolManager.register(createDateTool(this.executionContext)); // Date/time utilities
     this.toolManager.register(createBrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
@@ -609,7 +609,7 @@ export class NewAgent27 {
             browserStateString = browserStateString.substring(0, targetLength);
             
             // Optional: Add truncation indicator
-            browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --";
+            browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --\n";
         }
       }
     }
@@ -694,6 +694,7 @@ export class NewAgent27 {
         maxTokens: 4096,
       });
       const structuredLLM = llm.withStructuredOutput(PlannerOutputSchema);
+      const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`;
 
       const userPrompt = `TASK: ${task}
 
@@ -703,6 +704,8 @@ EXECUTION METRICS:
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
 ${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
 ${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+
+${executionContext}
 
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
 ${fullHistory}
@@ -1312,6 +1315,7 @@ ${fullHistory}
         maxTokens: 4096,
       });
       const structuredLLM = llm.withStructuredOutput(PredefinedPlannerOutputSchema);
+      const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`;
 
       const userPrompt = `Current TODO List:
 ${currentTodos}
@@ -1322,6 +1326,8 @@ EXECUTION METRICS:
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
 ${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
 ${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+
+${executionContext}
 
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
 ${fullHistory}
@@ -1422,7 +1428,7 @@ ${fullHistory}
 - Execution History: ${plan.executionHistory}
 - Challenges Identified: ${plan.challengesIdentified}
 - Reasoning: ${plan.stepByStepReasoning}
-- Actions Planned: ${plan.proposedActions.join(', ')}`;
+- Proposed Actions: ${plan.proposedActions.join(', ')}`;
       } else {
         // Predefined planner output
         const plan = entry.plannerOutput as PredefinedPlannerOutput;
@@ -1447,7 +1453,16 @@ ${fullHistory}
   }
 
   private async summarizeExecutionHistory(history: string): Promise<ExecutionHistorySummary> {
-
+    // Remove Reasoning, TODO Markdown, and Proposed Actions sections before summarizing
+    // This strips lines starting with those section headers (case-insensitive, with or without colon)
+    const historyWithoutSections = history
+      .split('\n')
+      .filter(line =>
+        !/^[-*]\s*Reasoning[:]?/i.test(line.trim()) &&
+        !/^[-*]\s*TODO Markdown[:]?/i.test(line.trim()) &&
+        !/^[-*]\s*Proposed Actions[:]?/i.test(line.trim())
+      )
+      .join('\n')
     // Get LLM with structured output
     const llm = await getLLM({
       temperature: 0.2,
@@ -1455,7 +1470,7 @@ ${fullHistory}
     });
     const structuredLLM = llm.withStructuredOutput(ExecutionHistorySummarySchema);
     const systemPrompt = generateExecutionHistorySummaryPrompt();
-    const userPrompt = `Execution History: ${history}`;
+    const userPrompt = `Execution History: ${historyWithoutSections}`;
     const messages = [
       new SystemMessage(systemPrompt),
       new HumanMessage(userPrompt),
@@ -1510,10 +1525,10 @@ ${fullHistory}
   4. EXECUTE using that nodeId in your tool call
 </visual-execution-process>`
       : `<text-execution-process>
-  1. ANALYZE the browser state text to understand page structure
-  2. LOCATE elements by their text content, type, and attributes
-  3. IDENTIFY the correct nodeId from the browser state
-  4. EXECUTE using that nodeId in your tool call
+  1. SEARCH with grep_elements tool using regex patterns to find elements
+  2. IDENTIFY the [nodeId] from the grep results
+  3. EXECUTE NODE_ID in your tool call
+  NEVER guess nodeIds - ALWAYS search first with grep_elements so as to have precise nodeIds for tool calls
 </text-execution-process>`;
 
     const guidelines = supportsVision
@@ -1592,7 +1607,7 @@ ${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
 </screenshot-analysis>`
       : `<text-only-analysis>
   You are operating in TEXT-ONLY mode without screenshots.
-  Use the browser state text to identify elements by their nodeId, text content, and attributes.
+  Browser state may be truncated. Use grep_elements tool to find elements before any click/type action.
   Focus on element descriptions and hierarchical structure in the browser state.
 </text-only-analysis>`;
 
@@ -1604,10 +1619,10 @@ ${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   4. EXECUTE using that nodeId in your tool call
 </visual-execution-process>`
       : `<text-execution-process>
-  1. ANALYZE the browser state text to understand page structure
-  2. LOCATE elements by their text content, type, and attributes
-  3. IDENTIFY the correct nodeId from the browser state
-  4. EXECUTE using that nodeId in your tool call
+  1. SEARCH with grep_elements tool using regex patterns to find elements
+  2. IDENTIFY the [nodeId] from the grep results
+  3. EXECUTE using click(nodeId) or type(nodeId, text)
+  NEVER guess nodeIds - ALWAYS search first with grep_elements so as to have precise nodeIds for tool calls
 </text-execution-process>`;
 
     const guidelines = supportsVision
@@ -1618,9 +1633,11 @@ ${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   - Call 'done' when all actions are completed
 </execution-guidelines>`
       : `<execution-guidelines>
-  - Use the text-based browser state as your primary reference
-  - Match elements by their text content and attributes
-  - Batch multiple tool calls in one response when possible (reduces latency)
+  - MANDATORY: Use grep_elements before every click/type action
+    Common patterns: grep_elements("button.*(login|submit)") for buttons
+    Common patterns: grep_elements("input.*(email|password)") for inputs
+  - If grep finds nothing, try broader patterns like "button" or "input"
+  - Extract [nodeId] from results: [42] <C> <button> "Login"
   - Call 'done' when all actions are completed
 </execution-guidelines>`;
 
