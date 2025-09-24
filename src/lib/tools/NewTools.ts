@@ -1379,136 +1379,95 @@ export function createTypeAtCoordinatesTool(
   });
 }
 
-
-// Enhanced Grep tool - returns structured NodeId information
-const EnhancedGrepInputSchema = z.object({
-  query: z.string().describe("What to search for (e.g., 'login button', 'email input', 'submit elements', 'navigation links')"),
-  elementType: z.enum(["button", "input", "link", "form", "all"]).optional().default("all")
-    .describe("Type of elements to focus on (optional, defaults to 'all')"),
+// GrepElements tool input schema with pagination
+const GrepElementsInputSchema = z.object({
+  pattern: z.string().describe("Regex pattern to search for (e.g., 'button.*login', 'input.*(email|user)')"),
+  start: z.number().int().nonnegative().optional().default(0)
+    .describe("Starting index for pagination (default: 0)"),
+  limit: z.number().int().positive().optional().default(15)
+    .describe("Maximum number of results to return (default: 15)"),
 });
-type EnhancedGrepInput = z.infer<typeof EnhancedGrepInputSchema>;
+type GrepElementsInput = z.infer<typeof GrepElementsInputSchema>;
 
-interface GrepElement {
-  nodeId: number;  // The nodeId that can be used for clicking/typing
-  elementType: string;  // button, input, link, etc.
-  text?: string;  // Visible text content
-  placeholder?: string;  // Placeholder text for inputs
-  context: string;  // Surrounding context to help understand the element
-  attributes?: Record<string, string>;  // Relevant attributes like type, role, etc.
-}
-
-export function createGrepTool(context: ExecutionContext): DynamicStructuredTool {
+// GrepElements tool with regex and pagination
+export function createGrepElementsTool(context: ExecutionContext): DynamicStructuredTool {
   return new DynamicStructuredTool({
-    name: "grep",
-    description: "Search for elements on the current page and get their NodeIds with context. Returns structured information about matching elements that can be used for clicking/typing.",
-    schema: EnhancedGrepInputSchema,
-    func: async (args: EnhancedGrepInput) => {
+    name: "grep_elements",
+    description: `Search page elements using regex patterns. Browser state format: [nodeId] <C/T> <tag> "text" attributes
+
+COMMON PATTERNS:
+- Text search: "login|sign.?in" (flexible login text)
+- Buttons: "button.*submit|input.*submit" (submit buttons)
+- Inputs: "input.*(email|user|name)" (form fields)
+- Links: "a.*href.*shop" (links containing 'shop')
+- IDs: "\\\\[\\\\d+\\\\].*login" (any element with 'login')
+- Attributes: 'type="email"|placeholder.*email' (email fields)
+
+EXAMPLE: [42] <C> <button> "Submit" class="btn-primary"
+Returns max 15 matches, shows total count if more exist.`,
+    schema: GrepElementsInputSchema,
+    func: async (args: GrepElementsInput) => {
       try {
         context.incrementMetric("toolCalls");
 
         // Emit thinking message
         context.getPubSub().publishMessage(
-          PubSubChannel.createMessage(`Searching for "${args.query}"...`, "thinking")
+          PubSubChannel.createMessage(`Searching with pattern "${args.pattern}"...`, "thinking")
         );
 
-        // Validate query is not empty
-        if (!args.query || args.query.trim() === "") {
+        // Validate pattern
+        let regex: RegExp;
+        try {
+          regex = new RegExp(args.pattern, 'i'); // Case-insensitive by default
+        } catch (regexError) {
           return JSON.stringify({
             ok: false,
-            error: "Query is empty",
+            error: `Invalid regex pattern: ${regexError instanceof Error ? regexError.message : String(regexError)}`
           });
         }
 
-        // Get current page from browserContext
+        // Get browser state string to parse
         const browserState = await context.browserContext.getBrowserStateString();
-
-        // Parse browser state to extract elements with NodeIds
-        const elements: GrepElement[] = [];
         const lines = browserState.split('\n');
 
+        // Find all matching lines by applying regex at line level
+        const matchingLines: string[] = [];
         for (const line of lines) {
-          // Look for lines with NodeId pattern: [nodeId] <C/T> <tag> "text" attributes
-          const nodeIdMatch = line.match(/\[(\d+)\]\s*<([CT])>\s*<(\w+)>(?:\s*"([^"]*)")?(?:\s*(.*))?/);
-          if (nodeIdMatch) {
-            const [, nodeIdStr, interactionType, tagName, text, attributes] = nodeIdMatch;
-            const nodeId = parseInt(nodeIdStr);
+          // Skip empty lines
+          if (line.trim() === '') continue;
 
-            // Filter by element type if specified
-            if (args.elementType !== "all") {
-              const elementTypeMap: Record<string, string[]> = {
-                button: ["button", "input"],
-                input: ["input", "textarea"],
-                link: ["a"],
-                form: ["form", "fieldset"]
-              };
-
-              const allowedTags = elementTypeMap[args.elementType] || [];
-              if (!allowedTags.includes(tagName.toLowerCase())) {
-                continue;
-              }
-            }
-
-            // Check if this element matches the query
-            const searchText = [
-              text || "",
-              attributes || "",
-              tagName
-            ].join(" ").toLowerCase();
-
-            const queryLower = args.query.toLowerCase();
-            const queryParts = queryLower.split(/\s+/);
-
-            // Check if all query parts match somewhere in the element
-            const matches = queryParts.every(part =>
-              searchText.includes(part) ||
-              tagName.toLowerCase().includes(part) ||
-              (text && text.toLowerCase().includes(part))
-            );
-
-            if (matches) {
-              // Parse attributes
-              const parsedAttributes: Record<string, string> = {};
-              if (attributes) {
-                const attrMatches = attributes.matchAll(/(\w+)="([^"]*)"/g);
-                for (const match of attrMatches) {
-                  parsedAttributes[match[1]] = match[2];
-                }
-              }
-
-              elements.push({
-                nodeId,
-                elementType: tagName.toLowerCase(),
-                text: text || undefined,
-                placeholder: parsedAttributes.placeholder,
-                context: line.trim(),
-                attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : undefined
-              });
-            }
+          // Apply regex to the full line
+          if (regex.test(line)) {
+            matchingLines.push(line.trim());
           }
         }
 
-        if (elements.length === 0) {
+        // Limit to 15 matches
+        const totalMatches = matchingLines.length;
+        const limitedMatches = matchingLines.slice(0, 15);
+
+        if (limitedMatches.length === 0) {
           return JSON.stringify({
             ok: false,
-            error: `No elements found matching "${args.query}"`,
+            error: `No elements found matching pattern "${args.pattern}". Try broader patterns like 'button', 'input', or check browser state format.`
           });
         }
 
-        // Emit result message
-        context.getPubSub().publishMessage(
-          PubSubChannel.createMessage(`Found ${elements.length} matching elements`, "assistant")
-        );
+        // Format results - just return the matching lines joined
+        const truncationMessage = totalMatches > 15
+          ? `\n\nShowing first 15 of ${totalMatches} matches.`
+          : '';
 
         return JSON.stringify({
           ok: true,
-          output: `Found ${elements.length} matching elements: ${elements.map(element => element.context).join("\n")}`,
-          elements: elements
+          output: `${limitedMatches.join('\n')}${truncationMessage}`
         });
+
       } catch (error) {
         context.incrementMetric("errors");
         return JSON.stringify({
           ok: false,
-          error: `Failed to search for "${args.query}": ${error instanceof Error ? error.message : String(error)}`,
+          error: `Grep elements failed: ${error instanceof Error ? error.message : String(error)}`,
         });
       }
     },

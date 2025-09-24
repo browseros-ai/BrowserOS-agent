@@ -12,10 +12,9 @@ export class ElementFormatter {
   /**
    * Format an array of elements
    */
-  formatElements(elements: InteractiveNode[]): string {
+  formatElements(elements: InteractiveNode[], hideHiddenElements: boolean = false): string {
     // Flags for formatting control
-    const SKIP_OUT_OF_VIEWPORT = false; // Skip out-of-viewport elements entirely
-    const SEPARATE_BY_VIEWPORT = false; // Separate in/out of viewport
+    const SKIP_OUT_OF_VIEWPORT = hideHiddenElements; // Skip out-of-viewport elements entirely
     const SORT_BY_NODEID = true; // Sort by nodeId (ascending)
     const MAX_ELEMENTS = 0; // 0 means no limit
 
@@ -37,11 +36,6 @@ export class ElementFormatter {
       filteredElements = filteredElements.slice(0, MAX_ELEMENTS);
     }
 
-    // Format with viewport separation (only if not skipping out-of-viewport)
-    if (SEPARATE_BY_VIEWPORT && !SKIP_OUT_OF_VIEWPORT) {
-      return this._formatWithViewportSeparation(filteredElements);
-    }
-
     // Format without separation
     const lines: string[] = [];
     for (const node of filteredElements) {
@@ -49,6 +43,9 @@ export class ElementFormatter {
       if (formatted) {
         lines.push(formatted);
       }
+    }
+    if (SKIP_OUT_OF_VIEWPORT) {
+      lines.push("--- IMPORTANT: OUT OF VIEWPORT ELEMENTS, SCROLL TO INTERACT ---");
     }
     return lines.join("\n");
   }
@@ -153,50 +150,6 @@ export class ElementFormatter {
   }
 
   // ============= Private Helper Methods =============
-
-  private _formatWithViewportSeparation(elements: InteractiveNode[]): string {
-    const lines: string[] = [];
-    const inViewport: InteractiveNode[] = [];
-    const outOfViewport: InteractiveNode[] = [];
-    const VIEWPORT_SEPARATOR =
-      "--- IMPORTANT: OUT OF VIEWPORT ELEMENTS, SCROLL TO INTERACT ---";
-
-    // Separate by viewport visibility
-    for (const node of elements) {
-      const isInViewport = node.attributes?.in_viewport !== "false";
-      if (isInViewport) {
-        inViewport.push(node);
-      } else {
-        outOfViewport.push(node);
-      }
-    }
-
-    // Format in-viewport elements
-    for (const node of inViewport) {
-      const formatted = this.formatElement(node);
-      if (formatted) {
-        lines.push(formatted);
-      }
-    }
-
-    // Add separator and out-of-viewport elements
-    if (outOfViewport.length > 0) {
-      if (lines.length > 0) {
-        lines.push(""); // Empty line before separator
-      }
-      lines.push(VIEWPORT_SEPARATOR);
-
-      for (const node of outOfViewport) {
-        const formatted = this.formatElement(node);
-        if (formatted) {
-          lines.push(formatted);
-        }
-      }
-    }
-
-    return lines.join("\n");
-  }
-
   private _getTypeSymbol(type: string): string {
     switch (type) {
       case "clickable":

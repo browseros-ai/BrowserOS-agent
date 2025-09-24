@@ -46,6 +46,7 @@ import {
   createDoneTool,
   createMoondreamVisualClickTool,
   createMoondreamVisualTypeTool,
+  createGrepElementsTool,
 } from "@/lib/tools/NewTools";
 import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
 import { createBrowserOSInfoTool } from '@/lib/tools/utility/BrowserOSInfoTool';
@@ -61,6 +62,7 @@ import { ENABLE_EVALS2 } from '@/config';
 const MAX_PLANNER_ITERATIONS = 50;
 const MAX_EXECUTOR_ITERATIONS = 3;
 const MAX_PREDEFINED_PLAN_ITERATIONS = 30;
+const MAX_RETRIES = 3;
 
 // Human input constants
 const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
@@ -198,7 +200,7 @@ export class NewAgent27 {
     toolMessages: string[];
     plannerIterations: number;
   }> = [];
-  private toolDescriptions: string = getToolDescriptions();
+  private toolDescriptions: string = "";
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
@@ -286,8 +288,16 @@ export class NewAgent27 {
     // External integration tools
     this.toolManager.register(createMCPTool(this.executionContext)); // MCP server integration
 
+    // Limited context mode tools - only register when in limited context mode
+    if (this.executionContext.isLimitedContextMode()) {
+      this.toolManager.register(createGrepElementsTool(this.executionContext)); // Search elements when browser state is truncated
+    }
+
     // Completion tool
     this.toolManager.register(createDoneTool(this.executionContext));
+
+    // Populate tool descriptions after all tools are registered
+    this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
 
     Logging.log(
       "NewAgent",
@@ -361,6 +371,7 @@ export class NewAgent27 {
     const goalMessage = plan.goal || task;
 
     let allComplete = false;
+    let retries = 0;
 
     while (!allComplete && this.iterations < MAX_PREDEFINED_PLAN_ITERATIONS) {
       this.checkIfAborted();
@@ -381,6 +392,10 @@ export class NewAgent27 {
           `Predefined planning failed: ${planResult.error}`,
           "error"
         );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Predefined planning failed: ${planResult.error}`);
+        }
         continue;
       }
 
@@ -401,6 +416,10 @@ export class NewAgent27 {
           "Predefined planner provided no actions but TODOs not complete",
           "warning"
         );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Predefined planner provided no actions but TODOs not complete`);
+        }
         continue;
       }
 
@@ -436,7 +455,7 @@ export class NewAgent27 {
         "error"
       );
       throw new Error(
-        `Maximum predefined plan iterations (${MAX_PREDEFINED_PLAN_ITERATIONS}) reached`
+        `Maximum predefined plan iterations (${MAX_PREDEFINED_PLAN_ITERATIONS}) reached or planning failed`
       );
     }
 
@@ -453,6 +472,7 @@ export class NewAgent27 {
     }
 
     let done = false;
+    let retries = 0;
 
     // Publish start message
     this._publishMessage("Starting task execution...", "thinking");
@@ -477,6 +497,10 @@ export class NewAgent27 {
           `Planning failed: ${planResult.error}`,
           "error",
         );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: ${planResult.error}`);
+        }
         continue;
       }
 
@@ -503,6 +527,10 @@ export class NewAgent27 {
           "Planner provided no actions but task not complete",
           "warning",
         );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: Planner provided no actions but task not complete`);
+        }
         continue;
       }
 
@@ -553,6 +581,7 @@ export class NewAgent27 {
     simplified: boolean = true,
     screenshotSize: ScreenshotSizeKey = "large",
     includeBrowserState: boolean = true,
+    browserStateTokensLimit: number = 50000
   ): Promise<HumanMessage> {
     let browserStateString: string | null = null;
 
@@ -560,6 +589,29 @@ export class NewAgent27 {
       browserStateString = await this.executionContext.browserContext.getBrowserStateString(
         simplified,
       );
+
+      // check if browser state string exceed 50% of model's max tokens
+      const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
+      if (tokens > browserStateTokensLimit) {
+        // if it exceeds, first remove Hidden Elements from browser state string
+        browserStateString = await this.executionContext.browserContext.getBrowserStateString(
+          simplified,
+          true // hide hidden elements
+        );
+        // then again check if it still exceeds 50% of model's max tokens, if it does, truncate the string to 50% of model's max tokens
+        const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
+        if (tokens > browserStateTokensLimit) {
+            // Calculate the ratio to truncate by
+            const truncationRatio = browserStateTokensLimit / tokens;
+            
+            // Truncate the string (rough approximation based on character length)
+            const targetLength = Math.floor(browserStateString.length * truncationRatio);
+            browserStateString = browserStateString.substring(0, targetLength);
+            
+            // Optional: Add truncation indicator
+            browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --";
+        }
+      }
     }
 
     if (includeScreenshot && this.executionContext.supportsVision()) {
@@ -600,15 +652,6 @@ export class NewAgent27 {
   private async _runDynamicPlanner(task: string): Promise<PlannerResult> {
     try {
       this.executionContext.incrementMetric("observations");
-
-      // Get browser state message with screenshot
-
-      const browserStateMessage = await this._getBrowserStateMessage(
-        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
-        /* simplified */ true,
-        /* screenshotSize */ "large",
-        /* includeBrowserState */ true
-      );
 
       // Get execution metrics for analysis
       const metrics = this.executionContext.getExecutionMetrics();
@@ -664,20 +707,26 @@ ${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be 
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
 ${fullHistory}
 `;
-
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const browserStateMessage = await this._getBrowserStateMessage(
+        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+        /* simplified */ true,
+        /* screenshotSize */ "large",
+        /* includeBrowserState */ true,
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.8
+      );
       // Build messages
       const messages = [
         new SystemMessage(systemPrompt),
         new HumanMessage(userPrompt),
         browserStateMessage, // Browser state with screenshot
       ];
-      // this.executionContext.messageManager.setMessages(messages);
 
       // Get structured response from LLM with retry logic
       const result = await invokeWithRetry<PlannerOutput>(
         structuredLLM,
         messages,
-        3,
+        MAX_RETRIES,
         { signal: this.executionContext.abortSignal }
       );
 
@@ -722,7 +771,9 @@ ${fullHistory}
   ): Promise<ExecutorResult> {
     // Use the current iteration message manager from execution context
     const executorMM = new MessageManager();
-    executorMM.addSystem(generateExecutorPrompt(this._buildExecutionContext()));
+    const systemPrompt = generateExecutorPrompt(this._buildExecutionContext());
+    const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
+    executorMM.addSystem(systemPrompt);
     const currentIterationToolMessages: string[] = [];
     let executorIterations = 0;
     let isFirstPass = true;
@@ -734,18 +785,21 @@ ${fullHistory}
       // Add browser state and simple prompt
       if (isFirstPass) {
         // Add current browser state without screenshot
-        const browserStateMessage = await this._getBrowserStateMessage(
-          /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
-          /* simplified */ true,
-          /* screenshotSize */ "medium"
-        );
-        // add new state
-        executorMM.add(browserStateMessage);
 
         // Build execution context with planner output
         const plannerOutputForExecutor = this._formatPlannerOutputForExecutor(plannerOutput);
 
         const executionContext = this._buildExecutionContext();
+        const additionalTokens = TokenCounter.countMessage(new HumanMessage(executionContext + '\n'+ plannerOutputForExecutor));
+
+        const browserStateMessage = await this._getBrowserStateMessage(
+          /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+          /* simplified */ true,
+          /* screenshotSize */ "medium",
+          /* includeBrowserState */ true,
+          /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - additionalTokens)*0.8
+        );
+        executorMM.add(browserStateMessage);
         executorMM.addSystemReminder(executionContext + '\n I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. I will provide what tools to be executed based on provided actions in sequence until I call "done" tool.');
 
         // Pass planner output to executor to provide context and corresponding actions to be executed
@@ -819,7 +873,7 @@ ${fullHistory}
 
         // Continue to next iteration
       } else {
-        // No tool calls, might be done
+        // No tool calls, might be done or ask for planner output
         break;
       }
     }
@@ -1224,14 +1278,6 @@ ${fullHistory}
     try {
       this.executionContext.incrementMetric("observations");
 
-      // Get browser state with screenshot
-      const browserStateMessage = await this._getBrowserStateMessage(
-        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
-        /* simplified */ true,
-        /* screenshotSize */ "large",
-        /* includeBrowserState */ true
-      );
-
       // Get execution metrics for analysis
       const metrics = this.executionContext.getExecutionMetrics();
       const errorRate = metrics.toolCalls > 0
@@ -1280,6 +1326,14 @@ ${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be 
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
 ${fullHistory}
 `;
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const browserStateMessage = await this._getBrowserStateMessage(
+        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+        /* simplified */ true,
+        /* screenshotSize */ "large",
+        /* includeBrowserState */ true,
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.8
+      );
       const messages = [
         new SystemMessage(systemPrompt),
         new HumanMessage(userPrompt),
@@ -1290,7 +1344,7 @@ ${fullHistory}
       const plan = await invokeWithRetry<PredefinedPlannerOutput>(
         structuredLLM,
         messages,
-        3,
+        MAX_RETRIES,
         { signal: this.executionContext.abortSignal }
       );
 
@@ -1406,7 +1460,7 @@ ${fullHistory}
       new SystemMessage(systemPrompt),
       new HumanMessage(userPrompt),
     ];
-    const result = await invokeWithRetry<ExecutionHistorySummary>(structuredLLM, messages, 3, { signal: this.executionContext.abortSignal });
+    const result = await invokeWithRetry<ExecutionHistorySummary>(structuredLLM, messages, MAX_RETRIES, { signal: this.executionContext.abortSignal });
     return result;
 
   }

@@ -155,6 +155,7 @@ export class BrowserPage {
    */
   async getClickableElementsString(
     simplified: boolean = false,
+    hideHiddenElements: boolean = false,
   ): Promise<string> {
     const snapshot = await this._getSnapshot();
     if (!snapshot) {
@@ -165,7 +166,7 @@ export class BrowserPage {
     const clickables = snapshot.elements.filter(
       (node) => node.type === "clickable" || node.type === "selectable",
     );
-    return formatter.formatElements(clickables);
+    return formatter.formatElements(clickables, hideHiddenElements);
   }
 
   /**
@@ -173,6 +174,7 @@ export class BrowserPage {
    */
   async getTypeableElementsString(
     simplified: boolean = false,
+    hideHiddenElements: boolean = false,
   ): Promise<string> {
     const snapshot = await this._getSnapshot();
     if (!snapshot) {
@@ -183,7 +185,7 @@ export class BrowserPage {
     const typeables = snapshot.elements.filter(
       (node) => node.type === "typeable",
     );
-    return formatter.formatElements(typeables);
+    return formatter.formatElements(typeables, hideHiddenElements);
   }
 
   /**
