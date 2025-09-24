@@ -203,8 +203,9 @@ export const SemanticWorkflowSchema = z.object({
     action: z.object({
       type: z.string(),  // Action type
       description: z.string(),  // Human-readable description
-      target: z.string(),  // Target description
-      validation: z.string().optional()  // How to verify success
+      nodeIdentificationStrategy: z.string().optional().nullable(),  // Element identification guidance
+      validationStrategy: z.string(),  // How to verify completion
+      timeoutMs: z.number().default(5000)  // Suggested timeout
     }),
 
     // Reference to source events
