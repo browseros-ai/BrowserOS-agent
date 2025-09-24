@@ -111,8 +111,8 @@ export class StateCapture {
    */
   private async _captureScreenshot(page: BrowserPage): Promise<string | null> {
     try {
-      // Take a medium screenshot with highlights like NewAgent does
-      // showHighlights = true to show interactive elements
+      // Take a large screenshot to reduce storage size
+      // showHighlights = false to reduce file size
       const screenshot = await page.takeScreenshot('large', false)
       return screenshot
     } catch (error) {

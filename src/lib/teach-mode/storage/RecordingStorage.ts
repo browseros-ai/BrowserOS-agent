@@ -29,8 +29,9 @@ interface StorageIndex {
 const STORAGE_KEY_PREFIX = 'teach_recording_'
 const WORKFLOW_KEY_PREFIX = 'teach_workflow_'
 const STORAGE_INDEX_KEY = 'teach_recordings_index'
-const MAX_STORAGE_SIZE = 100 * 1024 * 1024  // 100MB limit
-const MAX_RECORDINGS = 100  // Maximum number of recordings
+// Removed quota restrictions - let Chrome handle storage limits
+// const MAX_STORAGE_SIZE = 100 * 1024 * 1024  // 100MB limit
+// const MAX_RECORDINGS = 100  // Maximum number of recordings
 
 /**
  * Manages storage of teach mode recordings
@@ -60,14 +61,7 @@ export class RecordingStorage {
       const json = JSON.stringify(recording)
       const sizeBytes = new Blob([json]).size
 
-      // Check storage limits
-      const index = await this._getIndex()
-      if (index.recordings.length >= MAX_RECORDINGS) {
-        throw new Error(`Maximum number of recordings (${MAX_RECORDINGS}) reached. Please delete some recordings.`)
-      }
-      if (index.totalSize + sizeBytes > MAX_STORAGE_SIZE) {
-        throw new Error('Storage limit exceeded. Please delete some recordings.')
-      }
+      // Quota checks removed - proceed directly to save
 
       // Create storage metadata
       const metadata: StorageMetadata = {
@@ -344,7 +338,7 @@ export class RecordingStorage {
       const stats = {
         recordingCount: index.recordings.length,
         totalSize: index.totalSize,
-        availableSpace: MAX_STORAGE_SIZE - index.totalSize,
+        availableSpace: -1, // Unlimited storage
         oldestRecording: undefined as Date | undefined,
         newestRecording: undefined as Date | undefined
       }
@@ -362,7 +356,7 @@ export class RecordingStorage {
       return {
         recordingCount: 0,
         totalSize: 0,
-        availableSpace: MAX_STORAGE_SIZE
+        availableSpace: -1 // Unlimited storage
       }
     }
   }
