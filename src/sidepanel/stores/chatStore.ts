@@ -8,7 +8,7 @@ import { feedbackService } from '@/lib/services/feedbackService'
 // Message schema for chat store with Zod validation
 export const MessageSchema = z.object({
   msgId: z.string(),  // Primary ID for both React keys and PubSub correlation
-  role: z.enum(['user', 'thinking', 'assistant', 'error', 'narration', 'plan_editor']), 
+  role: z.enum(['user', 'thinking', 'assistant', 'error', 'plan_editor']), 
   content: z.string(),  // Message content
   timestamp: z.date(),  // When message was created
   metadata: z.object({
@@ -37,7 +37,7 @@ type ChatState = z.infer<typeof ChatStateSchema>
 export interface PubSubMessage {
   msgId: string
   content: string
-  role: 'thinking' | 'user' | 'assistant' | 'error' | 'narration' | 'plan_editor'
+  role: 'thinking' | 'user' | 'assistant' | 'error' | 'plan_editor'
   ts: number
 }
 

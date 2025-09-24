@@ -25,12 +25,6 @@ export function useMessageHandler() {
       // Handle message events
       if (event.type === 'message') {
         const message = event.payload as PubSubMessage
-        
-        // Filter out narration messages, it's disabled
-        if (message.role === 'narration') {
-          return 
-        }
-        
         upsertMessage(message)
       }
       
@@ -48,12 +42,6 @@ export function useMessageHandler() {
       // Handle message events
       if (payload.details?.type === 'message') {
         const message = payload.details.payload as PubSubMessage
-        
-        // Filter out narration messages
-        if (message.role === 'narration') {
-          return 
-        }
-        
         upsertMessage(message)
       }
       

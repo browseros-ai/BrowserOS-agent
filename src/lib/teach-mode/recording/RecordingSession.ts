@@ -20,14 +20,17 @@ export class RecordingSession {
   private browserContext: BrowserContext | null = null
   private viewport?: TeachModeRecording['viewport']
   private narration?: TeachModeRecording['narration']
+  private activeTabId: number  // Track current active tab for multi-tab recording
 
   constructor(tabId: number, url: string, browserContext?: BrowserContext) {
     this.session = {
       id: `recording_${Date.now()}`,
       startTimestamp: Date.now(),
-      tabId,
+      tabId,  // Initial tab ID
       url
     }
+
+    this.activeTabId = tabId  // Start with the initial tab as active
 
     // Use the main PubSub channel for messages
     this.pubsub = PubSub.getChannel('main')
@@ -84,7 +87,11 @@ export class RecordingSession {
 
     // Schedule state capture for significant interaction events (100ms delay)
     // We capture state after actions that change the page state
-    const stateChangeEvents = ['click', 'dblclick', 'change', 'navigation']
+    const stateChangeEvents = [
+      'click', 'dblclick', 'change', 'scroll', 'type', 'navigation',
+      'session_start', 'session_end',
+      'tab_switched', 'tab_opened', 'tab_closed'  // Tab operations also capture state
+    ]
     if (stateChangeEvents.includes(event.action.type) && this.browserContext) {
       this._scheduleStateCapture(event)
     }
@@ -153,10 +160,25 @@ export class RecordingSession {
   }
 
   /**
-   * Get tab ID being recorded
+   * Get initial tab ID (for compatibility)
    */
   getTabId(): number {
     return this.session.tabId
+  }
+
+  /**
+   * Get currently active tab ID
+   */
+  getActiveTabId(): number {
+    return this.activeTabId
+  }
+
+  /**
+   * Set the active tab for recording
+   */
+  setActiveTabId(tabId: number): void {
+    this.activeTabId = tabId
+    Logging.log('RecordingSession', `Active tab changed to ${tabId}`)
   }
 
   /**
@@ -172,10 +194,10 @@ export class RecordingSession {
    */
   private async _scheduleStateCapture(event: CapturedEvent): Promise<void> {
     try {
-      // Schedule state capture with 100ms delay
+      // Schedule state capture with 100ms delay on active tab
       const state = await this.stateCapture.scheduleCapture(
         event.id,
-        this.session.tabId,
+        this.activeTabId,  // Use active tab instead of initial tab
         100
       )
 

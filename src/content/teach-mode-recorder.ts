@@ -18,20 +18,44 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
   class TeachModeRecorder {
     private isRecording = false
+    private isPaused = false  // For multi-tab pause/resume
     private eventCounter = 0
+    private port: chrome.runtime.Port | null = null  // Port connection to service
+    private myTabId: number | null = null  // This tab's ID for filtering messages
 
     // Track initial targets for precise selector computation
     private initialInputTarget: { element: Element; context: ElementContext } | null = null
     private initialPointerTarget: { element: Element; context: ElementContext } | null = null
     private pointerDownTimestamp = 0
 
+    // Scroll tracking
+    private scrollTimer: NodeJS.Timeout | null = null
+    private lastScrollPosition = { x: 0, y: 0 }
+    private scrollStartPosition = { x: 0, y: 0 }
+    private scrollTarget: { element: Element; context: ElementContext } | null = null
+
     constructor() {
       console.log('[TeachModeRecorder] Initialized')
+
+      // Get our tab ID immediately
+      this._getTabId()
 
       // Send ready message
       this.sendMessage({
         action: 'RECORDER_READY',
         source: 'TeachModeRecorder'
+      })
+    }
+
+    /**
+     * Get this tab's ID for message filtering
+     */
+    private _getTabId(): void {
+      chrome.runtime.sendMessage({ action: 'GET_TAB_ID' }, (response) => {
+        if (response?.tabId) {
+          this.myTabId = response.tabId
+          console.log('[TeachModeRecorder] My tab ID is', this.myTabId)
+        }
       })
     }
 
@@ -44,6 +68,27 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       console.log('[TeachModeRecorder] Starting recording')
       this.isRecording = true
 
+      // Establish port connection to service for lifecycle monitoring
+      try {
+        this.port = chrome.runtime.connect({ name: 'teach-mode-recorder' })
+        console.log('[TeachModeRecorder] Port connection established')
+
+        // Port disconnect handler (in case service disconnects us)
+        this.port.onDisconnect.addListener(() => {
+          console.log('[TeachModeRecorder] Port disconnected by service')
+          this.port = null
+          // If we're still supposed to be recording, the service will re-inject us
+        })
+      } catch (error) {
+        console.error('[TeachModeRecorder] Failed to establish port connection', error)
+      }
+
+      // Initialize scroll position
+      this.lastScrollPosition = {
+        x: window.scrollX,
+        y: window.scrollY
+      }
+
       // Add event listeners in capture phase (following Chrome pattern)
       window.addEventListener('keydown', this.handleKeyDown, true)
       window.addEventListener('keyup', this.handleKeyUp, true)
@@ -55,7 +100,32 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       window.addEventListener('auxclick', this.handleClick, true)
       window.addEventListener('dblclick', this.handleDoubleClick, true)
 
+      // Scroll events - capture phase for both window and element scrolls
+      window.addEventListener('scroll', this.handleScroll, true)
+      window.addEventListener('wheel', this.handleWheel, { passive: true, capture: true })
+
       window.addEventListener('beforeunload', this.handleBeforeUnload, true)
+    }
+
+    /**
+     * Pause recording (for tab switching)
+     */
+    pause(): void {
+      if (!this.isRecording || this.isPaused) return
+
+      console.log('[TeachModeRecorder] Pausing recording')
+      this.isPaused = true
+      // Keep listeners attached but stop sending events
+    }
+
+    /**
+     * Resume recording (when tab becomes active again)
+     */
+    resume(): void {
+      if (!this.isRecording || !this.isPaused) return
+
+      console.log('[TeachModeRecorder] Resuming recording')
+      this.isPaused = false
     }
 
     /**
@@ -66,6 +136,24 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Stopping recording')
       this.isRecording = false
+      this.isPaused = false
+
+      // Disconnect port connection
+      if (this.port) {
+        try {
+          this.port.disconnect()
+          console.log('[TeachModeRecorder] Port disconnected')
+        } catch (error) {
+          // Port might already be disconnected
+        }
+        this.port = null
+      }
+
+      // Clear any pending scroll timer
+      if (this.scrollTimer) {
+        clearTimeout(this.scrollTimer)
+        this.scrollTimer = null
+      }
 
       // Remove event listeners
       window.removeEventListener('keydown', this.handleKeyDown, true)
@@ -77,6 +165,9 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       window.removeEventListener('click', this.handleClick, true)
       window.removeEventListener('auxclick', this.handleClick, true)
       window.removeEventListener('dblclick', this.handleDoubleClick, true)
+
+      window.removeEventListener('scroll', this.handleScroll, true)
+      window.removeEventListener('wheel', this.handleWheel, true)
 
       window.removeEventListener('beforeunload', this.handleBeforeUnload, true)
     }
@@ -233,7 +324,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       target?: ElementContext
       action?: Partial<CapturedEvent['action']>
     }): void {
-      if (!this.isRecording) return
+      if (!this.isRecording || this.isPaused) return  // Don't send if paused
 
       const capturedEvent: CapturedEvent = {
         id: `content_event_${this.eventCounter++}`,
@@ -452,6 +543,111 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
         action: {}
       })
     }
+
+    private handleScroll = (event: Event): void => {
+      if (!event.isTrusted) return
+
+      // Clear any pending timer
+      if (this.scrollTimer) {
+        clearTimeout(this.scrollTimer)
+      }
+
+      // Get the scrolling target
+      const target = event.target
+
+      // Check if it's a document/window scroll or element scroll
+      const isDocumentScroll = target === document || target === document.documentElement || target === document.body || target === window
+
+      if (isDocumentScroll) {
+        // Window/document scroll
+        if (!this.scrollTarget) {
+          this.scrollStartPosition = {
+            x: window.scrollX,
+            y: window.scrollY
+          }
+          this.scrollTarget = null  // No element context for document scroll
+        }
+      } else if (target instanceof Element) {
+        // Element scroll
+        const element = target
+
+        // Track scroll start position on first scroll or element change
+        if (!this.scrollTarget || this.scrollTarget.element !== element) {
+          this.scrollStartPosition = {
+            x: element.scrollLeft,
+            y: element.scrollTop
+          }
+
+          this.scrollTarget = {
+            element,
+            context: this.computeElementContext(element)
+          }
+        }
+      } else {
+        // Not a valid scroll target
+        return
+      }
+
+      // Throttle scroll events - only record after scrolling stops for 150ms
+      this.scrollTimer = setTimeout(() => {
+        this.recordScrollEvent()
+      }, 150) as any
+    }
+
+    private handleWheel = (event: WheelEvent): void => {
+      // Wheel events can trigger scroll, but we'll capture via scroll event
+      // This is just to detect user intent to scroll
+      if (!event.isTrusted) return
+
+      // We don't need to record wheel separately since scroll event will fire
+      // But we could use this to detect scroll direction intent if needed
+    }
+
+    private recordScrollEvent(): void {
+      // Get current scroll position
+      let currentX = 0
+      let currentY = 0
+      let deltaX = 0
+      let deltaY = 0
+
+      if (!this.scrollTarget) {
+        // Window/document scroll
+        currentX = window.scrollX
+        currentY = window.scrollY
+        deltaX = currentX - this.scrollStartPosition.x
+        deltaY = currentY - this.scrollStartPosition.y
+      } else {
+        // Element scroll
+        const element = this.scrollTarget.element
+        currentX = element.scrollLeft
+        currentY = element.scrollTop
+        deltaX = currentX - this.scrollStartPosition.x
+        deltaY = currentY - this.scrollStartPosition.y
+      }
+
+      // Only record if there was actual scrolling
+      if (deltaX === 0 && deltaY === 0) return
+
+      // Send scroll event
+      this.sendEvent({
+        type: 'scroll',
+        target: this.scrollTarget?.context,
+        action: {
+          scroll: {
+            x: currentX,
+            y: currentY,
+            deltaX,
+            deltaY
+          }
+        }
+      })
+
+      // Update last position
+      this.lastScrollPosition = { x: currentX, y: currentY }
+
+      // Reset scroll tracking
+      this.scrollTarget = null
+    }
   }
 
   // Create recorder instance
@@ -459,15 +655,44 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
   // Message listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const message = request as TeachModeMessage
+    // Handle GET_TAB_ID request separately (not part of TeachModeMessage)
+    if (request.action === 'GET_TAB_ID') {
+      // Content scripts don't have access to chrome.tabs API
+      // The service will respond with the sender's tab ID
+      return false
+    }
+
+    const message = request as TeachModeMessage & { targetTabId?: number }
 
     if (message.source !== 'TeachModeService') {
       return
     }
 
+    // Filter messages by target tab ID (for multi-tab recording)
+    // Access through recorder instance methods
+    const tabId = (recorder as any).myTabId
+    if (message.targetTabId && tabId && message.targetTabId !== tabId) {
+      console.log('[TeachModeRecorder] Ignoring message for different tab', message.targetTabId)
+      return
+    }
+
     switch (message.action) {
       case 'START_RECORDING':
-        recorder.start()
+        if ((recorder as any).isPaused) {
+          recorder.resume()  // Resume if we were paused
+        } else {
+          recorder.start()  // Start fresh
+        }
+        sendResponse({ success: true })
+        break
+
+      case 'PAUSE_RECORDING':
+        recorder.pause()
+        sendResponse({ success: true })
+        break
+
+      case 'RESUME_RECORDING':
+        recorder.resume()
         sendResponse({ success: true })
         break
 

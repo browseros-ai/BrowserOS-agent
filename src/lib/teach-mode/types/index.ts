@@ -19,7 +19,10 @@ export const ActionTypeSchema = z.enum([
   'scroll',         // Page scroll
   'type',           // Text input/typing (alias for input)
   'keypress',       // Keyboard press (non-text)
-  'navigate'        // URL navigation (alias for navigation)
+  'navigate',       // URL navigation (alias for navigation)
+  'tab_switched',   // User switched to different tab
+  'tab_opened',     // New tab was opened
+  'tab_closed'      // Tab was closed
 ])
 
 // ============================================
@@ -137,7 +140,14 @@ export const CapturedEventSchema = z.object({
       y: z.number(),  // Vertical scroll position
       deltaX: z.number().optional(),  // Scroll delta X
       deltaY: z.number().optional()  // Scroll delta Y
-    }).optional()
+    }).optional(),
+
+    // For tab operations
+    tabId: z.number().optional(),  // Tab ID involved in operation
+    fromTabId: z.number().optional(),  // Previous tab (for switches)
+    toTabId: z.number().optional(),  // New tab (for switches)
+    fromUrl: z.string().optional(),  // URL of previous tab (for switches)
+    toUrl: z.string().optional()  // URL of new tab (for switches/opens)
   }),
 
   // Target element information (for interactions)
@@ -246,6 +256,7 @@ export const TeachModeMessageSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('START_RECORDING'),
     source: z.literal('TeachModeService'),
+    targetTabId: z.number().optional(),  // For multi-tab targeting
     config: z.object({
       captureVoice: z.boolean().optional(),  // Enable voice capture
       captureScreenshots: z.boolean().optional(),  // Enable screenshots
@@ -255,7 +266,20 @@ export const TeachModeMessageSchema = z.discriminatedUnion('action', [
 
   z.object({
     action: z.literal('STOP_RECORDING'),
-    source: z.literal('TeachModeService')
+    source: z.literal('TeachModeService'),
+    targetTabId: z.number().optional()  // For multi-tab targeting
+  }),
+
+  z.object({
+    action: z.literal('PAUSE_RECORDING'),
+    source: z.literal('TeachModeService'),
+    targetTabId: z.number().optional()  // For multi-tab targeting
+  }),
+
+  z.object({
+    action: z.literal('RESUME_RECORDING'),
+    source: z.literal('TeachModeService'),
+    targetTabId: z.number().optional()  // For multi-tab targeting
   }),
 
   // Content Script → Service

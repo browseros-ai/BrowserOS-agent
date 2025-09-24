@@ -6,7 +6,6 @@ import { z } from 'zod'
 export const AppConfigSchema = z.object({
   DEV_MODE: z.boolean(),  // Enable development features like enhanced logging
   MOCK_LLM_SETTINGS: z.boolean(),  // Enable mock LLM settings for development
-  ENABLE_NARRATOR: z.boolean(),  // Enable narrator service for human-friendly messages
   VERSION: z.string(),  // Application version
   LOG_LEVEL: z.enum(['info', 'error', 'warning', 'debug']).default('info')  // Default log level
 })
@@ -20,7 +19,6 @@ export type AppConfig = z.infer<typeof AppConfigSchema>
 export const config: AppConfig = {
   DEV_MODE: process.env.NODE_ENV !== 'production',
   MOCK_LLM_SETTINGS: false,
-  ENABLE_NARRATOR: false,
   VERSION: '0.1.0',
   LOG_LEVEL: process.env.NODE_ENV !== 'production' ? 'debug' : 'info'
 }
