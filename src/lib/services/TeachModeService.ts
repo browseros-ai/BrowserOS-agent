@@ -19,6 +19,8 @@ export class TeachModeService {
   private recorderPorts: Map<number, chrome.runtime.Port> = new Map()  // Track all recorder ports by tab ID
   private activeTabId: number | null = null  // Currently active recording tab
   private tabActivatedListener: ((info: chrome.tabs.TabActiveInfo) => void) | null = null
+  private tabCreatedListener: ((tab: chrome.tabs.Tab) => void) | null = null
+  private tabRemovedListener: ((tabId: number, info: chrome.tabs.TabRemoveInfo) => void) | null = null
 
   private constructor() {
     this._setupNavigationListener()
@@ -73,9 +75,15 @@ export class TeachModeService {
       // Set active tab
       this.activeTabId = tabId
 
-      // Start listening for tab switches
+      // Start listening for tab events
       if (this.tabActivatedListener) {
         chrome.tabs.onActivated.addListener(this.tabActivatedListener)
+      }
+      if (this.tabCreatedListener) {
+        chrome.tabs.onCreated.addListener(this.tabCreatedListener)
+      }
+      if (this.tabRemovedListener) {
+        chrome.tabs.onRemoved.addListener(this.tabRemovedListener)
       }
 
       // Inject content script
@@ -126,9 +134,15 @@ export class TeachModeService {
       }
       this.recorderPorts.clear()
 
-      // Stop listening for tab switches
+      // Stop listening for tab events
       if (this.tabActivatedListener) {
         chrome.tabs.onActivated.removeListener(this.tabActivatedListener)
+      }
+      if (this.tabCreatedListener) {
+        chrome.tabs.onCreated.removeListener(this.tabCreatedListener)
+      }
+      if (this.tabRemovedListener) {
+        chrome.tabs.onRemoved.removeListener(this.tabRemovedListener)
       }
 
       // Clean up browser context
@@ -502,6 +516,7 @@ export class TeachModeService {
    * Setup tab listeners for multi-tab recording
    */
   private _setupTabListeners(): void {
+    // Tab activated listener
     this.tabActivatedListener = async (info: chrome.tabs.TabActiveInfo) => {
       // Only care about tab switches during recording
       if (!this.currentSession) return
@@ -514,15 +529,34 @@ export class TeachModeService {
 
       Logging.log('TeachModeService', `Tab switched from ${previousTabId} to ${newTabId} during recording`)
 
-      // Record tab switch event
+      // Record tab switch event with URLs
       if (previousTabId !== null) {
-        this.currentSession.addEvent({
-          type: 'tab_switched',
-          action: {
-            fromTabId: previousTabId,
-            toTabId: newTabId
-          }
-        })
+        try {
+          // Get URLs of both tabs
+          const [previousTab, newTab] = await Promise.all([
+            chrome.tabs.get(previousTabId).catch(() => null),
+            chrome.tabs.get(newTabId)
+          ])
+
+          this.currentSession.addEvent({
+            type: 'tab_switched',
+            action: {
+              fromTabId: previousTabId,
+              toTabId: newTabId,
+              fromUrl: previousTab?.url || '',
+              toUrl: newTab.url || ''
+            }
+          })
+        } catch (error) {
+          // Fallback without URLs if tab query fails
+          this.currentSession.addEvent({
+            type: 'tab_switched',
+            action: {
+              fromTabId: previousTabId,
+              toTabId: newTabId
+            }
+          })
+        }
       }
 
       // Update active tab
@@ -546,7 +580,87 @@ export class TeachModeService {
       }
     }
 
-    // We'll add/remove this listener dynamically during recording
+    // Tab created listener
+    this.tabCreatedListener = async (tab: chrome.tabs.Tab) => {
+      // Only care about new tabs during recording
+      if (!this.currentSession || !tab.id) return
+
+      // Check if this tab was opened from our active recording tab
+      // openerTabId is set when a tab is opened via link click, window.open, etc.
+      const wasOpenedFromRecordingTab = tab.openerTabId === this.activeTabId
+
+      if (wasOpenedFromRecordingTab) {
+        Logging.log('TeachModeService', `New tab ${tab.id} opened from recording tab ${tab.openerTabId} with URL: ${tab.url}`)
+
+        // Record tab opened event
+        this.currentSession.addEvent({
+          type: 'tab_opened',
+          action: {
+            tabId: tab.id,
+            url: tab.url || '',
+            toUrl: tab.url || '',  // For consistency with tab_switched
+            fromTabId: tab.openerTabId  // Track which tab opened it
+          }
+        })
+      } else {
+        // Tab was opened independently (e.g., Ctrl+T, bookmark, etc.)
+        // We might still want to track if user switches to it
+        Logging.log('TeachModeService', `New tab ${tab.id} opened independently during recording`)
+      }
+    }
+
+    // Tab removed listener
+    this.tabRemovedListener = async (tabId: number, info: chrome.tabs.TabRemoveInfo) => {
+      // Only care about closed tabs during recording
+      if (!this.currentSession) return
+
+      // Only record if this tab had a content script (was part of recording)
+      const wasRecordingTab = this.recorderPorts.has(tabId)
+
+      if (wasRecordingTab) {
+        Logging.log('TeachModeService', `Recording tab closed: ${tabId}`)
+
+        // Try to get the tab URL (might be cached or still available)
+        let url = ''
+        try {
+          // Sometimes the tab info is still available briefly
+          const tab = await chrome.tabs.get(tabId).catch(() => null)
+          if (tab) {
+            url = tab.url || ''
+          }
+        } catch (e) {
+          // Tab already fully closed
+        }
+
+        // Record tab closed event
+        this.currentSession.addEvent({
+          type: 'tab_closed',
+          action: {
+            tabId,
+            url
+          }
+        })
+
+        // Clean up the port reference
+        this.recorderPorts.delete(tabId)
+
+        // If this was the active tab, switch to another tab
+        if (tabId === this.activeTabId) {
+          // Find another tab to switch to
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tabs.length > 0 && tabs[0].id) {
+            this.activeTabId = tabs[0].id
+            Logging.log('TeachModeService', `Active tab switched to ${this.activeTabId} after tab close`)
+          } else {
+            this.activeTabId = null
+          }
+        }
+      } else {
+        Logging.log('TeachModeService', `Non-recording tab closed during recording: ${tabId}`)
+      }
+    }
+
+    // We'll add/remove these listeners dynamically during recording
   }
 
   /**

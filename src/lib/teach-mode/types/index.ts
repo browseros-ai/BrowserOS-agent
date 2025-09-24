@@ -145,7 +145,9 @@ export const CapturedEventSchema = z.object({
     // For tab operations
     tabId: z.number().optional(),  // Tab ID involved in operation
     fromTabId: z.number().optional(),  // Previous tab (for switches)
-    toTabId: z.number().optional()  // New tab (for switches)
+    toTabId: z.number().optional(),  // New tab (for switches)
+    fromUrl: z.string().optional(),  // URL of previous tab (for switches)
+    toUrl: z.string().optional()  // URL of new tab (for switches/opens)
   }),
 
   // Target element information (for interactions)
