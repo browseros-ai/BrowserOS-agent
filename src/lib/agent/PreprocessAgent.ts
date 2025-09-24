@@ -34,7 +34,6 @@ import {
   generateEventAnalysisPrompt,
   generateGoalExtractionPrompt
 } from "./PreprocessAgent.prompt";
-import { rawData } from "./raw_data";
 
 /**
  * PreprocessAgent converts TeachModeRecording into SemanticWorkflow
@@ -50,13 +49,8 @@ export class PreprocessAgent {
   /**
    * Main processing method to convert recording to workflow
    */
-  async processRecording(recording: TeachModeRecording | null): Promise<SemanticWorkflow> {
+  async processRecording(recording: TeachModeRecording): Promise<SemanticWorkflow> {
     try {
-      // Validate input
-      // if recording is null, use rawData from .ts file
-      if (recording === null) {
-        recording = rawData as TeachModeRecording;
-      }
       const validatedRecording = TeachModeRecordingSchema.parse(recording);
       console.log("validatedRecording", validatedRecording)
 
