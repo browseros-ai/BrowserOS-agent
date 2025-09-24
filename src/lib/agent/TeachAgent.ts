@@ -56,7 +56,6 @@ import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
-import {preprocessed_data} from "./preprocess_data";
 import { type SemanticWorkflow } from "@/lib/teach-mode/types";
 
 // Constants
@@ -262,15 +261,14 @@ export class TeachAgent {
   // There are basically two modes of operation:
   // 1. Dynamic planning - the agent plans and executes in a loop until done
   // 2. Predefined plan - the agent executes a predefined set of steps in a loop until all are done
-  async execute(workflow?: SemanticWorkflow | null): Promise<void> {
+  async execute(workflow: SemanticWorkflow): Promise<void> {
     try {
       this.executionContext.setExecutionMetrics({
         ...this.executionContext.getExecutionMetrics(),
         startTime: Date.now(),
       });
 
-      // Use provided workflow or fallback to preprocess_data
-      const semanticWorkflow = workflow || (preprocessed_data as SemanticWorkflow);
+      const semanticWorkflow = workflow;
 
       Logging.log("TeachAgent", `Starting execution with workflow: ${semanticWorkflow.metadata.goal}`, "info");
       await this._initialize();
