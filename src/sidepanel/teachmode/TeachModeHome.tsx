@@ -9,7 +9,7 @@ export function TeachModeHome() {
   const { recordings, setMode, setActiveRecording, deleteRecording, executeRecording } = useTeachModeStore()
 
   const handleCreateNew = () => {
-    setMode('intent')
+    setMode('recording')
   }
 
   const handleRecordingClick = (recording: typeof recordings[0]) => {

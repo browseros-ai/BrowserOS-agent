@@ -126,7 +126,6 @@ const DUMMY_RECORDINGS: TeachModeRecording[] = [
 interface TeachModeStore {
   // State
   mode: TeachModeState
-  currentIntent: string
   recordings: TeachModeRecording[]
   activeRecording: TeachModeRecording | null
   recordingEvents: CapturedEvent[]
@@ -136,7 +135,6 @@ interface TeachModeStore {
 
   // Actions
   setMode: (mode: TeachModeState) => void
-  setIntent: (intent: string) => void
   startRecording: () => void
   stopRecording: () => void
   addEvent: (event: CapturedEvent) => void
@@ -152,7 +150,6 @@ interface TeachModeStore {
 export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   // Initial state with dummy data
   mode: 'idle',
-  currentIntent: '',
   recordings: DUMMY_RECORDINGS,
   activeRecording: null,
   recordingEvents: [],
@@ -162,8 +159,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
   // Actions
   setMode: (mode) => set({ mode }),
-
-  setIntent: (intent) => set({ currentIntent: intent }),
 
   startRecording: () => set({
     mode: 'recording',
@@ -181,8 +176,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       const newRecording: TeachModeRecording = {
         id: `rec_${Date.now()}`,
         name: 'New Workflow',
-        description: state.currentIntent,
-        intent: state.currentIntent,
+        description: 'Automated workflow',
+        intent: 'Automated workflow',
         icon: '🎯',
         steps: state.recordingEvents,
         duration: Math.floor((Date.now() - (state.recordingStartTime || Date.now())) / 1000),
@@ -282,7 +277,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
   reset: () => set({
     mode: 'idle',
-    currentIntent: '',
     recordingEvents: [],
     executionProgress: null,
     executionSummary: null,
