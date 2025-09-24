@@ -42,7 +42,7 @@ export function setupTeachModeHandler(): void {
         sendResponse({
           success: true,
           isRecording: teachModeService.isRecording(),
-          tabId: teachModeService.getCurrentSession()?.getTabId()
+          tabId: teachModeService.getCurrentSession()?.getActiveTabId()
         })
         break
 

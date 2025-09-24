@@ -170,7 +170,7 @@ export const TeachModeRecordingSchema = z.object({
     id: z.string(),  // Unique session ID
     startTimestamp: z.number(),  // Unix timestamp
     endTimestamp: z.number().optional(),  // Unix timestamp when stopped
-    tabId: z.number(),  // Chrome tab ID
+    tabId: z.number(),  // Initial Chrome tab ID where recording started
     url: z.string()  // Initial URL
   }),
 
@@ -266,18 +266,6 @@ export const TeachModeMessageSchema = z.discriminatedUnion('action', [
 
   z.object({
     action: z.literal('STOP_RECORDING'),
-    source: z.literal('TeachModeService'),
-    targetTabId: z.number().optional()  // For multi-tab targeting
-  }),
-
-  z.object({
-    action: z.literal('PAUSE_RECORDING'),
-    source: z.literal('TeachModeService'),
-    targetTabId: z.number().optional()  // For multi-tab targeting
-  }),
-
-  z.object({
-    action: z.literal('RESUME_RECORDING'),
     source: z.literal('TeachModeService'),
     targetTabId: z.number().optional()  // For multi-tab targeting
   }),
