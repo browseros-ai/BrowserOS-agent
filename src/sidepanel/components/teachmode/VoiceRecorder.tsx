@@ -22,6 +22,8 @@ export function VoiceRecorder({
   const [audioLevel, setAudioLevel] = useState(0)
   const [recordingTime, setRecordingTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   // Refs for recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -31,6 +33,7 @@ export function VoiceRecorder({
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null)
 
   // Check microphone permission on mount
   useEffect(() => {
@@ -42,6 +45,9 @@ export function VoiceRecorder({
         stopRecording()
       }
       stopAudioVisualization()
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl)
+      }
     }
   }, [])
 
@@ -155,6 +161,13 @@ export function VoiceRecorder({
 
         const blob = new Blob(chunksRef.current, { type: mimeType })
 
+        // Create URL for playback
+        if (recordedAudioUrl) {
+          URL.revokeObjectURL(recordedAudioUrl)
+        }
+        const audioUrl = URL.createObjectURL(blob)
+        setRecordedAudioUrl(audioUrl)
+
         if (onRecordingStop) {
           onRecordingStop(blob)
         }
@@ -238,6 +251,30 @@ export function VoiceRecorder({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Handle audio playback
+  const handlePlayPause = () => {
+    if (!audioPlayerRef.current || !recordedAudioUrl) return
+
+    if (isPlaying) {
+      audioPlayerRef.current.pause()
+      setIsPlaying(false)
+    } else {
+      audioPlayerRef.current.play()
+      setIsPlaying(true)
+    }
+  }
+
+  // Clear the recording
+  const clearRecording = () => {
+    if (recordedAudioUrl) {
+      URL.revokeObjectURL(recordedAudioUrl)
+      setRecordedAudioUrl(null)
+    }
+    setIsPlaying(false)
+    setRecordingTime(0)
+    setError(null)
+  }
+
   return (
     <div className={`voice-recorder ${className}`}>
       {/* Permission Status */}
@@ -280,6 +317,64 @@ export function VoiceRecorder({
         </div>
       )}
 
+      {/* Audio Player */}
+      {recordedAudioUrl && !isRecording && (
+        <div className="mb-3 px-3 py-3 rounded-md bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-blue-500">Recording Ready</span>
+            <span className="text-xs font-mono text-muted-foreground">{formatTime(recordingTime)}</span>
+          </div>
+
+          {/* Hidden audio element */}
+          <audio
+            ref={audioPlayerRef}
+            src={recordedAudioUrl}
+            onEnded={() => setIsPlaying(false)}
+            className="hidden"
+          />
+
+          {/* Player controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePlayPause}
+              className="flex-1 py-2 px-3 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-500 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              {isPlaying ? (
+                <>
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                  Play
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={clearRecording}
+              className="py-2 px-3 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-500 text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              <span className="w-4 h-4 flex items-center justify-center">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </span>
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Recording Button */}
       <button
         onClick={isRecording ? stopRecording : startRecording}
@@ -292,6 +387,7 @@ export function VoiceRecorder({
             : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20'
           }
         `}
+        style={{ display: recordedAudioUrl && !isRecording ? 'none' : 'flex' }}
       >
         {isRecording ? (
           <>
@@ -312,12 +408,14 @@ export function VoiceRecorder({
       </button>
 
       {/* Instructions */}
-      <div className="mt-2 text-xs text-muted-foreground text-center">
-        {isRecording
-          ? 'Recording audio... Click stop when done'
-          : 'Click to record voice narration'
-        }
-      </div>
+      {!recordedAudioUrl && (
+        <div className="mt-2 text-xs text-muted-foreground text-center">
+          {isRecording
+            ? 'Recording audio... Click stop when done'
+            : 'Click to record voice narration'
+          }
+        </div>
+      )}
     </div>
   )
 }

@@ -550,7 +550,7 @@ export const useProviderStore = create<ProviderState & ProviderActions>()(
             (provider.openIn === undefined && provider.category === 'llm')
 
           let tabId: number | undefined
-          let browserOS = getBrowserOSAdapter()
+          const browserOS = getBrowserOSAdapter()
 
           try {
             if (openInNewTab) {
