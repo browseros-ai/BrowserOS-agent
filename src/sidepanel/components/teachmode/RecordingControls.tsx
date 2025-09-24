@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { VoiceRecorder } from './VoiceRecorder'
 
 interface RecordingControlsProps {
   isRecording: boolean
@@ -125,6 +126,21 @@ export function RecordingControls({
           Recording all clicks, inputs, and navigation. Stop when done.
         </div>
       )}
+
+      {/* Voice Recorder Section */}
+      <div className="mt-4 pt-4 border-t border-border">
+        <VoiceRecorder
+          onRecordingStart={() => console.log('[TeachMode] Voice recording started')}
+          onRecordingStop={(blob) => {
+            console.log('[TeachMode] Voice recording stopped, size:', blob.size)
+            // TODO: Process audio blob for transcription
+          }}
+          onAudioChunk={(chunk) => {
+            // TODO: Stream chunks to STT service
+            console.log('[TeachMode] Audio chunk received:', chunk.size)
+          }}
+        />
+      </div>
     </div>
   )
 }
