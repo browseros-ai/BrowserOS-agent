@@ -6,7 +6,7 @@ import { RecordingCard } from './components/RecordingCard'
 import { useTeachModeStore } from './teachmode.store'
 
 export function TeachModeHome() {
-  const { recordings, setMode, setActiveRecording, deleteRecording } = useTeachModeStore()
+  const { recordings, setMode, setActiveRecording, deleteRecording, executeRecording } = useTeachModeStore()
 
   const handleCreateNew = () => {
     setMode('intent')
@@ -15,6 +15,14 @@ export function TeachModeHome() {
   const handleRecordingClick = (recording: typeof recordings[0]) => {
     setActiveRecording(recording)
     setMode('ready')
+  }
+
+  const handleRun = (recordingId: string) => {
+    const recording = recordings.find(r => r.id === recordingId)
+    if (recording) {
+      setActiveRecording(recording)
+      executeRecording(recordingId)
+    }
   }
 
   return (
@@ -48,6 +56,7 @@ export function TeachModeHome() {
                   recording={recording}
                   onClick={() => handleRecordingClick(recording)}
                   onDelete={deleteRecording}
+                  onRun={handleRun}
                 />
               ))}
             </div>
