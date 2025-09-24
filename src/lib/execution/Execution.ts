@@ -5,6 +5,8 @@ import { MessageManager } from "@/lib/runtime/MessageManager";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { NewAgent } from "@/lib/agent/NewAgent";
 import { NewAgent27 } from "@/lib/agent/Agent27";
+import { PreprocessAgent } from "@/lib/agent/PreprocessAgent";
+import { TeachAgent } from "@/lib/agent/TeachAgent";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
@@ -199,15 +201,19 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
       }
 
       // Create fresh agent
-      const agent =
-        this.options.mode === "chat"
-          ? new ChatAgent(executionContext)
-          : getFeatureFlags().isEnabled('NEW_AGENT')
-            ? new NewAgent(executionContext)
-            : new BrowserAgent(executionContext);
+      // const agent =
+      //   this.options.mode === "chat"
+      //     ? new ChatAgent(executionContext)
+      //     : getFeatureFlags().isEnabled('NEW_AGENT')
+      //       ? new NewAgent27(executionContext)
+      //       : new BrowserAgent(executionContext);
 
-      // Execute
-      await agent.execute(query, metadata || this.options.metadata);
+      // // Execute
+      // await agent.execute(query, metadata || this.options.metadata);
+      const agent = new TeachAgent(executionContext);
+      await agent.execute();
+      // const agent = new PreprocessAgent();
+      // await agent.processRecording(null);
 
       // Evals2: post-execution scoring + upload
       if (ENABLE_EVALS2 && evalsEventMgr.isEnabled()) {
