@@ -4,6 +4,7 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager } from "@/lib/runtime/MessageManager";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { LocalAgent } from "@/lib/agent/LocalAgent";
+import { TeachAgent } from "@/lib/agent/TeachAgent";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
@@ -210,8 +211,13 @@ export class Execution {
       // Create fresh agent
       const provideType = await langChainProvider.getCurrentProviderType() || '';
       const smallModelsList = ['ollama', 'custom', 'openai_compatible'];
-      const agent =
-        this.options.mode === "chat"
+
+      // Check if we're in teach mode
+      const isTeachMode = metadata?.executionMode === 'teach';
+
+      const agent = isTeachMode
+        ? new TeachAgent(executionContext)
+        : this.options.mode === "chat"
           ? new ChatAgent(executionContext)
           : getFeatureFlags().isEnabled('NEW_AGENT')
             ? smallModelsList.includes(provideType)
@@ -220,7 +226,11 @@ export class Execution {
             : new BrowserAgent(executionContext);
 
       // Execute
-      await agent.execute(query, metadata || this.options.metadata);
+      if (isTeachMode) {
+        await (agent as TeachAgent).execute();
+      } else {
+        await agent.execute(query, metadata || this.options.metadata);
+      }
 
       // Evals2: post-execution scoring + upload
       if (ENABLE_EVALS2 && evalsEventMgr.isEnabled()) {

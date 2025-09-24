@@ -19,6 +19,7 @@ interface RecordingsListProps {
   isLoading: boolean
   onDelete: (recordingId: string) => void
   onExport: (recordingId: string) => void
+  onPlay: (recordingId: string) => void
   onRefresh: () => void
 }
 
@@ -30,6 +31,7 @@ export function RecordingsList({
   isLoading,
   onDelete,
   onExport,
+  onPlay,
   onRefresh
 }: RecordingsListProps) {
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
@@ -139,6 +141,15 @@ export function RecordingsList({
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => onPlay(recording.id)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs bg-green-500/10 text-green-500 hover:bg-green-500/20 rounded transition-colors"
+                  >
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    Play
+                  </button>
                   <button
                     onClick={() => onExport(recording.id)}
                     className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded transition-colors"

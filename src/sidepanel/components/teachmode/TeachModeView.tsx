@@ -19,13 +19,14 @@ interface StorageMetadata {
 
 interface TeachModeViewProps {
   onBack?: () => void
+  onPlayRecording?: (recordingId: string) => void
 }
 
 /**
  * Main view for Teach Mode functionality
  * Self-contained component for recording, debugging, and managing recordings
  */
-export function TeachModeView({ onBack }: TeachModeViewProps = {}) {
+export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = {}) {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTabId, setRecordingTabId] = useState<number | undefined>()
   const [recordings, setRecordings] = useState<StorageMetadata[]>([])
@@ -158,6 +159,47 @@ export function TeachModeView({ onBack }: TeachModeViewProps = {}) {
     }
   }
 
+  // Handle play recording
+  const handlePlayRecording = async (recordingId: string) => {
+    try {
+      setError(null)
+      console.log('Playing recording:', recordingId)
+
+      // Get workflow from recording ID
+      const response = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'GET_WORKFLOW', recordingId },
+          resolve
+        )
+      })
+
+      if (!response?.success || !response.workflow) {
+        setError('Workflow not found for this recording')
+        return
+      }
+
+      const workflow = response.workflow
+
+      // Execute workflow with TeachAgent
+      const executeResponse = await new Promise<any>((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'EXECUTE_WORKFLOW', workflow },
+          resolve
+        )
+      })
+
+      if (executeResponse?.success) {
+        // Navigate back to chat view to show execution
+        onPlayRecording?.(recordingId)
+      } else {
+        setError(executeResponse?.error || 'Failed to execute workflow')
+      }
+    } catch (err) {
+      console.error('Failed to play recording:', err)
+      setError('Failed to play recording')
+    }
+  }
+
   // Add debug message with deduplication
   const addDebugMessage = (message: string, messageId?: string) => {
     // Use messageId if provided, otherwise create one based on content and time
@@ -249,6 +291,7 @@ export function TeachModeView({ onBack }: TeachModeViewProps = {}) {
           isLoading={isLoading}
           onDelete={handleDeleteRecording}
           onExport={handleExportRecording}
+          onPlay={handlePlayRecording}
           onRefresh={loadRecordings}
         />
       </div>

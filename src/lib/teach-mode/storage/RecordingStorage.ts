@@ -1,4 +1,4 @@
-import { TeachModeRecording } from '@/lib/teach-mode/types'
+import { TeachModeRecording, SemanticWorkflow } from '@/lib/teach-mode/types'
 import { Logging } from '@/lib/utils/Logging'
 
 /**
@@ -27,6 +27,7 @@ interface StorageIndex {
 }
 
 const STORAGE_KEY_PREFIX = 'teach_recording_'
+const WORKFLOW_KEY_PREFIX = 'teach_workflow_'
 const STORAGE_INDEX_KEY = 'teach_recordings_index'
 const MAX_STORAGE_SIZE = 100 * 1024 * 1024  // 100MB limit
 const MAX_RECORDINGS = 100  // Maximum number of recordings
@@ -101,6 +102,31 @@ export class RecordingStorage {
   }
 
   /**
+   * Save a workflow to storage
+   */
+  async saveWorkflow(recordingId: string, workflow: SemanticWorkflow): Promise<string> {
+    try {
+      const workflowKey = `${WORKFLOW_KEY_PREFIX}${recordingId}`
+
+      // Serialize workflow to JSON
+      const json = JSON.stringify(workflow)
+
+      // Save workflow data
+      await chrome.storage.local.set({
+        [workflowKey]: json
+      })
+
+      Logging.log('RecordingStorage', `Saved workflow for recording ${recordingId}`)
+
+      return recordingId
+
+    } catch (error) {
+      Logging.log('RecordingStorage', `Failed to save workflow: ${error}`, 'error')
+      throw error
+    }
+  }
+
+  /**
    * Get a recording by ID
    */
   async get(recordingId: string): Promise<TeachModeRecording | null> {
@@ -121,6 +147,31 @@ export class RecordingStorage {
 
     } catch (error) {
       Logging.log('RecordingStorage', `Failed to get recording ${recordingId}: ${error}`, 'error')
+      return null
+    }
+  }
+
+  /**
+   * Get a workflow by recording ID
+   */
+  async getWorkflow(recordingId: string): Promise<SemanticWorkflow | null> {
+    try {
+      const workflowKey = `${WORKFLOW_KEY_PREFIX}${recordingId}`
+      const result = await chrome.storage.local.get(workflowKey)
+
+      if (!result[workflowKey]) {
+        Logging.log('RecordingStorage', `Workflow for recording ${recordingId} not found`, 'warning')
+        return null
+      }
+
+      // Parse JSON
+      const workflow = JSON.parse(result[workflowKey]) as SemanticWorkflow
+
+      Logging.log('RecordingStorage', `Retrieved workflow for recording ${recordingId}`)
+      return workflow
+
+    } catch (error) {
+      Logging.log('RecordingStorage', `Failed to get workflow for ${recordingId}: ${error}`, 'error')
       return null
     }
   }
@@ -171,13 +222,30 @@ export class RecordingStorage {
   }
 
   /**
+   * Delete a workflow
+   */
+  async deleteWorkflow(recordingId: string): Promise<boolean> {
+    try {
+      const workflowKey = `${WORKFLOW_KEY_PREFIX}${recordingId}`
+      await chrome.storage.local.remove(workflowKey)
+      return true
+    } catch (error) {
+      Logging.log('RecordingStorage', `Failed to delete workflow ${recordingId}: ${error}`, 'error')
+      return false
+    }
+  }
+
+  /**
    * Clear all recordings
    */
   async clear(): Promise<void> {
     try {
       // Get all recording keys
       const index = await this._getIndex()
-      const keysToRemove = index.recordings.map(r => `${STORAGE_KEY_PREFIX}${r.id}`)
+      const keysToRemove = [
+        ...index.recordings.map(r => `${STORAGE_KEY_PREFIX}${r.id}`),
+        ...index.recordings.map(r => `${WORKFLOW_KEY_PREFIX}${r.id}`)
+      ]
       keysToRemove.push(STORAGE_INDEX_KEY)
 
       // Remove all recordings and index
