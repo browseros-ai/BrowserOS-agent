@@ -26,11 +26,11 @@ export class RecordingSession {
     this.session = {
       id: `recording_${Date.now()}`,
       startTimestamp: Date.now(),
-      tabId,  // Initial tab ID
+      tabId,  // Store initial tab for session metadata
       url
     }
 
-    this.activeTabId = tabId  // Start with the initial tab as active
+    this.activeTabId = tabId  // This is what we actually use for tracking
 
     // Use the main PubSub channel for messages
     this.pubsub = PubSub.getChannel('main')
@@ -157,13 +157,6 @@ export class RecordingSession {
    */
   getSession(): TeachModeRecording['session'] {
     return { ...this.session }
-  }
-
-  /**
-   * Get initial tab ID (for compatibility)
-   */
-  getTabId(): number {
-    return this.session.tabId
   }
 
   /**

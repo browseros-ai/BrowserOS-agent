@@ -11,17 +11,15 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
   // Check if already initialized to prevent duplicate listeners
   if ((window as any)[RECORDER_INITIALIZED_KEY]) {
-    console.log('[TeachModeRecorder] Already initialized')
-    return
+    console.log('[TeachModeRecorder] Already initialized, resetting')
+    // Reset the recorder instance for fresh start
+    ;(window as any)[RECORDER_INITIALIZED_KEY] = false
   }
   (window as any)[RECORDER_INITIALIZED_KEY] = true
 
   class TeachModeRecorder {
     private isRecording = false
-    private isPaused = false  // For multi-tab pause/resume
     private eventCounter = 0
-    private port: chrome.runtime.Port | null = null  // Port connection to service
-    private myTabId: number | null = null  // This tab's ID for filtering messages
 
     // Track initial targets for precise selector computation
     private initialInputTarget: { element: Element; context: ElementContext } | null = null
@@ -37,9 +35,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     constructor() {
       console.log('[TeachModeRecorder] Initialized')
 
-      // Get our tab ID immediately
-      this._getTabId()
-
+      // Don't need tab ID anymore - we'll accept all messages
       // Send ready message
       this.sendMessage({
         action: 'RECORDER_READY',
@@ -47,41 +43,18 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       })
     }
 
-    /**
-     * Get this tab's ID for message filtering
-     */
-    private _getTabId(): void {
-      chrome.runtime.sendMessage({ action: 'GET_TAB_ID' }, (response) => {
-        if (response?.tabId) {
-          this.myTabId = response.tabId
-          console.log('[TeachModeRecorder] My tab ID is', this.myTabId)
-        }
-      })
-    }
 
     /**
      * Start recording events
      */
     start(): void {
-      if (this.isRecording) return
+      // Always stop first to clean up any existing listeners
+      if (this.isRecording) {
+        this.stop()
+      }
 
       console.log('[TeachModeRecorder] Starting recording')
       this.isRecording = true
-
-      // Establish port connection to service for lifecycle monitoring
-      try {
-        this.port = chrome.runtime.connect({ name: 'teach-mode-recorder' })
-        console.log('[TeachModeRecorder] Port connection established')
-
-        // Port disconnect handler (in case service disconnects us)
-        this.port.onDisconnect.addListener(() => {
-          console.log('[TeachModeRecorder] Port disconnected by service')
-          this.port = null
-          // If we're still supposed to be recording, the service will re-inject us
-        })
-      } catch (error) {
-        console.error('[TeachModeRecorder] Failed to establish port connection', error)
-      }
 
       // Initialize scroll position
       this.lastScrollPosition = {
@@ -108,27 +81,6 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     }
 
     /**
-     * Pause recording (for tab switching)
-     */
-    pause(): void {
-      if (!this.isRecording || this.isPaused) return
-
-      console.log('[TeachModeRecorder] Pausing recording')
-      this.isPaused = true
-      // Keep listeners attached but stop sending events
-    }
-
-    /**
-     * Resume recording (when tab becomes active again)
-     */
-    resume(): void {
-      if (!this.isRecording || !this.isPaused) return
-
-      console.log('[TeachModeRecorder] Resuming recording')
-      this.isPaused = false
-    }
-
-    /**
      * Stop recording events
      */
     stop(): void {
@@ -136,18 +88,6 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Stopping recording')
       this.isRecording = false
-      this.isPaused = false
-
-      // Disconnect port connection
-      if (this.port) {
-        try {
-          this.port.disconnect()
-          console.log('[TeachModeRecorder] Port disconnected')
-        } catch (error) {
-          // Port might already be disconnected
-        }
-        this.port = null
-      }
 
       // Clear any pending scroll timer
       if (this.scrollTimer) {
@@ -324,7 +264,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       target?: ElementContext
       action?: Partial<CapturedEvent['action']>
     }): void {
-      if (!this.isRecording || this.isPaused) return  // Don't send if paused
+      if (!this.isRecording) return  // Don't send if not recording
 
       const capturedEvent: CapturedEvent = {
         id: `content_event_${this.eventCounter++}`,
@@ -650,49 +590,26 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     }
   }
 
-  // Create recorder instance
-  const recorder = new TeachModeRecorder()
+  // Create or recreate recorder instance
+  let recorder = new TeachModeRecorder()
 
   // Message listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    // Handle GET_TAB_ID request separately (not part of TeachModeMessage)
-    if (request.action === 'GET_TAB_ID') {
-      // Content scripts don't have access to chrome.tabs API
-      // The service will respond with the sender's tab ID
-      return false
-    }
-
     const message = request as TeachModeMessage & { targetTabId?: number }
 
     if (message.source !== 'TeachModeService') {
       return
     }
 
-    // Filter messages by target tab ID (for multi-tab recording)
-    // Access through recorder instance methods
-    const tabId = (recorder as any).myTabId
-    if (message.targetTabId && tabId && message.targetTabId !== tabId) {
-      console.log('[TeachModeRecorder] Ignoring message for different tab', message.targetTabId)
-      return
-    }
+    // For simplified design: accept all messages from service
+    // The service ensures only the active tab gets messages
 
     switch (message.action) {
       case 'START_RECORDING':
-        if ((recorder as any).isPaused) {
-          recorder.resume()  // Resume if we were paused
-        } else {
-          recorder.start()  // Start fresh
-        }
-        sendResponse({ success: true })
-        break
-
-      case 'PAUSE_RECORDING':
-        recorder.pause()
-        sendResponse({ success: true })
-        break
-
-      case 'RESUME_RECORDING':
-        recorder.resume()
+        // Recreate recorder for fresh start
+        recorder.stop()  // Clean up old instance
+        recorder = new TeachModeRecorder()  // Fresh instance
+        recorder.start()
         sendResponse({ success: true })
         break
 
