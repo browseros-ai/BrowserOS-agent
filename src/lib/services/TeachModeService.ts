@@ -16,13 +16,15 @@ export class TeachModeService {
   private browserContext: BrowserContext | null = null
   private navigationListener: ((details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void) | null = null
   private messageListener: ((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => void) | null = null
-  private recorderPort: chrome.runtime.Port | null = null  // Track active recorder port connection
-  private injectedTabId: number | null = null  // Track which tab has the content script injected
+  private recorderPorts: Map<number, chrome.runtime.Port> = new Map()  // Track all recorder ports by tab ID
+  private activeTabId: number | null = null  // Currently active recording tab
+  private tabActivatedListener: ((info: chrome.tabs.TabActiveInfo) => void) | null = null
 
   private constructor() {
     this._setupNavigationListener()
     this._setupMessageListener()
     this._setupPortListener()
+    this._setupTabListeners()
   }
 
   static getInstance(): TeachModeService {
@@ -68,15 +70,19 @@ export class TeachModeService {
         this.currentSession.addViewport(viewport)
       }
 
+      // Set active tab
+      this.activeTabId = tabId
+
+      // Start listening for tab switches
+      if (this.tabActivatedListener) {
+        chrome.tabs.onActivated.addListener(this.tabActivatedListener)
+      }
+
       // Inject content script
       await this._injectContentScript(tabId)
-      this.injectedTabId = tabId  // Track that we've injected into this tab
 
-      // Send start message
-      await chrome.tabs.sendMessage(tabId, {
-        action: 'START_RECORDING',
-        source: 'TeachModeService'
-      } as TeachModeMessage)
+      // Send start message with target tab ID
+      await this._sendToTab(tabId, 'START_RECORDING')
 
       Logging.log('TeachModeService', `Started recording on tab ${tabId}`)
     } catch (error) {
@@ -95,32 +101,34 @@ export class TeachModeService {
         return null
       }
 
-      const tabId = this.currentSession.getTabId()
-
-      // Send stop message to content script
-      try {
-        await chrome.tabs.sendMessage(tabId, {
-          action: 'STOP_RECORDING',
-          source: 'TeachModeService'
-        } as TeachModeMessage)
-      } catch (error) {
-        // Tab might be closed or navigated away
-        Logging.log('TeachModeService', `Failed to send stop message: ${error}`, 'warning')
+      // Send stop message to all tabs with content scripts
+      for (const [tabId] of this.recorderPorts) {
+        try {
+          await this._sendToTab(tabId, 'STOP_RECORDING')
+        } catch (error) {
+          // Tab might be closed
+          Logging.log('TeachModeService', `Failed to stop tab ${tabId}: ${error}`, 'warning')
+        }
       }
 
       // Stop session and get recording
       const recording = this.currentSession.stop()
       this.currentSession = null
-      this.injectedTabId = null  // Clear injected tab tracking
+      this.activeTabId = null
 
-      // Clean up port if exists
-      if (this.recorderPort) {
+      // Clean up all ports
+      for (const [, port] of this.recorderPorts) {
         try {
-          this.recorderPort.disconnect()
+          port.disconnect()
         } catch (error) {
           // Port might already be disconnected
         }
-        this.recorderPort = null
+      }
+      this.recorderPorts.clear()
+
+      // Stop listening for tab switches
+      if (this.tabActivatedListener) {
+        chrome.tabs.onActivated.removeListener(this.tabActivatedListener)
       }
 
       // Clean up browser context
@@ -226,10 +234,12 @@ export class TeachModeService {
       // Record navigation event
       this.currentSession.handleNavigation(details.url, details.transitionType)
 
-      // Re-inject content script after delay
-      setTimeout(() => {
-        this._reinjectContentScript(details.tabId)
-      }, NAVIGATION_DELAY_MS)
+      // Only re-inject if this is the active tab
+      if (details.tabId === this.activeTabId) {
+        setTimeout(() => {
+          this._reinjectContentScript(details.tabId)
+        }, NAVIGATION_DELAY_MS)
+      }
     }
 
     chrome.webNavigation.onCommitted.addListener(this.navigationListener)
@@ -248,13 +258,9 @@ export class TeachModeService {
 
       // Re-inject script
       await this._injectContentScript(tabId)
-      this.injectedTabId = tabId  // Update tracking
 
-      // Restart recording
-      await chrome.tabs.sendMessage(tabId, {
-        action: 'START_RECORDING',
-        source: 'TeachModeService'
-      } as TeachModeMessage)
+      // Restart recording with target tab ID
+      await this._sendToTab(tabId, 'START_RECORDING')
 
       Logging.log('TeachModeService', `Re-injected content script after navigation`)
     } catch (error) {
@@ -267,6 +273,12 @@ export class TeachModeService {
    */
   private _setupMessageListener(): void {
     this.messageListener = (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
+      // Handle GET_TAB_ID request separately (not part of TeachModeMessage)
+      if (message.action === 'GET_TAB_ID') {
+        sendResponse({ tabId: sender.tab?.id || -1 })
+        return true
+      }
+
       const teachMessage = message as TeachModeMessage
 
       // Only handle messages from teach mode recorder
@@ -381,8 +393,8 @@ export class TeachModeService {
       this.browserContext = null
     }
     this.currentSession = null
-    this.injectedTabId = null
-    this.recorderPort = null
+    this.activeTabId = null
+    this.recorderPorts.clear()
   }
 
   // ============= Storage Management =============
@@ -459,28 +471,99 @@ export class TeachModeService {
       // Only handle teach mode recorder ports
       if (port.name !== 'teach-mode-recorder') return
 
-      // Store the port reference
-      this.recorderPort = port
-      Logging.log('TeachModeService', `Recorder connected from tab ${port.sender?.tab?.id}`)
+      const tabId = port.sender?.tab?.id
+      if (!tabId) return
+
+      // Store the port reference by tab ID
+      this.recorderPorts.set(tabId, port)
+      Logging.log('TeachModeService', `Recorder connected from tab ${tabId}`)
 
       // Handle port disconnect - content script died or page navigated
       port.onDisconnect.addListener(() => {
-        Logging.log('TeachModeService', `Recorder disconnected from tab ${port.sender?.tab?.id}`)
-        this.recorderPort = null
+        Logging.log('TeachModeService', `Recorder disconnected from tab ${tabId}`)
+        this.recorderPorts.delete(tabId)
 
-        // Only re-inject if we're still recording and this is the recording tab
-        if (this.currentSession && this.injectedTabId &&
-            this.currentSession.getTabId() === this.injectedTabId) {
-          Logging.log('TeachModeService', `Re-injecting content script after disconnect on tab ${this.injectedTabId}`)
+        // Only re-inject if this is the active recording tab
+        if (this.currentSession && tabId === this.activeTabId) {
+          Logging.log('TeachModeService', `Re-injecting content script after disconnect on active tab ${tabId}`)
 
           // Re-inject after a small delay to let the page settle
           setTimeout(() => {
-            if (this.currentSession && this.injectedTabId) {
-              this._reinjectContentScript(this.injectedTabId)
+            if (this.currentSession && tabId === this.activeTabId) {
+              this._reinjectContentScript(tabId)
             }
           }, 100)
         }
       })
     })
+  }
+
+  /**
+   * Setup tab listeners for multi-tab recording
+   */
+  private _setupTabListeners(): void {
+    this.tabActivatedListener = async (info: chrome.tabs.TabActiveInfo) => {
+      // Only care about tab switches during recording
+      if (!this.currentSession) return
+
+      const newTabId = info.tabId
+      const previousTabId = this.activeTabId
+
+      // Skip if switching to the same tab
+      if (newTabId === previousTabId) return
+
+      Logging.log('TeachModeService', `Tab switched from ${previousTabId} to ${newTabId} during recording`)
+
+      // Record tab switch event
+      if (previousTabId !== null) {
+        this.currentSession.addEvent({
+          type: 'tab_switched',
+          action: {
+            fromTabId: previousTabId,
+            toTabId: newTabId
+          }
+        })
+      }
+
+      // Update active tab
+      this.activeTabId = newTabId
+      this.currentSession.setActiveTabId(newTabId)
+
+      // Pause recording on previous tab
+      if (previousTabId !== null) {
+        await this._sendToTab(previousTabId, 'PAUSE_RECORDING')
+      }
+
+      // Ensure content script is injected in new tab
+      const hasPort = this.recorderPorts.has(newTabId)
+      if (!hasPort) {
+        // Need to inject content script
+        await this._injectContentScript(newTabId)
+        await this._sendToTab(newTabId, 'START_RECORDING')
+      } else {
+        // Resume recording on existing script
+        await this._sendToTab(newTabId, 'RESUME_RECORDING')
+      }
+    }
+
+    // We'll add/remove this listener dynamically during recording
+  }
+
+  /**
+   * Send message to specific tab with target ID
+   */
+  private async _sendToTab(tabId: number, action: string, data?: any): Promise<void> {
+    const message: TeachModeMessage & { targetTabId?: number } = {
+      action: action as any,
+      source: 'TeachModeService',
+      targetTabId: tabId,  // Include target tab ID
+      ...data
+    }
+
+    try {
+      await chrome.tabs.sendMessage(tabId, message)
+    } catch (error) {
+      Logging.log('TeachModeService', `Failed to send message to tab ${tabId}: ${error}`, 'warning')
+    }
   }
 }

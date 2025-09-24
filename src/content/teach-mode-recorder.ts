@@ -18,8 +18,10 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
   class TeachModeRecorder {
     private isRecording = false
+    private isPaused = false  // For multi-tab pause/resume
     private eventCounter = 0
     private port: chrome.runtime.Port | null = null  // Port connection to service
+    private myTabId: number | null = null  // This tab's ID for filtering messages
 
     // Track initial targets for precise selector computation
     private initialInputTarget: { element: Element; context: ElementContext } | null = null
@@ -35,10 +37,25 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     constructor() {
       console.log('[TeachModeRecorder] Initialized')
 
+      // Get our tab ID immediately
+      this._getTabId()
+
       // Send ready message
       this.sendMessage({
         action: 'RECORDER_READY',
         source: 'TeachModeRecorder'
+      })
+    }
+
+    /**
+     * Get this tab's ID for message filtering
+     */
+    private _getTabId(): void {
+      chrome.runtime.sendMessage({ action: 'GET_TAB_ID' }, (response) => {
+        if (response?.tabId) {
+          this.myTabId = response.tabId
+          console.log('[TeachModeRecorder] My tab ID is', this.myTabId)
+        }
       })
     }
 
@@ -91,6 +108,27 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     }
 
     /**
+     * Pause recording (for tab switching)
+     */
+    pause(): void {
+      if (!this.isRecording || this.isPaused) return
+
+      console.log('[TeachModeRecorder] Pausing recording')
+      this.isPaused = true
+      // Keep listeners attached but stop sending events
+    }
+
+    /**
+     * Resume recording (when tab becomes active again)
+     */
+    resume(): void {
+      if (!this.isRecording || !this.isPaused) return
+
+      console.log('[TeachModeRecorder] Resuming recording')
+      this.isPaused = false
+    }
+
+    /**
      * Stop recording events
      */
     stop(): void {
@@ -98,6 +136,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Stopping recording')
       this.isRecording = false
+      this.isPaused = false
 
       // Disconnect port connection
       if (this.port) {
@@ -285,7 +324,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       target?: ElementContext
       action?: Partial<CapturedEvent['action']>
     }): void {
-      if (!this.isRecording) return
+      if (!this.isRecording || this.isPaused) return  // Don't send if paused
 
       const capturedEvent: CapturedEvent = {
         id: `content_event_${this.eventCounter++}`,
@@ -616,15 +655,44 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
   // Message listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const message = request as TeachModeMessage
+    // Handle GET_TAB_ID request separately (not part of TeachModeMessage)
+    if (request.action === 'GET_TAB_ID') {
+      // Content scripts don't have access to chrome.tabs API
+      // The service will respond with the sender's tab ID
+      return false
+    }
+
+    const message = request as TeachModeMessage & { targetTabId?: number }
 
     if (message.source !== 'TeachModeService') {
       return
     }
 
+    // Filter messages by target tab ID (for multi-tab recording)
+    // Access through recorder instance methods
+    const tabId = (recorder as any).myTabId
+    if (message.targetTabId && tabId && message.targetTabId !== tabId) {
+      console.log('[TeachModeRecorder] Ignoring message for different tab', message.targetTabId)
+      return
+    }
+
     switch (message.action) {
       case 'START_RECORDING':
-        recorder.start()
+        if ((recorder as any).isPaused) {
+          recorder.resume()  // Resume if we were paused
+        } else {
+          recorder.start()  // Start fresh
+        }
+        sendResponse({ success: true })
+        break
+
+      case 'PAUSE_RECORDING':
+        recorder.pause()
+        sendResponse({ success: true })
+        break
+
+      case 'RESUME_RECORDING':
+        recorder.resume()
         sendResponse({ success: true })
         break
 
