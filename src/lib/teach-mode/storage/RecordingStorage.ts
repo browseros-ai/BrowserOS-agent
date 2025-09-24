@@ -29,9 +29,7 @@ interface StorageIndex {
 const STORAGE_KEY_PREFIX = 'teach_recording_'
 const WORKFLOW_KEY_PREFIX = 'teach_workflow_'
 const STORAGE_INDEX_KEY = 'teach_recordings_index'
-// Removed quota restrictions - let Chrome handle storage limits
-// const MAX_STORAGE_SIZE = 100 * 1024 * 1024  // 100MB limit
-// const MAX_RECORDINGS = 100  // Maximum number of recordings
+// TODO: enable some storage clearing like 200MB limit
 
 /**
  * Manages storage of teach mode recordings
@@ -60,8 +58,6 @@ export class RecordingStorage {
       // Serialize recording to JSON
       const json = JSON.stringify(recording)
       const sizeBytes = new Blob([json]).size
-
-      // Quota checks removed - proceed directly to save
 
       // Create storage metadata
       const metadata: StorageMetadata = {
@@ -338,7 +334,7 @@ export class RecordingStorage {
       const stats = {
         recordingCount: index.recordings.length,
         totalSize: index.totalSize,
-        availableSpace: -1, // Unlimited storage
+        availableSpace: -1, // Unlimited storage with unlimitedStorage permission
         oldestRecording: undefined as Date | undefined,
         newestRecording: undefined as Date | undefined
       }
@@ -356,7 +352,7 @@ export class RecordingStorage {
       return {
         recordingCount: 0,
         totalSize: 0,
-        availableSpace: -1 // Unlimited storage
+        availableSpace: -1 // Unlimited storage with unlimitedStorage permission
       }
     }
   }
