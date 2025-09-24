@@ -4,6 +4,7 @@ import type { TeachModeMessage, TeachModeRecording, CapturedEvent, SemanticWorkf
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
 import { PreprocessAgent } from '@/lib/agent/PreprocessAgent'
+// Note: VoiceRecordingService moved to sidepanel context due to media API limitations in service worker
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 
@@ -17,6 +18,11 @@ export class TeachModeService {
   private browserContext: BrowserContext | null = null
   private navigationListener: ((details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => void) | null = null
   private messageListener: ((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => void) | null = null
+  private voiceRecordingEnabled = false
+  private voiceTranscript = ''
+  private voiceDuration = 0
+  private voiceSegments: any[] = []
+  private voiceSessionId: string | null = null
 
   private constructor() {
     this._setupNavigationListener()
@@ -33,7 +39,7 @@ export class TeachModeService {
   /**
    * Start recording on a specific tab
    */
-  async startRecording(tabId: number): Promise<void> {
+  async startRecording(tabId: number, options?: { captureVoice?: boolean }): Promise<void> {
     try {
       // Stop any existing recording
       if (this.currentSession) {
@@ -57,6 +63,9 @@ export class TeachModeService {
         this.browserContext = null
       }
 
+      // Set voice recording preference
+      this.voiceRecordingEnabled = options?.captureVoice || false
+
       // Create new recording session with browser context
       this.currentSession = new RecordingSession(tabId, tab.url, this.browserContext || undefined)
 
@@ -69,13 +78,21 @@ export class TeachModeService {
       // Inject content script
       await this._injectContentScript(tabId)
 
+      // Voice recording will be handled by sidepanel - just log the intent
+      if (this.voiceRecordingEnabled) {
+        Logging.log('TeachModeService', `Voice recording enabled - will be handled by sidepanel`)
+      }
+
       // Send start message
       await chrome.tabs.sendMessage(tabId, {
         action: 'START_RECORDING',
-        source: 'TeachModeService'
+        source: 'TeachModeService',
+        config: {
+          captureVoice: this.voiceRecordingEnabled
+        }
       } as TeachModeMessage)
 
-      Logging.log('TeachModeService', `Started recording on tab ${tabId}`)
+      Logging.log('TeachModeService', `Started recording on tab ${tabId}${this.voiceRecordingEnabled ? ' with voice' : ''}`)
     } catch (error) {
       Logging.log('TeachModeService', `Failed to start recording: ${error}`, 'error')
       throw error
@@ -105,9 +122,35 @@ export class TeachModeService {
         Logging.log('TeachModeService', `Failed to send stop message: ${error}`, 'warning')
       }
 
+      // Voice recording data will be provided by sidepanel
+      let voiceResult = null
+      if (this.voiceRecordingEnabled && this.voiceTranscript) {
+        voiceResult = {
+          transcript: this.voiceTranscript,
+          duration: this.voiceDuration,
+          segments: this.voiceSegments,
+          vapiSessionId: this.voiceSessionId
+        }
+        Logging.log('TeachModeService', `Using voice recording: ${voiceResult.transcript.length} chars, ${voiceResult.segments.length} segments`)
+      }
+
       // Stop session and get recording
       const recording = this.currentSession.stop()
+
+      // Add voice narration to recording if available
+      if (voiceResult && voiceResult.transcript.trim()) {
+        recording.narration = {
+          transcript: voiceResult.transcript,
+          duration: voiceResult.duration,
+          segments: voiceResult.segments,
+          vapiSessionId: voiceResult.vapiSessionId || undefined,
+          language: 'en'
+        }
+      }
+
       this.currentSession = null
+      this.voiceRecordingEnabled = false
+      this._resetVoiceData()
 
       // Clean up browser context
       if (this.browserContext) {
@@ -466,5 +509,31 @@ export class TeachModeService {
   async searchRecordings(query: string): Promise<any[]> {
     const storage = RecordingStorage.getInstance()
     return await storage.search(query)
+  }
+
+  /**
+   * Set voice recording data from sidepanel
+   */
+  setVoiceData(data: {
+    transcript: string
+    duration: number
+    segments: any[]
+    vapiSessionId?: string | null
+  }): void {
+    this.voiceTranscript = data.transcript
+    this.voiceDuration = data.duration
+    this.voiceSegments = data.segments
+    this.voiceSessionId = data.vapiSessionId || null
+    Logging.log('TeachModeService', `Voice data set: ${data.transcript.length} chars`)
+  }
+
+  /**
+   * Reset voice recording data
+   */
+  private _resetVoiceData(): void {
+    this.voiceTranscript = ''
+    this.voiceDuration = 0
+    this.voiceSegments = []
+    this.voiceSessionId = null
   }
 }
