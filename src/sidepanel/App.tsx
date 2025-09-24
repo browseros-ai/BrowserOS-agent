@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useMessageHandler } from './hooks/useMessageHandler'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { Chat } from './components/Chat'
-import { TeachModeView } from './components/teachmode/TeachModeView'
+import { TeachMode } from './teachmode'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
 import { SkipLink } from './components/SkipLink'
@@ -22,10 +22,7 @@ export function App() {
   const { humanInputRequest, clearHumanInputRequest } = useMessageHandler()
 
   // Initialize settings
-  const { fontSize, theme } = useSettingsStore()
-
-  // Track teach mode state
-  const [isTeachMode, setIsTeachMode] = useState(false)
+  const { fontSize, theme, appMode } = useSettingsStore()
   
   // Initialize global announcer for screen readers
   const announcer = useAnnouncer()
@@ -61,13 +58,11 @@ export function App() {
     >
       <div className="h-screen bg-background overflow-x-hidden" role="main" aria-label="BrowserOS Chat Assistant">
         <SkipLink />
-        {isTeachMode ? (
-          <TeachModeView onBack={() => setIsTeachMode(false)} />
+        {appMode === 'teach' ? (
+          <TeachMode />
         ) : (
           <Chat
             isConnected={connected}
-            onTeachModeToggle={() => setIsTeachMode(!isTeachMode)}
-            isTeachMode={isTeachMode}
           />
         )}
         {humanInputRequest && (

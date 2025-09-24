@@ -8,7 +8,8 @@ const SettingsSchema = z.object({
   theme: z.enum(['light', 'dark', 'gray']).default('light'),  // App theme
   autoScroll: z.boolean().default(true),  // Auto-scroll chat to bottom
   autoCollapseTools: z.boolean().default(false),  // Auto-collapse tool results
-  chatMode: z.boolean().default(false)  // Chat mode for Q&A (uses ChatAgent instead of BrowserAgent)
+  chatMode: z.boolean().default(false),  // Legacy: Chat mode for Q&A (kept for backwards compatibility)
+  appMode: z.enum(['chat', 'agent', 'teach']).default('agent')  // Current app mode
 })
 
 type Settings = z.infer<typeof SettingsSchema>
@@ -20,6 +21,7 @@ interface SettingsActions {
   setAutoScroll: (enabled: boolean) => void
   setAutoCollapseTools: (enabled: boolean) => void
   setChatMode: (enabled: boolean) => void
+  setAppMode: (mode: 'chat' | 'agent' | 'teach') => void
   resetSettings: () => void
 }
 
@@ -29,7 +31,8 @@ const initialState: Settings = {
   theme: 'light',
   autoScroll: true,
   autoCollapseTools: false,
-  chatMode: false
+  chatMode: false,
+  appMode: 'agent'
 }
 
 // Create the store with persistence
@@ -67,7 +70,15 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
       setChatMode: (enabled) => {
         set({ chatMode: enabled })
       },
-      
+
+      setAppMode: (mode) => {
+        set({
+          appMode: mode,
+          // Update legacy chatMode for backwards compatibility
+          chatMode: mode === 'chat'
+        })
+      },
+
       resetSettings: () => {
         set(initialState)
         // Reset document styles
