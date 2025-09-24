@@ -4,6 +4,7 @@ import { ExpandableSection } from './shared/ExpandableSection'
 import { cn } from '@/sidepanel/lib/utils'
 import type { Message } from '../stores/chatStore'
 import { useChatStore } from '../stores/chatStore'
+import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { TaskManagerDropdown } from './TaskManagerDropdown'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
@@ -328,7 +329,13 @@ const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInli
  */
 export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true }: MessageItemProps) {
   const { autoCollapseTools } = useSettingsStore()
-  const messages = useChatStore(state => state.messages)
+  // Use reactive selector to properly subscribe to state changes
+  const messages = useChatStore(state => {
+    const currentId = state.currentExecutionId
+    if (!currentId) return []
+    return state.executions[currentId]?.messages || []
+  })
+  const { executionId } = useSidePanelPortMessaging()
   const { submitFeedback, getFeedbackForMessage, getFeedbackUIState, setFeedbackUIState } = useChatStore()
   const { copyToClipboard, isCopied } = useCopyToClipboard()
   
@@ -364,8 +371,8 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
   const isTodoTable = message.content.includes('| # | Status | Task |')
   
   // Feedback functionality
-  const feedback = getFeedbackForMessage(message.msgId)
-  const feedbackUI = getFeedbackUIState(message.msgId)
+  const feedback = executionId ? getFeedbackForMessage(executionId, message.msgId) : null
+  const feedbackUI = executionId ? getFeedbackUIState(executionId, message.msgId) : { isSubmitting: false, showModal: false, error: null }
   const [showThankYou, setShowThankYou] = useState(false)
   
   // Check if this is the latest assistant message (for completed responses)
@@ -376,7 +383,12 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
   }, [message.role, message.msgId, messages])
   
   // Check if agent is currently processing (streaming)
-  const { isProcessing } = useChatStore(state => ({ isProcessing: state.isProcessing }))
+  // Use reactive selector to properly subscribe to state changes
+  const isProcessing = useChatStore(state => {
+    const currentId = state.currentExecutionId
+    if (!currentId) return false
+    return state.executions[currentId]?.isProcessing || false
+  })
   
   // Determine if we should show feedback buttons
   const shouldShowFeedback = useMemo(() => {
@@ -389,23 +401,26 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
   
   // Handle feedback submission
   const handleFeedback = useCallback(async (messageId: string, type: FeedbackType) => {
+    if (!executionId) return
     if (type === 'thumbs_up') {
-      await submitFeedback(messageId, type)
+      await submitFeedback(executionId, messageId, type)
     } else {
       // Open modal for thumbs down
-      setFeedbackUIState(messageId, { showModal: true })
+      setFeedbackUIState(executionId, messageId, { showModal: true })
     }
-  }, [submitFeedback, setFeedbackUIState])
+  }, [submitFeedback, setFeedbackUIState, executionId])
   
   // Handle feedback modal submission
   const handleFeedbackModalSubmit = useCallback(async (textFeedback: string) => {
-    await submitFeedback(message.msgId, 'thumbs_down', textFeedback)
-  }, [submitFeedback, message.msgId])
+    if (!executionId) return
+    await submitFeedback(executionId, message.msgId, 'thumbs_down', textFeedback)
+  }, [submitFeedback, executionId, message.msgId])
   
   // Handle feedback modal close
   const handleFeedbackModalClose = useCallback(() => {
-    setFeedbackUIState(message.msgId, { showModal: false })
-  }, [setFeedbackUIState, message.msgId])
+    if (!executionId) return
+    setFeedbackUIState(executionId, message.msgId, { showModal: false })
+  }, [setFeedbackUIState, executionId, message.msgId])
   
  
   useEffect(() => {
@@ -578,17 +593,21 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
                   isEditable: false
                 }))
                 
-                useChatStore.getState().publishPlanEditResponse({
-                  planId: planData.planId,
-                  action: 'execute',
-                  steps: steps
-                })
+                if (executionId) {
+                  useChatStore.getState().publishPlanEditResponse(executionId, {
+                    planId: planData.planId,
+                    action: 'execute',
+                    steps: steps
+                  })
+                }
               }}
               onCancel={() => {
-                useChatStore.getState().publishPlanEditResponse({
-                  planId: planData.planId,
-                  action: 'cancel'
-                })
+                if (executionId) {
+                  useChatStore.getState().publishPlanEditResponse(executionId, {
+                    planId: planData.planId,
+                    action: 'cancel'
+                  })
+                }
               }}
             />
           )

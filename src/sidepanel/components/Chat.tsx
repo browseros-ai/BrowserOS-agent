@@ -19,7 +19,26 @@ interface ChatProps {
  * Orchestrates the layout and manages the overall chat interface
  */
 export function Chat({ isConnected }: ChatProps) {
-  const { messages, isProcessing, reset, upsertMessage } = useChatStore()
+  // Use reactive selectors to properly subscribe to state changes
+  const messages = useChatStore((state) => {
+    const currentId = state.currentExecutionId
+    if (!currentId) return []
+    return state.executions[currentId]?.messages || []
+  })
+  const isProcessing = useChatStore((state) => {
+    const currentId = state.currentExecutionId
+    if (!currentId) return false
+    return state.executions[currentId]?.isProcessing || false
+  })
+  const currentExecutionId = useChatStore((state) => state.currentExecutionId)
+  const resetExecution = useChatStore((state) => state.resetExecution)
+
+  // Reset current execution instead of all executions
+  const handleReset = () => {
+    if (currentExecutionId) {
+      resetExecution(currentExecutionId)
+    }
+  }
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const [showSelectTabsButton, setShowSelectTabsButton] = useState(false)
   const messageListRef = useRef<HTMLDivElement>(null)
@@ -41,14 +60,12 @@ export function Chat({ isConnected }: ChatProps) {
   }
 
   // Note: MCP server status messages are handled by the Header component's toast notifications
-  // We don't show them in the chat to keep the conversation clean
-
   return (
     <div className="flex flex-col h-full bg-background-alt">
 
       {/* Header */}
-      <Header 
-        onReset={reset}
+      <Header
+        onReset={handleReset}
         showReset={messages.length > 0}
         isProcessing={isProcessing}
       />

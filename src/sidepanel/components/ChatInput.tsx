@@ -37,9 +37,14 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [draftBeforeHistory, setDraftBeforeHistory] = useState<string>('')
   
   const { upsertMessage, setProcessing } = useChatStore()
-  const messages = useChatStore(state => state.messages)
+  // Use reactive selector to properly subscribe to state changes
+  const messages = useChatStore((state) => {
+    const currentId = state.currentExecutionId
+    if (!currentId) return []
+    return state.executions[currentId]?.messages || []
+  })
   const { chatMode } = useSettingsStore()
-  const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
+  const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected, executionId, tabId } = useSidePanelPortMessaging()
   const { getContextTabs, toggleTabSelection, clearSelectedTabs } = useTabsStore()
   const { agents, loadAgents } = useAgentsStore()
   
@@ -110,14 +115,18 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       window.removeEventListener('setInputValue', handleSetInput as EventListener)
     }
   }, [])
-  
 
-  
-  const submitTask = (query: string) => {
+  const submitTask = async (query: string) => {
     if (!query.trim()) return
-    
-    // Add user message via upsert
-    upsertMessage({
+
+    if (!executionId) {
+      console.warn('[ChatInput] Execution context not ready yet, skipping submit')
+      return
+    }
+
+    const finalExecutionId = executionId
+
+    upsertMessage(finalExecutionId, {
       msgId: `user_${Date.now()}`,
       role: 'user',
       content: query,
@@ -127,17 +136,24 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     // Processing state will be handled by TypingIndicator component
     // No need to inject hardcoded "Thinking..." message
     
-    // Get selected tab IDs from tabsStore
+    // Get selected tab IDs from tabsStore, but always include current active tab
     const contextTabs = getContextTabs()
-    const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
+    let tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
+    
+    // CRITICAL FIX: Always include the current tab from the execution context
+    if (tabId && (!tabIds || !tabIds.includes(tabId))) {
+      tabIds = tabIds ? [...tabIds, tabId] : [tabId]
+    }
     
     // Send to background
-    setProcessing(true)
+    console.log(`[ChatInput] Submitting query with executionId=${finalExecutionId}, tabIds=${JSON.stringify(tabIds)}, query="${query.trim()}"`)
+    setProcessing(finalExecutionId, true)
     sendMessage(MessageType.EXECUTE_QUERY, {
       query: query.trim(),
       tabIds,
       source: 'sidepanel',
-      chatMode  // Include chat mode setting
+      chatMode,  // Include chat mode setting
+      executionId: finalExecutionId  // CRITICAL: Include execution ID for per-tab isolation
     })
     
     // Clear input and selected tabs
@@ -387,16 +403,17 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
                       searchQuery={input}
                       onSelectAgent={(agentId) => {
                         const agent = agents.find(a => a.id === agentId)
-                        if (!agent) return
+                        if (!agent || !executionId) return
                         // Agent execution will show status via TypingIndicator
                         // Send predefined plan execution request
                         const contextTabs = getContextTabs()
                         const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
-                        setProcessing(true)
+                        setProcessing(executionId, true)
                         sendMessage(MessageType.EXECUTE_QUERY, {
                           query: agent.goal,
                           tabIds,
                           source: 'sidepanel',
+                          executionId,
                           metadata: {
                             source: 'sidepanel',
                             executionMode: 'predefined',
@@ -425,7 +442,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
               <Button
                 type="submit"
-                disabled={isProcessing || !input.trim()}
+                disabled={isProcessing || !input.trim() || !executionId}
                 size="sm"
                 className="absolute right-3 bottom-3 h-8 w-8 p-0 rounded-full bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center justify-center"
                 variant={'default'}
@@ -441,3 +458,6 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     </div>
   )
 }
+
+
+

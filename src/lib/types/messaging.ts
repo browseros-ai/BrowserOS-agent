@@ -36,7 +36,8 @@ export enum MessageType {
   LOG_METRIC = 'LOG_METRIC',
   // Newtab to sidepanel communication
   EXECUTE_IN_SIDEPANEL = 'EXECUTE_IN_SIDEPANEL',
-  EXECUTION_STARTING = 'EXECUTION_STARTING'
+  EXECUTION_STARTING = 'EXECUTION_STARTING',
+  EXECUTION_CONTEXT = 'EXECUTION_CONTEXT'
 }
 
 // Create a zod enum for MessageType
@@ -102,7 +103,8 @@ export const ExecutionMetadataSchema = z.object({
     steps: z.array(z.string()),
     goal: z.string(),
     name: z.string().optional()
-  }).optional()
+  }).optional(),
+  executionId: z.string().optional()
 })
 
 export type ExecutionMetadata = z.infer<typeof ExecutionMetadataSchema>
@@ -116,7 +118,8 @@ export const ExecuteQueryMessageSchema = MessageSchema.extend({
     query: z.string(),
     tabIds: z.array(z.number()).optional(),
     chatMode: z.boolean().optional(),
-    metadata: ExecutionMetadataSchema.optional()
+    metadata: ExecutionMetadataSchema.optional(),
+    executionId: z.string().optional()
   })
 })
 
@@ -152,9 +155,11 @@ export type HeartbeatAckMessage = z.infer<typeof HeartbeatAckMessageSchema>
 export const AgentStreamUpdateMessageSchema = MessageSchema.extend({
   type: z.literal(MessageType.AGENT_STREAM_UPDATE),
   payload: z.object({
-    step: z.number(),  // Current step number
-    action: z.string(),  // What the agent is doing
-    status: z.enum(['thinking', 'executing', 'completed', 'error', 'debug']),  // Status of the current step
+    executionId: z.string().optional(),  // Execution ID for multi-execution support
+    event: z.any().optional(),  // PubSub event data (when forwarded from PortManager)
+    step: z.number().optional(),  // Current step number
+    action: z.string().optional(),  // What the agent is doing
+    status: z.enum(['thinking', 'executing', 'completed', 'error', 'debug']).optional(),  // Status of the current step
     details: z.object({
       content: z.string().optional(),  // Agent's thinking or response
       toolName: z.string().optional(),  // Tool being used
@@ -166,7 +171,7 @@ export const AgentStreamUpdateMessageSchema = MessageSchema.extend({
       segmentId: z.number().optional(),  // Segment ID for grouping related content
       data: z.any().optional(),  // Optional data for debug messages
       timestamp: z.string().optional()  // Optional timestamp for debug messages
-    })
+    }).optional()
   })
 })
 
@@ -179,7 +184,8 @@ export const CancelTaskMessageSchema = MessageSchema.extend({
   type: z.literal(MessageType.CANCEL_TASK),
   payload: z.object({
     reason: z.string().optional(),  // Optional reason for cancellation
-    source: z.string().optional()  // Source that requested cancellation (e.g., 'sidepanel', 'newtab')
+    source: z.string().optional(),  // Source that requested cancellation (e.g., 'sidepanel', 'newtab'),
+    executionId: z.string().optional()
   })
 })
 
@@ -204,7 +210,8 @@ export type ClosePanelMessage = z.infer<typeof ClosePanelMessageSchema>
 export const ResetConversationMessageSchema = MessageSchema.extend({
   type: z.literal(MessageType.RESET_CONVERSATION),
   payload: z.object({
-    source: z.string().optional()  // Source that requested reset (e.g., 'sidepanel', 'options')
+    source: z.string().optional(),  // Source that requested reset (e.g., 'sidepanel', 'options'),
+    executionId: z.string().optional()
   })
 })
 
@@ -270,6 +277,20 @@ export type RefinePlanMessage = z.infer<typeof RefinePlanMessageSchema>
 /**
  * Plan generation updates (status + optional result)
  */
+
+/**
+ * Execution context handshake message
+ */
+export const ExecutionContextMessageSchema = MessageSchema.extend({
+  type: z.literal(MessageType.EXECUTION_CONTEXT),
+  payload: z.object({
+    executionId: z.string(),
+    tabId: z.number().optional()
+  })
+})
+
+export type ExecutionContextMessage = z.infer<typeof ExecutionContextMessageSchema>
+
 export const PlanGenerationUpdateMessageSchema = MessageSchema.extend({
   type: z.literal(MessageType.PLAN_GENERATION_UPDATE),
   payload: z.object({

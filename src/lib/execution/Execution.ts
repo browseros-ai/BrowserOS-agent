@@ -18,7 +18,7 @@ import { BraintrustEventManager } from "@/evals2/BraintrustEventManager";
 import { EvalsScorer } from "@/evals2/EvalScorer";
 import { braintrustLogger } from "@/evals2/BraintrustLogger";
 
-// Execution options schema (without executionId since it's now fixed)
+// Execution options schema (executionId provided externally)
 export const ExecutionOptionsSchema = z.object({
   mode: z.enum(["chat", "browse"]), // Execution mode
   tabId: z.number().optional(), // Target tab ID
@@ -30,14 +30,11 @@ export const ExecutionOptionsSchema = z.object({
 export type ExecutionOptions = z.infer<typeof ExecutionOptionsSchema>;
 
 /**
- * Singleton execution instance.
- * Manages a single persistent conversation (MessageManager) and browser context.
+ * Execution instance scoped to a single execution ID.
+ * Manages a persistent conversation (MessageManager) and browser context per execution.
  * Fresh ExecutionContext and agents are created per run.
  */
 export class Execution {
-  private static instance: Execution | null = null;
-  private static readonly EXECUTION_ID = "main";  // Fixed execution ID
-  
   readonly id: string;
   private browserContext: BrowserContext | null = null;
   private messageManager: MessageManager | null = null;
@@ -45,9 +42,9 @@ export class Execution {
   private options: ExecutionOptions;
   private currentAbortController: AbortController | null = null;
 
-  private constructor() {
-    this.id = Execution.EXECUTION_ID;
-    this.pubsub = PubSub.getChannel(Execution.EXECUTION_ID);
+  constructor(executionId: string) {
+    this.id = executionId;
+    this.pubsub = PubSub.getChannel(executionId);
     // Initialize with default options
     this.options = {
       mode: "browse",
@@ -55,20 +52,13 @@ export class Execution {
     };
     Logging.log(
       "Execution",
-      `Created singleton execution instance`,
+      `Created execution instance ${executionId}`,
     );
   }
 
   /**
    * Get the singleton instance of Execution
    */
-  static getInstance(): Execution {
-    if (!Execution.instance) {
-      Execution.instance = new Execution();
-    }
-    return Execution.instance;
-  }
-
   /**
    * Update execution options before running
    * @param options - Partial options to update
@@ -281,7 +271,7 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
 
       if (!wasCancelled) {
         this.pubsub?.publishMessage({
-          msgId: `error_main`,
+          msgId: `error_`,
           content: `❌ Error: ${errorMessage}`,
           role: "error",
           ts: Date.now(),

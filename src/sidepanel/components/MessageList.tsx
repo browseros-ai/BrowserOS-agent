@@ -49,7 +49,7 @@ const DEFAULT_DISPLAY_COUNT = 4 // Fixed number of examples to show
 export function MessageList({ messages, isProcessing = false, onScrollStateChange, scrollToBottom: externalScrollToBottom, containerRef: externalContainerRef }: MessageListProps) {
   const { containerRef: internalContainerRef, isUserScrolling, scrollToBottom } = useAutoScroll<HTMLDivElement>([messages], externalContainerRef)
   const { trackFeature } = useAnalytics()
-  const { sendMessage } = useSidePanelPortMessaging()
+  const { sendMessage, executionId } = useSidePanelPortMessaging()
   const { upsertMessage, setProcessing } = useChatStore()
   const { chatMode, setChatMode } = useSettingsStore()
   const { getContextTabs, clearSelectedTabs } = useTabsStore()
@@ -206,9 +206,10 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
     try { setChatMode(false) } catch { /* no-op */ }
 
     // Mirror ChatInput.submitTask behavior
+    if (!executionId) return
     const msgId = `user_${Date.now()}`
-    upsertMessage({ msgId, role: 'user', content: prompt, ts: Date.now() })
-    setProcessing(true)
+    upsertMessage(executionId, { msgId, role: 'user', content: prompt, ts: Date.now() })
+    setProcessing(executionId, true)
 
     // Collect selected context tabs (same behavior as ChatInput)
     const contextTabs = getContextTabs()

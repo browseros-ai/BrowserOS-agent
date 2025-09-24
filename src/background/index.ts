@@ -30,14 +30,27 @@ const messageRouter = new MessageRouter()
 const portManager = new PortManager()
 
 // Create handler instances
-const executionHandler = new ExecutionHandler()
+const executionHandler = new ExecutionHandler(portManager)
 const providersHandler = new ProvidersHandler()
 const mcpHandler = new MCPHandler()
 const planHandler = new PlanHandler()
 
 // Simple panel state for singleton
-let isPanelOpen = false
-let isPanelToggling = false
+type PanelState = {
+  isOpen: boolean
+  isToggling: boolean
+}
+
+const panelStates = new Map<number, PanelState>()
+
+function ensurePanelState(tabId: number): PanelState {
+  let state = panelStates.get(tabId)
+  if (!state) {
+    state = { isOpen: false, isToggling: false }
+    panelStates.set(tabId, state)
+  }
+  return state
+}
 
 /**
  * Register all message handlers with the router
@@ -159,11 +172,26 @@ function registerHandlers(): void {
     MessageType.CLOSE_PANEL,
     async (msg, port) => {
       try {
-        isPanelOpen = false
-        
+        const portInfo = portManager.getPortInfo(port)
+        const tabId = portInfo?.tabId
+
+        if (typeof tabId === 'number') {
+          await chrome.sidePanel.setOptions({ tabId, enabled: false })
+          panelStates.delete(tabId)
+          Logging.log('Background', `Side panel closed for tab ${tabId}`)
+          Logging.logMetric('side_panel_closed', { source: 'close_message', tabId })
+        } else {
+          Logging.log('Background', 'Side panel close requested but tab is unknown', 'warning')
+          Logging.logMetric('side_panel_closed', { source: 'close_message', tabId: 'unknown' })
+        }
+
         port.postMessage({
           type: MessageType.WORKFLOW_STATUS,
-          payload: { status: 'success', message: 'Panel closing' },
+          payload: {
+            status: 'success',
+            message: 'Panel closing',
+            tabId
+          },
           id: msg.id
         })
       } catch (error) {
@@ -179,13 +207,20 @@ function registerHandlers(): void {
  * Handle port connections
  */
 function handlePortConnection(port: chrome.runtime.Port): void {
-  const portId = portManager.registerPort(port)
+  const portInfo = portManager.registerPort(port)
   
   // Handle sidepanel connections
-  if (port.name === 'sidepanel') {
-    isPanelOpen = true
-    Logging.log('Background', `Side panel connected`)
-    Logging.logMetric('side_panel_opened', { source: 'port_connection' })
+  if (port.name.startsWith('sidepanel')) {
+    if (typeof portInfo.tabId === 'number') {
+      const state = ensurePanelState(portInfo.tabId)
+      state.isOpen = true
+      state.isToggling = false
+      Logging.log('Background', `Side panel connected for tab ${portInfo.tabId}`)
+      Logging.logMetric('side_panel_opened', { source: 'port_connection', tabId: portInfo.tabId })
+    } else {
+      Logging.log('Background', 'Side panel connected (tab unknown)')
+      Logging.logMetric('side_panel_opened', { source: 'port_connection', tabId: 'unknown' })
+    }
   }
   
   // Register with logging system
@@ -198,16 +233,20 @@ function handlePortConnection(port: chrome.runtime.Port): void {
   
   // Set up disconnect listener
   port.onDisconnect.addListener(() => {
+    const existingInfo = portManager.getPortInfo(port)
     portManager.unregisterPort(port)
-    
-    // Update panel state if this was the sidepanel
-    if (port.name === 'sidepanel') {
-      isPanelOpen = false
-      Logging.log('Background', `Side panel disconnected`)
-      Logging.logMetric('side_panel_closed', { source: 'port_disconnection' })
+
+    if (port.name.startsWith('sidepanel')) {
+      if (existingInfo?.tabId !== undefined) {
+        panelStates.delete(existingInfo.tabId)
+        Logging.log('Background', `Side panel disconnected for tab ${existingInfo.tabId}`)
+        Logging.logMetric('side_panel_closed', { source: 'port_disconnection', tabId: existingInfo.tabId })
+      } else {
+        Logging.log('Background', 'Side panel disconnected (tab unknown)')
+        Logging.logMetric('side_panel_closed', { source: 'port_disconnection', tabId: 'unknown' })
+      }
     }
-    
-    // Unregister from logging
+
     Logging.unregisterPort(port.name)
   })
 }
@@ -215,42 +254,63 @@ function handlePortConnection(port: chrome.runtime.Port): void {
 /**
  * Toggle the side panel
  */
-async function toggleSidePanel(tabId: number): Promise<void> {
-  if (isPanelToggling) return
-  
-  isPanelToggling = true
-  
+/**
+ * Notify sidepanel of the currently active tab
+ */
+async function notifySidePanelOfActiveTab(tabId: number): Promise<void> {
   try {
-    if (isPanelOpen) {
-      // Panel is open, close it (browser handles this)
-      isPanelOpen = false
-      Logging.log('Background', 'Panel toggled off')
+    const executionId = `tab-${tabId}`
+    
+    Logging.log('Background', `🔄 Tab switch detected: tabId=${tabId}, executionId=${executionId}`)
+    
+    // Update execution context for this tab
+    portManager.updateExecutionForTab(tabId, executionId)
+    
+    Logging.log('Background', `✅ Updated sidepanel context for tab ${tabId} with executionId ${executionId}`)
+  } catch (error) {
+    Logging.log('Background', `❌ Error notifying sidepanel of active tab: ${error}`, 'error')
+  }
+}
+
+async function toggleSidePanel(tabId: number): Promise<void> {
+  const state = ensurePanelState(tabId)
+  if (state.isToggling) return
+
+  state.isToggling = true
+
+  try {
+    if (state.isOpen) {
+      await chrome.sidePanel.setOptions({ tabId, enabled: false })
+      state.isOpen = false
+      Logging.log('Background', `Panel toggled off for tab ${tabId}`)
     } else {
-      // Open the panel for this tab
+      await chrome.sidePanel.setOptions({ tabId, enabled: true })
       await chrome.sidePanel.open({ tabId })
-      isPanelOpen = true
-      Logging.log('Background', 'Panel toggled on')
-      Logging.logMetric('side_panel_toggled')
+      state.isOpen = true
+      Logging.log('Background', `Panel toggled on for tab ${tabId}`)
+      Logging.logMetric('side_panel_toggled', { tabId })
     }
   } catch (error) {
-    Logging.log('Background', `Error toggling side panel: ${error}`, 'error')
-    
-    // Try fallback with windowId
-    if (!isPanelOpen) {
+    Logging.log('Background', `Error toggling side panel for tab ${tabId}: ${error}`, 'error')
+
+    if (!state.isOpen) {
       try {
         const tab = await chrome.tabs.get(tabId)
         if (tab.windowId) {
           await chrome.sidePanel.open({ windowId: tab.windowId })
-          isPanelOpen = true
+          state.isOpen = true
+          Logging.log('Background', `Fallback opened panel for window ${tab.windowId}`)
         }
       } catch (fallbackError) {
-        Logging.log('Background', `Fallback failed: ${fallbackError}`, 'error')
+        Logging.log('Background', `Fallback failed for tab ${tabId}: ${fallbackError}`, 'error')
       }
     }
   } finally {
-    // Reset toggle flag
     setTimeout(() => {
-      isPanelToggling = false
+      const current = panelStates.get(tabId)
+      if (current) {
+        current.isToggling = false
+      }
     }, 300)
   }
 }
@@ -273,7 +333,15 @@ function initialize(): void {
     Logging.log('Background', 'Extension icon clicked')
     if (tab.id) {
       await toggleSidePanel(tab.id)
+      // Notify sidepanel of the active tab context
+      await notifySidePanelOfActiveTab(tab.id)
     }
+  })
+
+  // Listen for tab activation changes
+  chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
+    Logging.log('Background', `Tab activated: ${tabId}`)
+    await notifySidePanelOfActiveTab(tabId)
   })
   
   // Set up keyboard shortcut handler
@@ -283,13 +351,15 @@ function initialize(): void {
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (activeTab?.id) {
         await toggleSidePanel(activeTab.id)
+        // Notify sidepanel of the active tab context
+        await notifySidePanelOfActiveTab(activeTab.id)
       }
     }
   })
   
   // Clean up on tab removal
   chrome.tabs.onRemoved.addListener(async (tabId) => {
-    // With singleton execution, just log the tab removal
+    panelStates.delete(tabId)
     Logging.log('Background', `Tab ${tabId} removed`)
   })
   
