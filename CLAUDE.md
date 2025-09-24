@@ -62,7 +62,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
   - Styles → .css (using Tailwind CSS)
 - Prefer named exports for components
 - Types/Interfaces in PascalCase (e.g. User, ButtonProps)
-- OUR PRODUCT NAME IS Nxtscape (the "s" is small letter) -- so use that name correctly when naming things.
+- OUR PRODUCT NAME IS BrowserOS -- so use that name correctly when naming things.
 
 # Functions & Logic
 - Keep functions short and single-purpose (<20 lines).
@@ -429,7 +429,7 @@ This is a Chrome extension that provides AI-powered web automation using LLM age
 
 ### LLM Integration
 - **LangChainProviderFactory** (`src/lib/llm/LangChainProviderFactory.ts`) - Abstraction over multiple LLM providers
-- **Provider Strategies**: AnthropicStrategy, OpenAIStrategy, OllamaStrategy, NxtscapeStrategy
+- **Provider Strategies**: AnthropicStrategy, OpenAIStrategy, OllamaStrategy, BrowserOS Strategy
 - **LLM Settings**: LLMSettingsReader for configuration management
 - **Supported Providers**: Claude (Anthropic), OpenAI, Ollama
 - **LangChain Integration** - Uses @langchain packages for agent execution
@@ -603,7 +603,7 @@ describe('MyTool', () => {
 ### Execution Flow
 
 ```
-User Query → NxtScape.run() → BrowserAgent.execute()
+User Query → BrowserOS.run() → BrowserAgent.execute()
                                         ↓
                               ClassificationTool
                                    ↙        ↘
