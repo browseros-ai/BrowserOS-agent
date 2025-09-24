@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react'
 import { TeachModeHome } from './TeachModeHome'
-import { TeachModeIntent } from './TeachModeIntent'
 import { TeachModeRecording } from './TeachModeRecording'
 import { TeachModeProcessing } from './TeachModeProcessing'
 import { TeachModeDetail } from './TeachModeDetail'
@@ -38,9 +37,6 @@ export function TeachMode() {
   switch (mode) {
     case 'idle':
       return <TeachModeHome />
-
-    case 'intent':
-      return <TeachModeIntent />
 
     case 'recording':
       return <TeachModeRecording />

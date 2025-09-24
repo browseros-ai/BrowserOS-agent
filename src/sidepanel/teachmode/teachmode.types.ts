@@ -3,7 +3,6 @@ import { z } from 'zod'
 // Recording state type
 export const TeachModeStateSchema = z.enum([
   'idle',
-  'intent',
   'recording',
   'processing',
   'ready',
