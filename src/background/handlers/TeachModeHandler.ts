@@ -27,7 +27,7 @@ export function setupTeachModeHandler(): void {
 
     switch (message.action) {
       case 'TEACH_MODE_START':
-        handleStartRecording(message.tabId)
+        handleStartRecording(message.tabId, message.options)
           .then(result => sendResponse(result))
           .catch(error => sendResponse({ success: false, error: error.message }))
         return true  // Keep channel open for async response
@@ -45,6 +45,16 @@ export function setupTeachModeHandler(): void {
           tabId: teachModeService.getCurrentSession()?.getTabId()
         })
         break
+
+      case 'TEACH_MODE_SET_VOICE_DATA':
+        try {
+          teachModeService.setVoiceData(message.voiceData)
+          sendResponse({ success: true })
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          sendResponse({ success: false, error: errorMessage })
+        }
+        return true
 
       // Storage management actions
       case 'TEACH_MODE_LIST':
@@ -127,7 +137,7 @@ export function setupTeachModeHandler(): void {
 /**
  * Handle start recording request
  */
-async function handleStartRecording(tabId?: number): Promise<any> {
+async function handleStartRecording(tabId?: number, options?: { captureVoice?: boolean }): Promise<any> {
   try {
     const teachModeService = TeachModeService.getInstance()
 
@@ -140,8 +150,8 @@ async function handleStartRecording(tabId?: number): Promise<any> {
       tabId = activeTab.id
     }
 
-    // Start recording
-    await teachModeService.startRecording(tabId)
+    // Start recording with options
+    await teachModeService.startRecording(tabId, options)
 
     return {
       success: true,
