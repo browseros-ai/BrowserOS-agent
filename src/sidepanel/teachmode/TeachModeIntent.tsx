@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, ArrowLeft } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { useTeachModeStore } from './teachmode.store'
 
@@ -7,6 +7,10 @@ export function TeachModeIntent() {
   const { setMode, setIntent, currentIntent } = useTeachModeStore()
   const [inputValue, setInputValue] = useState(currentIntent)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const handleBack = () => {
+    setMode('idle')
+  }
 
   useEffect(() => {
     // Auto-focus the textarea when component mounts
@@ -39,6 +43,17 @@ export function TeachModeIntent() {
 
   return (
     <div className="flex flex-col h-full bg-background">
+      {/* Internal navigation */}
+      <div className="flex items-center px-4 py-2 border-b border-border">
+        <button
+          onClick={handleBack}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-1"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Cancel</span>
+        </button>
+      </div>
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {/* Title */}
