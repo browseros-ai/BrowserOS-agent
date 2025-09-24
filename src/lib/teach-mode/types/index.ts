@@ -176,7 +176,16 @@ export const TeachModeRecordingSchema = z.object({
 
   // Voice narration/transcript
   narration: z.object({
-    transcript: z.string(),
+    transcript: z.string(),  // Full transcript text
+    duration: z.number().optional(),  // Recording duration in ms
+    segments: z.array(z.object({  // Timestamped segments
+      text: z.string(),  // Segment text
+      startTime: z.number(),  // Start time in recording
+      endTime: z.number(),  // End time in recording
+      confidence: z.number().optional()  // VAPI confidence score
+    })).optional(),
+    vapiSessionId: z.string().optional(),  // VAPI session reference
+    language: z.string().default('en')  // Language code
   }).optional(),
 
   // Viewport configuration
