@@ -76,7 +76,6 @@ import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Import evals2 lightweight tool wrapper
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
-import { NarratorService } from '@/lib/services/NarratorService';
 import { PubSub } from '@/lib/pubsub'; // For static helper methods
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel';
 import { HumanInputResponse, PubSubEvent } from '@/lib/pubsub/types';
@@ -135,13 +134,11 @@ export class BrowserAgent {
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
   private toolsRegistered = false;  // Track if tools have been registered
-  private narrator?: NarratorService;  // Narrator service for human-friendly messages
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    this.narrator = new NarratorService(executionContext);
     
     this._registerTools();
   }
@@ -169,7 +166,7 @@ export class BrowserAgent {
    * Cleanup method to properly unsubscribe when agent is being destroyed
    */
   public cleanup(): void {
-    this.narrator?.cleanup();
+    // Cleanup resources if needed
   }
 
   /**
@@ -249,7 +246,7 @@ export class BrowserAgent {
       } else {
         message = 'Creating a plan to complete the task...';
       }
-      this.pubsub.publishMessage(PubSub.createMessage(message, 'narration'));
+      this.pubsub.publishMessage(PubSub.createMessage(message, 'thinking'));
 
       // 4. DELEGATE: Route to the correct execution strategy
       if (classification.is_simple_task) {
@@ -265,8 +262,6 @@ export class BrowserAgent {
     } catch (error) {
       this._handleExecutionError(error, transformedTask);
     } finally {
-      // Cleanup narrator service
-      this.narrator?.cleanup();
       
       // No status subscription cleanup needed; cancellation is centralized via AbortController
       

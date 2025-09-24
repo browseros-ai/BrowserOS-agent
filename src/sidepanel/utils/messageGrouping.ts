@@ -16,7 +16,7 @@ export function groupMessages(messages: Message[]): MessageGroup[] {
   let currentThinkingGroup: Message[] = []
   
   const isThinkingContent = (message: Message): boolean => {
-    return message.role === 'thinking' || message.role === 'narration'
+    return message.role === 'thinking'
   }
   
   for (let i = 0; i < messages.length; i++) {

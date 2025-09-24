@@ -4,7 +4,7 @@ import { z } from 'zod'
 export const MessageSchema = z.object({
   msgId: z.string(),  // Stable ID for message (e.g., "msg_think_1", "msg_tool_result_2")
   content: z.string(),  // Full markdown content
-  role: z.enum(['thinking', 'user', 'assistant', 'error', 'narration', 'plan_editor']),  // Message role (added plan_editor)
+  role: z.enum(['thinking', 'user', 'assistant', 'error', 'plan_editor']),  // Message role
   ts: z.number(),  // Timestamp in milliseconds
 })
 
