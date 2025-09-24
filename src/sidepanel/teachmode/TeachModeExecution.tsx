@@ -27,9 +27,10 @@ export function TeachModeExecution() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-header">
+      {/* Status Bar */}
+      <div className="flex items-center justify-between px-4 py-3 bg-accent/50">
         <div className="flex items-center gap-2">
+          <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <span className="text-sm font-medium text-foreground">
             Running: {activeRecording.name}
           </span>

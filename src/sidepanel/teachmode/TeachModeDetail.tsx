@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowLeft, Play, MoreVertical, Calendar } from 'lucide-react'
+import { Play, MoreVertical, Calendar } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { StepTimeline } from './components/StepTimeline'
 import { useTeachModeStore } from './teachmode.store'
@@ -12,9 +12,6 @@ export function TeachModeDetail() {
     return null
   }
 
-  const handleBack = () => {
-    setMode('idle')
-  }
 
   const handleRunNow = () => {
     executeRecording(activeRecording.id)
@@ -34,28 +31,6 @@ export function TeachModeDetail() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-header">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleBack}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          <span className="text-sm font-medium text-foreground">
-            {activeRecording.name}
-          </span>
-        </div>
-        <button
-          onClick={handleOptions}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {/* Action buttons */}

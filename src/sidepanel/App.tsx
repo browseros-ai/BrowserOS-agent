@@ -8,6 +8,9 @@ import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
 import { SkipLink } from './components/SkipLink'
 import { useSettingsStore } from './stores/settingsStore'
 import { HumanInputDialog } from './components/HumanInputDialog'
+import { Header } from './components/Header'
+import { ModeToggle } from './components/ModeToggle'
+import { useChatStore } from './stores/chatStore'
 import './styles.css'
 
 /**
@@ -23,6 +26,9 @@ export function App() {
 
   // Initialize settings
   const { fontSize, theme, appMode } = useSettingsStore()
+
+  // Get chat state for header
+  const { messages, isProcessing, reset } = useChatStore()
   
   // Initialize global announcer for screen readers
   const announcer = useAnnouncer()
@@ -56,15 +62,32 @@ export function App() {
         announcer.announce('An error occurred. Please try again.', 'assertive')
       }}
     >
-      <div className="h-screen bg-background overflow-x-hidden" role="main" aria-label="BrowserOS Chat Assistant">
+      <div className="h-screen bg-background overflow-x-hidden flex flex-col" role="main" aria-label="BrowserOS Chat Assistant">
         <SkipLink />
-        {appMode === 'teach' ? (
-          <TeachMode />
-        ) : (
-          <Chat
-            isConnected={connected}
-          />
-        )}
+
+        {/* Header - always visible at top */}
+        <Header
+          onReset={reset}
+          showReset={messages.length > 0}
+          isProcessing={isProcessing}
+        />
+
+        {/* Main content area - changes based on mode */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {appMode === 'teach' ? (
+            <TeachMode />
+          ) : (
+            <Chat
+              isConnected={connected}
+            />
+          )}
+        </div>
+
+        {/* Mode Toggle - always visible at bottom */}
+        <div className="border-t border-border bg-background px-2 py-2">
+          <ModeToggle />
+        </div>
+
         {humanInputRequest && (
           <HumanInputDialog
             requestId={humanInputRequest.requestId}

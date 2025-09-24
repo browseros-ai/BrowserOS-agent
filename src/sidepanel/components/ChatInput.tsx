@@ -11,8 +11,6 @@ import { MessageType } from '@/lib/types/messaging'
 import { cn } from '@/sidepanel/lib/utils'
 import { Loader } from 'lucide-react'
 import { BrowserOSProvidersConfig, BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
-import { ModeToggle } from './ModeToggle'
-// Tailwind classes used in ModeToggle; no separate CSS import
 import { SlashCommandPalette } from './SlashCommandPalette'
 import { useAgentsStore } from '@/newtab/stores/agentsStore'
 
@@ -281,12 +279,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
   
   return (
-    <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-3 py-2 pb-4 flex-shrink-0 overflow-hidden z-20">
-      
-      {/* Mode Toggle - top left, above input */}
-      <div className="px-2 mb-2">
-        <ModeToggle />
-      </div>
+    <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-3 py-3 pb-4 flex-shrink-0 overflow-hidden z-20">
 
       {/* Input container */}
       <div className="relative">
