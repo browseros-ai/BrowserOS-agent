@@ -1,8 +1,9 @@
 import { Logging } from '@/lib/utils/Logging'
 import { RecordingSession } from '@/lib/teach-mode/recording/RecordingSession'
-import type { TeachModeMessage, TeachModeRecording, CapturedEvent } from '@/lib/teach-mode/types'
+import type { TeachModeMessage, TeachModeRecording, CapturedEvent, SemanticWorkflow } from '@/lib/teach-mode/types'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
+import { PreprocessAgent } from '@/lib/agent/PreprocessAgent'
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 
@@ -313,8 +314,27 @@ export class TeachModeService {
       const date = new Date(recording.session.startTimestamp)
       const title = `${url.hostname} - ${date.toLocaleString()}`
 
-      // Save to storage
+      // Process recording with PreprocessAgent
+      let workflow: SemanticWorkflow | null = null
+      try {
+        console.log('Processing recording into workflow...')
+        const preprocessAgent = new PreprocessAgent()
+        workflow = await preprocessAgent.processRecording(recording)
+        console.log(`Created workflow with ${workflow.steps.length} steps`)
+        Logging.log('TeachModeService', `Created workflow with ${workflow.steps.length} steps`)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.log(`Failed to process recording: ${errorMessage}`)
+        Logging.log('TeachModeService', `PreprocessAgent failed: ${errorMessage}`, 'error')
+      }
+
+      // Save recording to storage
       const recordingId = await storage.save(recording, title)
+
+      // Save workflow separately if processing succeeded
+      if (workflow) {
+        await storage.saveWorkflow(recordingId, workflow)
+      }
 
       Logging.log('TeachModeService', `Saved recording ${recordingId} with ${recording.events.length} events`)
 
@@ -385,11 +405,27 @@ export class TeachModeService {
   }
 
   /**
+   * Get a workflow for a recording
+   */
+  async getWorkflow(recordingId: string): Promise<SemanticWorkflow | null> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.getWorkflow(recordingId)
+  }
+
+  /**
    * Delete a recording
    */
   async deleteRecording(recordingId: string): Promise<boolean> {
     const storage = RecordingStorage.getInstance()
     return await storage.delete(recordingId)
+  }
+
+  /**
+   * Delete a workflow
+   */
+  async deleteWorkflow(recordingId: string): Promise<boolean> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.deleteWorkflow(recordingId)
   }
 
   /**

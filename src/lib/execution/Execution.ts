@@ -203,7 +203,7 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
         this.options.mode === "chat"
           ? new ChatAgent(executionContext)
           : getFeatureFlags().isEnabled('NEW_AGENT')
-            ? new NewAgent(executionContext)
+            ? new NewAgent27(executionContext)
             : new BrowserAgent(executionContext);
 
       // Execute
