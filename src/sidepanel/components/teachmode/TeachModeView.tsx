@@ -3,7 +3,6 @@ import { RecordingControls } from './RecordingControls'
 import { DebugStream } from './DebugStream'
 import { RecordingsList } from './RecordingsList'
 import { TeachModeStorageClient } from '@/lib/teach-mode/storage/TeachModeStorageClient'
-import { VoiceRecordingService } from '@/lib/services/VoiceRecordingService'
 
 interface StorageMetadata {
   id: string
@@ -34,8 +33,6 @@ export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = 
   const [debugMessages, setDebugMessages] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [voiceEnabled, setVoiceEnabled] = useState(false)
-  const [voiceService] = useState(() => VoiceRecordingService.getInstance())
   const seenMessageIds = useRef<Set<string>>(new Set())
 
   // Load recordings on mount
@@ -78,7 +75,7 @@ export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = 
   }
 
   // Handle start recording
-  const handleStartRecording = async (options?: { captureVoice?: boolean }) => {
+  const handleStartRecording = async () => {
     try {
       setError(null)
 
@@ -89,16 +86,10 @@ export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = 
         return
       }
 
-      // Send start message with voice option
+      // Send start message
       const response = await new Promise<any>((resolve) => {
         chrome.runtime.sendMessage(
-          {
-            action: 'TEACH_MODE_START',
-            tabId: tab.id,
-            options: {
-              captureVoice: options?.captureVoice || false
-            }
-          },
+          { action: 'TEACH_MODE_START', tabId: tab.id },
           resolve
         )
       })
@@ -106,30 +97,8 @@ export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = 
       if (response?.success) {
         setIsRecording(true)
         setRecordingTabId(tab.id)
-        const voiceWillRecord = options?.captureVoice || false
-        setVoiceEnabled(voiceWillRecord)
         setDebugMessages([]) // Clear debug messages for new recording
         seenMessageIds.current.clear() // Clear seen message IDs
-
-        // Start voice recording in sidepanel context if enabled
-        if (voiceWillRecord) {
-          try {
-            console.log('Starting voice recording in sidepanel context...')
-            await voiceService.startRecording()
-            console.log('Voice recording started successfully')
-          } catch (error) {
-            console.error('Failed to start voice recording:', error)
-            const errorMsg = error instanceof Error ? error.message : String(error)
-            if (errorMsg.includes('Permission denied') || errorMsg.includes('denied')) {
-              setError('🎤 Microphone access was denied. Please check your browser settings.')
-            } else if (errorMsg.includes('dismissed')) {
-              setError('🎤 Microphone permission was dismissed. Look for the microphone icon 🎤 in your browser address bar and click "Allow" to enable voice recording.')
-            } else {
-              setError(`Voice recording failed: ${errorMsg}`)
-            }
-            setVoiceEnabled(false) // Reset voice state on error
-          }
-        }
       } else {
         setError(response?.error || 'Failed to start recording')
       }
@@ -152,41 +121,12 @@ export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = 
       })
 
       if (response?.success) {
-        const wasVoiceEnabled = voiceEnabled
         setIsRecording(false)
         setRecordingTabId(undefined)
-        setVoiceEnabled(false)
         seenMessageIds.current.clear() // Clear seen message IDs
 
-        // Stop voice recording and send data to background if it was active
-        if (wasVoiceEnabled && voiceService.isVoiceRecording()) {
-          try {
-            const voiceResult = await voiceService.stopRecording()
-            console.log('Stopped voice recording, sending data to background')
-
-            // Send voice data to background service
-            await new Promise<void>((resolve) => {
-              chrome.runtime.sendMessage({
-                action: 'TEACH_MODE_SET_VOICE_DATA',
-                voiceData: {
-                  transcript: voiceResult.transcript,
-                  duration: voiceResult.duration,
-                  segments: voiceResult.segments,
-                  vapiSessionId: voiceResult.vapiSessionId
-                }
-              }, () => resolve())
-            })
-          } catch (error) {
-            console.error('Failed to stop voice recording:', error)
-            setError('Failed to process voice recording')
-          }
-        }
-
-        // Small delay to allow voice data processing
-        setTimeout(async () => {
-          // Reload recordings to show the new one
-          await loadRecordings()
-        }, 500)
+        // Reload recordings to show the new one
+        await loadRecordings()
       } else {
         setError(response?.error || 'Failed to stop recording')
       }
@@ -329,10 +269,8 @@ export function TeachModeView({ onBack, onPlayRecording }: TeachModeViewProps = 
         <RecordingControls
           isRecording={isRecording}
           recordingTabId={recordingTabId}
-          voiceEnabled={voiceEnabled}
           onStart={handleStartRecording}
           onStop={handleStopRecording}
-          onVoiceToggle={setVoiceEnabled}
         />
       </div>
 
