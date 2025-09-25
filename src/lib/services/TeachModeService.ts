@@ -5,6 +5,7 @@ import { BrowserContext } from '@/lib/browser/BrowserContext'
 import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
+const HEARTBEAT_INTERVAL_MS = 100  // Heartbeat ping interval
 
 /**
  * Service to manage teach mode recording
@@ -20,6 +21,7 @@ export class TeachModeService {
   private tabActivatedListener: ((info: chrome.tabs.TabActiveInfo) => void) | null = null
   private tabCreatedListener: ((tab: chrome.tabs.Tab) => void) | null = null
   private tabRemovedListener: ((tabId: number, info: chrome.tabs.TabRemoveInfo) => void) | null = null
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null
 
   private constructor() {
     this._setupNavigationListener()
@@ -73,6 +75,9 @@ export class TeachModeService {
       // Set active tab
       this.activeTabId = tabId
 
+      // Start heartbeat monitoring (pass initial tabId but it uses activeTabId)
+      this._startHeartbeat(tabId)
+
       // Start listening for tab events
       if (this.tabActivatedListener) {
         chrome.tabs.onActivated.addListener(this.tabActivatedListener)
@@ -84,7 +89,7 @@ export class TeachModeService {
         chrome.tabs.onRemoved.addListener(this.tabRemovedListener)
       }
 
-      // Inject and start recording on initial tab
+      // Initial injection only - heartbeat will maintain it
       await this._injectAndStartRecording(tabId)
 
       Logging.log('TeachModeService', `Started recording on tab ${tabId}`)
@@ -120,6 +125,9 @@ export class TeachModeService {
       const recording = this.currentSession.stop()
       this.currentSession = null
       this.activeTabId = null
+
+      // Stop heartbeat
+      this._stopHeartbeat()
 
       // Stop listening for tab events
       if (this.tabActivatedListener) {
@@ -220,12 +228,7 @@ export class TeachModeService {
       // Record navigation event
       this.currentSession.handleNavigation(details.url, details.transitionType)
 
-      // Always re-inject on navigation if this is the active tab
-      if (details.tabId === this.activeTabId) {
-        setTimeout(async () => {
-          await this._injectAndStartRecording(details.tabId)
-        }, NAVIGATION_DELAY_MS)
-      }
+      // Navigation likely killed the script - heartbeat will detect and reinject
     }
 
     chrome.webNavigation.onCommitted.addListener(this.navigationListener)
@@ -237,7 +240,22 @@ export class TeachModeService {
    */
   private async _injectAndStartRecording(tabId: number): Promise<void> {
     try {
-      // Always inject - Chrome handles duplicates
+      // Check if script is already alive via ping
+      const isAlive = await this._isScriptAlive(tabId)
+
+      if (isAlive) {
+        // Script is already there, just ensure it's recording
+        await chrome.tabs.sendMessage(tabId, {
+          action: 'START_RECORDING',
+          source: 'TeachModeService',
+          targetTabId: tabId
+        } as TeachModeMessage & { targetTabId: number })
+
+        Logging.log('TeachModeService', `Script already alive on tab ${tabId}, started recording`)
+        return
+      }
+
+      // Script is dead or not injected, inject it
       await chrome.scripting.executeScript({
         target: { tabId },
         files: ['teach-mode-recorder.js']
@@ -256,6 +274,67 @@ export class TeachModeService {
       Logging.log('TeachModeService', `Injected and started recording on tab ${tabId}`)
     } catch (error) {
       Logging.log('TeachModeService', `Failed to inject/start recording on tab ${tabId}: ${error}`, 'error')
+    }
+  }
+
+  /**
+   * Check if content script is alive
+   */
+  private async _isScriptAlive(tabId: number): Promise<boolean> {
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        action: 'HEARTBEAT_PING',
+        source: 'TeachModeService'
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Start heartbeat monitoring for the active tab
+   */
+  private _startHeartbeat(tabId: number): void {
+    // Stop any existing heartbeat
+    this._stopHeartbeat()
+
+    // Start new heartbeat interval
+    this.heartbeatInterval = setInterval(async () => {
+      // Always use the current activeTabId (it may have changed)
+      const currentTabId = this.activeTabId
+
+      if (!currentTabId || !this.currentSession) {
+        // No active tab or session ended, stop heartbeat
+        this._stopHeartbeat()
+        return
+      }
+
+      try {
+        // Send ping to the currently active tab
+        await chrome.tabs.sendMessage(currentTabId, {
+          action: 'HEARTBEAT_PING',
+          source: 'TeachModeService'
+        })
+
+        // Script is alive, nothing to do
+      } catch (error) {
+        // Script is not responding on current active tab
+        Logging.log('TeachModeService', `Heartbeat failed for tab ${currentTabId}, reinjecting`)
+
+        // Reinject the script
+        await this._injectAndStartRecording(currentTabId)
+      }
+    }, HEARTBEAT_INTERVAL_MS)
+  }
+
+  /**
+   * Stop heartbeat monitoring
+   */
+  private _stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
     }
   }
 
@@ -519,8 +598,8 @@ export class TeachModeService {
         }
       }
 
-      // Always inject and start recording on new tab
-      await this._injectAndStartRecording(newTabId)
+      // The heartbeat will automatically handle the new tab on next tick
+      // No need to inject here - heartbeat will detect if script is missing
     }
 
     // Tab created listener

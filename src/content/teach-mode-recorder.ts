@@ -8,18 +8,23 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
 (() => {
   const RECORDER_INITIALIZED_KEY = 'nxtscape-teach-recorder-initialized'
+  const HEARTBEAT_CHECK_INTERVAL_MS = 100  // Check for heartbeat every 100ms
+  const HEARTBEAT_TIMEOUT_MS = 500  // Auto-stop if no heartbeat for 500ms
+  const SCROLL_DEBOUNCE_MS = 150  // Debounce scroll events
 
   // Check if already initialized to prevent duplicate listeners
   if ((window as any)[RECORDER_INITIALIZED_KEY]) {
-    console.log('[TeachModeRecorder] Already initialized, resetting')
-    // Reset the recorder instance for fresh start
-    ;(window as any)[RECORDER_INITIALIZED_KEY] = false
+    console.log('[TeachModeRecorder] Already initialized, skipping re-initialization')
+    // DO NOT reinitialize - this prevents duplicate event listeners!
+    return
   }
   (window as any)[RECORDER_INITIALIZED_KEY] = true
 
   class TeachModeRecorder {
-    private isRecording = false
+    isRecording = false  // Made public for access from message handler
     private eventCounter = 0
+    lastHeartbeatTime = Date.now()  // Made public for access from message handler
+    private heartbeatCheckInterval: ReturnType<typeof setInterval> | null = null
 
     // Track initial targets for precise selector computation
     private initialInputTarget: { element: Element; context: ElementContext } | null = null
@@ -27,7 +32,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     private pointerDownTimestamp = 0
 
     // Scroll tracking
-    private scrollTimer: NodeJS.Timeout | null = null
+    private scrollTimer: ReturnType<typeof setTimeout> | null = null
     private lastScrollPosition = { x: 0, y: 0 }
     private scrollStartPosition = { x: 0, y: 0 }
     private scrollTarget: { element: Element; context: ElementContext } | null = null
@@ -55,6 +60,16 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Starting recording')
       this.isRecording = true
+      this.lastHeartbeatTime = Date.now()
+
+      // Start auto-stop check - if no heartbeat for timeout period, stop recording
+      this.heartbeatCheckInterval = setInterval(() => {
+        const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeatTime
+        if (timeSinceLastHeartbeat > HEARTBEAT_TIMEOUT_MS) {
+          console.log(`[TeachModeRecorder] No heartbeat for ${HEARTBEAT_TIMEOUT_MS}ms, auto-stopping`)
+          this.stop()
+        }
+      }, HEARTBEAT_CHECK_INTERVAL_MS)
 
       // Initialize scroll position
       this.lastScrollPosition = {
@@ -88,6 +103,12 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
       console.log('[TeachModeRecorder] Stopping recording')
       this.isRecording = false
+
+      // Clear heartbeat check
+      if (this.heartbeatCheckInterval) {
+        clearInterval(this.heartbeatCheckInterval)
+        this.heartbeatCheckInterval = null
+      }
 
       // Clear any pending scroll timer
       if (this.scrollTimer) {
@@ -528,10 +549,10 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
         return
       }
 
-      // Throttle scroll events - only record after scrolling stops for 150ms
+      // Throttle scroll events - only record after scrolling stops
       this.scrollTimer = setTimeout(() => {
         this.recordScrollEvent()
-      }, 150) as any
+      }, SCROLL_DEBOUNCE_MS)
     }
 
     private handleWheel = (event: WheelEvent): void => {
@@ -606,16 +627,30 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
     switch (message.action) {
       case 'START_RECORDING':
-        // Recreate recorder for fresh start
-        recorder.stop()  // Clean up old instance
-        recorder = new TeachModeRecorder()  // Fresh instance
-        recorder.start()
+        // Only start if not already recording
+        if (!recorder.isRecording) {
+          recorder.start()
+        } else {
+          console.log('[TeachModeRecorder] Already recording, ignoring duplicate START')
+        }
         sendResponse({ success: true })
         break
 
       case 'STOP_RECORDING':
         recorder.stop()
         sendResponse({ success: true })
+        break
+
+      case 'HEARTBEAT_PING':
+        // Update heartbeat time
+        recorder.lastHeartbeatTime = Date.now()
+        // Respond immediately to heartbeat
+        sendResponse({
+          success: true,
+          alive: true,
+          timestamp: Date.now(),
+          isRecording: recorder.isRecording
+        })
         break
 
       default:

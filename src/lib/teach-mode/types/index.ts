@@ -270,6 +270,11 @@ export const TeachModeMessageSchema = z.discriminatedUnion('action', [
     targetTabId: z.number().optional()  // For multi-tab targeting
   }),
 
+  z.object({
+    action: z.literal('HEARTBEAT_PING'),
+    source: z.literal('TeachModeService')
+  }),
+
   // Content Script → Service
   z.object({
     action: z.literal('EVENT_CAPTURED'),
