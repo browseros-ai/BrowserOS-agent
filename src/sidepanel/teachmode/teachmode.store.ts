@@ -168,16 +168,57 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
   stopRecording: () => {
     const state = get()
-    // Simulate processing
+    // Only process after stopping
     set({ mode: 'processing' })
+
+    // Auto-generate workflow name based on captured events
+    const generateWorkflowName = () => {
+      if (state.recordingEvents.length === 0) {
+        return 'New Workflow'
+      }
+
+      // Use the first few actions to generate a name
+      const firstEvent = state.recordingEvents[0]
+      const lastEvent = state.recordingEvents[state.recordingEvents.length - 1]
+
+      // Simple heuristic: if it's email-related
+      if (firstEvent.action.url?.includes('mail') || firstEvent.action.description?.includes('mail')) {
+        if (firstEvent.action.description?.includes('unsubscribe')) {
+          return 'Email Cleanup'
+        }
+        return 'Check Emails'
+      }
+
+      // If it's shopping/e-commerce
+      if (firstEvent.action.url?.includes('amazon') || firstEvent.action.url?.includes('shop')) {
+        return 'Product Search'
+      }
+
+      // If it's data extraction
+      if (state.recordingEvents.some(e => e.voiceAnnotation?.includes('extract') || e.voiceAnnotation?.includes('copy'))) {
+        return 'Data Extraction'
+      }
+
+      // Default to action-based name
+      return firstEvent.action.description || 'Custom Workflow'
+    }
+
+    const generateDescription = () => {
+      if (state.recordingEvents.length === 0) {
+        return 'Automated workflow'
+      }
+      // Create a brief description from the actions
+      const actions = state.recordingEvents.slice(0, 3).map(e => e.action.description).join(', ')
+      return actions.length > 50 ? actions.substring(0, 47) + '...' : actions
+    }
 
     // Simulate processing delay then go to detail view
     setTimeout(() => {
       const newRecording: TeachModeRecording = {
         id: `rec_${Date.now()}`,
-        name: 'New Workflow',
-        description: 'Automated workflow',
-        intent: 'Automated workflow',
+        name: generateWorkflowName(),
+        description: generateDescription(),
+        intent: generateDescription(),
         icon: '🎯',
         steps: state.recordingEvents,
         duration: Math.floor((Date.now() - (state.recordingStartTime || Date.now())) / 1000),
@@ -190,7 +231,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       set({
         mode: 'ready',
         activeRecording: newRecording,
-        recordings: [...get().recordings, newRecording]
+        recordings: [...get().recordings, newRecording],
+        recordingEvents: [],  // Clear events after saving
+        recordingStartTime: null
       })
     }, 3000)
   },

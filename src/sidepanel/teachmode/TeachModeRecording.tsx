@@ -12,85 +12,84 @@ export function TeachModeRecording() {
   const [recordingTime, setRecordingTime] = useState(0)
   const [isListening, setIsListening] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [workflowName, setWorkflowName] = useState('')
 
   useEffect(() => {
     // Update recording timer
     const timer = setInterval(() => {
-      if (recordingStartTime) {
+      if (recordingStartTime && isRecording) {
         const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000)
         setRecordingTime(elapsed)
       }
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [recordingStartTime])
+  }, [recordingStartTime, isRecording])
 
   useEffect(() => {
-    // Simulate receiving events during recording (in real app, these would come from Chrome extension)
-    const simulateEvents = () => {
-      // Simulate first event after 2 seconds
-      setTimeout(() => {
-        addEvent({
-          id: `event_${Date.now()}_1`,
-          timestamp: Date.now(),
-          stepNumber: 1,
-          action: {
-            type: 'navigate',
-            description: 'Navigate to Gmail',
-            url: 'gmail.com'
-          },
-          voiceAnnotation: 'Open my email inbox',
-          screenshot: 'data:image/png;base64,dummy'
-        })
-      }, 2000)
+    if (isRecording) {
+      // Simulate receiving events during recording (in real app, these would come from Chrome extension)
+      const simulateEvents = () => {
+        // Simulate first event after 2 seconds
+        setTimeout(() => {
+          addEvent({
+            id: `event_${Date.now()}_1`,
+            timestamp: Date.now(),
+            stepNumber: 1,
+            action: {
+              type: 'navigate',
+              description: 'Navigate to Gmail',
+              url: 'gmail.com'
+            },
+            voiceAnnotation: 'Open my email inbox',
+            screenshot: 'data:image/png;base64,dummy'
+          })
+        }, 2000)
 
-      // Simulate second event after 5 seconds
-      setTimeout(() => {
-        addEvent({
-          id: `event_${Date.now()}_2`,
-          timestamp: Date.now(),
-          stepNumber: 2,
-          action: {
-            type: 'click',
-            description: 'Clicked "Promotions"',
-            element: 'Tab selector'
-          },
-          voiceAnnotation: 'Go to promotional emails',
-          screenshot: 'data:image/png;base64,dummy'
-        })
+        // Simulate second event after 5 seconds
+        setTimeout(() => {
+          addEvent({
+            id: `event_${Date.now()}_2`,
+            timestamp: Date.now(),
+            stepNumber: 2,
+            action: {
+              type: 'click',
+              description: 'Clicked "Promotions"',
+              element: 'Tab selector'
+            },
+            voiceAnnotation: 'Go to promotional emails',
+            screenshot: 'data:image/png;base64,dummy'
+          })
+        }, 5000)
+      }
+
+      simulateEvents()
+
+      // Simulate voice listening periodically
+      const voiceInterval = setInterval(() => {
+        setIsListening(true)
+        setTimeout(() => setIsListening(false), 2000)
       }, 5000)
+
+      return () => clearInterval(voiceInterval)
     }
-
-    simulateEvents()
-
-    // Simulate voice listening periodically
-    const voiceInterval = setInterval(() => {
-      setIsListening(true)
-      setTimeout(() => setIsListening(false), 2000)
-    }, 5000)
-
-    return () => clearInterval(voiceInterval)
-  }, [addEvent])
-
-  const handleStop = () => {
-    stopRecording()
-  }
+  }, [addEvent, isRecording])
 
   const handleBack = () => {
     setMode('idle')
   }
 
   const handleStartRecording = () => {
-    if (workflowName.trim()) {
-      setIsRecording(true)
-      startRecording()
-      // Send message to Chrome extension to start recording
-      chrome.runtime.sendMessage({
-        action: 'TEACH_MODE_START',
-        name: workflowName.trim()
-      })
-    }
+    setIsRecording(true)
+    startRecording()
+    // Send message to Chrome extension to start recording
+    chrome.runtime.sendMessage({
+      action: 'TEACH_MODE_START'
+    })
+  }
+
+  const handleStopRecording = () => {
+    setIsRecording(false)
+    stopRecording()
   }
 
   // Current recording step (placeholder for new event being captured)
@@ -126,29 +125,18 @@ export function TeachModeRecording() {
             {/* Title */}
             <div className="text-center">
               <h2 className="text-lg font-semibold text-foreground mb-2">
-                What would you like to automate?
+                Ready to record your workflow
               </h2>
               <p className="text-sm text-muted-foreground">
-                Give your workflow a name and start recording
+                Click start and show BrowserOS what to do
               </p>
             </div>
-
-            {/* Input */}
-            <input
-              type="text"
-              placeholder="e.g., Check daily emails"
-              value={workflowName}
-              onChange={(e) => setWorkflowName(e.target.value)}
-              className="w-full px-4 py-3 bg-background-alt border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary text-foreground"
-              autoFocus
-            />
 
             {/* Start button */}
             <Button
               onClick={handleStartRecording}
               size="lg"
               className="w-full gap-2"
-              disabled={!workflowName.trim()}
             >
               <Play className="w-4 h-4" />
               Start Recording
@@ -158,7 +146,7 @@ export function TeachModeRecording() {
             <div className="text-xs text-muted-foreground space-y-1">
               <p>• Describe each action as you perform it</p>
               <p>• Take your time - the AI will learn your patterns</p>
-              <p>• You can edit the workflow after recording</p>
+              <p>• Click stop when you're done</p>
             </div>
           </div>
         </div>
@@ -182,7 +170,7 @@ export function TeachModeRecording() {
             </span>
           </div>
           <Button
-            onClick={handleStop}
+            onClick={handleStopRecording}
             variant="destructive"
             size="sm"
             className="gap-1"
@@ -193,10 +181,10 @@ export function TeachModeRecording() {
         </div>
       </div>
 
-      {/* Workflow name */}
+      {/* Recording status */}
       <div className="px-4 py-2 bg-muted/50 border-b border-border">
         <p className="text-xs text-muted-foreground">
-          Recording: <span className="text-foreground font-medium">{workflowName}</span>
+          Recording: <span className="text-foreground font-medium">Your workflow is being captured</span>
         </p>
       </div>
 
@@ -213,11 +201,24 @@ export function TeachModeRecording() {
           ))}
 
           {/* Current recording step */}
-          <StepCard
-            step={currentStep}
-            isActive={true}
-            showConnector={false}
-          />
+          {recordingEvents.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-sm text-muted-foreground mb-2">
+                Waiting for your first action...
+              </div>
+              <StepCard
+                step={currentStep}
+                isActive={true}
+                showConnector={false}
+              />
+            </div>
+          ) : (
+            <StepCard
+              step={currentStep}
+              isActive={true}
+              showConnector={false}
+            />
+          )}
 
           {/* Voice indicator */}
           {isListening && (

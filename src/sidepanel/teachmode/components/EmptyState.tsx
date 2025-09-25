@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { Wand2 } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 
@@ -7,7 +7,6 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ onCreateNew }: EmptyStateProps) {
-  const [isAnimating] = useState(false)
 
   // Example workflows
   const EXAMPLES = [
@@ -24,21 +23,21 @@ export function EmptyState({ onCreateNew }: EmptyStateProps) {
 
         {/* BrowserOS Branding */}
         <div className="flex items-center justify-center mb-6">
-          <h2 className="text-3xl font-bold text-muted-foreground animate-fade-in-up flex items-baseline flex-wrap justify-center gap-2 text-center px-2">
+          <h2 className="text-3xl font-bold text-muted-foreground flex items-baseline flex-wrap justify-center gap-2 text-center px-2">
             <span>Teach</span>
             <span>
               <span className="text-brand">BrowserOS</span>
               <img
                 src="/assets/browseros.svg"
                 alt="BrowserOS"
-                className="w-8 h-8 inline-block align-text-bottom ml-2 animate-fade-in-up"
+                className="w-8 h-8 inline-block align-text-bottom ml-2"
               />
             </span>
           </h2>
         </div>
 
         {/* Subtitle */}
-        <p className="text-lg text-muted-foreground mb-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+        <p className="text-lg text-muted-foreground mb-8">
           Show it once, automate forever
         </p>
 
@@ -46,8 +45,7 @@ export function EmptyState({ onCreateNew }: EmptyStateProps) {
         <Button
           onClick={onCreateNew}
           size="lg"
-          className="mb-10 gap-2 animate-fade-in-up"
-          style={{ animationDelay: '0.3s' }}
+          className="mb-10 gap-2"
         >
           <Wand2 className="w-5 h-5" />
           Create New Workflow
@@ -55,19 +53,14 @@ export function EmptyState({ onCreateNew }: EmptyStateProps) {
 
         {/* Example Workflows */}
         <div className="mb-8 mt-2 w-full">
-          <h3 className="text-sm font-medium text-muted-foreground mb-4 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+          <h3 className="text-sm font-medium text-muted-foreground mb-4">
             ─────── Example Workflows ───────
           </h3>
-          <div
-            className={`flex flex-col items-center max-w-lg w-full space-y-3 transition-transform duration-500 ease-in-out ${
-              isAnimating ? 'translate-y-5' : ''
-            }`}
-          >
-            {EXAMPLES.map((example, index) => (
+          <div className="flex flex-col items-center max-w-lg w-full space-y-3">
+            {EXAMPLES.map((example) => (
               <div
                 key={example}
-                className="relative w-full animate-fade-in-up"
-                style={{ animationDelay: `${0.5 + index * 0.1}s` }}
+                className="relative w-full"
               >
                 <div className="group relative text-sm py-3 px-4 whitespace-normal bg-background/50 backdrop-blur-sm border-2 border-border/30 rounded-lg hover:border-brand/50 hover:bg-brand/5 transition-all duration-300 w-full text-left">
                   <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-300">
