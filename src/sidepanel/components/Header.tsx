@@ -6,7 +6,7 @@ import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
 // import { ExperimentModal } from './ExperimentModal'  // Removed - old evals system deprecated
-import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star, GraduationCap } from 'lucide-react'
+import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
 import { z } from 'zod'
@@ -68,11 +68,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   const handleStarClick = () => {
     trackClick('github_star')
     window.open(GITHUB_REPO_URL, '_blank', 'noopener,noreferrer')
-  }
-
-  const handleTeachModeClick = () => {
-    trackClick('teach_mode_debug')
-    window.location.href = '/sidepanel.html#/teachmode'
   }
 
   const handleMCPInstall = (serverId: string) => {
@@ -229,18 +224,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           >
             <Star className="w-4 h-4 group-hover:fill-current" />
             <span className="hidden sm:inline text-xs font-medium">Star</span>
-          </Button>
-
-          {/* Teach Mode Debug button */}
-          <Button
-            onClick={handleTeachModeClick}
-            variant="ghost"
-            size="sm"
-            className="h-9 w-9 p-0 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 transition-all duration-300"
-            aria-label="Teach Mode Debug"
-            title="Teach Mode Debug"
-          >
-            <GraduationCap className="w-4 h-4" />
           </Button>
 
           {/* MCP Integrations dropdown - Second position */}
