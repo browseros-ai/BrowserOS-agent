@@ -132,11 +132,14 @@ interface TeachModeStore {
   executionProgress: ExecutionProgress | null
   executionSummary: ExecutionSummary | null
   recordingStartTime: number | null
+  isRecordingActive: boolean
 
   // Actions
   setMode: (mode: TeachModeState) => void
+  prepareRecording: () => void
   startRecording: () => void
   stopRecording: () => void
+  cancelRecording: () => void
   addEvent: (event: CapturedEvent) => void
   saveRecording: (recording: TeachModeRecording) => void
   deleteRecording: (id: string) => void
@@ -156,12 +159,20 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   executionProgress: null,
   executionSummary: null,
   recordingStartTime: null,
+  isRecordingActive: false,
 
   // Actions
   setMode: (mode) => set({ mode }),
 
-  startRecording: () => set({
+  prepareRecording: () => set({
     mode: 'recording',
+    recordingEvents: [],
+    recordingStartTime: null,
+    isRecordingActive: false
+  }),
+
+  startRecording: () => set({
+    isRecordingActive: true,
     recordingEvents: [],
     recordingStartTime: Date.now()
   }),
@@ -169,7 +180,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   stopRecording: () => {
     const state = get()
     // Only process after stopping
-    set({ mode: 'processing' })
+    set({ mode: 'processing', isRecordingActive: false })
 
     // Auto-generate workflow name based on captured events
     const generateWorkflowName = () => {
@@ -179,7 +190,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
       // Use the first few actions to generate a name
       const firstEvent = state.recordingEvents[0]
-      const lastEvent = state.recordingEvents[state.recordingEvents.length - 1]
 
       // Simple heuristic: if it's email-related
       if (firstEvent.action.url?.includes('mail') || firstEvent.action.description?.includes('mail')) {
@@ -233,10 +243,19 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         activeRecording: newRecording,
         recordings: [...get().recordings, newRecording],
         recordingEvents: [],  // Clear events after saving
-        recordingStartTime: null
+        recordingStartTime: null,
+        isRecordingActive: false
       })
     }, 3000)
   },
+
+  cancelRecording: () => set({
+    mode: 'idle',
+    recordingEvents: [],
+    recordingStartTime: null,
+    isRecordingActive: false,
+    activeRecording: null
+  }),
 
   addEvent: (event) => set((state) => ({
     recordingEvents: [...state.recordingEvents, event]
@@ -324,6 +343,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     executionProgress: null,
     executionSummary: null,
     activeRecording: null,
-    recordingStartTime: null
+    recordingStartTime: null,
+    isRecordingActive: false
   })
 }))

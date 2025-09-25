@@ -4,7 +4,7 @@ import { Button } from '@/sidepanel/components/ui/button'
 import { useTeachModeStore } from './teachmode.store'
 
 export function TeachModeIntent() {
-  const { setMode, setIntent, currentIntent } = useTeachModeStore()
+  const { setMode, setIntent, currentIntent, prepareRecording } = useTeachModeStore()
   const [inputValue, setInputValue] = useState(currentIntent)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -21,12 +21,7 @@ export function TeachModeIntent() {
   const handleStartRecording = () => {
     if (inputValue.trim()) {
       setIntent(inputValue.trim())
-      setMode('recording')
-      // In a real implementation, we'd start the Chrome extension recording here
-      chrome.runtime.sendMessage({
-        action: 'TEACH_MODE_START',
-        intent: inputValue.trim()
-      })
+      prepareRecording()
     }
   }
 
