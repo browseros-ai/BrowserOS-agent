@@ -3,6 +3,7 @@ import { useMessageHandler } from './hooks/useMessageHandler'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { Chat } from './components/Chat'
 import { TeachMode } from './teachmode'
+import { TeachModeView } from './components/teachmode/TeachModeView'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
 import { SkipLink } from './components/SkipLink'
@@ -29,6 +30,9 @@ export function App() {
 
   // Get chat state for header
   const { messages, isProcessing, reset } = useChatStore()
+
+  // State for showing TeachModeView
+  const [showTeachModeView, setShowTeachModeView] = useState(false)
   
   // Initialize global announcer for screen readers
   const announcer = useAnnouncer()
@@ -70,11 +74,21 @@ export function App() {
           onReset={reset}
           showReset={messages.length > 0}
           isProcessing={isProcessing}
+          onTeachModeClick={() => setShowTeachModeView(true)}
         />
 
         {/* Main content area - changes based on mode */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          {appMode === 'teach' ? (
+          {showTeachModeView ? (
+            <TeachModeView
+              onBack={() => setShowTeachModeView(false)}
+              onPlayRecording={(recordingId) => {
+                setShowTeachModeView(false)
+                // Recording will be played in chat view
+                console.log('Playing recording:', recordingId)
+              }}
+            />
+          ) : appMode === 'teach' ? (
             <TeachMode />
           ) : (
             <Chat
