@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.50.4",
+    "@vapi-ai/web": "^2.2.5",
     "@langchain/anthropic": "^0.3.23",
     "@langchain/community": "^0.3.47",
     "@langchain/core": "^0.3.61",

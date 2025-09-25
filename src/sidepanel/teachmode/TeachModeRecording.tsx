@@ -3,96 +3,134 @@ import { Square, Circle, ArrowLeft, Play } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { StepCard } from './components/StepCard'
 import { VoiceIndicator } from './components/VoiceIndicator'
+import { TranscriptDisplay } from './components/TranscriptDisplay'
 import { useTeachModeStore } from './teachmode.store'
+import { useVapiRecording } from './hooks/useVapiRecording'
 import { formatDuration } from './teachmode.utils'
 import type { CapturedEvent } from './teachmode.types'
+import { cn } from '@/sidepanel/lib/utils'
 
 export function TeachModeRecording() {
-  const { recordingEvents, stopRecording, addEvent, recordingStartTime, setMode, startRecording } = useTeachModeStore()
+  const {
+    recordingEvents,
+    stopRecording,
+    addEvent,
+    recordingStartTime,
+    startRecording,
+    cancelRecording,
+    isRecordingActive,
+    transcripts,
+    vapiStatus,
+    clearTranscripts
+  } = useTeachModeStore()
+
   const [recordingTime, setRecordingTime] = useState(0)
   const [isListening, setIsListening] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
+
+  // Initialize VAPI for voice recording
+  const { error: vapiError } = useVapiRecording({
+    enabled: isRecordingActive
+  })
 
   useEffect(() => {
-    // Update recording timer
-    const timer = setInterval(() => {
-      if (recordingStartTime && isRecording) {
-        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000)
-        setRecordingTime(elapsed)
-      }
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [recordingStartTime, isRecording])
-
-  useEffect(() => {
-    if (isRecording) {
-      // Simulate receiving events during recording (in real app, these would come from Chrome extension)
-      const simulateEvents = () => {
-        // Simulate first event after 2 seconds
-        setTimeout(() => {
-          addEvent({
-            id: `event_${Date.now()}_1`,
-            timestamp: Date.now(),
-            stepNumber: 1,
-            action: {
-              type: 'navigate',
-              description: 'Navigate to Gmail',
-              url: 'gmail.com'
-            },
-            voiceAnnotation: 'Open my email inbox',
-            screenshot: 'data:image/png;base64,dummy'
-          })
-        }, 2000)
-
-        // Simulate second event after 5 seconds
-        setTimeout(() => {
-          addEvent({
-            id: `event_${Date.now()}_2`,
-            timestamp: Date.now(),
-            stepNumber: 2,
-            action: {
-              type: 'click',
-              description: 'Clicked "Promotions"',
-              element: 'Tab selector'
-            },
-            voiceAnnotation: 'Go to promotional emails',
-            screenshot: 'data:image/png;base64,dummy'
-          })
-        }, 5000)
-      }
-
-      simulateEvents()
-
-      // Simulate voice listening periodically
-      const voiceInterval = setInterval(() => {
-        setIsListening(true)
-        setTimeout(() => setIsListening(false), 2000)
-      }, 5000)
-
-      return () => clearInterval(voiceInterval)
+    if (!isRecordingActive || !recordingStartTime) {
+      setRecordingTime(0)
+      return
     }
-  }, [addEvent, isRecording])
+
+    const updateElapsed = () => {
+      const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000)
+      setRecordingTime(elapsed)
+    }
+
+    updateElapsed()
+    const timer = window.setInterval(updateElapsed, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [isRecordingActive, recordingStartTime])
+
+  useEffect(() => {
+    if (!isRecordingActive) {
+      setIsListening(false)
+      return
+    }
+
+    const scheduledTimeouts: number[] = []
+
+    const scheduleTimeout = (callback: () => void, delay: number) => {
+      const timeoutId = window.setTimeout(callback, delay)
+      scheduledTimeouts.push(timeoutId)
+    }
+
+    // Simulate receiving events during recording (placeholder for real extension events)
+    scheduleTimeout(() => {
+      addEvent({
+        id: `event_${Date.now()}_1`,
+        timestamp: Date.now(),
+        stepNumber: 1,
+        action: {
+          type: 'navigate',
+          description: 'Navigate to Gmail',
+          url: 'gmail.com'
+        },
+        voiceAnnotation: 'Open my email inbox',
+        screenshot: 'data:image/png;base64,dummy'
+      })
+    }, 2000)
+
+    scheduleTimeout(() => {
+      addEvent({
+        id: `event_${Date.now()}_2`,
+        timestamp: Date.now(),
+        stepNumber: 2,
+        action: {
+          type: 'click',
+          description: 'Clicked "Promotions"',
+          element: 'Tab selector'
+        },
+        voiceAnnotation: 'Go to promotional emails',
+        screenshot: 'data:image/png;base64,dummy'
+      })
+    }, 5000)
+
+    const voiceInterval = window.setInterval(() => {
+      setIsListening(true)
+      scheduleTimeout(() => setIsListening(false), 1800)
+    }, 4800)
+
+    return () => {
+      scheduledTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      window.clearInterval(voiceInterval)
+      setIsListening(false)
+    }
+  }, [isRecordingActive, addEvent])
+
+  const sendTeachModeMessage = (payload: Record<string, unknown>) => {
+    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+      chrome.runtime.sendMessage(payload)
+    }
+  }
 
   const handleBack = () => {
-    setMode('idle')
+    cancelRecording()
   }
 
   const handleStartRecording = () => {
-    setIsRecording(true)
+    if (isRecordingActive) return
+
+    clearTranscripts()  // Clear any previous transcripts
     startRecording()
-    // Send message to Chrome extension to start recording
-    chrome.runtime.sendMessage({
-      action: 'TEACH_MODE_START'
-    })
+    setRecordingTime(0)
+    sendTeachModeMessage({ action: 'TEACH_MODE_START' })
   }
 
   const handleStopRecording = () => {
-    setIsRecording(false)
+    if (!isRecordingActive) return
+
     stopRecording()
+    sendTeachModeMessage({ action: 'TEACH_MODE_STOP' })
   }
 
-  // Current recording step (placeholder for new event being captured)
   const currentStep: CapturedEvent = {
     id: 'current',
     timestamp: Date.now(),
@@ -104,12 +142,24 @@ export function TeachModeRecording() {
     }
   }
 
-  if (!isRecording) {
-    // Show start recording screen
-    return (
-      <div className="flex flex-col h-full bg-background">
-        {/* Internal navigation */}
-        <div className="flex items-center px-4 py-2 border-b border-border">
+  const statusLabel = isRecordingActive ? 'Recording' : 'Ready to record'
+  const statusDescription = isRecordingActive
+    ? 'Your workflow is being captured'
+    : 'Press start to begin capturing your workflow.'
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      <header
+        className={cn(
+          'px-4 py-3 border-b relative',
+          isRecordingActive ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-muted/10'
+        )}
+      >
+        {isRecordingActive && (
+          <div className="absolute inset-0 border-2 border-destructive/20 pointer-events-none recording-border-glow" />
+        )}
+
+        <div className="flex items-center justify-between gap-3 relative z-10">
           <button
             onClick={handleBack}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-1"
@@ -117,123 +167,145 @@ export function TeachModeRecording() {
             <ArrowLeft className="w-4 h-4" />
             <span>Cancel</span>
           </button>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
-          <div className="w-full max-w-md space-y-6">
-            {/* Title */}
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-foreground mb-2">
-                Ready to record your workflow
+          <div className="flex items-center gap-2">
+            <Circle
+              className={cn(
+                'w-4 h-4',
+                isRecordingActive ? 'text-destructive fill-destructive recording-pulse' : 'text-muted-foreground'
+              )}
+            />
+            <span className="text-sm font-medium text-foreground">{statusLabel}</span>
+            <span
+              className={cn(
+                'text-sm font-mono',
+                isRecordingActive ? 'text-destructive' : 'text-muted-foreground'
+              )}
+            >
+              {formatDuration(recordingTime)}
+            </span>
+          </div>
+
+          {isRecordingActive ? (
+            <Button
+              onClick={handleStopRecording}
+              variant="destructive"
+              size="sm"
+              className="gap-1"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              Stop
+            </Button>
+          ) : (
+            <Button
+              onClick={handleStartRecording}
+              size="sm"
+              className="gap-2"
+            >
+              <Play className="w-4 h-4" />
+              Start Recording
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <div
+        className={cn(
+          'px-4 py-2 border-b',
+          isRecordingActive ? 'bg-destructive/10 border-destructive/30' : 'bg-muted/40 border-border'
+        )}
+      >
+        <p className="text-xs text-muted-foreground">
+          {isRecordingActive ? (
+            <>
+              Recording: <span className="text-foreground font-medium">{statusDescription}</span>
+            </>
+          ) : (
+            <>
+              Standby: <span className="text-foreground font-medium">{statusDescription}</span>
+            </>
+          )}
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {isRecordingActive ? (
+          <>
+            <div className="space-y-3">
+              {recordingEvents.map((event, index) => (
+                <StepCard
+                  key={event.id}
+                  step={event}
+                  showConnector={index < recordingEvents.length - 1}
+                />
+              ))}
+
+              {recordingEvents.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Waiting for your first action...
+                  </div>
+                  <StepCard
+                    step={currentStep}
+                    isActive={true}
+                    showConnector={false}
+                  />
+                </div>
+              ) : (
+                <StepCard
+                  step={currentStep}
+                  isActive={true}
+                  showConnector={false}
+                />
+              )}
+
+              {isListening && (
+                <div className="mt-2">
+                  <VoiceIndicator isListening={isListening} isEnabled={true} />
+                </div>
+              )}
+            </div>
+
+            {/* Voice Transcript Display */}
+            <TranscriptDisplay
+              transcripts={transcripts}
+              vapiStatus={vapiStatus}
+              isRecordingActive={isRecordingActive}
+            />
+
+            <div className="mt-6 p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                💡 Tip: Narrate what you’re doing as you click for smarter automation
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-5 max-w-sm mx-auto">
+            <div>
+              <h2 className="text-base font-semibold text-foreground mb-2">
+                Ready to show BrowserOS a workflow
               </h2>
               <p className="text-sm text-muted-foreground">
-                Click start and show BrowserOS what to do
+                Press start when you’re ready. We’ll capture every action and your narration in real time.
               </p>
             </div>
 
-            {/* Start button */}
             <Button
               onClick={handleStartRecording}
               size="lg"
-              className="w-full gap-2"
+              className="gap-2"
             >
               <Play className="w-4 h-4" />
               Start Recording
             </Button>
 
-            {/* Tips */}
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>• Describe each action as you perform it</p>
-              <p>• Take your time - the AI will learn your patterns</p>
-              <p>• Click stop when you're done</p>
+              <p>• Narrate intent as you go so the agent learns context</p>
+              <p>• Move naturally—pauses and rethinks are totally fine</p>
+              <p>• Stop anytime; we’ll process everything you captured</p>
             </div>
           </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Recording Header with red border glow */}
-      <div className="px-4 py-3 border-b border-destructive/50 bg-destructive/5 relative">
-        {/* Red border glow effect */}
-        <div className="absolute inset-0 border-2 border-destructive/20 pointer-events-none recording-border-glow" />
-
-        <div className="flex items-center justify-between relative">
-          <div className="flex items-center gap-2">
-            <Circle className="w-4 h-4 text-destructive fill-destructive recording-pulse" />
-            <span className="text-sm font-medium text-foreground">Recording</span>
-            <span className="text-sm font-mono text-destructive">
-              {formatDuration(recordingTime)}
-            </span>
-          </div>
-          <Button
-            onClick={handleStopRecording}
-            variant="destructive"
-            size="sm"
-            className="gap-1"
-          >
-            <Square className="w-3 h-3 fill-current" />
-            Stop
-          </Button>
-        </div>
-      </div>
-
-      {/* Recording status */}
-      <div className="px-4 py-2 bg-muted/50 border-b border-border">
-        <p className="text-xs text-muted-foreground">
-          Recording: <span className="text-foreground font-medium">Your workflow is being captured</span>
-        </p>
-      </div>
-
-      {/* Timeline */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="space-y-3">
-          {/* Recorded steps */}
-          {recordingEvents.map((event, index) => (
-            <StepCard
-              key={event.id}
-              step={event}
-              showConnector={index < recordingEvents.length || true}
-            />
-          ))}
-
-          {/* Current recording step */}
-          {recordingEvents.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-sm text-muted-foreground mb-2">
-                Waiting for your first action...
-              </div>
-              <StepCard
-                step={currentStep}
-                isActive={true}
-                showConnector={false}
-              />
-            </div>
-          ) : (
-            <StepCard
-              step={currentStep}
-              isActive={true}
-              showConnector={false}
-            />
-          )}
-
-          {/* Voice indicator */}
-          {isListening && (
-            <div className="mt-2">
-              <VoiceIndicator isListening={isListening} isEnabled={true} />
-            </div>
-          )}
-        </div>
-
-        {/* Tip */}
-        <div className="mt-6 p-3 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground">
-            💡 Tip: Describe what you're doing as you click for better learning
-          </p>
-        </div>
+        )}
       </div>
     </div>
   )
