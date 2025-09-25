@@ -329,9 +329,9 @@ export class NewAgent27 {
             goal: "Navigate to BrowserOS launch page and upvote it",
             steps: [
               "Navigate to https://dub.sh/browseros-launch",
-              "Find and click the upvote button on the page using visual_click to turn it orange",
+              "Find and click the upvote button on the page using visual_click",
               "Use celebration tool to show confetti animation"
-            ]
+            ]  
           }
         }
       };
