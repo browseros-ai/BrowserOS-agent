@@ -1,7 +1,12 @@
 import React from 'react'
 import { Mic, MicOff } from 'lucide-react'
 import { cn } from '@/sidepanel/lib/utils'
-import type { VapiTranscript } from '../hooks/useVapiRecording'
+
+interface VapiTranscript {
+  timestamp: number
+  text: string
+  isFinal: boolean
+}
 
 interface TranscriptDisplayProps {
   transcripts: VapiTranscript[]
@@ -61,7 +66,7 @@ export function TranscriptDisplay({ transcripts, vapiStatus, isRecordingActive }
                 : vapiStatus === 'connecting'
                 ? 'Initializing voice recording...'
                 : vapiStatus === 'error'
-                ? 'Voice recording unavailable (check VAPI_PUBLIC_KEY)'
+                ? 'Voice recording unavailable (check OPENAI_API_KEY)'
                 : 'Voice recording not started'}
             </p>
           </div>

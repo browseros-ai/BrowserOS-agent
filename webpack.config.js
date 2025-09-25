@@ -42,8 +42,8 @@ const processEnv = {
   // Gemini API keys for evals2 scoring
   'process.env.GOOGLE_GENAI_API_KEY': JSON.stringify(envKeys.GOOGLE_GENAI_API_KEY || ''),
   'process.env.GEMINI_API_KEY': JSON.stringify(envKeys.GEMINI_API_KEY || ''),
-  // VAPI for voice transcription in teach mode
-  'process.env.VAPI_PUBLIC_KEY': JSON.stringify(envKeys.VAPI_PUBLIC_KEY || '')
+  // OpenAI for voice transcription in teach mode
+  'process.env.OPENAI_API_KEY': JSON.stringify(envKeys.OPENAI_API_KEY || '')
 }
 
 console.log('API keys will be injected at build time (keys hidden for security)')
