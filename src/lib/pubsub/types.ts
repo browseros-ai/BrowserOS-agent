@@ -53,6 +53,23 @@ export const PlanEditResponseSchema = z.object({
 
 export type PlanEditResponse = z.infer<typeof PlanEditResponseSchema>
 
+// Teach mode event payload
+export const TeachModeEventPayloadSchema = z.object({
+  eventType: z.enum([
+    'recording_started',
+    'recording_stopped',
+    'event_captured',
+    'state_captured',
+    'transcript_update',
+    'tab_switched',
+    'viewport_updated'
+  ]),  // Type of teach mode event
+  sessionId: z.string(),  // Recording session ID
+  data: z.any()  // Event-specific data
+})
+
+export type TeachModeEventPayload = z.infer<typeof TeachModeEventPayloadSchema>
+
 // Pub-sub event types
 export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
@@ -74,6 +91,10 @@ export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('plan-edit-response'),
     payload: PlanEditResponseSchema
+  }),
+  z.object({
+    type: z.literal('teach-mode-event'),
+    payload: TeachModeEventPayloadSchema
   }),
 ])
 

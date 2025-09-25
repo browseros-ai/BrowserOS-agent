@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { TeachModeState, TeachModeRecording, CapturedEvent, ExecutionProgress, ExecutionSummary } from './teachmode.types'
+import type { TeachModeEventPayload } from '@/lib/pubsub/types'
 
 interface VapiTranscript {
   timestamp: number
@@ -8,128 +9,6 @@ interface VapiTranscript {
 }
 
 type VapiStatus = 'idle' | 'connecting' | 'connected' | 'error'
-
-// Dummy recordings data
-const DUMMY_RECORDINGS: TeachModeRecording[] = [
-  {
-    id: 'rec_1',
-    name: 'Email Cleanup',
-    description: 'Unsubscribe from marketing',
-    intent: 'Unsubscribe from marketing emails',
-    icon: '📧',
-    steps: [
-      {
-        id: 'step_1_1',
-        timestamp: Date.now() - 7200000,
-        stepNumber: 1,
-        action: {
-          type: 'navigate',
-          description: 'Navigate to Gmail',
-          url: 'gmail.com'
-        },
-        voiceAnnotation: 'Open my email inbox',
-        screenshot: 'data:image/png;base64,dummy'
-      },
-      {
-        id: 'step_1_2',
-        timestamp: Date.now() - 7195000,
-        stepNumber: 2,
-        action: {
-          type: 'click',
-          description: 'Clicked "Promotions"',
-          element: 'Tab selector'
-        },
-        voiceAnnotation: 'Go to promotional emails',
-        screenshot: 'data:image/png;base64,dummy'
-      },
-      {
-        id: 'step_1_3',
-        timestamp: Date.now() - 7190000,
-        stepNumber: 3,
-        action: {
-          type: 'click',
-          description: 'Open first email',
-          element: 'Email item'
-        },
-        voiceAnnotation: 'Open the first marketing email'
-      },
-      {
-        id: 'step_1_4',
-        timestamp: Date.now() - 7185000,
-        stepNumber: 4,
-        action: {
-          type: 'click',
-          description: 'Click unsubscribe',
-          element: 'Unsubscribe link'
-        },
-        voiceAnnotation: 'Find and click the unsubscribe link'
-      },
-      {
-        id: 'step_1_5',
-        timestamp: Date.now() - 7180000,
-        stepNumber: 5,
-        action: {
-          type: 'click',
-          description: 'Confirm unsubscription',
-          element: 'Confirm button'
-        },
-        voiceAnnotation: 'Confirm the unsubscription'
-      }
-    ],
-    duration: 83,
-    createdAt: Date.now() - 7200000,
-    lastRunAt: Date.now() - 7200000,
-    runCount: 5,
-    successCount: 4,
-    failureCount: 1
-  },
-  {
-    id: 'rec_2',
-    name: 'Daily Report',
-    description: 'Extract metrics to sheets',
-    intent: 'Extract daily metrics and save to Google Sheets',
-    icon: '📊',
-    steps: Array.from({ length: 8 }, (_, i) => ({
-      id: `step_2_${i + 1}`,
-      timestamp: Date.now() - 86400000,
-      stepNumber: i + 1,
-      action: {
-        type: 'click' as const,
-        description: `Step ${i + 1} of workflow`,
-        element: 'Element'
-      }
-    })),
-    duration: 165,
-    createdAt: Date.now() - 86400000,
-    lastRunAt: Date.now() - 86400000,
-    runCount: 12,
-    successCount: 12,
-    failureCount: 0
-  },
-  {
-    id: 'rec_3',
-    name: 'Price Monitor',
-    description: 'Check product prices',
-    intent: 'Monitor product prices on e-commerce sites',
-    icon: '🔍',
-    steps: Array.from({ length: 3 }, (_, i) => ({
-      id: `step_3_${i + 1}`,
-      timestamp: Date.now() - 259200000,
-      stepNumber: i + 1,
-      action: {
-        type: 'navigate' as const,
-        description: `Navigate to page ${i + 1}`,
-        url: `site${i + 1}.com`
-      }
-    })),
-    duration: 45,
-    createdAt: Date.now() - 259200000,
-    lastRunAt: Date.now() - 259200000,
-    runCount: 8,
-    successCount: 6,
-    failureCount: 2
-  }
-]
 
 interface TeachModeStore {
   // State
@@ -141,6 +20,7 @@ interface TeachModeStore {
   executionSummary: ExecutionSummary | null
   recordingStartTime: number | null
   isRecordingActive: boolean
+  currentSessionId: string | null
   // VAPI integration state
   transcripts: VapiTranscript[]
   vapiStatus: VapiStatus
@@ -148,17 +28,19 @@ interface TeachModeStore {
   // Actions
   setMode: (mode: TeachModeState) => void
   prepareRecording: () => void
-  startRecording: () => void
-  stopRecording: () => void
+  startRecording: () => Promise<void>
+  stopRecording: () => Promise<void>
   cancelRecording: () => void
   addEvent: (event: CapturedEvent) => void
   saveRecording: (recording: TeachModeRecording) => void
-  deleteRecording: (id: string) => void
+  deleteRecording: (id: string) => Promise<void>
   executeRecording: (id: string) => void
   setActiveRecording: (recording: TeachModeRecording | null) => void
   setExecutionProgress: (progress: ExecutionProgress | null) => void
   setExecutionSummary: (summary: ExecutionSummary | null) => void
   reset: () => void
+  loadRecordings: () => Promise<void>
+  handleBackendEvent: (payload: TeachModeEventPayload) => void
   // VAPI actions
   addTranscript: (transcript: VapiTranscript) => void
   clearTranscripts: () => void
@@ -166,15 +48,16 @@ interface TeachModeStore {
 }
 
 export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
-  // Initial state with dummy data
+  // Initial state
   mode: 'idle',
-  recordings: DUMMY_RECORDINGS,
+  recordings: [],
   activeRecording: null,
   recordingEvents: [],
   executionProgress: null,
   executionSummary: null,
   recordingStartTime: null,
   isRecordingActive: false,
+  currentSessionId: null,
   // VAPI state
   transcripts: [],
   vapiStatus: 'idle',
@@ -189,93 +72,86 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     isRecordingActive: false
   }),
 
-  startRecording: () => set({
-    isRecordingActive: true,
-    recordingEvents: [],
-    recordingStartTime: Date.now()
-  }),
-
-  stopRecording: () => {
-    const state = get()
-    // Only process after stopping
-    set({ mode: 'processing', isRecordingActive: false })
-
-    // Auto-generate workflow name based on captured events
-    const generateWorkflowName = () => {
-      if (state.recordingEvents.length === 0) {
-        return 'New Workflow'
+  startRecording: async () => {
+    try {
+      // Get current tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (!tab.id) {
+        throw new Error('No active tab found')
       }
 
-      // Use the first few actions to generate a name
-      const firstEvent = state.recordingEvents[0]
-
-      // Simple heuristic: if it's email-related
-      if (firstEvent.action.url?.includes('mail') || firstEvent.action.description?.includes('mail')) {
-        if (firstEvent.action.description?.includes('unsubscribe')) {
-          return 'Email Cleanup'
-        }
-        return 'Check Emails'
-      }
-
-      // If it's shopping/e-commerce
-      if (firstEvent.action.url?.includes('amazon') || firstEvent.action.url?.includes('shop')) {
-        return 'Product Search'
-      }
-
-      // If it's data extraction
-      if (state.recordingEvents.some(e => e.voiceAnnotation?.includes('extract') || e.voiceAnnotation?.includes('copy'))) {
-        return 'Data Extraction'
-      }
-
-      // Default to action-based name
-      return firstEvent.action.description || 'Custom Workflow'
-    }
-
-    const generateDescription = () => {
-      if (state.recordingEvents.length === 0) {
-        return 'Automated workflow'
-      }
-      // Create a brief description from the actions
-      const actions = state.recordingEvents.slice(0, 3).map(e => e.action.description).join(', ')
-      return actions.length > 50 ? actions.substring(0, 47) + '...' : actions
-    }
-
-    // Simulate processing delay then go to detail view
-    setTimeout(() => {
-      const newRecording: TeachModeRecording = {
-        id: `rec_${Date.now()}`,
-        name: generateWorkflowName(),
-        description: generateDescription(),
-        intent: generateDescription(),
-        icon: '🎯',
-        steps: state.recordingEvents,
-        duration: Math.floor((Date.now() - (state.recordingStartTime || Date.now())) / 1000),
-        createdAt: Date.now(),
-        runCount: 0,
-        successCount: 0,
-        failureCount: 0
-      }
-
-      set({
-        mode: 'ready',
-        activeRecording: newRecording,
-        recordings: [...get().recordings, newRecording],
-        recordingEvents: [],  // Clear events after saving
-        recordingStartTime: null,
-        isRecordingActive: false
+      // Send start message to backend
+      const response = await chrome.runtime.sendMessage({
+        action: 'TEACH_MODE_START',
+        tabId: tab.id
       })
-    }, 3000)
+
+      if (response?.success) {
+        set({
+          isRecordingActive: true,
+          recordingEvents: [],
+          recordingStartTime: Date.now(),
+          currentSessionId: response.sessionId || `recording_${Date.now()}`
+        })
+      } else {
+        throw new Error(response?.error || 'Failed to start recording')
+      }
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      throw error
+    }
   },
 
-  cancelRecording: () => set({
-    mode: 'idle',
-    recordingEvents: [],
-    recordingStartTime: null,
-    isRecordingActive: false,
-    activeRecording: null,
-    transcripts: [],
-    vapiStatus: 'idle'
-  }),
+  stopRecording: async () => {
+    try {
+      // Send stop message to backend
+      const response = await chrome.runtime.sendMessage({
+        action: 'TEACH_MODE_STOP'
+      })
+
+      if (response?.success) {
+        set({
+          mode: 'processing',
+          isRecordingActive: false
+        })
+
+        // Load updated recordings after stopping
+        setTimeout(async () => {
+          await get().loadRecordings()
+          set({
+            mode: 'idle',
+            recordingEvents: [],
+            recordingStartTime: null,
+            currentSessionId: null
+          })
+        }, 1000)
+      } else {
+        throw new Error(response?.error || 'Failed to stop recording')
+      }
+    } catch (error) {
+      console.error('Failed to stop recording:', error)
+      set({ isRecordingActive: false, mode: 'idle' })
+      throw error
+    }
+  },
+
+  cancelRecording: () => {
+    // Try to stop backend recording if active
+    if (get().isRecordingActive) {
+      chrome.runtime.sendMessage({ action: 'TEACH_MODE_STOP' }).catch(() => {})
+    }
+
+    set({
+      mode: 'idle',
+      recordingEvents: [],
+      recordingStartTime: null,
+      isRecordingActive: false,
+      activeRecording: null,
+      currentSessionId: null,
+      transcripts: [],
+      vapiStatus: 'idle'
+    })
+  },
 
   addEvent: (event) => set((state) => ({
     recordingEvents: [...state.recordingEvents, event]
@@ -285,9 +161,23 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     recordings: [...state.recordings, recording]
   })),
 
-  deleteRecording: (id) => set((state) => ({
-    recordings: state.recordings.filter(r => r.id !== id)
-  })),
+  deleteRecording: async (id) => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'TEACH_MODE_DELETE',
+        recordingId: id
+      })
+
+      if (response?.success) {
+        set((state) => ({
+          recordings: state.recordings.filter(r => r.id !== id)
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to delete recording:', error)
+      throw error
+    }
+  },
 
   executeRecording: (id) => {
     const recording = get().recordings.find(r => r.id === id)
@@ -365,9 +255,100 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     activeRecording: null,
     recordingStartTime: null,
     isRecordingActive: false,
+    currentSessionId: null,
     transcripts: [],
     vapiStatus: 'idle'
   }),
+
+  loadRecordings: async () => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'TEACH_MODE_LIST'
+      })
+
+      if (response?.success && response.recordings) {
+        // Convert backend format to UI format
+        const recordings: TeachModeRecording[] = response.recordings.map((rec: any) => ({
+          id: rec.id,
+          name: rec.title || 'Untitled Recording',
+          description: rec.description || `${rec.eventCount} events captured`,
+          intent: rec.description || '',
+          icon: '🎯',
+          steps: [],  // Will be loaded when needed
+          duration: Math.floor((rec.endTime - rec.startTime) / 1000),
+          createdAt: rec.createdAt,
+          runCount: 0,
+          successCount: 0,
+          failureCount: 0
+        }))
+
+        set({ recordings })
+      }
+    } catch (error) {
+      console.error('Failed to load recordings:', error)
+    }
+  },
+
+  handleBackendEvent: (payload: TeachModeEventPayload) => {
+    const state = get()
+
+    // Only handle events for current session
+    if (payload.sessionId !== state.currentSessionId && payload.eventType !== 'recording_started') {
+      return
+    }
+
+    switch (payload.eventType) {
+      case 'recording_started':
+        set({ currentSessionId: payload.sessionId })
+        break
+
+      case 'event_captured':
+        const { event, index } = payload.data
+        // Convert backend event to UI format
+        const capturedEvent: CapturedEvent = {
+          id: event.id,
+          timestamp: event.timestamp,
+          stepNumber: index + 1,
+          action: {
+            type: event.action.type,
+            description: _formatActionDescription(event.action),
+            url: event.action.url,
+            element: event.target?.element?.tagName
+          },
+          voiceAnnotation: event.narration,
+          screenshot: event.state?.screenshot
+        }
+        set((state) => ({
+          recordingEvents: [...state.recordingEvents, capturedEvent]
+        }))
+        break
+
+      case 'state_captured':
+        const { eventId, state: capturedState } = payload.data
+        set((state) => ({
+          recordingEvents: state.recordingEvents.map(e =>
+            e.id === eventId
+              ? { ...e, screenshot: capturedState.screenshot }
+              : e
+          )
+        }))
+        break
+
+      case 'recording_stopped':
+        // Backend has stopped, update UI
+        set({ isRecordingActive: false, currentSessionId: null })
+        break
+
+      case 'transcript_update':
+        // Handle transcript updates if needed
+        break
+
+      case 'tab_switched':
+      case 'viewport_updated':
+        // Handle these events if needed for UI feedback
+        break
+    }
+  },
 
   // VAPI actions
   addTranscript: (transcript) => set((state) => ({
@@ -382,3 +363,32 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     vapiStatus: status
   })
 }))
+
+// Helper function to format action description
+function _formatActionDescription(action: any): string {
+  switch (action.type) {
+    case 'click':
+    case 'dblclick':
+      return `Clicked ${action.target?.element?.tagName || 'element'}`
+    case 'input':
+    case 'type':
+      return `Typed "${action.value || ''}" into field`
+    case 'navigation':
+    case 'navigate':
+      return `Navigated to ${action.url || 'page'}`
+    case 'scroll':
+      return `Scrolled to position ${action.scroll?.y || 0}`
+    case 'tab_switched':
+      return `Switched to tab ${action.toTabId}`
+    case 'tab_opened':
+      return `Opened new tab`
+    case 'tab_closed':
+      return `Closed tab`
+    case 'session_start':
+      return 'Started recording'
+    case 'session_end':
+      return 'Stopped recording'
+    default:
+      return action.type
+  }
+}

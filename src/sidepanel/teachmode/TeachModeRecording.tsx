@@ -55,42 +55,36 @@ export function TeachModeRecording() {
     }
   }, [transcriptionError])
 
-  const sendTeachModeMessage = (payload: Record<string, unknown>) => {
-    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
-      chrome.runtime.sendMessage(payload)
-    }
-  }
 
   const handleBack = () => {
     cancelRecording()
   }
 
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
     if (isRecordingActive) return
 
     clearTranscripts()  // Clear any previous transcripts
-    startRecording()
     setRecordingTime(0)
-    sendTeachModeMessage({ action: 'TEACH_MODE_START' })
-  }
 
-  const handleStopRecording = () => {
-    if (!isRecordingActive) return
-
-    stopRecording()
-    sendTeachModeMessage({ action: 'TEACH_MODE_STOP' })
-  }
-
-  const currentStep: CapturedEvent = {
-    id: 'current',
-    timestamp: Date.now(),
-    stepNumber: recordingEvents.length + 1,
-    action: {
-      type: 'click',
-      description: '[Current action]',
-      element: '...'
+    try {
+      await startRecording()
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      // Optionally show error to user
     }
   }
+
+  const handleStopRecording = async () => {
+    if (!isRecordingActive) return
+
+    try {
+      await stopRecording()
+    } catch (error) {
+      console.error('Failed to stop recording:', error)
+      // Optionally show error to user
+    }
+  }
+
 
   const statusLabel = isRecordingActive ? 'Recording' : 'Ready to record'
   const statusDescription = isRecordingActive
@@ -190,23 +184,12 @@ export function TeachModeRecording() {
                 />
               ))}
 
-              {recordingEvents.length === 0 ? (
+              {recordingEvents.length === 0 && (
                 <div className="text-center py-8">
                   <div className="text-sm text-muted-foreground mb-2">
                     Waiting for your first action...
                   </div>
-                  <StepCard
-                    step={currentStep}
-                    isActive={true}
-                    showConnector={false}
-                  />
                 </div>
-              ) : (
-                <StepCard
-                  step={currentStep}
-                  isActive={true}
-                  showConnector={false}
-                />
               )}
 
               {isSpeaking && (

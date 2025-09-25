@@ -153,9 +153,14 @@ async function handleStartRecording(tabId?: number, options?: { captureVoice?: b
     // Start recording with options
     await teachModeService.startRecording(tabId, options)
 
+    // Get the session ID from the current session
+    const session = teachModeService.getCurrentSession()
+    const sessionId = session ? session.getSession().id : undefined
+
     return {
       success: true,
       tabId,
+      sessionId,
       message: 'Recording started'
     }
   } catch (error) {
