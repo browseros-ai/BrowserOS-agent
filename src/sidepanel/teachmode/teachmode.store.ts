@@ -318,20 +318,37 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
           voiceAnnotation: event.narration,
           screenshot: event.state?.screenshot
         }
-        set((state) => ({
-          recordingEvents: [...state.recordingEvents, capturedEvent]
-        }))
+        set((state) => {
+          // Check if event with same ID already exists
+          const existingIndex = state.recordingEvents.findIndex(e => e.id === capturedEvent.id)
+          if (existingIndex !== -1) {
+            // Update existing event (might have new screenshot or data)
+            const updatedEvents = [...state.recordingEvents]
+            updatedEvents[existingIndex] = capturedEvent
+            return { recordingEvents: updatedEvents }
+          } else {
+            // Add new event
+            return { recordingEvents: [...state.recordingEvents, capturedEvent] }
+          }
+        })
         break
 
       case 'state_captured':
         const { eventId, state: capturedState } = payload.data
-        set((state) => ({
-          recordingEvents: state.recordingEvents.map(e =>
-            e.id === eventId
-              ? { ...e, screenshot: capturedState.screenshot }
-              : e
-          )
-        }))
+        set((state) => {
+          // Only update if event exists
+          const eventExists = state.recordingEvents.some(e => e.id === eventId)
+          if (!eventExists) {
+            return state  // Don't update if event doesn't exist
+          }
+          return {
+            recordingEvents: state.recordingEvents.map(e =>
+              e.id === eventId
+                ? { ...e, screenshot: capturedState.screenshot }
+                : e
+            )
+          }
+        })
         break
 
       case 'recording_stopped':
