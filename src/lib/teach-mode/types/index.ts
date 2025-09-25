@@ -104,6 +104,7 @@ export const StateSnapshotSchema = z.object({
 export const CapturedEventSchema = z.object({
   id: z.string(),  // Unique event ID
   timestamp: z.number(),  // Unix timestamp
+  tabId: z.number().optional(),  // Tab ID that sent this event
 
   // Core action description
   action: z.object({
@@ -259,6 +260,11 @@ export const TeachModeMessageSchema = z.discriminatedUnion('action', [
     action: z.literal('STOP_RECORDING'),
     source: z.literal('TeachModeService'),
     targetTabId: z.number().optional()  // For multi-tab targeting
+  }),
+
+  z.object({
+    action: z.literal('HEARTBEAT_PING'),
+    source: z.literal('TeachModeService')
   }),
 
   // Content Script → Service
