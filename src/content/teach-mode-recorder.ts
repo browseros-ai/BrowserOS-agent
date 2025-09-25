@@ -9,7 +9,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 (() => {
   const RECORDER_INITIALIZED_KEY = 'nxtscape-teach-recorder-initialized'
   const HEARTBEAT_CHECK_INTERVAL_MS = 100  // Check for heartbeat every 100ms
-  const HEARTBEAT_TIMEOUT_MS = 500  // Auto-stop if no heartbeat for 500ms
+  const HEARTBEAT_TIMEOUT_MS = 200  // Auto-stop if no heartbeat for 200ms (2 missed beats)
   const SCROLL_DEBOUNCE_MS = 150  // Debounce scroll events
 
   // Check if already initialized to prevent duplicate listeners
@@ -40,11 +40,25 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     constructor() {
       console.log('[TeachModeRecorder] Initialized')
 
-      // Don't need tab ID anymore - we'll accept all messages
+      // Try to get tab ID immediately
+      this.getTabId()
+
       // Send ready message
       this.sendMessage({
         action: 'RECORDER_READY',
         source: 'TeachModeRecorder'
+      })
+    }
+
+    /**
+     * Get and store tab ID
+     */
+    private getTabId(): void {
+      chrome.runtime.sendMessage({ action: 'GET_TAB_ID' }, (response) => {
+        if (response?.tabId) {
+          (window as any).__tabId = response.tabId
+          console.log(`[TeachModeRecorder] Got tab ID: ${response.tabId}`)
+        }
       })
     }
 
@@ -287,15 +301,19 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     }): void {
       if (!this.isRecording) return  // Don't send if not recording
 
+      const tabId = (window as any).__tabId
       const capturedEvent: CapturedEvent = {
         id: `content_event_${this.eventCounter++}`,
         timestamp: Date.now(),
+        tabId: tabId,  // Add tab ID as separate field
         action: {
           type: eventData.type,
           ...eventData.action
         },
         target: eventData.target
       }
+
+      console.log(`[TeachModeRecorder] Sending ${eventData.type} event #${this.eventCounter} from tab ${tabId || 'unknown'}`)
 
       const message: TeachModeMessage = {
         action: 'EVENT_CAPTURED',
@@ -627,16 +645,22 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
 
     switch (message.action) {
       case 'START_RECORDING':
+        // Store tab ID for debugging
+        if (message.targetTabId) {
+          (window as any).__tabId = message.targetTabId
+        }
         // Only start if not already recording
         if (!recorder.isRecording) {
+          console.log(`[TeachModeRecorder] Starting recording for tab ${message.targetTabId}`)
           recorder.start()
         } else {
-          console.log('[TeachModeRecorder] Already recording, ignoring duplicate START')
+          console.log(`[TeachModeRecorder] DUPLICATE START - Already recording on tab ${message.targetTabId}`)
         }
         sendResponse({ success: true })
         break
 
       case 'STOP_RECORDING':
+        console.log(`[TeachModeRecorder] Stopping recording for tab ${message.targetTabId || 'unknown'}`)
         recorder.stop()
         sendResponse({ success: true })
         break
