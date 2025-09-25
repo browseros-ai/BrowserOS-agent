@@ -223,16 +223,13 @@ export class TeachModeService {
         return
       }
 
-      Logging.log('TeachModeService', `Navigation detected for recording tab ${details.tabId}`)
-
       // Record navigation event
       this.currentSession.handleNavigation(details.url, details.transitionType)
-
-      // Navigation likely killed the script - heartbeat will detect and reinject
     }
 
     chrome.webNavigation.onCommitted.addListener(this.navigationListener)
-    chrome.webNavigation.onHistoryStateUpdated.addListener(this.navigationListener)  // Also listen for SPA navigation
+    // TODO: Heartbeat handles SPA navigation now. Will reinject if needed.
+    // chrome.webNavigation.onHistoryStateUpdated.addListener(this.navigationListener)  // Also listen for SPA navigation
   }
 
   /**
@@ -282,11 +279,12 @@ export class TeachModeService {
    */
   private async _isScriptAlive(tabId: number): Promise<boolean> {
     try {
-      await chrome.tabs.sendMessage(tabId, {
+      const response = await chrome.tabs.sendMessage(tabId, {
         action: 'HEARTBEAT_PING',
         source: 'TeachModeService'
       })
-      return true
+      // Check if script is actually recording, not just alive
+      return response?.alive === true
     } catch {
       return false
     }
@@ -386,9 +384,9 @@ export class TeachModeService {
       return
     }
 
-    // Verify event is from the active recording tab
-    if (tabId !== this.currentSession.getActiveTabId()) {
-      Logging.log('TeachModeService', `Event from wrong tab ${tabId}, expected ${this.currentSession.getActiveTabId()}`, 'warning')
+    // Verify event is from the CURRENTLY active recording tab 
+    if (tabId !== this.activeTabId) {
+      Logging.log('TeachModeService', `Event from non-active tab ${tabId}, active is ${this.activeTabId}`, 'warning')
       return
     }
 
@@ -584,7 +582,7 @@ export class TeachModeService {
       this.activeTabId = newTabId
       this.currentSession.setActiveTabId(newTabId)
 
-      // Stop recording on previous tab (if exists)
+      // Stop recording on previous tab (if exists) and wait for confirmation
       if (previousTabId !== null) {
         try {
           await chrome.tabs.sendMessage(previousTabId, {
@@ -592,6 +590,9 @@ export class TeachModeService {
             source: 'TeachModeService',
             targetTabId: previousTabId
           } as TeachModeMessage & { targetTabId: number })
+
+          // Give it 50ms to actually stop before proceeding
+          await new Promise(resolve => setTimeout(resolve, 50))
         } catch (error) {
           // Previous tab might be closed or navigated
           Logging.log('TeachModeService', `Could not stop recording on previous tab: ${error}`, 'warning')
@@ -653,9 +654,8 @@ export class TeachModeService {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
         if (tabs.length > 0 && tabs[0].id) {
           this.activeTabId = tabs[0].id
-          // Inject and start recording on the new active tab
-          await this._injectAndStartRecording(this.activeTabId)
-          Logging.log('TeachModeService', `Switched to tab ${this.activeTabId} after tab close`)
+          this.currentSession.setActiveTabId(this.activeTabId)
+          // Let heartbeat handle injection - don't force inject
         } else {
           this.activeTabId = null
         }

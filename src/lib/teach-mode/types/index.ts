@@ -104,6 +104,7 @@ export const StateSnapshotSchema = z.object({
 export const CapturedEventSchema = z.object({
   id: z.string(),  // Unique event ID
   timestamp: z.number(),  // Unix timestamp
+  tabId: z.number().optional(),  // Tab ID that sent this event
 
   // Core action description
   action: z.object({
