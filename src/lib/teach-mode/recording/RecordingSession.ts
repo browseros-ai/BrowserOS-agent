@@ -51,6 +51,16 @@ export class RecordingSession {
     })
 
     Logging.log('RecordingSession', `Started recording session ${this.session.id} on tab ${tabId}`)
+
+    // Publish recording started event
+    this.pubsub.publishTeachModeEvent({
+      eventType: 'recording_started',
+      sessionId: this.session.id,
+      data: {
+        tabId,
+        url
+      }
+    })
   }
 
   /**
@@ -66,6 +76,13 @@ export class RecordingSession {
   }): void {
     this.viewport = viewport
     Logging.log('RecordingSession', `Set viewport: ${viewport.width}x${viewport.height}`)
+
+    // Publish viewport updated event
+    this.pubsub.publishTeachModeEvent({
+      eventType: 'viewport_updated',
+      sessionId: this.session.id,
+      data: viewport
+    })
   }
 
   /**
@@ -85,6 +102,16 @@ export class RecordingSession {
     this.events.push(event)
     Logging.log('RecordingSession', `Added event: ${event.action.type} (${event.id})`)
 
+    // Publish event captured to PubSub
+    this.pubsub.publishTeachModeEvent({
+      eventType: 'event_captured',
+      sessionId: this.session.id,
+      data: {
+        event,
+        index: this.events.length - 1
+      }
+    })
+
     // Schedule state capture for significant interaction events (100ms delay)
     // We capture state after actions that change the page state
     const stateChangeEvents = [
@@ -95,9 +122,6 @@ export class RecordingSession {
     if (stateChangeEvents.includes(event.action.type) && this.browserContext) {
       this._scheduleStateCapture(event)
     }
-
-    // Emit debug message to sidepanel in dev mode
-    this._emitDebugMessage(event.action.type, eventData)
   }
 
   /**
@@ -137,6 +161,15 @@ export class RecordingSession {
 
     Logging.log('RecordingSession', `Stopped recording session ${this.session.id} with ${this.events.length} events`)
 
+    // Publish recording stopped event
+    this.pubsub.publishTeachModeEvent({
+      eventType: 'recording_stopped',
+      sessionId: this.session.id,
+      data: {
+        eventCount: this.events.length
+      }
+    })
+
     return recording
   }
 
@@ -170,8 +203,21 @@ export class RecordingSession {
    * Set the active tab for recording
    */
   setActiveTabId(tabId: number): void {
+    const previousTabId = this.activeTabId
     this.activeTabId = tabId
     Logging.log('RecordingSession', `Active tab changed to ${tabId}`)
+
+    // Publish tab switched event if it's an actual switch
+    if (previousTabId !== tabId) {
+      this.pubsub.publishTeachModeEvent({
+        eventType: 'tab_switched',
+        sessionId: this.session.id,
+        data: {
+          fromTabId: previousTabId,
+          toTabId: tabId
+        }
+      })
+    }
   }
 
   /**
@@ -201,13 +247,15 @@ export class RecordingSession {
           this.events[eventIndex].state = state
           Logging.log('RecordingSession', `Added state to event ${event.id}`)
 
-          // Emit debug message with state info only after successful capture
-          if (this.isDebugMode && state.browserState) {
-            const stateInfo = `📸 State captured: ${state.browserState.string.length} chars, screenshot: ${state.screenshot ? 'yes' : 'no'}`
-            this.pubsub.publishMessage(
-              PubSub.createMessage(`[TEACH MODE] ${stateInfo}`, 'thinking')
-            )
-          }
+          // Publish state captured event
+          this.pubsub.publishTeachModeEvent({
+            eventType: 'state_captured',
+            sessionId: this.session.id,
+            data: {
+              eventId: event.id,
+              state
+            }
+          })
         }
       }
     } catch (error) {
@@ -215,15 +263,4 @@ export class RecordingSession {
     }
   }
 
-  /**
-   * Emit debug message to sidepanel in dev mode
-   */
-  private _emitDebugMessage(eventType: ActionType, eventData: any): void {
-    if (!this.isDebugMode) return
-
-    // Publish message to sidepanel
-    this.pubsub.publishMessage(
-      PubSub.createMessage(`[TEACH MODE] ${eventType}`, 'thinking')
-    )
-  }
 }

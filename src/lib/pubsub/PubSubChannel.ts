@@ -1,4 +1,4 @@
-import { Message, PubSubEvent, SubscriptionCallback, Subscription, HumanInputRequest, HumanInputResponse } from './types'
+import { Message, PubSubEvent, SubscriptionCallback, Subscription, HumanInputRequest, HumanInputResponse, TeachModeEventPayload } from './types'
 import { Logging } from '@/lib/utils/Logging'
 
 /**
@@ -57,12 +57,30 @@ export class PubSubChannel {
       console.warn(`PubSubChannel: Attempted to publish response to destroyed channel ${this.executionId}`)
       return
     }
-    
+
     const event: PubSubEvent = {
       type: 'human-input-response',
       payload: response
     }
     this._publish(event)
+  }
+
+  /**
+   * Publish teach mode event
+   */
+  publishTeachModeEvent(payload: TeachModeEventPayload): void {
+    if (this.isDestroyed) {
+      console.warn(`PubSubChannel: Attempted to publish teach mode event to destroyed channel ${this.executionId}`)
+      return
+    }
+
+    const event: PubSubEvent = {
+      type: 'teach-mode-event',
+      payload: payload
+    }
+    this._publish(event)
+
+    Logging.log('PubSubChannel', `Published teach mode event: ${payload.eventType} for session ${payload.sessionId}`)
   }
 
   /**

@@ -2,6 +2,7 @@ import { useEffect, useCallback, useState, useRef } from 'react'
 import { MessageType } from '@/lib/types/messaging'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { useChatStore, type PubSubMessage } from '../stores/chatStore'
+import { useTeachModeStore } from '../teachmode/teachmode.store'
 
 interface HumanInputRequest {
   requestId: string
@@ -12,6 +13,7 @@ export function useMessageHandler() {
   const { upsertMessage, setProcessing, reset } = useChatStore()
   const { addMessageListener, removeMessageListener, sendMessage } = useSidePanelPortMessaging()
   const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null)
+  const handleBackendEvent = useTeachModeStore(state => state.handleBackendEvent)
   
   const clearHumanInputRequest = useCallback(() => {
     setHumanInputRequest(null)
@@ -36,6 +38,11 @@ export function useMessageHandler() {
           prompt: request.prompt
         })
       }
+
+      // Handle teach-mode-event
+      if (event.type === 'teach-mode-event') {
+        handleBackendEvent(event.payload)
+      }
     }
     // Legacy handler for old event structure (for backward compatibility during transition)
     else if (payload?.action === 'PUBSUB_EVENT') {
@@ -53,8 +60,13 @@ export function useMessageHandler() {
           prompt: request.prompt
         })
       }
+
+      // Handle teach-mode-event (legacy)
+      if (payload.details?.type === 'teach-mode-event') {
+        handleBackendEvent(payload.details.payload)
+      }
     }
-  }, [upsertMessage])
+  }, [upsertMessage, handleBackendEvent])
   
   // Handle workflow status for processing state
   const handleWorkflowStatus = useCallback((payload: any) => {

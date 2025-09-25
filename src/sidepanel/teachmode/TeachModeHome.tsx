@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { EmptyState } from './components/EmptyState'
@@ -6,7 +6,12 @@ import { RecordingCard } from './components/RecordingCard'
 import { useTeachModeStore } from './teachmode.store'
 
 export function TeachModeHome() {
-  const { recordings, prepareRecording, setActiveRecording, deleteRecording, executeRecording, setMode } = useTeachModeStore()
+  const { recordings, prepareRecording, setActiveRecording, deleteRecording, executeRecording, setMode, loadRecordings } = useTeachModeStore()
+
+  // Load recordings when component mounts
+  useEffect(() => {
+    loadRecordings()
+  }, [loadRecordings])
 
   const handleCreateNew = () => {
     prepareRecording()
