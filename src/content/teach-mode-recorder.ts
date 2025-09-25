@@ -106,7 +106,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       window.addEventListener('scroll', this.handleScroll, true)
       window.addEventListener('wheel', this.handleWheel, { passive: true, capture: true })
 
-      window.addEventListener('beforeunload', this.handleBeforeUnload, true)
+      // window.addEventListener('beforeunload', this.handleBeforeUnload, true)
     }
 
     /**
