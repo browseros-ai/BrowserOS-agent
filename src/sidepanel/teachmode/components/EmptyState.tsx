@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Wand2 } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 
@@ -7,48 +7,77 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ onCreateNew }: EmptyStateProps) {
+  const [isAnimating] = useState(false)
+
+  // Example workflows
+  const EXAMPLES = [
+    "📧 Unsubscribe from marketing emails",
+    "📊 Extract data to spreadsheet",
+    "🔍 Monitor website for changes",
+    "🛍️ Find best deals on products"
+  ]
+
   return (
-    <div className="flex flex-col items-center justify-center h-full px-6 py-12">
-      {/* Icon */}
-      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-        <Wand2 className="w-8 h-8 text-primary" />
-      </div>
+    <div className="h-full overflow-y-auto flex flex-col items-center justify-center p-8 text-center relative">
+      {/* Main content - vertically centered */}
+      <div className="relative z-0 flex flex-col items-center justify-center min-h-0 max-w-lg w-full">
 
-      {/* Title */}
-      <h2 className="text-xl font-semibold text-foreground mb-2">
-        Teach Nxtscape Your Workflows
-      </h2>
-
-      {/* Description */}
-      <p className="text-sm text-muted-foreground text-center mb-8 max-w-[280px]">
-        Show Nxtscape how to do something once, and it learns to do it for you automatically.
-      </p>
-
-      {/* Primary Action */}
-      <Button
-        onClick={onCreateNew}
-        className="mb-8"
-        size="lg"
-      >
-        Create New Workflow
-      </Button>
-
-      {/* Examples Section */}
-      <div className="w-full">
-        <div className="text-xs text-muted-foreground text-center mb-3">
-          ─────────── Examples ───────────
+        {/* BrowserOS Branding */}
+        <div className="flex items-center justify-center mb-6">
+          <h2 className="text-3xl font-bold text-muted-foreground animate-fade-in-up flex items-baseline flex-wrap justify-center gap-2 text-center px-2">
+            <span>Teach</span>
+            <span>
+              <span className="text-brand">BrowserOS</span>
+              <img
+                src="/assets/browseros.svg"
+                alt="BrowserOS"
+                className="w-8 h-8 inline-block align-text-bottom ml-2 animate-fade-in-up"
+              />
+            </span>
+          </h2>
         </div>
-        <ul className="space-y-2">
-          <li className="text-sm text-muted-foreground">
-            • Unsubscribe from emails
-          </li>
-          <li className="text-sm text-muted-foreground">
-            • Extract data to spreadsheet
-          </li>
-          <li className="text-sm text-muted-foreground">
-            • Check website for updates
-          </li>
-        </ul>
+
+        {/* Subtitle */}
+        <p className="text-lg text-muted-foreground mb-8 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+          Show it once, automate forever
+        </p>
+
+        {/* Create Button */}
+        <Button
+          onClick={onCreateNew}
+          size="lg"
+          className="mb-10 gap-2 animate-fade-in-up"
+          style={{ animationDelay: '0.3s' }}
+        >
+          <Wand2 className="w-5 h-5" />
+          Create New Workflow
+        </Button>
+
+        {/* Example Workflows */}
+        <div className="mb-8 mt-2 w-full">
+          <h3 className="text-sm font-medium text-muted-foreground mb-4 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+            ─────── Example Workflows ───────
+          </h3>
+          <div
+            className={`flex flex-col items-center max-w-lg w-full space-y-3 transition-transform duration-500 ease-in-out ${
+              isAnimating ? 'translate-y-5' : ''
+            }`}
+          >
+            {EXAMPLES.map((example, index) => (
+              <div
+                key={example}
+                className="relative w-full animate-fade-in-up"
+                style={{ animationDelay: `${0.5 + index * 0.1}s` }}
+              >
+                <div className="group relative text-sm py-3 px-4 whitespace-normal bg-background/50 backdrop-blur-sm border-2 border-border/30 rounded-lg hover:border-brand/50 hover:bg-brand/5 transition-all duration-300 w-full text-left">
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-300">
+                    {example}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
