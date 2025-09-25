@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import type { TeachModeState, TeachModeRecording, CapturedEvent, ExecutionProgress, ExecutionSummary } from './teachmode.types'
+import type { VapiTranscript } from './hooks/useVapiRecording'
+
+type VapiStatus = 'idle' | 'connecting' | 'connected' | 'error'
 
 // Dummy recordings data
 const DUMMY_RECORDINGS: TeachModeRecording[] = [
@@ -133,6 +136,9 @@ interface TeachModeStore {
   executionSummary: ExecutionSummary | null
   recordingStartTime: number | null
   isRecordingActive: boolean
+  // VAPI integration state
+  transcripts: VapiTranscript[]
+  vapiStatus: VapiStatus
 
   // Actions
   setMode: (mode: TeachModeState) => void
@@ -148,6 +154,10 @@ interface TeachModeStore {
   setExecutionProgress: (progress: ExecutionProgress | null) => void
   setExecutionSummary: (summary: ExecutionSummary | null) => void
   reset: () => void
+  // VAPI actions
+  addTranscript: (transcript: VapiTranscript) => void
+  clearTranscripts: () => void
+  setVapiStatus: (status: VapiStatus) => void
 }
 
 export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
@@ -160,6 +170,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   executionSummary: null,
   recordingStartTime: null,
   isRecordingActive: false,
+  // VAPI state
+  transcripts: [],
+  vapiStatus: 'idle',
 
   // Actions
   setMode: (mode) => set({ mode }),
@@ -254,7 +267,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     recordingEvents: [],
     recordingStartTime: null,
     isRecordingActive: false,
-    activeRecording: null
+    activeRecording: null,
+    transcripts: [],
+    vapiStatus: 'idle'
   }),
 
   addEvent: (event) => set((state) => ({
@@ -344,6 +359,21 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     executionSummary: null,
     activeRecording: null,
     recordingStartTime: null,
-    isRecordingActive: false
+    isRecordingActive: false,
+    transcripts: [],
+    vapiStatus: 'idle'
+  }),
+
+  // VAPI actions
+  addTranscript: (transcript) => set((state) => ({
+    transcripts: [...state.transcripts, transcript]
+  })),
+
+  clearTranscripts: () => set({
+    transcripts: []
+  }),
+
+  setVapiStatus: (status) => set({
+    vapiStatus: status
   })
 }))

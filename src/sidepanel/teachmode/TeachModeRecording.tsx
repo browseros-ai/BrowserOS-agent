@@ -3,7 +3,9 @@ import { Square, Circle, ArrowLeft, Play } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { StepCard } from './components/StepCard'
 import { VoiceIndicator } from './components/VoiceIndicator'
+import { TranscriptDisplay } from './components/TranscriptDisplay'
 import { useTeachModeStore } from './teachmode.store'
+import { useVapiRecording } from './hooks/useVapiRecording'
 import { formatDuration } from './teachmode.utils'
 import type { CapturedEvent } from './teachmode.types'
 import { cn } from '@/sidepanel/lib/utils'
@@ -16,11 +18,19 @@ export function TeachModeRecording() {
     recordingStartTime,
     startRecording,
     cancelRecording,
-    isRecordingActive
+    isRecordingActive,
+    transcripts,
+    vapiStatus,
+    clearTranscripts
   } = useTeachModeStore()
 
   const [recordingTime, setRecordingTime] = useState(0)
   const [isListening, setIsListening] = useState(false)
+
+  // Initialize VAPI for voice recording
+  const { error: vapiError } = useVapiRecording({
+    enabled: isRecordingActive
+  })
 
   useEffect(() => {
     if (!isRecordingActive || !recordingStartTime) {
@@ -108,6 +118,7 @@ export function TeachModeRecording() {
   const handleStartRecording = () => {
     if (isRecordingActive) return
 
+    clearTranscripts()  // Clear any previous transcripts
     startRecording()
     setRecordingTime(0)
     sendTeachModeMessage({ action: 'TEACH_MODE_START' })
@@ -254,6 +265,13 @@ export function TeachModeRecording() {
                 </div>
               )}
             </div>
+
+            {/* Voice Transcript Display */}
+            <TranscriptDisplay
+              transcripts={transcripts}
+              vapiStatus={vapiStatus}
+              isRecordingActive={isRecordingActive}
+            />
 
             <div className="mt-6 p-3 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground">
