@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { TeachModeState, TeachModeRecording, CapturedEvent, ExecutionProgress, ExecutionSummary } from './teachmode.types'
-import type { VapiTranscript } from './hooks/useVapiRecording'
+
+interface VapiTranscript {
+  timestamp: number
+  text: string
+  isFinal: boolean
+}
 
 type VapiStatus = 'idle' | 'connecting' | 'connected' | 'error'
 

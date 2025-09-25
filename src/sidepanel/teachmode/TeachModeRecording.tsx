@@ -5,7 +5,7 @@ import { StepCard } from './components/StepCard'
 import { VoiceIndicator } from './components/VoiceIndicator'
 import { TranscriptDisplay } from './components/TranscriptDisplay'
 import { useTeachModeStore } from './teachmode.store'
-import { useVapiRecording } from './hooks/useVapiRecording'
+import { useOpenAITranscription } from './hooks/useOpenAITranscription'
 import { formatDuration } from './teachmode.utils'
 import type { CapturedEvent } from './teachmode.types'
 import { cn } from '@/sidepanel/lib/utils'
@@ -25,10 +25,9 @@ export function TeachModeRecording() {
   } = useTeachModeStore()
 
   const [recordingTime, setRecordingTime] = useState(0)
-  const [isListening, setIsListening] = useState(false)
 
-  // Initialize VAPI for voice recording
-  const { error: vapiError } = useVapiRecording({
+  // Initialize OpenAI transcription for voice recording
+  const { error: transcriptionError, isSpeaking } = useOpenAITranscription({
     enabled: isRecordingActive
   })
 
@@ -49,61 +48,12 @@ export function TeachModeRecording() {
     return () => window.clearInterval(timer)
   }, [isRecordingActive, recordingStartTime])
 
+  // Show transcription error if any
   useEffect(() => {
-    if (!isRecordingActive) {
-      setIsListening(false)
-      return
+    if (transcriptionError) {
+      console.error('Transcription error:', transcriptionError)
     }
-
-    const scheduledTimeouts: number[] = []
-
-    const scheduleTimeout = (callback: () => void, delay: number) => {
-      const timeoutId = window.setTimeout(callback, delay)
-      scheduledTimeouts.push(timeoutId)
-    }
-
-    // Simulate receiving events during recording (placeholder for real extension events)
-    scheduleTimeout(() => {
-      addEvent({
-        id: `event_${Date.now()}_1`,
-        timestamp: Date.now(),
-        stepNumber: 1,
-        action: {
-          type: 'navigate',
-          description: 'Navigate to Gmail',
-          url: 'gmail.com'
-        },
-        voiceAnnotation: 'Open my email inbox',
-        screenshot: 'data:image/png;base64,dummy'
-      })
-    }, 2000)
-
-    scheduleTimeout(() => {
-      addEvent({
-        id: `event_${Date.now()}_2`,
-        timestamp: Date.now(),
-        stepNumber: 2,
-        action: {
-          type: 'click',
-          description: 'Clicked "Promotions"',
-          element: 'Tab selector'
-        },
-        voiceAnnotation: 'Go to promotional emails',
-        screenshot: 'data:image/png;base64,dummy'
-      })
-    }, 5000)
-
-    const voiceInterval = window.setInterval(() => {
-      setIsListening(true)
-      scheduleTimeout(() => setIsListening(false), 1800)
-    }, 4800)
-
-    return () => {
-      scheduledTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId))
-      window.clearInterval(voiceInterval)
-      setIsListening(false)
-    }
-  }, [isRecordingActive, addEvent])
+  }, [transcriptionError])
 
   const sendTeachModeMessage = (payload: Record<string, unknown>) => {
     if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
@@ -259,9 +209,9 @@ export function TeachModeRecording() {
                 />
               )}
 
-              {isListening && (
+              {isSpeaking && (
                 <div className="mt-2">
-                  <VoiceIndicator isListening={isListening} isEnabled={true} />
+                  <VoiceIndicator isListening={isSpeaking} isEnabled={true} />
                 </div>
               )}
             </div>
