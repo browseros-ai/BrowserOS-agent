@@ -3,6 +3,7 @@ import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { getLLM } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
 import { invokeWithRetry } from "@/lib/utils/retryable";
+import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import {
   TeachModeRecordingSchema,
   SemanticWorkflowSchema,
@@ -41,8 +42,12 @@ import {
  */
 export class PreprocessAgent {
   private goalExtracted: GoalExtraction | null = null;
+  private pubsub: PubSubChannel | null = null;
+  private sessionId: string | null = null;
 
-  constructor() {
+  constructor(pubsub?: PubSubChannel, sessionId?: string) {
+    this.pubsub = pubsub || null;
+    this.sessionId = sessionId || null;
     Logging.log("PreprocessAgent", "Agent instance created", "info");
   }
 
@@ -63,6 +68,12 @@ export class PreprocessAgent {
       const steps: SemanticWorkflow['steps'] = [];
       let previousState: StateSnapshot | undefined;
 
+      // Filter out session events for processing count
+      const eventsToProcess = validatedRecording.events.filter(
+        e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
+      );
+
+      let processedCount = 0;
       for (let i = 0; i < validatedRecording.events.length; i++) {
         const event = validatedRecording.events[i];
 
@@ -72,7 +83,15 @@ export class PreprocessAgent {
           continue;
         }
 
-        Logging.log("PreprocessAgent", `Processing event ${i + 1}/${validatedRecording.events.length}: ${event.action.type}`, "info");
+        processedCount++;
+        Logging.log("PreprocessAgent", `Processing event ${processedCount}/${eventsToProcess.length}: ${event.action.type}`, "info");
+
+        // Emit progress
+        this._emitProgress('preprocessing_progress', {
+          current: processedCount,
+          total: eventsToProcess.length,
+          message: `Analyzing ${event.action.type} action...`
+        });
 
         try {
           // Build current workflow progress summary
@@ -82,8 +101,8 @@ export class PreprocessAgent {
 
           const step = await this._processEvent(
             event,
-            i + 1,
-            validatedRecording.events.length,
+            processedCount,
+            eventsToProcess.length,
             this.goalExtracted?.workflowDescription || "",
             previousState,
             currentProgress
@@ -94,7 +113,7 @@ export class PreprocessAgent {
           previousState = event.state;
 
         } catch (error) {
-          Logging.log("PreprocessAgent", `Failed to process event ${i + 1}: ${error}`, "warning");
+          Logging.log("PreprocessAgent", `Failed to process event ${processedCount}: ${error}`, "warning");
           // Continue processing other events
         }
       }
@@ -279,6 +298,19 @@ export class PreprocessAgent {
 - **Interactive Elements**: ${state.browserState?.string || 'No browser state available'}
 - **Screenshot**: ${state.screenshot ? `[Base64 image data: ${state.screenshot.substring(0, 50)}...]` : 'No screenshot available'}
 `;
+  }
+
+  /**
+   * Emit progress event via PubSub
+   */
+  private _emitProgress(eventType: 'preprocessing_progress', data: any): void {
+    if (!this.pubsub || !this.sessionId) return;
+
+    this.pubsub.publishTeachModeEvent({
+      eventType: eventType as any,
+      sessionId: this.sessionId,
+      data
+    });
   }
 
   /**
