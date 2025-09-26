@@ -40,7 +40,7 @@ interface TeachModeStore {
   addEvent: (event: CapturedEvent) => void
   saveRecording: (recording: TeachModeRecording) => void
   deleteRecording: (id: string) => Promise<void>
-  executeRecording: (id: string) => void
+  executeRecording: (id: string) => Promise<void>
   setActiveRecording: (recording: TeachModeRecording | null) => void
   setExecutionProgress: (progress: ExecutionProgress | null) => void
   setExecutionSummary: (summary: ExecutionSummary | null) => void
@@ -181,66 +181,69 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     }
   },
 
-  executeRecording: (id) => {
+  executeRecording: async (id) => {
     const recording = get().recordings.find(r => r.id === id)
     if (!recording) return
 
-    set({
-      mode: 'executing',
-      activeRecording: recording,
-      executionProgress: {
-        recordingId: id,
-        currentStep: 1,
-        totalSteps: recording.steps.length,
-        status: 'running',
-        startedAt: Date.now(),
-        completedSteps: []
-      }
-    })
+    try {
+      // First, get the workflow for this recording
+      const workflowResponse = await chrome.runtime.sendMessage({
+        action: 'GET_WORKFLOW',
+        recordingId: id
+      })
 
-    // Simulate execution progress
-    let step = 1
-    const interval = setInterval(() => {
-      const progress = get().executionProgress
-      if (!progress || step > recording.steps.length) {
-        clearInterval(interval)
-        // Show summary
+      if (!workflowResponse?.success || !workflowResponse.workflow) {
+        console.error('Workflow not found for recording:', id)
+        set({ mode: 'idle' })
+        return
+      }
+
+      const workflow = workflowResponse.workflow
+
+      // Set initial execution state
+      set({
+        mode: 'executing',
+        activeRecording: recording,
+        executionProgress: {
+          recordingId: id,
+          currentStep: 0,
+          totalSteps: workflow.steps?.length || 0,
+          status: 'running',
+          startedAt: Date.now(),
+          completedSteps: []
+        }
+      })
+
+      // Execute the workflow
+      const executeResponse = await chrome.runtime.sendMessage({
+        action: 'EXECUTE_WORKFLOW',
+        workflow: workflow
+      })
+
+      if (executeResponse?.success) {
+        // Execution started successfully
+        // Progress will be handled via PubSub events
+        console.log('Workflow execution started:', workflow.metadata.goal)
+      } else {
+        // Execution failed to start
+        console.error('Failed to execute workflow:', executeResponse?.error)
         set({
           mode: 'summary',
           executionSummary: {
             recordingId: id,
             recordingName: recording.name,
-            success: true,
-            duration: 78,
-            stepsCompleted: recording.steps.length,
-            totalSteps: recording.steps.length,
-            results: [
-              'Unsubscribed from 3 lists',
-              'Deleted 15 emails',
-              'Marked 8 as spam'
-            ]
+            success: false,
+            duration: 0,
+            stepsCompleted: 0,
+            totalSteps: workflow.steps?.length || 0,
+            results: [executeResponse?.error || 'Failed to execute workflow']
           }
         })
-        return
       }
-
-      set({
-        executionProgress: {
-          ...progress,
-          currentStep: step,
-          completedSteps: [
-            ...progress.completedSteps,
-            {
-              stepNumber: step - 1,
-              success: true,
-              duration: Math.random() * 2000,
-              message: `Completed step ${step - 1}`
-            }
-          ]
-        }
-      })
-      step++
-    }, 2000)
+    } catch (error) {
+      console.error('Failed to execute recording:', error)
+      set({ mode: 'idle' })
+    }
   },
 
   setActiveRecording: (recording) => set({ activeRecording: recording }),
@@ -303,8 +306,18 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       'preprocessing_failed'
     ].includes(payload.eventType)
 
-    // Only handle events for current session (except preprocessing and recording_started)
+    // Handle execution events regardless of session
+    const isExecutionEvent = [
+      'execution_started',
+      'execution_step_started',
+      'execution_step_completed',
+      'execution_completed',
+      'execution_failed'
+    ].includes(payload.eventType)
+
+    // Only handle events for current session (except preprocessing, execution, and recording_started)
     if (!isPreprocessingEvent &&
+        !isExecutionEvent &&
         payload.sessionId !== state.currentSessionId &&
         payload.eventType !== 'recording_started') {
       return
@@ -417,6 +430,96 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
       case 'transcript_update':
         // Handle transcript updates if needed
+        break
+
+      case 'execution_started':
+        // Execution started event
+        set(state => ({
+          executionProgress: state.executionProgress ? {
+            ...state.executionProgress,
+            status: 'running',
+            currentStep: 0,
+            totalSteps: payload.data.totalSteps || state.executionProgress.totalSteps
+          } : null
+        }))
+        break
+
+      case 'execution_step_started':
+        // Step started event
+        set(state => ({
+          executionProgress: state.executionProgress ? {
+            ...state.executionProgress,
+            currentStep: payload.data.currentStep,
+            totalSteps: payload.data.totalSteps || state.executionProgress.totalSteps
+          } : null
+        }))
+        break
+
+      case 'execution_step_completed':
+        // Step completed event
+        set(state => {
+          if (!state.executionProgress) return state
+
+          const completedStep = {
+            stepNumber: state.executionProgress.currentStep,
+            success: true,
+            duration: Date.now() - state.executionProgress.startedAt,
+            message: payload.data.message || `Step ${state.executionProgress.currentStep} completed`
+          }
+
+          return {
+            executionProgress: {
+              ...state.executionProgress,
+              completedSteps: [...state.executionProgress.completedSteps, completedStep]
+            }
+          }
+        })
+        break
+
+      case 'execution_completed':
+        // Execution completed successfully
+        set(state => {
+          const recording = state.activeRecording
+          if (!recording) return { mode: 'idle' }
+
+          return {
+            mode: 'summary',
+            executionSummary: {
+              recordingId: recording.id,
+              recordingName: recording.name,
+              success: true,
+              duration: state.executionProgress ?
+                Math.floor((Date.now() - state.executionProgress.startedAt) / 1000) : 0,
+              stepsCompleted: state.executionProgress?.completedSteps.length || 0,
+              totalSteps: state.executionProgress?.totalSteps || 0,
+              results: [payload.data.message || 'Workflow executed successfully']
+            },
+            executionProgress: null
+          }
+        })
+        break
+
+      case 'execution_failed':
+        // Execution failed
+        set(state => {
+          const recording = state.activeRecording
+          if (!recording) return { mode: 'idle' }
+
+          return {
+            mode: 'summary',
+            executionSummary: {
+              recordingId: recording.id,
+              recordingName: recording.name,
+              success: false,
+              duration: state.executionProgress ?
+                Math.floor((Date.now() - state.executionProgress.startedAt) / 1000) : 0,
+              stepsCompleted: state.executionProgress?.completedSteps.length || 0,
+              totalSteps: state.executionProgress?.totalSteps || 0,
+              results: [payload.data.error || 'Workflow execution failed']
+            },
+            executionProgress: null
+          }
+        })
         break
 
       case 'tab_switched':

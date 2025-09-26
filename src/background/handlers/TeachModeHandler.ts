@@ -215,6 +215,55 @@ async function handleExecuteWorkflow(workflow: any): Promise<any> {
     // Use a dedicated pubsub channel for teach mode
     const pubsub = PubSub.getChannel(executionId)
 
+    // Also get main channel to relay events
+    const mainPubsub = PubSub.getChannel('main')
+
+    // Relay execution events to main channel as teach-mode-events
+    const relayEventsToMain = () => {
+      // Subscribe to execution channel and relay to main
+      pubsub.subscribe((event) => {
+        if (event.type === 'message' && event.payload.role === 'thinking') {
+          // Extract step info from thinking messages
+          const content = event.payload.content
+
+          if (content.includes('Executing step')) {
+            const stepMatch = content.match(/Executing step (\d+) of (\d+)/)
+            if (stepMatch) {
+              mainPubsub.publishTeachModeEvent({
+                eventType: 'execution_step_started',
+                sessionId: executionId,
+                data: {
+                  currentStep: parseInt(stepMatch[1]),
+                  totalSteps: parseInt(stepMatch[2]),
+                  message: content
+                }
+              })
+            }
+          } else if (content.includes('completed successfully')) {
+            mainPubsub.publishTeachModeEvent({
+              eventType: 'execution_step_completed',
+              sessionId: executionId,
+              data: { message: content }
+            })
+          }
+        }
+      })
+    }
+
+    // Set up event relay
+    relayEventsToMain()
+
+    // Emit execution started
+    mainPubsub.publishTeachModeEvent({
+      eventType: 'execution_started',
+      sessionId: executionId,
+      data: {
+        workflowId: workflow.metadata.recordingId,
+        goal: workflow.metadata.goal,
+        totalSteps: workflow.steps.length
+      }
+    })
+
     // Determine if limited context mode should be enabled (< 32k tokens)
     const limitedContextMode = modelCapabilities.maxTokens < 32_000
 
@@ -238,11 +287,38 @@ async function handleExecuteWorkflow(workflow: any): Promise<any> {
 
     // Create and execute TeachAgent
     const agent = new TeachAgent(executionContext)
-    await agent.execute(workflow)
 
-    return {
-      success: true,
-      message: `Workflow "${workflow.metadata.goal}" executed successfully`
+    // Execute workflow and handle result
+    try {
+      await agent.execute(workflow)
+
+      // Emit execution completed
+      mainPubsub.publishTeachModeEvent({
+        eventType: 'execution_completed',
+        sessionId: executionId,
+        data: {
+          workflowId: workflow.metadata.recordingId,
+          success: true,
+          message: `Workflow "${workflow.metadata.goal}" executed successfully`
+        }
+      })
+
+      return {
+        success: true,
+        executionId: executionId,
+        message: `Workflow "${workflow.metadata.goal}" executed successfully`
+      }
+    } catch (execError) {
+      // Emit execution failed
+      mainPubsub.publishTeachModeEvent({
+        eventType: 'execution_failed',
+        sessionId: executionId,
+        data: {
+          workflowId: workflow.metadata.recordingId,
+          error: execError instanceof Error ? execError.message : String(execError)
+        }
+      })
+      throw execError
     }
   } catch (error) {
     Logging.log('teachModeHandler', `Failed to execute workflow: ${error}`, 'error')

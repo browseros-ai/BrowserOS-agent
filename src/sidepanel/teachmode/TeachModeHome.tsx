@@ -22,11 +22,11 @@ export function TeachModeHome() {
     setMode('ready')
   }
 
-  const handleRun = (recordingId: string) => {
+  const handleRun = async (recordingId: string) => {
     const recording = recordings.find(r => r.id === recordingId)
     if (recording) {
       setActiveRecording(recording)
-      executeRecording(recordingId)
+      await executeRecording(recordingId)
     }
   }
 
