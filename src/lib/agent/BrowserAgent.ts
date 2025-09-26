@@ -1,100 +1,163 @@
-/**
- * BrowserAgent - Unified agent that handles all browser automation tasks
- * 
- * ## Streaming Architecture
- * 
- * Currently, BrowserAgent uses llm.invoke() which waits for the entire response before returning. 
- * With streaming:
- * - Users see the AI "thinking" in real-time
- * - Tool calls appear as they're being decided
- * - No long waits with blank screens
- * 
- * ### How Streaming Works in LangChain
- * 
- * Current approach (blocking):
- * ```
- * const response = await llm.invoke(messages);  // Waits for complete response
- * ```
- * 
- * Streaming approach:
- * ```
- * const stream = await llm.stream(messages);    // Returns immediately
- * for await (const chunk of stream) {
- *   // Process each chunk as it arrives
- * }
- * ```
- * 
- * ### Stream Chunk Structure
- * 
- * Each chunk contains:
- * ```
- * {
- *   content: string,           // Text content (may be empty)
- *   tool_calls: [],           // Tool calls being formed
- *   tool_call_chunks: []      // Progressive tool call building
- * }
- * ```
- * 
- * Tool calls build progressively in the stream:
- * - Chunk 1: { tool_call_chunks: [{ name: 'navigation_tool', args: '', id: 'call_123' }] }
- * - Chunk 2: { tool_call_chunks: [{ name: 'navigation_tool', args: '{"url":', id: 'call_123' }] }
- * - Chunk 3: { tool_call_chunks: [{ name: 'navigation_tool', args: '{"url": "https://example.com"}', id: 'call_123' }] }
- */
-
-import { ExecutionContext } from '@/lib/runtime/ExecutionContext';
-import { MessageManager } from '@/lib/runtime/MessageManager';
-import { ToolManager } from '@/lib/tools/ToolManager';
-import { ExecutionMetadata } from '@/lib/types/messaging';
-import { DynamicStructuredTool } from '@langchain/core/tools';
-import { createPlannerTool } from '@/lib/tools/planning/PlannerTool';
-import { createTodoManagerTool } from '@/lib/tools/planning/TodoManagerTool';
-import { createRequirePlanningTool } from '@/lib/tools/planning/RequirePlanningTool';
-import { createDoneTool } from '@/lib/tools/utils/DoneTool';
-import { createNavigationTool } from '@/lib/tools/navigation/NavigationTool';
-import { createInteractionTool } from '@/lib/tools/navigation/InteractionTool';
-import { createScrollTool } from '@/lib/tools/navigation/ScrollTool';
-import { createSearchTool } from '@/lib/tools/navigation/SearchTool';
-import { createRefreshStateTool } from '@/lib/tools/navigation/RefreshStateTool';
-import { createTabOperationsTool } from '@/lib/tools/tab/TabOperationsTool';
-import { createGroupTabsTool } from '@/lib/tools/tab/GroupTabsTool';
-import { createGetSelectedTabsTool } from '@/lib/tools/tab/GetSelectedTabsTool';
-import { createClassificationTool } from '@/lib/tools/classification/ClassificationTool';
-import { createValidatorTool } from '@/lib/tools/validation/ValidatorTool';
-import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool';
-import { createStorageTool } from '@/lib/tools/utils/StorageTool';
-import { createExtractTool } from '@/lib/tools/extraction/ExtractTool';
-import { createResultTool } from '@/lib/tools/result/ResultTool';
-import { createHumanInputTool } from '@/lib/tools/utils/HumanInputTool';
-import { createCelebrationTool } from '@/lib/tools/utils/CelebrationTool';
-import { createDateTool } from '@/lib/tools/utility/DateTool';
-import { createMCPTool } from '@/lib/tools/mcp/MCPTool';
-import { generateSystemPrompt, generateSingleTurnExecutionPrompt } from './BrowserAgent.prompt';
-import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
-import { PLANNING_CONFIG } from '@/lib/tools/planning/PlannerTool.config';
-import { AbortError } from '@/lib/utils/Abortable';
+import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
+import { MessageManager, MessageType } from "@/lib/runtime/MessageManager";
+import { ToolManager } from "@/lib/tools/ToolManager";
+import { ExecutionMetadata } from "@/lib/types/messaging";
+import { type ScreenshotSizeKey } from "@/lib/browser/BrowserOSAdapter";
+import {
+  AIMessage,
+  AIMessageChunk,
+  HumanMessage,
+  SystemMessage,
+} from "@langchain/core/messages";
+import { Runnable } from "@langchain/core/runnables";
+import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
+import { z } from "zod";
+import { getLLM } from "@/lib/llm/LangChainProvider";
+import BrowserPage from "@/lib/browser/BrowserPage";
+import { PubSub } from "@/lib/pubsub";
+import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
+import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
+import { Logging } from "@/lib/utils/Logging";
+import { AbortError } from "@/lib/utils/Abortable";
+import { jsonParseToolOutput } from "@/lib/utils/utils";
+import { isDevelopmentMode } from "@/config";
+import { invokeWithRetry } from "@/lib/utils/retryable";
+import {
+  generateExecutorPrompt,
+  generatePlannerPrompt,
+  generatePredefinedPlannerPrompt,
+  getToolDescriptions,
+  generateExecutionHistorySummaryPrompt,
+} from "./BrowserAgent.prompt";
+import {
+  createClickTool,
+  createTypeTool,
+  createClearTool,
+  createScrollTool,
+  createNavigateTool,
+  createKeyTool,
+  createWaitTool,
+  createTabsTool,
+  createTabOpenTool,
+  createTabFocusTool,
+  createTabCloseTool,
+  createExtractTool,
+  createHumanInputTool,
+  createDoneTool,
+  createMoondreamVisualClickTool,
+  createMoondreamVisualTypeTool,
+  createGrepElementsTool,
+  createCelebrationTool,
+} from "@/lib/tools/NewTools";
+import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
+import { createBrowserOSInfoTool } from '@/lib/tools/utility/BrowserOSInfoTool';
+import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
+import { createDateTool } from "@/lib/tools/utility/DateTool";
+import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-// Import evals2 lightweight tool wrapper
+import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
-import { PubSub } from '@/lib/pubsub'; // For static helper methods
-import { PubSubChannel } from '@/lib/pubsub/PubSubChannel';
-import { HumanInputResponse, PubSubEvent } from '@/lib/pubsub/types';
-import { Logging } from '@/lib/utils/Logging';
-import { jsonParseToolOutput } from '@/lib/utils/utils';
 
-// Type Definitions
-interface Plan {
-  steps: PlanStep[];
+// Constants
+const MAX_PLANNER_ITERATIONS = 50;
+const MAX_EXECUTOR_ITERATIONS = 3;
+const MAX_PREDEFINED_PLAN_ITERATIONS = 30;
+const MAX_RETRIES = 3;
+
+// Human input constants
+const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
+const HUMAN_INPUT_CHECK_INTERVAL = 500;  // Check every 500ms
+
+// Standard planner output schema
+const PlannerOutputSchema = z.object({
+  userTask: z
+    .string()
+    .describe("Restate the user's request in your own words for clarity"),
+  executionHistory: z
+    .string()
+    .describe("Briefly outline what actions have already been attempted, including any failures or notable outcomes"),
+  currentState: z
+    .string()
+    .describe("Summarize the current browser state, visible elements, and any relevant context from the screenshot"),
+  challengesIdentified: z
+    .string()
+    .describe("List any obstacles, errors, or uncertainties that may impact progress (e.g., high error rate, missing elements, repeated failures)"),
+  stepByStepReasoning: z
+    .string()
+    .describe("Think step by step through the problem, considering the user's goal, the current state, what has and hasn't worked, and which tools or strategies are most likely to succeed next. Justify your approach"),
+  proposedActions: z
+    .array(z.string())
+    .max(5)
+    .describe("List 1-5 specific, high-level actions for the executor agent to perform next (must be an empty array if `taskComplete=true`. Each action should be clear, actionable, and grounded in your reasoning"),
+  taskComplete: z
+    .boolean()
+    .describe("Set to true only if the user's request is fully satisfied and no further actions are needed"),
+  finalAnswer: z
+    .string()
+    .describe("If `taskComplete=true`, provide a complete, direct answer to the user's request (include any relevant data or results). Leave empty otherwise"),
+});
+
+type PlannerOutput = z.infer<typeof PlannerOutputSchema>;
+
+// Predefined planner output schema - uses TODO markdown for tracking
+const PredefinedPlannerOutputSchema = z.object({
+  userTask: z
+    .string()
+    .describe("Restate the user's request in your own words for clarity"),
+  executionHistory: z
+    .string()
+    .describe("Briefly outline what actions have already been attempted, including any failures or notable outcomes"),
+  currentState: z
+    .string()
+    .describe("Summarize the current browser state, visible elements, and any relevant context from the screenshot"),
+  challengesIdentified: z
+    .string()
+    .describe("List any obstacles, errors, or uncertainties that may impact progress (e.g., high error rate, missing elements, repeated failures)"),
+  stepByStepReasoning: z
+    .string()
+    .describe("Think step by step through the problem, considering the user's goal, the current state, what has and hasn't worked, and which tools or strategies are most likely to succeed next. Justify your approach"),
+  todoMarkdown: z
+    .string()
+    .describe("Updated TODO list with completed items marked [x]"),
+  proposedActions: z
+    .array(z.string())
+    .max(5)
+    .describe("List 1-5 specific, high-level actions for the executor agent to perform next (must be an empty array if `allTodosComplete=true`. Each action should be clear, actionable, and grounded in your reasoning"),
+  allTodosComplete: z
+    .boolean()
+    .describe("Boolean - are all TODOs done?"),
+  finalAnswer: z
+    .string()
+    .describe("Summary when all TODOs complete (MUST BE EMPTY if not done)"),
+});
+
+type PredefinedPlannerOutput = z.infer<typeof PredefinedPlannerOutputSchema>;
+
+const ExecutionHistorySummarySchema = z.object({
+  summary: z
+    .string()
+    .describe("Summary of the execution history"),
+});
+
+type ExecutionHistorySummary = z.infer<typeof ExecutionHistorySummarySchema>;
+
+interface PlannerResult {
+  ok: boolean;
+  output?: PlannerOutput;
+  error?: string;
 }
 
-interface PlanStep {
-  action: string;
-  reasoning: string;
+interface PredefinedPlannerResult {
+  ok: boolean;
+  output?: PredefinedPlannerOutput;
+  error?: string;
 }
 
-interface ClassificationResult {
-  is_simple_task: boolean;
-  is_followup_task: boolean;
+interface ExecutorResult {
+  completed: boolean;
+  doneToolCalled?: boolean;
+  requiresHumanInput?: boolean;
 }
 
 interface SingleTurnResult {
@@ -103,167 +166,242 @@ interface SingleTurnResult {
   requiresHumanInput: boolean;
 }
 
-export class BrowserAgent {
-  // Constants for explicit control
-  private static readonly MAX_STEPS_FOR_SIMPLE_TASKS = 10;
-  private static readonly MAX_STEPS_FOR_COMPLEX_TASKS = PLANNING_CONFIG.STEPS_PER_PLAN;
-
-  // Outer loop is -- plan -> execute -> validate
-  private static readonly MAX_STEPS_OUTER_LOOP = 100;
-  
-  // Human input constants
-  private static readonly HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
-  private static readonly HUMAN_INPUT_CHECK_INTERVAL = 500;  // Check every 500ms
-
-  // Inner loop is -- execute TODOs, one after the other.
-  private static readonly MAX_STEPS_INNER_LOOP  = 30; 
-
+export class NewAgent27 {
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
-    'navigation_tool',
-    'interact_tool',
-    'scroll_tool',
-    'search_tool',
-    'refresh_browser_state_tool',
-    'tab_operations_tool',
-    'screenshot_tool',
-    'extract_tool'
+    'click',
+    'type',
+    'clear',
+    'moondream_visual_click',
+    'moondream_visual_type',
+    'scroll',
+    'navigate',
+    'key',
+    'tab_open',
+    'tab_focus',
+    'tab_close',
+    'extract'
   ]);
 
+  // Core dependencies
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
-  private toolsRegistered = false;  // Track if tools have been registered
+  private executorLlmWithTools: Runnable<
+    BaseLanguageModelInput,
+    AIMessageChunk
+  > | null = null; // Pre-bound LLM with tools
+
+  // Execution state
+  private iterations: number = 0;
+
+  // Planner context - accumulates across all iterations
+  private plannerExecutionHistory: Array<{
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput | ExecutionHistorySummary;
+    toolMessages: string[];
+    plannerIterations: number;
+  }> = [];
+  private toolDescriptions: string = "";
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    
-    this._registerTools();
+    Logging.log("NewAgent27", "Agent instance created", "info");
   }
 
-  // Getters to access context components
-  private get messageManager(): MessageManager { 
-    return this.executionContext.messageManager; 
-  }
-  
-  private get pubsub(): PubSubChannel { 
-    return this.executionContext.getPubSub(); 
+  private get executorMessageManager(): MessageManager {
+    return this.executionContext.messageManager;
   }
 
-  /**
-   * Helper method to check abort signal and throw if aborted.
-   * Use this for manual abort checks inside loops.
-   */
+  private get pubsub(): PubSubChannel {
+    return this.executionContext.getPubSub();
+  }
+
   private checkIfAborted(): void {
     if (this.executionContext.abortSignal.aborted) {
       throw new AbortError();
     }
   }
 
-  /**
-   * Cleanup method to properly unsubscribe when agent is being destroyed
-   */
-  public cleanup(): void {
-    // Cleanup resources if needed
+  private async _initialize(): Promise<void> {
+    // Register tools FIRST (before binding)
+    await this._registerTools();
+
+    // Create LLM with consistent temperature
+    const llm = await getLLM({
+      temperature: 0.2,
+      maxTokens: 4096,
+    });
+
+    // Validate LLM supports tool binding
+    if (!llm.bindTools || typeof llm.bindTools !== "function") {
+      throw new Error("This LLM does not support tool binding");
+    }
+
+    // Bind tools ONCE and store the bound LLM
+    this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
+
+    // Reset state
+    this.iterations = 0;
+
+    Logging.log(
+      "NewAgent27",
+      `Initialization complete with ${this.toolManager.getAll().length} tools bound`,
+      "info",
+    );
+  }
+
+  private async _registerTools(): Promise<void> {
+    // Core interaction tools
+    this.toolManager.register(createClickTool(this.executionContext)); // NodeId-based click
+    this.toolManager.register(createTypeTool(this.executionContext)); // NodeId-based type
+    this.toolManager.register(createClearTool(this.executionContext)); // NodeId-based clear
+
+    // Visual fallback tools (Moondream-powered)
+    this.toolManager.register(createMoondreamVisualClickTool(this.executionContext)); // Visual click fallback
+    this.toolManager.register(createMoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
+
+    // Navigation and utility tools
+    this.toolManager.register(createScrollTool(this.executionContext));
+    this.toolManager.register(createNavigateTool(this.executionContext));
+    this.toolManager.register(createKeyTool(this.executionContext));
+    this.toolManager.register(createWaitTool(this.executionContext));
+
+    // Planning/Todo tools
+    // this.toolManager.register(createTodoSetTool(this.executionContext));
+    // this.toolManager.register(createTodoGetTool(this.executionContext));
+
+    // Tab management tools
+    this.toolManager.register(createTabsTool(this.executionContext));
+    this.toolManager.register(createTabOpenTool(this.executionContext));
+    this.toolManager.register(createTabFocusTool(this.executionContext));
+    this.toolManager.register(createTabCloseTool(this.executionContext));
+    this.toolManager.register(createGroupTabsTool(this.executionContext)); // Group tabs together
+    this.toolManager.register(createGetSelectedTabsTool(this.executionContext)); // Get selected tabs
+
+    // Utility tools
+    this.toolManager.register(createExtractTool(this.executionContext)); // Extract text from page
+    this.toolManager.register(createHumanInputTool(this.executionContext));
+    this.toolManager.register(createCelebrationTool(this.executionContext)); // Celebration/confetti tool
+    this.toolManager.register(createDateTool(this.executionContext)); // Date/time utilities
+    this.toolManager.register(createBrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
+    
+    // External integration tools
+    this.toolManager.register(createMCPTool(this.executionContext)); // MCP server integration
+
+    // Limited context mode tools - only register when in limited context mode
+    if (this.executionContext.isLimitedContextMode()) {
+      this.toolManager.register(createGrepElementsTool(this.executionContext)); // Search elements when browser state is truncated
+    }
+
+    // Completion tool
+    this.toolManager.register(createDoneTool(this.executionContext));
+
+    // Populate tool descriptions after all tools are registered
+    this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
+
+    Logging.log(
+      "NewAgent27",
+      `Registered ${this.toolManager.getAll().length} tools`,
+      "info",
+    );
   }
 
   /**
-   * Transform special example tasks into explicit instructions
+   * Check if task is a special predefined task and return its metadata
    * @param task - The original task string
-   * @returns The transformed task string
+   * @returns Metadata with predefined plan or null if not a special task
    */
-  private _transformSpecialTasks(task: string): string {
-    // Exact match for special example tasks
-    if (task === "Visit BrowserOS launch and upvote ❤️") {
-      return "Navigate to https://dub.sh/browseros-launch (it will redirect to the actual page) then click the upvote button then use celebration_tool to show confetti";
+  private _getSpecialTaskMetadata(task: string): {task: string, metadata: ExecutionMetadata} | null {
+    // Case-insensitive comparison
+    const taskLower = task.toLowerCase();
+
+    // BrowserOS Launch Upvote Task
+    if (taskLower === "visit browseros launch and upvote ❤️") {
+      return {
+        task: "Visit BrowserOS launch and upvote",
+        metadata: {
+          executionMode: 'predefined' as const,
+          predefinedPlan: {
+            agentId: 'browseros-launch-upvoter',
+            name: "BrowserOS Launch Upvoter",
+            goal: "Navigate to BrowserOS launch page and upvote it",
+            steps: [
+              "Navigate to https://dub.sh/browseros-launch",
+              "Find and click the upvote button on the page using visual_click",
+              "Use celebration tool to show confetti animation"
+            ]  
+          }
+        }
+      };
     }
-    if (task === "Go to GitHub and Star BrowserOS ⭐") {
-      return "Navigate to https://git.new/browserOS (it will redirect to the actual page) then click the star button if it is gray (not starred) then use celebration_tool to show confetti";
+
+    // GitHub Star Task
+    if (taskLower === "go to github and star browseros ⭐") {
+      return {
+        task: "Star the BrowserOS GitHub repository",
+        metadata: {
+          executionMode: 'predefined' as const,
+          predefinedPlan: {
+            agentId: 'github-star-browseros',
+            name: "GitHub Repository Star",
+            goal: "Navigate to BrowserOS GitHub repo and star it",
+            steps: [
+              "Navigate to https://git.new/browserOS",
+              "Check if the star button indicates already starred (filled star icon)",
+              "If not starred (outline star icon), click the star button to star the repository",
+              "Use celebration_tool to show confetti animation"
+            ]
+          }
+        }
+      };
     }
-    // Return original task if not a special case
-    return task;
+
+    // Return null if not a special task
+    return null;
   }
 
-  /**
-   * Main entry point.
-   * Orchestrates classification and delegates to the appropriate execution strategy.
-   * @param task - The task/query to execute
-   * @param metadata - Optional execution metadata for controlling execution mode
-   */
+  // There are basically two modes of operation:
+  // 1. Dynamic planning - the agent plans and executes in a loop until done
+  // 2. Predefined plan - the agent executes a predefined set of steps in a loop until all are done
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
-    // Transform special example tasks into explicit instructions
-    const transformedTask = this._transformSpecialTasks(task);
+    // Check for special tasks and get their predefined plans
+    const specialTaskMetadata = this._getSpecialTaskMetadata(task);
 
+    let _task = task;
+    let _metadata = metadata;
+
+    if (specialTaskMetadata) {
+      _task = specialTaskMetadata.task;
+      _metadata = { ...metadata, ...specialTaskMetadata.metadata };
+      Logging.log("NewAgent27", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
+    }
     try {
-      // 1. SETUP: Initialize system prompt and user task
-      this._initializeExecution(transformedTask);
+      this.executionContext.setExecutionMetrics({
+        ...this.executionContext.getExecutionMetrics(),
+        startTime: Date.now(),
+      });
 
-      // 2. CHECK FOR PREDEFINED PLAN
-      if (metadata?.executionMode === 'predefined' && metadata.predefinedPlan) {
-        // Treat predefined plan as a fresh (non-follow-up) task: clear history and re-init
-        this.messageManager.clear();
-        this._initializeExecution(transformedTask);
-        // Route predefined plan through the multi-step strategy using initial plan
-        const predefined = metadata!.predefinedPlan!;
-        this.pubsub.publishMessage(PubSub.createMessage(`Executing agent: ${predefined.name || 'Custom Agent'}`, 'thinking'));
-        // Convert predefined steps to Plan structure
-        const initialPlan: Plan = {
-          steps: predefined.steps.map(step => ({ action: step, reasoning: `Part of agent: ${predefined.name || 'Custom'}` }))
-        };
-        if (predefined.goal) {
-          this.messageManager.addHuman(`User's goal is: ${predefined.goal} and this is the task: ${transformedTask}`);
-        }
-        await this._executeMultiStepStrategy(transformedTask, initialPlan);
-        await this._generateTaskResult(transformedTask);
-        return;
-      }
-      else if (metadata?.executionMode === 'dynamic' && metadata?.source === 'newtab') {
-        // For tasks initiated from new tab, show the startup message with task
-        this.pubsub.publishMessage(PubSub.createMessage(`Executing task: ${transformedTask}`, 'thinking'));
-      }
+      Logging.log("NewAgent27", `Starting execution`, "info");
+      await this._initialize();
 
-      // 3. STANDARD FLOW: CLASSIFY task type
-      const classification = await this._classifyTask(transformedTask);
-      
-      // Log classification result to console for visibility
-      if (ENABLE_EVALS2) {
-        console.log(`%c→ Classification: ${classification.is_simple_task ? 'simple' : 'complex'}`, 'color: #888; font-size: 10px');
-      }
-      
-      // Clear message history if this is not a follow-up task
-      if (!classification.is_followup_task) {
-        this.messageManager.clear();
-        this._initializeExecution(transformedTask);
-      }
-
-      let message: string;
-      if (classification.is_followup_task && this.messageManager.getMessages().length > 0) {
-        message = 'Following up on previous task...';
-      } else if (classification.is_simple_task) {
-        message = 'Executing your task...';
+      // Check for predefined plan
+      if (_metadata?.executionMode === 'predefined' && _metadata.predefinedPlan) {
+        await this._executePredefined(_task, _metadata.predefinedPlan);
       } else {
-        message = 'Creating a plan to complete the task...';
+        await this._executeDynamic(_task);
       }
-      this.pubsub.publishMessage(PubSub.createMessage(message, 'thinking'));
-
-      // 4. DELEGATE: Route to the correct execution strategy
-      if (classification.is_simple_task) {
-        await this._executeSimpleTaskStrategy(transformedTask);
-      } else {
-        await this._executeMultiStepStrategy(transformedTask);
-      }
-
-      // 5. FINALISE: Generate final result
-      await this._generateTaskResult(transformedTask);
-      
-      // Task completion is logged by NxtScape, not here
     } catch (error) {
-      this._handleExecutionError(error, transformedTask);
+      this._handleExecutionError(error);
+      throw error;
     } finally {
-      
-      // No status subscription cleanup needed; cancellation is centralized via AbortController
+      this.executionContext.setExecutionMetrics({
+        ...this.executionContext.getExecutionMetrics(),
+        endTime: Date.now(),
+      });
+      this._logMetrics();
+      this._cleanup();
       
       // Ensure glow animation is stopped at the end of execution
       try {
@@ -278,347 +416,665 @@ export class BrowserAgent {
     }
   }
 
-  private _initializeExecution(task: string): void {
-    // Clear previous system prompts
-    this.messageManager.removeSystemMessages();
-
-    // Set the current task in execution context
+  private async _executePredefined(task: string, plan: any): Promise<void> {
     this.executionContext.setCurrentTask(task);
 
-    const systemPrompt = generateSystemPrompt(this.toolManager.getDescriptions());
-    this.messageManager.addSystem(systemPrompt);
-    this.messageManager.addHuman(task);
-  }
+    // Convert predefined steps to TODO markdown
+    const todoMarkdown = plan.steps.map((step: string) => `- [ ] ${step}`).join('\n');
+    this.executionContext.setTodoList(todoMarkdown);
 
-  private _registerTools(): void {
-    // Register all tools first
-    this.toolManager.register(createPlannerTool(this.executionContext));
-    this.toolManager.register(createTodoManagerTool(this.executionContext));
-    this.toolManager.register(createRequirePlanningTool(this.executionContext));
-    this.toolManager.register(createDoneTool(this.executionContext));
-    
-    // Navigation tools
-    this.toolManager.register(createNavigationTool(this.executionContext));
-    // Note: FindElementTool is no longer registered - InteractionTool now handles finding and interacting
-    this.toolManager.register(createInteractionTool(this.executionContext));
-    this.toolManager.register(createScrollTool(this.executionContext));
-    this.toolManager.register(createSearchTool(this.executionContext));
-    this.toolManager.register(createRefreshStateTool(this.executionContext));
-    
-    // Tab tools
-    this.toolManager.register(createTabOperationsTool(this.executionContext));
-    this.toolManager.register(createGroupTabsTool(this.executionContext));
-    this.toolManager.register(createGetSelectedTabsTool(this.executionContext));
-    
-    // Validation tool
-    this.toolManager.register(createValidatorTool(this.executionContext));
-
-    // util tools
-    this.toolManager.register(createScreenshotTool(this.executionContext));
-    this.toolManager.register(createStorageTool(this.executionContext));
-    this.toolManager.register(createExtractTool(this.executionContext));
-    this.toolManager.register(createHumanInputTool(this.executionContext));
-    this.toolManager.register(createCelebrationTool(this.executionContext));
-    this.toolManager.register(createDateTool(this.executionContext));
-    
-    // Result tool
-    this.toolManager.register(createResultTool(this.executionContext));
-    
-    // MCP tool for external integrations
-    this.toolManager.register(createMCPTool(this.executionContext));
-    
-    // Register classification tool last with all tool descriptions
-    const toolDescriptions = this.toolManager.getDescriptions();
-    this.toolManager.register(createClassificationTool(this.executionContext, toolDescriptions));
-  }
-
-  private async _classifyTask(task: string): Promise<ClassificationResult> {
-    const classificationTool = this.toolManager.get('classification_tool');
-    if (!classificationTool) {
-      // Default to complex task if classification tool not found
-      return { is_simple_task: false, is_followup_task: false };
+    // Validate LLM is initialized with tools bound
+    if (!this.executorLlmWithTools) {
+      throw new Error("LLM with tools not initialized");
     }
 
-    const args = { task };
-    
-    try {
-      // Tool start notification not needed in new pub-sub system
-      // Tool start notification not needed in new pub-sub system
-      const result = await classificationTool.func(args);
-      const parsedResult = jsonParseToolOutput(result);
-      
-      if (parsedResult.ok) {
-        const classification = parsedResult.output;
-        // Tool end notification not needed in new pub-sub system
-        return { 
-          is_simple_task: classification.is_simple_task,
-          is_followup_task: classification.is_followup_task 
-        };
+    // Publish start message
+    this._publishMessage(
+      `Executing agent: ${plan.name || 'Custom Agent'}`,
+      "thinking"
+    );
+
+    // Add goal for context
+    const goalMessage = plan.goal || task;
+
+    let allComplete = false;
+    let retries = 0;
+
+    while (!allComplete && this.iterations < MAX_PREDEFINED_PLAN_ITERATIONS) {
+      this.checkIfAborted();
+      this.iterations++;
+
+      Logging.log(
+        "NewAgent27",
+        `Predefined plan iteration ${this.iterations}/${MAX_PREDEFINED_PLAN_ITERATIONS}`,
+        "info"
+      );
+
+      // Run predefined planner with current TODO state
+      const planResult = await this._runPredefinedPlanner(task, this.executionContext.getTodoList());
+
+      if (!planResult.ok) {
+        Logging.log(
+          "NewAgent27",
+          `Predefined planning failed: ${planResult.error}`,
+          "error"
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Predefined planning failed: ${planResult.error}`);
+        }
+        continue;
       }
-    } catch (error) {
-      // Tool end notification not needed in new pub-sub system
-      // Tool end notification not needed in new pub-sub system
+
+      const plan = planResult.output!;
+
+      // Check if all complete
+      if (plan.allTodosComplete) {
+        allComplete = true;
+        const finalMessage = plan.finalAnswer || "All steps completed successfully";
+        this._publishMessage(finalMessage, 'assistant');
+        break;
+      }
+
+      // Validate we have actions
+      if (!plan.proposedActions || plan.proposedActions.length === 0) {
+        Logging.log(
+          "NewAgent27",
+          "Predefined planner provided no actions but TODOs not complete",
+          "warning"
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Predefined planner provided no actions but TODOs not complete`);
+        }
+        continue;
+      }
+
+      Logging.log(
+        "NewAgent27",
+        `Executing ${plan.proposedActions.length} actions for current TODO`,
+        "info"
+      );
+
+      // This will be handled in _runExecutor with fresh message manager
+
+      // Execute the actions
+      const executorResult = await this._runExecutor(plan.proposedActions, plan);
+
+      // Handle human input if needed
+      if (executorResult.requiresHumanInput) {
+        const humanResponse = await this._waitForHumanInput();
+        if (humanResponse === 'abort') {
+          this._publishMessage('❌ Task aborted by human', 'assistant');
+          throw new AbortError('Task aborted by human');
+        }
+        this._publishMessage('✅ Human completed manual action. Continuing...', 'thinking');
+        // Note: Human input response will be included in next iteration's planner context
+        this.executionContext.clearHumanInputState();
+      }
+
     }
-    
-    // Default to complex task on any failure
-    return { is_simple_task: false, is_followup_task: false };
+
+    // Check if we hit iteration limit
+    if (!allComplete && this.iterations >= MAX_PREDEFINED_PLAN_ITERATIONS) {
+      this._publishMessage(
+        `Predefined plan did not complete within ${MAX_PREDEFINED_PLAN_ITERATIONS} iterations`,
+        "error"
+      );
+      throw new Error(
+        `Maximum predefined plan iterations (${MAX_PREDEFINED_PLAN_ITERATIONS}) reached or planning failed`
+      );
+    }
+
+    Logging.log("NewAgent27", `Predefined plan execution complete`, "info");
   }
 
-  // ===================================================================
-  //  Execution Strategy 1: Simple Tasks (No Planning)
-  // ===================================================================
-  private async _executeSimpleTaskStrategy(task: string): Promise<void> {
-    // Debug: Executing as a simple task
+  private async _executeDynamic(task: string): Promise<void> {
+    // Set current task in context
+    this.executionContext.setCurrentTask(task);
 
-    for (let attempt = 1; attempt <= BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS; attempt++) {
-      this.checkIfAborted();  // Manual check in loop
+    // Validate LLM is initialized with tools bound
+    if (!this.executorLlmWithTools) {
+      throw new Error("LLM with tools not initialized");
+    }
 
-      // Check for loop before continuing
-      if (this._detectLoop()) {
-        const loopMessage = 'Detected repetitive behavior. Breaking out of potential infinite loop.';
-        console.warn(loopMessage);
-        this.pubsub.publishMessage(PubSub.createMessage(loopMessage, 'error'));
-        return;
+    let done = false;
+    let retries = 0;
+
+    // Publish start message
+    this._publishMessage("Starting task execution...", "thinking");
+
+    while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
+      this.checkIfAborted();
+      this.iterations++;
+
+      Logging.log(
+        "NewAgent27",
+        `Planning iteration ${this.iterations}/${MAX_PLANNER_ITERATIONS}`,
+        "info",
+      );
+
+      // Get reasoning and high-level actions
+      const planResult = await this._runDynamicPlanner(task);
+      // CRITICAL: Flush any queued messages from planning
+
+      if (!planResult.ok) {
+        Logging.log(
+          "NewAgent27",
+          `Planning failed: ${planResult.error}`,
+          "error",
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: ${planResult.error}`);
+        }
+        continue;
       }
 
-      // Debug: Attempt ${attempt}/${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS}
+      const plan = planResult.output!;
+      this.pubsub.publishMessage(
+        PubSub.createMessage(plan.stepByStepReasoning, "thinking"),
+      );
 
-      const instruction = `The user's goal is: "${task}". Please take the next best action to complete this goal and call the 'done_tool' when finished.`;
-      const turnResult = await this._executeSingleTurn(instruction);
-
-      if (turnResult.doneToolCalled) {
-        return;  // SUCCESS - task result will be generated in execute()
+      // Check if task is complete
+      if (plan.taskComplete) {
+        done = true;
+        // Use final answer if provided, otherwise fallback
+        const completionMessage =
+          plan.finalAnswer || "Task completed successfully";
+        // Publish final result with 'assistant' role to match BrowserAgent pattern
+        this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
+        break;
       }
-      
-      if (turnResult.requiresHumanInput) {
+
+      // Validate we have actions if not complete
+      if (!plan.proposedActions || plan.proposedActions.length === 0) {
+        Logging.log(
+          "NewAgent27",
+          "Planner provided no actions but task not complete",
+          "warning",
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: Planner provided no actions but task not complete`);
+        }
+        continue;
+      }
+
+      Logging.log(
+        "NewAgent27",
+        `Executing ${plan.proposedActions.length} actions from plan`,
+        "info",
+      );
+
+      // This will be handled in _runExecutor with fresh message manager
+
+      const executorResult = await this._runExecutor(plan.proposedActions, plan);
+
+      // Check execution outcomes
+      if (executorResult.requiresHumanInput) {
         // Human input requested - wait for response
         const humanResponse = await this._waitForHumanInput();
         
         if (humanResponse === 'abort') {
           // Human aborted the task
-          this.pubsub.publishMessage(PubSub.createMessage('❌ Task aborted by human', 'assistant'));
+          this._publishMessage('❌ Task aborted by human', 'assistant');
           throw new AbortError('Task aborted by human');
         }
         
-        // Human clicked "Done" - continue with next iteration
-        this.pubsub.publishMessage(PubSub.createMessage('✅ Human completed manual action. Continuing...', 'thinking'));
-        this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
-        
+        // Human clicked "Done" - continue with next planning iteration
+        this._publishMessage('✅ Human completed manual action. Re-planning...', 'thinking');
+        // Note: Human input response will be included in next iteration's planner context
+
         // Clear human input state
         this.executionContext.clearHumanInputState();
-        
-        // Continue to next attempt
-        continue;
       }
-      
-      // Note: require_planning_tool doesn't make sense for simple tasks
-      // but if called, we could escalate to complex strategy      
     }
 
-    throw new Error(`Task failed to complete after ${BrowserAgent.MAX_STEPS_FOR_SIMPLE_TASKS} attempts.`);
+    // Check if we hit planning iteration limit
+    if (!done && this.iterations >= MAX_PLANNER_ITERATIONS) {
+      this._publishMessage(
+        `Task did not complete within ${MAX_PLANNER_ITERATIONS} planning iterations`,
+        "error",
+      );
+      throw new Error(
+        `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
+      );
+    }
   }
 
-  // ===================================================================
-  //  Execution Strategy 2: Multi-Step Tasks (Plan -> Execute -> Repeat)
-  // ===================================================================
-  private async _executeMultiStepStrategy(task: string, initialPlan?: Plan): Promise<void> {
-    // Debug: Executing as a complex multi-step task
-    let outer_loop_index = 0;
+  private async _getBrowserStateMessage(
+    includeScreenshot: boolean,
+    simplified: boolean = true,
+    screenshotSize: ScreenshotSizeKey = "large",
+    includeBrowserState: boolean = true,
+    browserStateTokensLimit: number = 50000
+  ): Promise<HumanMessage> {
+    let browserStateString: string | null = null;
 
-    while (outer_loop_index < BrowserAgent.MAX_STEPS_OUTER_LOOP) {
+    if (includeBrowserState) {
+      browserStateString = await this.executionContext.browserContext.getBrowserStateString(
+        simplified,
+      );
+
+      // check if browser state string exceed 50% of model's max tokens
+      const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
+      if (tokens > browserStateTokensLimit) {
+        // if it exceeds, first remove Hidden Elements from browser state string
+        browserStateString = await this.executionContext.browserContext.getBrowserStateString(
+          simplified,
+          true // hide hidden elements
+        );
+        // then again check if it still exceeds 50% of model's max tokens, if it does, truncate the string to 50% of model's max tokens
+        const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
+        if (tokens > browserStateTokensLimit) {
+            // Calculate the ratio to truncate by
+            const truncationRatio = browserStateTokensLimit / tokens;
+            
+            // Truncate the string (rough approximation based on character length)
+            const targetLength = Math.floor(browserStateString.length * truncationRatio);
+            browserStateString = browserStateString.substring(0, targetLength);
+            
+            // Optional: Add truncation indicator
+            browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --\n";
+        }
+      }
+    }
+
+    if (includeScreenshot && this.executionContext.supportsVision()) {
+      // Get current page and take screenshot
+      const page = await this.executionContext.browserContext.getCurrentPage();
+      const screenshot = await page.takeScreenshot(screenshotSize, includeBrowserState);
+
+      if (screenshot) {
+        // Build content array based on what is included
+        const content: any[] = [];
+        if (includeBrowserState && browserStateString !== null) {
+          content.push({ type: "text", text: `<browser-state>${browserStateString}</browser-state>` });
+        }
+        content.push({ type: "image_url", image_url: { url: screenshot } });
+
+        const message = new HumanMessage({
+          content,
+        });
+        // Tag this as a browser state message for proper handling in MessageManager
+        message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
+        return message;
+      }
+    }
+
+    // If only browser state is requested or screenshot failed/unavailable
+    if (includeBrowserState && browserStateString !== null) {
+      const message = new HumanMessage(`<browser-state>${browserStateString}</browser-state>`);
+      message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
+      return message;
+    }
+
+    // If neither browser state nor screenshot is included, return a minimal message
+    const message = new HumanMessage("");
+    message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
+    return message;
+  }
+
+  private async _runDynamicPlanner(task: string): Promise<PlannerResult> {
+    try {
+      this.executionContext.incrementMetric("observations");
+
+      // Get execution metrics for analysis
+      const metrics = this.executionContext.getExecutionMetrics();
+      const errorRate = metrics.toolCalls > 0 
+        ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
+        : "0";
+      const elapsed = Date.now() - metrics.startTime;
+
+      // Get accumulated execution history from all iterations
+      var fullHistory = this._buildPlannerExecutionHistory();
+
+      // Get numbeer of tokens in full history
+      // System prompt for planner
+      const systemPrompt = generatePlannerPrompt(this.toolDescriptions || "");
+
+      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
+      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
+      Logging.log("NewAgent27", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+
+      // If full history exceeds 70% of max tokens, summarize it
+      if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
+        // Summarize execution history
+        const summary = await this.summarizeExecutionHistory(fullHistory);
+        fullHistory = summary.summary;
+
+        // Clear the planner execution history after summarizing and add summarized state to the history
+        this.plannerExecutionHistory = [];
+        this.plannerExecutionHistory.push({
+          plannerOutput: summary,
+          toolMessages: [],
+          plannerIterations: this.iterations - 1, // Subtract 1 because the summary is for the previous iterations
+        });
+      }
+
+      Logging.log("NewAgent27", `Full execution history: ${fullHistory}`, "info");
+
+      // Get LLM with structured output
+      const llm = await getLLM({
+        temperature: 0.2,
+        maxTokens: 4096,
+      });
+      const structuredLLM = llm.withStructuredOutput(PlannerOutputSchema);
+      const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`;
+
+      const userPrompt = `TASK: ${task}
+
+EXECUTION METRICS:
+- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
+- Observations taken: ${metrics.observations}
+- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
+${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
+${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+
+${executionContext}
+
+YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
+${fullHistory}
+`;
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const browserStateMessage = await this._getBrowserStateMessage(
+        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+        /* simplified */ true,
+        /* screenshotSize */ "large",
+        /* includeBrowserState */ true,
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.8
+      );
+      // Build messages
+      const messages = [
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userPrompt),
+        browserStateMessage, // Browser state with screenshot
+      ];
+
+      // Get structured response from LLM with retry logic
+      const result = await invokeWithRetry<PlannerOutput>(
+        structuredLLM,
+        messages,
+        MAX_RETRIES,
+        { signal: this.executionContext.abortSignal }
+      );
+
+      // Store structured reasoning in context as JSON
+      const plannerState = {
+        userTask: result.userTask,
+        currentState: result.currentState,
+        executionHistory: result.executionHistory,
+        challengesIdentified: result.challengesIdentified,
+        stepByStepReasoning: result.stepByStepReasoning,
+        proposedActions: result.proposedActions,
+        taskComplete: result.taskComplete,
+        finalAnswer: result.finalAnswer,
+      };
+      this.executionContext.addReasoning(JSON.stringify(plannerState));
+
+      // Log planner decision
+      Logging.log(
+        "NewAgent27",
+        result.taskComplete
+          ? `Planner: Task complete with final answer`
+          : `Planner: ${result.proposedActions.length} actions planned`,
+        "info",
+      );
+
+      return {
+        ok: true,
+        output: result,
+      };
+    } catch (error) {
+      this.executionContext.incrementMetric("errors");
+      return {
+        ok: false,
+        error: `Planning failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  private async _runExecutor(
+    actions: string[],
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput
+  ): Promise<ExecutorResult> {
+    // Use the current iteration message manager from execution context
+    const executorMM = new MessageManager();
+    const systemPrompt = generateExecutorPrompt(this._buildExecutionContext());
+    const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
+    executorMM.addSystem(systemPrompt);
+    const currentIterationToolMessages: string[] = [];
+    let executorIterations = 0;
+    let isFirstPass = true;
+
+    while (executorIterations < MAX_EXECUTOR_ITERATIONS) {
       this.checkIfAborted();
+      executorIterations++;
 
-      // 1. PLAN: Use provided initial plan for first cycle, otherwise create a new plan
-      let plan: Plan;
-      if (outer_loop_index === 0 && initialPlan) {
-        // Use the provided initial plan without creating a new one
-        plan = initialPlan;
-        this.pubsub.publishMessage(PubSub.createMessage(`Using predefined plan with ${initialPlan.steps.length} steps`, 'thinking'));
+      // Add browser state and simple prompt
+      if (isFirstPass) {
+        // Add current browser state without screenshot
+
+        // Build execution context with planner output
+        const plannerOutputForExecutor = this._formatPlannerOutputForExecutor(plannerOutput);
+
+        const executionContext = this._buildExecutionContext();
+        const additionalTokens = TokenCounter.countMessage(new HumanMessage(executionContext + '\n'+ plannerOutputForExecutor));
+
+        const browserStateMessage = await this._getBrowserStateMessage(
+          /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+          /* simplified */ true,
+          /* screenshotSize */ "medium",
+          /* includeBrowserState */ true,
+          /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - additionalTokens)*0.8
+        );
+        executorMM.add(browserStateMessage);
+        executorMM.addSystemReminder(executionContext + '\n I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. I will provide what tools to be executed based on provided actions in sequence until I call "done" tool.');
+
+        // Pass planner output to executor to provide context and corresponding actions to be executed
+        executorMM.addHuman(
+          `${plannerOutputForExecutor}\nPlease execute the actions specified above.`
+        );
+        isFirstPass = false;
       } else {
-        // Create a new plan for subsequent iterations or when no initial plan
-        plan = await this._createMultiStepPlan(task);
+        executorMM.addHuman(
+          "Please verify if all actions are completed and call 'done' tool if all actions are completed.",
+        );
       }
 
-      // 2. Convert plan to TODOs
-      await this._updateTodosFromPlan(plan);
+      // Get LLM response with tool calls using fresh message manager
+      const llmResponse = await this._invokeLLMWithStreaming(executorMM);
 
-      // Show TODO list after plan creation
-      const todoTool = this.toolManager.get('todo_manager_tool');
-      let currentTodos = '';
-      if (todoTool) {
-        const result = await todoTool.func({ action: 'get' });
-        const parsedResult = jsonParseToolOutput(result);
-        currentTodos = parsedResult.output || '';
-        this.pubsub.publishMessage(PubSub.createMessage(currentTodos, 'thinking'));
-      }
+      if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
+        // Process tool calls
+        executorMM.add(llmResponse);
+        const toolsResult = await this._processToolCalls(
+          llmResponse.tool_calls,
+          executorMM,
+          currentIterationToolMessages
+        );
 
-      // 3. EXECUTE: Inner loop with one TODO per turn
-      let inner_loop_index = 0;
-      
-      // Continue while there are uncompleted tasks (- [ ]) in the markdown
-      while (inner_loop_index < BrowserAgent.MAX_STEPS_INNER_LOOP && currentTodos.includes('- [ ]')) {
-        this.checkIfAborted();
-        
-        // Check for loop before continuing
-        if (this._detectLoop()) {
-          console.warn('Detected repetitive behavior. Breaking out of potential infinite loop.');
-          
-          // break out of loop
-          throw new Error("Agent is stuck, please restart your task.");
+        // Update iteration count and metrics
+        // this.iterations += llmResponse.tool_calls.length;
+        for (const toolCall of llmResponse.tool_calls) {
+          this.executionContext.incrementMetric("toolCalls");
+          this.executionContext.incrementToolUsageMetrics(toolCall.name);
         }
-        
-        // Use the generateTodoExecutionPrompt for TODO execution
-        const instruction = generateSingleTurnExecutionPrompt(task);
-        
-        const turnResult = await this._executeSingleTurn(instruction);
-        inner_loop_index++;
-        
-        if (turnResult.doneToolCalled) {
-          return; // Task fully complete - exit entire strategy
-        }
-        
-        if (turnResult.requirePlanningCalled) {
-          // Agent explicitly requested re-planning
-          console.log('Agent requested re-planning, breaking inner loop');
-          break; // Exit inner loop to trigger re-planning
-        }
-        
-        if (turnResult.requiresHumanInput) {
-          // Human input requested - wait for response
-          const humanResponse = await this._waitForHumanInput();
-          
-          if (humanResponse === 'abort') {
-            // Human aborted the task
-            this.pubsub.publishMessage(PubSub.createMessage('❌ Task aborted by human', 'assistant'));
-            throw new AbortError('Task aborted by human');
+
+        // Check for special outcomes
+        if (toolsResult.doneToolCalled) {
+          // Store the tool messages from this iteration before returning
+          this.plannerExecutionHistory.push({
+            plannerOutput,
+            toolMessages: currentIterationToolMessages,
+            plannerIterations : this.iterations,
+          });
+
+          // Add all messages to message manager
+          for (const message of executorMM.getMessages()) {
+            this.executorMessageManager.add(message);
           }
-          
-          // Human clicked "Done" - add to message history and trigger re-planning
-          this.pubsub.publishMessage(PubSub.createMessage('✅ Human completed manual action. Re-planning...', 'thinking'));
-          this.messageManager.addAI('Human has completed the requested manual action. Continuing with the task.');
-          
-          // Clear human input state
-          this.executionContext.clearHumanInputState();
-          
-          // Break inner loop to trigger re-planning
-          break;
+
+          return {
+            completed: true,
+            doneToolCalled: true,
+          };
         }
-        
-        // Update currentTodos for the next iteration
-        if (todoTool) {
-          const result = await todoTool.func({ action: 'get' });
-          const parsedResult = jsonParseToolOutput(result);
-          currentTodos = parsedResult.output || '';
+
+        if (toolsResult.requiresHumanInput) {
+          // Store the tool messages from this iteration before returning
+          this.plannerExecutionHistory.push({
+            plannerOutput,
+            toolMessages: currentIterationToolMessages,
+            plannerIterations : this.iterations,
+          });
+
+          // Add all messages to message manager
+          for (const message of executorMM.getMessages()) {
+            this.executorMessageManager.add(message);
+          }
+
+          return {
+            completed: false,
+            requiresHumanInput: true,
+          };
         }
-      }
 
-      // 4. VALIDATE: Check if we should continue or re-plan
-      const validationResult = await this._validateTaskCompletion(task);
-      if (validationResult.isComplete) {
-        return;
+        // Continue to next iteration
+      } else {
+        // No tool calls, might be done or ask for planner output
+        break;
       }
-
-      // Add validation feedback for next planning cycle
-      if (validationResult.suggestions.length > 0) {
-        const validationMessage = `Validation result: ${validationResult.reasoning}\nSuggestions: ${validationResult.suggestions.join(', ')}`;
-        this.messageManager.addAI(validationMessage);
-      }
-
-      outer_loop_index++;
     }
 
-    throw new Error(`Task did not complete within ${BrowserAgent.MAX_STEPS_OUTER_LOOP} planning cycles.`);
-  }
-
-  // ===================================================================
-  //  Shared Core & Helper Logic
-  // ===================================================================
-  /**
-   * Executes a single "turn" with the LLM, including streaming and tool processing.
-   * @returns {Promise<SingleTurnResult>} - Information about which tools were called
-   */
-  private async _executeSingleTurn(instruction: string): Promise<SingleTurnResult> {
-    this.messageManager.addHuman(instruction);
-    
-    // This method encapsulates the streaming logic
-    const llmResponse = await this._invokeLLMWithStreaming();
-
-    console.log(`K tokens:\n${JSON.stringify(llmResponse, null, 2)}`)
-
-    const result: SingleTurnResult = {
-      doneToolCalled: false,
-      requirePlanningCalled: false,
-      requiresHumanInput: false
-    };
-
-    if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
-      // IMPORTANT: We must add the full AIMessage object (not just a string) to maintain proper conversation history.
-      // The AIMessage contains both content and tool_calls. LLMs like Google's API validate that function calls
-      // in the conversation history match with their corresponding ToolMessage responses. If we only add a string
-      // here, we lose the tool_calls information, causing "function calls don't match" errors.
-      this.messageManager.add(llmResponse);
-      const toolsResult = await this._processToolCalls(llmResponse.tool_calls);
-      result.doneToolCalled = toolsResult.doneToolCalled;
-      result.requirePlanningCalled = toolsResult.requirePlanningCalled;
-      result.requiresHumanInput = toolsResult.requiresHumanInput;
-      
-    } else if (llmResponse.content) {
-      // If the AI responds with text, just add it to the history
-      this.messageManager.addAI(llmResponse.content as string);
+    // Add all messages to message manager
+    for (const message of executorMM.getMessages()) {
+      this.executorMessageManager.add(message);
     }
 
-    return result;
-  }
+    // Hit max iterations without explicit completion
+    Logging.log(
+      "NewAgent27",
+      `Executor hit max iterations (${MAX_EXECUTOR_ITERATIONS})`,
+      "warning",
+    );
 
-  private async _invokeLLMWithStreaming(): Promise<AIMessage> {
-    const llm = await this.executionContext.getLLM();
-    if (!llm.bindTools || typeof llm.bindTools !== 'function') {
-      throw new Error('This LLM does not support tool binding');
-    }
-
-    const message_history = this.messageManager.getMessages();
-
-    const llmWithTools = llm.bindTools(this.toolManager.getAll());
-    const stream = await llmWithTools.stream(message_history, {
-      signal: this.executionContext.abortSignal
+    // Store the tool messages from this iteration
+    this.plannerExecutionHistory.push({
+      plannerOutput,
+      toolMessages: currentIterationToolMessages,
+      plannerIterations : this.iterations,
     });
-    
+
+    return { completed: false };
+  }
+
+  private async _invokeLLMWithStreaming(messageManager?: MessageManager): Promise<AIMessage> {
+    const mm = messageManager || this.executorMessageManager;
+    // Use the pre-bound LLM (created and bound once during initialization)
+    if (!this.executorLlmWithTools) {
+      throw new Error("LLM not initialized - ensure _initialize() was called");
+    }
+
+    // Tags that should never be output to users
+    const PROHIBITED_TAGS = [
+      '<browser-state>',
+      '<system-reminder>',
+      '</browser-state>',
+      '</system-reminder>'
+    ];
+
+    const message_history = mm.getMessages();
+
+    const stream = await this.executorLlmWithTools.stream(message_history, {
+      signal: this.executionContext.abortSignal,
+    });
+
     let accumulatedChunk: AIMessageChunk | undefined;
-    let accumulatedText = '';
+    let accumulatedText = "";
     let hasStartedThinking = false;
     let currentMsgId: string | null = null;
+    let hasProhibitedContent = false;
 
     for await (const chunk of stream) {
-      this.checkIfAborted();  // Manual check during streaming
+      this.checkIfAborted(); // Manual check during streaming
 
-      if (chunk.content && typeof chunk.content === 'string') {
-        // Start thinking on first real content
-        if (!hasStartedThinking) {
-          // Start thinking - handled via streaming
-          hasStartedThinking = true;
-          // Create message ID on first content chunk
-          currentMsgId = PubSub.generateId('msg_assistant');
-        }
-        
-        // Stream thought chunk - will be handled via assistant message streaming
+      if (chunk.content && typeof chunk.content === "string") {
+        // Accumulate text first
         accumulatedText += chunk.content;
-        
-        // Publish/update the message with accumulated content in real-time
-        if (currentMsgId) {
-          this.pubsub.publishMessage(PubSub.createMessageWithId(currentMsgId, accumulatedText, 'thinking'));
+
+        // Check for prohibited tags if not already detected
+        if (!hasProhibitedContent) {
+          const detectedTag = PROHIBITED_TAGS.find(tag => accumulatedText.includes(tag));
+          if (detectedTag) {
+            hasProhibitedContent = true;
+            
+            // If we were streaming, replace with "Processing..."
+            if (currentMsgId) {
+              this.pubsub.publishMessage(
+                PubSub.createMessageWithId(
+                  currentMsgId,
+                  "Processing...",
+                  "thinking",
+                ),
+              );
+            }
+            
+            // Queue warning for agent's next iteration
+            mm.queueSystemReminder(
+              "I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. If I have completed all actions, I will complete the task and call 'done' tool."
+            );
+            
+            // Log for debugging
+            Logging.log("NewAgent27", 
+              "LLM output contained prohibited tags, streaming stopped", 
+              "warning"
+            );
+            
+            // Increment error metric
+            this.executionContext.incrementMetric("errors");
+          }
+        }
+
+        // Only stream to UI if no prohibited content detected
+        if (!hasProhibitedContent) {
+          // Start thinking on first real content
+          if (!hasStartedThinking) {
+            hasStartedThinking = true;
+            // Create message ID on first content chunk
+            currentMsgId = PubSub.generateId("msg_assistant");
+          }
+
+          // Publish/update the message with accumulated content in real-time
+          if (currentMsgId) {
+            this.pubsub.publishMessage(
+              PubSub.createMessageWithId(
+                currentMsgId,
+                accumulatedText,
+                "thinking",
+              ),
+            );
+          }
         }
       }
-      accumulatedChunk = !accumulatedChunk ? chunk : accumulatedChunk.concat(chunk);
+      
+      // Always accumulate chunks for final AIMessage (even with prohibited content)
+      accumulatedChunk = !accumulatedChunk
+        ? chunk
+        : accumulatedChunk.concat(chunk);
     }
-    
-    // Only finish thinking if we started and have content
-    if (hasStartedThinking && accumulatedText.trim() && currentMsgId) {
-      // Final publish with complete message (in case last chunk was missed)
-      this.pubsub.publishMessage(PubSub.createMessageWithId(currentMsgId, accumulatedText, 'thinking'));
+
+    // Only finish thinking if we started, have clean content, and have a message ID
+    if (hasStartedThinking && !hasProhibitedContent && accumulatedText.trim() && currentMsgId) {
+      // Final publish with complete message
+      this.pubsub.publishMessage(
+        PubSub.createMessageWithId(currentMsgId, accumulatedText, "thinking"),
+      );
     }
-    
-    if (!accumulatedChunk) return new AIMessage({ content: '' });
-    
+
+    if (!accumulatedChunk) return new AIMessage({ content: "" });
+
     // Convert the final chunk back to a standard AIMessage
     return new AIMessage({
       content: accumulatedChunk.content,
@@ -626,330 +1082,184 @@ export class BrowserAgent {
     });
   }
 
-  private async _processToolCalls(toolCalls: any[]): Promise<SingleTurnResult> {
+  private async _processToolCalls(
+    toolCalls: any[],
+    messageManager: MessageManager,
+    toolMessages: string[]
+  ): Promise<SingleTurnResult> {
     const result: SingleTurnResult = {
       doneToolCalled: false,
       requirePlanningCalled: false,
-      requiresHumanInput: false
+      requiresHumanInput: false,
     };
-    
+
     for (const toolCall of toolCalls) {
       this.checkIfAborted();
 
       const { name: toolName, args, id: toolCallId } = toolCall;
-      const tool = this.toolManager.get(toolName);
-      if (!tool) {
-        continue;
-      }
 
+      this._emitDevModeDebug(`Calling tool ${toolName} with args`, JSON.stringify(args));
+
+      // Start glow animation for visual tools
       await this._maybeStartGlowAnimation(toolName);
 
-      // Add evals2 lightweight wrapping if enabled
-      let toolFunc = tool.func;
-      if (ENABLE_EVALS2) {
-        const wrappedTool = wrapToolForMetrics(tool, this.executionContext, toolCallId);
-        toolFunc = wrappedTool.func;
-      }
+      const tool = this.toolManager.get(toolName);
 
-      const toolResult = await toolFunc(args);
-      const parsedResult = jsonParseToolOutput(toolResult);
-      
-
-      // Add the result back to the message history for context
-      if (toolName === 'refresh_browser_state_tool' && parsedResult.ok) {
-        const simplifiedResult = JSON.stringify({ 
-          ok: true, 
-          output: "Emergency browser state refresh completed - full DOM analysis available" 
+      let toolResult: string;
+      if (!tool) {
+        Logging.log("NewAgent27", `Unknown tool: ${toolName}`, "warning");
+        const errorMsg = `Unknown tool: ${toolName}`;
+        toolResult = JSON.stringify({
+          ok: false,
+          error: errorMsg,
         });
-        this.messageManager.addTool(simplifiedResult, toolCallId);
-        this.messageManager.addBrowserState(parsedResult.output);
+
+        this._emitDevModeDebug("Error", errorMsg);
       } else {
-        this.messageManager.addTool(toolResult, toolCallId);
+        try {
+          // Execute tool (wrap for evals2 metrics if enabled)
+          let toolFunc = tool.func;
+          if (ENABLE_EVALS2) {
+            const wrapped = wrapToolForMetrics(tool, this.executionContext, toolCallId);
+            toolFunc = wrapped.func;
+          }
+          toolResult = await toolFunc(args);
+
+        } catch (error) {
+          // Even on execution error, we must add a tool result
+          const errorMsg = `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
+          toolResult = JSON.stringify({
+            ok: false,
+            error: errorMsg,
+          });
+
+          // Increment error metric
+          this.executionContext.incrementMetric("errors");
+
+          Logging.log(
+            "NewAgent27",
+            `Tool ${toolName} execution failed: ${error}`,
+            "error",
+          );
+
+          this._emitDevModeDebug(`Error executing ${toolName}`, errorMsg);
+        }
       }
 
-      // Special handling for todo_manager_tool, replace existing todo list message
-      if (toolName === 'todo_manager_tool' && parsedResult.ok && args.action === 'set') {
-        const markdown = args.todos || '';
-        this.messageManager.addTodoList(markdown);
-        this.pubsub.publishMessage(PubSub.createMessage(markdown, 'thinking'));
-      }
+      // Parse result to check for special flags
+      const parsedResult = jsonParseToolOutput(toolResult);
 
+      // Add to message manager and track tool message
+      messageManager.addTool(toolResult, toolCallId);
+      toolMessages.push(`Tool: ${toolName} - Result: ${toolResult}`);
 
-      if (toolName === 'done_tool' && parsedResult.ok) {
+      // Check for special tool outcomes but DON'T break early
+      // We must process ALL tool calls to ensure all get responses
+      if (toolName === "done" && parsedResult.ok) {
         result.doneToolCalled = true;
       }
-      
-      if (toolName === 'require_planning_tool' && parsedResult.ok) {
-        result.requirePlanningCalled = true;
-      }
-      
-      if (toolName === 'human_input_tool' && parsedResult.ok && parsedResult.requiresHumanInput) {
+
+      if (
+        toolName === "human_input" &&
+        parsedResult.ok &&
+        parsedResult.requiresHumanInput
+      ) {
         result.requiresHumanInput = true;
-        // Break from the loop immediately to handle human input
-        break;
       }
     }
-    
+
+    // Flush any queued messages from tools (screenshots, browser states, etc.)
+    // This is from NewAgent and is CRITICAL for API's required ordering
+    messageManager.flushQueue();
+
     return result;
   }
 
-  private async _createMultiStepPlan(task: string): Promise<Plan> {
-    const plannerTool = this.toolManager.get('planner_tool')!;
-    const args = {
-      task: `Based on the history, continue with the main goal: ${task}`,
-      max_steps: BrowserAgent.MAX_STEPS_FOR_COMPLEX_TASKS
-    };
-
-    const result = await plannerTool.func(args);
-    const parsedResult = jsonParseToolOutput(result);
-    
-    // Check for errors first
-    if (!parsedResult.ok) {
-      // Throw with actual error from tool
-      throw new Error(parsedResult.output || 'Planning failed');
-    }
-    
-    // Publish planner result
-    if (parsedResult.output?.steps) {
-      const message = `Created ${parsedResult.output.steps.length} step execution plan`;
-      this.pubsub.publishMessage(PubSub.createMessage(message, 'thinking'));
-      return { steps: parsedResult.output.steps };
-    }
-    
-    throw new Error('Invalid plan format - no steps returned');
+  private _publishMessage(
+    content: string,
+    type: "thinking" | "assistant" | "error",
+  ): void {
+    this.pubsub.publishMessage(PubSub.createMessage(content, type as any));
   }
 
-  private async _createMultiStepPlanWithPreview(task: string): Promise<Plan> {
-    const initialPlan = await this._createMultiStepPlan(task)
-    
-    const planId = `plan_${Date.now()}`
-    const editablePlan = {
-      planId,
-      steps: initialPlan.steps.map((step, index) => ({
-        id: `step_${index}_${Date.now()}`,
-        action: step.action,
-        reasoning: step.reasoning || '',
-        order: index,
-        isEditable: true
-      })),
-      task,
-      isPreview: true
-    }
-    
-    this.pubsub.publishMessage(PubSub.createMessage(
-      JSON.stringify(editablePlan), 
-      'plan_editor'
-    ))
-    
-    const finalPlan = await this._waitForPlanConfirmation(planId)
-    
-    if (finalPlan === 'cancelled') {
-      throw new AbortError('Plan editing was cancelled by user')
-    }
-    
-    return finalPlan
-  }
-
-  private async _waitForPlanConfirmation(planId: string): Promise<Plan | 'cancelled'> {
-    return new Promise((resolve) => {
-      const subscription = this.pubsub.subscribe((event) => {
-        if (event.type === 'plan-edit-response' && event.payload.planId === planId) {
-          subscription.unsubscribe()
-          
-          if (event.payload.action === 'execute' && event.payload.steps) {
-            const editedPlan: Plan = {
-              steps: event.payload.steps.map((step) => ({
-                action: step.action,
-                reasoning: step.reasoning || ''
-              }))
-            }
-            resolve(editedPlan)
-          } else {
-            resolve('cancelled')
-          }
-        }
-      })
-      
-      setTimeout(() => {
-        subscription.unsubscribe()
-        resolve('cancelled')
-      }, 5 * 60 * 1000)
-    });
-  }
-
-  private async _validateTaskCompletion(task: string): Promise<{
-    isComplete: boolean;
-    reasoning: string;
-    suggestions: string[];
-  }> {
-    const validatorTool = this.toolManager.get('validator_tool');
-    if (!validatorTool) {
-      return {
-        isComplete: false,
-        reasoning: 'Validation skipped - tool not available',
-        suggestions: []
-      };
-    }
-
-    const args = { task };
-    try {
-      // Tool start for validator - not needed
-      const result = await validatorTool.func(args);
-      const parsedResult = jsonParseToolOutput(result);
-      
-      // Publish validator result
-      if (parsedResult.ok) {
-        const validationData = parsedResult.output;
-        const status = validationData.isComplete ? 'Complete' : 'Incomplete';
-        this.pubsub.publishMessage(PubSub.createMessage(`Task validation: ${status}`, 'thinking'));
+  // Emit debug information in development mode
+  private _emitDevModeDebug(action: string, details?: string, maxLength: number = 60): void {
+    if (isDevelopmentMode()) {
+      let message = action;
+      if (details) {
+        const truncated = details.length > maxLength 
+          ? details.substring(0, maxLength) + "..." 
+          : details;
+        message = `${action}: ${truncated}`;
       }
-      
-      if (parsedResult.ok) {
-        // Use the validation data from output
-        const validationData = parsedResult.output;
-        return {
-          isComplete: validationData.isComplete,
-          reasoning: validationData.reasoning,
-          suggestions: validationData.suggestions || []
-        };
-      }
-    } catch (error) {
-      // Publish validator error
-      this.pubsub.publishMessage(PubSub.createMessage('Error in validator_tool: Validation failed', 'error'));
+      this.pubsub.publishMessage(
+        PubSub.createMessage(`[DEV MODE] ${message}`, "thinking"),
+      );
     }
-    
-    return {
-      isComplete: false,
-      reasoning: 'Validation failed - continuing execution',
-      suggestions: []
-    };
   }
 
-  /**
-   * Generate and emit task result using ResultTool
-   */
-  private async _generateTaskResult(task: string): Promise<void> {
-    const resultTool = this.toolManager.get('result_tool');
-    if (!resultTool) {
+  private _handleExecutionError(error: unknown): void {
+    if (error instanceof AbortError) {
+      Logging.log("NewAgent27", "Execution aborted by user", "info");
       return;
     }
 
-    try {
-      const args = { task };
-      const result = await resultTool.func(args);
-      const parsedResult = jsonParseToolOutput(result);
-      
-      if (parsedResult.ok && parsedResult.output) {
-        const { message } = parsedResult.output;
-        this.pubsub.publishMessage(PubSub.createMessage(message, 'assistant'));
-      } else {
-        // Fallback on error
-        this.pubsub.publishMessage(PubSub.createMessage('Task completed.', 'assistant'));
-      }
-    } catch (error) {
-      // Fallback on error
-      this.pubsub.publishMessage(PubSub.createMessage('Task completed.', 'assistant'));
-    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    Logging.log("NewAgent27", `Execution error: ${errorMessage}`, "error");
+
+    this._publishMessage(`Error: ${errorMessage}`, "error");
   }
 
+  private _logMetrics(): void {
+    const metrics = this.executionContext.getExecutionMetrics();
+    const duration = metrics.endTime - metrics.startTime;
+    const successRate =
+      metrics.toolCalls > 0
+        ? (
+            ((metrics.toolCalls - metrics.errors) / metrics.toolCalls) *
+            100
+          ).toFixed(1)
+        : "0";
 
-  /**
-   * Update TODOs from plan steps (replaces all existing TODOs)
-   */
-  private async _updateTodosFromPlan(plan: Plan): Promise<void> {
-    const todoTool = this.toolManager.get('todo_manager_tool');
-    if (!todoTool || plan.steps.length === 0) return;
-    
-    // Convert plan steps to markdown TODO list
-    const markdown = plan.steps
-      .map(step => `- [ ] ${step.action}`)
-      .join('\n');
-    
-    const args = { action: 'set' as const, todos: markdown };
-    await todoTool.func(args);
-  }
+    // Convert tool frequency Map to object for logging
+    const toolFrequency: Record<string, number> = {};
+    metrics.toolFrequency.forEach((count, toolName) => {
+      toolFrequency[toolName] = count;
+    });
 
-  /**
-   * Handle execution errors - tools have already published specific errors
-   */
-  private _handleExecutionError(error: unknown, task: string): void {
-    // Check if this is a user cancellation - handle silently
-    const isAbortError = error instanceof Error && error.name === 'AbortError';
-    const abortReason = this.executionContext.abortSignal.reason as any;
-    const isUserInitiated = abortReason?.userInitiated === true;
-    
-    const isUserCancellation = error instanceof AbortError || 
-                               this.executionContext.isUserCancellation() || 
-                               (isAbortError && isUserInitiated);
-    
-    if (isUserCancellation) {
-      // User-initiated cancellation - don't rethrow, let execution end gracefully
-      Logging.log('BrowserAgent', 'Execution cancelled by user');
-      return;  // Don't rethrow
-    } else if (isAbortError) {
-      // System abort (not user-initiated) - still throw
-      Logging.log('BrowserAgent', 'Execution aborted by system');
-      throw error;
-    } else {
-      // Log error metric with details
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorType = error instanceof Error ? error.name : 'UnknownError';
-      
-      Logging.logMetric('execution_error', {
-        error: errorMessage,
-        error_type: errorType,
-        task: task.substring(0, 200), // Truncate long tasks
-        mode: 'browse',
-        agent: 'BrowserAgent'
-      });
-      
-      console.error('Execution error (already reported by tool):', error);
-      throw error;
-    }
-  }
+    Logging.log(
+      "NewAgent27",
+      `Execution complete: ${this.iterations} iterations, ${metrics.toolCalls} tool calls, ` +
+        `${metrics.observations} observations, ${metrics.errors} errors, ` +
+        `${successRate}% success rate, ${duration}ms duration`,
+      "info",
+    );
 
-  /**
-   * Detect if the agent is stuck in a loop by checking for repeated messages
-   * @param lookback - Number of recent messages to check (default: 8)
-   * @param threshold - Number of times a message must appear to be considered a loop (default: 4)
-   * @returns true if a loop is detected
-   */
-  private _detectLoop(lookback: number = 8, threshold: number = 4): boolean {
-    const messages = this.messageManager.getMessages();
-    
-    // Need at least lookback messages to check
-    if (messages.length < lookback) {
-      return false;
-    }
-    
-    // Get the last N messages, filtering only AI/assistant messages
-    const recentMessages = messages
-      .slice(-lookback)
-      .filter(msg => msg._getType() === 'ai')
-      .map(msg => {
-        // Normalize the content for comparison
-        const content = typeof msg.content === 'string' ? msg.content : '';
-        return content.trim().toLowerCase();
-      });
-
-    // Count occurrences of each message
-    const messageCount = new Map<string, number>();
-    for (const msg of recentMessages) {
-      if (msg) {  // Skip empty messages
-        const count = messageCount.get(msg) || 0;
-        messageCount.set(msg, count + 1);
-        
-        // If any message appears threshold times or more, we have a loop
-        if (count + 1 >= threshold) {
-          console.warn(`Loop detected: Message "${msg.substring(0, 50)}..." repeated ${count + 1} times`);
-          return true;
-        }
-      }
+    // Log tool frequency if any tools were called
+    if (metrics.toolCalls > 0) {
+      Logging.log(
+        "NewAgent27",
+        `Tool frequency: ${JSON.stringify(toolFrequency)}`,
+        "info",
+      );
     }
 
-    return false;
+    Logging.logMetric("newagent.execution", {
+      iterations: this.iterations,
+      toolCalls: metrics.toolCalls,
+      observations: metrics.observations,
+      errors: metrics.errors,
+      duration,
+      successRate: parseFloat(successRate),
+      toolFrequency,
+    });
   }
 
+  private _cleanup(): void {
+    this.iterations = 0;
+    this.plannerExecutionHistory = [];
+    Logging.log("NewAgent27", "Cleanup complete", "info");
+  }
 
   /**
    * Handle glow animation for tools that interact with the browser
@@ -957,7 +1267,7 @@ export class BrowserAgent {
    */
   private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
     // Check if this tool should trigger glow animation
-    if (!BrowserAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
+    if (!NewAgent27.GLOW_ENABLED_TOOLS.has(toolName)) {
       return false;
     }
 
@@ -1010,15 +1320,13 @@ export class BrowserAgent {
         }
         
         // Check timeout
-        if (Date.now() - startTime > BrowserAgent.HUMAN_INPUT_TIMEOUT) {
-          this.pubsub.publishMessage(
-            PubSub.createMessage('⏱️ Human input timed out after 10 minutes', 'error')
-          );
+        if (Date.now() - startTime > HUMAN_INPUT_TIMEOUT) {
+          this._publishMessage('⏱️ Human input timed out after 10 minutes', 'error');
           return 'timeout';
         }
         
         // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, BrowserAgent.HUMAN_INPUT_CHECK_INTERVAL));
+        await new Promise(resolve => setTimeout(resolve, HUMAN_INPUT_CHECK_INTERVAL));
       }
       
       // Aborted externally
@@ -1029,4 +1337,409 @@ export class BrowserAgent {
       subscription.unsubscribe();
     }
   }
+
+  /**
+   * Run the predefined planner to track TODO progress and generate actions
+   */
+  private async _runPredefinedPlanner(
+    task: string,
+    currentTodos: string
+  ): Promise<PredefinedPlannerResult> {
+    try {
+      this.executionContext.incrementMetric("observations");
+
+      // Get execution metrics for analysis
+      const metrics = this.executionContext.getExecutionMetrics();
+      const errorRate = metrics.toolCalls > 0
+        ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
+        : "0";
+      const elapsed = Date.now() - metrics.startTime;
+
+      // Get accumulated execution history from all iterations
+      var fullHistory = this._buildPlannerExecutionHistory();
+
+      const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
+      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
+      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
+      Logging.log("NewAgent27", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
+        const summary = await this.summarizeExecutionHistory(fullHistory);
+
+        // Clear the planner execution history after summarizing and add summarized state to the history
+        this.plannerExecutionHistory = [];
+        this.plannerExecutionHistory.push({
+          plannerOutput: summary,
+          toolMessages: [],
+          plannerIterations: this.iterations - 1, // Subtract 1 because the summary is for the previous iterations
+        });
+
+        fullHistory = summary.summary;
+      }
+
+      // Get LLM with structured output
+      const llm = await getLLM({
+        temperature: 0.2,
+        maxTokens: 4096,
+      });
+      const structuredLLM = llm.withStructuredOutput(PredefinedPlannerOutputSchema);
+      const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`;
+
+      const userPrompt = `Current TODO List:
+${currentTodos}
+
+EXECUTION METRICS:
+- Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
+- Observations taken: ${metrics.observations}
+- Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
+${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
+${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+
+${executionContext}
+
+YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
+${fullHistory}
+`;
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const browserStateMessage = await this._getBrowserStateMessage(
+        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+        /* simplified */ true,
+        /* screenshotSize */ "large",
+        /* includeBrowserState */ true,
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.8
+      );
+      const messages = [
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userPrompt),
+        browserStateMessage,
+      ];
+
+      // Get structured response with retry
+      const plan = await invokeWithRetry<PredefinedPlannerOutput>(
+        structuredLLM,
+        messages,
+        MAX_RETRIES,
+        { signal: this.executionContext.abortSignal }
+      );
+
+      // Store structured reasoning in context as JSON
+      const plannerState = {
+        userTask: plan.userTask,
+        executionHistory: plan.executionHistory,
+        currentState: plan.currentState,
+        challengesIdentified: plan.challengesIdentified,
+        stepByStepReasoning: plan.stepByStepReasoning,
+        todoMarkdown: plan.todoMarkdown,
+        proposedActions: plan.proposedActions,
+        allTodosComplete: plan.allTodosComplete,
+        finalAnswer: plan.finalAnswer,
+      };
+      this.executionContext.addReasoning(JSON.stringify(plannerState));
+
+      // Publish updated TODO list
+      this._publishMessage(plan.todoMarkdown, "thinking");
+      this.executionContext.setTodoList(plan.todoMarkdown);
+
+      // Publish reasoning
+      this.pubsub.publishMessage(
+        PubSub.createMessage(plan.stepByStepReasoning, "thinking")
+      );
+
+      // Log planner decision
+      Logging.log(
+        "NewAgent27",
+        plan.allTodosComplete
+          ? `Predefined Planner: All TODOs complete with final answer`
+          : `Predefined Planner: ${plan.proposedActions.length} actions planned for current TODO`,
+        "info",
+      );
+
+
+      return {
+        ok: true,
+        output: plan,
+      };
+    } catch (error) {
+      this.executionContext.incrementMetric("errors");
+      return {
+        ok: false,
+        error: `Predefined planning failed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Build execution history for planner context
+   */
+  private _buildPlannerExecutionHistory(): string {
+    if (this.plannerExecutionHistory.length === 0) {
+      return "No execution history yet";
+    }
+
+    return this.plannerExecutionHistory.map((entry, index) => {
+      let plannerSection = "";
+
+      if ('summary' in entry.plannerOutput) {
+        // Type is of ExecutionHistorySummary
+        const summary = entry.plannerOutput as ExecutionHistorySummary;
+        const iterationNumber = entry.plannerIterations;
+
+        return `=== ITERATIONS 1-${iterationNumber} SUMMARY ===\n${summary.summary}`;
+      }
+
+      if (!('todoMarkdown' in entry.plannerOutput)) {
+        // Dynamic planner output
+        const plan = entry.plannerOutput as PlannerOutput;
+        plannerSection = `PLANNER OUTPUT:
+- Task: ${plan.userTask}
+- Current State: ${plan.currentState}
+- Execution History: ${plan.executionHistory}
+- Challenges Identified: ${plan.challengesIdentified}
+- Reasoning: ${plan.stepByStepReasoning}
+- Proposed Actions: ${plan.proposedActions.join(', ')}`;
+      } else {
+        // Predefined planner output
+        const plan = entry.plannerOutput as PredefinedPlannerOutput;
+        plannerSection = `PLANNER OUTPUT:
+- User Task: ${plan.userTask}
+- Execution History: ${plan.executionHistory}
+- Current State: ${plan.currentState}
+- Challenges Identified: ${plan.challengesIdentified}
+- Reasoning: ${plan.stepByStepReasoning}
+- TODO Markdown: ${plan.todoMarkdown}
+- Proposed Actions: ${plan.proposedActions.join(', ')}`;
+      }
+
+      const toolSection = entry.toolMessages.length > 0
+        ? `TOOL EXECUTIONS:\n${entry.toolMessages.join('\n')}`
+        : "No tool executions";
+
+      const iterationNumber = entry.plannerIterations;
+
+      return `=== ITERATION ${iterationNumber} ===\n${plannerSection}\n\n${toolSection}`;
+    }).join('\n\n');
+  }
+
+  private async summarizeExecutionHistory(history: string): Promise<ExecutionHistorySummary> {
+    // Remove Reasoning, TODO Markdown, and Proposed Actions sections before summarizing
+    // This strips lines starting with those section headers (case-insensitive, with or without colon)
+    const historyWithoutSections = history
+      .split('\n')
+      .filter(line =>
+        !/^[-*]\s*Reasoning[:]?/i.test(line.trim()) &&
+        !/^[-*]\s*TODO Markdown[:]?/i.test(line.trim()) &&
+        !/^[-*]\s*Proposed Actions[:]?/i.test(line.trim())
+      )
+      .join('\n')
+    // Get LLM with structured output
+    const llm = await getLLM({
+      temperature: 0.2,
+      maxTokens: 4096,
+    });
+    const structuredLLM = llm.withStructuredOutput(ExecutionHistorySummarySchema);
+    const systemPrompt = generateExecutionHistorySummaryPrompt();
+    const userPrompt = `Execution History: ${historyWithoutSections}`;
+    const messages = [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(userPrompt),
+    ];
+    const result = await invokeWithRetry<ExecutionHistorySummary>(structuredLLM, messages, MAX_RETRIES, { signal: this.executionContext.abortSignal });
+    return result;
+
+  }
+
+  /**
+   * Build execution context for current iteration
+   */
+  private _buildExecutionContext(
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput | null = null,
+    actions: string[] | null = null,
+  ): string {
+    if (plannerOutput && 'todoMarkdown' in plannerOutput) {
+      // It's a PredefinedPlannerOutput
+      return this._buildPredefinedExecutionContext(plannerOutput as PredefinedPlannerOutput, actions);
+    } else {
+      // It's a PlannerOutput or null
+      return this._buildDynamicExecutionContext(plannerOutput as PlannerOutput | null, actions);
+    }
+  }
+
+  /**
+   * Build execution context for predefined plans
+   */
+  private _buildPredefinedExecutionContext(
+    plan: PredefinedPlannerOutput | null = null,
+    actions: string[] | null = null,
+  ): string {
+    const supportsVision = this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode();
+
+    const analysisSection = supportsVision
+      ? `<screenshot-analysis>
+  The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+  These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+  YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+</screenshot-analysis>`
+      : `<text-only-analysis>
+  You are operating in TEXT-ONLY mode without screenshots.
+  Use the browser state text to identify elements by their nodeId, text content, and attributes.
+  Focus on element descriptions and hierarchical structure in the browser state.
+</text-only-analysis>`;
+
+    const processSection = supportsVision
+      ? `<visual-execution-process>
+  1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+  2. LOCATE the element you need to interact with visually
+  3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+  4. EXECUTE using that nodeId in your tool call
+</visual-execution-process>`
+      : `<text-execution-process>
+  1. SEARCH with grep_elements tool using regex patterns to find elements
+  2. IDENTIFY the [nodeId] from the grep results
+  3. EXECUTE NODE_ID in your tool call
+  NEVER guess nodeIds - ALWAYS search first with grep_elements so as to have precise nodeIds for tool calls
+</text-execution-process>`;
+
+    const guidelines = supportsVision
+      ? `<execution-guidelines>
+  - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+  - The text-based browser state is supplementary - the screenshot is your primary reference
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when the current actions are completed
+</execution-guidelines>`
+      : `<execution-guidelines>
+  - Use the text-based browser state as your primary reference
+  - Match elements by their text content and attributes
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when the current actions are completed
+</execution-guidelines>`;
+
+    let predefinedPlanContext = '';
+    if (plan) {
+      predefinedPlanContext = `<predefined-plan-context>
+  <userTask>${plan.userTask}</userTask>
+  <executionHistory>${plan.executionHistory}</executionHistory>
+  <currentState>${plan.currentState}</currentState>
+  <challengesIdentified>${plan.challengesIdentified}</challengesIdentified>
+  <reasoning>${plan.stepByStepReasoning}</reasoning>
+</predefined-plan-context> `;
+    }
+    let actionsToExecute = '';
+    if (actions) {
+      actionsToExecute = `<actions-to-execute>
+${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
+  </actions-to-execute>
+`;
+    }
+    return `${predefinedPlanContext}<execution-instructions>
+${analysisSection}
+${processSection}
+<element-format>
+Elements appear as: [nodeId] <indicator> <tag> "text" context
+
+Legend:
+- [nodeId]: Use this number in click/type calls
+- <C>/<T>: Clickable or Typeable
+</element-format>
+${guidelines}
+${actionsToExecute}
+</execution-instructions>`;
+  }
+
+  /**
+   * Build unified execution context combining planning and execution instructions
+   */
+
+  private _formatPlannerOutputForExecutor(plan: PlannerOutput | PredefinedPlannerOutput): string {
+    return `BrowserOS Agent Output:
+- Task: ${plan.userTask}
+- Current State: ${plan.currentState}
+- Execution History: ${plan.executionHistory}
+- Challenges Identified: ${plan.challengesIdentified}
+- Reasoning: ${plan.stepByStepReasoning}
+
+# Actions (to be performed by you)
+${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
+`;
+  }
+  private _buildDynamicExecutionContext(
+    plan: PlannerOutput | null = null,
+    actions: string[] | null = null,
+  ): string {
+    const supportsVision = this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode();
+
+    const analysisSection = supportsVision
+      ? `<screenshot-analysis>
+  The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
+  These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
+  YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
+</screenshot-analysis>`
+      : `<text-only-analysis>
+  You are operating in TEXT-ONLY mode without screenshots.
+  Browser state may be truncated. Use grep_elements tool to find elements before any click/type action.
+  Focus on element descriptions and hierarchical structure in the browser state.
+</text-only-analysis>`;
+
+    const processSection = supportsVision
+      ? `<visual-execution-process>
+  1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
+  2. LOCATE the element you need to interact with visually
+  3. IDENTIFY its nodeId from the label shown on that element in the screenshot
+  4. EXECUTE using that nodeId in your tool call
+</visual-execution-process>`
+      : `<text-execution-process>
+  1. SEARCH with grep_elements tool using regex patterns to find elements
+  2. IDENTIFY the [nodeId] from the grep results
+  3. EXECUTE using click(nodeId) or type(nodeId, text)
+  NEVER guess nodeIds - ALWAYS search first with grep_elements so as to have precise nodeIds for tool calls
+</text-execution-process>`;
+
+    const guidelines = supportsVision
+      ? `<execution-guidelines>
+  - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
+  - The text-based browser state is supplementary - the screenshot is your primary reference
+  - Batch multiple tool calls in one response when possible (reduces latency)
+  - Call 'done' when all actions are completed
+</execution-guidelines>`
+      : `<execution-guidelines>
+  - MANDATORY: Use grep_elements before every click/type action
+    Common patterns: grep_elements("button.*(login|submit)") for buttons
+    Common patterns: grep_elements("input.*(email|password)") for inputs
+  - If grep finds nothing, try broader patterns like "button" or "input"
+  - Extract [nodeId] from results: [42] <C> <button> "Login"
+  - Call 'done' when all actions are completed
+</execution-guidelines>`;
+
+    let planningContext = '';
+    if (plan) {
+      planningContext = `<planning-context>
+  <userTask>${plan.userTask}</userTask>
+  <currentState>${plan.currentState}</currentState>
+  <executionHistory>${plan.executionHistory}</executionHistory>
+  <challengesIdentified>${plan.challengesIdentified}</challengesIdentified>
+  <reasoning>${plan.stepByStepReasoning}</reasoning>
+</planning-context>
+`;
+    }
+    let actionsToExecute = '';
+    if (actions) {
+      actionsToExecute = `<actions-to-execute>
+${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
+</actions-to-execute>
+`;
+    }
+
+    return `${planningContext}<execution-instructions>
+${analysisSection}
+${processSection}
+<element-format>
+Elements appear as: [nodeId] <indicator> <tag> "text" context
+
+Legend:
+- [nodeId]: Use this number in click/type calls
+- <C>/<T>: Clickable or Typeable
+</element-format>
+${guidelines}
+${actionsToExecute}
+</execution-instructions>`;
+  }
 }
+

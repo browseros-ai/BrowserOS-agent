@@ -19,7 +19,7 @@ import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
-import { AbortError } from "@/lib/utils/Abortable";
+import { AbortError, isUserCancellation } from "@/lib/utils/Abortable";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
 import { isDevelopmentMode } from "@/config";
 import { invokeWithRetry } from "@/lib/utils/retryable";
@@ -1192,14 +1192,14 @@ export class NewAgent {
   }
 
   private _handleExecutionError(error: unknown): void {
-    if (error instanceof AbortError) {
+    // Check if this is a user cancellation
+    if (isUserCancellation(error)) {
       Logging.log("NewAgent", "Execution aborted by user", "info");
-      return;
+      return;  // Don't publish error for user-initiated abort
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     Logging.log("NewAgent", `Execution error: ${errorMessage}`, "error");
-
     this._publishMessage(`Error: ${errorMessage}`, "error");
   }
 

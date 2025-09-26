@@ -148,6 +148,11 @@ export class LangChainProvider {
 
     return { maxTokens, supportsImages }
   }
+
+  async getCurrentProviderType(): Promise<string> {
+    const provider = await LLMSettingsReader.read()
+    return provider.type
+  }
   
   getCurrentProvider(): BrowserOSProvider | null {
     return this.currentProvider

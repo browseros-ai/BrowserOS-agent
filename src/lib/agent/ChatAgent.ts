@@ -7,7 +7,7 @@ import { generateSystemPrompt, generatePageContextMessage, generateTaskPrompt } 
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages'
 import { PubSub } from '@/lib/pubsub'
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
-import { AbortError } from '@/lib/utils/Abortable'
+import { AbortError, isUserCancellation } from '@/lib/utils/Abortable'
 import { Logging } from '@/lib/utils/Logging'
 
 // Type definitions
@@ -133,22 +133,10 @@ export class ChatAgent {
       
     } catch (error) {
       // Check if this is a user cancellation - handle silently
-      const isAbortError = error instanceof Error && error.name === 'AbortError'
-      const abortReason = this.executionContext.abortSignal.reason as any
-      const isUserInitiated = abortReason?.userInitiated === true
-      
-      const isUserCancellation = error instanceof AbortError || 
-                                 this.executionContext.isUserCancellation() || 
-                                 (isAbortError && isUserInitiated)
-      
-      if (isUserCancellation) {
+      if (isUserCancellation(error) || this.executionContext.isUserCancellation()) {
         // User-initiated cancellation - don't rethrow, let execution end gracefully
         Logging.log('ChatAgent', 'Execution cancelled by user')
         return  // Don't rethrow
-      } else if (isAbortError) {
-        // System abort (not user-initiated) - still throw
-        Logging.log('ChatAgent', 'Execution aborted by system')
-        throw error
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error)
         const errorType = error instanceof Error ? error.name : 'UnknownError'
