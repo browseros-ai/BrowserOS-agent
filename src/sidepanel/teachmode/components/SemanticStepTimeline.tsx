@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight, Target, CheckCircle, Clock, MousePointer, Type, Navigation, Layers, Square } from 'lucide-react'
+import { ChevronDown, ChevronRight, Target } from 'lucide-react'
 import { cn } from '@/sidepanel/lib/utils'
 import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 
@@ -9,25 +9,12 @@ interface SemanticStepTimelineProps {
   className?: string
 }
 
-// Map action types to icons
-const getActionIcon = (actionType: string) => {
-  switch (actionType.toLowerCase()) {
-    case 'click':
-    case 'dblclick':
-      return <MousePointer className="w-3 h-3" />
-    case 'input':
-    case 'type':
-      return <Type className="w-3 h-3" />
-    case 'navigation':
-    case 'navigate':
-      return <Navigation className="w-3 h-3" />
-    case 'tab_switched':
-    case 'tab_opened':
-    case 'tab_closed':
-      return <Square className="w-3 h-3" />
-    default:
-      return <Layers className="w-3 h-3" />
-  }
+// Format action type for display
+const formatActionType = (actionType: string) => {
+  return actionType
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
 export function SemanticStepTimeline({ workflow, loading, className }: SemanticStepTimelineProps) {
@@ -108,34 +95,28 @@ export function SemanticStepTimeline({ workflow, loading, className }: SemanticS
                 onClick={() => toggleExpanded(step.id)}
               >
                 <div className="flex items-start gap-3">
-                  {/* Step number with gradient */}
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 text-primary text-xs font-semibold shrink-0">
+                  {/* Step number */}
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-semibold shrink-0">
                     {index + 1}
                   </div>
 
                   {/* Step content */}
                   <div className="flex-1 min-w-0">
-                    {/* Intent - The high-level goal */}
+                    {/* Action Type as main title */}
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground line-clamp-1">
-                        {step.intent}
+                      <span className="text-sm font-medium text-foreground">
+                        {formatActionType(step.action.type)}
                       </span>
                     </div>
 
-                    {/* Action description and metadata */}
-                    <div className="flex items-center gap-3 mt-1.5">
-                      {/* Action type icon and description */}
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {getActionIcon(step.action.type)}
-                        <span className="line-clamp-1">{step.action.description}</span>
+                    {/* Action description preview - only when collapsed */}
+                    {!isExpanded && (
+                      <div className="mt-1">
+                        <span className="text-xs text-muted-foreground line-clamp-1">
+                          {step.action.description}
+                        </span>
                       </div>
-
-                      {/* Timeout indicator */}
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        <span>{(step.action.timeoutMs / 1000).toFixed(1)}s</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Expand/Collapse button */}
@@ -155,57 +136,12 @@ export function SemanticStepTimeline({ workflow, loading, className }: SemanticS
                 </div>
               </div>
 
-              {/* Expanded details */}
+              {/* Expanded details - just the description */}
               {isExpanded && (
-                <div className="px-3 pb-3 border-t border-border/50">
-                  <div className="mt-3 space-y-3">
-                    {/* Action Type */}
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Action Type</span>
-                        <p className="text-foreground font-medium mt-0.5 capitalize">
-                          {step.action.type.replace(/_/g, ' ')}
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-muted-foreground">Timeout</span>
-                        <p className="text-foreground font-medium mt-0.5">
-                          {step.action.timeoutMs}ms
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Element Identification Strategy */}
-                    {step.action.nodeIdentificationStrategy && (
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">Element Identification</span>
-                        <p className="text-foreground mt-1 p-2 bg-muted/50 rounded font-mono text-xs">
-                          {step.action.nodeIdentificationStrategy}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Validation Strategy */}
-                    <div className="text-xs">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Validation Strategy
-                      </span>
-                      <p className="text-foreground mt-1 p-2 bg-muted/50 rounded">
-                        {step.action.validationStrategy}
-                      </p>
-                    </div>
-
-                    {/* Source Events Reference */}
-                    {step.sourceEventIds && step.sourceEventIds.length > 0 && (
-                      <div className="text-xs">
-                        <span className="text-muted-foreground">
-                          Based on {step.sourceEventIds.length} recorded {step.sourceEventIds.length === 1 ? 'event' : 'events'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                <div className="px-3 pb-3 pl-12">
+                  <p className="text-sm text-foreground">
+                    {step.action.description}
+                  </p>
                 </div>
               )}
             </div>
@@ -218,7 +154,7 @@ export function SemanticStepTimeline({ workflow, loading, className }: SemanticS
         )
       })}
 
-      {/* Workflow Summary */}
+      {/* Minimal footer - just total steps and estimated duration */}
       <div className="mt-4 pt-4 border-t border-border">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Total Steps: {workflow.steps.length}</span>
