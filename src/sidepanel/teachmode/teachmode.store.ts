@@ -18,7 +18,7 @@ interface TeachModeStore {
   recordingEvents: CapturedEvent[]
   executionProgress: ExecutionProgress | null
   executionSummary: ExecutionSummary | null
-  executionMessages: Array<{ type: string; content: string; timestamp: number }>
+  executionMessages: Array<{ msgId: string; type: string; content: string; timestamp: number }>
   recordingStartTime: number | null
   isRecordingActive: boolean
   currentSessionId: string | null
@@ -438,8 +438,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         break
 
       case 'execution_started':
-        // Execution started event
+        // Execution started event - clear messages from previous executions
         set(state => ({
+          executionMessages: [],  // Clear previous execution messages
           executionProgress: state.executionProgress ? {
             ...state.executionProgress,
             status: 'running',
@@ -450,17 +451,38 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         break
 
       case 'execution_thinking':
-        // Store thinking/reasoning messages for display
-        set(state => ({
-          executionMessages: [
-            ...state.executionMessages,
-            {
+        // Store thinking/reasoning messages for display with deduplication
+        set(state => {
+          const msgId = payload.data.msgId || `thinking_${payload.data.timestamp}`;
+
+          // Check if message with this msgId already exists
+          const existingIndex = state.executionMessages.findIndex(msg => msg.msgId === msgId);
+
+          if (existingIndex !== -1) {
+            // Update existing message
+            const updatedMessages = [...state.executionMessages];
+            updatedMessages[existingIndex] = {
+              msgId,
               type: 'thinking',
               content: payload.data.content,
               timestamp: payload.data.timestamp
-            }
-          ]
-        }))
+            };
+            return { executionMessages: updatedMessages };
+          } else {
+            // Add new message
+            return {
+              executionMessages: [
+                ...state.executionMessages,
+                {
+                  msgId,
+                  type: 'thinking',
+                  content: payload.data.content,
+                  timestamp: payload.data.timestamp
+                }
+              ]
+            };
+          }
+        })
         break
 
       case 'execution_step_started':

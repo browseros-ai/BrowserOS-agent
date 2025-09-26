@@ -17,8 +17,8 @@ export function TeachModeExecution() {
   const thinkingMessages = useMemo(() => {
     return executionMessages
       .filter(msg => msg.type === 'thinking')
-      .map((msg, index) => ({
-        msgId: `thinking_${msg.timestamp}_${index}`,
+      .map(msg => ({
+        msgId: msg.msgId,  // Use the msgId from the store
         role: 'thinking' as const,
         content: msg.content,
         timestamp: new Date(msg.timestamp)
