@@ -10,6 +10,7 @@ import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { PubSub } from "@/lib/pubsub";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { getFeatureFlags } from "@/lib/utils/featureFlags";
+import { isUserCancellation } from "@/lib/utils/Abortable";
 // Evals2: session, scoring, and logging
 import { ENABLE_EVALS2 } from "@/config";
 import { BraintrustEventManager } from "@/evals2/BraintrustEventManager";
@@ -269,21 +270,17 @@ export class Execution {
         `Completed execution in ${Date.now() - startTime}ms`,
       );
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      const wasCancelled =
-        error instanceof Error && error.name === "AbortError";
-
-      if (!wasCancelled) {
+      if (!isUserCancellation(error)) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         this.pubsub?.publishMessage({
           msgId: `error_main`,
           content: `❌ Error: ${errorMessage}`,
           role: "error",
           ts: Date.now(),
         });
+        throw error;  // Only re-throw if NOT cancelled
       }
-
-      throw error;
+      // Don't throw if it was cancelled - just return normally
     } finally {
       // Clear abort controller after run completes
       this.currentAbortController = null;

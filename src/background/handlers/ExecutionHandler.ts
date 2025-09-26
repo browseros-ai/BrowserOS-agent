@@ -2,6 +2,7 @@ import { MessageType, ExecuteQueryMessage, CancelTaskMessage, ResetConversationM
 import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { Execution } from '@/lib/execution/Execution'
 import { Logging } from '@/lib/utils/Logging'
+import { isUserCancellation } from '@/lib/utils/Abortable'
 import { PubSub } from '@/lib/pubsub'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 
@@ -67,18 +68,28 @@ export class ExecutionHandler {
       })
       
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      Logging.log('ExecutionHandler', `Error executing query: ${errorMessage}`, 'error')
-      
-      // Send error response
-      port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
-        payload: { 
-          status: 'error',
-          error: errorMessage
-        },
-        id: message.id
-      })
+      if (!isUserCancellation(error)) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        Logging.log('ExecutionHandler', `Error executing query: ${errorMessage}`, 'error')
+
+        // Send error response
+        port.postMessage({
+          type: MessageType.WORKFLOW_STATUS,
+          payload: {
+            status: 'error',
+            error: errorMessage
+          },
+          id: message.id
+        })
+      } else {
+        // Send success status for user cancellation (no error shown)
+        Logging.log('ExecutionHandler', 'User cancelled execution', 'info')
+        port.postMessage({
+          type: MessageType.WORKFLOW_STATUS,
+          payload: { status: 'success' },
+          id: message.id
+        })
+      }
     }
   }
 

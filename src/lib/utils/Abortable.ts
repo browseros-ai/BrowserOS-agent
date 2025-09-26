@@ -94,3 +94,23 @@ export interface AbortableClass {
     abortController: AbortController;
   };
 }
+
+/**
+ * Check if an error is a user-initiated cancellation
+ * Handles both AbortError instances and fetch abort errors
+ */
+export function isUserCancellation(error: unknown): boolean {
+  if (error instanceof AbortError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    // Check for specific abort-related messages
+    return message === "request was aborted" ||
+           message === "the operation was aborted" ||
+           message.includes("request was aborted");
+  }
+
+  return false;
+}
