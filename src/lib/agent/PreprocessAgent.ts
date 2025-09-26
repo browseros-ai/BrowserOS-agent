@@ -86,11 +86,12 @@ export class PreprocessAgent {
         processedCount++;
         Logging.log("PreprocessAgent", `Processing event ${processedCount}/${eventsToProcess.length}: ${event.action.type}`, "info");
 
-        // Emit progress
+        // Emit progress with structured data
         this._emitProgress('preprocessing_progress', {
           current: processedCount,
           total: eventsToProcess.length,
-          message: `Analyzing ${event.action.type} action...`
+          actionType: event.action.type,  // Send action type as separate field
+          message: `Processing step ${processedCount} of ${eventsToProcess.length}`  // Clean message
         });
 
         try {
