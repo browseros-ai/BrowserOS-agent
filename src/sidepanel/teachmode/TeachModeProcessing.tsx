@@ -1,72 +1,19 @@
-import React, { useState, useEffect } from 'react'
-import { Zap } from 'lucide-react'
+import React from 'react'
+import { Zap, Loader2 } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
-import { ProcessingStages } from './components/ProcessingStages'
 import { useTeachModeStore } from './teachmode.store'
 
 export function TeachModeProcessing() {
-  const { recordingEvents, setMode } = useTeachModeStore()
-  const [progress, setProgress] = useState(0)
-  const [currentStage, setCurrentStage] = useState(0)
-
-  useEffect(() => {
-    // Simulate processing progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          return 100
-        }
-        return prev + 5
-      })
-    }, 150)
-
-    // Update stages
-    const stageTimer = setTimeout(() => setCurrentStage(1), 1000)
-    const stageTimer2 = setTimeout(() => setCurrentStage(2), 2000)
-
-    return () => {
-      clearInterval(interval)
-      clearTimeout(stageTimer)
-      clearTimeout(stageTimer2)
-    }
-  }, [])
+  const { setMode, preprocessingStatus } = useTeachModeStore()
 
   const handleCancel = () => {
     // Cancel processing and return to home
     setMode('idle')
   }
 
-  const stages = [
-    {
-      id: 'capture',
-      label: `Captured ${recordingEvents.length} actions`,
-      sublabel: 'with voice annotations',
-      status: 'completed' as const
-    },
-    {
-      id: 'analyze',
-      label: 'Analyzed page interactions',
-      sublabel: 'and UI elements',
-      status: currentStage >= 1 ? 'completed' as const : 'pending' as const
-    },
-    {
-      id: 'understand',
-      label: 'Understanding workflow intent...',
-      status: currentStage >= 2 ? 'active' as const : 'pending' as const,
-      progress: currentStage >= 2 ? progress : undefined
-    },
-    {
-      id: 'create',
-      label: 'Creating adaptable automation',
-      status: 'pending' as const
-    },
-    {
-      id: 'optimize',
-      label: 'Optimizing for reliability',
-      status: 'pending' as const
-    }
-  ]
+  const progressPercent = preprocessingStatus && preprocessingStatus.total > 0
+    ? Math.round((preprocessingStatus.progress / preprocessingStatus.total) * 100)
+    : 0
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -79,35 +26,67 @@ export function TeachModeProcessing() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        {/* Icon */}
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-            <Zap className="w-8 h-8 text-primary animate-pulse" />
+        <div className="flex flex-col items-center justify-center h-full">
+          {/* Icon */}
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Zap className="w-8 h-8 text-primary animate-pulse" />
+            </div>
           </div>
-        </div>
 
-        {/* Title */}
-        <h3 className="text-center text-lg font-medium text-foreground mb-8">
-          Creating Your Automation
-        </h3>
+          {/* Title */}
+          <h3 className="text-center text-lg font-medium text-foreground mb-4">
+            Creating Your Automation
+          </h3>
 
-        {/* Processing stages */}
-        <ProcessingStages stages={stages} />
+          {/* Progress indicator */}
+          {preprocessingStatus && (
+            <div className="w-full max-w-sm space-y-4">
+              {/* Progress message */}
+              <div className="text-center text-sm text-muted-foreground">
+                {preprocessingStatus.message}
+              </div>
 
-        {/* Time estimate */}
-        <div className="mt-8 text-center text-sm text-muted-foreground">
-          This usually takes 10-20 seconds
-        </div>
+              {/* Progress bar */}
+              {preprocessingStatus.total > 0 && (
+                <div className="space-y-2">
+                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full bg-primary transition-all duration-300 ease-out"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="text-center text-xs text-muted-foreground">
+                    {preprocessingStatus.progress} of {preprocessingStatus.total} events processed
+                  </div>
+                </div>
+              )}
 
-        {/* Cancel button */}
-        <div className="mt-6 flex justify-center">
-          <Button
-            onClick={handleCancel}
-            variant="ghost"
-            size="sm"
-          >
-            Cancel
-          </Button>
+              {/* Loading spinner */}
+              <div className="flex justify-center mt-4">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            </div>
+          )}
+
+          {/* If no status yet */}
+          {!preprocessingStatus && (
+            <div className="text-center text-sm text-muted-foreground">
+              <div className="mb-4">Saving your recording...</div>
+              <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
+            </div>
+          )}
+
+          {/* Cancel button */}
+          <div className="mt-8">
+            <Button
+              onClick={handleCancel}
+              variant="ghost"
+              size="sm"
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -3,6 +3,8 @@ import { RecordingSession } from '@/lib/teach-mode/recording/RecordingSession'
 import type { TeachModeMessage, TeachModeRecording, CapturedEvent } from '@/lib/teach-mode/types'
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
+import { PreprocessAgent } from '@/lib/agent/PreprocessAgent'
+import { PubSub } from '@/lib/pubsub'
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 const HEARTBEAT_INTERVAL_MS = 100  // Heartbeat ping interval
@@ -410,10 +412,12 @@ export class TeachModeService {
       const date = new Date(recording.session.startTimestamp)
       const title = `${url.hostname} - ${date.toLocaleString()}`
 
-      // Save to storage
+      // Save recording to storage immediately
       const recordingId = await storage.save(recording, title)
-
       Logging.log('TeachModeService', `Saved recording ${recordingId} with ${recording.events.length} events`)
+
+      // Start async preprocessing - fire and forget
+      this._startAsyncPreprocessing(recordingId, recording)
 
       // Optionally export immediately
       if (await this._shouldAutoExport()) {
@@ -425,6 +429,61 @@ export class TeachModeService {
     } catch (error) {
       Logging.log('TeachModeService', `Failed to save recording: ${error}`, 'error')
       return null
+    }
+  }
+
+  /**
+   * Start async preprocessing of recording
+   */
+  private async _startAsyncPreprocessing(recordingId: string, recording: TeachModeRecording): Promise<void> {
+    const storage = RecordingStorage.getInstance()
+    const pubsub = PubSub.getChannel('main')
+
+    try {
+      // Emit preprocessing started
+      pubsub.publishTeachModeEvent({
+        eventType: 'preprocessing_started',
+        sessionId: recording.session.id,
+        data: {
+          recordingId,
+          totalEvents: recording.events.filter(
+            e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
+          ).length
+        }
+      })
+
+      // Process recording with PreprocessAgent
+      console.log('Processing recording into workflow...')
+      const preprocessAgent = new PreprocessAgent(pubsub, recording.session.id)
+      const workflow = await preprocessAgent.processRecording(recording)
+      console.log(`Created workflow with ${workflow.steps.length} steps`)
+      Logging.log('TeachModeService', `Created workflow with ${workflow.steps.length} steps`)
+
+      // Save workflow
+      await storage.saveWorkflow(recordingId, workflow)
+
+      // Emit preprocessing completed
+      pubsub.publishTeachModeEvent({
+        eventType: 'preprocessing_completed',
+        sessionId: recording.session.id,
+        data: {
+          recordingId,
+          workflowSteps: workflow.steps.length
+        }
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logging.log('TeachModeService', `Async preprocessing failed: ${errorMessage}`, 'error')
+
+      // Emit preprocessing failed event
+      pubsub.publishTeachModeEvent({
+        eventType: 'preprocessing_failed',
+        sessionId: recording.session.id,
+        data: {
+          recordingId,
+          error: errorMessage
+        }
+      })
     }
   }
 

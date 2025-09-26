@@ -21,6 +21,12 @@ interface TeachModeStore {
   recordingStartTime: number | null
   isRecordingActive: boolean
   currentSessionId: string | null
+  preprocessingStatus: {
+    isProcessing: boolean
+    progress: number
+    total: number
+    message: string
+  } | null
   // VAPI integration state
   transcripts: VapiTranscript[]
   vapiStatus: VapiStatus
@@ -58,6 +64,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   recordingStartTime: null,
   isRecordingActive: false,
   currentSessionId: null,
+  preprocessingStatus: null,
   // VAPI state
   transcripts: [],
   vapiStatus: 'idle',
@@ -112,19 +119,14 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       if (response?.success) {
         set({
           mode: 'processing',
-          isRecordingActive: false
+          isRecordingActive: false,
+          preprocessingStatus: {
+            isProcessing: true,
+            progress: 0,
+            total: 0,
+            message: 'Saving recording...'
+          }
         })
-
-        // Load updated recordings after stopping
-        setTimeout(async () => {
-          await get().loadRecordings()
-          set({
-            mode: 'idle',
-            recordingEvents: [],
-            recordingStartTime: null,
-            currentSessionId: null
-          })
-        }, 1000)
       } else {
         throw new Error(response?.error || 'Failed to stop recording')
       }
@@ -256,6 +258,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     recordingStartTime: null,
     isRecordingActive: false,
     currentSessionId: null,
+    preprocessingStatus: null,
     transcripts: [],
     vapiStatus: 'idle'
   }),
@@ -292,8 +295,18 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   handleBackendEvent: (payload: TeachModeEventPayload) => {
     const state = get()
 
-    // Only handle events for current session
-    if (payload.sessionId !== state.currentSessionId && payload.eventType !== 'recording_started') {
+    // Handle preprocessing events regardless of session (they happen after recording stops)
+    const isPreprocessingEvent = [
+      'preprocessing_started',
+      'preprocessing_progress',
+      'preprocessing_completed',
+      'preprocessing_failed'
+    ].includes(payload.eventType)
+
+    // Only handle events for current session (except preprocessing and recording_started)
+    if (!isPreprocessingEvent &&
+        payload.sessionId !== state.currentSessionId &&
+        payload.eventType !== 'recording_started') {
       return
     }
 
@@ -354,6 +367,52 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       case 'recording_stopped':
         // Backend has stopped, update UI
         set({ isRecordingActive: false, currentSessionId: null })
+        break
+
+      case 'preprocessing_started':
+        set({
+          mode: 'processing',
+          preprocessingStatus: {
+            isProcessing: true,
+            progress: 0,
+            total: payload.data.totalEvents,
+            message: 'Analyzing your workflow...'
+          }
+        })
+        break
+
+      case 'preprocessing_progress':
+        set(state => ({
+          preprocessingStatus: state.preprocessingStatus ? {
+            ...state.preprocessingStatus,
+            progress: payload.data.current,
+            message: payload.data.message
+          } : null
+        }))
+        break
+
+      case 'preprocessing_completed':
+        set({
+          mode: 'idle',
+          preprocessingStatus: null,
+          recordingEvents: [],
+          recordingStartTime: null,
+          currentSessionId: null
+        })
+        // Reload recordings to get the new workflow
+        get().loadRecordings()
+        break
+
+      case 'preprocessing_failed':
+        set({
+          mode: 'idle',
+          preprocessingStatus: null,
+          recordingEvents: [],
+          recordingStartTime: null,
+          currentSessionId: null
+        })
+        // Still reload recordings (raw recording was saved)
+        get().loadRecordings()
         break
 
       case 'transcript_update':

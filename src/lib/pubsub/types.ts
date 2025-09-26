@@ -62,7 +62,11 @@ export const TeachModeEventPayloadSchema = z.object({
     'state_captured',
     'transcript_update',
     'tab_switched',
-    'viewport_updated'
+    'viewport_updated',
+    'preprocessing_started',
+    'preprocessing_progress',
+    'preprocessing_completed',
+    'preprocessing_failed'
   ]),  // Type of teach mode event
   sessionId: z.string(),  // Recording session ID
   data: z.any()  // Event-specific data
