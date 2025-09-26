@@ -21,10 +21,11 @@ import { braintrustLogger } from "@/evals2/BraintrustLogger";
 
 // Execution options schema (without executionId since it's now fixed)
 export const ExecutionOptionsSchema = z.object({
-  mode: z.enum(["chat", "browse"]), // Execution mode
+  mode: z.enum(["chat", "browse", "teach"]), // Execution mode including teach
   tabId: z.number().optional(), // Target tab ID
   tabIds: z.array(z.number()).optional(), // Multiple tab context
   metadata: z.any().optional(), // Additional execution metadata
+  workflow: z.any().optional(), // Teach mode workflow
   debug: z.boolean().default(false), // Debug mode flag
 });
 
@@ -208,28 +209,32 @@ export class Execution {
         });
       }
 
-      // Create fresh agent
-      const provideType = await langChainProvider.getCurrentProviderType() || '';
-      const smallModelsList = ['ollama', 'custom', 'openai_compatible'];
-
-      // Check if we're in teach mode
-      const isTeachMode = metadata?.executionMode === 'teach';
-
-      const agent = isTeachMode
-        ? new TeachAgent(executionContext)
-        : this.options.mode === "chat"
-          ? new ChatAgent(executionContext)
-          : getFeatureFlags().isEnabled('NEW_AGENT')
-            ? smallModelsList.includes(provideType)
-              ? new LocalAgent(executionContext)
-              : new BrowserAgent(executionContext)
-            : new BrowserAgent(executionContext);
-
-      // Execute
-      if (isTeachMode) {
-        await (agent as TeachAgent).execute();
+      // Create fresh agent and execute based on mode
+      if (this.options.mode === "teach") {
+        // Teach mode requires workflow
+        if (!this.options.workflow) {
+          throw new Error("Teach mode requires a workflow to execute");
+        }
+        const teachAgent = new TeachAgent(executionContext);
+        await teachAgent.execute(this.options.workflow);
+      } else if (metadata?.executionMode === 'teach') {
+        // Legacy teach mode support via metadata
+        const teachAgent = new TeachAgent(executionContext);
+        await teachAgent.execute();
+      } else if (this.options.mode === "chat") {
+        const chatAgent = new ChatAgent(executionContext);
+        await chatAgent.execute(query, metadata || this.options.metadata);
       } else {
-        await agent.execute(query, metadata || this.options.metadata);
+        // Browse mode
+        const provideType = await langChainProvider.getCurrentProviderType() || '';
+        const smallModelsList = ['ollama', 'custom', 'openai_compatible'];
+
+        const browseAgent = getFeatureFlags().isEnabled('NEW_AGENT')
+          ? smallModelsList.includes(provideType)
+            ? new LocalAgent(executionContext)
+            : new BrowserAgent(executionContext)
+          : new BrowserAgent(executionContext);
+        await browseAgent.execute(query, metadata || this.options.metadata);
       }
 
       // Evals2: post-execution scoring + upload
@@ -275,7 +280,9 @@ export class Execution {
             score,
             durationMs,
             {
-              agent: this.options.mode === 'chat' ? 'ChatAgent' : 'BrowserAgent',
+              agent: this.options.mode === 'chat' ? 'ChatAgent' :
+                     this.options.mode === 'teach' ? 'TeachAgent' :
+                     (getFeatureFlags().isEnabled('NEW_AGENT') ? 'LocalAgent' : 'BrowserAgent'),
               provider: provider?.name,
               model: provider?.modelId,
             },
@@ -412,7 +419,7 @@ export class Execution {
   getStatus(): {
     id: string;
     isRunning: boolean;
-    mode: "chat" | "browse";
+    mode: "chat" | "browse" | "teach";
   } {
     return {
       id: this.id,

@@ -38,7 +38,9 @@ export enum MessageType {
   EXECUTE_IN_SIDEPANEL = 'EXECUTE_IN_SIDEPANEL',
   EXECUTION_STARTING = 'EXECUTION_STARTING',
   // Page content extraction
-  EXTRACT_PAGE_CONTENT = 'EXTRACT_PAGE_CONTENT'
+  EXTRACT_PAGE_CONTENT = 'EXTRACT_PAGE_CONTENT',
+  // Teach mode workflow execution
+  EXECUTE_TEACH_MODE_WORKFLOW = 'EXECUTE_TEACH_MODE_WORKFLOW',
 }
 
 // Create a zod enum for MessageType

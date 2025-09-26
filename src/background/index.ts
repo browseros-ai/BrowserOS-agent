@@ -70,6 +70,12 @@ function registerHandlers(): void {
     (msg, port) => executionHandler.handleExtractPageContent(msg, port)
   )
 
+  // Teach mode workflow execution
+  messageRouter.registerHandler(
+    MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
+    (msg, port) => executionHandler.handleExecuteTeachModeWorkflow(msg, port)
+  )
+
   // Provider handlers
   messageRouter.registerHandler(
     MessageType.GET_LLM_PROVIDERS,
@@ -302,10 +308,34 @@ function initialize(): void {
     Logging.log('Background', `Tab ${tabId} removed`)
   })
   
-  // Handle messages from newtab
+  // Handle messages from newtab and teach mode
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'NEWTAB_EXECUTE_QUERY') {
       executionHandler.handleNewtabQuery(message, sendResponse)
+      return true  // Keep message channel open for async response
+    }
+
+    // Handle teach mode workflow execution from teachmode.store
+    if (message.action === 'EXECUTE_TEACH_MODE_WORKFLOW') {
+      // Create a mock port message to pass to the handler
+      const mockPort = {
+        postMessage: (response: any) => {
+          // Send response back through chrome.runtime.sendMessage callback
+          sendResponse(response.payload)
+        }
+      } as chrome.runtime.Port
+
+      const portMessage: PortMessage = {
+        type: MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
+        payload: { workflowId: message.workflowId },
+        id: message.id
+      }
+
+      executionHandler.handleExecuteTeachModeWorkflow(portMessage, mockPort)
+        .catch(error => {
+          sendResponse({ success: false, error: error.message })
+        })
+
       return true  // Keep message channel open for async response
     }
   })

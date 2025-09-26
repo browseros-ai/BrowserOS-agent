@@ -1,10 +1,4 @@
 import { TeachModeService } from '@/lib/services/TeachModeService'
-import { TeachAgent } from '@/lib/agent/TeachAgent'
-import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { BrowserContext } from '@/lib/browser/BrowserContext'
-import { MessageManager } from '@/lib/runtime/MessageManager'
-import { PubSub } from '@/lib/pubsub'
-import { langChainProvider } from '@/lib/llm/LangChainProvider'
 import { Logging } from '@/lib/utils/Logging'
 
 /**
@@ -16,13 +10,6 @@ export function setupTeachModeHandler(): void {
 
   // Listen for pubsub messages
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    // Handle teach mode messages and workflow execution
-    if (!message.action?.startsWith('TEACH_MODE_') &&
-        message.action !== 'GET_WORKFLOW' &&
-        message.action !== 'EXECUTE_WORKFLOW') {
-      return
-    }
-
     Logging.log('teachModeHandler', `Received message: ${message.action}`)
 
     switch (message.action) {
@@ -110,18 +97,13 @@ export function setupTeachModeHandler(): void {
           .catch(error => sendResponse({ success: false, error: error.message }))
         return true
 
-      // Workflow execution actions
       case 'GET_WORKFLOW':
         teachModeService.getWorkflow(message.recordingId)
           .then(workflow => sendResponse({ success: true, workflow }))
           .catch(error => sendResponse({ success: false, error: error.message }))
         return true
 
-      case 'EXECUTE_WORKFLOW':
-        handleExecuteWorkflow(message.workflow)
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
+      // Note: EXECUTE_WORKFLOW is now handled by ExecutionHandler
 
       default:
         return
@@ -197,62 +179,3 @@ async function handleStopRecording(): Promise<any> {
   }
 }
 
-/**
- * Handle execute workflow request
- */
-async function handleExecuteWorkflow(workflow: any): Promise<any> {
-  try {
-    Logging.log('teachModeHandler', `Executing workflow: ${workflow.metadata.goal}`)
-
-    // Create execution context exactly like Execution.ts
-    const executionId = PubSub.generateId('teach')
-    const browserContext = new BrowserContext()
-
-    // Get model capabilities for proper context setup
-    const modelCapabilities = await langChainProvider.getModelCapabilities()
-    const messageManager = new MessageManager(modelCapabilities.maxTokens)
-
-    // Always use the main channel for teach mode
-    const pubsub = PubSub.getChannel('main')
-
-    // Determine if limited context mode should be enabled (< 32k tokens)
-    const limitedContextMode = modelCapabilities.maxTokens < 32_000
-
-    // Create abort controller for this execution
-    const abortController = new AbortController()
-
-    const executionContext = new ExecutionContext({
-      executionId: executionId,
-      browserContext: browserContext,
-      messageManager: messageManager,
-      pubsub: pubsub,
-      abortSignal: abortController.signal,
-      debugMode: true,
-      supportsVision: modelCapabilities.supportsImages,
-      limitedContextMode: limitedContextMode,
-      maxTokens: modelCapabilities.maxTokens,
-    })
-
-    // Start execution with tab 0 (like Execution.ts)
-    executionContext.startExecution(0)
-
-    // Create and execute TeachAgent
-    const agent = new TeachAgent(executionContext)
-
-    // Execute workflow and handle result
-    try {
-      await agent.execute(workflow)
-
-      return {
-        success: true,
-        executionId: executionId,
-        message: `Workflow "${workflow.metadata.goal}" executed successfully`
-      }
-    } catch (execError) {
-      throw execError
-    }
-  } catch (error) {
-    Logging.log('teachModeHandler', `Failed to execute workflow: ${error}`, 'error')
-    throw error
-  }
-}
