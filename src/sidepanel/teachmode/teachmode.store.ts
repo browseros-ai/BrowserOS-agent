@@ -18,6 +18,7 @@ interface TeachModeStore {
   recordingEvents: CapturedEvent[]
   executionProgress: ExecutionProgress | null
   executionSummary: ExecutionSummary | null
+  executionMessages: Array<{ type: string; content: string; timestamp: number }>
   recordingStartTime: number | null
   isRecordingActive: boolean
   currentSessionId: string | null
@@ -61,6 +62,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   recordingEvents: [],
   executionProgress: null,
   executionSummary: null,
+  executionMessages: [],
   recordingStartTime: null,
   isRecordingActive: false,
   currentSessionId: null,
@@ -204,6 +206,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       set({
         mode: 'executing',
         activeRecording: recording,
+        executionMessages: [],  // Clear previous messages
         executionProgress: {
           recordingId: id,
           currentStep: 0,
@@ -257,6 +260,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     recordingEvents: [],
     executionProgress: null,
     executionSummary: null,
+    executionMessages: [],
     activeRecording: null,
     recordingStartTime: null,
     isRecordingActive: false,
@@ -445,12 +449,13 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         break
 
       case 'execution_step_started':
-        // Step started event
+        // Step started event with description
         set(state => ({
           executionProgress: state.executionProgress ? {
             ...state.executionProgress,
             currentStep: payload.data.currentStep,
-            totalSteps: payload.data.totalSteps || state.executionProgress.totalSteps
+            totalSteps: payload.data.totalSteps || state.executionProgress.totalSteps,
+            currentMessage: payload.data.stepDescription || payload.data.message
           } : null
         }))
         break

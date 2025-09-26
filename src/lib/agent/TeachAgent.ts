@@ -146,6 +146,7 @@ export class TeachAgent {
   private readonly executionContext: ExecutionContext;
   private readonly toolManager: ToolManager;
   private readonly glowService: GlowAnimationService;
+  private readonly mainPubsub: PubSubChannel;  // Main channel for teach-mode events
   private executorLlmWithTools: Runnable<
     BaseLanguageModelInput,
     AIMessageChunk
@@ -166,7 +167,8 @@ export class TeachAgent {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    Logging.log("NewAgent", "Agent instance created", "info");
+    this.mainPubsub = PubSub.getChannel('main');  // Get main channel for teach-mode events
+    Logging.log("TeachAgent", "TeachAgent instance created", "info");
   }
 
   private get executorMessageManager(): MessageManager {
@@ -311,8 +313,16 @@ export class TeachAgent {
 
     let done = false;
 
-    // Publish start message
-    this._publishMessage("Starting task execution...", "thinking");
+    // Publish execution started event
+    this.mainPubsub.publishTeachModeEvent({
+      eventType: 'execution_started',
+      sessionId: this.executionContext.executionId,
+      data: {
+        workflowId: workflow.metadata.recordingId || '',
+        goal: workflow.metadata.goal,
+        totalSteps: workflow.steps.length
+      }
+    });
 
     while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
       this.checkIfAborted();
@@ -338,9 +348,19 @@ export class TeachAgent {
       }
 
       const plan = planResult.output!;
-      this.pubsub.publishMessage(
-        PubSub.createMessage(plan.stepByStepReasoning, "thinking"),
-      );
+
+      // Publish step started event with current action
+      if (!plan.taskComplete && plan.proposedActions.length > 0) {
+        this.mainPubsub.publishTeachModeEvent({
+          eventType: 'execution_step_started',
+          sessionId: this.executionContext.executionId,
+          data: {
+            currentStep: this.iterations,
+            totalSteps: workflow.steps.length,
+            stepDescription: plan.proposedActions[0]  // First action being executed
+          }
+        });
+      }
 
       // Check if task is complete
       if (plan.taskComplete) {
@@ -348,7 +368,19 @@ export class TeachAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
-        // Publish final result with 'assistant' role to match BrowserAgent pattern
+
+        // Publish execution completed event
+        this.mainPubsub.publishTeachModeEvent({
+          eventType: 'execution_completed',
+          sessionId: this.executionContext.executionId,
+          data: {
+            workflowId: workflow.metadata.recordingId || '',
+            success: true,
+            message: completionMessage
+          }
+        });
+
+        // Also publish to execution channel for UI
         this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
         break;
       }
@@ -372,6 +404,19 @@ export class TeachAgent {
       // This will be handled in _runExecutor with fresh message manager
 
       const executorResult = await this._runExecutor(plan.proposedActions, plan);
+
+      // Publish step completed event after execution
+      if (!executorResult.requiresHumanInput) {
+        this.mainPubsub.publishTeachModeEvent({
+          eventType: 'execution_step_completed',
+          sessionId: this.executionContext.executionId,
+          data: {
+            stepNumber: this.iterations,
+            success: true,
+            message: `Completed: ${plan.proposedActions[0]}`
+          }
+        });
+      }
 
       // Check execution outcomes
       if (executorResult.requiresHumanInput) {
@@ -921,7 +966,11 @@ ${fullHistory}
     content: string,
     type: "thinking" | "assistant" | "error",
   ): void {
+    // Always publish to execution channel for any UI that's listening
     this.pubsub.publishMessage(PubSub.createMessage(content, type as any));
+
+    // Note: Execution progress is handled via explicit teach-mode events
+    // in _executeDynamic, not through generic messages
   }
 
   // Emit debug information in development mode
@@ -948,6 +997,15 @@ ${fullHistory}
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     Logging.log("TeachAgent", `Execution error: ${errorMessage}`, "error");
+
+    // Publish execution failed event
+    this.mainPubsub.publishTeachModeEvent({
+      eventType: 'execution_failed',
+      sessionId: this.executionContext.executionId,
+      data: {
+        error: errorMessage
+      }
+    });
 
     this._publishMessage(`Error: ${errorMessage}`, "error");
   }
