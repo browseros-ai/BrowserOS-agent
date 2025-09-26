@@ -18,11 +18,8 @@ export function TeachModeProcessing() {
     ? Math.round((currentStep / totalSteps) * 100)
     : 0
 
-  // Extract action type from message (e.g., "Analyzing click action..." -> "click")
-  const currentAction = preprocessingStatus?.message
-    ?.replace(/^Analyzing\s+/, '')
-    ?.replace(/\s+action\.\.\.$/, '')
-    || 'workflow'
+  // Get current action type from structured data
+  const currentAction = preprocessingStatus?.actionType || 'workflow'
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -92,9 +89,9 @@ export function TeachModeProcessing() {
               </div>
             </div>
 
-            {/* Status Message (if different from action) */}
-            {preprocessingStatus && !preprocessingStatus.message?.startsWith('Analyzing') && (
-              <div className="text-center text-sm text-muted-foreground pt-2">
+            {/* Status Message */}
+            {preprocessingStatus?.message && (
+              <div className="text-center text-xs text-muted-foreground pt-2 opacity-70">
                 {preprocessingStatus.message}
               </div>
             )}

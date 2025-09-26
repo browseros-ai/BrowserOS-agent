@@ -29,6 +29,7 @@ interface TeachModeStore {
     isProcessing: boolean
     progress: number
     total: number
+    actionType?: string  // Current action being processed
     message: string
   } | null
   // VAPI integration state
@@ -466,7 +467,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
           preprocessingStatus: state.preprocessingStatus ? {
             ...state.preprocessingStatus,
             progress: payload.data.current,
-            total: payload.data.total,  // Add the total field
+            total: payload.data.total,
+            actionType: payload.data.actionType,  // Handle action type
             message: payload.data.message
           } : null
         }))
