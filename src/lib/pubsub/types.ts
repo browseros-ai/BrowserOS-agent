@@ -68,6 +68,7 @@ export const TeachModeEventPayloadSchema = z.object({
     'preprocessing_completed',
     'preprocessing_failed',
     'execution_started',
+    'execution_thinking',
     'execution_step_started',
     'execution_step_completed',
     'execution_completed',
