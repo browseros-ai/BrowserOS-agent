@@ -3,7 +3,7 @@ import { Play, MoreVertical, Calendar, ArrowLeft } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { SemanticStepTimeline } from './components/SemanticStepTimeline'
 import { useTeachModeStore } from './teachmode.store'
-import { formatDuration, formatTime, getSuccessRate } from './teachmode.utils'
+import { formatTime } from './teachmode.utils'
 import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 
 export function TeachModeDetail() {
@@ -59,8 +59,6 @@ export function TeachModeDetail() {
     // Show options menu (rename, delete, export, etc.)
     console.log('Show options')
   }
-
-  const successRate = getSuccessRate(activeRecording.successCount, activeRecording.failureCount)
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -118,24 +116,12 @@ export function TeachModeDetail() {
             />
           </div>
 
-          {/* Metadata section */}
-          <div className="border-t border-border p-4 space-y-2">
+          {/* Metadata section - minimal */}
+          <div className="border-t border-border p-4">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Created</span>
               <span className="text-foreground">
                 {formatTime(activeRecording.createdAt)}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total runs</span>
-              <span className="text-foreground">{activeRecording.runCount}</span>
-            </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Avg duration</span>
-              <span className="text-foreground">
-                {activeRecording.duration > 0 ? formatDuration(activeRecording.duration) : 'NaN:NaN'}
               </span>
             </div>
           </div>
