@@ -244,18 +244,21 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         throw new Error('Port messaging not initialized')
       }
 
+      // Send execution request - now returns immediately
       const executeResponse = await portMessaging.sendMessageWithResponse<any>(
         MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
-        { workflowId: id }
+        { workflowId: id },
+        5000  // 5 second timeout - just for the initial response
       )
 
       if (executeResponse?.success) {
         // Execution started successfully
-        // Progress will be handled via PubSub events
+        // The execution will run in the background and send progress updates via PubSub
+        // Completion will be handled by execution_completed/execution_failed events
         console.log('Workflow execution started for recording:', id)
       } else {
-        // Execution failed to start
-        console.error('Failed to execute workflow:', executeResponse?.error)
+        // Failed to start execution (setup error)
+        console.error('Failed to start workflow execution:', executeResponse?.error)
         set({
           mode: 'summary',
           executionSummary: {
@@ -264,14 +267,26 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
             success: false,
             duration: 0,
             stepsCompleted: 0,
-            totalSteps: 0,  // We don't know the total steps since we didn't load the workflow
-            results: [executeResponse?.error || 'Failed to execute workflow']
+            totalSteps: 0,
+            results: [executeResponse?.error || 'Failed to start workflow execution']
           }
         })
       }
     } catch (error) {
-      console.error('Failed to execute recording:', error)
-      set({ mode: 'idle' })
+      // Network or communication error (couldn't even start)
+      console.error('Failed to communicate with background service:', error)
+      set({
+        mode: 'summary',
+        executionSummary: {
+          recordingId: id,
+          recordingName: recording.name,
+          success: false,
+          duration: 0,
+          stepsCompleted: 0,
+          totalSteps: 0,
+          results: ['Failed to communicate with background service. Please try again.']
+        }
+      })
     }
   },
 

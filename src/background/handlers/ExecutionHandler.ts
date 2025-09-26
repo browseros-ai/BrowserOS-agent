@@ -247,29 +247,36 @@ export class ExecutionHandler {
         debug: false
       })
 
-      // Run the workflow using its goal as the query
-      await this.execution.run(workflow.metadata.goal)
-
-      // Send success response
+      // Send immediate response that execution has started
       port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
+        type: MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
         payload: {
-          status: 'success',
-          message: `Workflow "${workflow.metadata.goal}" executed successfully`
+          success: true,
+          message: `Workflow execution started for "${workflow.metadata.goal}"`
         },
         id: message.id
       })
 
+      // Run the workflow in the background (not awaited)
+      // The execution will publish its own completion/failure events via PubSub
+      this.execution.run(workflow.metadata.goal).catch((error) => {
+        // Error handling happens inside TeachAgent which publishes execution_failed event
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        Logging.log('ExecutionHandler',
+          `Background teach mode workflow execution failed: ${errorMessage}`, 'error')
+      })
+
     } catch (error) {
+      // This catches errors in setup, before execution starts
       const errorMessage = error instanceof Error ? error.message : String(error)
       Logging.log('ExecutionHandler',
-        `Error executing teach mode workflow: ${errorMessage}`, 'error')
+        `Error starting teach mode workflow: ${errorMessage}`, 'error')
 
-      // Send error response
+      // Send error response for setup failures
       port.postMessage({
-        type: MessageType.WORKFLOW_STATUS,
+        type: MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
         payload: {
-          status: 'error',
+          success: false,
           error: errorMessage
         },
         id: message.id
