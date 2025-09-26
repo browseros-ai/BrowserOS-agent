@@ -202,8 +202,8 @@ async function handleExecuteWorkflow(workflow: any): Promise<any> {
     const modelCapabilities = await langChainProvider.getModelCapabilities()
     const messageManager = new MessageManager(modelCapabilities.maxTokens)
 
-    // Use a dedicated pubsub channel for teach mode
-    const pubsub = PubSub.getChannel(executionId)
+    // Always use the main channel for teach mode
+    const pubsub = PubSub.getChannel('main')
 
     // Determine if limited context mode should be enabled (< 32k tokens)
     const limitedContextMode = modelCapabilities.maxTokens < 32_000
