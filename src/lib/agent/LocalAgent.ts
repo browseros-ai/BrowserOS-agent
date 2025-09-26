@@ -64,15 +64,6 @@ const MAX_RETRIES = 3;  // For LLM retries
 const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
 const HUMAN_INPUT_CHECK_INTERVAL = 500;  // Check every 500ms
 
-// Execution history summarization schema
-const ExecutionHistorySummarySchema = z.object({
-  summary: z
-    .string()
-    .describe("Summary of the execution history"),
-});
-
-type ExecutionHistorySummary = z.infer<typeof ExecutionHistorySummarySchema>;
-
 // Simple execution entry for tracking history - one entry per tool call OR a summary
 interface SimpleExecutionEntry {
   iteration: number;
@@ -89,7 +80,7 @@ interface UnifiedResult {
   requiresHumanInput: boolean;
 }
 
-export class SmallAgent27 {
+export class LocalAgent {
   // Tools that trigger glow animation when executed
   private static readonly GLOW_ENABLED_TOOLS = new Set([
     'click',
@@ -127,7 +118,7 @@ export class SmallAgent27 {
     this.executionContext = executionContext;
     this.toolManager = new ToolManager(executionContext);
     this.glowService = GlowAnimationService.getInstance();
-    Logging.log("SmallAgent27", "Agent instance created", "info");
+    Logging.log("LocalAgent", "Agent instance created", "info");
   }
 
   private get pubsub(): PubSubChannel {
@@ -164,7 +155,7 @@ export class SmallAgent27 {
     this.executionHistory = [];
 
     Logging.log(
-      "SmallAgent27",
+      "LocalAgent",
       `Initialization complete with ${this.toolManager.getAll().length} tools bound`,
       "info",
     );
@@ -208,14 +199,14 @@ export class SmallAgent27 {
     // External integration tools
     this.toolManager.register(createMCPTool(this.executionContext)); // MCP server integration
 
-    // ALWAYS register grep_elements for SmallAgent27 (always operates in limited context mode)
+    // ALWAYS register grep_elements for LocalAgent (always operates in limited context mode)
     this.toolManager.register(createGrepElementsTool(this.executionContext)); // Search elements mandatory for small agent
 
     // Completion tool
     this.toolManager.register(createDoneTool(this.executionContext));
 
     Logging.log(
-      "SmallAgent27",
+      "LocalAgent",
       `Registered ${this.toolManager.getAll().length} tools`,
       "info",
     );
@@ -233,7 +224,7 @@ export class SmallAgent27 {
     if (specialTaskMetadata) {
       _task = specialTaskMetadata.task;
       _metadata = { ...metadata, ...specialTaskMetadata.metadata };
-      Logging.log("SmallAgent27", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
+      Logging.log("LocalAgent", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
     }
 
     try {
@@ -242,7 +233,7 @@ export class SmallAgent27 {
         startTime: Date.now(),
       });
 
-      Logging.log("SmallAgent27", `Starting unified execution`, "info");
+      Logging.log("LocalAgent", `Starting unified execution`, "info");
       await this._initialize();
 
       // Check for predefined vs dynamic execution mode
@@ -296,7 +287,7 @@ export class SmallAgent27 {
       this.iterations++;
 
       Logging.log(
-        "SmallAgent27",
+        "LocalAgent",
         `Unified iteration ${this.iterations}/${MAX_UNIFIED_ITERATIONS}`,
         "info",
       );
@@ -335,7 +326,7 @@ export class SmallAgent27 {
       );
     }
 
-    Logging.log("SmallAgent27", `Dynamic execution complete`, "info");
+    Logging.log("LocalAgent", `Dynamic execution complete`, "info");
   }
 
   /**
@@ -359,7 +350,7 @@ export class SmallAgent27 {
       this.iterations++;
 
       Logging.log(
-        "SmallAgent27",
+        "LocalAgent",
         `Predefined iteration ${this.iterations}/${MAX_UNIFIED_ITERATIONS}`,
         "info",
       );
@@ -398,7 +389,7 @@ export class SmallAgent27 {
       );
     }
 
-    Logging.log("SmallAgent27", `Predefined execution complete`, "info");
+    Logging.log("LocalAgent", `Predefined execution complete`, "info");
   }
 
   /**
@@ -461,8 +452,8 @@ export class SmallAgent27 {
 
       // No tool calls - increment counter
       this.consecutiveNoToolCalls++;
-      if (this.consecutiveNoToolCalls >= 3) {
-        throw new Error("Executor failed for 3 retries - no tool calls generated");
+      if (this.consecutiveNoToolCalls >= MAX_RETRIES) {
+        throw new Error(`Executor failed for ${MAX_RETRIES} retries - no tool calls generated`);
       }
 
       return {
@@ -472,7 +463,7 @@ export class SmallAgent27 {
 
     } catch (error) {
       this.executionContext.incrementMetric("errors");
-      Logging.log("SmallAgent27", `Dynamic agent error: ${error}`, "error");
+      Logging.log("LocalAgent", `Dynamic agent error: ${error}`, "error");
       return {
         doneToolCalled: false,
         requiresHumanInput: false,
@@ -539,8 +530,8 @@ export class SmallAgent27 {
 
       // No tool calls - increment counter
       this.consecutiveNoToolCalls++;
-      if (this.consecutiveNoToolCalls >= 3) {
-        throw new Error("Executor failed for 3 retries - no tool calls generated");
+      if (this.consecutiveNoToolCalls >= MAX_RETRIES) {
+        throw new Error(`Executor failed for ${MAX_RETRIES} retries - no tool calls generated`);
       }
 
       return {
@@ -550,7 +541,7 @@ export class SmallAgent27 {
 
     } catch (error) {
       this.executionContext.incrementMetric("errors");
-      Logging.log("SmallAgent27", `Predefined agent error: ${error}`, "error");
+      Logging.log("LocalAgent", `Predefined agent error: ${error}`, "error");
       return {
         doneToolCalled: false,
         requiresHumanInput: false,
@@ -595,7 +586,7 @@ export class SmallAgent27 {
 
         return summary;
       } catch (error) {
-        Logging.log("SmallAgent27", `Failed to summarize execution history: ${error}`, "warning");
+        Logging.log("LocalAgent", `Failed to summarize execution history: ${error}`, "warning");
         // Fallback to last 5 iterations if summarization fails
         const recentEntries = this.executionHistory.slice(-5);
         return recentEntries.map((entry) => {
@@ -880,7 +871,7 @@ ${executionHistory}`;
             );
             
             // Log for debugging
-            Logging.log("NewAgent27", 
+            Logging.log("LocalAgent", 
               "LLM output contained prohibited tags, streaming stopped", 
               "warning"
             );
@@ -957,7 +948,7 @@ ${executionHistory}`;
 
       let toolResult: string;
       if (!tool) {
-        Logging.log("NewAgent27", `Unknown tool: ${toolName}`, "warning");
+        Logging.log("LocalAgent", `Unknown tool: ${toolName}`, "warning");
         const errorMsg = `Unknown tool: ${toolName}`;
         toolResult = JSON.stringify({
           ok: false,
@@ -987,7 +978,7 @@ ${executionHistory}`;
           this.executionContext.incrementMetric("errors");
 
           Logging.log(
-            "NewAgent27",
+            "LocalAgent",
             `Tool ${toolName} execution failed: ${error}`,
             "error",
           );
@@ -1051,12 +1042,12 @@ ${executionHistory}`;
 
   private _handleExecutionError(error: unknown): void {
     if (error instanceof AbortError) {
-      Logging.log("NewAgent27", "Execution aborted by user", "info");
+      Logging.log("LocalAgent", "Execution aborted by user", "info");
       return;
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
-    Logging.log("NewAgent27", `Execution error: ${errorMessage}`, "error");
+    Logging.log("LocalAgent", `Execution error: ${errorMessage}`, "error");
 
     this._publishMessage(`Error: ${errorMessage}`, "error");
   }
@@ -1079,7 +1070,7 @@ ${executionHistory}`;
     });
 
     Logging.log(
-      "NewAgent27",
+      "LocalAgent",
       `Execution complete: ${this.iterations} iterations, ${metrics.toolCalls} tool calls, ` +
         `${metrics.observations} observations, ${metrics.errors} errors, ` +
         `${successRate}% success rate, ${duration}ms duration`,
@@ -1089,13 +1080,13 @@ ${executionHistory}`;
     // Log tool frequency if any tools were called
     if (metrics.toolCalls > 0) {
       Logging.log(
-        "NewAgent27",
+        "LocalAgent",
         `Tool frequency: ${JSON.stringify(toolFrequency)}`,
         "info",
       );
     }
 
-    Logging.logMetric("newagent.execution", {
+    Logging.logMetric("localagent.execution", {
       iterations: this.iterations,
       toolCalls: metrics.toolCalls,
       observations: metrics.observations,
@@ -1110,7 +1101,7 @@ ${executionHistory}`;
     this.iterations = 0;
     this.consecutiveNoToolCalls = 0;
     this.executionHistory = [];
-    Logging.log("SmallAgent27", "Cleanup complete", "info");
+    Logging.log("LocalAgent", "Cleanup complete", "info");
   }
 
   /**
@@ -1119,7 +1110,7 @@ ${executionHistory}`;
    */
   private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
     // Check if this tool should trigger glow animation
-    if (!SmallAgent27.GLOW_ENABLED_TOOLS.has(toolName)) {
+    if (!LocalAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
       return false;
     }
 
