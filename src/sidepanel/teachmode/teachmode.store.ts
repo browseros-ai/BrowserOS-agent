@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import type { TeachModeState, TeachModeRecording, CapturedEvent, ExecutionProgress, ExecutionSummary } from './teachmode.types'
 import type { TeachModeEventPayload } from '@/lib/pubsub/types'
+import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 import { MessageType } from '@/lib/types/messaging'
+import { PortMessaging } from '@/lib/runtime/PortMessaging'
 
 interface VapiTranscript {
   timestamp: number
@@ -32,6 +34,10 @@ interface TeachModeStore {
   // VAPI integration state
   transcripts: VapiTranscript[]
   vapiStatus: VapiStatus
+  // Port messaging instance
+  portMessaging: PortMessaging | null
+  // Cached semantic workflow for active recording
+  activeWorkflow: SemanticWorkflow | null
 
   // Actions
   setMode: (mode: TeachModeState) => void
@@ -48,11 +54,14 @@ interface TeachModeStore {
   setExecutionSummary: (summary: ExecutionSummary | null) => void
   reset: () => void
   loadRecordings: () => Promise<void>
+  getWorkflow: (recordingId: string) => Promise<SemanticWorkflow | null>
   handleBackendEvent: (payload: TeachModeEventPayload) => void
   // VAPI actions
   addTranscript: (transcript: VapiTranscript) => void
   clearTranscripts: () => void
   setVapiStatus: (status: VapiStatus) => void
+  // Port messaging setup
+  initializePortMessaging: () => void
 }
 
 export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
@@ -71,6 +80,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   // VAPI state
   transcripts: [],
   vapiStatus: 'idle',
+  // Port messaging
+  portMessaging: null,
+  activeWorkflow: null,
 
   // Actions
   setMode: (mode) => set({ mode }),
@@ -85,6 +97,11 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   }),
 
   startRecording: async () => {
+    const { portMessaging } = get()
+    if (!portMessaging) {
+      throw new Error('Port messaging not initialized')
+    }
+
     try {
       // Get current tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -92,11 +109,11 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         throw new Error('No active tab found')
       }
 
-      // Send start message to backend
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.TEACH_MODE_START,
-        payload: { tabId: tab.id }
-      })
+      // Send start message to backend via port
+      const response = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.TEACH_MODE_START,
+        { tabId: tab.id }
+      )
 
       if (response?.success) {
         set({
@@ -115,12 +132,17 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   },
 
   stopRecording: async () => {
+    const { portMessaging } = get()
+    if (!portMessaging) {
+      throw new Error('Port messaging not initialized')
+    }
+
     try {
-      // Send stop message to backend
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.TEACH_MODE_STOP,
-        payload: {}
-      })
+      // Send stop message to backend via port
+      const response = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.TEACH_MODE_STOP,
+        {}
+      )
 
       if (response?.success) {
         set({
@@ -144,9 +166,11 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   },
 
   cancelRecording: () => {
+    const { portMessaging, isRecordingActive } = get()
+
     // Try to stop backend recording if active
-    if (get().isRecordingActive) {
-      chrome.runtime.sendMessage({ type: MessageType.TEACH_MODE_STOP, payload: {} }).catch(() => {})
+    if (isRecordingActive && portMessaging) {
+      portMessaging.sendMessage(MessageType.TEACH_MODE_STOP, {})
     }
 
     set({
@@ -170,11 +194,16 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   })),
 
   deleteRecording: async (id) => {
+    const { portMessaging } = get()
+    if (!portMessaging) {
+      throw new Error('Port messaging not initialized')
+    }
+
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.TEACH_MODE_DELETE,
-        payload: { recordingId: id }
-      })
+      const response = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.TEACH_MODE_DELETE,
+        { recordingId: id }
+      )
 
       if (response?.success) {
         set((state) => ({
@@ -209,10 +238,15 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
       // Send execution request with just the workflow ID
       // Backend will retrieve the workflow from storage and execute it
-      const executeResponse = await chrome.runtime.sendMessage({
-        type: MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
-        payload: { workflowId: id }
-      })
+      const { portMessaging } = get()
+      if (!portMessaging) {
+        throw new Error('Port messaging not initialized')
+      }
+
+      const executeResponse = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
+        { workflowId: id }
+      )
 
       if (executeResponse?.success) {
         // Execution started successfully
@@ -240,7 +274,10 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     }
   },
 
-  setActiveRecording: (recording) => set({ activeRecording: recording }),
+  setActiveRecording: (recording) => set({
+    activeRecording: recording,
+    activeWorkflow: null  // Clear cached workflow when switching recordings
+  }),
 
   setExecutionProgress: (progress) => set({ executionProgress: progress }),
 
@@ -253,6 +290,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     executionSummary: null,
     executionMessages: [],
     activeRecording: null,
+    activeWorkflow: null,
     recordingStartTime: null,
     isRecordingActive: false,
     currentSessionId: null,
@@ -262,11 +300,16 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   }),
 
   loadRecordings: async () => {
+    const { portMessaging } = get()
+    if (!portMessaging) {
+      throw new Error('Port messaging not initialized')
+    }
+
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.TEACH_MODE_LIST,
-        payload: {}
-      })
+      const response = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.TEACH_MODE_LIST,
+        {}
+      )
 
       if (response?.success && response.recordings) {
         // Convert backend format to UI format
@@ -288,6 +331,33 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to load recordings:', error)
+    }
+  },
+
+  getWorkflow: async (recordingId: string): Promise<SemanticWorkflow | null> => {
+    const { portMessaging } = get()
+    if (!portMessaging) {
+      throw new Error('Port messaging not initialized')
+    }
+
+    try {
+      const response = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.TEACH_MODE_GET_WORKFLOW,
+        { recordingId }
+      )
+
+      if (response?.success && response.workflow) {
+        // Cache the workflow if it's for the active recording
+        const activeRecording = get().activeRecording
+        if (activeRecording?.id === recordingId) {
+          set({ activeWorkflow: response.workflow })
+        }
+        return response.workflow as SemanticWorkflow
+      }
+      return null
+    } catch (error) {
+      console.error('Failed to get workflow:', error)
+      return null
     }
   },
 
@@ -574,7 +644,13 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
   setVapiStatus: (status) => set({
     vapiStatus: status
-  })
+  }),
+
+  // Initialize port messaging
+  initializePortMessaging: () => {
+    const portMessaging = PortMessaging.getInstance()
+    set({ portMessaging })
+  }
 }))
 
 // Helper function to format action description

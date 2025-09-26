@@ -1,171 +1,359 @@
+import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { TeachModeService } from '@/lib/services/TeachModeService'
 import { Logging } from '@/lib/utils/Logging'
+import { MessageType } from '@/lib/types/messaging'
 
 /**
- * Setup teach mode handler for background script
- * Listens for pubsub messages to start/stop recording
+ * Class-based handler for teach mode operations
+ * Manages recording sessions and workflow storage
  */
-export function setupTeachModeHandler(): void {
-  const teachModeService = TeachModeService.getInstance()
+export class TeachModeHandler {
+  private teachModeService: TeachModeService
 
-  // Listen for pubsub messages
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    Logging.log('teachModeHandler', `Received message: ${message.action}`)
+  constructor() {
+    this.teachModeService = TeachModeService.getInstance()
 
-    switch (message.action) {
-      case 'TEACH_MODE_START':
-        handleStartRecording(message.tabId)
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true  // Keep channel open for async response
+    // Listen for tab close events
+    chrome.tabs.onRemoved.addListener((tabId) => {
+      this.teachModeService.handleTabClosed(tabId)
+    })
+  }
 
-      case 'TEACH_MODE_STOP':
-        handleStopRecording()
-          .then(result => sendResponse(result))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true  // Keep channel open for async response
+  /**
+   * Handle start recording request
+   */
+  async handleTeachModeStart(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { tabId } = message.payload as any
+      let targetTabId = tabId
 
-      case 'TEACH_MODE_STATUS':
-        sendResponse({
+      // Get active tab if not specified
+      if (!targetTabId) {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!activeTab?.id) {
+          throw new Error('No active tab found')
+        }
+        targetTabId = activeTab.id
+      }
+
+      // Start recording
+      await this.teachModeService.startRecording(targetTabId)
+
+      // Get the session ID from the current session
+      const session = this.teachModeService.getCurrentSession()
+      const sessionId = session ? session.getSession().id : undefined
+
+      port.postMessage({
+        type: MessageType.TEACH_MODE_STATUS,
+        payload: {
           success: true,
-          isRecording: teachModeService.isRecording(),
-          tabId: teachModeService.getCurrentSession()?.getActiveTabId()
+          tabId: targetTabId,
+          sessionId,
+          message: 'Recording started'
+        },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logging.log('TeachModeHandler', `Failed to start recording: ${errorMessage}`, 'error')
+      port.postMessage({
+        type: MessageType.TEACH_MODE_STATUS,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle stop recording request
+   */
+  async handleTeachModeStop(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      // Stop recording
+      const recording = await this.teachModeService.stopRecording()
+
+      if (!recording) {
+        port.postMessage({
+          type: MessageType.TEACH_MODE_STATUS,
+          payload: {
+            success: false,
+            message: 'No active recording'
+          },
+          id: message.id
         })
-        break
-
-      // Storage management actions
-      case 'TEACH_MODE_LIST':
-        teachModeService.getRecordings()
-          .then(recordings => sendResponse({ success: true, recordings }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'TEACH_MODE_GET':
-        teachModeService.getRecording(message.recordingId)
-          .then(recording => sendResponse({ success: true, recording }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'TEACH_MODE_DELETE':
-        teachModeService.deleteRecording(message.recordingId)
-          .then(result => sendResponse({ success: result }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        Logging.log('teachModeHandler', `Deleted recording: ${message.recordingId}`)
-        teachModeService.deleteWorkflow(message.recordingId)
-          .then(result => sendResponse({ success: result }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        Logging.log('teachModeHandler', `Deleted workflow: ${message.recordingId}`)
-        return true
-
-      case 'TEACH_MODE_CLEAR':
-        teachModeService.clearAllRecordings()
-          .then(() => sendResponse({ success: true }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'TEACH_MODE_EXPORT':
-        teachModeService.exportRecording(message.recordingId)
-          .then(() => sendResponse({ success: true }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'TEACH_MODE_IMPORT':
-        teachModeService.importRecording(message.json, message.title)
-          .then(recordingId => sendResponse({ success: true, recordingId }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'TEACH_MODE_STATS':
-        teachModeService.getStorageStats()
-          .then(stats => sendResponse({ success: true, stats }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'TEACH_MODE_SEARCH':
-        teachModeService.searchRecordings(message.query)
-          .then(recordings => sendResponse({ success: true, recordings }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      case 'GET_WORKFLOW':
-        teachModeService.getWorkflow(message.recordingId)
-          .then(workflow => sendResponse({ success: true, workflow }))
-          .catch(error => sendResponse({ success: false, error: error.message }))
-        return true
-
-      // Note: EXECUTE_WORKFLOW is now handled by ExecutionHandler
-
-      default:
         return
-    }
-  })
-
-  // Listen for tab close events
-  chrome.tabs.onRemoved.addListener((tabId) => {
-    teachModeService.handleTabClosed(tabId)
-  })
-}
-
-/**
- * Handle start recording request
- */
-async function handleStartRecording(tabId?: number): Promise<any> {
-  try {
-    const teachModeService = TeachModeService.getInstance()
-
-    // Get active tab if not specified
-    if (!tabId) {
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      if (!activeTab?.id) {
-        throw new Error('No active tab found')
       }
-      tabId = activeTab.id
+
+      port.postMessage({
+        type: MessageType.TEACH_MODE_STATUS,
+        payload: {
+          success: true,
+          recording,
+          message: `Recording stopped with ${recording.events.length} events`
+        },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logging.log('TeachModeHandler', `Failed to stop recording: ${errorMessage}`, 'error')
+      port.postMessage({
+        type: MessageType.TEACH_MODE_STATUS,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
     }
+  }
 
-    // Start recording
-    await teachModeService.startRecording(tabId)
+  /**
+   * Handle status request
+   */
+  async handleTeachModeStatus(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    port.postMessage({
+      type: MessageType.TEACH_MODE_STATUS,
+      payload: {
+        success: true,
+        isRecording: this.teachModeService.isRecording(),
+        tabId: this.teachModeService.getCurrentSession()?.getActiveTabId()
+      },
+      id: message.id
+    })
+  }
 
-    // Get the session ID from the current session
-    const session = teachModeService.getCurrentSession()
-    const sessionId = session ? session.getSession().id : undefined
-
-    return {
-      success: true,
-      tabId,
-      sessionId,
-      message: 'Recording started'
+  /**
+   * Handle list recordings request
+   */
+  async handleTeachModeList(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const recordings = await this.teachModeService.getRecordings()
+      port.postMessage({
+        type: MessageType.TEACH_MODE_LIST,
+        payload: { success: true, recordings },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_LIST,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
     }
-  } catch (error) {
-    Logging.log('teachModeHandler', `Failed to start recording: ${error}`, 'error')
-    throw error
+  }
+
+  /**
+   * Handle get recording request
+   */
+  async handleTeachModeGet(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { recordingId } = message.payload as any
+      const recording = await this.teachModeService.getRecording(recordingId)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_GET,
+        payload: { success: true, recording },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_GET,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle delete recording request
+   */
+  async handleTeachModeDelete(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { recordingId } = message.payload as any
+
+      // Delete both recording and workflow
+      await this.teachModeService.deleteRecording(recordingId)
+      Logging.log('TeachModeHandler', `Deleted recording: ${recordingId}`)
+
+      await this.teachModeService.deleteWorkflow(recordingId)
+      Logging.log('TeachModeHandler', `Deleted workflow: ${recordingId}`)
+
+      port.postMessage({
+        type: MessageType.TEACH_MODE_DELETE,
+        payload: { success: true },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_DELETE,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle clear all recordings request
+   */
+  async handleTeachModeClear(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      await this.teachModeService.clearAllRecordings()
+      port.postMessage({
+        type: MessageType.TEACH_MODE_CLEAR,
+        payload: { success: true },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_CLEAR,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle export recording request
+   */
+  async handleTeachModeExport(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { recordingId } = message.payload as any
+      await this.teachModeService.exportRecording(recordingId)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_EXPORT,
+        payload: { success: true },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_EXPORT,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle import recording request
+   */
+  async handleTeachModeImport(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { json, title } = message.payload as any
+      const recordingId = await this.teachModeService.importRecording(json, title)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_IMPORT,
+        payload: { success: true, recordingId },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_IMPORT,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle get storage stats request
+   */
+  async handleTeachModeStats(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const stats = await this.teachModeService.getStorageStats()
+      port.postMessage({
+        type: MessageType.TEACH_MODE_STATS,
+        payload: { success: true, stats },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_STATS,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle search recordings request
+   */
+  async handleTeachModeSearch(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { query } = message.payload as any
+      const recordings = await this.teachModeService.searchRecordings(query)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_SEARCH,
+        payload: { success: true, recordings },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_SEARCH,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
+
+  /**
+   * Handle get workflow request
+   */
+  async handleTeachModeGetWorkflow(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { recordingId } = message.payload as any
+      const workflow = await this.teachModeService.getWorkflow(recordingId)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_GET_WORKFLOW,
+        payload: { success: true, workflow },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_GET_WORKFLOW,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
   }
 }
-
-/**
- * Handle stop recording request
- */
-async function handleStopRecording(): Promise<any> {
-  try {
-    const teachModeService = TeachModeService.getInstance()
-
-    // Stop recording
-    const recording = await teachModeService.stopRecording()
-
-    if (!recording) {
-      return {
-        success: false,
-        message: 'No active recording'
-      }
-    }
-
-    return {
-      success: true,
-      recording,
-      message: `Recording stopped with ${recording.events.length} events`
-    }
-  } catch (error) {
-    Logging.log('teachModeHandler', `Failed to stop recording: ${error}`, 'error')
-    throw error
-  }
-}
-

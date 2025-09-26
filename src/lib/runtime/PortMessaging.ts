@@ -37,6 +37,12 @@ export class PortMessaging {
   private autoReconnect = false;
   private reconnectTimeoutMs = 1000;  // Wait 1 second before reconnecting
   private pendingMessages: Array<{ type: MessageType; payload: unknown; id?: string }> = []
+  private pendingResponses = new Map<string, {
+    resolve: (value: any) => void
+    reject: (error: any) => void
+    timeoutId: ReturnType<typeof setTimeout>
+  }>()
+  private responseMessageIdCounter = 0
 
   constructor() {}
 
@@ -241,6 +247,48 @@ export class PortMessaging {
   }
 
   /**
+   * Sends a message and waits for a response
+   * @param type - Message type
+   * @param payload - Message payload
+   * @param timeoutMs - Response timeout in milliseconds (default 30000)
+   * @returns Promise that resolves with the response payload
+   */
+  public async sendMessageWithResponse<T>(
+    type: MessageType,
+    payload: unknown,
+    timeoutMs: number = 30000
+  ): Promise<T> {
+    // Generate unique message ID for correlation
+    const messageId = `req_${Date.now()}_${++this.responseMessageIdCounter}`
+
+    return new Promise<T>((resolve, reject) => {
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        // Clean up pending response
+        this.pendingResponses.delete(messageId)
+        reject(new Error(`Request ${type} timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+
+      // Store promise handlers for when response arrives
+      this.pendingResponses.set(messageId, {
+        resolve,
+        reject,
+        timeoutId
+      })
+
+      // Send the message with ID
+      const sent = this.sendMessage(type, payload, messageId)
+
+      if (!sent) {
+        // Failed to send, clean up immediately
+        clearTimeout(timeoutId)
+        this.pendingResponses.delete(messageId)
+        reject(new Error(`Failed to send message ${type}`))
+      }
+    })
+  }
+
+  /**
    * Checks if connected to a port
    * @returns true if connected
    */
@@ -253,15 +301,24 @@ export class PortMessaging {
    */
   private handleIncomingMessage = (message: PortMessage): void => {
     const { type, payload, id } = message;
-    
+
     // Handle heartbeat acknowledgment
     if (type === MessageType.HEARTBEAT_ACK) {
       // Heartbeat acknowledged, connection is alive
       return;
     }
-    
+
+    // Check if this is a response to a pending request
+    if (id && this.pendingResponses.has(id)) {
+      const { resolve, timeoutId } = this.pendingResponses.get(id)!
+      clearTimeout(timeoutId)
+      this.pendingResponses.delete(id)
+      resolve(payload)
+      return
+    }
+
     const listeners = this.listeners.get(type);
-    
+
     if (listeners && listeners.length > 0) {
       listeners.forEach(listener => listener(payload, id));
     }
@@ -275,7 +332,14 @@ export class PortMessaging {
     this.port = null;
     this.connected = false;
     this.notifyConnectionListeners(false);
-    
+
+    // Clean up any pending responses
+    this.pendingResponses.forEach(({ reject, timeoutId }) => {
+      clearTimeout(timeoutId)
+      reject(new Error('Port disconnected'))
+    })
+    this.pendingResponses.clear()
+
     // Attempt to reconnect if auto-reconnect is enabled
     if (this.autoReconnect) {
       this.attemptReconnect();

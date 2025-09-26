@@ -8,7 +8,12 @@ import { TeachModeSummary } from './TeachModeSummary'
 import { useTeachModeStore } from './teachmode.store'
 
 export function TeachMode() {
-  const { mode } = useTeachModeStore()
+  const { mode, initializePortMessaging } = useTeachModeStore()
+
+  // Initialize port messaging on mount
+  useEffect(() => {
+    initializePortMessaging()
+  }, [initializePortMessaging])
 
   // Listen for Chrome runtime messages
   useEffect(() => {
