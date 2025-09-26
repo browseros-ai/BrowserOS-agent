@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Square, Check, Loader2, Minimize2, Camera } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { useTeachModeStore } from './teachmode.store'
 import { cn } from '@/sidepanel/lib/utils'
+import { GroupedThinkingSection } from '@/sidepanel/components/GroupedThinkingSection'
 
 export function TeachModeExecution() {
   const { activeRecording, executionProgress, setMode, executionMessages } = useTeachModeStore(state => ({
@@ -11,6 +12,18 @@ export function TeachModeExecution() {
     setMode: state.setMode,
     executionMessages: state.executionMessages || []
   }))
+
+  // Convert execution messages to format expected by GroupedThinkingSection
+  const thinkingMessages = useMemo(() => {
+    return executionMessages
+      .filter(msg => msg.type === 'thinking')
+      .map((msg, index) => ({
+        msgId: `thinking_${msg.timestamp}_${index}`,
+        role: 'thinking' as const,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp)
+      }))
+  }, [executionMessages])
 
   if (!activeRecording || !executionProgress) {
     return null
@@ -68,6 +81,17 @@ export function TeachModeExecution() {
           />
         </div>
       </div>
+
+      {/* Thinking section */}
+      {thinkingMessages.length > 0 && (
+        <div className="px-4 py-3 border-b border-border">
+          <GroupedThinkingSection
+            messages={thinkingMessages}
+            isLatest={true}
+            isTaskCompleted={executionProgress.status === 'completed' || executionProgress.status === 'failed'}
+          />
+        </div>
+      )}
 
       {/* Execution steps */}
       <div className="flex-1 overflow-y-auto px-4 py-4">

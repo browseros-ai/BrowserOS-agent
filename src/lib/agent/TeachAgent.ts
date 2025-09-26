@@ -349,6 +349,16 @@ export class TeachAgent {
 
       const plan = planResult.output!;
 
+      // Publish reasoning as teach-mode-event for UI display
+      this.mainPubsub.publishTeachModeEvent({
+        eventType: 'execution_thinking',
+        sessionId: this.executionContext.executionId,
+        data: {
+          content: plan.stepByStepReasoning,
+          timestamp: Date.now()
+        }
+      });
+
       // Publish step started event with current action
       if (!plan.taskComplete && plan.proposedActions.length > 0) {
         this.mainPubsub.publishTeachModeEvent({

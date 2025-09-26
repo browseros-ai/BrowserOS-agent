@@ -448,6 +448,20 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         }))
         break
 
+      case 'execution_thinking':
+        // Store thinking/reasoning messages for display
+        set(state => ({
+          executionMessages: [
+            ...state.executionMessages,
+            {
+              type: 'thinking',
+              content: payload.data.content,
+              timestamp: payload.data.timestamp
+            }
+          ]
+        }))
+        break
+
       case 'execution_step_started':
         // Step started event with description
         set(state => ({
