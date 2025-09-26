@@ -397,23 +397,21 @@ export class LocalAgent {
    */
   private async _runDynamicAgent(task: string): Promise<UnifiedResult> {
     try {
-      const mm = new MessageManager();
       this.executionContext.incrementMetric("observations");;
 
       // Get system prompt with tool descriptions for dynamic tasks
       const systemPrompt = generateDynamicUnifiedPrompt(this.toolDescriptions || "");
-
-      mm.addSystem(systemPrompt);
+      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
 
       // Build execution history context
       const executionHistoryContext = await this._buildExecutionHistoryContext(
-        (this.executionContext.getMaxTokens() - mm.getTokenCount())*0.7,
+        (this.executionContext.getMaxTokens() - systemPromptTokens)*0.7,
         task
       );
 
       // Build user prompt with task and history
       const userPrompt = this._buildUserPrompt(task, executionHistoryContext);
-      mm.addHuman(userPrompt);
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
 
       // Get browser state message (always limited context mode)
       const browserStateMessage = await this._getBrowserStateMessage(
@@ -421,20 +419,13 @@ export class LocalAgent {
         /* simplified */ true,
         /* screenshotSize */ "medium",
         /* includeBrowserState */ true,
-        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - mm.getTokenCount())*0.7
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.7
       );
-      mm.add(browserStateMessage);
 
-      // Add system reminders for small models
-      const metrics = this.executionContext.getExecutionMetrics();
-      const errorRate = metrics.errors > 0
-        ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
-        : "0";
-      if (parseInt(errorRate) > 30) {
-        mm.addSystemReminder(
-          "⚠️ HIGH ERROR RATE detected. Try different approach: use visual_click/visual_type instead of nodeId-based tools, or try broader grep patterns."
-        );
-      }
+      const mm = new MessageManager();
+      mm.add(new SystemMessage(systemPrompt));
+      mm.add(browserStateMessage);
+      mm.add(new HumanMessage(userPrompt));
 
       // Get LLM response with tool calls
       const llmResponse = await this._invokeLLMWithStreaming(mm);
@@ -476,22 +467,21 @@ export class LocalAgent {
    */
   private async _runPredefinedAgent(task: string, predefinedPlan: any): Promise<UnifiedResult> {
     try {
-      const mm = new MessageManager();
       this.executionContext.incrementMetric("observations");
 
       // Get system prompt with tool descriptions for predefined tasks
       const systemPrompt = generatePredefinedUnifiedPrompt(this.toolDescriptions || "");
-      mm.addSystem(systemPrompt);
+      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
 
       // Build execution history context
       const executionHistoryContext = await this._buildExecutionHistoryContext(
-        (this.executionContext.getMaxTokens() - mm.getTokenCount())*0.7,
+        (this.executionContext.getMaxTokens() - systemPromptTokens)*0.7,
         task
       );
 
       // Build user prompt with task, plan, and history
       const userPrompt = this._buildPredefinedUserPrompt(task, predefinedPlan, executionHistoryContext);
-      mm.addHuman(userPrompt);
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
 
       // Get browser state message (always limited context mode)
       const browserStateMessage = await this._getBrowserStateMessage(
@@ -499,21 +489,14 @@ export class LocalAgent {
         /* simplified */ true,
         /* screenshotSize */ "medium",
         /* includeBrowserState */ true,
-        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - mm.getTokenCount())*0.7
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.7
       );
 
+      const mm = new MessageManager();
+      mm.add(new SystemMessage(systemPrompt));
       mm.add(browserStateMessage);
+      mm.add(new HumanMessage(userPrompt));
 
-      // Add system reminders for small models based on metrics
-      const metrics = this.executionContext.getExecutionMetrics();
-      const errorRate = metrics.errors > 0
-        ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
-        : "0";
-      if (parseInt(errorRate) > 30) {
-        mm.addSystemReminder(
-          "⚠️ HIGH ERROR RATE detected. Try different approach: use visual_click/visual_type instead of nodeId-based tools, or try broader grep patterns."
-        );
-      }
       // Get LLM response with tool calls
       const llmResponse = await this._invokeLLMWithStreaming(mm);
 
@@ -659,7 +642,7 @@ EXECUTION METRICS:
 - Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
 - Iterations: ${this.iterations}
 
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Try different approach" : ""}
+${parseInt(errorRate) > 30 && metrics.errors > 3  ? "⚠️ HIGH ERROR RATE - Learn from the past execution history and adapt your approach" : ""}
 
 EXECUTION HISTORY:
 ${executionHistory}`;
@@ -677,7 +660,7 @@ EXECUTION METRICS:
 - Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
 - Iterations: ${this.iterations}
 
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Try different approach" : ""}
+${parseInt(errorRate) > 30 && metrics.errors > 3 ? "⚠️ HIGH ERROR RATE - Learn from the past execution history and adapt your approach" : ""}
 
 PREDEFINED PLAN:
 - Agent: ${predefinedPlan.name}

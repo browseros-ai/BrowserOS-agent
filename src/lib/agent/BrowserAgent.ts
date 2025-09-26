@@ -769,8 +769,7 @@ EXECUTION METRICS:
 - Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
 - Observations taken: ${metrics.observations}
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
-${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+${parseInt(errorRate) > 30 && metrics.errors > 3 ? "⚠️ HIGH ERROR RATE - Current approach may be failing. Learn from the past execution history and adapt your approach" : ""}
 
 ${executionContext}
 
@@ -788,8 +787,8 @@ ${fullHistory}
       // Build messages
       const messages = [
         new SystemMessage(systemPrompt),
+        browserStateMessage,
         new HumanMessage(userPrompt),
-        browserStateMessage, // Browser state with screenshot
       ];
 
       // Get structured response from LLM with retry logic
@@ -1391,8 +1390,7 @@ EXECUTION METRICS:
 - Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
 - Observations taken: ${metrics.observations}
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
-${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+${parseInt(errorRate) > 30 && metrics.errors > 3 ? "⚠️ HIGH ERROR RATE - Current approach may be failing. Learn from the past execution history and adapt your approach" : ""}
 
 ${executionContext}
 
@@ -1409,8 +1407,8 @@ ${fullHistory}
       );
       const messages = [
         new SystemMessage(systemPrompt),
-        new HumanMessage(userPrompt),
         browserStateMessage,
+        new HumanMessage(userPrompt),
       ];
 
       // Get structured response with retry
