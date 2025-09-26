@@ -51,6 +51,7 @@ export const ExecutionProgressSchema = z.object({
   totalSteps: z.number(),  // Total number of steps
   status: z.enum(['running', 'paused', 'completed', 'failed']),  // Execution status
   startedAt: z.number(),  // Start timestamp
+  currentMessage: z.string().optional(),  // Current step message/description
   completedSteps: z.array(z.object({
     stepNumber: z.number(),
     success: z.boolean(),

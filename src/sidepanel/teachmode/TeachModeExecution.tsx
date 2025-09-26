@@ -5,7 +5,12 @@ import { useTeachModeStore } from './teachmode.store'
 import { cn } from '@/sidepanel/lib/utils'
 
 export function TeachModeExecution() {
-  const { activeRecording, executionProgress, setMode } = useTeachModeStore()
+  const { activeRecording, executionProgress, setMode, executionMessages } = useTeachModeStore(state => ({
+    activeRecording: state.activeRecording,
+    executionProgress: state.executionProgress,
+    setMode: state.setMode,
+    executionMessages: state.executionMessages || []
+  }))
 
   if (!activeRecording || !executionProgress) {
     return null
@@ -118,20 +123,12 @@ export function TeachModeExecution() {
                     {/* Current step details */}
                     {isCurrent && (
                       <div className="mt-3 space-y-2">
-                        {/* Live screenshot */}
-                        <div className="w-full h-32 bg-muted rounded overflow-hidden">
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Camera className="w-8 h-8 text-muted-foreground" />
-                            <span className="ml-2 text-sm text-muted-foreground">
-                              Live Screenshot
-                            </span>
+                        {/* Current step message if available */}
+                        {executionProgress.currentMessage && (
+                          <div className="text-xs text-muted-foreground italic">
+                            {executionProgress.currentMessage}
                           </div>
-                        </div>
-
-                        {/* AI reasoning */}
-                        <div className="text-xs text-muted-foreground italic">
-                          Looking for unsubscribe link...
-                        </div>
+                        )}
                       </div>
                     )}
                   </div>
