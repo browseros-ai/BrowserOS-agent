@@ -11,9 +11,18 @@ export function TeachModeProcessing() {
     setMode('idle')
   }
 
-  const progressPercent = preprocessingStatus && preprocessingStatus.total > 0
-    ? Math.round((preprocessingStatus.progress / preprocessingStatus.total) * 100)
+  // Calculate progress safely
+  const currentStep = preprocessingStatus?.progress || 0
+  const totalSteps = preprocessingStatus?.total || 0
+  const progressPercent = totalSteps > 0
+    ? Math.round((currentStep / totalSteps) * 100)
     : 0
+
+  // Extract action type from message (e.g., "Analyzing click action..." -> "click")
+  const currentAction = preprocessingStatus?.message
+    ?.replace(/^Analyzing\s+/, '')
+    ?.replace(/\s+action\.\.\.$/, '')
+    || 'workflow'
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -35,47 +44,61 @@ export function TeachModeProcessing() {
           </div>
 
           {/* Title */}
-          <h3 className="text-center text-lg font-medium text-foreground mb-4">
+          <h3 className="text-center text-lg font-medium text-foreground mb-6">
             Creating Your Automation
           </h3>
 
-          {/* Progress indicator */}
-          {preprocessingStatus && (
-            <div className="w-full max-w-sm space-y-4">
-              {/* Progress message */}
-              <div className="text-center text-sm text-muted-foreground">
+          {/* Progress Section - Always Visible */}
+          <div className="w-full max-w-md space-y-4">
+            {/* Step Counter and Percentage */}
+            <div className="flex justify-between items-center text-sm">
+              <span className="font-medium text-foreground">
+                {totalSteps > 0 ? (
+                  <>Step {currentStep} of {totalSteps}</>
+                ) : (
+                  <>Preparing...</>
+                )}
+              </span>
+              <span className="text-muted-foreground">
+                {progressPercent}% complete
+              </span>
+            </div>
+
+            {/* Progress Bar - Always Visible */}
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50 border border-border/50">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-primary/80 transition-all duration-500 ease-out rounded-full"
+                style={{
+                  width: `${progressPercent || 5}%`,  // Minimum 5% for visibility
+                  minWidth: progressPercent === 0 ? '20px' : undefined  // Small indicator even at 0%
+                }}
+              />
+              {/* Shimmer effect for active processing */}
+              {totalSteps > 0 && currentStep < totalSteps && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+              )}
+            </div>
+
+            {/* Current Action */}
+            <div className="text-center space-y-1">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                Currently Processing
+              </div>
+              <div className="text-sm font-medium text-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="capitalize">
+                  {preprocessingStatus ? currentAction : 'Initializing'} action
+                </span>
+              </div>
+            </div>
+
+            {/* Status Message (if different from action) */}
+            {preprocessingStatus && !preprocessingStatus.message?.startsWith('Analyzing') && (
+              <div className="text-center text-sm text-muted-foreground pt-2">
                 {preprocessingStatus.message}
               </div>
-
-              {/* Progress bar */}
-              {preprocessingStatus.total > 0 && (
-                <div className="space-y-2">
-                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full bg-primary transition-all duration-300 ease-out"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                  <div className="text-center text-xs text-muted-foreground">
-                    {preprocessingStatus.progress} of {preprocessingStatus.total} events processed
-                  </div>
-                </div>
-              )}
-
-              {/* Loading spinner */}
-              <div className="flex justify-center mt-4">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
-            </div>
-          )}
-
-          {/* If no status yet */}
-          {!preprocessingStatus && (
-            <div className="text-center text-sm text-muted-foreground">
-              <div className="mb-4">Saving your recording...</div>
-              <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Cancel button */}
           <div className="mt-8">

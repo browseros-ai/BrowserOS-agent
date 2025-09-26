@@ -466,6 +466,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
           preprocessingStatus: state.preprocessingStatus ? {
             ...state.preprocessingStatus,
             progress: payload.data.current,
+            total: payload.data.total,  // Add the total field
             message: payload.data.message
           } : null
         }))
