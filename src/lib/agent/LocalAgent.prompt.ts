@@ -184,7 +184,8 @@ export function getToolDescriptions(): string {
 - visual_click(description): Click elements using visual descriptions (fallback)
 - visual_type(description, text): Type into fields using visual descriptions (fallback)
 - date: Get current date and time
-- browseros_info: Get information about the BrowserOS agent`;
+- browseros_info: Get information about the BrowserOS agent
+- celebration: Celebrate the completion of a task`;
 
   // Always include grep_elements for SmallAgent27
   const grepTool = `
