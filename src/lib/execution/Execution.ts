@@ -6,6 +6,7 @@ import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { NewAgent } from "@/lib/agent/NewAgent";
 import { NewAgent27 } from "@/lib/agent/Agent27";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
+import { TeachAgent } from "@/lib/agent/TeachAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
@@ -20,10 +21,11 @@ import { braintrustLogger } from "@/evals2/BraintrustLogger";
 
 // Execution options schema (without executionId since it's now fixed)
 export const ExecutionOptionsSchema = z.object({
-  mode: z.enum(["chat", "browse"]), // Execution mode
+  mode: z.enum(["chat", "browse", "teach"]), // Execution mode including teach
   tabId: z.number().optional(), // Target tab ID
   tabIds: z.array(z.number()).optional(), // Multiple tab context
   metadata: z.any().optional(), // Additional execution metadata
+  workflow: z.any().optional(), // Teach mode workflow
   debug: z.boolean().default(false), // Debug mode flag
 });
 
@@ -198,16 +200,24 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
         });
       }
 
-      // Create fresh agent
-      const agent =
-        this.options.mode === "chat"
-          ? new ChatAgent(executionContext)
-          : getFeatureFlags().isEnabled('NEW_AGENT')
-            ? new NewAgent27(executionContext)
-            : new BrowserAgent(executionContext);
-
-      // Execute
-      await agent.execute(query, metadata || this.options.metadata);
+      // Create fresh agent and execute based on mode
+      if (this.options.mode === "teach") {
+        // Teach mode requires workflow
+        if (!this.options.workflow) {
+          throw new Error("Teach mode requires a workflow to execute");
+        }
+        const teachAgent = new TeachAgent(executionContext);
+        await teachAgent.execute(this.options.workflow);
+      } else if (this.options.mode === "chat") {
+        const chatAgent = new ChatAgent(executionContext);
+        await chatAgent.execute(query);
+      } else {
+        // Browse mode
+        const browseAgent = getFeatureFlags().isEnabled('NEW_AGENT')
+          ? new NewAgent27(executionContext)
+          : new BrowserAgent(executionContext);
+        await browseAgent.execute(query, metadata || this.options.metadata);
+      }
 
       // Evals2: post-execution scoring + upload
       if (ENABLE_EVALS2 && evalsEventMgr.isEnabled()) {
@@ -252,7 +262,9 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
             score,
             durationMs,
             {
-              agent: this.options.mode === 'chat' ? 'ChatAgent' : (getFeatureFlags().isEnabled('NEW_AGENT') ? 'NewAgent' : 'BrowserAgent'),
+              agent: this.options.mode === 'chat' ? 'ChatAgent' :
+                     this.options.mode === 'teach' ? 'TeachAgent' :
+                     (getFeatureFlags().isEnabled('NEW_AGENT') ? 'NewAgent' : 'BrowserAgent'),
               provider: provider?.name,
               model: provider?.modelId,
             },
@@ -393,7 +405,7 @@ Upgrade to the latest BrowserOS version from [GitHub Releases](https://github.co
   getStatus(): {
     id: string;
     isRunning: boolean;
-    mode: "chat" | "browse";
+    mode: "chat" | "browse" | "teach";
   } {
     return {
       id: this.id,

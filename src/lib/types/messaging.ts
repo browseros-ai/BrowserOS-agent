@@ -36,7 +36,9 @@ export enum MessageType {
   LOG_METRIC = 'LOG_METRIC',
   // Newtab to sidepanel communication
   EXECUTE_IN_SIDEPANEL = 'EXECUTE_IN_SIDEPANEL',
-  EXECUTION_STARTING = 'EXECUTION_STARTING'
+  EXECUTION_STARTING = 'EXECUTION_STARTING',
+  // Teach mode workflow execution
+  EXECUTE_TEACH_MODE_WORKFLOW = 'EXECUTE_TEACH_MODE_WORKFLOW'
 }
 
 // Create a zod enum for MessageType

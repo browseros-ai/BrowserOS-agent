@@ -188,21 +188,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     if (!recording) return
 
     try {
-      // First, get the workflow for this recording
-      const workflowResponse = await chrome.runtime.sendMessage({
-        action: 'GET_WORKFLOW',
-        recordingId: id
-      })
-
-      if (!workflowResponse?.success || !workflowResponse.workflow) {
-        console.error('Workflow not found for recording:', id)
-        set({ mode: 'idle' })
-        return
-      }
-
-      const workflow = workflowResponse.workflow
-
-      // Set initial execution state
+      // Set initial execution state (we don't know total steps yet)
       set({
         mode: 'executing',
         activeRecording: recording,
@@ -210,23 +196,24 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         executionProgress: {
           recordingId: id,
           currentStep: 0,
-          totalSteps: workflow.steps?.length || 0,
+          totalSteps: 0,  // Will be updated by backend when workflow is loaded
           status: 'running',
           startedAt: Date.now(),
           completedSteps: []
         }
       })
 
-      // Execute the workflow
+      // Send execution request with just the workflow ID
+      // Backend will retrieve the workflow from storage and execute it
       const executeResponse = await chrome.runtime.sendMessage({
-        action: 'EXECUTE_WORKFLOW',
-        workflow: workflow
+        action: 'EXECUTE_TEACH_MODE_WORKFLOW',
+        workflowId: id
       })
 
       if (executeResponse?.success) {
         // Execution started successfully
         // Progress will be handled via PubSub events
-        console.log('Workflow execution started:', workflow.metadata.goal)
+        console.log('Workflow execution started for recording:', id)
       } else {
         // Execution failed to start
         console.error('Failed to execute workflow:', executeResponse?.error)
@@ -238,7 +225,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
             success: false,
             duration: 0,
             stepsCompleted: 0,
-            totalSteps: workflow.steps?.length || 0,
+            totalSteps: 0,  // We don't know the total steps since we didn't load the workflow
             results: [executeResponse?.error || 'Failed to execute workflow']
           }
         })

@@ -177,6 +177,95 @@ export class ExecutionHandler {
   }
 
   /**
+   * Handle EXECUTE_TEACH_MODE_WORKFLOW message
+   * Executes a teach mode workflow through the unified execution system
+   */
+  async handleExecuteTeachModeWorkflow(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    const { workflowId } = message.payload as any
+
+    Logging.log('ExecutionHandler',
+      `Starting teach mode workflow with ID: ${workflowId}`)
+
+    // Retrieve the workflow from storage
+    const TeachModeService = (await import('@/lib/services/TeachModeService')).TeachModeService
+    const teachModeService = TeachModeService.getInstance()
+    const workflow = await teachModeService.getWorkflow(workflowId)
+
+    if (!workflow) {
+      Logging.log('ExecutionHandler',
+        `Workflow not found for ID: ${workflowId}`, 'error')
+
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'error',
+          error: `Workflow not found for ID: ${workflowId}`
+        },
+        id: message.id
+      })
+      return
+    }
+
+    // Log metrics
+    Logging.logMetric('teach_mode_workflow_executed', {
+      workflowId: workflowId,
+      goal: workflow.metadata.goal,
+      stepsCount: workflow.steps.length
+    })
+
+    try {
+      // If execution is running, cancel it first
+      if (this.execution.isRunning()) {
+        Logging.log('ExecutionHandler', `Cancelling previous task`)
+        this.execution.cancel()
+      }
+
+      // Update execution options for teach mode
+      this.execution.updateOptions({
+        mode: 'teach',
+        workflow: workflow,
+        metadata: {
+          source: 'teach_mode',
+          workflowId: workflowId,
+          workflowGoal: workflow.metadata.goal
+        },
+        debug: false
+      })
+
+      // Run the workflow using its goal as the query
+      await this.execution.run(workflow.metadata.goal)
+
+      // Send success response
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'success',
+          message: `Workflow "${workflow.metadata.goal}" executed successfully`
+        },
+        id: message.id
+      })
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      Logging.log('ExecutionHandler',
+        `Error executing teach mode workflow: ${errorMessage}`, 'error')
+
+      // Send error response
+      port.postMessage({
+        type: MessageType.WORKFLOW_STATUS,
+        payload: {
+          status: 'error',
+          error: errorMessage
+        },
+        id: message.id
+      })
+    }
+  }
+
+  /**
    * Handle NEWTAB_EXECUTE_QUERY - message from newtab
    * Opens sidepanel for display and executes directly
    */
