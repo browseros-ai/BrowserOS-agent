@@ -8,8 +8,8 @@ import { Button } from '@/sidepanel/components/ui/button'
 interface RecordingCardProps {
   recording: TeachModeRecording
   onClick: () => void
-  onDelete: (id: string) => void
-  onRun: (id: string) => void
+  onDelete: (id: string) => void | Promise<void>
+  onRun: (id: string) => void | Promise<void>
 }
 
 export function RecordingCard({ recording, onClick, onDelete, onRun }: RecordingCardProps) {
