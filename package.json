@@ -46,7 +46,7 @@
     "markdown-to-jsx": "^7.7.12",
     "match-sorter": "^6.3.4",
     "ollama": "^0.5.16",
-    "openai": "^5.15.0",
+    "openai": "^4.62.1",
     "posthog-js": "^1.252.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
