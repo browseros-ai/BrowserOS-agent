@@ -385,8 +385,8 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             </Button>
           )}
 
-          {/* Extract Page Content button */}
-          <Button
+          {/* Extract Page Content button - HIDDEN FOR NOW, ENABLE FOR FUTURE USE */}
+          {/* <Button
             onClick={handleExtractPageContent}
             variant="ghost"
             size="sm"
@@ -400,7 +400,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             ) : (
               <Copy className="w-4 h-4" />
             )}
-          </Button>
+          </Button> */}
 
           {/* Settings button - Last position (rightmost) */}
           <Button

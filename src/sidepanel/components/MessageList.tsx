@@ -33,7 +33,7 @@ interface MessageListProps {
 const EXAMPLES = [
   "Visit BrowserOS launch and upvote ❤️",
   // "Find top-rated headphones under $200",
-  "Go to GitHub and Star BrowserOS ⭐",
+  "Go to GitHub and star BrowserOS ⭐",
   // "Turn this article into a LinkedIn post",
   "Open amazon.com and order Sensodyne toothpaste 🪥",
 ]
