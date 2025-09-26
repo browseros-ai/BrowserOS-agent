@@ -1,6 +1,6 @@
 import React from 'react'
 import { cn } from '@/sidepanel/lib/utils'
-import { Camera } from 'lucide-react'
+import { Camera, Globe, MousePointer, Type, ArrowUpDown, Image } from 'lucide-react'
 import type { CapturedEvent } from '../teachmode.types'
 import { formatRelativeTime } from '../teachmode.utils'
 
@@ -10,73 +10,117 @@ interface StepCardProps {
   showConnector?: boolean
 }
 
+// Get appropriate icon based on action type
+const getActionIcon = (description: string) => {
+  const lowerDesc = description.toLowerCase()
+  if (lowerDesc.includes('navigate')) return Globe
+  if (lowerDesc.includes('click')) return MousePointer
+  if (lowerDesc.includes('type') || lowerDesc.includes('key')) return Type
+  if (lowerDesc.includes('scroll')) return ArrowUpDown
+  if (lowerDesc.includes('screenshot')) return Camera
+  if (lowerDesc.includes('switch')) return ArrowUpDown
+  return MousePointer
+}
+
+// Format action description for cleaner display
+const formatActionDescription = (step: CapturedEvent) => {
+  const desc = step.action.description
+
+  // For navigation, show domain only
+  if (desc.toLowerCase().includes('navigated to') && step.action.url) {
+    try {
+      const url = new URL(step.action.url)
+      return `Navigated to ${url.hostname}`
+    } catch {
+      return desc
+    }
+  }
+
+  // For clicks, simplify element description if too long
+  if (desc.toLowerCase().includes('clicked') && step.action.element) {
+    const element = step.action.element
+    if (element.length > 30) {
+      return `Clicked element`
+    }
+  }
+
+  return desc
+}
+
 export function StepCard({ step, isActive = false, showConnector = true }: StepCardProps) {
+  const ActionIcon = getActionIcon(step.action.description)
+  const formattedDescription = formatActionDescription(step)
+
   return (
-    <div className="relative">
+    <div className="relative group">
       <div
         className={cn(
-          "bg-background-alt rounded-lg p-3 border",
-          isActive ? "border-primary animate-pulse" : "border-border"
+          "bg-background border rounded-lg transition-all duration-200 hover:shadow-sm",
+          isActive ? "border-primary animate-pulse" : "border-border hover:border-border/80"
         )}
       >
-        {/* Step header */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-          <span>Step {step.stepNumber}</span>
-          <span>•</span>
-          <span>{isActive ? 'Recording...' : formatRelativeTime(step.timestamp)}</span>
-        </div>
-
-        {/* Step content */}
-        <div className="flex gap-3">
-          {/* Screenshot thumbnail */}
-          <div className="w-12 h-9 bg-muted rounded flex items-center justify-center shrink-0">
-            {step.screenshot ? (
-              <img
-                src={step.screenshot}
-                alt="Screenshot"
-                className="w-full h-full object-cover rounded"
-              />
-            ) : isActive ? (
-              <div className="w-full h-full rounded bg-gradient-to-r from-primary/20 to-primary/30 animate-pulse" />
-            ) : (
-              <Camera className="w-4 h-4 text-muted-foreground" />
-            )}
+        {/* Compact card content */}
+        <div className="flex items-center gap-3 p-3">
+          {/* Step indicator with icon */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium",
+              isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+            )}>
+              {step.stepNumber}
+            </div>
+            <div className={cn(
+              "w-8 h-8 rounded flex items-center justify-center",
+              isActive ? "text-primary" : "text-muted-foreground"
+            )}>
+              <ActionIcon className="w-4 h-4" />
+            </div>
           </div>
 
-          {/* Action details */}
-          <div className="flex-1">
-            <div className="text-sm font-medium text-foreground">
-              {step.action.description}
+          {/* Action summary */}
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-foreground truncate">
+              {formattedDescription}
             </div>
-            {step.action.url && (
-              <div className="text-xs text-muted-foreground">
-                {step.action.url}
-              </div>
-            )}
-            {step.action.element && (
-              <div className="text-xs text-muted-foreground">
+            {/* Show element or additional context if available */}
+            {step.action.element && step.action.element.length <= 30 && (
+              <div className="text-xs text-muted-foreground truncate mt-0.5">
                 {step.action.element}
               </div>
             )}
           </div>
+
+          {/* Thumbnail and timestamp */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Screenshot thumbnail if available */}
+            {step.screenshot && (
+              <div className="w-12 h-12 bg-muted rounded overflow-hidden border border-border/50">
+                <img
+                  src={step.screenshot}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
+            {/* Timestamp */}
+            <span className="text-xs text-muted-foreground">
+              {isActive ? 'now' : formatRelativeTime(step.timestamp)}
+            </span>
+          </div>
         </div>
 
-        {/* Voice annotation */}
+        {/* Voice annotation - shown as a subtle strip if present */}
         {step.voiceAnnotation && (
-          <div className="mt-2 text-sm text-muted-foreground italic">
-            💬 "{step.voiceAnnotation}"
+          <div className="px-3 pb-2">
+            <div className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-1 italic">
+              💬 {step.voiceAnnotation.length > 60
+                ? step.voiceAnnotation.substring(0, 60) + '...'
+                : step.voiceAnnotation}
+            </div>
           </div>
         )}
       </div>
-
-      {/* Connector line */}
-      {showConnector && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full h-6 w-0.5 bg-border">
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0
-                        border-l-4 border-r-4 border-t-4
-                        border-l-transparent border-r-transparent border-t-border" />
-        </div>
-      )}
     </div>
   )
 }

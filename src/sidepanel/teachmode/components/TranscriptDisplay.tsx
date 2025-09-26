@@ -1,5 +1,5 @@
-import React from 'react'
-import { Mic, MicOff } from 'lucide-react'
+import React, { useRef, useEffect } from 'react'
+import { Mic, MicOff, Volume2 } from 'lucide-react'
 import { cn } from '@/sidepanel/lib/utils'
 
 interface VapiTranscript {
@@ -15,72 +15,99 @@ interface TranscriptDisplayProps {
 }
 
 export function TranscriptDisplay({ transcripts, vapiStatus, isRecordingActive }: TranscriptDisplayProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll to bottom when new transcripts are added
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [transcripts])
+
   if (!isRecordingActive) {
     return null
   }
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
+  const isListening = vapiStatus === 'connected'
+  const latestTranscript = transcripts[transcripts.length - 1]
 
   return (
-    <div className="mt-4 border rounded-lg bg-background">
-      {/* Header */}
-      <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium">Voice Transcript</h3>
-          {vapiStatus === 'connected' ? (
-            <Mic className="w-3.5 h-3.5 text-green-600 animate-pulse" />
-          ) : vapiStatus === 'connecting' ? (
-            <Mic className="w-3.5 h-3.5 text-yellow-600" />
-          ) : (
-            <MicOff className="w-3.5 h-3.5 text-muted-foreground" />
-          )}
+    <div className="bg-background/95 backdrop-blur-sm">
+      {/* Compact Header Bar */}
+      <div className="px-4 py-2 flex items-center justify-between border-b bg-muted/20">
+        <div className="flex items-center gap-3">
+          {/* Status Indicator */}
+          <div className="flex items-center gap-2">
+            {isListening ? (
+              <div className="flex items-center gap-1.5">
+                <div className="relative">
+                  <Volume2 className="w-4 h-4 text-green-600" />
+                  <div className="absolute -inset-1 rounded-full bg-green-600/20 animate-ping" />
+                </div>
+                <span className="text-xs font-medium text-green-600">Listening</span>
+              </div>
+            ) : vapiStatus === 'connecting' ? (
+              <div className="flex items-center gap-1.5">
+                <Mic className="w-4 h-4 text-yellow-600 animate-pulse" />
+                <span className="text-xs text-yellow-600">Connecting...</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <MicOff className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Not listening</span>
+              </div>
+            )}
+          </div>
+
+          {/* Tip Text */}
+          <div className="text-xs text-muted-foreground">
+            {isListening
+              ? "Speak to narrate your actions..."
+              : vapiStatus === 'error'
+              ? "Voice unavailable (check API key)"
+              : "Waiting to connect..."}
+          </div>
         </div>
-        <span className={cn(
-          "text-xs px-2 py-0.5 rounded-full",
-          vapiStatus === 'connected' ? 'bg-green-100 text-green-700' :
-          vapiStatus === 'connecting' ? 'bg-yellow-100 text-yellow-700' :
-          vapiStatus === 'error' ? 'bg-red-100 text-red-700' :
-          'bg-muted text-muted-foreground'
-        )}>
-          {vapiStatus === 'connected' ? 'Listening' :
-           vapiStatus === 'connecting' ? 'Connecting...' :
-           vapiStatus === 'error' ? 'Error' : 'Not connected'}
-        </span>
+
+        {/* Transcript Count */}
+        {transcripts.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {transcripts.length} transcript{transcripts.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
-      {/* Transcript Content */}
-      <div className="p-3 max-h-32 overflow-y-auto">
+      {/* Transcript Display Area - Compact */}
+      <div
+        ref={scrollRef}
+        className="px-4 py-2 max-h-24 overflow-y-auto bg-background/50"
+      >
         {transcripts.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-xs text-muted-foreground">
-              {vapiStatus === 'connected'
-                ? 'Speak to narrate your actions...'
-                : vapiStatus === 'connecting'
-                ? 'Initializing voice recording...'
-                : vapiStatus === 'error'
-                ? 'Voice recording unavailable (check OPENAI_API_KEY)'
-                : 'Voice recording not started'}
+          <div className="py-2 text-center">
+            <p className="text-xs text-muted-foreground italic">
+              {isListening ? '💡 Tip: Narrate what you\'re doing as you click for smarter automation' : 'No transcripts yet'}
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {transcripts.map((transcript, index) => (
+          <div className="space-y-1">
+            {/* Show last 3 transcripts only to keep it compact */}
+            {transcripts.slice(-3).map((transcript, index) => (
               <div
                 key={`${transcript.timestamp}-${index}`}
-                className="flex gap-2 text-xs"
+                className={cn(
+                  "text-xs transition-opacity duration-300",
+                  index === transcripts.slice(-3).length - 1
+                    ? "text-foreground opacity-100"
+                    : "text-muted-foreground opacity-60"
+                )}
               >
-                <span className="text-muted-foreground shrink-0">
-                  {formatTime(transcript.timestamp)}
-                </span>
-                <span className="text-foreground">
+                <span className={cn(
+                  "inline-flex items-start gap-1",
+                  transcript.isFinal ? "" : "italic"
+                )}>
+                  {index === transcripts.slice(-3).length - 1 && isListening && (
+                    <span className="text-green-600">●</span>
+                  )}
                   {transcript.text}
                 </span>
               </div>

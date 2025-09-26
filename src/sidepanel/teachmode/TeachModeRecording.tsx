@@ -83,7 +83,7 @@ export function TeachModeRecording() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Compact Header */}
       <header className={cn(
         'px-4 py-3 border-b relative transition-all duration-200',
@@ -151,74 +151,78 @@ export function TeachModeRecording() {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        {!isRecordingActive ? (
-          // Ready State - Integrated into same screen
-          <div className="px-6 py-8">
-            <div className="max-w-2xl mx-auto space-y-8">
-              {/* Main Message */}
-              <div className="text-center space-y-3 mb-12">
-                <h2 className="text-2xl font-semibold text-foreground">
-                  Ready to show BrowserOS a workflow
-                </h2>
-                <p className="text-base text-muted-foreground">
-                  Press start when you're ready. We'll capture every action
-                  <br />and your narration in real time.
-                </p>
+      {/* Main Content Area - Using flex for proper layout */}
+      {!isRecordingActive ? (
+        // Ready State - Integrated into same screen
+        <div className="flex-1 overflow-y-auto px-6 py-8">
+          <div className="max-w-2xl mx-auto space-y-8">
+            {/* Main Message */}
+            <div className="text-center space-y-3 mb-12">
+              <h2 className="text-2xl font-semibold text-foreground">
+                Ready to show BrowserOS a workflow
+              </h2>
+              <p className="text-base text-muted-foreground">
+                Press start when you're ready. We'll capture every action
+                <br />and your narration in real time.
+              </p>
+            </div>
+
+            {/* Tips Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+                <Mic className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Narrate intent</p>
+                  <p className="text-xs text-muted-foreground">
+                    Speak as you go so the agent learns context
+                  </p>
+                </div>
               </div>
 
-              {/* Tips Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                  <Mic className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Narrate intent</p>
-                    <p className="text-xs text-muted-foreground">
-                      Speak as you go so the agent learns context
-                    </p>
-                  </div>
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                  <span className="text-xs font-medium text-primary">✓</span>
                 </div>
-
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <span className="text-xs font-medium text-primary">✓</span>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Move naturally</p>
-                    <p className="text-xs text-muted-foreground">
-                      Pauses and rethinks are totally fine
-                    </p>
-                  </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Move naturally</p>
+                  <p className="text-xs text-muted-foreground">
+                    Pauses and rethinks are totally fine
+                  </p>
                 </div>
+              </div>
 
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                  <Square className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-foreground">Stop anytime</p>
-                    <p className="text-xs text-muted-foreground">
-                      We'll process everything you captured
-                    </p>
-                  </div>
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+                <Square className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Stop anytime</p>
+                  <p className="text-xs text-muted-foreground">
+                    We'll process everything you captured
+                  </p>
                 </div>
               </div>
             </div>
           </div>
-        ) : (
-          // Recording State
-          <div className="px-4 py-4">
-            <div className="space-y-3">
-              {/* Events List */}
-              {recordingEvents.map((event, index) => (
-                <StepCard
-                  key={event.id}
-                  step={event}
-                  showConnector={index < recordingEvents.length - 1}
-                />
-              ))}
-
-              {/* Waiting Message */}
-              {recordingEvents.length === 0 && (
+        </div>
+      ) : (
+        // Recording State - Fixed layout with scrollable events
+        <>
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Events List Container - Scrollable */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {/* Events Grid */}
+              {recordingEvents.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 auto-rows-max">
+                  {recordingEvents.map((event, index) => (
+                    <StepCard
+                      key={event.id}
+                      step={event}
+                      isActive={false}
+                      showConnector={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Waiting Message
                 <div className="text-center py-12">
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
                     <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -231,34 +235,19 @@ export function TeachModeRecording() {
                   </p>
                 </div>
               )}
-
-              {/* Voice Indicator */}
-              {isSpeaking && (
-                <div className="mt-2">
-                  <VoiceIndicator isListening={isSpeaking} isEnabled={true} />
-                </div>
-              )}
             </div>
+          </div>
 
-            {/* Voice Transcript Display */}
+          {/* Voice Transcript - Fixed at bottom */}
+          <div className="border-t bg-background">
             <TranscriptDisplay
               transcripts={transcripts}
               vapiStatus={vapiStatus}
               isRecordingActive={isRecordingActive}
             />
-
-            {/* Live Tip */}
-            {recordingEvents.length > 0 && (
-              <div className="mt-6 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                <p className="text-xs text-foreground flex items-center gap-2">
-                  <MicOff className="w-3 h-3 text-primary" />
-                  <span>💡 Tip: Narrate what you're doing as you click for smarter automation</span>
-                </p>
-              </div>
-            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
