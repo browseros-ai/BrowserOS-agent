@@ -67,6 +67,24 @@ export function useSidePanelPortMessaging() {
   }, [])
 
   /**
+   * Send a message and wait for a response
+   * @param type - Message type
+   * @param payload - Message payload
+   * @param timeoutMs - Optional timeout in milliseconds (default 30000)
+   * @returns Promise that resolves with the response payload
+   */
+  const sendMessageWithResponse = useCallback(async <T>(
+    type: MessageType,
+    payload: unknown,
+    timeoutMs?: number
+  ): Promise<T> => {
+    if (!messagingRef.current) {
+      throw new Error('Port messaging not initialized')
+    }
+    return messagingRef.current.sendMessageWithResponse<T>(type, payload, timeoutMs)
+  }, [])
+
+  /**
    * Add a message listener for a specific message type
    * @param type - Message type to listen for
    * @param callback - Function to call when message is received
@@ -93,6 +111,7 @@ export function useSidePanelPortMessaging() {
   return {
     connected,
     sendMessage,
+    sendMessageWithResponse,
     addMessageListener,
     removeMessageListener
   }

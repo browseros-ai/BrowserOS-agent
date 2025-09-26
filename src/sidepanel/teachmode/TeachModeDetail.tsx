@@ -1,12 +1,42 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Play, MoreVertical, Calendar, ArrowLeft } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
-import { StepTimeline } from './components/StepTimeline'
+import { SemanticStepTimeline } from './components/SemanticStepTimeline'
 import { useTeachModeStore } from './teachmode.store'
 import { formatDuration, formatTime, getSuccessRate } from './teachmode.utils'
+import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 
 export function TeachModeDetail() {
-  const { activeRecording, setMode, executeRecording } = useTeachModeStore()
+  const { activeRecording, setMode, executeRecording, getWorkflow, activeWorkflow } = useTeachModeStore()
+  const [workflow, setWorkflow] = useState<SemanticWorkflow | null>(null)
+  const [loadingWorkflow, setLoadingWorkflow] = useState(false)
+
+  // Fetch workflow when activeRecording changes
+  useEffect(() => {
+    if (!activeRecording) return
+
+    // Use cached workflow if available
+    if (activeWorkflow && activeWorkflow.metadata.recordingId === activeRecording.id) {
+      setWorkflow(activeWorkflow)
+      return
+    }
+
+    // Fetch workflow from backend
+    const fetchWorkflow = async () => {
+      setLoadingWorkflow(true)
+      try {
+        const fetchedWorkflow = await getWorkflow(activeRecording.id)
+        setWorkflow(fetchedWorkflow)
+      } catch (error) {
+        console.error('Failed to fetch workflow:', error)
+        setWorkflow(null)
+      } finally {
+        setLoadingWorkflow(false)
+      }
+    }
+
+    fetchWorkflow()
+  }, [activeRecording, getWorkflow, activeWorkflow])
 
   if (!activeRecording) {
     return null
@@ -15,7 +45,6 @@ export function TeachModeDetail() {
   const handleBack = () => {
     setMode('idle')
   }
-
 
   const handleRunNow = () => {
     executeRecording(activeRecording.id)
@@ -83,7 +112,10 @@ export function TeachModeDetail() {
             <h3 className="text-sm font-medium text-foreground mb-3">
               Workflow Steps
             </h3>
-            <StepTimeline steps={activeRecording.steps} />
+            <SemanticStepTimeline
+              workflow={workflow}
+              loading={loadingWorkflow}
+            />
           </div>
 
           {/* Metadata section */}
@@ -95,31 +127,15 @@ export function TeachModeDetail() {
               </span>
             </div>
 
-            {activeRecording.lastRunAt && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Last run</span>
-                <span className="text-foreground">
-                  {formatTime(activeRecording.lastRunAt)} ({activeRecording.runCount > 0 ? 'Success' : 'Not run'})
-                </span>
-              </div>
-            )}
-
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total runs</span>
               <span className="text-foreground">{activeRecording.runCount}</span>
             </div>
 
-            {activeRecording.runCount > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Success rate</span>
-                <span className="text-foreground">{successRate}%</span>
-              </div>
-            )}
-
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Avg duration</span>
               <span className="text-foreground">
-                {formatDuration(activeRecording.duration)}
+                {activeRecording.duration > 0 ? formatDuration(activeRecording.duration) : 'NaN:NaN'}
               </span>
             </div>
           </div>
