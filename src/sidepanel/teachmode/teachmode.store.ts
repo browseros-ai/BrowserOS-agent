@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { TeachModeState, TeachModeRecording, CapturedEvent, ExecutionProgress, ExecutionSummary } from './teachmode.types'
 import type { TeachModeEventPayload } from '@/lib/pubsub/types'
+import { MessageType } from '@/lib/types/messaging'
 
 interface VapiTranscript {
   timestamp: number
@@ -78,7 +79,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     mode: 'recording',
     recordingEvents: [],
     recordingStartTime: null,
-    isRecordingActive: false
+    isRecordingActive: false,
+    transcripts: [],
+    vapiStatus: 'idle'
   }),
 
   startRecording: async () => {
@@ -91,8 +94,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
       // Send start message to backend
       const response = await chrome.runtime.sendMessage({
-        action: 'TEACH_MODE_START',
-        tabId: tab.id
+        type: MessageType.TEACH_MODE_START,
+        payload: { tabId: tab.id }
       })
 
       if (response?.success) {
@@ -115,7 +118,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     try {
       // Send stop message to backend
       const response = await chrome.runtime.sendMessage({
-        action: 'TEACH_MODE_STOP'
+        type: MessageType.TEACH_MODE_STOP,
+        payload: {}
       })
 
       if (response?.success) {
@@ -142,7 +146,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   cancelRecording: () => {
     // Try to stop backend recording if active
     if (get().isRecordingActive) {
-      chrome.runtime.sendMessage({ action: 'TEACH_MODE_STOP' }).catch(() => {})
+      chrome.runtime.sendMessage({ type: MessageType.TEACH_MODE_STOP, payload: {} }).catch(() => {})
     }
 
     set({
@@ -168,8 +172,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   deleteRecording: async (id) => {
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'TEACH_MODE_DELETE',
-        recordingId: id
+        type: MessageType.TEACH_MODE_DELETE,
+        payload: { recordingId: id }
       })
 
       if (response?.success) {
@@ -206,8 +210,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       // Send execution request with just the workflow ID
       // Backend will retrieve the workflow from storage and execute it
       const executeResponse = await chrome.runtime.sendMessage({
-        action: 'EXECUTE_TEACH_MODE_WORKFLOW',
-        workflowId: id
+        type: MessageType.EXECUTE_TEACH_MODE_WORKFLOW,
+        payload: { workflowId: id }
       })
 
       if (executeResponse?.success) {
@@ -260,7 +264,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   loadRecordings: async () => {
     try {
       const response = await chrome.runtime.sendMessage({
-        action: 'TEACH_MODE_LIST'
+        type: MessageType.TEACH_MODE_LIST,
+        payload: {}
       })
 
       if (response?.success && response.recordings) {
