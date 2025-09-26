@@ -36,6 +36,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
     private lastScrollPosition = { x: 0, y: 0 }
     private scrollStartPosition = { x: 0, y: 0 }
     private scrollTarget: { element: Element; context: ElementContext } | null = null
+    private isScrolling = false
 
     constructor() {
       console.log('[TeachModeRecorder] Initialized')
@@ -129,6 +130,10 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
         clearTimeout(this.scrollTimer)
         this.scrollTimer = null
       }
+
+      // Reset scroll state
+      this.isScrolling = false
+      this.scrollTarget = null
 
       // Remove event listeners
       window.removeEventListener('keydown', this.handleKeyDown, true)
@@ -538,20 +543,21 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       const isDocumentScroll = target === document || target === document.documentElement || target === document.body || target === window
 
       if (isDocumentScroll) {
-        // Window/document scroll
-        if (!this.scrollTarget) {
+        // Window/document scroll - only set start position if not already scrolling
+        if (!this.isScrolling) {
           this.scrollStartPosition = {
             x: window.scrollX,
             y: window.scrollY
           }
           this.scrollTarget = null  // No element context for document scroll
+          this.isScrolling = true
         }
       } else if (target instanceof Element) {
         // Element scroll
         const element = target
 
         // Track scroll start position on first scroll or element change
-        if (!this.scrollTarget || this.scrollTarget.element !== element) {
+        if (!this.isScrolling || (this.scrollTarget && this.scrollTarget.element !== element)) {
           this.scrollStartPosition = {
             x: element.scrollLeft,
             y: element.scrollTop
@@ -561,15 +567,19 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
             element,
             context: this.computeElementContext(element)
           }
+          this.isScrolling = true
         }
       } else {
         // Not a valid scroll target
         return
       }
 
+      console.log(`[TeachModeRecorder] Scroll detected on ${isDocumentScroll ? 'document' : 'element'}`)
+
       // Throttle scroll events - only record after scrolling stops
       this.scrollTimer = setTimeout(() => {
         this.recordScrollEvent()
+        this.isScrolling = false  // Reset scrolling state
       }, SCROLL_DEBOUNCE_MS)
     }
 
@@ -605,7 +615,12 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       }
 
       // Only record if there was actual scrolling
-      if (deltaX === 0 && deltaY === 0) return
+      if (deltaX === 0 && deltaY === 0) {
+        console.log('[TeachModeRecorder] No scroll delta detected, skipping event')
+        return
+      }
+
+      console.log(`[TeachModeRecorder] Recording scroll: dx=${deltaX}, dy=${deltaY}, currentPos=(${currentX}, ${currentY})`)
 
       // Send scroll event
       this.sendEvent({
@@ -621,11 +636,8 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
         }
       })
 
-      // Update last position
+      // Update last position for future reference
       this.lastScrollPosition = { x: currentX, y: currentY }
-
-      // Reset scroll tracking
-      this.scrollTarget = null
     }
   }
 
