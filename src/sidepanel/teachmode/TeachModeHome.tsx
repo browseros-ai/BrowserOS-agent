@@ -50,21 +50,19 @@ export function TeachModeHome() {
           hasWorkflows ? "mb-3" : "mb-6"
         )}>
           <h2 className={cn(
-            "font-bold text-muted-foreground flex items-baseline flex-wrap justify-center gap-2 text-center",
+            "font-bold text-muted-foreground flex items-center gap-2 text-center",
             hasWorkflows ? "text-2xl" : "text-3xl"
           )}>
             <span>Teach</span>
-            <span className="flex items-baseline">
-              <span className="text-brand">BrowserOS</span>
-              <img
-                src="/assets/browseros.svg"
-                alt="BrowserOS"
-                className={cn(
-                  "inline-block align-text-bottom ml-2",
-                  hasWorkflows ? "w-6 h-6" : "w-8 h-8"
-                )}
-              />
-            </span>
+            <span className="text-brand">BrowserOS</span>
+            <img
+              src="/assets/browseros.svg"
+              alt="BrowserOS"
+              className={cn(
+                "inline-block ml-1",
+                hasWorkflows ? "w-6 h-6" : "w-8 h-8"
+              )}
+            />
           </h2>
         </div>
 
@@ -158,27 +156,65 @@ export function TeachModeHome() {
             </div>
           </div>
         ) : (
-          /* Example Workflows - Only shown when no workflows exist */
-          <div className="max-w-lg mx-auto space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground text-center">
-              ─────── Example Workflows ───────
-            </h3>
-            <div className="space-y-3">
-              {[
-                "📧 Unsubscribe from marketing emails",
-                "📊 Extract data to spreadsheet",
-                "🔍 Monitor website for changes",
-                "🛍️ Find best deals on products"
-              ].map((example) => (
-                <div
-                  key={example}
-                  className="text-sm py-3 px-4 bg-background/50 backdrop-blur-sm border-2 border-border/30 rounded-lg hover:border-brand/50 hover:bg-brand/5 transition-all duration-300"
-                >
-                  <span className="text-muted-foreground">
-                    {example}
-                  </span>
+          /* Empty state with instructions */
+          <div className="max-w-md mx-auto space-y-8">
+            {/* How it works section */}
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                How it works
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">Start recording</p>
+                    <p className="text-xs text-muted-foreground">Click record and perform your task - BrowserOS learns by watching</p>
+                  </div>
                 </div>
-              ))}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">Narrate what you're doing</p>
+                    <p className="text-xs text-muted-foreground">Speak as you click - this helps BrowserOS understand your intent</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">Run it anytime</p>
+                    <p className="text-xs text-muted-foreground">Your workflow is saved and ready to repeat</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Example Workflows */}
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-4">
+                Popular workflows
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { icon: "📧", text: "Unsubscribe from emails" },
+                  { icon: "📊", text: "Extract data" },
+                  { icon: "🔍", text: "Monitor changes" },
+                  { icon: "🛍️", text: "Find best deals" }
+                ].map((example, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 text-sm text-muted-foreground py-2 px-3 rounded-md bg-muted/50 border border-border/40"
+                  >
+                    <span className="text-base">{example.icon}</span>
+                    <span className="text-xs">{example.text}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
