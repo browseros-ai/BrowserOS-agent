@@ -41,7 +41,6 @@ export function useMessageHandler() {
 
       // Handle teach-mode-event
       if (event.type === 'teach-mode-event') {
-        console.log('[useMessageHandler] Received teach-mode-event:', event.payload)
         handleBackendEvent(event.payload)
       }
     }

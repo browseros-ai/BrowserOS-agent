@@ -349,11 +349,13 @@ export class TeachAgent {
 
       const plan = planResult.output!;
 
-      // Publish reasoning as teach-mode-event for UI display
+      // Publish reasoning as teach-mode-event for UI display with unique msgId
+      const thinkingMsgId = PubSub.generateId('teach_thinking');
       this.mainPubsub.publishTeachModeEvent({
         eventType: 'execution_thinking',
         sessionId: this.executionContext.executionId,
         data: {
+          msgId: thinkingMsgId,
           content: plan.stepByStepReasoning,
           timestamp: Date.now()
         }
