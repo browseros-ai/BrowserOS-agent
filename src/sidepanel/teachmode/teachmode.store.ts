@@ -313,6 +313,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     // Handle execution events regardless of session
     const isExecutionEvent = [
       'execution_started',
+      'execution_thinking',
       'execution_step_started',
       'execution_step_completed',
       'execution_completed',
