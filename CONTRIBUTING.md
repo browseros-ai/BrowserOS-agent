@@ -27,9 +27,9 @@
    ```
    This creates a `dist/` folder with the compiled extension files.
 
-### Loading the Extension in Chrome
+### Loading the Extension in BrowserOS
 
-1. Open Chrome and go to `chrome://extensions/`
+1. Open BrowserOS and go to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in the top right)
 3. Click **Load unpacked**
 4. Select the `dist/` folder from your project
@@ -37,7 +37,7 @@
 
 ### Testing the Extension
 
-1. Click the extension icon in Chrome's toolbar
+1. Click the extension icon in BrowserOS's toolbar
 2. The agent side panel should open
 3. Try some commands like:
    - "List all my tabs"

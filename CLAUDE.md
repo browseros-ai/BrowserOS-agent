@@ -347,7 +347,7 @@ To debug:
 ## Architecture Overview
 
 ### Core Framework
-This is a Chrome extension that provides AI-powered web automation using LLM agents. The architecture is built around:
+This is a BrowserOS extension that provides AI-powered web automation using LLM agents. The architecture is built around:
 
 1. **NxtScape Core** (`src/lib/core/NxtScape.ts`) - Main orchestration layer that manages execution context and delegates to BrowserAgent
 2. **BrowserAgent** (`src/lib/agent/BrowserAgent.ts`) - Unified agent that handles all task execution through planning and tool invocation
@@ -628,7 +628,7 @@ User Query → NxtScape.run() → BrowserAgent.execute()
 6. **Message Manager** - Maintains conversation history throughout execution
 7. **Event Bus** - Streams real-time updates to the UI during execution
 
-### Chrome Extension Structure
+### BrowserOS Extension Structure
 - **Background Script** (`src/background/`) - Service worker handling extension lifecycle
 - **Content Scripts** (`src/content/`) - Injected scripts for DOM manipulation
 - **Side Panel** - Primary UI using Chrome's side panel API
@@ -651,5 +651,5 @@ User Query → NxtScape.run() → BrowserAgent.execute()
 - `src/lib/llm/LangChainProviderFactory.ts` - LLM provider abstraction
 - `src/lib/runtime/ExecutionContext.ts` - Runtime state and context management
 - `src/lib/runtime/MessageManager.ts` - Conversation history management
-- `manifest.json` - Chrome extension configuration
+- `manifest.json` - BrowserOS extension configuration
 - `webpack.config.js` - Build configuration
