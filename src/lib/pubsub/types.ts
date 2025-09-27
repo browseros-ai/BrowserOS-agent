@@ -69,8 +69,6 @@ export const TeachModeEventPayloadSchema = z.object({
     'preprocessing_failed',
     'execution_started',
     'execution_thinking',
-    'execution_step_started',
-    'execution_step_completed',
     'execution_completed',
     'execution_failed'
   ]),  // Type of teach mode event

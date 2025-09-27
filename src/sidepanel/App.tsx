@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useMessageHandler } from './hooks/useMessageHandler'
 import { useSidePanelPortMessaging } from '@/sidepanel/hooks'
 import { Chat } from './components/Chat'
-import { TeachMode } from './teachmode'
+import { TeachMode, useTeachModeStore } from './teachmode'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAnnouncer, setGlobalAnnouncer } from './hooks/useAnnouncer'
 import { SkipLink } from './components/SkipLink'
@@ -29,6 +29,15 @@ export function App() {
 
   // Get chat state for header
   const { messages, isProcessing, reset } = useChatStore()
+
+  // Get teach mode state for header
+  const { teachModeState, abortTeachExecution } = useTeachModeStore(state => ({
+    teachModeState: state.mode,
+    abortTeachExecution: state.abortExecution
+  }))
+
+  // Check if any execution is running (chat or teach mode)
+  const isExecuting = isProcessing || teachModeState === 'executing'
   
   // Initialize global announcer for screen readers
   const announcer = useAnnouncer()
@@ -67,9 +76,17 @@ export function App() {
 
         {/* Header - always visible at top */}
         <Header
-          onReset={reset}
-          showReset={messages.length > 0}
-          isProcessing={isProcessing}
+          onReset={() => {
+            // Reset based on current mode
+            if (appMode === 'teach' && teachModeState === 'executing') {
+              abortTeachExecution()
+            } else {
+              reset()
+            }
+          }}
+          showReset={messages.length > 0 || (appMode === 'teach' && teachModeState !== 'idle')}
+          isProcessing={isExecuting}
+          onTeachModeClick={appMode === 'chat' ? () => useSettingsStore.getState().setAppMode('teach') : undefined}
         />
 
         {/* Main content area - changes based on mode */}

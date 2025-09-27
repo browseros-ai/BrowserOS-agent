@@ -50,6 +50,7 @@ interface TeachModeStore {
   saveRecording: (recording: TeachModeRecording) => void
   deleteRecording: (id: string) => Promise<void>
   executeRecording: (id: string) => Promise<void>
+  abortExecution: () => void
   setActiveRecording: (recording: TeachModeRecording | null) => void
   setExecutionProgress: (progress: ExecutionProgress | null) => void
   setExecutionSummary: (summary: ExecutionSummary | null) => void
@@ -290,6 +291,43 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     }
   },
 
+  abortExecution: () => {
+    const { portMessaging, activeRecording, executionProgress } = get()
+    if (!portMessaging) {
+      console.error('Port messaging not initialized')
+      return
+    }
+
+    // Send cancel message to background
+    portMessaging.sendMessage(MessageType.CANCEL_TASK, {
+      reason: 'User aborted teach mode execution',
+      source: 'teachmode'
+    })
+
+    // Update UI state to show summary with aborted status
+    if (activeRecording && executionProgress) {
+      set({
+        mode: 'summary',
+        executionSummary: {
+          recordingId: activeRecording.id,
+          recordingName: activeRecording.name,
+          success: false,
+          duration: Math.floor((Date.now() - executionProgress.startedAt) / 1000),
+          stepsCompleted: executionProgress.completedSteps.length,
+          totalSteps: executionProgress.totalSteps,
+          results: ['Execution aborted by user']
+        },
+        executionProgress: null
+      })
+    } else {
+      // Fallback if no active recording
+      set({
+        mode: 'idle',
+        executionProgress: null
+      })
+    }
+  },
+
   setActiveRecording: (recording) => set({
     activeRecording: recording,
     activeWorkflow: null  // Clear cached workflow when switching recordings
@@ -392,8 +430,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     const isExecutionEvent = [
       'execution_started',
       'execution_thinking',
-      'execution_step_started',
-      'execution_step_completed',
       'execution_completed',
       'execution_failed'
     ].includes(payload.eventType)
@@ -565,38 +601,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         })
         break
 
-      case 'execution_step_started':
-        // Step started event with description
-        set(state => ({
-          executionProgress: state.executionProgress ? {
-            ...state.executionProgress,
-            currentStep: payload.data.currentStep,
-            totalSteps: payload.data.totalSteps || state.executionProgress.totalSteps,
-            currentMessage: payload.data.stepDescription || payload.data.message
-          } : null
-        }))
-        break
+      // Step tracking removed - workflow steps are guidance, not executable steps
 
-      case 'execution_step_completed':
-        // Step completed event
-        set(state => {
-          if (!state.executionProgress) return state
-
-          const completedStep = {
-            stepNumber: state.executionProgress.currentStep,
-            success: true,
-            duration: Date.now() - state.executionProgress.startedAt,
-            message: payload.data.message || `Step ${state.executionProgress.currentStep} completed`
-          }
-
-          return {
-            executionProgress: {
-              ...state.executionProgress,
-              completedSteps: [...state.executionProgress.completedSteps, completedStep]
-            }
-          }
-        })
-        break
+      // The agent uses 'execution_thinking' events for all progress updates
 
       case 'execution_completed':
         // Execution completed successfully

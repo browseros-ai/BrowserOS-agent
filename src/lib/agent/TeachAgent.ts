@@ -16,7 +16,7 @@ import { getLLM } from "@/lib/llm/LangChainProvider";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
-import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
+import { HumanInputResponse, PubSubEvent, TeachModeEventPayload } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
 import { AbortError } from "@/lib/utils/Abortable";
 import { jsonParseToolOutput } from "@/lib/utils/utils";
@@ -185,6 +185,27 @@ export class TeachAgent {
     }
   }
 
+  // Helper method to emit teach-mode events
+  private _emitTeachModeEvent(
+    eventType: TeachModeEventPayload['eventType'],
+    data: any
+  ): void {
+    this.mainPubsub.publishTeachModeEvent({
+      eventType,
+      sessionId: this.executionContext.executionId,
+      data
+    });
+  }
+
+  // Helper method to emit thinking events with stable msgId
+  private _emitThinking(msgId: string, content: string): void {
+    this._emitTeachModeEvent('execution_thinking', {
+      msgId,
+      content,
+      timestamp: Date.now()
+    });
+  }
+
   private async _initialize(): Promise<void> {
     // Register tools FIRST (before binding)
     await this._registerTools();
@@ -314,14 +335,10 @@ export class TeachAgent {
     let done = false;
 
     // Publish execution started event
-    this.mainPubsub.publishTeachModeEvent({
-      eventType: 'execution_started',
-      sessionId: this.executionContext.executionId,
-      data: {
-        workflowId: workflow.metadata.recordingId || '',
-        goal: workflow.metadata.goal,
-        totalSteps: workflow.steps.length
-      }
+    this._emitTeachModeEvent('execution_started', {
+      workflowId: workflow.metadata.recordingId || '',
+      goal: workflow.metadata.goal,
+      totalSteps: workflow.steps.length
     });
 
     while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
@@ -351,28 +368,7 @@ export class TeachAgent {
 
       // Publish reasoning as teach-mode-event for UI display with unique msgId
       const thinkingMsgId = PubSub.generateId('teach_thinking');
-      this.mainPubsub.publishTeachModeEvent({
-        eventType: 'execution_thinking',
-        sessionId: this.executionContext.executionId,
-        data: {
-          msgId: thinkingMsgId,
-          content: plan.stepByStepReasoning,
-          timestamp: Date.now()
-        }
-      });
-
-      // Publish step started event with current action
-      if (!plan.taskComplete && plan.proposedActions.length > 0) {
-        this.mainPubsub.publishTeachModeEvent({
-          eventType: 'execution_step_started',
-          sessionId: this.executionContext.executionId,
-          data: {
-            currentStep: this.iterations,
-            totalSteps: workflow.steps.length,
-            stepDescription: plan.proposedActions[0]  // First action being executed
-          }
-        });
-      }
+      this._emitThinking(thinkingMsgId, plan.stepByStepReasoning);
 
       // Check if task is complete
       if (plan.taskComplete) {
@@ -391,9 +387,6 @@ export class TeachAgent {
             message: completionMessage
           }
         });
-
-        // Also publish to execution channel for UI
-        this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
         break;
       }
 
@@ -417,18 +410,7 @@ export class TeachAgent {
 
       const executorResult = await this._runExecutor(plan.proposedActions, plan);
 
-      // Publish step completed event after execution
-      if (!executorResult.requiresHumanInput) {
-        this.mainPubsub.publishTeachModeEvent({
-          eventType: 'execution_step_completed',
-          sessionId: this.executionContext.executionId,
-          data: {
-            stepNumber: this.iterations,
-            success: true,
-            message: `Completed: ${plan.proposedActions[0]}`
-          }
-        });
-      }
+      // No step tracking - workflow steps are guidance, not executable steps
 
       // Check execution outcomes
       if (executorResult.requiresHumanInput) {
@@ -437,12 +419,13 @@ export class TeachAgent {
         
         if (humanResponse === 'abort') {
           // Human aborted the task
-          this._publishMessage('❌ Task aborted by human', 'assistant');
+          this.pubsub.publishMessage(PubSub.createMessage('❌ Task aborted by human', 'assistant'));
           throw new AbortError('Task aborted by human');
         }
-        
+
         // Human clicked "Done" - continue with next planning iteration
-        this._publishMessage('✅ Human completed manual action. Re-planning...', 'thinking');
+        const humanDoneMsgId = PubSub.generateId('teach_thinking');
+        this._emitThinking(humanDoneMsgId, '✅ Human completed manual action. Re-planning...');
         // Note: Human input response will be included in next iteration's planner context
 
         // Clear human input state
@@ -452,10 +435,10 @@ export class TeachAgent {
 
     // Check if we hit planning iteration limit
     if (!done && this.iterations >= MAX_PLANNER_ITERATIONS) {
-      this._publishMessage(
-        `Task did not complete within ${MAX_PLANNER_ITERATIONS} planning iterations`,
-        "error",
-      );
+      this._emitTeachModeEvent('execution_failed', {
+        error: `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
+        reason: 'iteration_limit'
+      });
       throw new Error(
         `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
       );
@@ -811,13 +794,7 @@ ${fullHistory}
             
             // If we were streaming, replace with "Processing..."
             if (currentMsgId) {
-              this.pubsub.publishMessage(
-                PubSub.createMessageWithId(
-                  currentMsgId,
-                  "Processing...",
-                  "thinking",
-                ),
-              );
+              this._emitThinking(currentMsgId, "Processing...");
             }
             
             // Queue warning for agent's next iteration
@@ -842,18 +819,12 @@ ${fullHistory}
           if (!hasStartedThinking) {
             hasStartedThinking = true;
             // Create message ID on first content chunk
-            currentMsgId = PubSub.generateId("msg_assistant");
+            currentMsgId = PubSub.generateId("teach_exec_thinking");
           }
 
-          // Publish/update the message with accumulated content in real-time
+          // Emit thinking event with same msgId for updates
           if (currentMsgId) {
-            this.pubsub.publishMessage(
-              PubSub.createMessageWithId(
-                currentMsgId,
-                accumulatedText,
-                "thinking",
-              ),
-            );
+            this._emitThinking(currentMsgId, accumulatedText);
           }
         }
       }
@@ -866,10 +837,8 @@ ${fullHistory}
 
     // Only finish thinking if we started, have clean content, and have a message ID
     if (hasStartedThinking && !hasProhibitedContent && accumulatedText.trim() && currentMsgId) {
-      // Final publish with complete message
-      this.pubsub.publishMessage(
-        PubSub.createMessageWithId(currentMsgId, accumulatedText, "thinking"),
-      );
+      // Final emit with complete message
+      this._emitThinking(currentMsgId, accumulatedText);
     }
 
     if (!accumulatedChunk) return new AIMessage({ content: "" });
@@ -974,30 +943,20 @@ ${fullHistory}
     return result;
   }
 
-  private _publishMessage(
-    content: string,
-    type: "thinking" | "assistant" | "error",
-  ): void {
-    // Always publish to execution channel for any UI that's listening
-    this.pubsub.publishMessage(PubSub.createMessage(content, type as any));
-
-    // Note: Execution progress is handled via explicit teach-mode events
-    // in _executeDynamic, not through generic messages
-  }
 
   // Emit debug information in development mode
   private _emitDevModeDebug(action: string, details?: string, maxLength: number = 60): void {
     if (isDevelopmentMode()) {
       let message = action;
       if (details) {
-        const truncated = details.length > maxLength 
-          ? details.substring(0, maxLength) + "..." 
+        const truncated = details.length > maxLength
+          ? details.substring(0, maxLength) + "..."
           : details;
         message = `${action}: ${truncated}`;
       }
-      this.pubsub.publishMessage(
-        PubSub.createMessage(`[DEV MODE] ${message}`, "thinking"),
-      );
+      // Use teach-mode event for dev debug
+      const debugMsgId = PubSub.generateId('teach_debug');
+      this._emitThinking(debugMsgId, `[DEV MODE] ${message}`);
     }
   }
 
@@ -1011,15 +970,9 @@ ${fullHistory}
     Logging.log("TeachAgent", `Execution error: ${errorMessage}`, "error");
 
     // Publish execution failed event
-    this.mainPubsub.publishTeachModeEvent({
-      eventType: 'execution_failed',
-      sessionId: this.executionContext.executionId,
-      data: {
-        error: errorMessage
-      }
+    this._emitTeachModeEvent('execution_failed', {
+      error: errorMessage
     });
-
-    this._publishMessage(`Error: ${errorMessage}`, "error");
   }
 
   private _logMetrics(): void {
@@ -1133,7 +1086,8 @@ ${fullHistory}
         
         // Check timeout
         if (Date.now() - startTime > HUMAN_INPUT_TIMEOUT) {
-          this._publishMessage('⏱️ Human input timed out after 10 minutes', 'error');
+          const timeoutMsgId = PubSub.generateId('teach_thinking');
+          this._emitThinking(timeoutMsgId, '⏱️ Human input timed out after 10 minutes');
           return 'timeout';
         }
         

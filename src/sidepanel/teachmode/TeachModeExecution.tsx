@@ -6,10 +6,10 @@ import { cn } from '@/sidepanel/lib/utils'
 import { GroupedThinkingSection } from '@/sidepanel/components/GroupedThinkingSection'
 
 export function TeachModeExecution() {
-  const { activeRecording, executionProgress, setMode, executionMessages } = useTeachModeStore(state => ({
+  const { activeRecording, executionProgress, abortExecution, executionMessages } = useTeachModeStore(state => ({
     activeRecording: state.activeRecording,
     executionProgress: state.executionProgress,
-    setMode: state.setMode,
+    abortExecution: state.abortExecution,
     executionMessages: state.executionMessages || []
   }))
 
@@ -30,8 +30,8 @@ export function TeachModeExecution() {
   }
 
   const handleStop = () => {
-    // Stop execution and show partial results
-    setMode('summary')
+    // Abort execution and show partial results
+    abortExecution()
   }
 
   const handleMinimize = () => {
