@@ -61,8 +61,26 @@ export class PreprocessAgent {
 
       Logging.log("PreprocessAgent", `Processing recording with ${validatedRecording.events.length} events`, "info");
 
-      // Extract overall goal from narration
-      this.goalExtracted = await this._extractGoalFromNarration(validatedRecording.narration?.transcript || "");
+      // Transcribe audio if present and narration not already set
+      let transcript = validatedRecording.narration?.transcript || "";
+      if (!transcript && validatedRecording.audio) {
+        Logging.log("PreprocessAgent", "Transcribing audio recording...", "info");
+        this._emitProgress('transcription_started', {});
+
+        try {
+          transcript = await this._transcribeAudio(validatedRecording.audio);
+          Logging.log("PreprocessAgent", `Transcription complete: ${transcript.length} characters`, "info");
+
+          this._emitProgress('transcription_completed', { transcript });
+        } catch (error) {
+          Logging.log("PreprocessAgent", `Transcription failed: ${error}`, "warning");
+          this._emitProgress('transcription_failed', { error: String(error) });
+          // Continue without transcript
+        }
+      }
+
+      // Extract overall goal from narration/transcript
+      this.goalExtracted = await this._extractGoalFromNarration(transcript);
 
       // Process each event sequentially
       const steps: SemanticWorkflow['steps'] = [];
@@ -304,11 +322,14 @@ export class PreprocessAgent {
   /**
    * Emit progress event via PubSub
    */
-  private _emitProgress(eventType: 'preprocessing_progress', data: any): void {
+  private _emitProgress(
+    eventType: 'preprocessing_progress' | 'transcription_started' | 'transcription_completed' | 'transcription_failed',
+    data: any
+  ): void {
     if (!this.pubsub || !this.sessionId) return;
 
     this.pubsub.publishTeachModeEvent({
-      eventType: eventType as any,
+      eventType,
       sessionId: this.sessionId,
       data
     });
@@ -351,6 +372,43 @@ export class PreprocessAgent {
         workflowDescription: "",
         userGoal: "Perform the same workflow as demonstrated by the user"
       };
+    }
+  }
+
+  /**
+   * Transcribe audio recording to text
+   */
+  private async _transcribeAudio(audioBase64: string): Promise<string> {
+    try {
+      // Convert base64 to Blob
+      const binaryString = atob(audioBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'audio/webm;codecs=opus' });
+
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append('file', blob, 'recording.webm');
+      formData.append('response_format', 'json');
+
+      // Call transcription API
+      const response = await fetch('https://llm.browseros.com/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Transcription API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.text?.trim() || "";
+
+    } catch (error) {
+      Logging.log("PreprocessAgent", `Failed to transcribe: ${error}`, "error");
+      throw error;
     }
   }
 

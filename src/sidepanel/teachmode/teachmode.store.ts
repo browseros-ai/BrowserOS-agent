@@ -5,13 +5,7 @@ import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessaging } from '@/lib/runtime/PortMessaging'
 
-interface voiceTranscript {
-  timestamp: number
-  text: string
-  isFinal: boolean
-}
-
-type voiceStatus = 'idle' | 'connecting' | 'connected' | 'error'
+type voiceStatus = 'idle' | 'connecting' | 'connected' | 'transcribing' | 'error'
 
 interface TeachModeStore {
   // State
@@ -33,7 +27,6 @@ interface TeachModeStore {
     message: string
   } | null
   // Voice integration state
-  transcripts: voiceTranscript[]
   voiceStatus: voiceStatus
   // Port messaging instance
   portMessaging: PortMessaging | null
@@ -44,7 +37,7 @@ interface TeachModeStore {
   setMode: (mode: TeachModeState) => void
   prepareRecording: () => void
   startRecording: () => Promise<void>
-  stopRecording: () => Promise<void>
+  stopRecording: (audioDataBase64?: string) => Promise<void>
   cancelRecording: () => void
   addEvent: (event: CapturedEvent) => void
   saveRecording: (recording: TeachModeRecording) => void
@@ -58,8 +51,6 @@ interface TeachModeStore {
   loadRecordings: () => Promise<void>
   getWorkflow: (recordingId: string) => Promise<SemanticWorkflow | null>
   handleBackendEvent: (payload: TeachModeEventPayload) => void
-  addTranscript: (transcript: voiceTranscript) => void
-  clearTranscripts: () => void
   setVoiceStatus: (status: voiceStatus) => void
   // Port messaging setup
   initializePortMessaging: () => void
@@ -79,7 +70,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   currentSessionId: null,
   preprocessingStatus: null,
   // Voice state
-  transcripts: [],
   voiceStatus: 'idle',
   // Port messaging
   portMessaging: null,
@@ -93,7 +83,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     recordingEvents: [],
     recordingStartTime: null,
     isRecordingActive: false,
-    transcripts: [],
     voiceStatus: 'idle'
   }),
 
@@ -132,17 +121,17 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     }
   },
 
-  stopRecording: async () => {
+  stopRecording: async (audioDataBase64?: string) => {
     const { portMessaging } = get()
     if (!portMessaging) {
       throw new Error('Port messaging not initialized')
     }
 
     try {
-      // Send stop message to backend via port
+      // Send stop message to backend with audio data
       const response = await portMessaging.sendMessageWithResponse<any>(
         MessageType.TEACH_MODE_STOP,
-        {}
+        { audioData: audioDataBase64 }
       )
 
       if (response?.success) {
@@ -181,7 +170,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       isRecordingActive: false,
       activeRecording: null,
       currentSessionId: null,
-      transcripts: [],
       voiceStatus: 'idle'
     })
   },
@@ -348,7 +336,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     isRecordingActive: false,
     currentSessionId: null,
     preprocessingStatus: null,
-    transcripts: [],
     voiceStatus: 'idle'
   }),
 
@@ -658,14 +645,6 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   },
 
   // Voice actions
-  addTranscript: (transcript) => set((state) => ({
-    transcripts: [...state.transcripts, transcript]
-  })),
-
-  clearTranscripts: () => set({
-    transcripts: []
-  }),
-
   setVoiceStatus: (status) => set({
     voiceStatus: status
   }),

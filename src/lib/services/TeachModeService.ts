@@ -104,11 +104,16 @@ export class TeachModeService {
   /**
    * Stop the current recording
    */
-  async stopRecording(): Promise<TeachModeRecording | null> {
+  async stopRecording(audioDataBase64?: string): Promise<TeachModeRecording | null> {
     try {
       if (!this.currentSession) {
         Logging.log('TeachModeService', 'No active recording to stop', 'warning')
         return null
+      }
+
+      // Set audio if provided
+      if (audioDataBase64) {
+        this.currentSession.setAudio(audioDataBase64)
       }
 
       // Send stop message to current tab

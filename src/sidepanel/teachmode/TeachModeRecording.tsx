@@ -6,7 +6,7 @@ import { VoiceIndicator } from './components/VoiceIndicator'
 import { TranscriptDisplay } from './components/TranscriptDisplay'
 import { VoiceWaveform } from './components/VoiceWaveform'
 import { useTeachModeStore } from './teachmode.store'
-import { useServerTranscription } from './hooks/useServerTranscription'
+import { useAudioRecording } from './hooks/useAudioRecording'
 import { formatDuration } from './teachmode.utils'
 import type { CapturedEvent } from './teachmode.types'
 import { cn } from '@/sidepanel/lib/utils'
@@ -20,15 +20,17 @@ export function TeachModeRecording() {
     startRecording,
     cancelRecording,
     isRecordingActive,
-    transcripts,
-    voiceStatus,
-    clearTranscripts
+    voiceStatus
   } = useTeachModeStore()
 
   const [recordingTime, setRecordingTime] = useState(0)
 
-  // Initialize server transcription for voice recording
-  const { error: transcriptionError, audioLevel } = useServerTranscription({
+  // Initialize audio recording with VAD
+  const {
+    error: transcriptionError,
+    audioLevel,
+    getAudioBlob
+  } = useAudioRecording({
     enabled: isRecordingActive
   })
 
@@ -63,7 +65,6 @@ export function TeachModeRecording() {
   const handleStartRecording = async () => {
     if (isRecordingActive) return
 
-    clearTranscripts()  // Clear any previous transcripts
     setRecordingTime(0)
 
     try {
@@ -77,7 +78,25 @@ export function TeachModeRecording() {
     if (!isRecordingActive) return
 
     try {
-      await stopRecording()
+      // Get audio blob from hook
+      const audioBlob = getAudioBlob()
+
+      // Convert to base64 if audio exists
+      let audioDataBase64: string | undefined
+      if (audioBlob) {
+        audioDataBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const base64 = (reader.result as string).split(',')[1]
+            resolve(base64)
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(audioBlob)
+        })
+      }
+
+      // Stop recording with audio data
+      await stopRecording(audioDataBase64)
     } catch (error) {
       console.error('Failed to stop recording:', error)
     }
@@ -246,7 +265,6 @@ export function TeachModeRecording() {
               isActive={isRecordingActive}
             />
             <TranscriptDisplay
-              transcripts={transcripts}
               status={voiceStatus}
               isRecordingActive={isRecordingActive}
             />

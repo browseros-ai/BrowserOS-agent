@@ -2,12 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTeachModeStore } from '../teachmode.store'
 
 // Configuration constants
-const API_URL = 'https://llm.browseros.com/api/transcribe'
 const VAD_START_THRESHOLD = 0.014  // RMS threshold for detecting speech
 const VAD_HANGOVER_MS = 250  // Keep tagging speech briefly after it ends
-const MIN_RECORDING_SIZE_BYTES = 1800  // Guard against near-empty recordings
 
-interface UseServerTranscriptionProps {
+interface UseAudioRecordingProps {
   enabled: boolean
 }
 
@@ -88,12 +86,11 @@ class VoiceActivityDetector {
 }
 
 /**
- * Simple real-time transcription hook with VAD
- * Only sends chunks with detected speech to API
+ * Audio recording hook with VAD for visualization
+ * Captures audio locally and provides blob for backend transcription
  */
-export function useServerTranscription({ enabled }: UseServerTranscriptionProps) {
+export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
   // State
-  const [transcripts, setTranscripts] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [audioLevel, setAudioLevel] = useState(0)
@@ -104,51 +101,9 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
   const vadRef = useRef<VoiceActivityDetector | null>(null)
   const recordingDataRef = useRef<Blob[]>([])
   const hasSpeechRef = useRef(false)
+  const audioBlobRef = useRef<Blob | null>(null)
 
-  const { addTranscript, setVoiceStatus } = useTeachModeStore()
-
-  // Send audio to API
-  const sendToAPI = useCallback(async (audioBlob: Blob) => {
-    try {
-      console.log('Sending recording:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        sizeKB: (audioBlob.size / 1024).toFixed(2) + 'KB'
-      })
-
-      const formData = new FormData()
-      formData.append('file', audioBlob, 'recording.webm')
-      formData.append('response_format', 'json')
-
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Transcription API error:', response.status, errorText)
-        return
-      }
-
-      const data = await response.json()
-      const text = data.text?.trim()
-
-      if (text) {
-        setTranscripts(prev => [...prev, text])
-
-        addTranscript({
-          timestamp: Date.now(),
-          text,
-          isFinal: true
-        })
-
-        console.log('✓ Transcript:', text)
-      }
-    } catch (err) {
-      console.error('Transcription failed:', err)
-    }
-  }, [addTranscript])
+  const { setVoiceStatus } = useTeachModeStore()
 
   // Start recording with VAD
   const startRecording = useCallback(async () => {
@@ -197,21 +152,24 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
       }
 
       mediaRecorder.onstop = () => {
-        const recording = recordingDataRef.current.length > 0
+        // Create audio blob from accumulated chunks
+        const audioBlob = recordingDataRef.current.length > 0
           ? new Blob(recordingDataRef.current, { type: mimeType })
           : null
 
-        if (recording && recording.size >= MIN_RECORDING_SIZE_BYTES && hasSpeechRef.current) {
-          console.log(`→ Sending recording (${recording.size} bytes)`)
-          void sendToAPI(recording)
+        // Store blob for retrieval
+        audioBlobRef.current = audioBlob
+
+        if (audioBlob && hasSpeechRef.current) {
+          console.log(`✓ Audio captured: ${audioBlob.size} bytes (${(audioBlob.size / 1024).toFixed(2)}KB)`)
         } else {
-          console.log('✗ Skipped upload', {
+          console.log('✗ No audio captured', {
             hadSpeech: hasSpeechRef.current,
-            size: recording?.size ?? 0,
-            minRequired: MIN_RECORDING_SIZE_BYTES
+            size: audioBlob?.size ?? 0
           })
         }
 
+        // Cleanup
         recordingDataRef.current = []
         hasSpeechRef.current = false
 
@@ -263,7 +221,7 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
       setError(errorMessage)
       setVoiceStatus('error')
     }
-  }, [sendToAPI, setVoiceStatus])
+  }, [setVoiceStatus])
 
   // Stop recording and cleanup
   const stopRecording = useCallback(() => {
@@ -305,10 +263,15 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
     }
   }, [stopRecording])
 
+  // Get captured audio blob
+  const getAudioBlob = useCallback((): Blob | null => {
+    return audioBlobRef.current
+  }, [])
+
   return {
-    transcripts,
     error,
     isRecording,
-    audioLevel  // Export for visualization
+    audioLevel,
+    getAudioBlob
   }
 }

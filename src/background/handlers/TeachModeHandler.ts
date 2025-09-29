@@ -75,8 +75,11 @@ export class TeachModeHandler {
     port: chrome.runtime.Port
   ): Promise<void> {
     try {
-      // Stop recording
-      const recording = await this.teachModeService.stopRecording()
+      // Extract audio data from payload
+      const { audioData } = (message.payload as { audioData?: string }) || {}
+
+      // Stop recording with audio data
+      const recording = await this.teachModeService.stopRecording(audioData)
 
       if (!recording) {
         port.postMessage({

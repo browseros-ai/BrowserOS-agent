@@ -189,6 +189,9 @@ export const TeachModeRecordingSchema = z.object({
     language: z.string().default('en')  // Language code
   }).optional(),
 
+  // Audio recording (base64 encoded WebM)
+  audio: z.string().optional(),
+
   // Viewport configuration
   viewport: z.object({
     width: z.number(),  // Viewport width

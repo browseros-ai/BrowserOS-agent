@@ -20,6 +20,7 @@ export class RecordingSession {
   private browserContext: BrowserContext | null = null
   private viewport?: TeachModeRecording['viewport']
   private narration?: TeachModeRecording['narration']
+  private audio?: string  // Base64 encoded audio
   private activeTabId: number  // Track current active tab for multi-tab recording
 
   constructor(tabId: number, url: string, browserContext?: BrowserContext) {
@@ -83,6 +84,26 @@ export class RecordingSession {
       sessionId: this.session.id,
       data: viewport
     })
+  }
+
+  /**
+   * Set narration transcript
+   */
+  setNarration(transcript: string): void {
+    if (transcript.trim()) {
+      this.narration = { transcript }
+      Logging.log('RecordingSession', `Set narration with ${transcript.length} characters`)
+    }
+  }
+
+  /**
+   * Set audio recording data
+   */
+  setAudio(audioBase64: string): void {
+    if (audioBase64.trim()) {
+      this.audio = audioBase64
+      Logging.log('RecordingSession', `Set audio with ${audioBase64.length} bytes (base64)`)
+    }
   }
 
   /**
@@ -155,6 +176,7 @@ export class RecordingSession {
     const recording: TeachModeRecording = {
       session: this.session,
       narration: this.narration,
+      audio: this.audio,
       viewport: this.viewport,
       events: this.events
     }
@@ -180,6 +202,7 @@ export class RecordingSession {
     return {
       session: { ...this.session },
       narration: this.narration,
+      audio: this.audio,
       viewport: this.viewport,
       events: [...this.events]
     }
