@@ -153,6 +153,7 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
 
       mediaRecorder.onstop = () => {
         // Create audio blob from accumulated chunks
+        console.log('[useAudioRecording] onstop handler - chunks:', recordingDataRef.current.length)
         const audioBlob = recordingDataRef.current.length > 0
           ? new Blob(recordingDataRef.current, { type: mimeType })
           : null
@@ -161,11 +162,12 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
         audioBlobRef.current = audioBlob
 
         if (audioBlob && hasSpeechRef.current) {
-          console.log(`✓ Audio captured: ${audioBlob.size} bytes (${(audioBlob.size / 1024).toFixed(2)}KB)`)
+          console.log(`[useAudioRecording] ✓ Audio captured: ${audioBlob.size} bytes (${(audioBlob.size / 1024).toFixed(2)}KB)`)
         } else {
-          console.log('✗ No audio captured', {
+          console.log('[useAudioRecording] ✗ No audio captured', {
             hadSpeech: hasSpeechRef.current,
-            size: audioBlob?.size ?? 0
+            size: audioBlob?.size ?? 0,
+            chunks: recordingDataRef.current.length
           })
         }
 
@@ -223,43 +225,80 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
     }
   }, [setVoiceStatus])
 
-  // Stop recording and cleanup
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop()
-    }
+  // Stop recording and cleanup - returns Promise with audio blob
+  const stopRecording = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const mediaRecorder = mediaRecorderRef.current
 
-    if (vadRef.current) {
-      vadRef.current.destroy()
-      vadRef.current = null
-    }
+      // If not recording, resolve immediately
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        if (vadRef.current) {
+          vadRef.current.destroy()
+          vadRef.current = null
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop())
+          streamRef.current = null
+        }
+        setIsRecording(false)
+        setAudioLevel(0)
+        setVoiceStatus('idle')
+        resolve(null)
+        return
+      }
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
+      // Setup one-time onstop handler to resolve with audio
+      const originalOnstop = mediaRecorder.onstop
+      mediaRecorder.onstop = (event) => {
+        // Call original handler if exists
+        if (originalOnstop) {
+          originalOnstop.call(mediaRecorder, event)
+        }
 
-    // Don't clear recording refs here - onstop handler needs them to send final audio to API
-    // onstop will clear them after processing (lines 215-216)
+        // Get the audio blob that was saved
+        const audioBlob = audioBlobRef.current
+        console.log('[useAudioRecording] stopRecording Promise resolving with:',
+          audioBlob ? `${audioBlob.size} bytes` : 'null')
 
-    setIsRecording(false)
-    setAudioLevel(0)
-    setVoiceStatus('idle')
+        // Cleanup
+        if (vadRef.current) {
+          vadRef.current.destroy()
+          vadRef.current = null
+        }
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop())
+          streamRef.current = null
+        }
+
+        setIsRecording(false)
+        setAudioLevel(0)
+        setVoiceStatus('idle')
+
+        // Resolve with the audio blob
+        resolve(audioBlob)
+      }
+
+      // Stop recording - will trigger onstop handler
+      mediaRecorder.stop()
+    })
   }, [setVoiceStatus])
 
-  // Auto start/stop based on enabled prop
+  // Auto start based on enabled prop (but NOT auto stop - that's handled manually)
   useEffect(() => {
     if (enabled && !isRecording) {
       startRecording()
-    } else if (!enabled && isRecording) {
-      stopRecording()
     }
-  }, [enabled, isRecording, startRecording, stopRecording])
+    // Removed auto-stop to prevent race conditions
+    // Stop is now handled manually by the component
+  }, [enabled, isRecording, startRecording])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopRecording()
+      // Fire-and-forget cleanup on unmount
+      stopRecording().catch(() => {
+        // Ignore errors during unmount cleanup
+      })
     }
   }, [stopRecording])
 
@@ -272,6 +311,7 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
     error,
     isRecording,
     audioLevel,
-    getAudioBlob
+    getAudioBlob,
+    stopRecording  // Export for manual control
   }
 }

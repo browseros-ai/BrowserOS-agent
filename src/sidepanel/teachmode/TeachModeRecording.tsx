@@ -29,7 +29,8 @@ export function TeachModeRecording() {
   const {
     error: transcriptionError,
     audioLevel,
-    getAudioBlob
+    getAudioBlob,
+    stopRecording: stopAudioRecording
   } = useAudioRecording({
     enabled: isRecordingActive
   })
@@ -78,8 +79,11 @@ export function TeachModeRecording() {
     if (!isRecordingActive) return
 
     try {
-      // Get audio blob from hook
-      const audioBlob = getAudioBlob()
+      console.log('[TeachModeRecording] Stopping audio recording...')
+      // Stop audio recording and get blob
+      const audioBlob = await stopAudioRecording()
+      console.log('[TeachModeRecording] Got audio blob:',
+        audioBlob ? `${audioBlob.size} bytes` : 'null')
 
       // Convert to base64 if audio exists
       let audioDataBase64: string | undefined
@@ -93,9 +97,12 @@ export function TeachModeRecording() {
           reader.onerror = reject
           reader.readAsDataURL(audioBlob)
         })
+        console.log('[TeachModeRecording] Converted to base64:',
+          audioDataBase64 ? `${audioDataBase64.length} chars` : 'null')
       }
 
       // Stop recording with audio data
+      console.log('[TeachModeRecording] Sending to store...')
       await stopRecording(audioDataBase64)
     } catch (error) {
       console.error('Failed to stop recording:', error)
