@@ -1,0 +1,85 @@
+import React, { useEffect, useRef } from 'react'
+import { cn } from '@/sidepanel/lib/utils'
+
+interface VoiceWaveformProps {
+  audioLevel: number  // 0-255 scale
+  isActive: boolean
+  className?: string
+}
+
+const BARS_COUNT = 50  // Number of bars to display
+const MAX_HEIGHT = 60  // Max bar height in pixels
+
+/**
+ * Real-time audio waveform visualization
+ * Shows vertical bars representing audio levels
+ */
+export function VoiceWaveform({ audioLevel, isActive, className }: VoiceWaveformProps) {
+  const levelsRef = useRef<number[]>(new Array(BARS_COUNT).fill(0))
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    if (!isActive) {
+      // Reset when inactive
+      levelsRef.current = new Array(BARS_COUNT).fill(0)
+      return
+    }
+
+    // Update levels array (sliding window)
+    levelsRef.current = [...levelsRef.current.slice(1), audioLevel]
+
+    // Render waveform
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const width = canvas.width
+    const height = canvas.height
+    const barWidth = width / BARS_COUNT
+    const centerY = height / 2
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height)
+
+    // Draw bars
+    levelsRef.current.forEach((level, index) => {
+      // Normalize level to 0-1 range
+      const normalized = Math.min(level / 100, 1)
+
+      // Calculate bar height (symmetric around center)
+      const barHeight = normalized * MAX_HEIGHT
+
+      // Bar position
+      const x = index * barWidth
+      const y = centerY - barHeight / 2
+
+      // Color based on level (more intense = lighter color)
+      const opacity = 0.3 + (normalized * 0.7)
+      ctx.fillStyle = `rgba(59, 130, 246, ${opacity})`  // Blue
+
+      // Draw rounded rectangle
+      const radius = barWidth / 4
+      ctx.beginPath()
+      ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius)
+      ctx.fill()
+    })
+  }, [audioLevel, isActive])
+
+  if (!isActive) {
+    return null
+  }
+
+  return (
+    <div className={cn('flex items-center justify-center p-4', className)}>
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={80}
+        className="w-full h-20"
+        style={{ imageRendering: 'crisp-edges' }}
+      />
+    </div>
+  )
+}

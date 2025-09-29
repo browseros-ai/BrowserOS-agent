@@ -4,8 +4,9 @@ import { Button } from '@/sidepanel/components/ui/button'
 import { StepCard } from './components/StepCard'
 import { VoiceIndicator } from './components/VoiceIndicator'
 import { TranscriptDisplay } from './components/TranscriptDisplay'
+import { VoiceWaveform } from './components/VoiceWaveform'
 import { useTeachModeStore } from './teachmode.store'
-import { useOpenAITranscription } from './hooks/useOpenAITranscription'
+import { useServerTranscription } from './hooks/useServerTranscription'
 import { formatDuration } from './teachmode.utils'
 import type { CapturedEvent } from './teachmode.types'
 import { cn } from '@/sidepanel/lib/utils'
@@ -26,8 +27,8 @@ export function TeachModeRecording() {
 
   const [recordingTime, setRecordingTime] = useState(0)
 
-  // Initialize OpenAI transcription for voice recording
-  const { error: transcriptionError, isSpeaking } = useOpenAITranscription({
+  // Initialize server transcription for voice recording
+  const { error: transcriptionError, audioLevel } = useServerTranscription({
     enabled: isRecordingActive
   })
 
@@ -238,8 +239,12 @@ export function TeachModeRecording() {
             </div>
           </div>
 
-          {/* Voice Transcript - Fixed at bottom */}
+          {/* Voice Waveform & Transcript - Fixed at bottom */}
           <div className="border-t bg-background">
+            <VoiceWaveform
+              audioLevel={audioLevel}
+              isActive={isRecordingActive}
+            />
             <TranscriptDisplay
               transcripts={transcripts}
               status={voiceStatus}
