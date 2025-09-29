@@ -197,6 +197,16 @@ export class Execution {
         });
       }
 
+      // Notify user about limited context when in agent mode
+      if (limitedContextMode && this.options.mode === 'browse') {
+        executionContext.getPubSub().publishMessage({
+          msgId: "limited_context_notice",
+          content: `ℹ️ Running with limited context (${Math.floor(modelCapabilities.maxTokens / 1000)}k tokens). Agent might struggle with complex workflows.`,
+          role: "assistant",
+          ts: Date.now(),
+        });
+      }
+
       // Create fresh agent
       const provideType = await langChainProvider.getCurrentProviderType() || '';
       const smallModelsList = ['ollama', 'custom', 'openai_compatible'];

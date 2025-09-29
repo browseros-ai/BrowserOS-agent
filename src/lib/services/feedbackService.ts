@@ -1,4 +1,5 @@
 import type { FeedbackSubmission } from '@/lib/types/feedback'
+import { Logging } from '@/lib/utils/Logging'
 
 /**
  * Cloudflare Worker Feedback Service
@@ -73,6 +74,14 @@ class FeedbackService {
         timestamp: feedback.timestamp
       })
 
+      // Log metric for successful feedback submission
+      await Logging.logMetric('feedback.submitted', {
+        type: feedback.type,
+        hasTextFeedback: !!feedback.textFeedback,
+        userQuery: feedback.userQuery,
+        agentResponse: feedback.agentResponse
+      })
+
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
@@ -81,6 +90,16 @@ class FeedbackService {
         }
       }
       console.error('Failed to submit feedback:', error)
+
+      // Log metric for failed feedback submission
+      await Logging.logMetric('feedback.failed', {
+        type: feedback.type,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        isTimeout: error instanceof Error && error.name === 'AbortError',
+        userQuery: feedback.userQuery,
+        agentResponse: feedback.agentResponse
+      })
+
       throw new Error('Failed to submit feedback')
     }
   }

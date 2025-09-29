@@ -63,8 +63,8 @@ export function isMockLLMSettings(): boolean {
  * 3. Set BRAINTRUST_PROJECT_NAME in your .env file (defaults to 'browseros-agent-online')
  * 4. Rebuild
  */
-export const ENABLE_TELEMETRY = process.env.ENABLE_TELEMETRY === 'true';
-export const ENABLE_EVALS2 = process.env.ENABLE_EVALS2 === 'true';
+export const ENABLE_TELEMETRY = false; // process.env.ENABLE_TELEMETRY === 'true';
+export const ENABLE_EVALS2 = false; //process.env.ENABLE_EVALS2 === 'true';
 export const BRAINTRUST_API_KEY = process.env.BRAINTRUST_API_KEY || '';
 export const BRAINTRUST_PROJECT_UUID = process.env.BRAINTRUST_PROJECT_UUID || '';
 export const BRAINTRUST_PROJECT_NAME = process.env.BRAINTRUST_PROJECT_NAME || 'browseros-agent-online';
