@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { cn } from '@/sidepanel/lib/utils'
 
 interface VoiceWaveformProps {
-  audioLevel: number  // 0-255 scale
+  audioLevel: number  // 0-100 scale
   isActive: boolean
   className?: string
 }

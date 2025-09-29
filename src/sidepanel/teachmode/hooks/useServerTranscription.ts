@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTeachModeStore } from '../teachmode.store'
 
 // Configuration constants
-const CHUNK_INTERVAL_MS = 2000  // How often to capture audio chunks (2000ms = 2 seconds)
 const API_URL = 'https://llm.browseros.com/api/transcribe'
-const VAD_THRESHOLD = 30  // Voice activity detection threshold (0-255 scale, tune based on testing)
-const MIN_CHUNK_SIZE = 500  // Minimum bytes to send (avoid tiny/empty chunks)
+const VAD_START_THRESHOLD = 0.014  // RMS threshold for detecting speech
+const VAD_HANGOVER_MS = 250  // Keep tagging speech briefly after it ends
+const MIN_RECORDING_SIZE_BYTES = 1800  // Guard against near-empty recordings
 
 interface UseServerTranscriptionProps {
   enabled: boolean
@@ -18,21 +18,19 @@ interface UseServerTranscriptionProps {
 class VoiceActivityDetector {
   private analyser: AnalyserNode
   private audioContext: AudioContext
-  private dataArray: Uint8Array
-  private threshold: number
-  private hadSpeechInCurrentChunk: boolean = false
+  private timeDomainData: Uint8Array
+  private hadSpeechInCurrentChunk = false
+  private lastSpeechDetectedAt: number | null = null
   private animationFrameId: number | null = null
-  private onLevelUpdate?: (level: number) => void
+  private smoothedLevel = 0
 
-  constructor(stream: MediaStream, threshold: number, onLevelUpdate?: (level: number) => void) {
+  constructor(stream: MediaStream, private onLevelUpdate?: (level: number) => void) {
     this.audioContext = new AudioContext()
     this.analyser = this.audioContext.createAnalyser()
-    this.analyser.fftSize = 512
+    this.analyser.fftSize = 1024
     this.analyser.smoothingTimeConstant = 0.8
-    this.threshold = threshold
-    this.onLevelUpdate = onLevelUpdate
 
-    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount)
+    this.timeDomainData = new Uint8Array(this.analyser.fftSize)
 
     const source = this.audioContext.createMediaStreamSource(stream)
     source.connect(this.analyser)
@@ -43,25 +41,34 @@ class VoiceActivityDetector {
   }
 
   private monitor = () => {
-    this.analyser.getByteFrequencyData(this.dataArray)
+    this.analyser.getByteTimeDomainData(this.timeDomainData)
 
-    // Calculate average amplitude
-    const average = this.dataArray.reduce((sum, val) => sum + val, 0) / this.dataArray.length
-
-    // Mark if we detected speech
-    if (average > this.threshold) {
-      this.hadSpeechInCurrentChunk = true
+    let sumSquares = 0
+    for (let i = 0; i < this.timeDomainData.length; i++) {
+      const centeredSample = (this.timeDomainData[i] - 128) / 128
+      sumSquares += centeredSample * centeredSample
     }
 
-    // Notify level for visualization
+    const rms = Math.sqrt(sumSquares / this.timeDomainData.length)
+
+    // Light smoothing so the waveform stays readable
+    this.smoothedLevel = (this.smoothedLevel * 0.7) + (rms * 0.3)
     if (this.onLevelUpdate) {
-      this.onLevelUpdate(average)
+      const normalizedLevel = Math.min(1, this.smoothedLevel * 8)
+      this.onLevelUpdate(Math.round(normalizedLevel * 100))
+    }
+
+    const now = performance.now()
+    if (rms >= VAD_START_THRESHOLD) {
+      this.hadSpeechInCurrentChunk = true
+      this.lastSpeechDetectedAt = now
+    } else if (this.lastSpeechDetectedAt && (now - this.lastSpeechDetectedAt) < VAD_HANGOVER_MS) {
+      this.hadSpeechInCurrentChunk = true
     }
 
     this.animationFrameId = requestAnimationFrame(this.monitor)
   }
 
-  // Check and reset for next chunk
   hadSpeech(): boolean {
     const result = this.hadSpeechInCurrentChunk
     this.hadSpeechInCurrentChunk = false
@@ -95,32 +102,22 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const vadRef = useRef<VoiceActivityDetector | null>(null)
-  const chunkCountRef = useRef(0)
-  const audioChunksRef = useRef<Blob[]>([])  // Accumulate chunks
+  const recordingDataRef = useRef<Blob[]>([])
+  const hasSpeechRef = useRef(false)
 
   const { addTranscript, setVoiceStatus } = useTeachModeStore()
 
-  // Send audio chunk to API
-  const sendToAPI = useCallback(async (audioBlob: Blob, chunkIndex: number) => {
+  // Send audio to API
+  const sendToAPI = useCallback(async (audioBlob: Blob) => {
     try {
-      // Debug: Check blob details
-      console.log(`[Chunk #${chunkIndex}] Sending:`, {
+      console.log('Sending recording:', {
         size: audioBlob.size,
         type: audioBlob.type,
         sizeKB: (audioBlob.size / 1024).toFixed(2) + 'KB'
       })
 
-      // Check first few bytes to see if it's a valid WebM
-      const arrayBuffer = await audioBlob.slice(0, 4).arrayBuffer()
-      const bytes = new Uint8Array(arrayBuffer)
-      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ')
-      console.log(`[Chunk #${chunkIndex}] First 4 bytes:`, hex)
-      // Valid WebM should start with: 1a 45 df a3 (EBML header)
-
       const formData = new FormData()
-      // Ensure filename matches the type
-      const filename = audioBlob.type.includes('opus') ? 'audio.webm' : 'audio.webm'
-      formData.append('file', audioBlob, filename)
+      formData.append('file', audioBlob, 'recording.webm')
       formData.append('model', 'gpt-4o-mini-transcribe')
       formData.append('response_format', 'json')
 
@@ -172,11 +169,12 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
       })
 
       streamRef.current = stream
+      recordingDataRef.current = []
+      hasSpeechRef.current = false
 
       // Initialize VAD
       vadRef.current = new VoiceActivityDetector(
         stream,
-        VAD_THRESHOLD,
         (level) => setAudioLevel(level)
       )
       vadRef.current.start()
@@ -188,43 +186,55 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
-        audioBitsPerSecond: 16000
+        audioBitsPerSecond: 64000
       })
 
       mediaRecorderRef.current = mediaRecorder
 
-      // Handle chunks with VAD check - send individually
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          const hasSpeech = vadRef.current?.hadSpeech()
-          chunkCountRef.current++
+        const blob = event.data
+        if (!blob || blob.size === 0) {
+          console.log('✗ Skipped empty chunk')
+          return
+        }
 
-          if (hasSpeech && event.data.size > MIN_CHUNK_SIZE) {  // Avoid tiny chunks
-            // Send individual chunk directly - DO NOT accumulate
-            console.log(`✓ Sending chunk #${chunkCountRef.current} with speech (${event.data.size} bytes)`)
+        recordedChunksRef.current.push(blob)
+        chunkCountRef.current += 1
 
-            // Create proper blob with mime type including codec
-            const audioBlob = new Blob([event.data], {
-              type: 'audio/webm;codecs=opus'
-            })
-
-            sendToAPI(audioBlob, chunkCountRef.current)
-          } else {
-            console.log(`✗ Skipped chunk #${chunkCountRef.current} (silent or too small: ${event.data.size} bytes)`)
-          }
+        const hasSpeech = vadRef.current?.hadSpeech() ?? false
+        if (hasSpeech) {
+          hasSpeechRef.current = true
+          console.log(`✓ Captured chunk #${chunkCountRef.current} with speech (${blob.size} bytes)`)
+        } else {
+          console.log(`… Captured chunk #${chunkCountRef.current} (marked silent, ${blob.size} bytes)`)  // Still needed for container integrity
         }
       }
 
       mediaRecorder.onstop = () => {
-        // No accumulation anymore - chunks sent individually
-        console.log(`Recording stopped after ${chunkCountRef.current} chunks`)
+        const combinedBlob = recordedChunksRef.current.length
+          ? new Blob(recordedChunksRef.current, { type: mimeType })
+          : null
+
+        if (combinedBlob && combinedBlob.size >= MIN_CHUNK_SIZE_BYTES && hasSpeechRef.current) {
+          console.log(`→ Sending combined recording (${combinedBlob.size} bytes) after ${chunkCountRef.current} chunks`)
+          void sendToAPI(combinedBlob, chunkCountRef.current)
+        } else {
+          console.log('✗ Skipped upload (no speech or blob too small)', {
+            chunkCount: chunkCountRef.current,
+            hadSpeech: hasSpeechRef.current,
+            size: combinedBlob?.size ?? 0
+          })
+        }
+
+        recordedChunksRef.current = []
+        hasSpeechRef.current = false
+        chunkCountRef.current = 0
 
         stream.getTracks().forEach(track => track.stop())
         streamRef.current = null
         setIsRecording(false)
         setAudioLevel(0)
         setVoiceStatus('idle')
-        chunkCountRef.current = 0
       }
 
       mediaRecorder.onerror = (event: any) => {
@@ -233,13 +243,13 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
         stopRecording()
       }
 
-      // Start with 1s chunks
+      // Start recording with fixed chunk interval
       mediaRecorder.start(CHUNK_INTERVAL_MS)
 
       setIsRecording(true)
       setVoiceStatus('connected')
 
-      console.log('Recording started with VAD (threshold:', VAD_THRESHOLD, ')')
+      console.log('Recording started with RMS-based VAD')
 
     } catch (err: any) {
       console.error('Failed to start recording:', err)
