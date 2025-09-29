@@ -42,7 +42,7 @@ export function useOpenAITranscription({ enabled }: UseOpenAITranscriptionProps)
   const isProcessingRef = useRef(false)
 
   // Store actions
-  const { addTranscript, setVapiStatus } = useTeachModeStore()
+  const { addTranscript, setVoiceStatus } = useTeachModeStore()
 
   // Process audio chunks and send to OpenAI
   const processAudioChunk = useCallback(async () => {
@@ -167,7 +167,7 @@ export function useOpenAITranscription({ enabled }: UseOpenAITranscriptionProps)
     try {
       setError(null)
       setIsConnecting(true)
-      setVapiStatus('connecting')
+      setVoiceStatus('connecting')
 
       // Check for API key
       if (!process.env.OPENAI_API_KEY) {
@@ -225,7 +225,7 @@ export function useOpenAITranscription({ enabled }: UseOpenAITranscriptionProps)
         stream.getTracks().forEach(track => track.stop())
         streamRef.current = null
         setIsConnected(false)
-        setVapiStatus('idle')
+        setVoiceStatus('idle')
       }
 
       // Handle errors
@@ -240,7 +240,7 @@ export function useOpenAITranscription({ enabled }: UseOpenAITranscriptionProps)
 
       setIsConnected(true)
       setIsConnecting(false)
-      setVapiStatus('connected')
+      setVoiceStatus('connected')
 
       // Start audio level monitoring
       updateAudioLevel()
@@ -266,9 +266,9 @@ export function useOpenAITranscription({ enabled }: UseOpenAITranscriptionProps)
 
       setError(errorMessage)
       setIsConnecting(false)
-      setVapiStatus('error')
+      setVoiceStatus('error')
     }
-  }, [processAudioChunk, setVapiStatus, updateAudioLevel])
+  }, [processAudioChunk, setVoiceStatus, updateAudioLevel])
 
   // Stop recording
   const stopRecording = useCallback(() => {

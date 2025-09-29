@@ -5,13 +5,13 @@ import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 import { MessageType } from '@/lib/types/messaging'
 import { PortMessaging } from '@/lib/runtime/PortMessaging'
 
-interface VapiTranscript {
+interface voiceTranscript {
   timestamp: number
   text: string
   isFinal: boolean
 }
 
-type VapiStatus = 'idle' | 'connecting' | 'connected' | 'error'
+type voiceStatus = 'idle' | 'connecting' | 'connected' | 'error'
 
 interface TeachModeStore {
   // State
@@ -32,9 +32,9 @@ interface TeachModeStore {
     actionType?: string  // Current action being processed
     message: string
   } | null
-  // VAPI integration state
-  transcripts: VapiTranscript[]
-  vapiStatus: VapiStatus
+  // Voice integration state
+  transcripts: voiceTranscript[]
+  voiceStatus: voiceStatus
   // Port messaging instance
   portMessaging: PortMessaging | null
   // Cached semantic workflow for active recording
@@ -58,10 +58,9 @@ interface TeachModeStore {
   loadRecordings: () => Promise<void>
   getWorkflow: (recordingId: string) => Promise<SemanticWorkflow | null>
   handleBackendEvent: (payload: TeachModeEventPayload) => void
-  // VAPI actions
-  addTranscript: (transcript: VapiTranscript) => void
+  addTranscript: (transcript: voiceTranscript) => void
   clearTranscripts: () => void
-  setVapiStatus: (status: VapiStatus) => void
+  setVoiceStatus: (status: voiceStatus) => void
   // Port messaging setup
   initializePortMessaging: () => void
 }
@@ -79,9 +78,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   isRecordingActive: false,
   currentSessionId: null,
   preprocessingStatus: null,
-  // VAPI state
+  // Voice state
   transcripts: [],
-  vapiStatus: 'idle',
+  voiceStatus: 'idle',
   // Port messaging
   portMessaging: null,
   activeWorkflow: null,
@@ -95,7 +94,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     recordingStartTime: null,
     isRecordingActive: false,
     transcripts: [],
-    vapiStatus: 'idle'
+    voiceStatus: 'idle'
   }),
 
   startRecording: async () => {
@@ -183,7 +182,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       activeRecording: null,
       currentSessionId: null,
       transcripts: [],
-      vapiStatus: 'idle'
+      voiceStatus: 'idle'
     })
   },
 
@@ -350,7 +349,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     currentSessionId: null,
     preprocessingStatus: null,
     transcripts: [],
-    vapiStatus: 'idle'
+    voiceStatus: 'idle'
   }),
 
   loadRecordings: async () => {
@@ -658,7 +657,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     }
   },
 
-  // VAPI actions
+  // Voice actions
   addTranscript: (transcript) => set((state) => ({
     transcripts: [...state.transcripts, transcript]
   })),
@@ -667,8 +666,8 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     transcripts: []
   }),
 
-  setVapiStatus: (status) => set({
-    vapiStatus: status
+  setVoiceStatus: (status) => set({
+    voiceStatus: status
   }),
 
   // Initialize port messaging

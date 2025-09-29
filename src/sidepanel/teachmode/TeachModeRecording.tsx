@@ -20,7 +20,7 @@ export function TeachModeRecording() {
     cancelRecording,
     isRecordingActive,
     transcripts,
-    vapiStatus,
+    voiceStatus,
     clearTranscripts
   } = useTeachModeStore()
 
@@ -242,7 +242,7 @@ export function TeachModeRecording() {
           <div className="border-t bg-background">
             <TranscriptDisplay
               transcripts={transcripts}
-              status={vapiStatus}
+              status={voiceStatus}
               isRecordingActive={isRecordingActive}
             />
           </div>
