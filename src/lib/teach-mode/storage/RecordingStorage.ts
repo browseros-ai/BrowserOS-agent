@@ -13,6 +13,7 @@ interface StorageMetadata {
   startTimestamp: number  // Match new schema
   endTimestamp: number  // Match new schema
   eventCount: number
+  stepCount: number  // Workflow step count
   sizeBytes: number
   createdAt: number
 }
@@ -69,6 +70,7 @@ export class RecordingStorage {
         startTimestamp: recording.session.startTimestamp,
         endTimestamp: recording.session.endTimestamp || Date.now(),
         eventCount: recording.events.length,
+        stepCount: 0,  // Will be updated when workflow is created
         sizeBytes,
         createdAt: Date.now()
       }
@@ -106,18 +108,19 @@ export class RecordingStorage {
         [workflowKey]: json
       })
 
-      // Update the recording's title with the workflow name
-      if (workflow.metadata.name) {
-        const index = await this._getIndex()
-        const recording = index.recordings.find(r => r.id === recordingId)
-        if (recording) {
+      // Update the recording's title and step count with the workflow data
+      const index = await this._getIndex()
+      const recording = index.recordings.find(r => r.id === recordingId)
+      if (recording) {
+        if (workflow.metadata.name) {
           recording.title = workflow.metadata.name
-          index.lastUpdated = Date.now()
-          await chrome.storage.local.set({
-            [STORAGE_INDEX_KEY]: index
-          })
-          Logging.log('RecordingStorage', `Updated title to "${workflow.metadata.name}" for recording ${recordingId}`)
         }
+        recording.stepCount = workflow.steps.length
+        index.lastUpdated = Date.now()
+        await chrome.storage.local.set({
+          [STORAGE_INDEX_KEY]: index
+        })
+        Logging.log('RecordingStorage', `Updated recording ${recordingId}: title="${workflow.metadata.name}", steps=${workflow.steps.length}`)
       }
 
       Logging.log('RecordingStorage', `Saved workflow for recording ${recordingId}`)

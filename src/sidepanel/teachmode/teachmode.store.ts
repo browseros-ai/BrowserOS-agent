@@ -340,7 +340,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   }),
 
   loadRecordings: async () => {
-    const { portMessaging } = get()
+    const { portMessaging, getWorkflow } = get()
     if (!portMessaging) {
       throw new Error('Port messaging not initialized')
     }
@@ -353,18 +353,43 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
 
       if (response?.success && response.recordings) {
         // Convert backend format to UI format
-        const recordings: TeachModeRecording[] = response.recordings.map((rec: any) => ({
-          id: rec.id,
-          name: rec.title || 'Untitled Recording',
-          description: rec.description || `${rec.eventCount} events captured`,
-          intent: rec.description || '',
-          icon: '🎯',
-          steps: [],  // Will be loaded when needed
-          duration: Math.floor((rec.endTime - rec.startTime) / 1000),
-          createdAt: rec.createdAt,
-          runCount: 0,
-          successCount: 0,
-          failureCount: 0
+        const recordings: TeachModeRecording[] = await Promise.all(response.recordings.map(async (rec: any) => {
+          let stepCount = rec.stepCount
+
+          // Migration: if stepCount is missing or 0, try to fetch workflow to get actual count
+          if (stepCount === undefined || stepCount === 0) {
+            const workflow = await getWorkflow(rec.id)
+            if (workflow?.steps) {
+              stepCount = workflow.steps.length
+            } else {
+              stepCount = 0
+            }
+          }
+
+          // Create placeholder steps array with correct length for UI display
+          const steps = Array(stepCount).fill(null).map((_, i) => ({
+            id: `placeholder-${i}`,
+            timestamp: 0,
+            stepNumber: i + 1,
+            action: {
+              type: 'click' as const,
+              description: '',
+            }
+          }))
+
+          return {
+            id: rec.id,
+            name: rec.title || 'Untitled Recording',
+            description: rec.description || `${rec.eventCount} events captured`,
+            intent: rec.description || '',
+            icon: '🎯',
+            steps,
+            duration: Math.floor((rec.endTimestamp - rec.startTimestamp) / 1000),
+            createdAt: rec.createdAt,
+            runCount: 0,
+            successCount: 0,
+            failureCount: 0
+          }
         }))
 
         set({ recordings })

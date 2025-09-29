@@ -24,11 +24,6 @@ export function TeachModeSummary() {
     setMode('idle')
   }
 
-  const handleContinueManually = () => {
-    // Open the browser tab where execution stopped
-    console.log('Continue manually')
-  }
-
   const isSuccess = executionSummary.success
   const isPartialSuccess = !isSuccess && executionSummary.stepsCompleted > 0
 
@@ -84,13 +79,6 @@ export function TeachModeSummary() {
                 {formatDuration(executionSummary.duration)}
               </span>
             </div>
-
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Steps completed</span>
-              <span className="text-foreground">
-                {executionSummary.stepsCompleted}/{executionSummary.totalSteps}
-              </span>
-            </div>
           </div>
 
           {/* Success results */}
@@ -113,24 +101,11 @@ export function TeachModeSummary() {
           {!isSuccess && executionSummary.errorMessage && (
             <div className="pt-3 border-t border-border">
               <div className="text-sm font-medium text-foreground mb-1">
-                Failed at Step {executionSummary.failedAtStep}:
+                Error Details:
               </div>
               <p className="text-sm text-destructive">
                 {executionSummary.errorMessage}
               </p>
-
-              {isPartialSuccess && (
-                <div className="mt-3">
-                  <div className="text-sm font-medium text-foreground mb-1">
-                    Completed:
-                  </div>
-                  <ul className="space-y-0.5 text-sm text-muted-foreground">
-                    <li>• Navigated to Gmail ✓</li>
-                    <li>• Found promotional tab ✓</li>
-                    <li>• Opened first email ✓</li>
-                  </ul>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -157,23 +132,14 @@ export function TeachModeSummary() {
               </Button>
             </>
           ) : (
-            <>
-              <Button
-                onClick={handleContinueManually}
-                variant="outline"
-                className="w-full border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
-              >
-                Continue Manually
-              </Button>
-              <Button
-                onClick={handleRunAgain}
-                variant="outline"
-                className="w-full gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Try Again
-              </Button>
-            </>
+            <Button
+              onClick={handleRunAgain}
+              variant="outline"
+              className="w-full gap-2 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </Button>
           )}
 
           <Button
