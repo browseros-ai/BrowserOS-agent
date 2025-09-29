@@ -464,7 +464,7 @@ export class TeachModeService {
       console.log(`Created workflow with ${workflow.steps.length} steps`)
       Logging.log('TeachModeService', `Created workflow with ${workflow.steps.length} steps`)
 
-      // Save workflow
+      // Save workflow (this also updates the title)
       await storage.saveWorkflow(recordingId, workflow)
 
       // Emit preprocessing completed

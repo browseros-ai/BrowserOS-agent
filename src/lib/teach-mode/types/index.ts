@@ -213,6 +213,7 @@ export const TeachModeRecordingSchema = z.object({
 export const SemanticWorkflowSchema = z.object({
   metadata: z.object({
     recordingId: z.string(),  // Source recording ID
+    name: z.string(),  // Concise workflow name (2-3 words)
     goal: z.string(),  // High-level goal
     description: z.string().optional(),  // Detailed description
     createdAt: z.number(),  // Creation timestamp

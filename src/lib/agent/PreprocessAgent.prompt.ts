@@ -93,15 +93,32 @@ export function generateGoalExtractionPrompt(): string {
   return `
 You are provided with a voice transcript in which a user demonstrates a browser-based workflow to instruct an automation agent.
 
-Your job is to extract two things:
-1. **Workflow Description:** Clearly and concisely summarize the actions the user performed in their browser session. This should capture the demonstrated process in a way that stands alone and is easy to understand.
-2. **User Goal:** Identify what the user wants the agent to accomplish next. This may involve repeating the demonstrated workflow exactly, or performing a modified or scaled version based on the user’s instructions. The goal should be actionable and independent of the demonstration.
+Your job is to extract three things:
+1. **Workflow Name:** A concise 2-3 word name that captures the essence of the workflow. Make it descriptive and action-oriented.
+2. **Workflow Description:** Clearly and concisely summarize the actions the user performed in their browser session. This should capture the demonstrated process in a way that stands alone and is easy to understand.
+3. **User Goal:** Identify what the user wants the agent to accomplish next. This may involve repeating the demonstrated workflow exactly, or performing a modified or scaled version based on the user's instructions. The goal should be actionable and independent of the demonstration.
+
+## Workflow Naming Guidelines:
+- Keep it to 2-3 words maximum
+- Make it action-oriented (use verbs when appropriate)
+- Be specific to the task, not generic
+- Use title case (capitalize each word)
+- Examples of good names:
+  - "Gmail Unsubscribe" (for unsubscribing from newsletters)
+  - "LinkedIn Connect" (for sending connection requests)
+  - "Product Search" (for searching and finding products)
+  - "Form Submission" (for filling and submitting forms)
+  - "Data Entry" (for entering data into spreadsheets)
+  - "Email Cleanup" (for organizing/deleting emails)
+  - "Social Follow" (for following people on social media)
+  - "Price Check" (for checking product prices)
 
 ## Decision Logic:
 - If the user specifies new parameters, targets, or a different scale, interpret this as a request for a MODIFIED version of the workflow.
 - If the user does not specify changes, assume they want the EXACT SAME workflow repeated.
 
 Respond in the following format:
+Workflow Name: <2-3 word descriptive name>
 Workflow Description: <concise summary of the demonstrated workflow>
 User Goal: <clear statement of what the agent should do next>
 
@@ -109,26 +126,31 @@ User Goal: <clear statement of what the agent should do next>
 
 **Example 1 - Modified Workflow:**
 Transcript: "I navigated to LinkedIn, searched for Meta, and sent a connection request to one Meta employee. Now I want you to do the same thing but for Google employees, and send requests to 20 people."
+Workflow Name: LinkedIn Connect
 Workflow Description: The user demonstrated how to navigate LinkedIn, search for a company (Meta), and send a connection request to one employee.
 User Goal: Open LinkedIn, search for Google employees, and send connection requests to 20 Google employees.
 
 **Example 2 - Same Workflow:**
 Transcript: "I went to Gmail, found newsletter emails, and unsubscribed from one of them. I want you to continue doing this for all the other newsletters."
+Workflow Name: Gmail Unsubscribe
 Workflow Description: The user demonstrated how to navigate Gmail, identify newsletter emails, and unsubscribe from one newsletter.
 User Goal: Open Gmail, identify all newsletter emails, and unsubscribe from all remaining newsletter emails in the inbox.
 
 **Example 3 - Modified Scale:**
 Transcript: "I searched for one YC startup on Google and added their info to this spreadsheet. Please do this for all YC W24 companies."
+Workflow Name: Startup Research
 Workflow Description: The user demonstrated searching for a single YC startup and entering their information into a spreadsheet.
 User Goal: Search for all YC Winter 2024 companies and enter their information into the spreadsheet.
 
 **Example 4 - Different Target:**
 Transcript: "I logged into Twitter, searched for AI researchers, and followed 5 people. Now do the same but for machine learning engineers, follow 10 of them."
+Workflow Name: Social Follow
 Workflow Description: The user demonstrated how to search for specific professionals on Twitter and follow them.
 User Goal: Search for machine learning engineers on Twitter and follow 10 machine learning engineers.
 
 **Example 5 - Exact Repetition:**
 Transcript: "I went to amazon.com, searched for Mac mini, added it to the cart and chose the cheapest option. And finally clicked on the checkout button at my primary address."
+Workflow Name: Product Purchase
 Workflow Description: The user demonstrated navigating to amazon.com, searching for Mac mini, adding it to the cart and choosing the cheapest option. And finally clicking on the checkout button at my primary address.
 User Goal: Navigate to amazon.com, search for Mac mini, add it to the cart and choose the cheapest option. And finally click on the checkout button at my primary address.
 

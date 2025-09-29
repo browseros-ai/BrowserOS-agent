@@ -24,6 +24,7 @@ const EventAnalysisSchema = z.object({
 });
 
 const GoalExtractionSchema = z.object({
+  workflowName: z.string(),  // Concise 2-3 word workflow name
   workflowDescription: z.string(),  // Summary of the demonstrated workflow
   userGoal: z.string()  // What the user wants the agent to accomplish
 });
@@ -141,6 +142,7 @@ export class PreprocessAgent {
       const workflow: SemanticWorkflow = {
         metadata: {
           recordingId: validatedRecording.session.id,
+          name: this.goalExtracted?.workflowName || "Untitled Workflow",
           goal: this.goalExtracted?.userGoal || "No specific goal provided",
           description: this.goalExtracted?.workflowDescription,
           createdAt: Date.now(),
@@ -342,6 +344,7 @@ export class PreprocessAgent {
     try {
       if (!transcript.trim()) {
         return {
+          workflowName: "Untitled Workflow",
           workflowDescription: "",
           userGoal: "Perform the same workflow as demonstrated by the user"
         };
@@ -369,6 +372,7 @@ export class PreprocessAgent {
     } catch (error) {
       Logging.log("PreprocessAgent", `Goal extraction failed: ${error}`, "warning");
       return {
+        workflowName: "Untitled Workflow",
         workflowDescription: "",
         userGoal: "Perform the same workflow as demonstrated by the user"
       };

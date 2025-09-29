@@ -106,6 +106,20 @@ export class RecordingStorage {
         [workflowKey]: json
       })
 
+      // Update the recording's title with the workflow name
+      if (workflow.metadata.name) {
+        const index = await this._getIndex()
+        const recording = index.recordings.find(r => r.id === recordingId)
+        if (recording) {
+          recording.title = workflow.metadata.name
+          index.lastUpdated = Date.now()
+          await chrome.storage.local.set({
+            [STORAGE_INDEX_KEY]: index
+          })
+          Logging.log('RecordingStorage', `Updated title to "${workflow.metadata.name}" for recording ${recordingId}`)
+        }
+      }
+
       Logging.log('RecordingStorage', `Saved workflow for recording ${recordingId}`)
 
       return recordingId
