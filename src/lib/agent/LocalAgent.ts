@@ -747,8 +747,8 @@ Continue upon the previous steps what has been done so far and suggest next step
       // Build messages
       const messages = [
         new SystemMessage(systemPrompt),
-        browserStateMessage,
         new HumanMessage(userPrompt),
+        browserStateMessage,
       ];
 
       // Get string response from LLM with retry logic
@@ -1378,8 +1378,8 @@ Continue upon your previous steps what has been done so far and suggest next ste
       );
       const messages = [
         new SystemMessage(systemPrompt),
-        browserStateMessage,
         new HumanMessage(userPrompt),
+        browserStateMessage,
       ];
 
       // Get string response with retry

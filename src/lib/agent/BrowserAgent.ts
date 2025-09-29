@@ -787,8 +787,8 @@ ${fullHistory}
       // Build messages
       const messages = [
         new SystemMessage(systemPrompt),
-        browserStateMessage,
         new HumanMessage(userPrompt),
+        browserStateMessage,
       ];
 
       // Get structured response from LLM with retry logic
@@ -1407,8 +1407,8 @@ ${fullHistory}
       );
       const messages = [
         new SystemMessage(systemPrompt),
-        browserStateMessage,
         new HumanMessage(userPrompt),
+        browserStateMessage
       ];
 
       // Get structured response with retry
