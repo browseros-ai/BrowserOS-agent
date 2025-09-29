@@ -118,7 +118,6 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
 
       const formData = new FormData()
       formData.append('file', audioBlob, 'recording.webm')
-      formData.append('model', 'gpt-4o-mini-transcribe')
       formData.append('response_format', 'json')
 
       const response = await fetch(API_URL, {
@@ -192,43 +191,29 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
       mediaRecorderRef.current = mediaRecorder
 
       mediaRecorder.ondataavailable = (event) => {
-        const blob = event.data
-        if (!blob || blob.size === 0) {
-          console.log('✗ Skipped empty chunk')
-          return
-        }
-
-        recordedChunksRef.current.push(blob)
-        chunkCountRef.current += 1
-
-        const hasSpeech = vadRef.current?.hadSpeech() ?? false
-        if (hasSpeech) {
-          hasSpeechRef.current = true
-          console.log(`✓ Captured chunk #${chunkCountRef.current} with speech (${blob.size} bytes)`)
-        } else {
-          console.log(`… Captured chunk #${chunkCountRef.current} (marked silent, ${blob.size} bytes)`)  // Still needed for container integrity
+        if (event.data && event.data.size > 0) {
+          recordingDataRef.current.push(event.data)
         }
       }
 
       mediaRecorder.onstop = () => {
-        const combinedBlob = recordedChunksRef.current.length
-          ? new Blob(recordedChunksRef.current, { type: mimeType })
+        const recording = recordingDataRef.current.length > 0
+          ? new Blob(recordingDataRef.current, { type: mimeType })
           : null
 
-        if (combinedBlob && combinedBlob.size >= MIN_CHUNK_SIZE_BYTES && hasSpeechRef.current) {
-          console.log(`→ Sending combined recording (${combinedBlob.size} bytes) after ${chunkCountRef.current} chunks`)
-          void sendToAPI(combinedBlob, chunkCountRef.current)
+        if (recording && recording.size >= MIN_RECORDING_SIZE_BYTES && hasSpeechRef.current) {
+          console.log(`→ Sending recording (${recording.size} bytes)`)
+          void sendToAPI(recording)
         } else {
-          console.log('✗ Skipped upload (no speech or blob too small)', {
-            chunkCount: chunkCountRef.current,
+          console.log('✗ Skipped upload', {
             hadSpeech: hasSpeechRef.current,
-            size: combinedBlob?.size ?? 0
+            size: recording?.size ?? 0,
+            minRequired: MIN_RECORDING_SIZE_BYTES
           })
         }
 
-        recordedChunksRef.current = []
+        recordingDataRef.current = []
         hasSpeechRef.current = false
-        chunkCountRef.current = 0
 
         stream.getTracks().forEach(track => track.stop())
         streamRef.current = null
@@ -243,8 +228,20 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
         stopRecording()
       }
 
-      // Start recording with fixed chunk interval
-      mediaRecorder.start(CHUNK_INTERVAL_MS)
+      // Start continuous recording
+      mediaRecorder.start()
+
+      // Monitor for speech during recording
+      const speechMonitorInterval = setInterval(() => {
+        if (vadRef.current?.hadSpeech()) {
+          hasSpeechRef.current = true
+        }
+      }, 100)
+
+      // Store interval ID for cleanup
+      mediaRecorder.addEventListener('stop', () => {
+        clearInterval(speechMonitorInterval)
+      }, { once: true })
 
       setIsRecording(true)
       setVoiceStatus('connected')
@@ -283,6 +280,9 @@ export function useServerTranscription({ enabled }: UseServerTranscriptionProps)
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
     }
+
+    // Don't clear recording refs here - onstop handler needs them to send final audio to API
+    // onstop will clear them after processing (lines 215-216)
 
     setIsRecording(false)
     setAudioLevel(0)
