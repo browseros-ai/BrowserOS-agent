@@ -242,7 +242,7 @@ export function TeachModeRecording() {
           <div className="border-t bg-background">
             <TranscriptDisplay
               transcripts={transcripts}
-              vapiStatus={vapiStatus}
+              status={vapiStatus}
               isRecordingActive={isRecordingActive}
             />
           </div>

@@ -2,19 +2,19 @@ import React, { useRef, useEffect } from 'react'
 import { Mic, MicOff, Volume2 } from 'lucide-react'
 import { cn } from '@/sidepanel/lib/utils'
 
-interface VapiTranscript {
+interface Transcript {
   timestamp: number
   text: string
   isFinal: boolean
 }
 
 interface TranscriptDisplayProps {
-  transcripts: VapiTranscript[]
-  vapiStatus: 'idle' | 'connecting' | 'connected' | 'error'
+  transcripts: Transcript[]
+  status: 'idle' | 'connecting' | 'connected' | 'error'
   isRecordingActive: boolean
 }
 
-export function TranscriptDisplay({ transcripts, vapiStatus, isRecordingActive }: TranscriptDisplayProps) {
+export function TranscriptDisplay({ transcripts, status: status, isRecordingActive }: TranscriptDisplayProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new transcripts are added
@@ -28,7 +28,7 @@ export function TranscriptDisplay({ transcripts, vapiStatus, isRecordingActive }
     return null
   }
 
-  const isListening = vapiStatus === 'connected'
+  const isListening = status === 'connected'
   const latestTranscript = transcripts[transcripts.length - 1]
 
   return (
@@ -46,7 +46,7 @@ export function TranscriptDisplay({ transcripts, vapiStatus, isRecordingActive }
                 </div>
                 <span className="text-xs font-medium text-green-600">Listening</span>
               </div>
-            ) : vapiStatus === 'connecting' ? (
+            ) : status === 'connecting' ? (
               <div className="flex items-center gap-1.5">
                 <Mic className="w-4 h-4 text-yellow-600 animate-pulse" />
                 <span className="text-xs text-yellow-600">Connecting...</span>
@@ -63,7 +63,7 @@ export function TranscriptDisplay({ transcripts, vapiStatus, isRecordingActive }
           <div className="text-xs text-muted-foreground">
             {isListening
               ? "Speak to narrate your actions..."
-              : vapiStatus === 'error'
+              : status === 'error'
               ? "Voice unavailable (check API key)"
               : "Waiting to connect..."}
           </div>
