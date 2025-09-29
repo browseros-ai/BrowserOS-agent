@@ -4,6 +4,7 @@ import { cn } from '@/sidepanel/lib/utils'
 interface VoiceWaveformProps {
   audioLevel: number  // 0-100 scale
   isActive: boolean
+  isMuted?: boolean
   className?: string
 }
 
@@ -14,7 +15,7 @@ const MAX_HEIGHT = 60  // Max bar height in pixels
  * Real-time audio waveform visualization
  * Shows vertical bars representing audio levels
  */
-export function VoiceWaveform({ audioLevel, isActive, className }: VoiceWaveformProps) {
+export function VoiceWaveform({ audioLevel, isActive, isMuted = false, className }: VoiceWaveformProps) {
   const levelsRef = useRef<number[]>(new Array(BARS_COUNT).fill(0))
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -25,8 +26,9 @@ export function VoiceWaveform({ audioLevel, isActive, className }: VoiceWaveform
       return
     }
 
-    // Update levels array (sliding window)
-    levelsRef.current = [...levelsRef.current.slice(1), audioLevel]
+    // Update levels array (sliding window) - show flatline when muted
+    const effectiveLevel = isMuted ? 0 : audioLevel
+    levelsRef.current = [...levelsRef.current.slice(1), effectiveLevel]
 
     // Render waveform
     const canvas = canvasRef.current
@@ -56,8 +58,11 @@ export function VoiceWaveform({ audioLevel, isActive, className }: VoiceWaveform
       const y = centerY - barHeight / 2
 
       // Color based on level (more intense = lighter color)
+      // Gray when muted, orange when active
       const opacity = 0.3 + (normalized * 0.7)
-      ctx.fillStyle = `rgba(251, 101, 31, ${opacity})`  // Brand orange (hsl(19 96% 55%))
+      ctx.fillStyle = isMuted
+        ? `rgba(156, 163, 175, ${opacity})`  // Gray when muted
+        : `rgba(251, 101, 31, ${opacity})`  // Brand orange (hsl(19 96% 55%))
 
       // Draw rounded rectangle
       const radius = barWidth / 4
@@ -65,7 +70,7 @@ export function VoiceWaveform({ audioLevel, isActive, className }: VoiceWaveform
       ctx.roundRect(x + 1, y, barWidth - 2, barHeight, radius)
       ctx.fill()
     })
-  }, [audioLevel, isActive])
+  }, [audioLevel, isActive, isMuted])
 
   if (!isActive) {
     return null

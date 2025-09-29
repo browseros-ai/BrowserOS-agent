@@ -4,47 +4,65 @@ import { Mic, MicOff, Volume2 } from 'lucide-react'
 interface TranscriptDisplayProps {
   status: 'idle' | 'connecting' | 'connected' | 'transcribing' | 'error'
   isRecordingActive: boolean
+  isMuted?: boolean
+  onToggleMute?: () => void
 }
 
-export function TranscriptDisplay({ status, isRecordingActive }: TranscriptDisplayProps) {
+export function TranscriptDisplay({ status, isRecordingActive, isMuted = false, onToggleMute }: TranscriptDisplayProps) {
   if (!isRecordingActive) {
     return null
   }
 
-  const isListening = status === 'connected'
+  const isListening = status === 'connected' && !isMuted
 
   return (
     <div className="bg-background/95 backdrop-blur-sm">
       {/* Compact Header Bar */}
       <div className="px-4 py-2 flex items-center justify-between border-b bg-muted/20">
         <div className="flex items-center gap-3">
-          {/* Status Indicator */}
-          <div className="flex items-center gap-2">
-            {isListening ? (
-              <div className="flex items-center gap-1.5">
-                <div className="relative">
-                  <Volume2 className="w-4 h-4 text-green-600" />
-                  <div className="absolute -inset-1 rounded-full bg-green-600/20 animate-ping" />
-                </div>
-                <span className="text-xs font-medium text-green-600">Recording Audio</span>
-              </div>
-            ) : status === 'connecting' ? (
-              <div className="flex items-center gap-1.5">
-                <Mic className="w-4 h-4 text-yellow-600 animate-pulse" />
-                <span className="text-xs text-yellow-600">Connecting...</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <MicOff className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Not listening</span>
-              </div>
-            )}
+          {/* Mute Toggle Button */}
+          {onToggleMute && (
+            <button
+              onClick={onToggleMute}
+              className="flex items-center justify-center w-7 h-7 rounded-full border transition-all hover:scale-105 active:scale-95"
+              style={{
+                borderColor: isMuted ? 'hsl(var(--muted-foreground))' : 'hsl(var(--brand))',
+                color: isMuted ? 'hsl(var(--muted-foreground))' : 'hsl(var(--brand))',
+                backgroundColor: isMuted ? 'transparent' : 'transparent'
+              }}
+              aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+            >
+              {isMuted ? (
+                <MicOff className="w-3.5 h-3.5" />
+              ) : (
+                <Mic className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+
+          {/* Status Text */}
+          <div className="text-xs font-medium" style={{
+            color: isMuted
+              ? 'hsl(var(--muted-foreground))'
+              : isListening
+              ? 'hsl(var(--brand))'
+              : 'hsl(var(--muted-foreground))'
+          }}>
+            {isMuted
+              ? "Audio Muted"
+              : isListening
+              ? "Recording Audio"
+              : status === 'connecting'
+              ? "Connecting..."
+              : "Not listening"}
           </div>
 
           {/* Info Text */}
           <div className="text-xs text-muted-foreground">
             {isListening
               ? "Speak to narrate your actions..."
+              : isMuted
+              ? "Tap to resume audio"
               : status === 'error'
               ? "Voice unavailable (check microphone)"
               : "Waiting to connect..."}
@@ -56,7 +74,11 @@ export function TranscriptDisplay({ status, isRecordingActive }: TranscriptDispl
       <div className="px-4 py-2 bg-background/50">
         <div className="py-2 text-center">
           <p className="text-xs text-muted-foreground italic">
-            {isListening ? '💡 Tip: Narrate what you\'re doing as you record for smarter automation' : 'Voice transcription will be processed after you stop recording'}
+            {isListening
+              ? '💡 Tip: Narrate what you\'re doing as you record for smarter automation'
+              : isMuted
+              ? '🔇 Audio is muted - your actions are still being recorded'
+              : 'Voice transcription will be processed after you stop recording'}
           </p>
         </div>
       </div>

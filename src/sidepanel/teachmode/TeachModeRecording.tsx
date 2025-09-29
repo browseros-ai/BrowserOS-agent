@@ -29,8 +29,10 @@ export function TeachModeRecording() {
   const {
     error: transcriptionError,
     audioLevel,
+    isMuted,
     getAudioBlob,
-    stopRecording: stopAudioRecording
+    stopRecording: stopAudioRecording,
+    toggleMute
   } = useAudioRecording({
     enabled: isRecordingActive
   })
@@ -186,8 +188,8 @@ export function TeachModeRecording() {
           <div className="max-w-2xl mx-auto space-y-8">
             {/* Main Message */}
             <div className="text-center space-y-3 mb-12">
-              <h2 className="text-2xl font-semibold text-foreground">
-                Ready to show BrowserOS a workflow
+              <h2 className="text-2xl font-semibold text-muted-foreground">
+                Ready to show <span className="text-[hsl(var(--brand))]">BrowserOS</span> a workflow
               </h2>
               <p className="text-base text-muted-foreground">
                 Press start when you're ready. We'll capture every action
@@ -198,7 +200,7 @@ export function TeachModeRecording() {
             {/* Tips Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                <Mic className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <Mic className="w-5 h-5 text-[hsl(var(--brand))] mt-0.5 flex-shrink-0" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Narrate intent</p>
                   <p className="text-xs text-muted-foreground">
@@ -208,8 +210,8 @@ export function TeachModeRecording() {
               </div>
 
               <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center mt-0.5 flex-shrink-0">
-                  <span className="text-xs font-medium text-primary">✓</span>
+                <div className="w-5 h-5 flex items-center justify-center mt-0.5 flex-shrink-0">
+                  <span className="text-lg text-[hsl(var(--brand))]">✓</span>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Move naturally</p>
@@ -220,7 +222,7 @@ export function TeachModeRecording() {
               </div>
 
               <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                <Square className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                <Square className="w-5 h-5 text-destructive fill-destructive mt-0.5 flex-shrink-0" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Stop anytime</p>
                   <p className="text-xs text-muted-foreground">
@@ -252,8 +254,8 @@ export function TeachModeRecording() {
               ) : (
                 // Waiting Message
                 <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[hsl(var(--brand))]/10 mb-4">
+                    <div className="w-8 h-8 border-2 border-[hsl(var(--brand))] border-t-transparent rounded-full animate-spin" />
                   </div>
                   <p className="text-sm font-medium text-foreground mb-1">
                     Waiting for your first action...
@@ -271,10 +273,13 @@ export function TeachModeRecording() {
             <VoiceWaveform
               audioLevel={audioLevel}
               isActive={isRecordingActive}
+              isMuted={isMuted}
             />
             <TranscriptDisplay
               status={voiceStatus}
               isRecordingActive={isRecordingActive}
+              isMuted={isMuted}
+              onToggleMute={toggleMute}
             />
           </div>
         </>

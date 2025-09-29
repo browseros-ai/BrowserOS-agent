@@ -94,6 +94,7 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
   const [error, setError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [audioLevel, setAudioLevel] = useState(0)
+  const [isMuted, setIsMuted] = useState(false)
 
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -302,6 +303,28 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
     }
   }, [stopRecording])
 
+  // Toggle mute - disables audio tracks without stopping recording
+  const toggleMute = useCallback(() => {
+    if (!streamRef.current) return
+
+    const audioTracks = streamRef.current.getAudioTracks()
+    const newMutedState = !isMuted
+
+    audioTracks.forEach(track => {
+      track.enabled = !newMutedState
+    })
+
+    setIsMuted(newMutedState)
+    setAudioLevel(0)  // Reset waveform when muted
+
+    // Update voice status
+    if (newMutedState) {
+      setVoiceStatus('idle')
+    } else {
+      setVoiceStatus('connected')
+    }
+  }, [isMuted, setVoiceStatus])
+
   // Get captured audio blob
   const getAudioBlob = useCallback((): Blob | null => {
     return audioBlobRef.current
@@ -311,7 +334,9 @@ export function useAudioRecording({ enabled }: UseAudioRecordingProps) {
     error,
     isRecording,
     audioLevel,
+    isMuted,
     getAudioBlob,
-    stopRecording  // Export for manual control
+    stopRecording,  // Export for manual control
+    toggleMute
   }
 }
