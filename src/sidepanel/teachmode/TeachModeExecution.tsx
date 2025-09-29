@@ -55,9 +55,9 @@ export function TeachModeExecution() {
         </div>
         <Button
           onClick={handleStop}
-          variant="destructive"
+          variant="outline"
           size="sm"
-          className="gap-1"
+          className="gap-1 border-destructive text-destructive hover:bg-destructive hover:text-white transition-colors"
         >
           <Square className="w-3 h-3 fill-current" />
           Stop

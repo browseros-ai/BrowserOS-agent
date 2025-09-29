@@ -149,9 +149,9 @@ export function TeachModeRecording() {
           {isRecordingActive ? (
             <Button
               onClick={handleStopRecording}
-              variant="destructive"
+              variant="outline"
               size="sm"
-              className="gap-1"
+              className="gap-1 border-destructive text-destructive hover:bg-destructive hover:text-white transition-colors"
             >
               <Square className="w-3 h-3 fill-current" />
               Stop
@@ -160,7 +160,8 @@ export function TeachModeRecording() {
             <Button
               onClick={handleStartRecording}
               size="sm"
-              className="gap-2"
+              variant="outline"
+              className="gap-2 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
             >
               <Play className="w-4 h-4" />
               Start Recording

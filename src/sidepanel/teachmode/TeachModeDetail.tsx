@@ -71,38 +71,19 @@ export function TeachModeDetail() {
           <ArrowLeft className="w-4 h-4" />
           <span>Workflows</span>
         </button>
-        <button
-          onClick={handleOptions}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1"
+        <Button
+          onClick={handleRunNow}
+          size="sm"
+          variant="outline"
+          className="gap-1.5 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
         >
-          <MoreVertical className="w-4 h-4" />
-        </button>
+          <Play className="w-3.5 h-3.5" />
+          Run Now
+        </Button>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Action buttons */}
-        <div className="p-4 space-y-2">
-          <Button
-            onClick={handleRunNow}
-            className="w-full gap-2"
-            size="lg"
-          >
-            <Play className="w-4 h-4" />
-            Run Now
-          </Button>
-
-          <Button
-            onClick={handleSchedule}
-            variant="outline"
-            className="w-full gap-2"
-            disabled
-          >
-            <Calendar className="w-4 h-4" />
-            Schedule
-            <span className="text-xs text-muted-foreground ml-auto">Coming soon</span>
-          </Button>
-        </div>
 
         <div className="border-t border-border">
           {/* Workflow steps */}

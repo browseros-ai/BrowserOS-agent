@@ -78,7 +78,8 @@ export function TeachModeHome() {
         <Button
           onClick={handleCreateNew}
           size={hasWorkflows ? "default" : "lg"}
-          className="gap-2"
+          variant="outline"
+          className="gap-2 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
         >
           <Wand2 className={hasWorkflows ? "w-4 h-4" : "w-5 h-5"} />
           Create New Workflow
@@ -136,17 +137,17 @@ export function TeachModeHome() {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       onClick={(e) => handleRun(recording.id, e)}
-                      className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                      className="h-8 w-8 p-0 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
                     >
                       <Play className="w-4 h-4" />
                     </Button>
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       onClick={(e) => handleDelete(recording.id, e)}
-                      className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                      className="h-8 w-8 p-0 border-destructive text-destructive hover:bg-destructive hover:text-white transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

@@ -57,7 +57,7 @@ export function VoiceWaveform({ audioLevel, isActive, className }: VoiceWaveform
 
       // Color based on level (more intense = lighter color)
       const opacity = 0.3 + (normalized * 0.7)
-      ctx.fillStyle = `rgba(59, 130, 246, ${opacity})`  // Blue
+      ctx.fillStyle = `rgba(251, 101, 31, ${opacity})`  // Brand orange (hsl(19 96% 55%))
 
       // Draw rounded rectangle
       const radius = barWidth / 4

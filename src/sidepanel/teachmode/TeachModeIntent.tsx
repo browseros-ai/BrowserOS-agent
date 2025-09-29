@@ -90,7 +90,8 @@ export function TeachModeIntent() {
         <Button
           onClick={handleStartRecording}
           disabled={!inputValue.trim()}
-          className="w-full mb-6"
+          variant="outline"
+          className="w-full mb-6 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[hsl(var(--brand))] transition-colors"
           size="lg"
         >
           Start Recording

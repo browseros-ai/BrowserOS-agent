@@ -141,7 +141,8 @@ export function TeachModeSummary() {
             <>
               <Button
                 onClick={handleRunAgain}
-                className="w-full gap-2"
+                variant="outline"
+                className="w-full gap-2 border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 Run Again
@@ -159,7 +160,8 @@ export function TeachModeSummary() {
             <>
               <Button
                 onClick={handleContinueManually}
-                className="w-full"
+                variant="outline"
+                className="w-full border-[hsl(var(--brand))] text-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))] hover:text-white transition-colors"
               >
                 Continue Manually
               </Button>
@@ -177,7 +179,7 @@ export function TeachModeSummary() {
           <Button
             onClick={handleDone}
             variant="ghost"
-            className="w-full gap-2"
+            className="w-full gap-2 hover:bg-accent transition-colors"
           >
             <Home className="w-4 h-4" />
             Done
