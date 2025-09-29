@@ -98,7 +98,7 @@ export function createClickTool(
 
         return JSON.stringify({
           ok: true,
-          output: `Successfully clicked element ${scrollMessage}`,
+          output: `Successfully clicked element ${args.nodeId} ${scrollMessage}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
@@ -157,7 +157,7 @@ export function createTypeTool(
 
         return JSON.stringify({
           ok: true,
-          output: `Successfully typed "${args.text}" into element ${scrollMessage}`,
+          output: `Successfully typed "${args.text}" into element ${args.nodeId} ${scrollMessage}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
@@ -215,7 +215,7 @@ export function createClearTool(
 
         return JSON.stringify({
           ok: true,
-          output: `Successfully cleared element ${scrollMessage}`,
+          output: `Successfully cleared element ${args.nodeId} ${scrollMessage}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
@@ -275,17 +275,23 @@ export function createScrollTool(
           const scrolled = await page.scrollToElement(args.nodeId);
           return JSON.stringify({
             ok: true,
-            output: `Scrolled to element : ${scrolled ? "success" : "already visible"}`,
+            output: `Scrolled to element : ${args.nodeId} ${scrolled ? "success" : "already visible"}`,
           });
         } else if (args.direction) {
+          let result;
           if (args.direction === "down") {
-            await page.scrollDown(amount);
+            result = await page.scrollDown(amount);
           } else {
-            await page.scrollUp(amount);
+            result = await page.scrollUp(amount);
           }
+
+          const scrollMessage = result.didScroll
+            ? `Scrolled ${args.direction} ${amount} viewport(s)`
+            : `Already at ${args.direction === "down" ? "bottom" : "top"} of page - no space to scroll ${args.direction}`;
+
           return JSON.stringify({
             ok: true,
-            output: `Scrolled ${args.direction} ${amount} viewport(s)`,
+            output: scrollMessage,
           });
         } else {
           return JSON.stringify({

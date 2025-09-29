@@ -554,9 +554,12 @@ export class BrowserPage {
   /**
    * Scroll page up/down
    */
-  async scrollDown(amount?: number): Promise<void> {
+  async scrollDown(amount?: number): Promise<{ didScroll: boolean }> {
     // If amount not specified, default to 1 viewport
     const scrollCount = amount || 1;
+
+    // Get initial scroll position
+    const initialScrollY = await this.executeJavaScript('window.scrollY');
 
     // Scroll the specified number of viewports with delay between each
     for (let i = 0; i < scrollCount; i++) {
@@ -567,11 +570,25 @@ export class BrowserPage {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
     }
+
+    // Wait a bit for scroll to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Get final scroll position
+    const finalScrollY = await this.executeJavaScript('window.scrollY');
+
+    // Check if position changed
+    const didScroll = finalScrollY > initialScrollY;
+
+    return { didScroll };
   }
 
-  async scrollUp(amount?: number): Promise<void> {
+  async scrollUp(amount?: number): Promise<{ didScroll: boolean }> {
     // If amount not specified, default to 1 viewport
     const scrollCount = amount || 1;
+
+    // Get initial scroll position
+    const initialScrollY = await this.executeJavaScript('window.scrollY');
 
     // Scroll the specified number of viewports with delay between each
     for (let i = 0; i < scrollCount; i++) {
@@ -582,6 +599,17 @@ export class BrowserPage {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
     }
+
+    // Wait a bit for scroll to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Get final scroll position
+    const finalScrollY = await this.executeJavaScript('window.scrollY');
+
+    // Check if position changed
+    const didScroll = finalScrollY < initialScrollY;
+
+    return { didScroll };
   }
 
   // ============= Navigation =============
