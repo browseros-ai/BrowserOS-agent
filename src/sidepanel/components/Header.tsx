@@ -22,6 +22,7 @@ interface HeaderProps {
   onReset: () => void
   showReset: boolean  // This now means "has messages to reset"
   isProcessing: boolean
+  isTeachMode?: boolean  // Hide pause/reset buttons in teach mode
 }
 
 /**
@@ -29,7 +30,7 @@ interface HeaderProps {
  * Displays title, connection status, and action buttons (pause/reset)
  * Memoized to prevent unnecessary re-renders
  */
-export const Header = memo(function Header({ onReset, showReset, isProcessing }: HeaderProps) {
+export const Header = memo(function Header({ onReset, showReset, isProcessing, isTeachMode = false }: HeaderProps) {
   const { sendMessage, connected, addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
   const { trackClick } = useAnalytics()
   const [showSettings, setShowSettings] = useState(false)
@@ -308,8 +309,8 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             </div>
           )}
 
-          {/* Show Pause button if processing */}
-          {isProcessing && (
+          {/* Show Pause button if processing and NOT in teach mode */}
+          {isProcessing && !isTeachMode && (
             <Button
               onClick={handleCancel}
               variant="ghost"
@@ -321,9 +322,9 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
               <Pause className="w-4 h-4" />
             </Button>
           )}
-          
-          {/* Show Reset button if has messages */}
-          {showReset && (
+
+          {/* Show Reset button if has messages and NOT in teach mode */}
+          {showReset && !isTeachMode && (
             <Button
               onClick={handleReset}
               variant="ghost"

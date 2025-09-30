@@ -86,6 +86,7 @@ export function App() {
           }}
           showReset={messages.length > 0 || (appMode === 'teach' && teachModeState !== 'idle')}
           isProcessing={isExecuting}
+          isTeachMode={appMode === 'teach'}
         />
 
         {/* Main content area - changes based on mode */}
