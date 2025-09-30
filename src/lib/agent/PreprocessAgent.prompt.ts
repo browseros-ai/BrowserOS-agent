@@ -93,67 +93,130 @@ export function generateGoalExtractionPrompt(): string {
   return `
 You are provided with a voice transcript in which a user demonstrates a browser-based workflow to instruct an automation agent.
 
-Your job is to extract three things:
-1. **Workflow Name:** A concise 2-3 word name that captures the essence of the workflow. Make it descriptive and action-oriented.
-2. **Workflow Description:** Clearly and concisely summarize the actions the user performed in their browser session. This should capture the demonstrated process in a way that stands alone and is easy to understand.
-3. **User Goal:** Identify what the user wants the agent to accomplish next. This may involve repeating the demonstrated workflow exactly, or performing a modified or scaled version based on the user's instructions. The goal should be actionable and independent of the demonstration.
-
-## Workflow Naming Guidelines:
-- Keep it to 2-3 words maximum
-- Make it action-oriented (use verbs when appropriate)
-- Be specific to the task, not generic
-- Use title case (capitalize each word)
-- Examples of good names:
-  - "Gmail Unsubscribe" (for unsubscribing from newsletters)
-  - "LinkedIn Connect" (for sending connection requests)
-  - "Product Search" (for searching and finding products)
-  - "Form Submission" (for filling and submitting forms)
-  - "Data Entry" (for entering data into spreadsheets)
-  - "Email Cleanup" (for organizing/deleting emails)
-  - "Social Follow" (for following people on social media)
-  - "Price Check" (for checking product prices)
+Your job is to extract two key pieces of information:
+1. **Workflow Description:** Clearly and concisely summarize the actions the user performed in their browser session. This should capture the demonstrated process in a way that stands alone and is easy to understand.
+2. **User Goal:** Identify what the user wants the agent to accomplish next. This may involve repeating the demonstrated workflow exactly, or performing a modified or scaled version based on the user's instructions. The goal should be actionable and independent of the demonstration.
 
 ## Decision Logic:
 - If the user specifies new parameters, targets, or a different scale, interpret this as a request for a MODIFIED version of the workflow.
 - If the user does not specify changes, assume they want the EXACT SAME workflow repeated.
 
-Respond in the following format:
-Workflow Name: <2-3 word descriptive name>
-Workflow Description: <concise summary of the demonstrated workflow>
-User Goal: <clear statement of what the agent should do next>
-
 ## Examples:
 
 **Example 1 - Modified Workflow:**
 Transcript: "I navigated to LinkedIn, searched for Meta, and sent a connection request to one Meta employee. Now I want you to do the same thing but for Google employees, and send requests to 20 people."
-Workflow Name: LinkedIn Connect
 Workflow Description: The user demonstrated how to navigate LinkedIn, search for a company (Meta), and send a connection request to one employee.
 User Goal: Open LinkedIn, search for Google employees, and send connection requests to 20 Google employees.
 
 **Example 2 - Same Workflow:**
 Transcript: "I went to Gmail, found newsletter emails, and unsubscribed from one of them. I want you to continue doing this for all the other newsletters."
-Workflow Name: Gmail Unsubscribe
 Workflow Description: The user demonstrated how to navigate Gmail, identify newsletter emails, and unsubscribe from one newsletter.
 User Goal: Open Gmail, identify all newsletter emails, and unsubscribe from all remaining newsletter emails in the inbox.
 
 **Example 3 - Modified Scale:**
 Transcript: "I searched for one YC startup on Google and added their info to this spreadsheet. Please do this for all YC W24 companies."
-Workflow Name: Startup Research
 Workflow Description: The user demonstrated searching for a single YC startup and entering their information into a spreadsheet.
 User Goal: Search for all YC Winter 2024 companies and enter their information into the spreadsheet.
 
 **Example 4 - Different Target:**
 Transcript: "I logged into Twitter, searched for AI researchers, and followed 5 people. Now do the same but for machine learning engineers, follow 10 of them."
-Workflow Name: Social Follow
 Workflow Description: The user demonstrated how to search for specific professionals on Twitter and follow them.
 User Goal: Search for machine learning engineers on Twitter and follow 10 machine learning engineers.
 
 **Example 5 - Exact Repetition:**
 Transcript: "I went to amazon.com, searched for Mac mini, added it to the cart and chose the cheapest option. And finally clicked on the checkout button at my primary address."
-Workflow Name: Product Purchase
 Workflow Description: The user demonstrated navigating to amazon.com, searching for Mac mini, adding it to the cart and choosing the cheapest option. And finally clicking on the checkout button at my primary address.
 User Goal: Navigate to amazon.com, search for Mac mini, add it to the cart and choose the cheapest option. And finally click on the checkout button at my primary address.
 
-Write the workflow description what the user has demonstrated in their browser session and the user goal/objective what the user wants the agent to achieve from the sample workflow he has demonstrated.
+Write the workflow description of what the user has demonstrated in their browser session and the user goal/objective of what the user wants the agent to achieve from the sample workflow they have demonstrated.
+`;
+}
+
+export function generateWorkflowNamePrompt(): string {
+  return `
+You are tasked with generating a concise, descriptive name for a browser automation workflow.
+
+You will be provided with:
+1. **Transcript** (optional): The user's voice narration during the workflow demonstration
+2. **Workflow Description**: A summary of what was demonstrated
+3. **User Goal**: What the user wants the agent to accomplish
+4. **Workflow Steps**: The actual semantic steps that were recorded
+
+Your task is to generate a **2-3 word workflow name** that best captures the essence of this workflow.
+
+## Naming Guidelines:
+- **Length**: Exactly 2-3 words (prefer 2 words when possible)
+- **Style**: Action-oriented using verbs when appropriate
+- **Specificity**: Be specific to the actual task, not generic
+- **Format**: Use title case (capitalize each word)
+- **Focus**: Base the name primarily on the ACTUAL STEPS performed, not just the transcript
+
+## Analysis Priority:
+1. **First Priority - Actual Steps**: Analyze what actions were actually performed
+2. **Second Priority - User Goal**: Consider what the user wants to achieve
+3. **Third Priority - Transcript**: Use for additional context if available
+
+## Good Name Examples by Category:
+
+### Email/Communication:
+- "Gmail Unsubscribe" (unsubscribing from newsletters)
+- "Email Cleanup" (organizing/deleting emails)
+- "Inbox Filter" (setting up email filters)
+- "Message Forward" (forwarding messages)
+
+### Social Media:
+- "LinkedIn Connect" (sending connection requests)
+- "Social Follow" (following users)
+- "Post Schedule" (scheduling social posts)
+- "Profile Update" (updating profile info)
+
+### E-commerce/Shopping:
+- "Product Search" (searching for products)
+- "Price Check" (checking/comparing prices)
+- "Cart Checkout" (completing purchase)
+- "Order Track" (tracking orders)
+
+### Data/Research:
+- "Data Entry" (entering data into forms/sheets)
+- "Startup Research" (researching companies)
+- "Contact Scrape" (extracting contact info)
+- "Report Generate" (generating reports)
+
+### Forms/Applications:
+- "Form Submission" (submitting forms)
+- "Job Apply" (applying to jobs)
+- "Account Setup" (creating accounts)
+- "Survey Complete" (completing surveys)
+
+### Navigation/Browsing:
+- "Site Navigation" (navigating websites)
+- "Tab Management" (managing browser tabs)
+- "Bookmark Save" (saving bookmarks)
+- "History Clear" (clearing browser data)
+
+## Step Analysis Examples:
+
+**Example 1:**
+Steps: [navigate to gmail.com, click on promotions tab, select email, click unsubscribe, confirm]
+Transcript: "I'm cleaning up my inbox"
+Name: "Gmail Unsubscribe" (based on the actual unsubscribe action in steps)
+
+**Example 2:**
+Steps: [navigate to linkedin.com, search "software engineers", click on person, click connect, add note]
+Transcript: (none)
+Name: "LinkedIn Connect" (based on the connect action in steps)
+
+**Example 3:**
+Steps: [navigate to docs.google.com, create new document, type content, format text, share document]
+Transcript: "Setting up a shared document for the team"
+Name: "Document Share" (focusing on the key sharing action)
+
+## Important Rules:
+- If no clear action pattern emerges from steps, use the domain + primary action
+- Never use generic names like "Web Automation" or "Browser Task"
+- If the workflow involves multiple sites, focus on the primary objective
+- For repetitive tasks, use the singular form (e.g., "Email Delete" not "Emails Delete")
+
+Generate only the workflow name, nothing else.
 `;
 }

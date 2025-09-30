@@ -24,17 +24,22 @@ const EventAnalysisSchema = z.object({
 });
 
 const GoalExtractionSchema = z.object({
-  workflowName: z.string(),  // Concise 2-3 word workflow name
   workflowDescription: z.string(),  // Summary of the demonstrated workflow
   userGoal: z.string()  // What the user wants the agent to accomplish
 });
 
+const WorkflowNameSchema = z.object({
+  workflowName: z.string()  // Concise 2-3 word workflow name
+});
+
 type EventAnalysis = z.infer<typeof EventAnalysisSchema>;
 type GoalExtraction = z.infer<typeof GoalExtractionSchema>;
+type WorkflowName = z.infer<typeof WorkflowNameSchema>;
 
 import {
   generateEventAnalysisPrompt,
-  generateGoalExtractionPrompt
+  generateGoalExtractionPrompt,
+  generateWorkflowNamePrompt
 } from "./PreprocessAgent.prompt";
 
 /**
@@ -62,21 +67,42 @@ export class PreprocessAgent {
 
       Logging.log("PreprocessAgent", `Processing recording with ${validatedRecording.events.length} events`, "info");
 
+      // Emit preprocessing started
+      this._emitProgress('preprocessing_started', {
+        totalEvents: validatedRecording.events.filter(
+          e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
+        ).length
+      });
+
       // Transcribe audio if present and narration not already set
       let transcript = validatedRecording.narration?.transcript || "";
       if (!transcript && validatedRecording.audio) {
         Logging.log("PreprocessAgent", "Transcribing audio recording...", "info");
-        this._emitProgress('transcription_started', {});
+
+        // Emit progress for transcription stage
+        this._emitProgress('preprocessing_progress', {
+          stage: 'transcription',
+          message: 'Transcribing audio narration...'
+        });
 
         try {
           transcript = await this._transcribeAudio(validatedRecording.audio);
           Logging.log("PreprocessAgent", `Transcription complete: ${transcript.length} characters`, "info");
 
-          this._emitProgress('transcription_completed', { transcript });
+          // Emit progress with transcription complete
+          this._emitProgress('preprocessing_progress', {
+            stage: 'transcription',
+            message: 'Transcription completed',
+            transcript
+          });
         } catch (error) {
           Logging.log("PreprocessAgent", `Transcription failed: ${error}`, "warning");
-          this._emitProgress('transcription_failed', { error: String(error) });
-          // Continue without transcript
+          // Continue without transcript - no special error event needed
+          this._emitProgress('preprocessing_progress', {
+            stage: 'transcription',
+            message: 'Continuing without transcription',
+            error: String(error)
+          });
         }
       }
 
@@ -105,12 +131,13 @@ export class PreprocessAgent {
         processedCount++;
         Logging.log("PreprocessAgent", `Processing event ${processedCount}/${eventsToProcess.length}: ${event.action.type}`, "info");
 
-        // Emit progress with structured data
+        // Emit progress for event processing stage
         this._emitProgress('preprocessing_progress', {
+          stage: 'event_processing',
           current: processedCount,
           total: eventsToProcess.length,
-          actionType: event.action.type,  // Send action type as separate field
-          message: `Processing step ${processedCount} of ${eventsToProcess.length}`  // Clean message
+          actionType: event.action.type,
+          message: `Processing ${event.action.type} (${processedCount}/${eventsToProcess.length})`
         });
 
         try {
@@ -138,11 +165,21 @@ export class PreprocessAgent {
         }
       }
 
+      // Generate workflow name based on completed steps
+      Logging.log("PreprocessAgent", `Generating workflow name with ${steps.length} steps and transcript: ${transcript ? 'available' : 'none'}`, "info");
+      const workflowName = await this._generateWorkflowName(
+        transcript,
+        this.goalExtracted?.workflowDescription || "",
+        this.goalExtracted?.userGoal || "",
+        steps
+      );
+      Logging.log("PreprocessAgent", `Generated workflow name: "${workflowName}"`, "info");
+
       // Create final workflow
       const workflow: SemanticWorkflow = {
         metadata: {
           recordingId: validatedRecording.session.id,
-          name: this.goalExtracted?.workflowName || "Untitled Workflow",
+          name: workflowName,
           goal: this.goalExtracted?.userGoal || "No specific goal provided",
           description: this.goalExtracted?.workflowDescription,
           transcript: transcript || undefined,
@@ -154,11 +191,24 @@ export class PreprocessAgent {
       };
 
       Logging.log("PreprocessAgent", `Successfully created workflow with ${steps.length} steps`, "info");
+
+      // Emit preprocessing completed
+      this._emitProgress('preprocessing_completed', {
+        workflowName: workflow.metadata.name,
+        totalSteps: steps.length
+      });
+
       return SemanticWorkflowSchema.parse(workflow);
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       Logging.log("PreprocessAgent", `Processing failed: ${errorMessage}`, "error");
+
+      // Emit preprocessing failed
+      this._emitProgress('preprocessing_failed', {
+        error: errorMessage
+      });
+
       throw new Error(`Failed to process recording: ${errorMessage}`);
     }
   }
@@ -326,7 +376,7 @@ export class PreprocessAgent {
    * Emit progress event via PubSub
    */
   private _emitProgress(
-    eventType: 'preprocessing_progress' | 'transcription_started' | 'transcription_completed' | 'transcription_failed',
+    eventType: 'preprocessing_started' | 'preprocessing_progress' | 'preprocessing_completed' | 'preprocessing_failed',
     data: any
   ): void {
     if (!this.pubsub || !this.sessionId) return;
@@ -345,7 +395,6 @@ export class PreprocessAgent {
     try {
       if (!transcript.trim()) {
         return {
-          workflowName: "Untitled Workflow",
           workflowDescription: "",
           userGoal: "Perform the same workflow as demonstrated by the user"
         };
@@ -373,10 +422,103 @@ export class PreprocessAgent {
     } catch (error) {
       Logging.log("PreprocessAgent", `Goal extraction failed: ${error}`, "warning");
       return {
-        workflowName: "Untitled Workflow",
         workflowDescription: "",
         userGoal: "Perform the same workflow as demonstrated by the user"
       };
+    }
+  }
+
+  /**
+   * Generate workflow name based on steps and context
+   */
+  private async _generateWorkflowName(
+    transcript: string,
+    workflowDescription: string,
+    userGoal: string,
+    steps: SemanticWorkflow['steps']
+  ): Promise<string> {
+    try {
+      // If no steps processed, use simple time-based name
+      if (steps.length === 0) {
+        const date = new Date();
+        const timeStr = date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return `Workflow ${timeStr}`;
+      }
+
+      const llm = await getLLM({
+        temperature: 0.3,
+        maxTokens: 128
+      });
+      const structuredLLM = llm.withStructuredOutput(WorkflowNameSchema);
+
+      const systemPrompt = generateWorkflowNamePrompt();
+
+      // Build step summary for the prompt
+      const stepSummary = steps.map((step, idx) =>
+        `${idx + 1}. ${step.intent} (${step.action.type}${step.action.nodeIdentificationStrategy ? `: ${step.action.nodeIdentificationStrategy}` : ''})`
+      ).join('\n');
+
+      const userPrompt = `
+Transcript: ${transcript || "(No transcript available)"}
+
+Workflow Description: ${workflowDescription || "(No description available)"}
+
+User Goal: ${userGoal}
+
+Workflow Steps:
+${stepSummary}
+`;
+
+      const messages = [
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userPrompt)
+      ];
+
+      const response = await invokeWithRetry<WorkflowName>(structuredLLM, messages, 3);
+
+      Logging.log("PreprocessAgent", `Generated workflow name: "${response.workflowName}"`, "info");
+      return response.workflowName;
+
+    } catch (error) {
+      Logging.log("PreprocessAgent", `Workflow name generation failed: ${error}`, "warning");
+
+      // Simple fallback: Use final page URL and time
+      if (steps.length > 0) {
+        const lastStep = steps[steps.length - 1];
+        const finalState = lastStep.stateAfter || lastStep.stateBefore;
+
+        if (finalState?.page?.url) {
+          try {
+            const url = new URL(finalState.page.url);
+            const domain = url.hostname.replace('www.', '').split('.')[0];
+            const date = new Date();
+            const timeStr = date.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+
+            // Capitalize domain
+            const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
+            return `${domainName} ${timeStr}`;
+          } catch {
+            // URL parsing failed
+          }
+        }
+      }
+
+      // Final fallback with just time
+      const date = new Date();
+      const timeStr = date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      return `Workflow ${timeStr}`;
     }
   }
 

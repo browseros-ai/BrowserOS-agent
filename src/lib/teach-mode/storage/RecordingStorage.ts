@@ -112,15 +112,14 @@ export class RecordingStorage {
       const index = await this._getIndex()
       const recording = index.recordings.find(r => r.id === recordingId)
       if (recording) {
-        if (workflow.metadata.name) {
-          recording.title = workflow.metadata.name
-        }
+        // Always update title, even if it's "Untitled Workflow"
+        recording.title = workflow.metadata.name || 'Untitled Workflow'
         recording.stepCount = workflow.steps.length
         index.lastUpdated = Date.now()
         await chrome.storage.local.set({
           [STORAGE_INDEX_KEY]: index
         })
-        Logging.log('RecordingStorage', `Updated recording ${recordingId}: title="${workflow.metadata.name}", steps=${workflow.steps.length}`)
+        Logging.log('RecordingStorage', `Updated recording ${recordingId}: title="${recording.title}", steps=${workflow.steps.length}`)
       }
 
       Logging.log('RecordingStorage', `Saved workflow for recording ${recordingId}`)
