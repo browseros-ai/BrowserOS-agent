@@ -4,6 +4,7 @@ import { TeachModeRecording } from './TeachModeRecording'
 import { TeachModeProcessing } from './TeachModeProcessing'
 import { TeachModeDetail } from './TeachModeDetail'
 import { TeachModeExecution } from './TeachModeExecution'
+import { TeachModeSummary } from './TeachModeSummary'
 import { useTeachModeStore } from './teachmode.store'
 
 export function TeachMode() {
@@ -52,8 +53,10 @@ export function TeachMode() {
       return <TeachModeDetail />
 
     case 'executing':
-    case 'summary': // Keep showing execution view for summary too
       return <TeachModeExecution />
+
+    case 'summary':
+      return <TeachModeSummary />
 
     default:
       return <TeachModeHome />

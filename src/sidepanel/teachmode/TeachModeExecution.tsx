@@ -190,25 +190,13 @@ export function TeachModeExecution() {
                 "text-lg font-medium mb-4",
                 isSuccess ? "text-green-500" : "text-yellow-500"
               )}>
-                {isSuccess ? '✅ Success' :
-                 executionSummary?.errorMessage?.includes('aborted') ? '⛔ Aborted' :
-                 '⚠️ Workflow Stopped'}
+                {isSuccess ? 'Success' : 'Workflow Stopped'}
               </span>
 
               {/* Error message if failed */}
-              {isFailed && executionSummary?.errorMessage && (
-                <div className={cn(
-                  "rounded-lg p-3 max-w-md",
-                  executionSummary.errorMessage.includes('aborted')
-                    ? "bg-yellow-500/10"
-                    : "bg-destructive/10"
-                )}>
-                  <p className={cn(
-                    "text-sm",
-                    executionSummary.errorMessage.includes('aborted')
-                      ? "text-yellow-600 dark:text-yellow-400"
-                      : "text-destructive"
-                  )}>
+              {isFailed && executionSummary.errorMessage && (
+                <div className="bg-destructive/10 rounded-lg p-3 max-w-md">
+                  <p className="text-sm text-destructive">
                     {executionSummary.errorMessage}
                   </p>
                 </div>
@@ -219,8 +207,9 @@ export function TeachModeExecution() {
                 <div className="bg-green-500/10 rounded-lg p-3 max-w-md">
                   <ul className="space-y-1">
                     {executionSummary.results.map((result, index) => (
-                      <li key={index} className="text-sm text-green-700 dark:text-green-400">
-                        • {result}
+                      <li key={index} className="text-sm text-green-700 dark:text-green-400 flex items-start gap-2">
+                        <span className="text-green-600 dark:text-green-500 mt-0.5">—</span>
+                        <span>{result}</span>
                       </li>
                     ))}
                   </ul>

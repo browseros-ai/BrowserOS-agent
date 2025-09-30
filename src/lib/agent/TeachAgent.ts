@@ -419,13 +419,13 @@ export class TeachAgent {
         
         if (humanResponse === 'abort') {
           // Human aborted the task
-          this.pubsub.publishMessage(PubSub.createMessage('❌ Task aborted by human', 'assistant'));
+          this.pubsub.publishMessage(PubSub.createMessage('Task aborted by human', 'assistant'));
           throw new AbortError('Task aborted by human');
         }
 
         // Human clicked "Done" - continue with next planning iteration
         const humanDoneMsgId = PubSub.generateId('teach_thinking');
-        this._emitThinking(humanDoneMsgId, '✅ Human completed manual action. Re-planning...');
+        this._emitThinking(humanDoneMsgId, 'Human completed manual action. Re-planning...');
         // Note: Human input response will be included in next iteration's planner context
 
         // Clear human input state
@@ -1087,7 +1087,7 @@ ${fullHistory}
         // Check timeout
         if (Date.now() - startTime > HUMAN_INPUT_TIMEOUT) {
           const timeoutMsgId = PubSub.generateId('teach_thinking');
-          this._emitThinking(timeoutMsgId, '⏱️ Human input timed out after 10 minutes');
+          this._emitThinking(timeoutMsgId, 'Human input timed out after 10 minutes');
           return 'timeout';
         }
         

@@ -210,8 +210,8 @@ export function TeachModeRecording() {
               </div>
 
               <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
-                <div className="w-5 h-5 flex items-center justify-center mt-0.5 flex-shrink-0">
-                  <span className="text-lg text-[hsl(var(--brand))]">✓</span>
+                <div className="w-5 h-5 rounded-full bg-[hsl(var(--brand))]/20 flex items-center justify-center mt-0.5 flex-shrink-0">
+                  <div className="w-2 h-2 rounded-full bg-[hsl(var(--brand))]" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Move naturally</p>

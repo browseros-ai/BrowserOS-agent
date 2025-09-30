@@ -1,5 +1,5 @@
 import React from 'react'
-import { CheckCircle, AlertCircle, RefreshCw, FileText, Home } from 'lucide-react'
+import { CheckCircle, AlertCircle, RefreshCw, FileText, Home, Square } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { useTeachModeStore } from './teachmode.store'
 import { formatDuration } from './teachmode.utils'
@@ -25,6 +25,7 @@ export function TeachModeSummary() {
   }
 
   const isSuccess = executionSummary.success
+  const isAborted = !isSuccess && executionSummary.results?.includes('Execution aborted by user')
   const isPartialSuccess = !isSuccess && executionSummary.stepsCompleted > 0
 
   return (
@@ -32,7 +33,9 @@ export function TeachModeSummary() {
       {/* Header */}
       <div className="px-4 py-4 border-b border-border">
         <h2 className="text-lg font-semibold text-foreground">
-          {isSuccess ? 'Workflow Complete' : 'Workflow Stopped'}
+          {isSuccess ? 'Workflow Complete' :
+           isAborted ? 'Workflow Aborted' :
+           'Workflow Stopped'}
         </h2>
       </div>
 
@@ -42,10 +45,14 @@ export function TeachModeSummary() {
         <div className="flex justify-center mb-6">
           <div className={cn(
             "w-16 h-16 rounded-full flex items-center justify-center",
-            isSuccess ? "bg-green-500/10" : "bg-yellow-500/10"
+            isSuccess ? "bg-green-500/10" :
+            isAborted ? "bg-gray-500/10" :
+            "bg-yellow-500/10"
           )}>
             {isSuccess ? (
               <CheckCircle className="w-8 h-8 text-green-500" />
+            ) : isAborted ? (
+              <Square className="w-8 h-8 text-gray-500 fill-gray-500" />
             ) : (
               <AlertCircle className="w-8 h-8 text-yellow-500" />
             )}
@@ -57,12 +64,14 @@ export function TeachModeSummary() {
           <span className={cn(
             "text-lg font-medium",
             isSuccess ? "text-green-500" :
+            isAborted ? "text-muted-foreground" :
             isPartialSuccess ? "text-yellow-500" :
             "text-destructive"
           )}>
-            {isSuccess ? '✅ Success' :
-             isPartialSuccess ? '⚠️ Partial Success' :
-             '❌ Failed'}
+            {isSuccess ? 'Success' :
+             isAborted ? 'Aborted' :
+             isPartialSuccess ? 'Partial Success' :
+             'Failed'}
           </span>
         </div>
 
@@ -89,16 +98,26 @@ export function TeachModeSummary() {
               </div>
               <ul className="space-y-1">
                 {executionSummary.results.map((result, index) => (
-                  <li key={index} className="text-sm text-muted-foreground">
-                    • {result}
+                  <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <span className="text-[hsl(var(--brand))] mt-0.5">—</span>
+                    <span>{result}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
+          {/* Aborted message */}
+          {isAborted && (
+            <div className="pt-3 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Workflow execution was stopped by user request.
+              </p>
+            </div>
+          )}
+
           {/* Failure details */}
-          {!isSuccess && executionSummary.errorMessage && (
+          {!isSuccess && !isAborted && executionSummary.errorMessage && (
             <div className="pt-3 border-t border-border">
               <div className="text-sm font-medium text-foreground mb-1">
                 Error Details:
