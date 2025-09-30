@@ -216,6 +216,7 @@ export const SemanticWorkflowSchema = z.object({
     name: z.string(),  // Concise workflow name (2-3 words)
     goal: z.string(),  // High-level goal
     description: z.string().optional(),  // Detailed description
+    transcript: z.string().optional(),  // Raw transcript from narration/audio
     createdAt: z.number(),  // Creation timestamp
     duration: z.number().optional()  // Total duration in ms
   }),

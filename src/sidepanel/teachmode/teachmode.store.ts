@@ -291,20 +291,25 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
       source: 'teachmode'
     })
 
-    // Update UI state to show summary with aborted status
+    // Update UI state to show aborted status
     if (activeRecording && executionProgress) {
+      const duration = Math.floor((Date.now() - executionProgress.startedAt) / 1000)
       set({
         mode: 'summary',
+        executionProgress: {
+          ...executionProgress,
+          status: 'failed' as const
+        },
         executionSummary: {
           recordingId: activeRecording.id,
           recordingName: activeRecording.name,
           success: false,
-          duration: Math.floor((Date.now() - executionProgress.startedAt) / 1000),
+          duration,
           stepsCompleted: executionProgress.completedSteps.length,
           totalSteps: executionProgress.totalSteps,
-          results: ['Execution aborted by user']
-        },
-        executionProgress: null
+          results: [],
+          errorMessage: 'Workflow aborted by user'
+        }
       })
     } else {
       // Fallback if no active recording

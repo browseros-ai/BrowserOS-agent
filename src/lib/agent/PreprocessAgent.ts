@@ -145,6 +145,7 @@ export class PreprocessAgent {
           name: this.goalExtracted?.workflowName || "Untitled Workflow",
           goal: this.goalExtracted?.userGoal || "No specific goal provided",
           description: this.goalExtracted?.workflowDescription,
+          transcript: transcript || undefined,
           createdAt: Date.now(),
           duration: validatedRecording.session.endTimestamp ?
             validatedRecording.session.endTimestamp - validatedRecording.session.startTimestamp : undefined
