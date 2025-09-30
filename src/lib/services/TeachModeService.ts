@@ -412,10 +412,15 @@ export class TeachModeService {
     try {
       const storage = RecordingStorage.getInstance()
 
-      // Generate title based on URL and time
+      // Generate title with processing indicator
       const url = new URL(recording.session.url)
       const date = new Date(recording.session.startTimestamp)
-      const title = `${url.hostname} - ${date.toLocaleString()}`
+      const timeString = date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+      const title = `Processing - ${url.hostname} ${timeString}`
 
       // Save recording to storage immediately
       const recordingId = await storage.save(recording, title)
@@ -423,12 +428,6 @@ export class TeachModeService {
 
       // Start async preprocessing - fire and forget
       this._startAsyncPreprocessing(recordingId, recording)
-
-      // Optionally export immediately
-      if (await this._shouldAutoExport()) {
-        await storage.export(recordingId)
-        Logging.log('TeachModeService', `Auto-exported recording ${recordingId}`)
-      }
 
       return recordingId
     } catch (error) {
@@ -489,18 +488,6 @@ export class TeachModeService {
           error: errorMessage
         }
       })
-    }
-  }
-
-  /**
-   * Check if auto-export is enabled
-   */
-  private async _shouldAutoExport(): Promise<boolean> {
-    try {
-      const result = await chrome.storage.local.get('teachMode_autoExport')
-      return result.teachMode_autoExport === true
-    } catch {
-      return false
     }
   }
 
