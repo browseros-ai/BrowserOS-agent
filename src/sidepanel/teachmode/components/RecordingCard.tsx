@@ -32,7 +32,7 @@ export function RecordingCard({ recording, onClick, onDelete, onRun }: Recording
     <div
       className={cn(
         "relative bg-background-alt rounded-lg p-4 cursor-pointer",
-        "border border-border hover:border-primary/50",
+        "border border-border hover:border-primary",
         "transition-all duration-200"
       )}
       onClick={onClick}

@@ -112,7 +112,7 @@ export function TeachModeRecording() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full bg-background-alt overflow-hidden">
       {/* Compact Header */}
       <header className={cn(
         'px-4 py-3 border-b relative transition-all duration-200',
@@ -199,7 +199,7 @@ export function TeachModeRecording() {
 
             {/* Tips Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted border border-border">
                 <Mic className="w-5 h-5 text-[hsl(var(--brand))] mt-0.5 flex-shrink-0" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Narrate intent</p>
@@ -209,7 +209,7 @@ export function TeachModeRecording() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted border border-border">
                 <div className="w-5 h-5 rounded-full bg-[hsl(var(--brand))]/20 flex items-center justify-center mt-0.5 flex-shrink-0">
                   <div className="w-2 h-2 rounded-full bg-[hsl(var(--brand))]" />
                 </div>
@@ -221,7 +221,7 @@ export function TeachModeRecording() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border/50">
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-muted border border-border">
                 <Square className="w-5 h-5 text-destructive fill-destructive mt-0.5 flex-shrink-0" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">Stop anytime</p>

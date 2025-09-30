@@ -29,7 +29,7 @@ export function TeachModeSummary() {
   const isPartialSuccess = !isSuccess && executionSummary.stepsCompleted > 0
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background-alt">
       {/* Header */}
       <div className="px-4 py-4 border-b border-border">
         <h2 className="text-lg font-semibold text-foreground">

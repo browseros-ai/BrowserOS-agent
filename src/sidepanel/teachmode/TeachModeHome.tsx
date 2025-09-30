@@ -38,10 +38,10 @@ export function TeachModeHome() {
   const hasWorkflows = recordings.length > 0
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden">
+    <div className="h-full flex flex-col bg-background-alt overflow-hidden">
       {/* Header Section - Always Visible */}
       <div className={cn(
-        "flex flex-col items-center px-6 pt-8 pb-6 border-b border-border/50 bg-background/95 backdrop-blur-sm",
+        "flex flex-col items-center px-6 pt-8 pb-6 border-b border-border",
         hasWorkflows ? "pt-6 pb-5" : "pt-12 pb-8"
       )}>
         {/* BrowserOS Branding */}
@@ -107,8 +107,8 @@ export function TeachModeHome() {
                   key={recording.id}
                   onClick={() => handleRecordingClick(recording)}
                   className={cn(
-                    "group relative flex items-center gap-3 p-4 rounded-lg border border-border/50",
-                    "bg-card/50 hover:bg-card hover:border-border hover:shadow-sm",
+                    "group relative flex items-center gap-3 p-4 rounded-lg border border-border",
+                    "bg-card hover:bg-muted hover:border-border hover:shadow-sm",
                     "transition-all duration-200 cursor-pointer"
                   )}
                 >
@@ -209,7 +209,7 @@ export function TeachModeHome() {
                 ].map((example, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 text-sm text-muted-foreground py-2 px-3 rounded-md bg-muted/50 border border-border/40"
+                    className="flex items-center gap-2 text-sm text-muted-foreground py-2 px-3 rounded-md bg-muted border border-border"
                   >
                     <span className="text-base">{example.icon}</span>
                     <span className="text-xs">{example.text}</span>

@@ -42,7 +42,7 @@ export function TeachModeIntent() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background-alt">
       {/* Internal navigation */}
       <div className="flex items-center px-4 py-2 border-b border-border">
         <button
@@ -70,7 +70,7 @@ export function TeachModeIntent() {
             placeholder="e.g., Unsubscribe from marketing emails"
             className="w-full min-h-[100px] p-3 bg-background-alt border border-border rounded-lg
                      text-sm text-foreground placeholder:text-muted-foreground
-                     focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
+                     focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary
                      resize-none transition-all"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {

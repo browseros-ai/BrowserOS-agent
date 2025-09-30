@@ -62,7 +62,7 @@ export function EmptyState({ onCreateNew }: EmptyStateProps) {
                 key={example}
                 className="relative w-full"
               >
-                <div className="group relative text-sm py-3 px-4 whitespace-normal bg-background/50 backdrop-blur-sm border-2 border-border/30 rounded-lg hover:border-brand/50 hover:bg-brand/5 transition-all duration-300 w-full text-left">
+                <div className="group relative text-sm py-3 px-4 whitespace-normal bg-muted border-2 border-border rounded-lg hover:border-brand hover:bg-brand/10 transition-all duration-300 w-full text-left">
                   <span className="text-muted-foreground group-hover:text-foreground transition-colors duration-300">
                     {example}
                   </span>

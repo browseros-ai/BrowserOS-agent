@@ -16,9 +16,9 @@ export function TranscriptDisplay({ status, isRecordingActive, isMuted = false, 
   const isListening = status === 'connected' && !isMuted
 
   return (
-    <div className="bg-background/95 backdrop-blur-sm">
+    <div className="bg-background">
       {/* Compact Header Bar */}
-      <div className="px-4 py-2 flex items-center justify-between border-b bg-muted/20">
+      <div className="px-4 py-2 flex items-center justify-between border-b bg-muted">
         <div className="flex items-center gap-3">
           {/* Mute Toggle Button */}
           {onToggleMute && (
@@ -71,7 +71,7 @@ export function TranscriptDisplay({ status, isRecordingActive, isMuted = false, 
       </div>
 
       {/* Info Area */}
-      <div className="px-4 py-2 bg-background/50">
+      <div className="px-4 py-2 bg-background">
         <div className="py-2 text-center">
           <p className="text-xs text-muted-foreground italic">
             {isListening

@@ -59,7 +59,7 @@ export function SemanticStepTimeline({ workflow, loading, isSaving, className, o
     return (
       <div className={cn("space-y-2", className)}>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-muted/50 rounded-lg p-3 animate-pulse">
+          <div key={i} className="bg-muted rounded-lg p-3 animate-pulse">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 bg-muted rounded-full" />
               <div className="flex-1 space-y-2">

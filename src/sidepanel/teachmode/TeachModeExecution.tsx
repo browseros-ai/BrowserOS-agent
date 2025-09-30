@@ -71,11 +71,11 @@ export function TeachModeExecution() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background-alt">
       {/* Status Bar */}
       <div className={cn(
-        "flex items-center justify-between px-4 py-3 border-b border-border/50",
-        isRunning ? "bg-accent/50" :
+        "flex items-center justify-between px-4 py-3 border-b border-border",
+        isRunning ? "bg-accent" :
         isSuccess ? "bg-green-500/10" :
         "bg-yellow-500/10"
       )}>
@@ -129,7 +129,7 @@ export function TeachModeExecution() {
             {isCompleted && (
               <button
                 onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
-                className="flex items-center justify-between px-4 py-2 bg-background hover:bg-accent/50 transition-colors border-b border-border/50"
+                className="flex items-center justify-between px-4 py-2 bg-background hover:bg-accent transition-colors border-b border-border"
               >
                 <span className="text-sm font-medium text-foreground">
                   Agent Thinking

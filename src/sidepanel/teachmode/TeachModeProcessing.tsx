@@ -22,9 +22,9 @@ export function TeachModeProcessing() {
   const currentAction = preprocessingStatus?.actionType || 'workflow'
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background-alt">
       {/* Header */}
-      <div className="px-4 py-4 border-b border-border/50 bg-background/95 backdrop-blur-sm">
+      <div className="px-4 py-4 border-b border-border">
         <div className="flex items-center justify-center">
           <h2 className="text-lg font-semibold text-muted-foreground flex items-center gap-1">
             <span>Processing</span>
@@ -66,7 +66,7 @@ export function TeachModeProcessing() {
             </div>
 
             {/* Progress Bar - Always Visible */}
-            <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50 border border-border/50">
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted border border-border">
               <div
                 className="h-full bg-gradient-to-r from-[hsl(var(--brand))] to-[hsl(var(--brand))]/80 transition-all duration-500 ease-out rounded-full"
                 style={{

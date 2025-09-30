@@ -55,7 +55,7 @@ export function StepCard({ step, isActive = false, showConnector = true }: StepC
     <div className="relative group">
       <div
         className={cn(
-          "bg-background border rounded-lg transition-all duration-200 hover:shadow-sm",
+          "bg-background-alt border rounded-lg transition-all duration-200 hover:shadow-sm",
           isActive ? "border-primary animate-pulse" : "border-border hover:border-border/80"
         )}
       >
@@ -94,7 +94,7 @@ export function StepCard({ step, isActive = false, showConnector = true }: StepC
           <div className="flex items-center gap-2 shrink-0">
             {/* Screenshot thumbnail if available */}
             {step.screenshot && (
-              <div className="w-12 h-12 bg-muted rounded overflow-hidden border border-border/50">
+              <div className="w-12 h-12 bg-muted rounded overflow-hidden border border-border">
                 <img
                   src={step.screenshot}
                   alt=""
@@ -113,7 +113,7 @@ export function StepCard({ step, isActive = false, showConnector = true }: StepC
         {/* Voice annotation - shown as a subtle strip if present */}
         {step.voiceAnnotation && (
           <div className="px-3 pb-2">
-            <div className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-1 italic">
+            <div className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 italic">
               💬 {step.voiceAnnotation.length > 60
                 ? step.voiceAnnotation.substring(0, 60) + '...'
                 : step.voiceAnnotation}
