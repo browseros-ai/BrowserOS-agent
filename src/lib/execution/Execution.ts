@@ -211,7 +211,7 @@ export class Execution {
 
       // Create fresh agent and execute based on mode
       if (this.options.mode === "teach") {
-        // Teach mode requires workflow
+        // Teach mode with workflow
         if (!this.options.workflow) {
           throw new Error("Teach mode requires a workflow to execute");
         }
@@ -219,8 +219,13 @@ export class Execution {
         await teachAgent.execute(this.options.workflow);
       } else if (metadata?.executionMode === 'teach') {
         // Legacy teach mode support via metadata
-        // This case requires a workflow to be provided
-        throw new Error("Teach mode requires a workflow to execute. Please provide workflow in options.");
+        // Check if workflow is provided in metadata or options
+        const workflow = this.options.workflow || (metadata as any)?.workflow;
+        if (!workflow) {
+          throw new Error("Teach mode requires a workflow to execute. Please provide workflow in options or metadata.");
+        }
+        const teachAgent = new TeachAgent(executionContext);
+        await teachAgent.execute(workflow);
       } else if (this.options.mode === "chat") {
         const chatAgent = new ChatAgent(executionContext);
         await chatAgent.execute(query);
