@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { Play, MoreVertical, Calendar, ArrowLeft } from 'lucide-react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
+import { Play, ArrowLeft } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { SemanticStepTimeline } from './components/SemanticStepTimeline'
 import { useTeachModeStore } from './teachmode.store'
@@ -7,12 +7,29 @@ import { formatTime } from './teachmode.utils'
 import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 
 export function TeachModeDetail() {
-  const { activeRecording, setMode, executeRecording, getWorkflow, activeWorkflow } = useTeachModeStore()
+  const { activeRecording, setMode, executeRecording, getWorkflow, updateWorkflow, activeWorkflow } = useTeachModeStore()
   const [workflow, setWorkflow] = useState<SemanticWorkflow | null>(null)
   const [loadingWorkflow, setLoadingWorkflow] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Fetch workflow when activeRecording changes
   useEffect(() => {
+    // Clear any pending saves when recording changes
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      setIsSaving(false)
+    }
+
     if (!activeRecording) return
 
     // Use cached workflow if available
@@ -55,15 +72,10 @@ export function TeachModeDetail() {
     console.log('Schedule workflow')
   }
 
-  const handleOptions = () => {
-    // Show options menu (rename, delete, export, etc.)
-    console.log('Show options')
-  }
-
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Internal navigation */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
         <button
           onClick={handleBack}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors p-1"
@@ -83,42 +95,71 @@ export function TeachModeDetail() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-4">
+        {/* Workflow Title - Clean and minimal */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2">
+            {activeRecording.icon && (
+              <span>{activeRecording.icon}</span>
+            )}
+            <h2 className="text-base font-semibold text-foreground">
+              {activeRecording.name}
+            </h2>
+          </div>
+        </div>
 
-        <div className="border-t border-border">
-          {/* Workflow steps */}
-          <div className="p-4">
-            <h3 className="text-sm font-medium text-foreground mb-3">
-              Workflow Steps
-            </h3>
-            <SemanticStepTimeline
-              workflow={workflow}
-              loading={loadingWorkflow}
-              onGoalUpdate={(newGoal: string) => {
-                if (workflow) {
-                  setWorkflow({
-                    ...workflow,
-                    metadata: {
-                      ...workflow.metadata,
-                      goal: newGoal
-                    }
-                  })
-                  // TODO: Persist the goal update to backend when API is available
-                  // e.g., updateWorkflowGoal(workflow.metadata.recordingId, newGoal)
+        {/* Workflow Content */}
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground/80 mb-3">
+            Workflow Steps
+          </h3>
+          <SemanticStepTimeline
+            workflow={workflow}
+            loading={loadingWorkflow}
+            isSaving={isSaving}
+            onGoalUpdate={(newGoal: string) => {
+              if (workflow && activeRecording) {
+                // Update local state immediately (optimistic update)
+                const updatedWorkflow = {
+                  ...workflow,
+                  metadata: {
+                    ...workflow.metadata,
+                    goal: newGoal
+                  }
                 }
-              }}
-            />
-          </div>
+                setWorkflow(updatedWorkflow)
 
-          {/* Metadata section - minimal */}
-          <div className="border-t border-border p-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Created</span>
-              <span className="text-foreground">
-                {formatTime(activeRecording.createdAt)}
-              </span>
-            </div>
-          </div>
+                // Clear existing timeout
+                if (saveTimeoutRef.current) {
+                  clearTimeout(saveTimeoutRef.current)
+                }
+
+                // Debounce the backend save (500ms delay)
+                setIsSaving(true)
+                saveTimeoutRef.current = setTimeout(async () => {
+                  try {
+                    const success = await updateWorkflow(
+                      activeRecording.id,
+                      {
+                        metadata: {
+                          ...updatedWorkflow.metadata
+                        }
+                      }
+                    )
+
+                    if (!success) {
+                      console.error('Failed to save workflow goal')
+                      // Could show a toast notification here
+                    }
+                  } catch (error) {
+                    console.error('Error updating workflow:', error)
+                  } finally {
+                    setIsSaving(false)
+                  }
+                }, 500)
+              }
+            }}
+          />
         </div>
       </div>
     </div>

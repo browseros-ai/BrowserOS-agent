@@ -359,4 +359,29 @@ export class TeachModeHandler {
       })
     }
   }
+
+  /**
+   * Handle update workflow request
+   */
+  async handleTeachModeUpdateWorkflow(
+    message: PortMessage,
+    port: chrome.runtime.Port
+  ): Promise<void> {
+    try {
+      const { recordingId, updates } = message.payload as any
+      const success = await this.teachModeService.updateWorkflow(recordingId, updates)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_UPDATE_WORKFLOW,
+        payload: { success },
+        id: message.id
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      port.postMessage({
+        type: MessageType.TEACH_MODE_UPDATE_WORKFLOW,
+        payload: { success: false, error: errorMessage },
+        id: message.id
+      })
+    }
+  }
 }

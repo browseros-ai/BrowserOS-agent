@@ -197,6 +197,11 @@ function registerHandlers(): void {
     (msg, port) => teachModeHandler.handleTeachModeGetWorkflow(msg, port)
   )
 
+  messageRouter.registerHandler(
+    MessageType.TEACH_MODE_UPDATE_WORKFLOW,
+    (msg, port) => teachModeHandler.handleTeachModeUpdateWorkflow(msg, port)
+  )
+
   // Log handler
   messageRouter.registerHandler(
     MessageType.LOG_MESSAGE,

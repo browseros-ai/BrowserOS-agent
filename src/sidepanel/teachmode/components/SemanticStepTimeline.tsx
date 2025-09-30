@@ -7,6 +7,7 @@ import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 interface SemanticStepTimelineProps {
   workflow: SemanticWorkflow | null
   loading?: boolean
+  isSaving?: boolean
   className?: string
   onGoalUpdate?: (newGoal: string) => void
 }
@@ -19,7 +20,7 @@ const formatActionType = (actionType: string) => {
     .join(' ')
 }
 
-export function SemanticStepTimeline({ workflow, loading, className, onGoalUpdate }: SemanticStepTimelineProps) {
+export function SemanticStepTimeline({ workflow, loading, isSaving, className, onGoalUpdate }: SemanticStepTimelineProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
   const [isEditingGoal, setIsEditingGoal] = useState(false)
   const [editedGoal, setEditedGoal] = useState('')
@@ -95,6 +96,9 @@ export function SemanticStepTimeline({ workflow, loading, className, onGoalUpdat
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm font-medium text-foreground">Workflow Goal</p>
+              {isSaving && (
+                <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
+              )}
               <button
                 onClick={handleEditGoal}
                 className="p-0.5 rounded hover:bg-primary/10 transition-colors"

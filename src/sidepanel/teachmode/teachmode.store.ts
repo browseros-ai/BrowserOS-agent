@@ -50,6 +50,7 @@ interface TeachModeStore {
   reset: () => void
   loadRecordings: () => Promise<void>
   getWorkflow: (recordingId: string) => Promise<SemanticWorkflow | null>
+  updateWorkflow: (recordingId: string, updates: Partial<SemanticWorkflow>) => Promise<boolean>
   handleBackendEvent: (payload: TeachModeEventPayload) => void
   setVoiceStatus: (status: voiceStatus) => void
   // Port messaging setup
@@ -423,6 +424,43 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to get workflow:', error)
       return null
+    }
+  },
+
+  updateWorkflow: async (recordingId: string, updates: Partial<SemanticWorkflow>): Promise<boolean> => {
+    const { portMessaging } = get()
+    if (!portMessaging) {
+      throw new Error('Port messaging not initialized')
+    }
+
+    try {
+      const response = await portMessaging.sendMessageWithResponse<any>(
+        MessageType.TEACH_MODE_UPDATE_WORKFLOW,
+        { recordingId, updates }
+      )
+
+      if (response?.success) {
+        // Update cached workflow if it's the active one
+        const activeRecording = get().activeRecording
+        const activeWorkflow = get().activeWorkflow
+        if (activeRecording?.id === recordingId && activeWorkflow) {
+          // Merge updates with existing workflow
+          const updatedWorkflow: SemanticWorkflow = {
+            ...activeWorkflow,
+            metadata: {
+              ...activeWorkflow.metadata,
+              ...(updates.metadata || {})
+            },
+            steps: updates.steps || activeWorkflow.steps
+          }
+          set({ activeWorkflow: updatedWorkflow })
+        }
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Failed to update workflow:', error)
+      return false
     }
   },
 

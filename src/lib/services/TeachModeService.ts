@@ -563,6 +563,14 @@ export class TeachModeService {
   }
 
   /**
+   * Update workflow for a recording with partial changes
+   */
+  async updateWorkflow(recordingId: string, updates: any): Promise<boolean> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.updateWorkflow(recordingId, updates)
+  }
+
+  /**
    * Delete workflow for a recording
    */
   async deleteWorkflow(recordingId: string): Promise<boolean> {

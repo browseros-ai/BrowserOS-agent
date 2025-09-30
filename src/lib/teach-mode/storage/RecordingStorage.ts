@@ -133,6 +133,40 @@ export class RecordingStorage {
   }
 
   /**
+   * Update an existing workflow with partial changes
+   */
+  async updateWorkflow(recordingId: string, updates: Partial<SemanticWorkflow>): Promise<boolean> {
+    try {
+      // Get existing workflow
+      const existingWorkflow = await this.getWorkflow(recordingId)
+      if (!existingWorkflow) {
+        Logging.log('RecordingStorage', `Workflow for recording ${recordingId} not found`, 'warning')
+        return false
+      }
+
+      // Deep merge updates with existing workflow
+      const updatedWorkflow: SemanticWorkflow = {
+        ...existingWorkflow,
+        metadata: {
+          ...existingWorkflow.metadata,
+          ...(updates.metadata || {})
+        },
+        steps: updates.steps || existingWorkflow.steps
+      }
+
+      // Save the updated workflow
+      await this.saveWorkflow(recordingId, updatedWorkflow)
+
+      Logging.log('RecordingStorage', `Updated workflow for recording ${recordingId}`)
+      return true
+
+    } catch (error) {
+      Logging.log('RecordingStorage', `Failed to update workflow for ${recordingId}: ${error}`, 'error')
+      return false
+    }
+  }
+
+  /**
    * Get a recording by ID
    */
   async get(recordingId: string): Promise<TeachModeRecording | null> {
