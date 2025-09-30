@@ -555,6 +555,22 @@ export class TeachModeService {
   }
 
   /**
+   * Get workflow for a recording
+   */
+  async getWorkflow(recordingId: string): Promise<any | null> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.getWorkflow(recordingId)
+  }
+
+  /**
+   * Delete workflow for a recording
+   */
+  async deleteWorkflow(recordingId: string): Promise<boolean> {
+    const storage = RecordingStorage.getInstance()
+    return await storage.deleteWorkflow(recordingId)
+  }
+
+  /**
    * Clear all recordings
    */
   async clearAllRecordings(): Promise<void> {

@@ -219,11 +219,11 @@ export class Execution {
         await teachAgent.execute(this.options.workflow);
       } else if (metadata?.executionMode === 'teach') {
         // Legacy teach mode support via metadata
-        const teachAgent = new TeachAgent(executionContext);
-        await teachAgent.execute();
+        // This case requires a workflow to be provided
+        throw new Error("Teach mode requires a workflow to execute. Please provide workflow in options.");
       } else if (this.options.mode === "chat") {
         const chatAgent = new ChatAgent(executionContext);
-        await chatAgent.execute(query, metadata || this.options.metadata);
+        await chatAgent.execute(query);
       } else {
         // Browse mode
         const provideType = await langChainProvider.getCurrentProviderType() || '';

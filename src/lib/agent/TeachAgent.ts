@@ -28,7 +28,7 @@ import {
   generatePlannerPromptWithUserTrajectory,
   getToolDescriptions,
   generateExecutionHistorySummaryPrompt,
-} from "./Agent27.prompt";
+} from "./TeachAgent.prompt";
 import {
   createClickTool,
   createTypeTool,

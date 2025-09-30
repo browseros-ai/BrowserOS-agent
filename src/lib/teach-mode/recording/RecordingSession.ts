@@ -91,7 +91,10 @@ export class RecordingSession {
    */
   setNarration(transcript: string): void {
     if (transcript.trim()) {
-      this.narration = { transcript }
+      this.narration = {
+        transcript,
+        language: 'en' // Default to English
+      }
       Logging.log('RecordingSession', `Set narration with ${transcript.length} characters`)
     }
   }
