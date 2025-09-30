@@ -575,27 +575,67 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         break
 
       case 'preprocessing_completed':
+        // Get the recording ID from the event data
+        const recordingId = payload.data?.recordingId
+
+        // Clear processing state but transition to ready mode
         set({
-          mode: 'idle',
+          mode: 'ready',  // Show detail view instead of going home
           preprocessingStatus: null,
           recordingEvents: [],
           recordingStartTime: null,
           currentSessionId: null
         })
-        // Reload recordings to get the new workflow
-        get().loadRecordings()
+
+        // Load recordings and set the new recording as active
+        get().loadRecordings().then(async () => {
+          const recordings = get().recordings
+          const newRecording = recordings.find(r => r.id === recordingId)
+          if (newRecording) {
+            // Set as active recording so detail view can display it
+            set({ activeRecording: newRecording })
+            // Preload the workflow for immediate display
+            await get().getWorkflow(recordingId)
+          }
+        })
         break
 
       case 'preprocessing_failed':
-        set({
-          mode: 'idle',
-          preprocessingStatus: null,
-          recordingEvents: [],
-          recordingStartTime: null,
-          currentSessionId: null
-        })
-        // Still reload recordings (raw recording was saved)
-        get().loadRecordings()
+        // Get the recording ID from the event data if available
+        const failedRecordingId = payload.data?.recordingId
+
+        // If we have a recording ID, show it even though processing failed
+        if (failedRecordingId) {
+          set({
+            mode: 'ready',  // Show detail view even on failure
+            preprocessingStatus: null,
+            recordingEvents: [],
+            recordingStartTime: null,
+            currentSessionId: null
+          })
+
+          // Load recordings and set the failed recording as active
+          get().loadRecordings().then(async () => {
+            const recordings = get().recordings
+            const failedRecording = recordings.find(r => r.id === failedRecordingId)
+            if (failedRecording) {
+              set({ activeRecording: failedRecording })
+              // Try to get workflow (might be partial)
+              await get().getWorkflow(failedRecordingId)
+            }
+          })
+        } else {
+          // No recording ID, go back to home
+          set({
+            mode: 'idle',
+            preprocessingStatus: null,
+            recordingEvents: [],
+            recordingStartTime: null,
+            currentSessionId: null
+          })
+          // Still reload recordings (raw recording may have been saved)
+          get().loadRecordings()
+        }
         break
 
       case 'transcript_update':

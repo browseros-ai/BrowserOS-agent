@@ -7,7 +7,7 @@ export function TeachModeProcessing() {
   const { setMode, preprocessingStatus } = useTeachModeStore()
 
   const handleCancel = () => {
-    // Cancel processing and return to home
+    // Return to home (processing continues in background)
     setMode('idle')
   }
 
@@ -101,14 +101,14 @@ export function TeachModeProcessing() {
             )}
           </div>
 
-          {/* Cancel button */}
+          {/* Back button - processing continues in background */}
           <div className="mt-8">
             <Button
               onClick={handleCancel}
               variant="ghost"
               size="sm"
             >
-              Cancel
+              Back to Workflows
             </Button>
           </div>
         </div>
