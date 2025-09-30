@@ -1,12 +1,14 @@
 import React, { useState } from 'react'
-import { ChevronDown, ChevronRight, Target } from 'lucide-react'
+import { ChevronDown, ChevronRight, Target, Pencil, Check, X } from 'lucide-react'
 import { cn } from '@/sidepanel/lib/utils'
+import { Button } from '@/sidepanel/components/ui/button'
 import type { SemanticWorkflow } from '@/lib/teach-mode/types'
 
 interface SemanticStepTimelineProps {
   workflow: SemanticWorkflow | null
   loading?: boolean
   className?: string
+  onGoalUpdate?: (newGoal: string) => void
 }
 
 // Format action type for display
@@ -17,8 +19,10 @@ const formatActionType = (actionType: string) => {
     .join(' ')
 }
 
-export function SemanticStepTimeline({ workflow, loading, className }: SemanticStepTimelineProps) {
+export function SemanticStepTimeline({ workflow, loading, className, onGoalUpdate }: SemanticStepTimelineProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
+  const [isEditingGoal, setIsEditingGoal] = useState(false)
+  const [editedGoal, setEditedGoal] = useState('')
 
   const toggleExpanded = (stepId: string) => {
     setExpandedSteps((prev) => {
@@ -30,6 +34,23 @@ export function SemanticStepTimeline({ workflow, loading, className }: SemanticS
       }
       return newSet
     })
+  }
+
+  const handleEditGoal = () => {
+    setEditedGoal(workflow?.metadata?.goal || '')
+    setIsEditingGoal(true)
+  }
+
+  const handleSaveGoal = () => {
+    if (editedGoal.trim() && onGoalUpdate) {
+      onGoalUpdate(editedGoal.trim())
+      setIsEditingGoal(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingGoal(false)
+    setEditedGoal('')
   }
 
   // Loading state
@@ -67,18 +88,65 @@ export function SemanticStepTimeline({ workflow, loading, className }: SemanticS
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Workflow Goal */}
-      {workflow.metadata.goal && (
-        <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-          <div className="flex items-start gap-2">
-            <Target className="w-4 h-4 text-primary mt-0.5" />
-            <div>
+      {/* Workflow Goal - Editable */}
+      <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+        <div className="flex items-start gap-2">
+          <Target className="w-4 h-4 text-primary mt-0.5" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
               <p className="text-sm font-medium text-foreground">Workflow Goal</p>
-              <p className="text-xs text-muted-foreground mt-1">{workflow.metadata.goal}</p>
+              <button
+                onClick={handleEditGoal}
+                className="p-0.5 rounded hover:bg-primary/10 transition-colors"
+                aria-label="Edit goal"
+              >
+                <Pencil className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+              </button>
             </div>
+
+            {isEditingGoal ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editedGoal}
+                  onChange={(e) => setEditedGoal(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs bg-background border border-border rounded-md resize-none focus:outline-none focus:ring-1 focus:ring-primary min-h-[60px]"
+                  placeholder="Describe what you want this workflow to accomplish..."
+                  autoFocus
+                />
+                <div className="flex gap-1.5">
+                  <Button
+                    onClick={handleSaveGoal}
+                    size="sm"
+                    variant="default"
+                    className="h-6 px-2 text-xs gap-1 bg-primary hover:bg-primary/90"
+                  >
+                    <Check className="w-3 h-3" />
+                    Save
+                  </Button>
+                  <Button
+                    onClick={handleCancelEdit}
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs gap-1"
+                  >
+                    <X className="w-3 h-3" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {workflow.metadata.goal || 'No goal description set'}
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Edit the goal to convey what you want to get accomplished
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Steps */}
       {workflow.steps.map((step, index) => {

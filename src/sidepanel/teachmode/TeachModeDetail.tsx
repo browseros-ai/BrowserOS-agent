@@ -94,6 +94,19 @@ export function TeachModeDetail() {
             <SemanticStepTimeline
               workflow={workflow}
               loading={loadingWorkflow}
+              onGoalUpdate={(newGoal: string) => {
+                if (workflow) {
+                  setWorkflow({
+                    ...workflow,
+                    metadata: {
+                      ...workflow.metadata,
+                      goal: newGoal
+                    }
+                  })
+                  // TODO: Persist the goal update to backend when API is available
+                  // e.g., updateWorkflowGoal(workflow.metadata.recordingId, newGoal)
+                }
+              }}
             />
           </div>
 
