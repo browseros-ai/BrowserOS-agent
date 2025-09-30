@@ -566,10 +566,10 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         set(state => ({
           preprocessingStatus: state.preprocessingStatus ? {
             ...state.preprocessingStatus,
-            progress: payload.data.current,
-            total: payload.data.total,
-            actionType: payload.data.actionType,  // Handle action type
-            message: payload.data.message
+            progress: payload.data.current !== undefined ? payload.data.current : state.preprocessingStatus.progress,
+            total: payload.data.total !== undefined ? payload.data.total : state.preprocessingStatus.total,
+            actionType: payload.data.actionType || state.preprocessingStatus.actionType,
+            message: payload.data.message || state.preprocessingStatus.message
           } : null
         }))
         break

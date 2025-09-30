@@ -66,11 +66,14 @@ export class PreprocessAgent {
       const validatedRecording = TeachModeRecordingSchema.parse(recording);
       Logging.log("PreprocessAgent", `Processing recording with ${validatedRecording.events.length} events`, "info");
 
+      // Filter out session events for processing count
+      const eventsToProcess = validatedRecording.events.filter(
+        e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
+      );
+
       // Emit preprocessing started
       this._emitProgress('preprocessing_started', {
-        totalEvents: validatedRecording.events.filter(
-          e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
-        ).length
+        totalEvents: eventsToProcess.length
       });
 
       // Transcribe audio if present and narration not already set
@@ -78,9 +81,10 @@ export class PreprocessAgent {
       if (!transcript && validatedRecording.audio) {
         Logging.log("PreprocessAgent", "Transcribing audio recording...", "info");
 
-        // Emit progress for transcription stage
         this._emitProgress('preprocessing_progress', {
           stage: 'transcription',
+          current: 0,
+          total: eventsToProcess.length,
           message: 'Transcribing audio narration...'
         });
 
@@ -91,17 +95,19 @@ export class PreprocessAgent {
           // Emit debug info for transcript
           this._emitDebug('Transcript extracted', transcript);
 
-          // Emit progress with transcription complete
           this._emitProgress('preprocessing_progress', {
             stage: 'transcription',
+            current: 0,
+            total: eventsToProcess.length,
             message: 'Transcription completed',
             transcript
           });
         } catch (error) {
           Logging.log("PreprocessAgent", `Transcription failed: ${error}`, "warning");
-          // Continue without transcript - no special error event needed
           this._emitProgress('preprocessing_progress', {
             stage: 'transcription',
+            current: 0,
+            total: eventsToProcess.length,
             message: 'Continuing without transcription',
             error: String(error)
           });
@@ -117,11 +123,6 @@ export class PreprocessAgent {
       // Process each event sequentially
       const steps: SemanticWorkflow['steps'] = [];
       let previousState: StateSnapshot | undefined;
-
-      // Filter out session events for processing count
-      const eventsToProcess = validatedRecording.events.filter(
-        e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
-      );
 
       let processedCount = 0;
       for (let i = 0; i < validatedRecording.events.length; i++) {
