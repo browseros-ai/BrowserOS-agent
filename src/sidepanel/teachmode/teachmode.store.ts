@@ -580,9 +580,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         // Get the recording ID from the event data
         const recordingId = payload.data?.recordingId
 
-        // Clear processing state but transition to ready mode
+        // Clear processing state and return to home
         set({
-          mode: 'ready',  // Show detail view instead of going home
+          mode: 'idle',
           preprocessingStatus: null,
           recordingEvents: [],
           recordingStartTime: null,
@@ -606,10 +606,10 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         // Get the recording ID from the event data if available
         const failedRecordingId = payload.data?.recordingId
 
-        // If we have a recording ID, show it even though processing failed
+        // Return to home even if processing failed
         if (failedRecordingId) {
           set({
-            mode: 'ready',  // Show detail view even on failure
+            mode: 'idle',
             preprocessingStatus: null,
             recordingEvents: [],
             recordingStartTime: null,
