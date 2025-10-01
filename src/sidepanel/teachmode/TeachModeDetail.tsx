@@ -66,24 +66,7 @@ export function TeachModeDetail() {
     fetchWorkflow()
   }, [activeRecording, getWorkflow, activeWorkflow])
 
-  if (!activeRecording) {
-    return null
-  }
-
-  const handleBack = () => {
-    setMode('idle')
-  }
-
-  const handleRunNow = () => {
-    executeRecording(activeRecording.id)
-  }
-
-  const handleSchedule = () => {
-    // Future enhancement
-    console.log('Schedule workflow')
-  }
-
-  // Handle feedback submission
+  // Handle feedback submission - Move hooks before conditional returns
   const handleFeedback = useCallback(async (type: FeedbackType) => {
     if (!activeRecording) return
 
@@ -158,6 +141,27 @@ export function TeachModeDetail() {
       setIsSubmitting(false)
     }
   }, [activeRecording, workflow])
+
+  // Non-hook functions - defined after all hooks
+  const handleBack = () => {
+    setMode('idle')
+  }
+
+  const handleRunNow = () => {
+    if (activeRecording) {
+      executeRecording(activeRecording.id)
+    }
+  }
+
+  const handleSchedule = () => {
+    // Future enhancement
+    console.log('Schedule workflow')
+  }
+
+  // Conditional returns must come after all hooks
+  if (!activeRecording) {
+    return null
+  }
 
   return (
     <div className="flex flex-col h-full bg-background-alt">
