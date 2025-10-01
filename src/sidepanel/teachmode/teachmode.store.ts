@@ -30,6 +30,7 @@ interface TeachModeStore {
   voiceStatus: voiceStatus
   // Port messaging instance
   portMessaging: PortMessaging | null
+  isPortMessagingInitialized: boolean  // Tracks if port messaging is ready
   // Cached semantic workflow for active recording
   activeWorkflow: SemanticWorkflow | null
 
@@ -74,6 +75,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   voiceStatus: 'idle',
   // Port messaging
   portMessaging: null,
+  isPortMessagingInitialized: false,
   activeWorkflow: null,
 
   // Actions
@@ -755,7 +757,7 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
   // Initialize port messaging
   initializePortMessaging: () => {
     const portMessaging = PortMessaging.getInstance()
-    set({ portMessaging })
+    set({ portMessaging, isPortMessagingInitialized: true })
   }
 }))
 

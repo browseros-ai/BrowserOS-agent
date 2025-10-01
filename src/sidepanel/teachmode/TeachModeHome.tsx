@@ -9,14 +9,16 @@ import { BrowserUpgradeNotice } from './BrowserUpgradeNotice'
 const UPGRADE_NOTICE_DISMISSED_KEY = 'teachmode_upgrade_notice_dismissed'
 
 export function TeachModeHome() {
-  const { recordings, prepareRecording, setActiveRecording, deleteRecording, executeRecording, setMode, loadRecordings } = useTeachModeStore()
+  const { recordings, prepareRecording, setActiveRecording, deleteRecording, executeRecording, setMode, loadRecordings, isPortMessagingInitialized } = useTeachModeStore()
   const [showUpgradeNotice, setShowUpgradeNotice] = useState(false)
   const [browserVersion, setBrowserVersion] = useState<string | null>(null)
 
-  // Load recordings when component mounts
+  // Load recordings only after port messaging is initialized
   useEffect(() => {
-    loadRecordings()
-  }, [loadRecordings])
+    if (isPortMessagingInitialized) {
+      loadRecordings()
+    }
+  }, [isPortMessagingInitialized, loadRecordings])
 
   // Check feature flag for teach mode
   useEffect(() => {
