@@ -10,7 +10,7 @@ const UPGRADE_NOTICE_DISMISSED_KEY = 'teachmode_upgrade_notice_dismissed'
 
 export function TeachModeHome() {
   const { recordings, prepareRecording, setActiveRecording, deleteRecording, executeRecording, setMode, loadRecordings } = useTeachModeStore()
-  const [showUpgradeNotice, setShowUpgradeNotice] = useState(true)
+  const [showUpgradeNotice, setShowUpgradeNotice] = useState(false)
   const [browserVersion, setBrowserVersion] = useState<string | null>(null)
 
   // Load recordings when component mounts
@@ -121,15 +121,6 @@ export function TeachModeHome() {
 
       {/* Workflows Section - Scrollable */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        {/* Browser upgrade notice */}
-        {showUpgradeNotice && (
-          <BrowserUpgradeNotice
-            currentVersion={browserVersion}
-            onDismiss={handleDismissUpgradeNotice}
-            className="mb-4"
-          />
-        )}
-
         {hasWorkflows ? (
           <div className="space-y-4 pb-4">
             {/* Workflows Header */}
@@ -262,6 +253,16 @@ export function TeachModeHome() {
           </div>
         )}
       </div>
+
+      {/* Browser upgrade notice - Bottom */}
+      {showUpgradeNotice && (
+        <div className="px-6 pb-4 pt-2">
+          <BrowserUpgradeNotice
+            currentVersion={browserVersion}
+            onDismiss={handleDismissUpgradeNotice}
+          />
+        </div>
+      )}
     </div>
   )
 }
