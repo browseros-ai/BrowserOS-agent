@@ -4,6 +4,7 @@ import { Logging } from '@/lib/utils/Logging'
 // Feature flag definitions with minimum version requirements
 const FEATURE_FLAGS = {
   NEW_AGENT: '137.0.7207.69',
+  TEACH_MODE: '137.0.7212.69',
 } as const
 
 // Version comparison utility

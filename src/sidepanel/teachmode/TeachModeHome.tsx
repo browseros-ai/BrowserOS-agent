@@ -1,16 +1,49 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Wand2, Play, Trash2 } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { useTeachModeStore } from './teachmode.store'
 import { cn } from '@/sidepanel/lib/utils'
+import { getFeatureFlags } from '@/lib/utils/featureFlags'
+import { BrowserUpgradeNotice } from './BrowserUpgradeNotice'
+
+const UPGRADE_NOTICE_DISMISSED_KEY = 'teachmode_upgrade_notice_dismissed'
 
 export function TeachModeHome() {
   const { recordings, prepareRecording, setActiveRecording, deleteRecording, executeRecording, setMode, loadRecordings } = useTeachModeStore()
+  const [showUpgradeNotice, setShowUpgradeNotice] = useState(true)
+  const [browserVersion, setBrowserVersion] = useState<string | null>(null)
 
   // Load recordings when component mounts
   useEffect(() => {
     loadRecordings()
   }, [loadRecordings])
+
+  // Check feature flag for teach mode
+  useEffect(() => {
+    const checkTeachModeSupport = async () => {
+      const dismissed = localStorage.getItem(UPGRADE_NOTICE_DISMISSED_KEY)
+      if (dismissed === 'true') {
+        setShowUpgradeNotice(false)
+        return
+      }
+
+      const featureFlags = getFeatureFlags()
+      await featureFlags.initialize()
+
+      const isEnabled = featureFlags.isEnabled('TEACH_MODE')
+      const currentVersion = featureFlags.getVersion()
+
+      setBrowserVersion(currentVersion)
+      setShowUpgradeNotice(!isEnabled)
+    }
+
+    checkTeachModeSupport()
+  }, [])
+
+  const handleDismissUpgradeNotice = () => {
+    localStorage.setItem(UPGRADE_NOTICE_DISMISSED_KEY, 'true')
+    setShowUpgradeNotice(false)
+  }
 
   const handleCreateNew = () => {
     prepareRecording()
@@ -88,6 +121,15 @@ export function TeachModeHome() {
 
       {/* Workflows Section - Scrollable */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
+        {/* Browser upgrade notice */}
+        {showUpgradeNotice && (
+          <BrowserUpgradeNotice
+            currentVersion={browserVersion}
+            onDismiss={handleDismissUpgradeNotice}
+            className="mb-4"
+          />
+        )}
+
         {hasWorkflows ? (
           <div className="space-y-4 pb-4">
             {/* Workflows Header */}
