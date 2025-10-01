@@ -157,9 +157,6 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
 
   // Feedback operations
   submitFeedback: async (messageId, type, textFeedback) => {
-    const sessionId = crypto.randomUUID()
-    const feedbackId = crypto.randomUUID()
-    
     // Set submitting state
     set((state) => ({
       feedbackUI: {
@@ -175,11 +172,11 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
     try {
       const state = useChatStore.getState()
       const message = state.messages.find((m: Message) => m.msgId === messageId)
-      
+
       // Find the user message that triggered this agent response
       const messageIndex = state.messages.findIndex((m: Message) => m.msgId === messageId)
       let userQuery = 'No user query found'
-      
+
       // Look backwards from agent message to find the most recent user message
       for (let i = messageIndex - 1; i >= 0; i--) {
         if (state.messages[i].role === 'user') {
@@ -187,16 +184,17 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
           break
         }
       }
-      
+
       const feedback: FeedbackSubmission = {
-        feedbackId,
-        messageId,
-        sessionId,
+        source: 'agent',
         type,
-        textFeedback,
+        user_feedback: textFeedback,
         timestamp: new Date(),
-        agentResponse: message?.content,
-        userQuery
+        data: {
+          messageId,
+          userQuery,
+          agentResponse: message?.content
+        }
       }
 
       // Store feedback locally
@@ -212,7 +210,7 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
         }
       }))
 
-      // Submit to Firebase
+      // Submit to API
       await feedbackService.submitFeedback(feedback)
       
     } catch (error) {

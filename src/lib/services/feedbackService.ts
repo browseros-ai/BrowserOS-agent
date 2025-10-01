@@ -33,22 +33,17 @@ class FeedbackService {
    */
   async submitFeedback(feedback: FeedbackSubmission): Promise<void> {
     try {
-      // Prepare the request payload matching AgentFeedbackRequest interface
       const payload = {
-        feedbackId: feedback.feedbackId,
-        messageId: feedback.messageId,
-        sessionId: feedback.sessionId,
+        source: feedback.source,
+        timestamp: feedback.timestamp.toISOString(),
+        user_feedback: feedback.user_feedback,
         type: feedback.type,
-        timestamp: feedback.timestamp,
-        textFeedback: feedback.textFeedback,
-        userQuery: feedback.userQuery,
-        agentResponse: feedback.agentResponse
+        data: feedback.data
       }
 
       // Create timeout controller
       const controller = this._createTimeoutController()
 
-      // Send request to Cloudflare Worker API
       const response = await fetch(FEEDBACK_API_URL, {
         method: 'POST',
         headers: {
@@ -67,19 +62,18 @@ class FeedbackService {
       }
 
       console.log('Feedback successfully submitted:', {
-        feedbackId: feedback.feedbackId,
-        messageId: feedback.messageId,
+        source: feedback.source,
         type: feedback.type,
-        hasTextFeedback: !!feedback.textFeedback,
+        hasUserFeedback: !!feedback.user_feedback,
         timestamp: feedback.timestamp
       })
 
       // Log metric for successful feedback submission
       await Logging.logMetric('feedback.submitted', {
+        source: feedback.source,
         type: feedback.type,
-        hasTextFeedback: !!feedback.textFeedback,
-        userQuery: feedback.userQuery,
-        agentResponse: feedback.agentResponse
+        hasUserFeedback: !!feedback.user_feedback,
+        ...feedback.data
       })
 
     } catch (error) {
@@ -93,11 +87,11 @@ class FeedbackService {
 
       // Log metric for failed feedback submission
       await Logging.logMetric('feedback.failed', {
+        source: feedback.source,
         type: feedback.type,
         error: error instanceof Error ? error.message : 'Unknown error',
         isTimeout: error instanceof Error && error.name === 'AbortError',
-        userQuery: feedback.userQuery,
-        agentResponse: feedback.agentResponse
+        ...feedback.data
       })
 
       throw new Error('Failed to submit feedback')

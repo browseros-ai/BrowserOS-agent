@@ -4,16 +4,17 @@ import { z } from 'zod'
 export const FeedbackTypeSchema = z.enum(['thumbs_up', 'thumbs_down'])
 export type FeedbackType = z.infer<typeof FeedbackTypeSchema>
 
-// Individual feedback submission schema
+// Feedback source enum
+export const FeedbackSourceSchema = z.enum(['agent', 'teachmode'])
+export type FeedbackSource = z.infer<typeof FeedbackSourceSchema>
+
+// Feedback submission schema matching API interface
 export const FeedbackSubmissionSchema = z.object({
-  feedbackId: z.string(),  // Unique feedback identifier
-  messageId: z.string(),  // Reference to the message being rated
-  sessionId: z.string(),  // Current chat session identifier
+  source: FeedbackSourceSchema,  // Source of feedback (agent, teachmode)
   type: FeedbackTypeSchema,  // thumbs_up or thumbs_down
-  textFeedback: z.string().optional(),  // Additional text for thumbs_down
   timestamp: z.date(),  // When feedback was submitted
-  agentResponse: z.string().optional(),  // The agent response being rated
-  userQuery: z.string().optional()  // The user query that triggered the agent response
+  user_feedback: z.string().optional(),  // Optional text feedback
+  data: z.record(z.any())  // Additional context data (userQuery, agentResponse, metadata, etc.)
 })
 
 export type FeedbackSubmission = z.infer<typeof FeedbackSubmissionSchema>
