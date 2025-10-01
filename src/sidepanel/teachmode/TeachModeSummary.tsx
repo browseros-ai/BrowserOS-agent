@@ -8,6 +8,7 @@ import { FeedbackButtons } from '@/sidepanel/components/feedback/FeedbackButtons
 import { FeedbackModal } from '@/sidepanel/components/feedback/FeedbackModal'
 import { feedbackService } from '@/lib/services/feedbackService'
 import type { FeedbackType, FeedbackSubmission } from '@/lib/types/feedback'
+import { MarkdownContent } from '@/sidepanel/components/shared/Markdown'
 
 export function TeachModeSummary() {
   const { executionSummary, activeRecording, setMode, executeRecording } = useTeachModeStore()
@@ -207,14 +208,11 @@ export function TeachModeSummary() {
               <div className="text-sm font-medium text-foreground mb-2">
                 Results:
               </div>
-              <ul className="space-y-1">
-                {executionSummary.results.map((result, index) => (
-                  <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                    <span className="text-[hsl(var(--brand))] mt-0.5">—</span>
-                    <span>{result}</span>
-                  </li>
-                ))}
-              </ul>
+              <MarkdownContent
+                content={executionSummary.results.join('\n\n')}
+                className="text-muted-foreground"
+                compact={false}
+              />
             </div>
           )}
 
