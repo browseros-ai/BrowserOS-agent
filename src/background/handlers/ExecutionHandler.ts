@@ -104,8 +104,7 @@ export class ExecutionHandler {
     
     try {
       this.execution.cancel()
-      Logging.logMetric('task_cancelled', {})
-      
+
       // Send success response
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
@@ -143,8 +142,7 @@ export class ExecutionHandler {
     
     try {
       this.execution.reset()
-      Logging.logMetric('conversation_reset', {})
-      
+
       // Send success response
       port.postMessage({
         type: MessageType.WORKFLOW_STATUS,
@@ -222,9 +220,8 @@ export class ExecutionHandler {
     }
 
     // Log metrics
-    Logging.logMetric('teach_mode_workflow_executed', {
-      workflowId: workflowId,
-      goal: workflow.metadata.goal,
+    Logging.logMetric('teachmode.workflow.executed', {
+      workflowGoal: workflow.metadata.goal,
       stepsCount: workflow.steps.length
     })
 

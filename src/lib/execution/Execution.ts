@@ -360,6 +360,13 @@ export class Execution {
     this.currentAbortController.abort(abortReason);
     this.currentAbortController = null;
 
+    // Log metric for execution cancellation
+    Logging.logMetric('execution.cancelled', {
+      mode: this.options.mode
+    }).catch(() => {
+      // Metric logging failed, continue
+    });
+
     Logging.log("Execution", `Cancelled execution`);
   }
 
@@ -380,6 +387,13 @@ export class Execution {
 
     // Clear message history
     this.messageManager?.clear();
+
+    // Log metric for execution reset
+    Logging.logMetric('execution.reset', {
+      mode: this.options.mode
+    }).catch(() => {
+      // Metric logging failed, continue
+    });
 
     // Clear PubSub buffer
     this.pubsub?.clearBuffer();

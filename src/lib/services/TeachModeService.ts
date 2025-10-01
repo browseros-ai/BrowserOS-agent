@@ -54,6 +54,11 @@ export class TeachModeService {
         throw new Error('Tab has no URL')
       }
 
+      // Log metric for recording start
+      Logging.logMetric('teachmode.recording.started').catch(() => {
+        // Metric logging failed, continue
+      })
+
       // Initialize browser context for state capture
       try {
         this.browserContext = new BrowserContext()
@@ -132,6 +137,13 @@ export class TeachModeService {
       const recording = this.currentSession.stop()
       this.currentSession = null
       this.activeTabId = null
+
+      // Log metric for recording stop
+      Logging.logMetric('teachmode.recording.stopped', {
+        eventsCount: recording.events.length
+      }).catch(() => {
+        // Metric logging failed, continue
+      })
 
       // Stop heartbeat
       this._stopHeartbeat()
