@@ -1,19 +1,13 @@
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { MessageManager, MessageType } from "@/lib/runtime/MessageManager";
-import { ToolManager } from "@/lib/tools/ToolManager";
-import { ExecutionMetadata } from "@/lib/types/messaging";
-import { type ScreenshotSizeKey } from "@/lib/browser/BrowserOSAdapter";
+import { BaseAgent } from "@/lib/agent/BaseAgent";
 import {
   AIMessage,
-  AIMessageChunk,
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
-import { Runnable } from "@langchain/core/runnables";
-import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
 import { getLLM } from "@/lib/llm/LangChainProvider";
-import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { HumanInputResponse, PubSubEvent, TeachModeEventPayload } from "@/lib/pubsub/types";
@@ -24,35 +18,10 @@ import { isDevelopmentMode } from "@/config";
 import { invokeWithRetry } from "@/lib/utils/retryable";
 import {
   generateExecutorPrompt,
-  generatePlannerPrompt,
   generatePlannerPromptWithUserTrajectory,
   getToolDescriptions,
   generateExecutionHistorySummaryPrompt,
 } from "./TeachAgent.prompt";
-import {
-  ClickTool,
-  TypeTool,
-  ClearTool,
-  ScrollTool,
-  NavigateTool,
-  KeyTool,
-  WaitTool,
-  TabsTool,
-  TabOpenTool,
-  TabFocusTool,
-  TabCloseTool,
-  ExtractTool,
-  HumanInputTool,
-  DoneTool,
-  MoondreamVisualClickTool,
-  MoondreamVisualTypeTool,
-  GroupTabsTool,
-  BrowserOSInfoTool,
-  GetSelectedTabsTool,
-  DateTool,
-  MCPTool,
-} from "@/lib/tools";
-import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
@@ -125,35 +94,9 @@ interface SingleTurnResult {
   requiresHumanInput: boolean;
 }
 
-export class TeachAgent {
-  // Tools that trigger glow animation when executed
-  private static readonly GLOW_ENABLED_TOOLS = new Set([
-    'click',
-    'type',
-    'clear',
-    'moondream_visual_click',
-    'moondream_visual_type',
-    'scroll',
-    'navigate',
-    'key',
-    'tab_open',
-    'tab_focus',
-    'tab_close',
-    'extract'
-  ]);
-
+export class TeachAgent extends BaseAgent {
   // Core dependencies
-  private readonly executionContext: ExecutionContext;
-  private readonly toolManager: ToolManager;
-  private readonly glowService: GlowAnimationService;
   private readonly mainPubsub: PubSubChannel;  // Main channel for teach-mode events
-  private executorLlmWithTools: Runnable<
-    BaseLanguageModelInput,
-    AIMessageChunk
-  > | null = null; // Pre-bound LLM with tools
-
-  // Execution state
-  private iterations: number = 0;
 
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
@@ -164,25 +107,10 @@ export class TeachAgent {
   private toolDescriptions: string = getToolDescriptions();
 
   constructor(executionContext: ExecutionContext) {
-    this.executionContext = executionContext;
-    this.toolManager = new ToolManager(executionContext);
-    this.glowService = GlowAnimationService.getInstance();
+    super(executionContext, "TeachAgent");
+
     this.mainPubsub = PubSub.getChannel('main');  // Get main channel for teach-mode events
     Logging.log("TeachAgent", "TeachAgent instance created", "info");
-  }
-
-  private get executorMessageManager(): MessageManager {
-    return this.executionContext.messageManager;
-  }
-
-  private get pubsub(): PubSubChannel {
-    return this.executionContext.getPubSub();
-  }
-
-  private checkIfAborted(): void {
-    if (this.executionContext.abortSignal.aborted) {
-      throw new AbortError();
-    }
   }
 
   // Helper method to emit teach-mode events
@@ -198,87 +126,12 @@ export class TeachAgent {
   }
 
   // Helper method to emit thinking events with stable msgId
-  private _emitThinking(msgId: string, content: string): void {
+  protected _emitThinking(msgId: string, content: string): void {
     this._emitTeachModeEvent('execution_thinking', {
       msgId,
       content,
       timestamp: Date.now()
     });
-  }
-
-  private async _initialize(): Promise<void> {
-    // Register tools FIRST (before binding)
-    await this._registerTools();
-
-    // Create LLM with consistent temperature
-    const llm = await getLLM({
-      temperature: 0.2,
-      maxTokens: 4096,
-    });
-
-    // Validate LLM supports tool binding
-    if (!llm.bindTools || typeof llm.bindTools !== "function") {
-      throw new Error("This LLM does not support tool binding");
-    }
-
-    // Bind tools ONCE and store the bound LLM
-    this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
-
-    // Reset state
-    this.iterations = 0;
-
-    Logging.log(
-      "TeachAgent",
-      `Initialization complete with ${this.toolManager.getAll().length} tools bound`,
-      "info",
-    );
-  }
-
-  private async _registerTools(): Promise<void> {
-    // Core interaction tools
-    this.toolManager.register(ClickTool(this.executionContext)); // NodeId-based click
-    this.toolManager.register(TypeTool(this.executionContext)); // NodeId-based type
-    this.toolManager.register(ClearTool(this.executionContext)); // NodeId-based clear
-
-    // Visual fallback tools (Moondream-powered)
-    this.toolManager.register(MoondreamVisualClickTool(this.executionContext)); // Visual click fallback
-    this.toolManager.register(MoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
-
-    // Navigation and utility tools
-    this.toolManager.register(ScrollTool(this.executionContext));
-    this.toolManager.register(NavigateTool(this.executionContext));
-    this.toolManager.register(KeyTool(this.executionContext));
-    this.toolManager.register(WaitTool(this.executionContext));
-
-    // Planning/Todo tools
-    // this.toolManager.register(TodoSetTool(this.executionContext));
-    // this.toolManager.register(TodoGetTool(this.executionContext));
-
-    // Tab management tools
-    this.toolManager.register(TabsTool(this.executionContext));
-    this.toolManager.register(TabOpenTool(this.executionContext));
-    this.toolManager.register(TabFocusTool(this.executionContext));
-    this.toolManager.register(TabCloseTool(this.executionContext));
-    this.toolManager.register(GroupTabsTool(this.executionContext)); // Group tabs together
-    this.toolManager.register(GetSelectedTabsTool(this.executionContext)); // Get selected tabs
-
-    // Utility tools
-    this.toolManager.register(ExtractTool(this.executionContext));
-    this.toolManager.register(HumanInputTool(this.executionContext));
-    this.toolManager.register(DateTool(this.executionContext)); // Date/time utilities
-    this.toolManager.register(BrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
-
-    // External integration tools
-    this.toolManager.register(MCPTool(this.executionContext)); // MCP server integration
-
-    // Completion tool
-    this.toolManager.register(DoneTool(this.executionContext));
-
-    Logging.log(
-      "TeachAgent",
-      `Registered ${this.toolManager.getAll().length} tools`,
-      "info",
-    );
   }
 
   // There are basically two modes of operation:
@@ -419,7 +272,7 @@ export class TeachAgent {
         
         if (humanResponse === 'abort') {
           // Human aborted the task
-          this.pubsub.publishMessage(PubSub.createMessage('Task aborted by human', 'assistant'));
+          this._emitMessage('Task aborted by human', 'assistant');
           throw new AbortError('Task aborted by human');
         }
 
@@ -443,55 +296,6 @@ export class TeachAgent {
         `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
       );
     }
-  }
-
-  private async _getBrowserStateMessage(
-    includeScreenshot: boolean,
-    simplified: boolean = true,
-    screenshotSize: ScreenshotSizeKey = "large",
-    includeBrowserState: boolean = true,
-  ): Promise<HumanMessage> {
-    let browserStateString: string | null = null;
-
-    if (includeBrowserState) {
-      browserStateString = await this.executionContext.browserContext.getBrowserStateString(
-        simplified,
-      );
-    }
-
-    if (includeScreenshot && this.executionContext.supportsVision()) {
-      // Get current page and take screenshot
-      const page = await this.executionContext.browserContext.getCurrentPage();
-      const screenshot = await page.takeScreenshot(screenshotSize, includeBrowserState);
-
-      if (screenshot) {
-        // Build content array based on what is included
-        const content: any[] = [];
-        if (includeBrowserState && browserStateString !== null) {
-          content.push({ type: "text", text: `<browser-state>${browserStateString}</browser-state>` });
-        }
-        content.push({ type: "image_url", image_url: { url: screenshot } });
-
-        const message = new HumanMessage({
-          content,
-        });
-        // Tag this as a browser state message for proper handling in MessageManager
-        message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
-        return message;
-      }
-    }
-
-    // If only browser state is requested or screenshot failed/unavailable
-    if (includeBrowserState && browserStateString !== null) {
-      const message = new HumanMessage(`<browser-state>${browserStateString}</browser-state>`);
-      message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
-      return message;
-    }
-
-    // If neither browser state nor screenshot is included, return a minimal message
-    const message = new HumanMessage("");
-    message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
-    return message;
   }
 
   private async _runDynamicPlanner(workflow: SemanticWorkflow): Promise<PlannerResult> {
@@ -671,17 +475,16 @@ ${fullHistory}
       if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
         // Process tool calls
         executorMM.add(llmResponse);
-        const toolsResult = await this._processToolCalls(
-          llmResponse.tool_calls,
-          executorMM,
-          currentIterationToolMessages
+        const { result: toolsResult, toolResults } = await this._processToolCalls(
+          llmResponse.tool_calls
         );
 
         // Update iteration count and metrics
-        // this.iterations += llmResponse.tool_calls.length;
-        for (const toolCall of llmResponse.tool_calls) {
+        for (const toolCall of toolResults) {
           this.executionContext.incrementMetric("toolCalls");
-          this.executionContext.incrementToolUsageMetrics(toolCall.name);
+          this.executionContext.incrementToolUsageMetrics(toolCall.toolName);
+          executorMM.addTool(toolCall.toolResult, toolCall.toolCallId);
+          currentIterationToolMessages.push(`Tool: ${toolCall.toolName} - Result: ${toolCall.toolResult}`);
         }
 
         // Check for special outcomes
@@ -752,203 +555,11 @@ ${fullHistory}
     return { completed: false };
   }
 
-  private async _invokeLLMWithStreaming(messageManager?: MessageManager): Promise<AIMessage> {
-    const mm = messageManager || this.executorMessageManager;
-    // Use the pre-bound LLM (created and bound once during initialization)
-    if (!this.executorLlmWithTools) {
-      throw new Error("LLM not initialized - ensure _initialize() was called");
-    }
-
-    // Tags that should never be output to users
-    const PROHIBITED_TAGS = [
-      '<browser-state>',
-      '<system-reminder>',
-      '</browser-state>',
-      '</system-reminder>'
-    ];
-
-    const message_history = mm.getMessages();
-
-    const stream = await this.executorLlmWithTools.stream(message_history, {
-      signal: this.executionContext.abortSignal,
-    });
-
-    let accumulatedChunk: AIMessageChunk | undefined;
-    let accumulatedText = "";
-    let hasStartedThinking = false;
-    let currentMsgId: string | null = null;
-    let hasProhibitedContent = false;
-
-    for await (const chunk of stream) {
-      this.checkIfAborted(); // Manual check during streaming
-
-      if (chunk.content && typeof chunk.content === "string") {
-        // Accumulate text first
-        accumulatedText += chunk.content;
-
-        // Check for prohibited tags if not already detected
-        if (!hasProhibitedContent) {
-          const detectedTag = PROHIBITED_TAGS.find(tag => accumulatedText.includes(tag));
-          if (detectedTag) {
-            hasProhibitedContent = true;
-            
-            // If we were streaming, replace with "Processing..."
-            if (currentMsgId) {
-              this._emitThinking(currentMsgId, "Processing...");
-            }
-            
-            // Queue warning for agent's next iteration
-            mm.queueSystemReminder(
-              "I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. If I have completed all actions, I will complete the task and call 'done' tool."
-            );
-            
-            // Log for debugging
-            Logging.log("TeachAgent", 
-              "LLM output contained prohibited tags, streaming stopped", 
-              "warning"
-            );
-            
-            // Increment error metric
-            this.executionContext.incrementMetric("errors");
-          }
-        }
-
-        // Only stream to UI if no prohibited content detected
-        if (!hasProhibitedContent) {
-          // Start thinking on first real content
-          if (!hasStartedThinking) {
-            hasStartedThinking = true;
-            // Create message ID on first content chunk
-            currentMsgId = PubSub.generateId("teach_exec_thinking");
-          }
-
-          // Emit thinking event with same msgId for updates
-          if (currentMsgId) {
-            this._emitThinking(currentMsgId, accumulatedText);
-          }
-        }
-      }
-      
-      // Always accumulate chunks for final AIMessage (even with prohibited content)
-      accumulatedChunk = !accumulatedChunk
-        ? chunk
-        : accumulatedChunk.concat(chunk);
-    }
-
-    // Only finish thinking if we started, have clean content, and have a message ID
-    if (hasStartedThinking && !hasProhibitedContent && accumulatedText.trim() && currentMsgId) {
-      // Final emit with complete message
-      this._emitThinking(currentMsgId, accumulatedText);
-    }
-
-    if (!accumulatedChunk) return new AIMessage({ content: "" });
-
-    // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
-      content: accumulatedChunk.content,
-      tool_calls: accumulatedChunk.tool_calls,
-    });
-  }
-
-  private async _processToolCalls(
-    toolCalls: any[],
-    messageManager: MessageManager,
-    toolMessages: string[]
-  ): Promise<SingleTurnResult> {
-    const result: SingleTurnResult = {
-      doneToolCalled: false,
-      requirePlanningCalled: false,
-      requiresHumanInput: false,
-    };
-
-    for (const toolCall of toolCalls) {
-      this.checkIfAborted();
-
-      const { name: toolName, args, id: toolCallId } = toolCall;
-
-      this._emitDebug(`Calling tool ${toolName} with args`, JSON.stringify(args));
-
-      // Start glow animation for visual tools
-      await this._maybeStartGlowAnimation(toolName);
-
-      const tool = this.toolManager.get(toolName);
-
-      let toolResult: string;
-      if (!tool) {
-        Logging.log("TeachAgent", `Unknown tool: ${toolName}`, "warning");
-        const errorMsg = `Unknown tool: ${toolName}`;
-        toolResult = JSON.stringify({
-          ok: false,
-          error: errorMsg,
-        });
-
-        this._emitDebug("Error", errorMsg);
-      } else {
-        try {
-          // Execute tool (wrap for evals2 metrics if enabled)
-          let toolFunc = tool.func;
-          if (ENABLE_EVALS2) {
-            const wrapped = wrapToolForMetrics(tool, this.executionContext, toolCallId);
-            toolFunc = wrapped.func;
-          }
-          toolResult = await toolFunc(args);
-
-        } catch (error) {
-          // Even on execution error, we must add a tool result
-          const errorMsg = `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
-          toolResult = JSON.stringify({
-            ok: false,
-            error: errorMsg,
-          });
-
-          // Increment error metric
-          this.executionContext.incrementMetric("errors");
-
-          Logging.log(
-            "TeachAgent",
-            `Tool ${toolName} execution failed: ${error}`,
-            "error",
-          );
-
-          this._emitDebug(`Error executing ${toolName}`, errorMsg);
-        }
-      }
-
-      // Parse result to check for special flags
-      const parsedResult = jsonParseToolOutput(toolResult);
-
-      // Add to message manager and track tool message
-      messageManager.addTool(toolResult, toolCallId);
-      toolMessages.push(`Tool: ${toolName} - Result: ${toolResult}`);
-
-      // Check for special tool outcomes but DON'T break early
-      // We must process ALL tool calls to ensure all get responses
-      if (toolName === "done" && parsedResult.ok) {
-        result.doneToolCalled = true;
-      }
-
-      if (
-        toolName === "human_input" &&
-        parsedResult.ok &&
-        parsedResult.requiresHumanInput
-      ) {
-        result.requiresHumanInput = true;
-      }
-    }
-
-    // Flush any queued messages from tools (screenshots, browser states, etc.)
-    // This is from NewAgent and is CRITICAL for API's required ordering
-    messageManager.flushQueue();
-
-    return result;
-  }
-
-
-  // Emit debug information in development mode
-  private _emitDebug(action: string, details?: any, maxLength: number = 200): void {
+  // Override _emitDebug to use teach-mode events
+  protected _emitDebug(action: string, details?: any, maxLength: number = 200): void {
     if (!isDevelopmentMode()) return;
 
-    let message = `[TeachAgent] ${action}`;
+    let message = action;
     if (details !== undefined && details !== null) {
       let detailString: string;
       if (typeof details === 'object') {
@@ -960,7 +571,7 @@ ${fullHistory}
       if (detailString.length > maxLength) {
         detailString = detailString.substring(0, maxLength) + '...';
       }
-      message = `${message}: ${detailString}`;
+      message = `${action}: ${detailString}`;
     }
 
     // Use teach-mode event for dev debug
@@ -971,7 +582,7 @@ ${fullHistory}
     Logging.log("TeachAgent", message, "info");
   }
 
-  private _handleExecutionError(error: unknown): void {
+  protected _handleExecutionError(error: unknown): void {
     if (error instanceof AbortError) {
       Logging.log("TeachAgent", "Execution aborted by user", "info");
       return;
@@ -985,136 +596,6 @@ ${fullHistory}
       error: errorMessage
     });
   }
-
-  private _logMetrics(): void {
-    const metrics = this.executionContext.getExecutionMetrics();
-    const duration = metrics.endTime - metrics.startTime;
-    const successRate =
-      metrics.toolCalls > 0
-        ? (
-            ((metrics.toolCalls - metrics.errors) / metrics.toolCalls) *
-            100
-          ).toFixed(1)
-        : "0";
-
-    // Convert tool frequency Map to object for logging
-    const toolFrequency: Record<string, number> = {};
-    metrics.toolFrequency.forEach((count, toolName) => {
-      toolFrequency[toolName] = count;
-    });
-
-    Logging.log(
-      "TeachAgent",
-      `Execution complete: ${this.iterations} iterations, ${metrics.toolCalls} tool calls, ` +
-        `${metrics.observations} observations, ${metrics.errors} errors, ` +
-        `${successRate}% success rate, ${duration}ms duration`,
-      "info",
-    );
-
-    // Log tool frequency if any tools were called
-    if (metrics.toolCalls > 0) {
-      Logging.log(
-        "TeachAgent",
-        `Tool frequency: ${JSON.stringify(toolFrequency)}`,
-        "info",
-      );
-    }
-
-    Logging.logMetric("teachagent.execution", {
-      iterations: this.iterations,
-      toolCalls: metrics.toolCalls,
-      observations: metrics.observations,
-      errors: metrics.errors,
-      duration,
-      successRate: parseFloat(successRate),
-      toolFrequency,
-    });
-  }
-
-  private _cleanup(): void {
-    this.iterations = 0;
-    this.plannerExecutionHistory = [];
-    Logging.log("TeachAgent", "Cleanup complete", "info");
-  }
-
-  /**
-   * Handle glow animation for tools that interact with the browser
-   * @param toolName - Name of the tool being executed
-   */
-  private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
-    // Check if this tool should trigger glow animation
-    if (!TeachAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
-      return false;
-    }
-
-    try {
-      const currentPage = await this.executionContext.browserContext.getCurrentPage();
-      const tabId = currentPage.tabId;
-      
-      if (tabId && !this.glowService.isGlowActive(tabId)) {
-        await this.glowService.startGlow(tabId);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      // Log but don't fail if we can't manage glow
-      console.error(`Could not manage glow for tool ${toolName}: ${error}`);
-      return false;
-    }
-  }
-
-  /**
-   * Wait for human input with timeout
-   * @returns 'done' if human clicked Done, 'abort' if clicked Skip/Abort, 'timeout' if timed out
-   */
-  private async _waitForHumanInput(): Promise<'done' | 'abort' | 'timeout'> {
-    const startTime = Date.now();
-    const requestId = this.executionContext.getHumanInputRequestId();
-    
-    if (!requestId) {
-      console.error('No human input request ID found');
-      return 'abort';
-    }
-    
-    // Subscribe to human input responses
-    const subscription = this.pubsub.subscribe((event: PubSubEvent) => {
-      if (event.type === 'human-input-response') {
-        const response = event.payload as HumanInputResponse;
-        if (response.requestId === requestId) {
-          this.executionContext.setHumanInputResponse(response);
-        }
-      }
-    });
-    
-    try {
-      // Poll for response or timeout
-      while (!this.executionContext.shouldAbort()) {
-        // Check if response received
-        const response = this.executionContext.getHumanInputResponse();
-        if (response) {
-          return response.action;  // 'done' or 'abort'
-        }
-        
-        // Check timeout
-        if (Date.now() - startTime > HUMAN_INPUT_TIMEOUT) {
-          const timeoutMsgId = PubSub.generateId('teach_thinking');
-          this._emitThinking(timeoutMsgId, 'Human input timed out after 10 minutes');
-          return 'timeout';
-        }
-        
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, HUMAN_INPUT_CHECK_INTERVAL));
-      }
-      
-      // Aborted externally
-      return 'abort';
-      
-    } finally {
-      // Clean up subscription
-      subscription.unsubscribe();
-    }
-  }
-
 
   /**
    * Build execution history for planner context
@@ -1175,97 +656,6 @@ ${fullHistory}
   }
 
   /**
-   * Build execution context for current iteration
-   */
-  private _buildExecutionContext(
-    plannerOutput: PlannerOutput | null = null,
-    actions: string[] | null = null,
-  ): string {
-    return this._buildDynamicExecutionContext(plannerOutput as PlannerOutput | null, actions);
-  }
-
-  /**
-   * Build execution context for predefined plans
-   */
-  private _buildPredefinedExecutionContext(
-    plan: PlannerOutput | null = null,
-    actions: string[] | null = null,
-  ): string {
-    const supportsVision = this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode();
-
-    const analysisSection = supportsVision
-      ? `<screenshot-analysis>
-  The screenshot shows the webpage with nodeId numbers overlaid as visual labels on elements.
-  These appear as numbers in boxes/labels (e.g., [21], [42], [156]) directly on the webpage elements.
-  YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
-</screenshot-analysis>`
-      : `<text-only-analysis>
-  You are operating in TEXT-ONLY mode without screenshots.
-  Use the browser state text to identify elements by their nodeId, text content, and attributes.
-  Focus on element descriptions and hierarchical structure in the browser state.
-</text-only-analysis>`;
-
-    const processSection = supportsVision
-      ? `<visual-execution-process>
-  1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
-  2. LOCATE the element you need to interact with visually
-  3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-  4. EXECUTE using that nodeId in your tool call
-</visual-execution-process>`
-      : `<text-execution-process>
-  1. ANALYZE the browser state text to understand page structure
-  2. LOCATE elements by their text content, type, and attributes
-  3. IDENTIFY the correct nodeId from the browser state
-  4. EXECUTE using that nodeId in your tool call
-</text-execution-process>`;
-
-    const guidelines = supportsVision
-      ? `<execution-guidelines>
-  - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-  - The text-based browser state is supplementary - the screenshot is your primary reference
-  - Batch multiple tool calls in one response when possible (reduces latency)
-  - Call 'done' when the current actions are completed
-</execution-guidelines>`
-      : `<execution-guidelines>
-  - Use the text-based browser state as your primary reference
-  - Match elements by their text content and attributes
-  - Batch multiple tool calls in one response when possible (reduces latency)
-  - Call 'done' when the current actions are completed
-</execution-guidelines>`;
-
-    let predefinedPlanContext = '';
-    if (plan) {
-      predefinedPlanContext = `<predefined-plan-context>
-  <userTask>${plan.userTask}</userTask>
-  <executionHistory>${plan.executionHistory}</executionHistory>
-  <currentState>${plan.currentState}</currentState>
-  <challengesIdentified>${plan.challengesIdentified}</challengesIdentified>
-  <reasoning>${plan.stepByStepReasoning}</reasoning>
-</predefined-plan-context> `;
-    }
-    let actionsToExecute = '';
-    if (actions) {
-      actionsToExecute = `<actions-to-execute>
-${actions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
-  </actions-to-execute>
-`;
-    }
-    return `${predefinedPlanContext}<execution-instructions>
-${analysisSection}
-${processSection}
-<element-format>
-Elements appear as: [nodeId] <indicator> <tag> "text" context
-
-Legend:
-- [nodeId]: Use this number in click/type calls
-- <C>/<T>: Clickable or Typeable
-</element-format>
-${guidelines}
-${actionsToExecute}
-</execution-instructions>`;
-  }
-
-  /**
    * Build unified execution context combining planning and execution instructions
    */
 
@@ -1281,7 +671,7 @@ ${actionsToExecute}
 ${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
 `;
   }
-  private _buildDynamicExecutionContext(
+  private _buildExecutionContext(
     plan: PlannerOutput | null = null,
     actions: string[] | null = null,
   ): string {
