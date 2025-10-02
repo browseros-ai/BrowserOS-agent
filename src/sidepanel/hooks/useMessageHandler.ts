@@ -85,8 +85,12 @@ export function useMessageHandler() {
       // Handle execution starting from newtab
       if (message?.type === MessageType.EXECUTION_STARTING) {
         console.log(`[SidePanel] Execution starting from ${message.source}`)
-        // Set processing state to show UI feedback
         setProcessing(true)
+      }
+
+      // Handle panel close signal
+      if (message?.type === MessageType.CLOSE_PANEL) {
+        window.close()
       }
     }
 

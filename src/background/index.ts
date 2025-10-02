@@ -301,7 +301,8 @@ async function toggleSidePanel(tabId: number): Promise<void> {
   
   try {
     if (isPanelOpen) {
-      // Panel is open, close it (browser handles this)
+      // Signal sidepanel to close itself
+      chrome.runtime.sendMessage({ type: MessageType.CLOSE_PANEL }).catch(() => {})
       isPanelOpen = false
       Logging.log('Background', 'Panel toggled off')
     } else {
