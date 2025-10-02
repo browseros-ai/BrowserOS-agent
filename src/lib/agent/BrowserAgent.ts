@@ -188,6 +188,10 @@ export class BrowserAgent extends BaseAgent {
     }
 
     let done = false
+    let retries = 0
+
+    // Publish start message
+    this._emitMessage("Starting task execution...", "thinking")
 
     while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
       this.checkIfAborted()
@@ -208,6 +212,10 @@ export class BrowserAgent extends BaseAgent {
           `Planning failed: ${planResult.error}`,
           "error",
         )
+        retries++
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: ${planResult.error}`)
+        }
         continue
       }
 
@@ -237,6 +245,10 @@ export class BrowserAgent extends BaseAgent {
           "Planner provided no actions but task not complete",
           "warning",
         )
+        retries++
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: Planner provided no actions but task not complete`)
+        }
         continue
       }
 
@@ -255,14 +267,12 @@ export class BrowserAgent extends BaseAgent {
 
         if (humanResponse === 'abort') {
           // Human aborted the task
-          this.pubsub.publishMessage(PubSub.createMessage('Task aborted by human', 'assistant'))
+          this._emitMessage('❌ Task aborted by human', 'assistant')
           throw new Error('Task aborted by human')
         }
 
         // Human clicked "Done" - continue with next planning iteration
-        this.pubsub.publishMessage(
-          PubSub.createMessage('Human completed manual action. Re-planning...', 'thinking')
-        )
+        this._emitMessage('✅ Human completed manual action. Re-planning...', 'thinking')
 
         // Clear human input state
         this.executionContext.clearHumanInputState()
@@ -271,6 +281,10 @@ export class BrowserAgent extends BaseAgent {
 
     // Check if we hit planning iteration limit
     if (!done && this.iterations >= MAX_PLANNER_ITERATIONS) {
+      this._emitMessage(
+        `Task did not complete within ${MAX_PLANNER_ITERATIONS} planning iterations`,
+        "error"
+      )
       throw new Error(
         `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
       )
