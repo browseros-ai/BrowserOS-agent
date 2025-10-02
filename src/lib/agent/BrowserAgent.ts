@@ -15,12 +15,13 @@ import {
   getToolDescriptions,
   generateExecutionHistorySummaryPrompt,
 } from "./BrowserAgent.prompt"
-import { BaseAgent, SingleTurnResult } from "./BaseAgent"
+import { BaseAgent } from "./BaseAgent"
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50
 const MAX_EXECUTOR_ITERATIONS = 3
 const MAX_PREDEFINED_PLAN_ITERATIONS = 30
+const MAX_RETRIES = 3
 
 // Standard planner output schema
 const PlannerOutputSchema = z.object({
@@ -53,6 +54,45 @@ const PlannerOutputSchema = z.object({
 
 type PlannerOutput = z.infer<typeof PlannerOutputSchema>
 
+const PredefinedPlannerOutputSchema = z.object({
+  userTask: z
+    .string()
+    .describe("Restate the user's request in your own words for clarity"),
+  executionHistory: z
+    .string()
+    .describe("Briefly outline what actions have already been attempted, including any failures or notable outcomes"),
+  currentState: z
+    .string()
+    .describe("Summarize the current browser state, visible elements, and any relevant context from the screenshot"),
+  challengesIdentified: z
+    .string()
+    .describe("List any obstacles, errors, or uncertainties that may impact progress (e.g., high error rate, missing elements, repeated failures)"),
+  stepByStepReasoning: z
+    .string()
+    .describe("Think step by step through the problem, considering the user's goal, the current state, what has and hasn't worked, and which tools or strategies are most likely to succeed next. Justify your approach"),
+  todoMarkdown: z
+    .string()
+    .describe("Updated TODO list with completed items marked [x]"),
+  proposedActions: z
+    .array(z.string())
+    .max(5)
+    .describe("List 1-5 specific, high-level actions for the executor agent to perform next (must be an empty array if `allTodosComplete=true`. Each action should be clear, actionable, and grounded in your reasoning"),
+  allTodosComplete: z
+    .boolean()
+    .describe("Boolean - are all TODOs done?"),
+  finalAnswer: z
+    .string()
+    .describe("Summary when all TODOs complete (MUST BE EMPTY if not done)"),
+})
+
+type PredefinedPlannerOutput = z.infer<typeof PredefinedPlannerOutputSchema>
+
+interface PredefinedPlannerResult {
+  ok: boolean
+  output?: PredefinedPlannerOutput
+  error?: string
+}
+
 const ExecutionHistorySummarySchema = z.object({
   summary: z
     .string()
@@ -76,7 +116,7 @@ interface ExecutorResult {
 export class BrowserAgent extends BaseAgent {
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
-    plannerOutput: PlannerOutput | ExecutionHistorySummary
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput | ExecutionHistorySummary
     toolMessages: string[]
     plannerIterations: number
   }> = []
@@ -91,6 +131,18 @@ export class BrowserAgent extends BaseAgent {
   // ============================================
 
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
+    // Check for special tasks and get their predefined plans
+    const specialTaskMetadata = this._getSpecialTaskMetadata(task);
+
+    let _task = task;
+    let _metadata = metadata;
+
+    if (specialTaskMetadata) {
+      _task = specialTaskMetadata.task;
+      _metadata = { ...metadata, ...specialTaskMetadata.metadata };
+      Logging.log("BrowserAgent", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
+    }
+
     try {
       this.executionContext.setExecutionMetrics({
         ...this.executionContext.getExecutionMetrics(),
@@ -101,12 +153,10 @@ export class BrowserAgent extends BaseAgent {
       await this._initialize()
 
       // Check if we have a predefined plan
-      if (metadata?.predefinedPlan?.steps) {
-        Logging.log("BrowserAgent", "Executing predefined plan", "info")
-        await this._executePredefinedPlan(task, metadata.predefinedPlan.steps)
+      if (_metadata?.executionMode === 'predefined' && _metadata.predefinedPlan) {
+        await this._executePredefined(_task, _metadata.predefinedPlan);
       } else {
-        // Execute with dynamic planning
-        await this._executeDynamic(task)
+        await this._executeDynamic(_task);
       }
     } catch (error) {
       this._handleExecutionError(error)
@@ -230,116 +280,116 @@ export class BrowserAgent extends BaseAgent {
   // ============================================
   // Predefined plan execution
   // ============================================
+  private async _executePredefined(task: string, plan: any): Promise<void> {
+    this.executionContext.setCurrentTask(task);
 
-  private async _executePredefinedPlan(
-    task: string,
-    predefinedPlan: string[],
-  ): Promise<void> {
-    this.executionContext.setCurrentTask(task)
+    // Convert predefined steps to TODO markdown
+    const todoMarkdown = plan.steps.map((step: string) => `- [ ] ${step}`).join('\n');
+    this.executionContext.setTodoList(todoMarkdown);
 
+    // Validate LLM is initialized with tools bound
     if (!this.executorLlmWithTools) {
-      throw new Error("LLM with tools not initialized")
+      throw new Error("LLM with tools not initialized");
     }
 
-    let done = false
-    let currentStepIndex = 0
+    // Publish start message
+    this._emitMessage(
+      `Executing agent: ${plan.name || 'Custom Agent'}`,
+      "thinking"
+    );
 
-    while (!done && this.iterations < MAX_PREDEFINED_PLAN_ITERATIONS) {
-      this.checkIfAborted()
-      this.iterations++
+    let allComplete = false;
+    let retries = 0;
+
+    while (!allComplete && this.iterations < MAX_PREDEFINED_PLAN_ITERATIONS) {
+      this.checkIfAborted();
+      this.iterations++;
 
       Logging.log(
         "BrowserAgent",
         `Predefined plan iteration ${this.iterations}/${MAX_PREDEFINED_PLAN_ITERATIONS}`,
-        "info",
-      )
+        "info"
+      );
 
-      // Get remaining steps
-      const remainingSteps = predefinedPlan.slice(currentStepIndex)
-
-      if (remainingSteps.length === 0) {
-        // All steps completed
-        done = true
-        this.pubsub.publishMessage(
-          PubSub.createMessage("All planned steps completed successfully", 'assistant')
-        )
-        break
-      }
-
-      // Get reasoning from predefined planner
-      const planResult = await this._runPredefinedPlanner(remainingSteps)
+      // Run predefined planner with current TODO state
+      const planResult = await this._runPredefinedPlanner(task, this.executionContext.getTodoList());
 
       if (!planResult.ok) {
         Logging.log(
           "BrowserAgent",
-          `Planning failed: ${planResult.error}`,
-          "error",
-        )
-        continue
+          `Predefined planning failed: ${planResult.error}`,
+          "error"
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Predefined planning failed: ${planResult.error}`);
+        }
+        continue;
       }
 
-      const plan = planResult.output!
+      const plan = planResult.output!;
 
-      // Publish reasoning
-      this.pubsub.publishMessage(
-        PubSub.createMessage(plan.stepByStepReasoning, 'thinking')
-      )
-
-      // Check if task is complete
-      if (plan.taskComplete) {
-        done = true
-        const completionMessage =
-          plan.finalAnswer || "Task completed successfully"
-        this.pubsub.publishMessage(
-          PubSub.createMessage(completionMessage, 'assistant')
-        )
-        break
+      // Check if all complete
+      if (plan.allTodosComplete) {
+        allComplete = true;
+        const finalMessage = plan.finalAnswer || "All steps completed successfully";
+        this._emitMessage(finalMessage, 'assistant');
+        break;
       }
 
       // Validate we have actions
       if (!plan.proposedActions || plan.proposedActions.length === 0) {
         Logging.log(
           "BrowserAgent",
-          "Planner provided no actions but task not complete",
-          "warning",
-        )
-        continue
+          "Predefined planner provided no actions but TODOs not complete",
+          "warning"
+        );
+        retries++;
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Predefined planner provided no actions but TODOs not complete`);
+        }
+        continue;
       }
 
       Logging.log(
         "BrowserAgent",
-        `Executing ${plan.proposedActions.length} actions from predefined plan`,
-        "info",
-      )
+        `Executing ${plan.proposedActions.length} actions for current TODO`,
+        "info"
+      );
 
-      const executorResult = await this._runExecutor(plan.proposedActions, plan)
+      // This will be handled in _runExecutor with fresh message manager
 
-      // Track step progress
-      currentStepIndex += plan.proposedActions.length
+      // Execute the actions
+      const executorResult = await this._runExecutor(plan.proposedActions, plan);
 
-      // Check execution outcomes
+      // Handle human input if needed
       if (executorResult.requiresHumanInput) {
-        const humanResponse = await this._waitForHumanInput()
-
+        const humanResponse = await this._waitForHumanInput();
         if (humanResponse === 'abort') {
-          this.pubsub.publishMessage(PubSub.createMessage('Task aborted by human', 'assistant'))
-          throw new Error('Task aborted by human')
+          this._emitMessage('❌ Task aborted by human', 'assistant');
+          throw new Error('Task aborted by human');
         }
-
-        this.pubsub.publishMessage(
-          PubSub.createMessage('Human completed manual action. Continuing...', 'thinking')
-        )
-
-        this.executionContext.clearHumanInputState()
+        this._emitMessage('✅ Human completed manual action. Continuing...', 'thinking');
+        // Note: Human input response will be included in next iteration's planner context
+        this.executionContext.clearHumanInputState();
       }
+
     }
 
-    if (!done && this.iterations >= MAX_PREDEFINED_PLAN_ITERATIONS) {
+    // Check if we hit iteration limit
+    if (!allComplete && this.iterations >= MAX_PREDEFINED_PLAN_ITERATIONS) {
+      this._emitMessage(
+        `Predefined plan did not complete within ${MAX_PREDEFINED_PLAN_ITERATIONS} iterations`,
+        "error"
+      );
       throw new Error(
-        `Maximum predefined plan iterations (${MAX_PREDEFINED_PLAN_ITERATIONS}) reached`,
-      )
+        `Maximum predefined plan iterations (${MAX_PREDEFINED_PLAN_ITERATIONS}) reached or planning failed`
+      );
     }
+
+    Logging.log("BrowserAgent", `Predefined plan execution complete`, "info");
   }
+
 
   // ============================================
   // Planner implementations
@@ -460,7 +510,7 @@ ${historyToUse}
     }
   }
 
-  private async _runPredefinedPlanner(remainingSteps: string[]): Promise<PlannerResult> {
+  private async _runPredefinedPlanner(task: string, currentTodos: string): Promise<PredefinedPlannerResult> {
     try {
       this.executionContext.incrementMetric("observations")
 
@@ -482,25 +532,43 @@ ${historyToUse}
       // System prompt for predefined planner
       const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "")
 
+      // Check token usage and summarize if needed
+      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt))
+      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory))
+      let historyToUse = fullHistory
+
+      Logging.log("BrowserAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info")
+
+      if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
+        const summary = await this._summarizeExecutionHistory(fullHistory)
+        historyToUse = summary.summary
+
+        // Clear the planner execution history after summarizing
+        this.plannerExecutionHistory = []
+        this.plannerExecutionHistory.push({
+          plannerOutput: summary,
+          toolMessages: [],
+          plannerIterations: this.iterations - 1,
+        })
+      }
+
       const llm = await getLLM({
         temperature: 0.2,
         maxTokens: 4096,
       })
-      const structuredLLM = llm.withStructuredOutput(PlannerOutputSchema)
+      const structuredLLM = llm.withStructuredOutput(PredefinedPlannerOutputSchema)
 
-      const userPrompt = `TASK: ${this.executionContext.getCurrentTask()}
-
-REMAINING STEPS TO COMPLETE:
-${remainingSteps.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+      const userPrompt = `Current TODO List:
+${currentTodos}
 
 EXECUTION METRICS:
 - Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
 - Observations taken: ${metrics.observations}
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
+${parseInt(errorRate) > 30 && metrics.errors > 3 ? "⚠️ HIGH ERROR RATE - Current approach may be failing. Learn from the past execution history and adapt your approach" : ""}
 
-YOUR PREVIOUS EXECUTION HISTORY:
-${fullHistory}
+YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
+${historyToUse}
 `
 
       const messages = [
@@ -509,7 +577,7 @@ ${fullHistory}
         browserStateMessage,
       ]
 
-      const result = await invokeWithRetry<PlannerOutput>(
+      const result = await invokeWithRetry<PredefinedPlannerOutput>(
         structuredLLM,
         messages,
         3,
@@ -518,21 +586,31 @@ ${fullHistory}
 
       const plannerState = {
         userTask: result.userTask,
-        currentState: result.currentState,
         executionHistory: result.executionHistory,
+        currentState: result.currentState,
         challengesIdentified: result.challengesIdentified,
         stepByStepReasoning: result.stepByStepReasoning,
+        todoMarkdown: result.todoMarkdown,
         proposedActions: result.proposedActions,
-        taskComplete: result.taskComplete,
+        allTodosComplete: result.allTodosComplete,
         finalAnswer: result.finalAnswer,
       }
       this.executionContext.addReasoning(JSON.stringify(plannerState))
 
+      // Publish updated TODO list
+      this._emitMessage(result.todoMarkdown, "thinking")
+      this.executionContext.setTodoList(result.todoMarkdown)
+
+      // Publish reasoning
+      this.pubsub.publishMessage(
+        PubSub.createMessage(result.stepByStepReasoning, "thinking")
+      )
+
       Logging.log(
         "BrowserAgent",
-        result.taskComplete
-          ? `Predefined Planner: Task complete`
-          : `Predefined Planner: ${result.proposedActions.length} actions planned`,
+        result.allTodosComplete
+          ? `Predefined Planner: All TODOs complete with final answer`
+          : `Predefined Planner: ${result.proposedActions.length} actions planned for current TODO`,
         "info",
       )
 
@@ -555,7 +633,7 @@ ${fullHistory}
 
   private async _runExecutor(
     actions: string[],
-    plannerOutput: PlannerOutput
+    plannerOutput: PlannerOutput | PredefinedPlannerOutput
   ): Promise<ExecutorResult> {
     // Use the current iteration message manager from execution context
     const executorMM = new MessageManager()
@@ -686,7 +764,7 @@ ${fullHistory}
   // Helper methods
   // ============================================
 
-  private _formatPlannerOutputForExecutor(plan: PlannerOutput): string {
+  private _formatPlannerOutputForExecutor(plan: PlannerOutput | PredefinedPlannerOutput): string {
     return `BrowserOS Agent Output:
 - Task: ${plan.userTask}
 - Current State: ${plan.currentState}
@@ -761,7 +839,7 @@ ${guidelines}
       return "No execution history yet"
     }
 
-    return this.plannerExecutionHistory.map((entry, index) => {
+    return this.plannerExecutionHistory.map((entry) => {
       let plannerSection = ""
 
       if ('summary' in entry.plannerOutput) {
@@ -771,14 +849,28 @@ ${guidelines}
         return `=== ITERATIONS 1-${iterationNumber} SUMMARY ===\n${summary.summary}`
       }
 
-      const plan = entry.plannerOutput as PlannerOutput
-      plannerSection = `PLANNER OUTPUT:
+      if (!('todoMarkdown' in entry.plannerOutput)) {
+        // Dynamic planner output
+        const plan = entry.plannerOutput as PlannerOutput
+        plannerSection = `PLANNER OUTPUT:
 - Task: ${plan.userTask}
 - Current State: ${plan.currentState}
 - Execution History: ${plan.executionHistory}
 - Challenges Identified: ${plan.challengesIdentified}
 - Reasoning: ${plan.stepByStepReasoning}
 - Actions Planned: ${plan.proposedActions.join(', ')}`
+      } else {
+        // Predefined planner output
+        const plan = entry.plannerOutput as PredefinedPlannerOutput
+        plannerSection = `PLANNER OUTPUT:
+- User Task: ${plan.userTask}
+- Execution History: ${plan.executionHistory}
+- Current State: ${plan.currentState}
+- Challenges Identified: ${plan.challengesIdentified}
+- Reasoning: ${plan.stepByStepReasoning}
+- TODO Markdown: ${plan.todoMarkdown}
+- Proposed Actions: ${plan.proposedActions.join(', ')}`
+      }
 
       const toolSection = entry.toolMessages.length > 0
         ? `TOOL EXECUTIONS:\n${entry.toolMessages.join('\n')}`
@@ -809,5 +901,60 @@ ${guidelines}
   protected _cleanup(): void {
     super._cleanup()
     this.plannerExecutionHistory = []
+  }
+
+
+  /**
+   * Check if task is a special predefined task and return its metadata
+   * @param task - The original task string
+   * @returns Metadata with predefined plan or null if not a special task
+   */
+  private _getSpecialTaskMetadata(task: string): {task: string, metadata: ExecutionMetadata} | null {
+    // Case-insensitive comparison
+    const taskLower = task.toLowerCase();
+
+    // BrowserOS Launch Upvote Task
+    if (taskLower === "read about our vision and upvote ❤️") {
+      return {
+        task: "Read about our vision and upvote",
+        metadata: {
+          executionMode: 'predefined' as const,
+          predefinedPlan: {
+            agentId: 'browseros-launch-upvoter',
+            name: "BrowserOS Launch Upvoter",
+            goal: "Navigate to BrowserOS launch page and upvote it",
+            steps: [
+              "Navigate to https://dub.sh/browseros-launch",
+              "Find and click the upvote button on the page using visual_click",
+              "Use celebration tool to show confetti animation"
+            ]
+          }
+        }
+      };
+    }
+
+    // GitHub Star Task
+    if (taskLower === "support browseros on github ⭐") {
+      return {
+        task: "Support BrowserOS on GitHub",
+        metadata: {
+          executionMode: 'predefined' as const,
+          predefinedPlan: {
+            agentId: 'github-star-browseros',
+            name: "GitHub Repository Star",
+            goal: "Navigate to BrowserOS GitHub repo and star it",
+            steps: [
+              "Navigate to https://git.new/browserOS",
+              "Check if the star button indicates already starred (filled star icon)",
+              "If not starred (outline star icon), click the star button to star the repository",
+              "Use celebration_tool to show confetti animation"
+            ]
+          }
+        }
+      };
+    }
+
+    // Return null if not a special task
+    return null;
   }
 }
