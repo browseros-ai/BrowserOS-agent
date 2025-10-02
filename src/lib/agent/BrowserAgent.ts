@@ -413,14 +413,6 @@ export class BrowserAgent extends BaseAgent {
     try {
       this.executionContext.incrementMetric("observations")
 
-      // Get browser state message with screenshot
-      const browserStateMessage = await this._getBrowserStateMessage(
-        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
-        /* simplified */ true,
-        /* screenshotSize */ "large",
-        /* includeBrowserState */ true
-      )
-
       // Get execution metrics for analysis
       const metrics = this.executionContext.getExecutionMetrics()
       const errorRate = metrics.toolCalls > 0
@@ -429,31 +421,30 @@ export class BrowserAgent extends BaseAgent {
       const elapsed = Date.now() - metrics.startTime
 
       // Get accumulated execution history from all iterations
-      const fullHistory = this._buildPlannerExecutionHistory()
+      let fullHistory = this._buildPlannerExecutionHistory()
 
       // System prompt for planner
       const systemPrompt = generatePlannerPrompt(this.toolDescriptions || "")
 
-      // Check token usage and summarize if needed
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt))
       const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory))
-      let historyToUse = fullHistory
-
       Logging.log("BrowserAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info")
 
       // If full history exceeds 70% of max tokens, summarize it
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
         const summary = await this._summarizeExecutionHistory(fullHistory)
-        historyToUse = summary.summary
+        fullHistory = summary.summary
 
-        // Clear the planner execution history after summarizing
+        // Clear the planner execution history after summarizing and add summarized state to the history
         this.plannerExecutionHistory = []
         this.plannerExecutionHistory.push({
           plannerOutput: summary,
           toolMessages: [],
-          plannerIterations: this.iterations - 1,
+          plannerIterations: this.iterations - 1, // Subtract 1 because the summary is for the previous iterations
         })
       }
+
+      Logging.log("BrowserAgent", `Full execution history: ${fullHistory}`, "info")
 
       // Get LLM with structured output
       const llm = await getLLM({
@@ -461,6 +452,7 @@ export class BrowserAgent extends BaseAgent {
         maxTokens: 4096,
       })
       const structuredLLM = llm.withStructuredOutput(PlannerOutputSchema)
+      const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`
 
       const userPrompt = `TASK: ${this.executionContext.getCurrentTask()}
 
@@ -468,12 +460,21 @@ EXECUTION METRICS:
 - Tool calls: ${metrics.toolCalls} (${metrics.errors} errors, ${errorRate}% failure rate)
 - Observations taken: ${metrics.observations}
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
-${parseInt(errorRate) > 30 ? "⚠️ HIGH ERROR RATE - Current approach may be failing" : ""}
-${metrics.toolCalls > 10 && metrics.errors > 5 ? "⚠️ MANY ATTEMPTS - May be stuck in a loop" : ""}
+${parseInt(errorRate) > 30 && metrics.errors > 3 ? "⚠️ HIGH ERROR RATE - Current approach may be failing. Learn from the past execution history and adapt your approach" : ""}
+
+${executionContext}
 
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
-${historyToUse}
+${fullHistory}
 `
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt))
+      const browserStateMessage = await this._getBrowserStateMessage(
+        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+        /* simplified */ true,
+        /* screenshotSize */ "large",
+        /* includeBrowserState */ true,
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.8
+      )
 
       // Build messages
       const messages = [
@@ -486,7 +487,7 @@ ${historyToUse}
       const result = await invokeWithRetry<PlannerOutput>(
         structuredLLM,
         messages,
-        3,
+        MAX_RETRIES,
         { signal: this.executionContext.abortSignal }
       )
 
@@ -651,7 +652,9 @@ ${historyToUse}
   ): Promise<ExecutorResult> {
     // Use the current iteration message manager from execution context
     const executorMM = new MessageManager()
-    executorMM.addSystem(generateExecutorPrompt(this._buildExecutionContext()))
+    const systemPrompt = generateExecutorPrompt(this._buildExecutionContext())
+    const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt))
+    executorMM.addSystem(systemPrompt)
     const currentIterationToolMessages: string[] = []
     let executorIterations = 0
     let isFirstPass = true
@@ -662,21 +665,23 @@ ${historyToUse}
 
       // Add browser state and simple prompt
       if (isFirstPass) {
-        // Add current browser state without screenshot
-        const browserStateMessage = await this._getBrowserStateMessage(
-          /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
-          /* simplified */ true,
-          /* screenshotSize */ "medium"
-        )
-        executorMM.add(browserStateMessage)
-
         // Build execution context with planner output
         const plannerOutputForExecutor = this._formatPlannerOutputForExecutor(plannerOutput)
 
         const executionContext = this._buildExecutionContext()
+        const additionalTokens = TokenCounter.countMessage(new HumanMessage(executionContext + '\n'+ plannerOutputForExecutor))
+
+        const browserStateMessage = await this._getBrowserStateMessage(
+          /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+          /* simplified */ true,
+          /* screenshotSize */ "medium",
+          /* includeBrowserState */ true,
+          /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - additionalTokens)*0.8
+        )
+        executorMM.add(browserStateMessage)
         executorMM.addSystemReminder(executionContext + '\n I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. I will provide what tools to be executed based on provided actions in sequence until I call "done" tool.')
 
-        // Pass planner output to executor
+        // Pass planner output to executor to provide context and corresponding actions to be executed
         executorMM.addHuman(
           `${plannerOutputForExecutor}\nPlease execute the actions specified above.`
         )
@@ -801,42 +806,37 @@ ${plan.proposedActions.map((action, i) => `    ${i + 1}. ${action}`).join('\n')}
   YOU MUST LOOK AT THE SCREENSHOT FIRST to identify which nodeId belongs to which element.
 </screenshot-analysis>`
       : `<text-only-analysis>
-  You are operating in TEXT-ONLY mode without screenshots.
-  Use the browser state text to identify elements by their nodeId, text content, and attributes.
-  Focus on element descriptions and hierarchical structure in the browser state.
+  You are provided with a screenshot of the webpage. Each interactive element is visually labeled with a nodeId (e.g., [21], [42], [156]) directly on the element.
+  - The screenshot is your PRIMARY reference for identifying elements.
+  - The browser state text is available as a supplementary resource, but you must always use the screenshot to determine the correct nodeId.
+  - NodeIds are visually overlaid as numbers in boxes/labels on the elements themselves.
+  - Pay attention to the visual context, layout, and grouping of elements to accurately identify the target.
+  - If multiple elements have similar text, use their position and visual grouping to distinguish them.
 </text-only-analysis>`
 
     const processSection = supportsVision
       ? `<visual-execution-process>
-  1. EXAMINE the screenshot - See the webpage with nodeId labels overlaid on elements
-  2. LOCATE the element you need to interact with visually
-  3. IDENTIFY its nodeId from the label shown on that element in the screenshot
-  4. EXECUTE using that nodeId in your tool call
+  1. EXAMINE the screenshot carefully to see all elements with their nodeId labels.
+  2. LOCATE the element you need to interact with by visually matching its appearance, text, and position.
+  3. IDENTIFY the nodeId from the label shown directly on the element in the screenshot.
+  4. EXECUTE your tool call using the identified nodeId (never guess).
+  5. Batch multiple tool calls in one response when possible to reduce latency.
+  6. Call 'done' when all actions are completed.
+  - If you are unsure about an element, cross-reference with the browser state text for additional context.
 </visual-execution-process>`
       : `<text-execution-process>
-  1. ANALYZE the browser state text to understand page structure
-  2. LOCATE elements by their text content, type, and attributes
-  3. IDENTIFY the correct nodeId from the browser state
-  4. EXECUTE using that nodeId in your tool call
+  1. ANALYZE the text-based browser state to find the element you need to interact with.
+  2. If the element is not visible or the browser state is incomplete, use the grep_elements tool with appropriate regex patterns to search for the element.
+      - Example patterns: grep_elements("button.*(login|submit)"), grep_elements("input.*(email|password)")
+      - If no results, try broader patterns like "button" or "input"
+  3. From the grep_elements results or browser state, extract the [nodeId] (e.g., [42] <C> <button> "Login").
+  4. EXECUTE your tool call using the precise nodeId you have found.
+  5. NEVER guess nodeIds – always confirm using browser state or grep_elements results.
+  6. Batch multiple tool calls in one response when possible to reduce latency.
+  7. Call 'done' when all actions are completed.
 </text-execution-process>`
 
-    const guidelines = supportsVision
-      ? `<execution-guidelines>
-  - The nodeIds are VISUALLY LABELED on the screenshot - you must look at it
-  - The text-based browser state is supplementary - the screenshot is your primary reference
-  - Batch multiple tool calls in one response when possible (reduces latency)
-  - Call 'done' when all actions are completed
-</execution-guidelines>`
-      : `<execution-guidelines>
-  - Use the text-based browser state as your primary reference
-  - Match elements by their text content and attributes
-  - Batch multiple tool calls in one response when possible (reduces latency)
-  - Call 'done' when all actions are completed
-</execution-guidelines>`
-
     return `<execution-instructions>
-${analysisSection}
-${processSection}
 <element-format>
 Elements appear as: [nodeId] <indicator> <tag> "text" context
 
@@ -844,7 +844,8 @@ Legend:
 - [nodeId]: Use this number in click/type calls
 - <C>/<T>: Clickable or Typeable
 </element-format>
-${guidelines}
+${analysisSection}
+${processSection}
 </execution-instructions>`
   }
 
@@ -897,18 +898,29 @@ ${guidelines}
   }
 
   private async _summarizeExecutionHistory(history: string): Promise<ExecutionHistorySummary> {
+    // Remove Reasoning, TODO Markdown, and Proposed Actions sections before summarizing
+    // This strips lines starting with those section headers (case-insensitive, with or without colon)
+    const historyWithoutSections = history
+      .split('\n')
+      .filter(line =>
+        !/^[-*]\s*Reasoning[:]?/i.test(line.trim()) &&
+        !/^[-*]\s*TODO Markdown[:]?/i.test(line.trim()) &&
+        !/^[-*]\s*Proposed Actions[:]?/i.test(line.trim())
+      )
+      .join('\n')
+
     const llm = await getLLM({
       temperature: 0.2,
       maxTokens: 4096,
     })
     const structuredLLM = llm.withStructuredOutput(ExecutionHistorySummarySchema)
     const systemPrompt = generateExecutionHistorySummaryPrompt()
-    const userPrompt = `Execution History: ${history}`
+    const userPrompt = `Execution History: ${historyWithoutSections}`
     const messages = [
       new SystemMessage(systemPrompt),
       new HumanMessage(userPrompt),
     ]
-    const result = await invokeWithRetry<ExecutionHistorySummary>(structuredLLM, messages, 3, { signal: this.executionContext.abortSignal })
+    const result = await invokeWithRetry<ExecutionHistorySummary>(structuredLLM, messages, MAX_RETRIES, { signal: this.executionContext.abortSignal })
     return result
   }
 
