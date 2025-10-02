@@ -30,6 +30,7 @@ import { type SemanticWorkflow } from "@/lib/teach-mode/types";
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
 const MAX_EXECUTOR_ITERATIONS = 3;
+const MAX_RETRIES = 3
 
 // Human input constants
 const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
@@ -163,15 +164,7 @@ export class TeachAgent extends BaseAgent {
       this._cleanup();
       
       // Ensure glow animation is stopped at the end of execution
-      try {
-        // Get all active glow tabs from the service
-        const activeGlows = await this.glowService.getAllActiveGlows();
-        for (const tabId of activeGlows) {
-          await this.glowService.stopGlow(tabId);
-        }
-      } catch (error) {
-        console.error(`Could not stop glow animation: ${error}`);
-      }
+      await this._stopAllGlowAnimations()
     }
   }
 
@@ -186,6 +179,7 @@ export class TeachAgent extends BaseAgent {
     }
 
     let done = false;
+    let retries = 0
 
     // Publish execution started event
     this._emitTeachModeEvent('execution_started', {
@@ -250,7 +244,11 @@ export class TeachAgent extends BaseAgent {
           "Planner provided no actions but task not complete",
           "warning",
         );
-        continue;
+        retries++
+        if (retries >= MAX_RETRIES) {
+          throw new Error(`Planning failed: Planner provided no actions but task not complete`)
+        }
+        continue
       }
 
       Logging.log(
@@ -486,6 +484,10 @@ ${fullHistory}
           executorMM.addTool(toolCall.toolResult, toolCall.toolCallId);
           currentIterationToolMessages.push(`Tool: ${toolCall.toolName} - Result: ${toolCall.toolResult}`);
         }
+
+        // Flush any queued messages from tools (screenshots, browser states, etc.)
+        // This is CRITICAL for API's required ordering
+        executorMM.flushQueue()
 
         // Check for special outcomes
         if (toolsResult.doneToolCalled) {

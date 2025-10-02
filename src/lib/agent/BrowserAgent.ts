@@ -8,6 +8,7 @@ import { PubSub } from "@/lib/pubsub"
 import { Logging } from "@/lib/utils/Logging"
 import { invokeWithRetry } from "@/lib/utils/retryable"
 import { TokenCounter } from "@/lib/utils/TokenCounter"
+import { AbortError } from "@/lib/utils/Abortable"
 import {
   generateExecutorPrompt,
   generatePlannerPrompt,
@@ -120,10 +121,13 @@ export class BrowserAgent extends BaseAgent {
     toolMessages: string[]
     plannerIterations: number
   }> = []
-  private toolDescriptions: string = getToolDescriptions()
+  private toolDescriptions: string = ""
 
   constructor(executionContext: ExecutionContext) {
     super(executionContext, "BrowserAgent")
+
+    // update Tool descriptions based on limited context mode
+    this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode())
   }
 
   // ============================================
@@ -268,7 +272,7 @@ export class BrowserAgent extends BaseAgent {
         if (humanResponse === 'abort') {
           // Human aborted the task
           this._emitMessage('❌ Task aborted by human', 'assistant')
-          throw new Error('Task aborted by human')
+          throw new AbortError('Task aborted by human')
         }
 
         // Human clicked "Done" - continue with next planning iteration
@@ -381,7 +385,7 @@ export class BrowserAgent extends BaseAgent {
         const humanResponse = await this._waitForHumanInput();
         if (humanResponse === 'abort') {
           this._emitMessage('❌ Task aborted by human', 'assistant');
-          throw new Error('Task aborted by human');
+          throw new AbortError('Task aborted by human');
         }
         this._emitMessage('✅ Human completed manual action. Continuing...', 'thinking');
         // Note: Human input response will be included in next iteration's planner context
@@ -529,49 +533,41 @@ ${fullHistory}
     try {
       this.executionContext.incrementMetric("observations")
 
-      const browserStateMessage = await this._getBrowserStateMessage(
-        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
-        /* simplified */ true,
-        /* screenshotSize */ "large",
-        /* includeBrowserState */ true
-      )
-
       const metrics = this.executionContext.getExecutionMetrics()
       const errorRate = metrics.toolCalls > 0
         ? ((metrics.errors / metrics.toolCalls) * 100).toFixed(1)
         : "0"
       const elapsed = Date.now() - metrics.startTime
 
-      const fullHistory = this._buildPlannerExecutionHistory()
+      // Get accumulated execution history from all iterations
+      let fullHistory = this._buildPlannerExecutionHistory()
 
-      // System prompt for predefined planner
       const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "")
-
-      // Check token usage and summarize if needed
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt))
       const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory))
-      let historyToUse = fullHistory
-
       Logging.log("BrowserAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info")
 
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
         const summary = await this._summarizeExecutionHistory(fullHistory)
-        historyToUse = summary.summary
 
-        // Clear the planner execution history after summarizing
+        // Clear the planner execution history after summarizing and add summarized state to the history
         this.plannerExecutionHistory = []
         this.plannerExecutionHistory.push({
           plannerOutput: summary,
           toolMessages: [],
-          plannerIterations: this.iterations - 1,
+          plannerIterations: this.iterations - 1, // Subtract 1 because the summary is for the previous iterations
         })
+
+        fullHistory = summary.summary
       }
 
+      // Get LLM with structured output
       const llm = await getLLM({
         temperature: 0.2,
         maxTokens: 4096,
       })
       const structuredLLM = llm.withStructuredOutput(PredefinedPlannerOutputSchema)
+      const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`
 
       const userPrompt = `Current TODO List:
 ${currentTodos}
@@ -582,9 +578,19 @@ EXECUTION METRICS:
 - Time elapsed: ${(elapsed / 1000).toFixed(1)} seconds
 ${parseInt(errorRate) > 30 && metrics.errors > 3 ? "⚠️ HIGH ERROR RATE - Current approach may be failing. Learn from the past execution history and adapt your approach" : ""}
 
+${executionContext}
+
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
-${historyToUse}
+${fullHistory}
 `
+      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt))
+      const browserStateMessage = await this._getBrowserStateMessage(
+        /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
+        /* simplified */ true,
+        /* screenshotSize */ "large",
+        /* includeBrowserState */ true,
+        /* browserStateTokensLimit */ (this.executionContext.getMaxTokens() - systemPromptTokens - userPromptTokens)*0.8
+      )
 
       const messages = [
         new SystemMessage(systemPrompt),
@@ -595,7 +601,7 @@ ${historyToUse}
       const result = await invokeWithRetry<PredefinedPlannerOutput>(
         structuredLLM,
         messages,
-        3,
+        MAX_RETRIES,
         { signal: this.executionContext.abortSignal }
       )
 
@@ -710,6 +716,10 @@ ${historyToUse}
           executorMM.addTool(toolCall.toolResult, toolCall.toolCallId)
           currentIterationToolMessages.push(`Tool: ${toolCall.toolName} - Result: ${toolCall.toolResult}`)
         }
+
+        // Flush any queued messages from tools (screenshots, browser states, etc.)
+        // This is CRITICAL for API's required ordering
+        executorMM.flushQueue()
 
         // Check for special outcomes
         if (result.doneToolCalled) {
