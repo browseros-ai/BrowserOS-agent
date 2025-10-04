@@ -30,30 +30,30 @@ import {
   generateExecutionHistorySummaryPrompt,
 } from "./BrowserAgent.prompt";
 import {
-  createClickTool,
-  createTypeTool,
-  createClearTool,
-  createScrollTool,
-  createNavigateTool,
-  createKeyTool,
-  createWaitTool,
-  createTabsTool,
-  createTabOpenTool,
-  createTabFocusTool,
-  createTabCloseTool,
-  createExtractTool,
-  createHumanInputTool,
-  createDoneTool,
-  createMoondreamVisualClickTool,
-  createMoondreamVisualTypeTool,
-  createGrepElementsTool,
-  createCelebrationTool,
-} from "@/lib/tools/NewTools";
-import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
-import { createBrowserOSInfoTool } from '@/lib/tools/utility/BrowserOSInfoTool';
-import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
-import { createDateTool } from "@/lib/tools/utility/DateTool";
-import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
+  ClickTool,
+  TypeTool,
+  ClearTool,
+  ScrollTool,
+  NavigateTool,
+  KeyTool,
+  WaitTool,
+  TabsTool,
+  TabOpenTool,
+  TabFocusTool,
+  TabCloseTool,
+  ExtractTool,
+  HumanInputTool,
+  DoneTool,
+  MoondreamVisualClickTool,
+  MoondreamVisualTypeTool,
+  GrepElementsTool,
+  CelebrationTool,
+  GroupTabsTool,
+  BrowserOSInfoTool,
+  GetSelectedTabsTool,
+  DateTool,
+  MCPTool,
+} from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
@@ -254,49 +254,49 @@ export class BrowserAgent {
 
   private async _registerTools(): Promise<void> {
     // Core interaction tools
-    this.toolManager.register(createClickTool(this.executionContext)); // NodeId-based click
-    this.toolManager.register(createTypeTool(this.executionContext)); // NodeId-based type
-    this.toolManager.register(createClearTool(this.executionContext)); // NodeId-based clear
+    this.toolManager.register(ClickTool(this.executionContext)); // NodeId-based click
+    this.toolManager.register(TypeTool(this.executionContext)); // NodeId-based type
+    this.toolManager.register(ClearTool(this.executionContext)); // NodeId-based clear
 
     // Visual fallback tools (Moondream-powered)
-    this.toolManager.register(createMoondreamVisualClickTool(this.executionContext)); // Visual click fallback
-    this.toolManager.register(createMoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
+    this.toolManager.register(MoondreamVisualClickTool(this.executionContext)); // Visual click fallback
+    this.toolManager.register(MoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
 
     // Navigation and utility tools
-    this.toolManager.register(createScrollTool(this.executionContext));
-    this.toolManager.register(createNavigateTool(this.executionContext));
-    this.toolManager.register(createKeyTool(this.executionContext));
-    this.toolManager.register(createWaitTool(this.executionContext));
+    this.toolManager.register(ScrollTool(this.executionContext));
+    this.toolManager.register(NavigateTool(this.executionContext));
+    this.toolManager.register(KeyTool(this.executionContext));
+    this.toolManager.register(WaitTool(this.executionContext));
 
     // Planning/Todo tools
-    // this.toolManager.register(createTodoSetTool(this.executionContext));
-    // this.toolManager.register(createTodoGetTool(this.executionContext));
+    // this.toolManager.register(TodoSetTool(this.executionContext));
+    // this.toolManager.register(TodoGetTool(this.executionContext));
 
     // Tab management tools
-    this.toolManager.register(createTabsTool(this.executionContext));
-    this.toolManager.register(createTabOpenTool(this.executionContext));
-    this.toolManager.register(createTabFocusTool(this.executionContext));
-    this.toolManager.register(createTabCloseTool(this.executionContext));
-    this.toolManager.register(createGroupTabsTool(this.executionContext)); // Group tabs together
-    this.toolManager.register(createGetSelectedTabsTool(this.executionContext)); // Get selected tabs
+    this.toolManager.register(TabsTool(this.executionContext));
+    this.toolManager.register(TabOpenTool(this.executionContext));
+    this.toolManager.register(TabFocusTool(this.executionContext));
+    this.toolManager.register(TabCloseTool(this.executionContext));
+    this.toolManager.register(GroupTabsTool(this.executionContext)); // Group tabs together
+    this.toolManager.register(GetSelectedTabsTool(this.executionContext)); // Get selected tabs
 
     // Utility tools
-    this.toolManager.register(createExtractTool(this.executionContext)); // Extract text from page
-    this.toolManager.register(createHumanInputTool(this.executionContext));
-    this.toolManager.register(createCelebrationTool(this.executionContext)); // Celebration/confetti tool
-    this.toolManager.register(createDateTool(this.executionContext)); // Date/time utilities
-    this.toolManager.register(createBrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
-    
+    this.toolManager.register(ExtractTool(this.executionContext)); // Extract text from page
+    this.toolManager.register(HumanInputTool(this.executionContext));
+    this.toolManager.register(CelebrationTool(this.executionContext)); // Celebration/confetti tool
+    this.toolManager.register(DateTool(this.executionContext)); // Date/time utilities
+    this.toolManager.register(BrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
+
     // External integration tools
-    this.toolManager.register(createMCPTool(this.executionContext)); // MCP server integration
+    this.toolManager.register(MCPTool(this.executionContext)); // MCP server integration
 
     // Limited context mode tools - only register when in limited context mode
     if (this.executionContext.isLimitedContextMode()) {
-      this.toolManager.register(createGrepElementsTool(this.executionContext)); // Search elements when browser state is truncated
+      this.toolManager.register(GrepElementsTool(this.executionContext)); // Search elements when browser state is truncated
     }
 
     // Completion tool
-    this.toolManager.register(createDoneTool(this.executionContext));
+    this.toolManager.register(DoneTool(this.executionContext));
 
     // Populate tool descriptions after all tools are registered
     this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
@@ -728,7 +728,7 @@ export class BrowserAgent {
       const elapsed = Date.now() - metrics.startTime;
 
       // Get accumulated execution history from all iterations
-      var fullHistory = this._buildPlannerExecutionHistory();
+      let fullHistory = this._buildPlannerExecutionHistory();
 
       // Get numbeer of tokens in full history
       // System prompt for planner
@@ -1355,7 +1355,7 @@ ${fullHistory}
       const elapsed = Date.now() - metrics.startTime;
 
       // Get accumulated execution history from all iterations
-      var fullHistory = this._buildPlannerExecutionHistory();
+      let fullHistory = this._buildPlannerExecutionHistory();
 
       const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));

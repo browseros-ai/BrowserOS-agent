@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Logging } from '@/lib/utils/Logging'
-import { createPlannerTool } from '@/lib/tools/planning/PlannerTool'
+import { PlannerTool } from '@/lib/tools'
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import BrowserContext from '@/lib/browser/BrowserContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
@@ -49,9 +49,9 @@ export class PlanGeneratorService {
 
     onUpdate?.({ status: 'started', content: 'Generating plan…' })
 
-    // Build a lightweight execution context mirroring BrowserAgent’s planner path
+    // Build a lightweight execution context mirroring BrowserAgent's planner path
     const executionContext = this._makeLightExecutionContext(context)
-    const plannerTool = createPlannerTool(executionContext)
+    const plannerTool = PlannerTool(executionContext)
 
     onUpdate?.({ status: 'thinking', content: 'Calling PlannerTool…' })
 
@@ -105,7 +105,7 @@ export class PlanGeneratorService {
     const refinementContext = contextParts.join('\n')
 
     const executionContext = this._makeLightExecutionContext(refinementContext)
-    const plannerTool = createPlannerTool(executionContext)
+    const plannerTool = PlannerTool(executionContext)
 
     onUpdate?.({ status: 'thinking', content: 'Calling PlannerTool for refinement…' })
 

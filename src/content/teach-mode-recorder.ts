@@ -642,7 +642,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
   }
 
   // Create or recreate recorder instance
-  let recorder = new TeachModeRecorder()
+  const recorder = new TeachModeRecorder()
 
   // Message listener
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
