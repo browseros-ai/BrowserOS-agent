@@ -108,10 +108,21 @@ export function useSidePanelPortMessaging() {
     messagingRef.current?.removeMessageListener(type, callback)
   }, [])
 
+  /**
+   * Send a raw message through the port (not constrained by MessageType enum)
+   * Used for internal port communication
+   * @param message - Raw message object to send
+   * @returns true if message sent successfully
+   */
+  const sendRawMessage = useCallback((message: Record<string, unknown>): boolean => {
+    return messagingRef.current?.sendRawMessage(message) ?? false
+  }, [])
+
   return {
     connected,
     sendMessage,
     sendMessageWithResponse,
+    sendRawMessage,
     addMessageListener,
     removeMessageListener
   }

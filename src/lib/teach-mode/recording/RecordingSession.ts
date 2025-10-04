@@ -24,17 +24,21 @@ export class RecordingSession {
   private activeTabId: number  // Track current active tab for multi-tab recording
 
   constructor(tabId: number, url: string, browserContext?: BrowserContext) {
+    // Generate session ID in format: record_{timestamp}_{random}
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substr(2, 9)
+
     this.session = {
-      id: `recording_${Date.now()}`,
-      startTimestamp: Date.now(),
+      id: `record_${timestamp}_${random}`,
+      startTimestamp: timestamp,
       tabId,  // Store initial tab for session metadata
       url
     }
 
     this.activeTabId = tabId  // This is what we actually use for tracking
 
-    // Use the main PubSub channel for messages
-    this.pubsub = PubSub.getChannel('main')
+    // Use session-specific PubSub channel (not 'main')
+    this.pubsub = PubSub.getChannel(this.session.id)
 
     // Initialize state capture
     this.stateCapture = new StateCapture()
@@ -54,10 +58,11 @@ export class RecordingSession {
     Logging.log('RecordingSession', `Started recording session ${this.session.id} on tab ${tabId}`)
 
     // Publish recording started event
-    this.pubsub.publishTeachModeEvent({
-      eventType: 'recording_started',
-      sessionId: this.session.id,
+    this.pubsub.publish({
+      type: 'recording',
+      message: `Recording started on tab ${tabId}`,
       data: {
+        action: 'started',
         tabId,
         url
       }
@@ -79,10 +84,13 @@ export class RecordingSession {
     Logging.log('RecordingSession', `Set viewport: ${viewport.width}x${viewport.height}`)
 
     // Publish viewport updated event
-    this.pubsub.publishTeachModeEvent({
-      eventType: 'viewport_updated',
-      sessionId: this.session.id,
-      data: viewport
+    this.pubsub.publish({
+      type: 'recording',
+      message: `Viewport: ${viewport.width}x${viewport.height}`,
+      data: {
+        action: 'viewport_updated',
+        ...viewport
+      }
     })
   }
 
@@ -127,10 +135,11 @@ export class RecordingSession {
     Logging.log('RecordingSession', `Added event: ${event.action.type} (${event.id})`)
 
     // Publish event captured to PubSub
-    this.pubsub.publishTeachModeEvent({
-      eventType: 'event_captured',
-      sessionId: this.session.id,
+    this.pubsub.publish({
+      type: 'recording',
+      message: `Captured: ${event.action.type}`,
       data: {
+        action: 'event_captured',
         event,
         index: this.events.length - 1
       }
@@ -187,10 +196,11 @@ export class RecordingSession {
     Logging.log('RecordingSession', `Stopped recording session ${this.session.id} with ${this.events.length} events`)
 
     // Publish recording stopped event
-    this.pubsub.publishTeachModeEvent({
-      eventType: 'recording_stopped',
-      sessionId: this.session.id,
+    this.pubsub.publish({
+      type: 'recording',
+      message: `Recording stopped with ${this.events.length} events`,
       data: {
+        action: 'stopped',
         eventCount: this.events.length
       }
     })
@@ -235,10 +245,11 @@ export class RecordingSession {
 
     // Publish tab switched event if it's an actual switch
     if (previousTabId !== tabId) {
-      this.pubsub.publishTeachModeEvent({
-        eventType: 'tab_switched',
-        sessionId: this.session.id,
+      this.pubsub.publish({
+        type: 'recording',
+        message: `Switched to tab ${tabId}`,
         data: {
+          action: 'tab_switched',
           fromTabId: previousTabId,
           toTabId: tabId
         }
@@ -274,10 +285,11 @@ export class RecordingSession {
           Logging.log('RecordingSession', `Added state to event ${event.id}`)
 
           // Publish state captured event
-          this.pubsub.publishTeachModeEvent({
-            eventType: 'state_captured',
-            sessionId: this.session.id,
+          this.pubsub.publish({
+            type: 'recording',
+            message: 'State captured for event',
             data: {
+              action: 'state_captured',
               eventId: event.id,
               state
             }

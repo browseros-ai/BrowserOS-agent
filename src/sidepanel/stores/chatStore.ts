@@ -8,9 +8,10 @@ import { feedbackService } from '@/lib/services/feedbackService'
 // Message schema for chat store with Zod validation
 export const MessageSchema = z.object({
   msgId: z.string(),  // Primary ID for both React keys and PubSub correlation
-  role: z.enum(['user', 'thinking', 'assistant', 'error', 'plan_editor']), 
+  role: z.enum(['user', 'thinking', 'assistant', 'error', 'plan_editor']),
   content: z.string(),  // Message content
   timestamp: z.date(),  // When message was created
+  mode: z.enum(['browse', 'chat']).optional(),  // Which mode this message belongs to (for filtering)
   metadata: z.object({
     toolName: z.string().optional(),  // Tool name if this is a tool result
   }).optional()  // Minimal metadata
@@ -23,6 +24,7 @@ const ChatStateSchema = z.object({
   messages: z.array(MessageSchema),  // All chat messages
   isProcessing: z.boolean(),  // Is agent currently processing
   error: z.string().nullable(),  // Current error message if any
+  currentMode: z.enum(['browse', 'chat']).nullable(),  // Current active session mode
   feedbacks: z.record(z.string(), FeedbackSubmissionSchema),  // messageId -> feedback
   feedbackUI: z.record(z.string(), z.object({
     isSubmitting: z.boolean(),
@@ -48,10 +50,13 @@ interface ChatActions {
   addMessage: (message: Omit<Message, 'timestamp'>) => void
   updateMessage: (msgId: string, updates: Partial<Message>) => void
   clearMessages: () => void
-  
+
   // Processing state
   setProcessing: (processing: boolean) => void
-  
+
+  // Mode tracking
+  setCurrentMode: (mode: 'browse' | 'chat' | null) => void
+
   // Error handling
   setError: (error: string | null) => void
   
@@ -75,6 +80,7 @@ const initialState: ChatState & { executedPlans: Record<string, boolean> } = {
   messages: [],
   isProcessing: false,
   error: null,
+  currentMode: null,
   feedbacks: {},
   feedbackUI: {},
   executedPlans: {}
@@ -89,7 +95,7 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
   upsertMessage: (pubsubMessage) => {
     set((state) => {
       const existingIndex = state.messages.findIndex(m => m.msgId === pubsubMessage.msgId)
-      
+
       if (existingIndex >= 0) {
         // Update existing message content
         const updated = [...state.messages]
@@ -98,8 +104,8 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
           content: pubsubMessage.content,
           timestamp: new Date(pubsubMessage.ts)
         }
-        return { 
-          messages: updated, 
+        return {
+          messages: updated,
           error: null
           // Don't change isProcessing when updating existing messages
         }
@@ -109,12 +115,13 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
           content: pubsubMessage.content,
           role: pubsubMessage.role,
           timestamp: new Date(pubsubMessage.ts),
+          mode: state.currentMode || undefined,  // Tag with current mode
           metadata: {}
         }
-        return { 
+        return {
           messages: [...state.messages, newMessage],
-          error: null,
-          isProcessing: true  // Only set processing when adding new messages
+          error: null
+          // Don't auto-set isProcessing here - let SESSION_STARTED/completion events manage it
         }
       }
     })
@@ -135,9 +142,15 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
   },
   
   clearMessages: () => set({ messages: [] }),
-  
-  setProcessing: (processing) => set({ isProcessing: processing }),
-  
+
+  setProcessing: (processing) => {
+    console.log('[chatStore] setProcessing called:', processing)
+    console.trace('[chatStore] Full stack trace:')
+    set({ isProcessing: processing })
+  },
+
+  setCurrentMode: (mode) => set({ currentMode: mode }),
+
   setError: (error) => set({ error }),
   
   // Send plan edit response to background script

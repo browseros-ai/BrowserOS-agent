@@ -23,6 +23,11 @@ export function TeachModeRecording() {
     voiceStatus
   } = useTeachModeStore()
 
+  // Debug: Log when recordingEvents changes
+  useEffect(() => {
+    console.log('[TeachModeRecording] recordingEvents updated, length:', recordingEvents.length, 'events:', recordingEvents)
+  }, [recordingEvents])
+
   const [recordingTime, setRecordingTime] = useState(0)
 
   // Initialize audio recording with VAD
