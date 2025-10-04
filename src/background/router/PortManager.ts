@@ -1,7 +1,6 @@
 import { Logging } from '@/lib/utils/Logging'
 import { MessageType } from '@/lib/types/messaging'
 import { PubSub } from '@/lib/pubsub'
-import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
 import { Subscription, PubSubEvent } from '@/lib/pubsub/types'
 import { ExecutionEvent, EventType } from '@/lib/pubsub/types'
 
@@ -17,13 +16,11 @@ interface PortInfo {
  */
 export class PortManager {
   private ports: Map<string, PortInfo> = new Map()
-  private mainChannel: PubSubChannel
   private currentSessionId: string | null = null
   private currentSubscription: Subscription | null = null
 
   constructor() {
-    // Get the singleton PubSub channel (kept for backward compatibility)
-    this.mainChannel = PubSub.getChannel('main')
+    // Session-based channel subscription only - no more "main" channel
   }
 
   /**
@@ -47,8 +44,8 @@ export class PortManager {
         }
       })
 
-      // Keep old subscription for backward compatibility during transition
-      info.subscription = this.subscribeToChannel(port)
+      // OLD "main" channel subscription removed - fully migrated to session-based channels
+      // Each mode now subscribes to its own session channel (browse_*, chat_*, teach_*, record_*)
     }
 
     this.ports.set(portId, info)
@@ -58,26 +55,6 @@ export class PortManager {
     return portId
   }
 
-  /**
-   * Subscribe to PubSub channel and forward events to port
-   */
-  private subscribeToChannel(port: chrome.runtime.Port): Subscription {
-    return this.mainChannel.subscribe((event) => {
-      try {
-        // Forward PubSub events to the port
-        port.postMessage({
-          type: MessageType.AGENT_STREAM_UPDATE,
-          payload: {
-            executionId: 'main',
-            event
-          }
-        })
-      } catch (error) {
-        // Port might be disconnected
-        Logging.log('PortManager', `Failed to forward event: ${error}`, 'warning')
-      }
-    })
-  }
 
   /**
    * Unregister a port (on disconnect)
@@ -219,6 +196,25 @@ export class PortManager {
           'warning': 'assistant',
           'error': 'error'
         }
+
+        // For teach mode sessions, send all messages as teach-mode-event
+        if (execEvent.sessionId?.startsWith('teach_')) {
+          return {
+            type: 'teach-mode-event',
+            payload: {
+              eventType: 'execution_thinking',  // Use thinking event type for all messages
+              sessionId: execEvent.sessionId,
+              data: {
+                msgId: execEvent.data?.msgId || `msg_${Date.now()}`,
+                content: execEvent.message,
+                timestamp: execEvent.timestamp,
+                level: level  // Preserve level for UI to style differently
+              }
+            }
+          }
+        }
+
+        // For other modes, send as regular message
         return {
           type: 'message',
           payload: {
@@ -246,7 +242,7 @@ export class PortManager {
             }
           }
         }
-        // For other modes, send as error message
+        // For browse/chat modes, send as error message WITH completion marker
         return {
           type: 'message',
           payload: {
@@ -254,8 +250,9 @@ export class PortManager {
             content: execEvent.message,
             role: 'error',
             ts: execEvent.timestamp
-          }
-        }
+          },
+          metadata: { sessionCompleted: true }  // Mark as completion to clear isProcessing
+        } as any
 
       case 'human_input':
         if (execEvent.data?.action === 'request') {
@@ -313,9 +310,11 @@ export class PortManager {
       case 'completed':
         console.log('[PortManager] Session completed:', execEvent.sessionId)
 
-        // For teach mode sessions, send execution_completed event BEFORE cleanup
+        // Send completion event BEFORE cleanup
         let completedEvent: PubSubEvent | null = null
+
         if (execEvent.sessionId?.startsWith('teach_')) {
+          // Teach mode: send as teach-mode-event
           completedEvent = {
             type: 'teach-mode-event' as const,
             payload: {
@@ -328,6 +327,18 @@ export class PortManager {
               }
             }
           }
+        } else if (execEvent.sessionId?.startsWith('browse_') || execEvent.sessionId?.startsWith('chat_')) {
+          // Browse/Chat mode: send as regular message with special marker
+          completedEvent = {
+            type: 'message' as const,
+            payload: {
+              msgId: `completion_${Date.now()}`,
+              content: execEvent.message,
+              role: 'assistant' as const,
+              ts: execEvent.timestamp
+            },
+            metadata: { sessionCompleted: true }  // Special marker for UI
+          } as any
         }
 
         // Unsubscribe from session when it ends
@@ -343,6 +354,35 @@ export class PortManager {
       case 'aborted':
         console.log('[PortManager] Session aborted:', execEvent.sessionId)
 
+        // Send abort notification BEFORE cleanup
+        let abortedEvent: PubSubEvent | null = null
+        if (execEvent.sessionId?.startsWith('teach_')) {
+          // Teach mode: send as teach-mode-event
+          abortedEvent = {
+            type: 'teach-mode-event' as const,
+            payload: {
+              eventType: 'execution_failed' as const,  // Use failed to trigger cleanup
+              sessionId: execEvent.sessionId,
+              data: {
+                message: execEvent.message || '✋ Task cancelled',
+                timestamp: execEvent.timestamp
+              }
+            }
+          }
+        } else if (execEvent.sessionId?.startsWith('browse_') || execEvent.sessionId?.startsWith('chat_')) {
+          // Browse/Chat mode: send as message with completion marker
+          abortedEvent = {
+            type: 'message' as const,
+            payload: {
+              msgId: `aborted_${Date.now()}`,
+              content: execEvent.message || '✋ Task cancelled',
+              role: 'assistant' as const,
+              ts: execEvent.timestamp
+            },
+            metadata: { sessionCompleted: true }  // Mark as completion to clear isProcessing
+          } as any
+        }
+
         // Unsubscribe from session when it ends
         if (this.currentSessionId === execEvent.sessionId && this.currentSubscription) {
           console.log('[PortManager] Unsubscribing from aborted session')
@@ -351,8 +391,7 @@ export class PortManager {
           this.currentSessionId = null
         }
 
-        // Don't forward abort events to UI (they're internal)
-        return null
+        return abortedEvent  // Forward abort notification to UI
 
       // Skip tool events
       case 'tool':

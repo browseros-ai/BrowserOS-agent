@@ -10,7 +10,7 @@ interface HumanInputRequest {
 }
 
 export function useMessageHandler() {
-  const { upsertMessage, setProcessing, reset } = useChatStore()
+  const { upsertMessage, setProcessing, setCurrentMode, reset } = useChatStore()
   const { addMessageListener, removeMessageListener, sendMessage, sendRawMessage } = useSidePanelPortMessaging()
   const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null)
   const handleBackendEvent = useTeachModeStore(state => state.handleBackendEvent)
@@ -33,8 +33,14 @@ export function useMessageHandler() {
         console.log('[UI] Upserting message, role:', message.role, 'content:', message.content?.substring(0, 40))
         upsertMessage(message)
         console.log('[UI] Message upserted successfully')
+
+        // Check if this is a session completion marker
+        if ((event as any).metadata?.sessionCompleted) {
+          console.log('[UI] Session completed, setting isProcessing = false')
+          setProcessing(false)
+        }
       }
-      
+
       // Handle human-input-request events
       if (event.type === 'human-input-request') {
         const request = event.payload
@@ -47,6 +53,23 @@ export function useMessageHandler() {
       // Handle teach-mode-event
       if (event.type === 'teach-mode-event') {
         handleBackendEvent(event.payload)
+
+        // Clear processing state when teach mode completes/fails
+        const eventType = event.payload.eventType
+        if (eventType === 'execution_completed' || eventType === 'execution_failed') {
+          console.log('[UI] Teach mode ended, clearing isProcessing')
+          setProcessing(false)
+
+          // Show completion message in agent/chat modes
+          upsertMessage({
+            msgId: `teach_completed_${Date.now()}`,
+            content: eventType === 'execution_completed'
+              ? '✅ Teach mode completed'
+              : '❌ Teach mode failed',
+            role: 'assistant',
+            ts: Date.now()
+          })
+        }
       }
     }
     // Legacy handler for old event structure (for backward compatibility during transition)
@@ -69,9 +92,26 @@ export function useMessageHandler() {
       // Handle teach-mode-event (legacy)
       if (payload.details?.type === 'teach-mode-event') {
         handleBackendEvent(payload.details.payload)
+
+        // Clear processing state when teach mode completes/fails (legacy)
+        const eventType = payload.details.payload.eventType
+        if (eventType === 'execution_completed' || eventType === 'execution_failed') {
+          console.log('[UI] Teach mode ended (legacy), clearing isProcessing')
+          setProcessing(false)
+
+          // Show completion message in agent/chat modes (legacy)
+          upsertMessage({
+            msgId: `teach_completed_${Date.now()}`,
+            content: eventType === 'execution_completed'
+              ? '✅ Teach mode completed'
+              : '❌ Teach mode failed',
+            role: 'assistant',
+            ts: Date.now()
+          })
+        }
       }
     }
-  }, [upsertMessage, handleBackendEvent])
+  }, [upsertMessage, handleBackendEvent, setProcessing])
   
   // Handle workflow status for processing state
   const handleWorkflowStatus = useCallback((payload: any) => {
@@ -90,13 +130,31 @@ export function useMessageHandler() {
       // Handle execution starting from newtab
       if (message?.type === MessageType.EXECUTION_STARTING) {
         console.log(`[SidePanel] Execution starting from ${message.source}`)
-        setProcessing(true)
+          setProcessing(true)
       }
 
       // Handle new session start
       if (message?.type === 'SESSION_STARTED') {
         const { sessionId, mode } = message.payload
         console.log('[UI] SESSION_STARTED received:', sessionId, mode, 'at', Date.now())
+
+        setProcessing(true)
+
+        // Set current mode for browse/chat (for message filtering)
+        if (mode === 'browse' || mode === 'chat') {
+          setCurrentMode(mode)
+        }
+
+        // For teach mode, clear currentMode and show message in all modes
+        if (mode === 'teach') {
+          setCurrentMode(null)  // Clear mode so message shows in all modes
+          upsertMessage({
+            msgId: `teach_running_${Date.now()}`,
+            content: '⏳ Teach mode is currently running...',
+            role: 'thinking',
+            ts: Date.now()
+          })
+        }
 
         // Tell PortManager to subscribe to this session
         console.log('[UI] Sending SUBSCRIBE_SESSION:', sessionId)
@@ -117,7 +175,7 @@ export function useMessageHandler() {
     return () => {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
     }
-  }, [setProcessing, sendRawMessage])  // Added sendRawMessage to dependencies
+  }, [setProcessing, setCurrentMode, sendRawMessage])
 
   // Set up port message listeners
   useEffect(() => {

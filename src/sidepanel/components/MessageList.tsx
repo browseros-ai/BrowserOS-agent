@@ -54,7 +54,7 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
   const { trackFeature } = useAnalytics()
   const { sendMessage } = useSidePanelPortMessaging()
   const { upsertMessage, setProcessing } = useChatStore()
-  const { chatMode } = useSettingsStore()
+  const { chatMode, appMode } = useSettingsStore()
   const { getContextTabs, clearSelectedTabs } = useTabsStore()
   const [, setIsAtBottom] = useState(true)
   const currentExamples = useMemo<string[]>(() => (chatMode ? CHAT_EXAMPLES : AGENT_EXAMPLES), [chatMode])
@@ -86,27 +86,39 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
     previousMessageIdsRef.current = currentMessageIds
   }, [messages])
 
+  // Filter messages based on current appMode (only show messages from current mode)
+  const filteredMessages = useMemo(() => {
+    // Map appMode to mode value for filtering
+    const currentMode = appMode === 'agent' ? 'browse' : appMode === 'chat' ? 'chat' : null
+
+    // If teach mode or no mode set, show all messages (backward compatibility)
+    if (!currentMode) return messages
+
+    // Filter to show only current mode's messages (or legacy messages without mode tag)
+    return messages.filter(msg => !msg.mode || msg.mode === currentMode)
+  }, [messages, appMode])
+
   // Use simplified message grouping for new agent architecture
   const messageGroups = useMemo(() => {
-    return groupMessages(messages)
-  }, [messages])
+    return groupMessages(filteredMessages)
+  }, [filteredMessages])
   
   // Detect if task is completed (assistant message exists after thinking messages)
   const isTaskCompleted = useMemo(() => {
-    return messages.some(msg => msg.role === 'assistant')
-  }, [messages])
+    return filteredMessages.some(msg => msg.role === 'assistant')
+  }, [filteredMessages])
   
   // Scroll to latest assistant message when task completes
   useEffect(() => {
     if (isTaskCompleted) {
-      const latestAssistantMessage = messages.findLast(msg => msg.role === 'assistant')
+      const latestAssistantMessage = filteredMessages.findLast(msg => msg.role === 'assistant')
       if (latestAssistantMessage) {
         // Small delay to let sections collapse first
         setTimeout(() => {
           const messageElement = document.querySelector(`[data-message-id="${latestAssistantMessage.msgId}"]`)
           if (messageElement) {
-            messageElement.scrollIntoView({ 
-              behavior: 'smooth', 
+            messageElement.scrollIntoView({
+              behavior: 'smooth',
               block: 'start',
               inline: 'nearest'
             })
@@ -114,7 +126,7 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
         }, 100) // Minimal delay just for collapse animation
       }
     }
-  }, [isTaskCompleted, messages])
+  }, [isTaskCompleted, filteredMessages])
   
 
 
@@ -180,8 +192,8 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
     try { clearSelectedTabs() } catch { /* no-op */ }
   }
   
-  // Landing View
-  if (messages.length === 0) {
+  // Landing View (show when no messages for current mode)
+  if (filteredMessages.length === 0) {
     return (
       <div 
         className="h-full overflow-y-auto flex flex-col items-center justify-center p-8 text-center relative"

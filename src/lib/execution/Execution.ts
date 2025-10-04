@@ -77,6 +77,12 @@ export class Execution {
    */
   updateOptions(options: Partial<ExecutionOptions>): void {
     this.options = { ...this.options, ...options };
+
+    // Clear workflow if mode is not teach (prevents mode bleed from previous execution)
+    if (this.options.mode !== 'teach' && !options.workflow) {
+      this.options.workflow = undefined;
+    }
+
     Logging.log(
       "Execution",
       `Updated options: mode=${this.options.mode}, tabIds=${this.options.tabIds?.length || 0}`,
