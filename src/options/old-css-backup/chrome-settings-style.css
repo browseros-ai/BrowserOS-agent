@@ -1,0 +1,479 @@
+/* Chrome Settings Style - Exact Match */
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #202124;
+  background-color: #f8f9fa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chrome Material Design Colors */
+:root {
+  /* Primary Colors */
+  --cr-primary-text-color: #202124;
+  --cr-secondary-text-color: #5f6368;
+  --cr-link-color: #1a73e8;
+  --cr-link-hover-color: #1765cc;
+
+  /* Background Colors */
+  --cr-background-color: #f8f9fa;
+  --cr-card-background-color: #ffffff;
+  --cr-card-hover-background: #f1f3f4;
+  --cr-hover-background: rgba(0, 0, 0, 0.04);
+  --cr-selected-background: #e8f0fe;
+
+  /* Border Colors */
+  --cr-border-color: #dadce0;
+  --cr-divider-color: #e0e0e0;
+
+  /* Interactive Colors */
+  --cr-button-background: #1a73e8;
+  --cr-button-hover-background: #1765cc;
+  --cr-button-text: #ffffff;
+  --cr-danger-color: #d93025;
+  --cr-success-color: #1e8e3e;
+
+  /* Shadows */
+  --cr-card-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3),
+                    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --cr-card-shadow-hover: 0 1px 3px 0 rgba(60, 64, 67, 0.3),
+                          0 4px 8px 3px rgba(60, 64, 67, 0.15);
+
+  /* Spacing */
+  --cr-section-padding: 20px;
+  --cr-section-vertical-margin: 32px;
+  --cr-section-spacing: 8px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cr-primary-text-color: #e8eaed;
+    --cr-secondary-text-color: #9aa0a6;
+    --cr-background-color: #202124;
+    --cr-card-background-color: #292a2d;
+    --cr-card-hover-background: #3c4043;
+    --cr-hover-background: rgba(255, 255, 255, 0.08);
+    --cr-selected-background: #1f3a5f;
+    --cr-border-color: #3c4043;
+    --cr-divider-color: #3c4043;
+  }
+
+  body {
+    color: var(--cr-primary-text-color);
+    background-color: var(--cr-background-color);
+  }
+}
+
+/* Typography */
+h1 {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--cr-primary-text-color);
+  margin: 0;
+}
+
+h2 {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin: 0;
+}
+
+h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin: 0;
+}
+
+p {
+  font-size: 13px;
+  color: var(--cr-secondary-text-color);
+  margin: 0;
+}
+
+/* Layout Container */
+.chrome-settings-container {
+  min-height: 100vh;
+  background-color: var(--cr-background-color);
+}
+
+/* Header */
+.chrome-settings-header {
+  background-color: var(--cr-card-background-color);
+  border-bottom: 1px solid var(--cr-border-color);
+}
+
+.chrome-settings-header-content {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.chrome-settings-title {
+  height: 60px;
+  display: flex;
+  align-items: center;
+}
+
+.chrome-settings-nav {
+  display: flex;
+  align-items: center;
+  height: 48px;
+}
+
+.chrome-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--cr-selected-background);
+  border-radius: 20px;
+  font-size: 14px;
+  color: var(--cr-link-color);
+  font-weight: 500;
+}
+
+/* Main Content */
+.chrome-settings-main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+/* Cards */
+.chrome-settings-card {
+  background-color: var(--cr-card-background-color);
+  border-radius: 8px;
+  box-shadow: var(--cr-card-shadow);
+  margin-bottom: var(--cr-section-vertical-margin);
+  transition: box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-card:hover {
+  box-shadow: var(--cr-card-shadow-hover);
+}
+
+.chrome-settings-card-content {
+  padding: var(--cr-section-padding);
+}
+
+/* Section Header with Icon */
+.chrome-settings-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chrome-settings-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.chrome-settings-section-info {
+  flex: 1;
+}
+
+.chrome-settings-section-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin-bottom: 4px;
+}
+
+.chrome-settings-section-description {
+  font-size: 13px;
+  color: var(--cr-secondary-text-color);
+}
+
+/* Form Controls */
+.chrome-settings-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chrome-settings-select-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chrome-settings-label {
+  font-size: 14px;
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-select {
+  height: 36px;
+  padding: 0 12px;
+  background-color: var(--cr-card-background-color);
+  border: 1px solid var(--cr-border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--cr-primary-text-color);
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.chrome-settings-select:hover {
+  background-color: var(--cr-card-hover-background);
+}
+
+.chrome-settings-select:focus {
+  border-color: var(--cr-link-color);
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+}
+
+/* Buttons */
+.chrome-settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.chrome-settings-button-text {
+  color: var(--cr-link-color);
+  background-color: transparent;
+}
+
+.chrome-settings-button-text:hover {
+  background-color: rgba(26, 115, 232, 0.04);
+}
+
+.chrome-settings-button-primary {
+  color: var(--cr-button-text);
+  background-color: var(--cr-button-background);
+}
+
+.chrome-settings-button-primary:hover {
+  background-color: var(--cr-button-hover-background);
+}
+
+/* Provider Templates Grid */
+.chrome-settings-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.chrome-settings-template-card {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-template-card:hover {
+  background-color: #f1f3f4;
+  border-color: var(--cr-border-color);
+}
+
+.chrome-settings-template-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+}
+
+.chrome-settings-template-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-template-use {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cr-secondary-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-template-card:hover .chrome-settings-template-use {
+  color: var(--cr-link-color);
+}
+
+/* Models List */
+.chrome-settings-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chrome-settings-model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  margin: 0 -12px;
+  border-radius: 4px;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-model-item:hover {
+  background-color: var(--cr-hover-background);
+}
+
+.chrome-settings-model-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chrome-settings-model-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.chrome-settings-model-name {
+  font-size: 14px;
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-model-badge {
+  padding: 2px 8px;
+  background-color: #e8f0fe;
+  color: #1967d2;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  border-radius: 4px;
+}
+
+.chrome-settings-model-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 1;
+}
+
+.chrome-settings-action-button {
+  padding: 4px 12px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.chrome-settings-action-test {
+  color: var(--cr-link-color);
+}
+
+.chrome-settings-action-test:hover {
+  background-color: rgba(26, 115, 232, 0.04);
+}
+
+.chrome-settings-action-test.success {
+  color: #188038;
+}
+
+.chrome-settings-action-test.error {
+  color: var(--cr-danger-color);
+}
+
+.chrome-settings-action-benchmark {
+  color: var(--cr-link-color);
+}
+
+.chrome-settings-action-benchmark:hover {
+  background-color: rgba(26, 115, 232, 0.04);
+}
+
+.chrome-settings-action-benchmark.success {
+  color: #188038;
+}
+
+.chrome-settings-action-edit {
+  color: var(--cr-link-color);
+}
+
+.chrome-settings-action-edit:hover {
+  background-color: rgba(26, 115, 232, 0.04);
+}
+
+.chrome-settings-action-delete {
+  color: var(--cr-danger-color);
+}
+
+.chrome-settings-action-delete:hover {
+  background-color: rgba(217, 48, 37, 0.04);
+}
+
+/* Responsive Design */
+@media (max-width: 900px) {
+  .chrome-settings-templates-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .chrome-settings-header-content,
+  .chrome-settings-main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .chrome-settings-templates-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chrome-settings-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}

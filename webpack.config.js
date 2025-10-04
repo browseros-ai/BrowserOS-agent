@@ -65,7 +65,8 @@ module.exports = {
     background: './src/background/index.ts',
     'glow-animation': './src/content/glow-animation.ts',
     'teach-mode-recorder': './src/content/teach-mode-recorder.ts',
-    newtab: './src/newtab/index.tsx'
+    newtab: './src/newtab/index.tsx',
+    options: './src/options/index.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -145,7 +146,7 @@ module.exports = {
     // Limit chunks to entry points only - prevents dynamic chunk creation
     // This forces all imports (including dynamic) to be bundled into their parent entry
     new webpack.optimize.LimitChunkCountPlugin({
-      maxChunks: 4  // One chunk per entry point (sidepanel, background, glow-animation, newtab)
+      maxChunks: 5  // One chunk per entry point (sidepanel, background, glow-animation, newtab, options)
     }),
     new HtmlWebpackPlugin({
       template: './src/sidepanel/index.html',
@@ -157,10 +158,15 @@ module.exports = {
       filename: 'newtab.html',
       chunks: ['newtab']
     }),
+    new HtmlWebpackPlugin({
+      template: './browseros-settings.html',
+      filename: 'browseros-settings.html',
+      chunks: ['options']
+    }),
     new CopyPlugin({
       patterns: [
-        { 
-          from: 'manifest.json', 
+        {
+          from: 'manifest.json',
           to: '.',
           transform: (content) => {
             if (isChromeTarget) {
@@ -171,7 +177,8 @@ module.exports = {
             return content;
           }
         },
-        { from: 'assets', to: 'assets', noErrorOnMissing: true }
+        { from: 'assets', to: 'assets', noErrorOnMissing: true },
+        { from: 'src/options/theme-init.js', to: 'theme-init.js' }
       ]
     }),
     new webpack.DefinePlugin(processEnv),

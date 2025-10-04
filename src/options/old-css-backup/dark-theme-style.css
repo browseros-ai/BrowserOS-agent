@@ -1,0 +1,903 @@
+/* Dark Theme Chrome Settings Style */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e8eaed;
+  background-color: #202124;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chrome Material Design Colors - Dark Theme */
+:root {
+  /* Primary Colors */
+  --cr-primary-text-color: #e8eaed;
+  --cr-secondary-text-color: #9aa0a6;
+  --cr-link-color: #8ab4f8;
+  --cr-link-hover-color: #aecbfa;
+
+  /* Background Colors */
+  --cr-background-color: #202124;
+  --cr-card-background-color: #292a2d;
+  --cr-card-hover-background: #3c4043;
+  --cr-hover-background: rgba(255, 255, 255, 0.08);
+  --cr-selected-background: #1f3a5f;
+
+  /* Border Colors */
+  --cr-border-color: #3c4043;
+  --cr-divider-color: #3c4043;
+
+  /* Interactive Colors */
+  --cr-button-background: #8ab4f8;
+  --cr-button-hover-background: #aecbfa;
+  --cr-button-text: #202124;
+  --cr-danger-color: #f28b82;
+  --cr-success-color: #81c995;
+
+  /* Shadows */
+  --cr-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3),
+                    0 4px 8px 3px rgba(0, 0, 0, 0.15);
+  --cr-card-shadow-hover: 0 2px 6px 0 rgba(0, 0, 0, 0.3),
+                          0 6px 12px 4px rgba(0, 0, 0, 0.15);
+
+  /* Spacing */
+  --cr-section-padding: 24px;
+  --cr-section-vertical-margin: 24px;
+  --cr-section-spacing: 16px;
+}
+
+/* Typography */
+h1 {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--cr-primary-text-color);
+  margin: 0;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin: 0;
+}
+
+h3 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin: 0;
+}
+
+p {
+  font-size: 12px;
+  color: var(--cr-secondary-text-color);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Layout Container */
+.chrome-settings-container {
+  min-height: 100vh;
+  background-color: var(--cr-background-color);
+}
+
+/* Header - Slimmer Design */
+.chrome-settings-header {
+  background-color: transparent;
+  border-bottom: none;
+  display: none; /* Hide header for cleaner look */
+}
+
+.chrome-settings-header-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.chrome-settings-title {
+  height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.chrome-settings-nav {
+  display: flex;
+  align-items: center;
+  height: 36px;
+}
+
+.chrome-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: rgba(138, 180, 248, 0.15);
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--cr-link-color);
+  font-weight: 500;
+}
+
+/* Main Content */
+.chrome-settings-main {
+  max-width: 850px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Cards */
+.chrome-settings-card {
+  background-color: var(--cr-card-background-color);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--cr-border-color);
+}
+
+.chrome-settings-card-content {
+  padding: 20px;
+}
+
+/* Section Header with Icon */
+.chrome-settings-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.chrome-settings-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.chrome-settings-section-info {
+  flex: 1;
+}
+
+.chrome-settings-section-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin-bottom: 2px;
+}
+
+.chrome-settings-section-description {
+  font-size: 12px;
+  color: var(--cr-secondary-text-color);
+  line-height: 1.4;
+}
+
+/* Form Controls */
+.chrome-settings-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chrome-settings-select-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chrome-settings-label {
+  font-size: 12px;
+  color: var(--cr-primary-text-color);
+  font-weight: 500;
+}
+
+.chrome-settings-select {
+  height: 32px;
+  min-width: 180px;
+  padding: 0 12px;
+  background-color: transparent;
+  border: 1px solid var(--cr-border-color);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--cr-primary-text-color);
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3e%3cpath fill='%239aa0a6' d='M6 9L1 4h10z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+.chrome-settings-select:hover {
+  background-color: rgba(138, 180, 248, 0.08);
+  border-color: var(--cr-link-color);
+}
+
+.chrome-settings-select:focus {
+  border-color: var(--cr-link-color);
+  box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
+}
+
+.chrome-settings-select option {
+  background-color: var(--cr-background-color);
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-select option:hover {
+  background-color: rgba(138, 180, 248, 0.12);
+}
+
+/* Buttons */
+.chrome-settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.chrome-settings-button-text {
+  color: var(--cr-link-color);
+  background-color: transparent;
+  border: 1px solid var(--cr-link-color);
+}
+
+.chrome-settings-button-text:hover {
+  background-color: rgba(138, 180, 248, 0.15);
+}
+
+.chrome-settings-button-primary {
+  color: var(--cr-button-text);
+  background-color: var(--cr-button-background);
+}
+
+.chrome-settings-button-primary:hover {
+  background-color: var(--cr-button-hover-background);
+}
+
+/* Collapsible Section Header */
+.chrome-settings-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  cursor: pointer;
+  user-select: none;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-collapsible-header:hover {
+  opacity: 0.9;
+}
+
+.chrome-settings-collapsible-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chrome-settings-collapsible-icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-collapsible-icon.expanded {
+  transform: rotate(180deg);
+}
+
+/* Provider Templates Grid */
+.chrome-settings-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.chrome-settings-template-card {
+  background-color: var(--cr-background-color);
+  border: 1px solid var(--cr-border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-settings-template-card:hover {
+  background-color: var(--cr-hover-background);
+  border-color: var(--cr-link-color);
+  transform: translateY(-1px);
+}
+
+.chrome-settings-template-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Template icon now uses chrome-settings-model-icon class for consistency */
+
+.chrome-settings-template-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-template-use {
+  padding: 6px 14px;
+  font-size: 12px;
+  height: 28px;
+  min-width: 60px;
+  font-weight: 500;
+  color: var(--cr-secondary-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background-color: transparent;
+  border: 1px solid var(--cr-border-color);
+  border-radius: 6px;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chrome-settings-template-card:hover .chrome-settings-template-use {
+  color: var(--cr-link-color);
+  border-color: var(--cr-link-color);
+  background-color: rgba(138, 180, 248, 0.1);
+}
+
+/* Models List */
+.chrome-settings-models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chrome-settings-model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background-color: transparent;
+  border: 1px solid var(--cr-border-color);
+  border-radius: 10px;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: pointer;
+}
+
+.chrome-settings-model-item:hover {
+  background-color: var(--cr-hover-background);
+  border-color: rgba(138, 180, 248, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.chrome-settings-model-item.selected {
+  border-color: var(--cr-link-color);
+  background-color: rgba(138, 180, 248, 0.08);
+  box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.2);
+}
+
+/* Radio button for model selection */
+.chrome-settings-model-radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--cr-border-color);
+  margin-right: 12px;
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.chrome-settings-model-item.selected .chrome-settings-model-radio {
+  border-color: var(--cr-link-color);
+}
+
+.chrome-settings-model-item.selected .chrome-settings-model-radio::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: var(--cr-link-color);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.chrome-settings-model-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.chrome-settings-model-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.chrome-settings-model-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.chrome-settings-model-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.chrome-settings-model-name {
+  font-size: 13px;
+  color: var(--cr-primary-text-color);
+  font-weight: 500;
+}
+
+.chrome-settings-model-description {
+  font-size: 11px;
+  color: var(--cr-secondary-text-color);
+  line-height: 1.3;
+}
+
+.chrome-settings-model-badges {
+  display: flex;
+  gap: 6px;
+  margin-left: 10px;
+  margin-right: 12px;
+}
+
+.chrome-settings-model-badge {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.chrome-settings-model-badge.default {
+  background-color: rgba(129, 201, 149, 0.2);
+  color: #81c995;
+}
+
+.chrome-settings-model-badge.builtin {
+  background-color: rgba(138, 180, 248, 0.2);
+  color: var(--cr-link-color);
+}
+
+.chrome-settings-model-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  opacity: 1;
+  margin-left: auto;
+  padding-left: 10px;
+}
+
+.chrome-settings-action-button {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #9aa0a6;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 150ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  min-width: 48px;
+  height: 26px;
+  text-transform: none;
+  letter-spacing: 0.2px;
+}
+
+.chrome-settings-action-button:hover:not(:disabled) {
+  background: rgba(255, 165, 0, 0.1);
+  border-color: rgba(255, 165, 0, 0.3);
+  color: #ffa500;
+}
+
+.chrome-settings-action-button:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  transform: scale(0.98);
+}
+
+.chrome-settings-action-edit {
+  color: #9aa0a6;
+}
+
+.chrome-settings-action-edit:hover {
+  background: rgba(255, 165, 0, 0.1);
+  border-color: rgba(255, 165, 0, 0.3);
+  color: #ffa500;
+}
+
+.chrome-settings-action-delete {
+  color: #9aa0a6;
+}
+
+.chrome-settings-action-delete:hover {
+  background: rgba(255, 165, 0, 0.1);
+  border-color: rgba(255, 165, 0, 0.3);
+  color: #ffa500;
+}
+
+.chrome-settings-action-test {
+  color: #9aa0a6;
+  min-width: 55px;
+}
+
+.chrome-settings-action-test:hover:not(:disabled) {
+  background: rgba(255, 165, 0, 0.1);
+  border-color: rgba(255, 165, 0, 0.3);
+  color: #ffa500;
+}
+
+.chrome-settings-action-test:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #5f6368;
+}
+
+.chrome-settings-action-test.success {
+  background: rgba(129, 201, 149, 0.08);
+  border-color: rgba(129, 201, 149, 0.2);
+  color: #81c995;
+}
+
+/* Performance Scores Panel */
+.chrome-settings-scores-panel {
+  position: relative;
+  margin-top: 12px;
+  padding: 12px;
+  background-color: rgba(138, 180, 248, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(138, 180, 248, 0.2);
+}
+
+.chrome-settings-scores-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chrome-settings-score-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chrome-settings-score-label {
+  font-size: 10px;
+  color: var(--cr-secondary-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chrome-settings-score-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-test-info {
+  font-size: 11px;
+  color: var(--cr-secondary-text-color);
+  padding-top: 8px;
+  border-top: 1px solid rgba(138, 180, 248, 0.1);
+  line-height: 1.4;
+}
+
+/* Loading animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Icon styles for specific providers */
+.provider-icon-openai {
+  background: linear-gradient(135deg, #10a37f, #00d084);
+}
+
+.provider-icon-claude {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+
+.provider-icon-gemini {
+  background: linear-gradient(135deg, #4285f4, #1a73e8);
+}
+
+.provider-icon-ollama {
+  background: linear-gradient(135deg, #6b7280, #9ca3af);
+}
+
+.provider-icon-openrouter {
+  background: linear-gradient(135deg, #374151, #4b5563);
+}
+
+.provider-icon-lmstudio {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .chrome-settings-templates-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chrome-settings-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .chrome-settings-select-group {
+    width: 100%;
+  }
+
+  .chrome-settings-select {
+    width: 100%;
+  }
+}
+/* Modal Styles */
+.chrome-settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chrome-settings-modal {
+  background-color: var(--cr-card-background-color);
+  border: 1px solid var(--cr-border-color);
+  border-radius: 8px;
+  box-shadow: var(--cr-card-shadow-hover);
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chrome-settings-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--cr-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chrome-settings-modal-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-modal-close {
+  background: none;
+  border: none;
+  color: var(--cr-secondary-text-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chrome-settings-modal-close:hover {
+  background-color: var(--cr-hover-background);
+  color: var(--cr-primary-text-color);
+}
+
+.chrome-settings-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.chrome-settings-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--cr-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Form Elements */
+.chrome-settings-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.chrome-settings-form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.chrome-settings-form-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin-bottom: 6px;
+}
+
+.chrome-settings-form-field .required {
+  color: var(--cr-danger-color);
+}
+
+.chrome-settings-input,
+.chrome-settings-select {
+  padding: 8px 12px;
+  background-color: var(--cr-background-color);
+  border: 1px solid var(--cr-border-color);
+  border-radius: 4px;
+  color: var(--cr-primary-text-color);
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.chrome-settings-input:focus,
+.chrome-settings-select:focus {
+  outline: none;
+  border-color: var(--cr-link-color);
+  box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
+}
+
+.chrome-settings-input::placeholder {
+  color: var(--cr-secondary-text-color);
+}
+
+.chrome-settings-field-help {
+  font-size: 11px;
+  color: var(--cr-secondary-text-color);
+  margin-top: 4px;
+}
+
+.chrome-settings-form-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--cr-border-color);
+}
+
+.chrome-settings-form-section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cr-primary-text-color);
+  margin-bottom: 16px;
+}
+
+.chrome-settings-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.chrome-settings-checkbox {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  accent-color: var(--cr-button-background);
+}
+
+.chrome-settings-button-primary,
+.chrome-settings-button-secondary {
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.chrome-settings-button-primary {
+  background-color: var(--cr-button-background);
+  color: var(--cr-button-text);
+}
+
+.chrome-settings-button-primary:hover:not(:disabled) {
+  background-color: var(--cr-button-hover-background);
+}
+
+.chrome-settings-button-secondary {
+  background-color: transparent;
+  color: var(--cr-link-color);
+  border: 1px solid var(--cr-border-color);
+}
+
+.chrome-settings-button-secondary:hover:not(:disabled) {
+  background-color: var(--cr-hover-background);
+}
+
+.chrome-settings-button-primary:disabled,
+.chrome-settings-button-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,397 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* BrowserOS Settings - Theme Configuration */
+@layer base {
+  :root {
+    /* Light theme */
+    --background: 0 0% 98%;
+    --background-alt: 0 0% 98%;
+    --header: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 19 96% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 92%;
+    --input: 240 5.9% 90%;
+    --ring: 19 96% 55%;
+    --radius: 0.5rem;
+    --brand: 19 96% 55%;
+
+    /* Settings-specific colors - matching main background */
+    --sidebar-bg: 0 0% 98%;
+    --sidebar-hover: 0 0% 94%;
+    --sidebar-active: 19 96% 55%;
+    --sidebar-text: 240 10% 3.9%;
+    --sidebar-text-active: 19 96% 55%;
+  }
+
+  .dark {
+    /* Dark theme - Consistent BrowserOS dark */
+    --background: 220 15% 13%;
+    --background-alt: 220 15% 13%;
+    --header: 220 15% 13%;
+    --foreground: 210 40% 98%;
+    --card: 220 15% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 220 15% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 19 96% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 20%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 19 96% 55%;
+    --brand: 19 96% 55%;
+
+    /* Settings-specific colors - matching main background */
+    --sidebar-bg: 220 15% 13%;
+    --sidebar-hover: 220 15% 18%;
+    --sidebar-active: 19 96% 55%;
+    --sidebar-text: 210 40% 98%;
+    --sidebar-text-active: 19 96% 55%;
+  }
+
+  .gray {
+    /* Gray theme - Consistent neutral */
+    --background: 220 10% 8%;
+    --background-alt: 220 10% 8%;
+    --header: 220 10% 8%;
+    --foreground: 0 0% 96%;
+    --card: 220 8% 12%;
+    --card-foreground: 0 0% 96%;
+    --popover: 220 8% 12%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 19 96% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 8% 15%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 220 8% 16%;
+    --muted-foreground: 220 5% 60%;
+    --accent: 220 8% 12%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 7% 18%;
+    --input: 220 7% 18%;
+    --ring: 19 96% 55%;
+    --brand: 19 96% 55%;
+
+    /* Settings-specific colors - matching main background */
+    --sidebar-bg: 220 10% 8%;
+    --sidebar-hover: 220 10% 13%;
+    --sidebar-active: 19 96% 55%;
+    --sidebar-text: 0 0% 96%;
+    --sidebar-text-active: 19 96% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 20px;
+  }
+}
+
+/* Settings page specific styles */
+:root {
+  color-scheme: light dark;
+}
+
+/* Automatically use system theme preference */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    @apply dark;
+  }
+}
+
+/* Theme-specific attribute selectors */
+html[data-theme="light"] {
+  /* Light theme is default */
+}
+
+html[data-theme="dark"] {
+  @apply dark;
+}
+
+html[data-theme="gray"] {
+  @apply gray;
+}
+
+/* Base styles for settings page */
+html, body {
+  @apply bg-background text-foreground;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hide scrollbar for cleaner look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+  transition: background-color 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/30;
+}
+
+/* Sidebar specific styles - Chrome settings exact spacing */
+.settings-sidebar {
+  @apply bg-[hsl(var(--sidebar-bg))] border-r border-border;
+}
+
+.settings-sidebar-item {
+  padding: 0 20px 0 60px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: hsl(var(--sidebar-text));
+  cursor: pointer;
+  transition: background-color 200ms;
+  position: relative;
+}
+
+.settings-sidebar-item:hover {
+  background-color: hsl(var(--sidebar-hover));
+}
+
+.settings-sidebar-item.active {
+  background-color: hsl(var(--sidebar-active) / 0.08);
+  color: hsl(var(--sidebar-active));
+  font-weight: 500;
+}
+
+.settings-sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: hsl(var(--sidebar-active));
+  border-radius: 0 2px 2px 0;
+}
+
+/* Card styles matching Chrome settings */
+.settings-card {
+  @apply bg-card rounded-lg border border-border;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.dark .settings-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Form input styles */
+.settings-input {
+  @apply bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring;
+}
+
+.settings-select {
+  @apply bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem;
+}
+
+/* Button styles - Chrome settings exact */
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  transition: all 200ms;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.settings-button-primary {
+  background-color: hsl(var(--primary));
+  color: white;
+  border-color: hsl(var(--primary));
+}
+
+.settings-button-primary:hover {
+  background-color: hsl(var(--primary) / 0.9);
+  box-shadow: 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+}
+
+.settings-button-secondary {
+  background-color: transparent;
+  color: hsl(var(--primary));
+  border: 1px solid hsl(var(--border));
+}
+
+.settings-button-secondary:hover {
+  background-color: hsl(var(--accent));
+}
+
+.settings-button-ghost {
+  background-color: transparent;
+  color: hsl(var(--foreground));
+  border: none;
+  padding: 4px 8px;
+}
+
+.settings-button-ghost:hover {
+  background-color: hsl(var(--accent));
+}
+
+.settings-button-destructive {
+  color: hsl(var(--destructive));
+  background-color: transparent;
+  border: none;
+}
+
+.settings-button-destructive:hover {
+  background-color: hsl(var(--destructive) / 0.1);
+}
+
+/* Smooth transitions */
+.smooth-transition {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+/* Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40;
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Collapsible sections */
+.collapsible-arrow {
+  transition: transform 0.2s ease;
+}
+
+.collapsible-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+/* Test result colors */
+.test-success {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.test-error {
+  @apply text-destructive;
+}
+
+.test-warning {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+/* Provider icon container */
+.provider-icon {
+  @apply w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-muted;
+}
+
+.provider-icon img {
+  @apply w-full h-full object-cover;
+}
+
+/* Search input styling */
+.settings-search {
+  @apply w-full px-10 py-2.5 bg-background/50 border border-input rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:bg-background;
+}
+
+/* Header styling */
+.settings-header {
+  background-color: hsl(var(--background-alt));
+  @apply border-b border-border;
+  backdrop-filter: blur(10px);
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .settings-sidebar {
+    @apply fixed inset-y-0 left-0 z-30 w-64 transform -translate-x-full transition-transform;
+  }
+
+  .settings-sidebar.open {
+    @apply translate-x-0;
+  }
+}

@@ -41,9 +41,12 @@ export class PortManager {
     }
     
     this.ports.set(portId, info)
-    
-    Logging.log('PortManager', `Registered ${port.name} port`)
-    
+
+    // Only log registration for sidepanel, not temporary options connections
+    if (port.name === 'sidepanel') {
+      Logging.log('PortManager', `Registered ${port.name} port`)
+    }
+
     return portId
   }
 
@@ -86,8 +89,11 @@ export class PortManager {
     
     // Remove port info
     this.ports.delete(portId)
-    
-    Logging.log('PortManager', `Unregistered ${port.name} port`)
+
+    // Only log disconnection for sidepanel, not temporary options connections
+    if (port.name === 'sidepanel') {
+      Logging.log('PortManager', `Unregistered ${port.name} port`)
+    }
   }
 
   /**
@@ -95,6 +101,13 @@ export class PortManager {
    */
   getPortInfo(port: chrome.runtime.Port): PortInfo | undefined {
     return this.ports.get(port.name)
+  }
+
+  /**
+   * Get all connected ports
+   */
+  getAllPorts(): chrome.runtime.Port[] {
+    return Array.from(this.ports.values()).map(info => info.port)
   }
 
   /**

@@ -134,13 +134,9 @@ export class Logging {
             this.unregisterPort(optionsPortName)
           }
         } catch (error) {
-          // Port is disconnected or stale, remove it and log the issue
+          // Port is disconnected or stale, remove it silently
           this.unregisterPort(optionsPortName!)
-          
-          // Only log port errors for non-heartbeat messages to avoid spam
-          if (level !== 'info' || !message.includes('heartbeat')) {
-            console.warn(`Failed to send log to options page: ${error instanceof Error ? error.message : String(error)}`)
-          }
+          // Don't log disconnected port errors - they're expected when pages close
         }
       }
     }
