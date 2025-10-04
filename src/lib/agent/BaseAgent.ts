@@ -116,11 +116,15 @@ export abstract class BaseAgent {
   // ============================================
 
   /**
-   * Emit a thinking/processing message to the UI
+   * Emit a thinking/processing message to the UI (streaming with msgId)
    * @param msgId - Unique message ID for updates
    * @param content - Message content
    */
   protected _emitThinking(msgId: string, content: string): void {
+    // Use new event system
+    this.executionContext.publishThinking(msgId, content)
+
+    // Also publish to old system for backward compatibility during migration
     this.pubsub.publishMessage(
       PubSub.createMessageWithId(msgId, content, 'thinking')
     )
@@ -132,6 +136,13 @@ export abstract class BaseAgent {
    * @param type - Message type
    */
   protected _emitMessage(content: string, type: 'thinking' | 'assistant' | 'error'): void {
+    // Map old types to new levels
+    const level = type === 'error' ? 'error' : type === 'assistant' ? 'success' : 'info'
+
+    // Use new event system
+    this.executionContext.publishMessage(content, level)
+
+    // Also publish to old system for backward compatibility during migration
     this.pubsub.publishMessage(PubSub.createMessage(content, type as any))
   }
 
@@ -150,6 +161,11 @@ export abstract class BaseAgent {
           : details
         message = `${action}: ${truncated}`
       }
+
+      // Use new event system
+      this.executionContext.publishMessage(`[DEV MODE] ${message}`, 'info')
+
+      // Also publish to old system for backward compatibility during migration
       this.pubsub.publishMessage(
         PubSub.createMessage(`[DEV MODE] ${message}`, 'thinking')
       )

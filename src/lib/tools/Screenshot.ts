@@ -36,6 +36,9 @@ USE FOR DEBUGGING:
 Screenshots help you see what's on the page and make better decisions.`,
     schema: ScreenshotToolInputSchema,
     func: async (args: ScreenshotToolInput): Promise<string> => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         // Check if model has enough tokens for screenshots
         const maxTokens = executionContext.messageManager.getMaxTokens()
@@ -46,9 +49,15 @@ Screenshots help you see what's on the page and make better decisions.`,
             `Screenshots disabled: model has ${maxTokens} tokens (minimum: ${MIN_TOKENS_FOR_SCREENSHOTS})`,
             'info')
 
+          const duration = Date.now() - startTime
+          const message = `Screenshots are disabled for models with less than 128k tokens. Current model has ${maxTokens} tokens.`
+          executionContext.publishTool(toolId, 'screenshot_tool', 'result',
+            `⚠️ ${message}`,
+            { result: { ok: true }, duration })
+
           return JSON.stringify({
             ok: true,
-            output: `Screenshots are disabled for models with less than 128k tokens. Current model has ${maxTokens} tokens.`
+            output: message
           })
         }
 
@@ -66,6 +75,11 @@ Screenshots help you see what's on the page and make better decisions.`,
           `Using ${selectedSize} screenshot (${pixelSize}px) for model with ${maxTokens} tokens`,
           'info')
 
+        // Publish tool start event
+        executionContext.publishTool(toolId, 'screenshot_tool', 'start',
+          `📸 Capturing ${selectedSize} screenshot (${pixelSize}px)`,
+          { args })
+
         executionContext.getPubSub().publishMessage(
           PubSub.createMessage(`Capturing ${selectedSize} screenshot (${pixelSize}px)`, 'thinking')
         )
@@ -74,9 +88,16 @@ Screenshots help you see what's on the page and make better decisions.`,
         if (!page) {
           Logging.log('ScreenshotTool', 'No active page found to take screenshot', 'error')
           executionContext.messageManager.addAI('Screenshot unavailable - no active page. Continuing without visual verification.')
+
+          const duration = Date.now() - startTime
+          const message = 'Screenshot unavailable. Proceeding without visual capture.'
+          executionContext.publishTool(toolId, 'screenshot_tool', 'result',
+            `⚠️ ${message}`,
+            { result: { ok: true }, duration })
+
           return JSON.stringify({
             ok: true,
-            output: 'Screenshot unavailable. Proceeding without visual capture.'
+            output: message
           })
         }
 
@@ -84,15 +105,28 @@ Screenshots help you see what's on the page and make better decisions.`,
         if (!screenshotDataUrl) {
           Logging.log('ScreenshotTool', 'Failed to capture screenshot - no data returned', 'error')
           executionContext.messageManager.addAI('Screenshot capture failed. Continuing without visual verification.')
+
+          const duration = Date.now() - startTime
+          const message = 'Screenshot unavailable. Proceeding without visual capture.'
+          executionContext.publishTool(toolId, 'screenshot_tool', 'result',
+            `⚠️ ${message}`,
+            { result: { ok: true }, duration })
+
           return JSON.stringify({
             ok: true,
-            output: 'Screenshot unavailable. Proceeding without visual capture.'
+            output: message
           })
         }
 
         Logging.log('ScreenshotTool',
           `${selectedSize} screenshot captured successfully (${screenshotDataUrl.length} bytes)`,
           'info')
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        executionContext.publishTool(toolId, 'screenshot_tool', 'result',
+          `✅ Captured ${selectedSize} screenshot (${pixelSize}px)`,
+          { result: { ok: true, size: selectedSize }, duration })
 
         // Return success with the actual screenshot data
         const result = {
@@ -112,9 +146,17 @@ Screenshots help you see what's on the page and make better decisions.`,
           'error')
 
         executionContext.messageManager.addAI('Screenshot failed. Continuing without visual verification.')
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        executionContext.publishTool(toolId, 'screenshot_tool', 'error',
+          `❌ Screenshot failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Screenshot failed: ${error instanceof Error ? error.message : String(error)}`
+          error: `Screenshot failed: ${errorMessage}`
         })
       }
     }

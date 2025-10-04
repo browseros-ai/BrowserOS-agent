@@ -243,8 +243,44 @@ export function MCPTool(executionContext: ExecutionContext): DynamicStructuredTo
 
     schema: MCPToolInputSchema,
     func: async (args): Promise<string> => {
-      const result = await tool.execute(args)
-      return JSON.stringify(result)
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
+      try {
+        // Publish tool start event
+        let actionMessage = `🔌 MCP: ${args.action}`
+        if (args.action === 'callTool' && args.toolName) {
+          actionMessage = `🔌 MCP: Calling ${args.toolName}`
+        }
+        executionContext.publishTool(toolId, 'mcp_tool', 'start',
+          actionMessage,
+          { args })
+
+        const result = await tool.execute(args)
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        if (result.ok) {
+          executionContext.publishTool(toolId, 'mcp_tool', 'result',
+            `✅ MCP ${args.action} completed`,
+            { result, duration })
+        } else {
+          executionContext.publishTool(toolId, 'mcp_tool', 'error',
+            `❌ ${result.output}`,
+            { error: result.output, duration })
+        }
+
+        return JSON.stringify(result)
+      } catch (error) {
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        executionContext.publishTool(toolId, 'mcp_tool', 'error',
+          `❌ MCP operation failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
+        return JSON.stringify({ ok: false, error: errorMessage })
+      }
     }
   })
 }

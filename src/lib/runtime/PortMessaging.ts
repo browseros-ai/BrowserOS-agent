@@ -247,6 +247,27 @@ export class PortMessaging {
   }
 
   /**
+   * Sends a raw message through the port (not constrained by MessageType enum)
+   * Used for internal port communication that doesn't use the standard message protocol
+   * @param message - Raw message object to send
+   * @returns true if message sent successfully
+   */
+  public sendRawMessage(message: Record<string, unknown>): boolean {
+    if (!this.port || !this.connected) {
+      console.error('[PortMessaging] Cannot send raw message: Not connected');
+      return false;
+    }
+
+    try {
+      this.port.postMessage(message);
+      return true;
+    } catch (error) {
+      console.error('[PortMessaging] Failed to send raw message:', error);
+      return false;
+    }
+  }
+
+  /**
    * Sends a message and waits for a response
    * @param type - Message type
    * @param payload - Message payload

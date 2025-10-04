@@ -18,10 +18,18 @@ export function ClickAtCoordinatesTool(
       "Click at specific viewport coordinates (x, y). Use when you have exact pixel coordinates where you want to click.",
     schema: ClickAtCoordinatesInputSchema,
     func: async (args: ClickAtCoordinatesInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'click_at_coordinates', 'start',
+          `🖱️ Clicking at coordinates (${args.x}, ${args.y})`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Clicking...", "thinking")
         );
@@ -36,21 +44,37 @@ export function ClickAtCoordinatesTool(
 
         // Validate coordinates are within viewport bounds
         if (args.x < 0 || args.x > viewport.width) {
+          const duration = Date.now() - startTime
+          const errorMessage = `X coordinate ${args.x} is outside viewport width (0-${viewport.width})`
+          context.publishTool(toolId, 'click_at_coordinates', 'error',
+            `❌ ${errorMessage}`,
+            { error: errorMessage, duration })
           return JSON.stringify({
             ok: false,
-            error: `X coordinate ${args.x} is outside viewport width (0-${viewport.width})`,
+            error: errorMessage,
           });
         }
 
         if (args.y < 0 || args.y > viewport.height) {
+          const duration = Date.now() - startTime
+          const errorMessage = `Y coordinate ${args.y} is outside viewport height (0-${viewport.height})`
+          context.publishTool(toolId, 'click_at_coordinates', 'error',
+            `❌ ${errorMessage}`,
+            { error: errorMessage, duration })
           return JSON.stringify({
             ok: false,
-            error: `Y coordinate ${args.y} is outside viewport height (0-${viewport.height})`,
+            error: errorMessage,
           });
         }
 
         // Execute the click
         await page.clickAtCoordinates(args.x, args.y);
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'click_at_coordinates', 'result',
+          `✅ Clicked at (${args.x}, ${args.y})`,
+          { result: { ok: true }, duration })
 
         return JSON.stringify({
           ok: true,
@@ -58,9 +82,17 @@ export function ClickAtCoordinatesTool(
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'click_at_coordinates', 'error',
+          `❌ Failed to click at coordinates: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Failed to click at coordinates: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to click at coordinates: ${errorMessage}`,
         });
       }
     },

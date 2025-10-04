@@ -18,9 +18,19 @@ export function TodoSetTool(
       "Set or update the TODO list with markdown checkboxes (- [ ] pending, - [x] done)",
     schema: TodoSetInputSchema,
     func: async (args: TodoSetInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
+        // Publish tool start event
+        const itemCount = args.todos.split("\n").length
+        context.publishTool(toolId, 'todo_set', 'start',
+          `📝 Updating TODO list (${itemCount} items)`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage(args.todos, "thinking")
         );
@@ -28,9 +38,15 @@ export function TodoSetTool(
 
         Logging.log(
           "NewAgent",
-          `Updated todo list: ${args.todos.split("\n").length} items`,
+          `Updated todo list: ${itemCount} items`,
           "info",
         );
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'todo_set', 'result',
+          `✅ Updated TODO list`,
+          { result: { ok: true }, duration })
 
         return JSON.stringify({
           ok: true,
@@ -38,9 +54,17 @@ export function TodoSetTool(
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'todo_set', 'error',
+          `❌ Failed to update todos: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Failed to update todos: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to update todos: ${errorMessage}`,
         });
       }
     },

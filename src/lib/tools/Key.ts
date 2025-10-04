@@ -32,10 +32,18 @@ export function KeyTool(
     description: "Send a keyboard key press",
     schema: KeyInputSchema,
     func: async (args: KeyInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'key', 'start',
+          `⌨️ Pressing ${args.key} key`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Pressing key...", "thinking")
         );
@@ -45,15 +53,29 @@ export function KeyTool(
 
         await page.sendKeys(args.key);
 
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'key', 'result',
+          `✅ Pressed ${args.key} key`,
+          { result: { ok: true }, duration })
+
         return JSON.stringify({
           ok: true,
           output: `Pressed ${args.key} key`,
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'key', 'error',
+          `❌ Key press failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Key press failed: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Key press failed: ${errorMessage}`,
         });
       }
     },

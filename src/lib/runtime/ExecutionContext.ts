@@ -6,7 +6,7 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { TodoStore } from '@/lib/runtime/TodoStore'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
 import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
-import { HumanInputResponse } from '@/lib/pubsub/types'
+import { HumanInputResponse, EventType } from '@/lib/pubsub/types'
 import {
   HumanMessage,
   AIMessage,
@@ -56,6 +56,7 @@ export type ExecutionContextOptions = z.infer<
  */
 export class ExecutionContext {
   readonly executionId: string  // Unique execution identifier (NEW)
+  readonly sessionId: string  // Session ID (alias for executionId)
   abortSignal: AbortSignal  // Abort signal for task cancellation
   browserContext: BrowserContext  // Browser context for page operations
   messageManager: MessageManager  // Message manager for communication
@@ -99,9 +100,10 @@ export class ExecutionContext {
   constructor(options: ExecutionContextOptions) {
     // Validate options at runtime with proper type checking
     const validatedOptions = ExecutionContextOptionsSchema.parse(options)
-    
+
     // Store execution ID (default to 'default' for backwards compatibility)
     this.executionId = validatedOptions.executionId || "default";
+    this.sessionId = this.executionId;  // Alias for clarity
 
     // Use provided abort signal or create a default one (for backwards compat)
     this.abortSignal =
@@ -177,6 +179,120 @@ export class ExecutionContext {
       );
     }
     return this._scopedPubSub;
+  }
+
+  // ============ NEW EVENT SYSTEM - Convenience Publishing Methods ============
+
+  /**
+   * Publish an event to the new event system
+   * @param event - Event without sessionId and timestamp (automatically added)
+   */
+  public publishEvent(event: { type: EventType; message: string; data?: any }): void {
+    console.log('[ExecutionContext] publishEvent:', event.type, 'message:', event.message?.substring(0, 60), 'executionId:', this.executionId)
+    this.getPubSub().publish(event)
+  }
+
+  /**
+   * Publish thinking event (streaming)
+   * @param msgId - Stable message ID for upsert
+   * @param message - Thinking content
+   * @param phase - Optional phase indicator
+   */
+  public publishThinking(msgId: string, message: string, phase?: string): void {
+    this.publishEvent({
+      type: 'thinking',
+      message,
+      data: { msgId, phase }
+    })
+  }
+
+  /**
+   * Publish discrete message event
+   * @param message - Message content
+   * @param level - Message level (info/success/warning/error)
+   */
+  public publishMessage(message: string, level: 'info' | 'success' | 'warning' | 'error' = 'info'): void {
+    this.publishEvent({
+      type: 'message',
+      message,
+      data: { level }
+    })
+  }
+
+  /**
+   * Publish tool event
+   * @param toolId - Unique tool call ID
+   * @param name - Tool name
+   * @param action - Tool action (start/progress/result/error)
+   * @param message - Human-readable message
+   * @param extra - Additional data
+   */
+  public publishTool(
+    toolId: string,
+    name: string,
+    action: 'start' | 'progress' | 'result' | 'error',
+    message: string,
+    extra?: Record<string, any>
+  ): void {
+    this.publishEvent({
+      type: 'tool',
+      message,
+      data: { toolId, name, action, ...extra }
+    })
+  }
+
+  /**
+   * Publish human input request
+   * @param requestId - Unique request ID
+   * @param prompt - Prompt text
+   */
+  public publishHumanInputRequest(requestId: string, prompt: string): void {
+    this.publishEvent({
+      type: 'human_input',
+      message: prompt,
+      data: { requestId, action: 'request', prompt }
+    })
+  }
+
+  /**
+   * Publish human input response
+   * @param requestId - Matching request ID
+   * @param response - User response (done/abort)
+   */
+  public publishHumanInputResponse(requestId: string, response: 'done' | 'abort'): void {
+    this.publishEvent({
+      type: 'human_input',
+      message: response === 'done' ? 'User completed manual action' : 'User aborted',
+      data: { requestId, action: 'response', response }
+    })
+  }
+
+  /**
+   * Publish recording event (teach-mode only)
+   * @param action - Recording action
+   * @param message - Human-readable message
+   * @param data - Additional data
+   */
+  public publishRecording(action: string, message: string, data?: any): void {
+    this.publishEvent({
+      type: 'recording',
+      message,
+      data: { action, ...data }
+    })
+  }
+
+  /**
+   * Publish preprocessing event (teach-mode only)
+   * @param action - Preprocessing action
+   * @param message - Human-readable message
+   * @param data - Additional data
+   */
+  public publishPreprocessing(action: string, message: string, data?: any): void {
+    this.publishEvent({
+      type: 'preprocessing',
+      message,
+      data: { action, ...data }
+    })
   }
 
   /**

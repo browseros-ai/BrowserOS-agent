@@ -304,7 +304,12 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
       target?: ElementContext
       action?: Partial<CapturedEvent['action']>
     }): void {
-      if (!this.isRecording) return  // Don't send if not recording
+      console.log(`[TeachModeRecorder] sendEvent called: type=${eventData.type}, isRecording=${this.isRecording}`)
+
+      if (!this.isRecording) {
+        console.warn(`[TeachModeRecorder] Event ${eventData.type} DROPPED - not recording!`)
+        return  // Don't send if not recording
+      }
 
       const tabId = (window as any).__tabId
       const capturedEvent: CapturedEvent = {
@@ -318,7 +323,7 @@ import type { CapturedEvent, ElementContext, TeachModeMessage, ActionType } from
         target: eventData.target
       }
 
-      console.log(`[TeachModeRecorder] Sending ${eventData.type} event #${this.eventCounter} from tab ${tabId || 'unknown'}`)
+      console.log(`[TeachModeRecorder] ✓ Sending ${eventData.type} event #${this.eventCounter} from tab ${tabId || 'unknown'}`)
 
       const message: TeachModeMessage = {
         action: 'EVENT_CAPTURED',

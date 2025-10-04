@@ -499,7 +499,9 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
         break
 
       case 'event_captured':
+        console.log('[teachmode.store] event_captured received, payload:', payload.data)
         const { event, index } = payload.data
+        console.log('[teachmode.store] event.id:', event.id, 'event.action.type:', event.action.type, 'index:', index)
         // Convert backend event to UI format
         const capturedEvent: CapturedEvent = {
           id: event.id,
@@ -514,17 +516,22 @@ export const useTeachModeStore = create<TeachModeStore>((set, get) => ({
           voiceAnnotation: event.narration,
           screenshot: event.state?.screenshot
         }
+        console.log('[teachmode.store] Created capturedEvent:', capturedEvent.action.type, capturedEvent.id)
         set((state) => {
+          console.log('[teachmode.store] BEFORE update - recordingEvents.length:', state.recordingEvents.length)
           // Check if event with same ID already exists
           const existingIndex = state.recordingEvents.findIndex(e => e.id === capturedEvent.id)
           if (existingIndex !== -1) {
             // Update existing event (might have new screenshot or data)
             const updatedEvents = [...state.recordingEvents]
             updatedEvents[existingIndex] = capturedEvent
+            console.log('[teachmode.store] UPDATED existing event at index', existingIndex, '- new length:', updatedEvents.length)
             return { recordingEvents: updatedEvents }
           } else {
             // Add new event
-            return { recordingEvents: [...state.recordingEvents, capturedEvent] }
+            const newEvents = [...state.recordingEvents, capturedEvent]
+            console.log('[teachmode.store] ADDED new event - new length:', newEvents.length)
+            return { recordingEvents: newEvents }
           }
         })
         break

@@ -24,13 +24,16 @@ Use this when:
 The human will either click "Done" (after taking action) or "Abort task" (to cancel).`,
     schema: HumanInputSchema,
     func: async (args: HumanInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
-        context.getPubSub().publishMessage(
-          PubSubChannel.createMessage("⏸️ Requesting human input...", "thinking")
-        );
+        // Publish tool start event
+        context.publishTool(toolId, 'human_input', 'start',
+          `⏸️ Requesting human input: ${args.prompt}`,
+          { args })
 
         // Generate unique request ID
         const requestId = PubSubChannel.generateId("human_input");
@@ -38,23 +41,33 @@ The human will either click "Done" (after taking action) or "Abort task" (to can
         // Store request ID in execution context for later retrieval
         context.setHumanInputRequestId(requestId);
 
-        // Publish message to UI showing we're waiting
-        const messageId = PubSubChannel.generateId("human_input_msg");
-        context
-          .getPubSub()
-          .publishMessage(
-            PubSubChannel.createMessageWithId(
-              messageId,
-              `⏸️ **Waiting for human input:** ${args.prompt}`,
-              "thinking",
-            ),
-          );
+        // Publish human input request using new event system
+        context.publishHumanInputRequest(requestId, args.prompt)
 
-        // Publish special event for UI to show the dialog
+        // Also publish to old system for backward compatibility during migration
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessage("⏸️ Requesting human input...", "thinking")
+        );
+
+        const messageId = PubSubChannel.generateId("human_input_msg");
+        context.getPubSub().publishMessage(
+          PubSubChannel.createMessageWithId(
+            messageId,
+            `⏸️ **Waiting for human input:** ${args.prompt}`,
+            "thinking",
+          ),
+        );
+
         context.getPubSub().publishHumanInputRequest({
           requestId,
           prompt: args.prompt,
         });
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'human_input', 'result',
+          '✅ Human input requested',
+          { result: { ok: true, requiresHumanInput: true }, duration })
 
         // Return immediately with special flag
         return JSON.stringify({
@@ -65,9 +78,17 @@ The human will either click "Done" (after taking action) or "Abort task" (to can
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'human_input', 'error',
+          `❌ Human input request failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
         });
       }
     },

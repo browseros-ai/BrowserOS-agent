@@ -28,10 +28,18 @@ export function ExtractTool(
         .describe("Extraction mode: 'text' for content only, 'text-with-links' to include links section"),
     }),
     func: async ({ format, task, extractionMode = 'text' }: { format: any; task: string; extractionMode?: 'text' | 'text-with-links' }) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'extract', 'start',
+          `📊 Extracting data: ${task}`,
+          { args: { format, task, extractionMode } })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Extracting data from page...", "thinking")
         );
@@ -128,22 +136,42 @@ ${linksContent.substring(0, 2000)}${linksContent.length > 2000 ? "\n...[more lin
 
           const extractedData = JSON.parse(cleanedContent);
 
+          // Publish tool result event
+          const duration = Date.now() - startTime
+          context.publishTool(toolId, 'extract', 'result',
+            `✅ Data extracted successfully`,
+            { result: { ok: true }, duration })
+
           return JSON.stringify({
             ok: true,
             output: extractedData,
           });
         } catch (parseError) {
           // If parsing fails, return the raw response with an error
+          const duration = Date.now() - startTime
+          const errorMsg = `Failed to parse extraction result as JSON`
+          context.publishTool(toolId, 'extract', 'error',
+            `❌ ${errorMsg}`,
+            { error: errorMsg, duration })
+
           return JSON.stringify({
             ok: false,
-            error: `Failed to parse extraction result as JSON. Raw output: ${response.content}`,
+            error: `${errorMsg}. Raw output: ${response.content}`,
           });
         }
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'extract', 'error',
+          `❌ Extraction failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Extraction failed: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Extraction failed: ${errorMessage}`,
         });
       }
     },

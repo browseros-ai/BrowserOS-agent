@@ -19,10 +19,18 @@ export function NavigateTool(
     description: "Navigate to a URL",
     schema: NavigateInputSchema,
     func: async (args: NavigateInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'navigate', 'start',
+          `🧭 Navigating to ${args.url}`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Navigating...", "thinking")
         );
@@ -33,15 +41,29 @@ export function NavigateTool(
         await page.navigateTo(args.url);
         await page.waitForStability();
 
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'navigate', 'result',
+          `✅ Navigated to ${args.url}`,
+          { result: { ok: true }, duration })
+
         return JSON.stringify({
           ok: true,
           output: `Successfully navigated to ${args.url}`,
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'navigate', 'error',
+          `❌ Navigation failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Navigation failed: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Navigation failed: ${errorMessage}`,
         });
       }
     },

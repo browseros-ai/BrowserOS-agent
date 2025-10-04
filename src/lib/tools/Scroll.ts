@@ -32,10 +32,19 @@ export function ScrollTool(
     description: "Scroll to a specific element or scroll the page",
     schema: ScrollInputSchema,
     func: async (args: ScrollInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        const startMsg = args.nodeId
+          ? `📜 Scrolling to element ${args.nodeId}`
+          : `📜 Scrolling ${args.direction} ${args.amount || 1} viewport(s)`
+        context.publishTool(toolId, 'scroll', 'start', startMsg, { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Scrolling...", "thinking")
         );
@@ -47,6 +56,13 @@ export function ScrollTool(
 
         if (args.nodeId) {
           const scrolled = await page.scrollToElement(args.nodeId);
+
+          // Publish tool result event
+          const duration = Date.now() - startTime
+          context.publishTool(toolId, 'scroll', 'result',
+            `✅ Scrolled to element ${args.nodeId}`,
+            { result: { ok: true }, duration })
+
           return JSON.stringify({
             ok: true,
             output: `Scrolled to element : ${args.nodeId} ${scrolled ? "success" : "already visible"}`,
@@ -63,11 +79,23 @@ export function ScrollTool(
             ? `Scrolled ${args.direction} ${amount} viewport(s)`
             : `Already at ${args.direction === "down" ? "bottom" : "top"} of page - no space to scroll ${args.direction}`;
 
+          // Publish tool result event
+          const duration = Date.now() - startTime
+          context.publishTool(toolId, 'scroll', 'result',
+            `✅ ${scrollMessage}`,
+            { result: { ok: true }, duration })
+
           return JSON.stringify({
             ok: true,
             output: scrollMessage,
           });
         } else {
+          // Publish tool error event
+          const duration = Date.now() - startTime
+          context.publishTool(toolId, 'scroll', 'error',
+            `❌ Must provide either nodeId or direction`,
+            { error: 'Missing parameters', duration })
+
           return JSON.stringify({
             ok: false,
             error: "Must provide either nodeId or direction",
@@ -75,9 +103,17 @@ export function ScrollTool(
         }
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'scroll', 'error',
+          `❌ Scroll failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Scroll failed: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Scroll failed: ${errorMessage}`,
         });
       }
     },

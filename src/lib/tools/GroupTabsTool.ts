@@ -73,8 +73,40 @@ export function GroupTabsTool(executionContext: ExecutionContext): DynamicStruct
     description: "Group browser tabs together. Pass tabIds array and optionally groupName and color (grey, blue, red, yellow, green, pink, purple, cyan, orange).",
     schema: GroupTabsInputSchema,
     func: async (args): Promise<string> => {
-      const result = await tool.execute(args)
-      return JSON.stringify(result)
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
+      try {
+        // Publish tool start event
+        executionContext.publishTool(toolId, 'group_tabs_tool', 'start',
+          `🔖 Grouping ${args.tabIds.length} tabs`,
+          { args })
+
+        const result = await tool.execute(args)
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        if (result.ok) {
+          executionContext.publishTool(toolId, 'group_tabs_tool', 'result',
+            `✅ ${result.output}`,
+            { result, duration })
+        } else {
+          executionContext.publishTool(toolId, 'group_tabs_tool', 'error',
+            `❌ ${result.output}`,
+            { error: result.output, duration })
+        }
+
+        return JSON.stringify(result)
+      } catch (error) {
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        executionContext.publishTool(toolId, 'group_tabs_tool', 'error',
+          `❌ Group tabs failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
+        return JSON.stringify({ ok: false, error: errorMessage })
+      }
     }
   })
 }

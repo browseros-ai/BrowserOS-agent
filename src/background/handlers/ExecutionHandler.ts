@@ -14,9 +14,26 @@ import { BrowserContext } from '@/lib/browser/BrowserContext'
  */
 export class ExecutionHandler {
   private execution: Execution
+  // Track requestId → sessionId mapping for human input
+  private static humanInputSessions: Map<string, string> = new Map()
 
   constructor() {
     this.execution = Execution.getInstance()
+  }
+
+  /**
+   * Track a human input request for a session
+   */
+  static trackHumanInputRequest(requestId: string, sessionId: string): void {
+    ExecutionHandler.humanInputSessions.set(requestId, sessionId)
+    console.log('[ExecutionHandler] Tracked human input request:', requestId, '→ session:', sessionId)
+  }
+
+  /**
+   * Get session ID for a human input request
+   */
+  static getSessionForHumanInput(requestId: string): string | undefined {
+    return ExecutionHandler.humanInputSessions.get(requestId)
   }
 
   /**
@@ -177,13 +194,30 @@ export class ExecutionHandler {
     port: chrome.runtime.Port
   ): void {
     const payload = message.payload as any
-    
-    // Forward the response through PubSub
-    const pubsub = PubSub.getChannel("main")
+    const requestId = payload.requestId
+
+    // Get the session ID for this request
+    const sessionId = ExecutionHandler.getSessionForHumanInput(requestId)
+
+    if (!sessionId) {
+      console.error('[ExecutionHandler] No session found for human input request:', requestId)
+      // Fallback to main channel for backward compatibility
+      const pubsub = PubSub.getChannel("main")
+      pubsub.publishHumanInputResponse(payload)
+      return
+    }
+
+    console.log('[ExecutionHandler] Routing human input response to session:', sessionId)
+
+    // Forward the response to the correct session channel
+    const pubsub = PubSub.getChannel(sessionId)
     pubsub.publishHumanInputResponse(payload)
-    
-    Logging.log('ExecutionHandler', 
-      `Forwarded human input response`)
+
+    // Clean up the mapping
+    ExecutionHandler.humanInputSessions.delete(requestId)
+
+    Logging.log('ExecutionHandler',
+      `Forwarded human input response to session ${sessionId}`)
   }
 
   /**

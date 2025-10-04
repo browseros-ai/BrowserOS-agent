@@ -38,8 +38,17 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
     description: `Generate up to ${PLANNING_CONFIG.STEPS_PER_PLAN} steps for the task`,
     schema: PlannerInputSchema,
     func: async (args: PlannerInput): Promise<string> => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
+        // Publish tool start event
+        executionContext.publishTool(toolId, 'planner_tool', 'start',
+          `📋 Creating plan for task`,
+          { args })
+
         executionContext.getPubSub().publishMessage(PubSub.createMessage(`Creating plan for task...`, 'thinking'))
+
         // Get LLM instance from execution context
         const llm = await executionContext.getLLM();
 
@@ -47,19 +56,19 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
         // and excluding browser state messages as we will add that separately.
         const read_only_message_manager = new MessageManagerReadOnly(executionContext.messageManager);
         const message_history = read_only_message_manager.getFilteredAsString([MessageType.SYSTEM, MessageType.BROWSER_STATE]);
-       
+
         // Get browser state using BrowserContext's method
         const browserState = await executionContext.browserContext.getBrowserStateString();
-        
+
         // Check if browser state exceeds token limit
         const browserStateTokens = TokenCounter.countString(browserState);
         const maxTokens = executionContext.messageManager.getMaxTokens();
-        
+
         // If browser state is too large, use a placeholder message
-        const browserStateString = browserStateTokens > maxTokens 
+        const browserStateString = browserStateTokens > maxTokens
           ? '[Browser state too large to include - exceeds token limit]'
           : browserState;
-        
+
         // Generate prompts
         const systemPrompt = generatePlannerSystemPrompt(args.max_steps || PLANNING_CONFIG.STEPS_PER_PLAN);
         const taskPrompt = generatePlannerTaskPrompt(
@@ -68,17 +77,17 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
           message_history,
           browserStateString
         );
-        
+
         // Prepare messages for LLM
         const messages = [
           new SystemMessage(systemPrompt),
           new HumanMessage(taskPrompt)
         ];
-        
+
         // Log token count
         const tokenCount = TokenCounter.countMessages(messages);
         Logging.log('PlannerTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info');
-        
+
         // Get structured response from LLM with retry logic
         const structuredLLM = llm.withStructuredOutput(PlanSchema);
         const plan = await invokeWithRetry<z.infer<typeof PlanSchema>>(
@@ -87,10 +96,16 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
           3,
           { signal: executionContext.abortSignal }
         );
-        
+
         // Emit status message
         executionContext.getPubSub().publishMessage(PubSub.createMessage(`Created plan with ${plan.steps.length} steps`, 'thinking'))
-        
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        executionContext.publishTool(toolId, 'planner_tool', 'result',
+          `✅ Created plan with ${plan.steps.length} steps`,
+          { result: { ok: true, stepCount: plan.steps.length }, duration })
+
         // Format and return result
         return JSON.stringify({
           ok: true,
@@ -99,6 +114,13 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
       } catch (error) {
         // Handle error
         const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        executionContext.publishTool(toolId, 'planner_tool', 'error',
+          `❌ Planning failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         executionContext.getPubSub().publishMessage(
           PubSub.createMessageWithId(PubSub.generateId('ToolError'), `Planning failed: ${errorMessage}`, 'error')
         );

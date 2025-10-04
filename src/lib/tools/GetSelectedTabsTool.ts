@@ -66,8 +66,40 @@ export function GetSelectedTabsTool(executionContext: ExecutionContext): Dynamic
     description: "Get information about currently selected tabs. Returns an array of tab objects with id, url, and title. If no tabs are selected, returns the current tab.",
     schema: GetSelectedTabsInputSchema,
     func: async (args): Promise<string> => {
-      const result = await tool.execute(args)
-      return JSON.stringify(result)
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
+      try {
+        // Publish tool start event
+        executionContext.publishTool(toolId, 'get_selected_tabs_tool', 'start',
+          `🔖 Getting selected tabs`,
+          { args })
+
+        const result = await tool.execute(args)
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        if (result.ok) {
+          executionContext.publishTool(toolId, 'get_selected_tabs_tool', 'result',
+            `✅ Retrieved selected tabs`,
+            { result, duration })
+        } else {
+          executionContext.publishTool(toolId, 'get_selected_tabs_tool', 'error',
+            `❌ ${result.output}`,
+            { error: result.output, duration })
+        }
+
+        return JSON.stringify(result)
+      } catch (error) {
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        executionContext.publishTool(toolId, 'get_selected_tabs_tool', 'error',
+          `❌ Get selected tabs failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
+        return JSON.stringify({ ok: false, error: errorMessage })
+      }
     }
   })
 }

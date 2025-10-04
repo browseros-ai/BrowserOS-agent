@@ -96,9 +96,6 @@ interface SingleTurnResult {
 }
 
 export class TeachAgent extends BaseAgent {
-  // Core dependencies
-  private readonly mainPubsub: PubSubChannel;  // Main channel for teach-mode events
-
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
     plannerOutput: PlannerOutput | ExecutionHistorySummary;
@@ -109,30 +106,7 @@ export class TeachAgent extends BaseAgent {
 
   constructor(executionContext: ExecutionContext) {
     super(executionContext, "TeachAgent");
-
-    this.mainPubsub = PubSub.getChannel('main');  // Get main channel for teach-mode events
     Logging.log("TeachAgent", "TeachAgent instance created", "info");
-  }
-
-  // Helper method to emit teach-mode events
-  private _emitTeachModeEvent(
-    eventType: TeachModeEventPayload['eventType'],
-    data: any
-  ): void {
-    this.mainPubsub.publishTeachModeEvent({
-      eventType,
-      sessionId: this.executionContext.executionId,
-      data
-    });
-  }
-
-  // Helper method to emit thinking events with stable msgId
-  protected _emitThinking(msgId: string, content: string): void {
-    this._emitTeachModeEvent('execution_thinking', {
-      msgId,
-      content,
-      timestamp: Date.now()
-    });
   }
 
   // There are basically two modes of operation:
@@ -181,12 +155,9 @@ export class TeachAgent extends BaseAgent {
     let done = false;
     let retries = 0
 
-    // Publish execution started event
-    this._emitTeachModeEvent('execution_started', {
-      workflowId: workflow.metadata.recordingId || '',
-      goal: workflow.metadata.goal,
-      totalSteps: workflow.steps.length
-    });
+    // Note: Execution.ts already published 'started' event
+    // We just emit a workflow-specific message for context
+    this._emitMessage(`Executing workflow: ${workflow.metadata.goal}`, 'assistant');
 
     while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
       this.checkIfAborted();
@@ -198,11 +169,14 @@ export class TeachAgent extends BaseAgent {
         "info",
       );
 
+      console.log('[TeachAgent] Calling _runDynamicPlanner...')
       // Get reasoning and high-level actions
       const planResult = await this._runDynamicPlanner(workflow);
+      console.log('[TeachAgent] _runDynamicPlanner returned, ok:', planResult.ok)
       // CRITICAL: Flush any queued messages from planning
 
       if (!planResult.ok) {
+        console.log('[TeachAgent] Planning failed:', planResult.error)
         Logging.log(
           "TeachAgent",
           `Planning failed: ${planResult.error}`,
@@ -212,10 +186,13 @@ export class TeachAgent extends BaseAgent {
       }
 
       const plan = planResult.output!;
+      console.log('[TeachAgent] Plan received, reasoning length:', plan.stepByStepReasoning?.length)
 
       // Publish reasoning as teach-mode-event for UI display with unique msgId
       const thinkingMsgId = PubSub.generateId('teach_thinking');
+      console.log('[TeachAgent] Publishing thinking with msgId:', thinkingMsgId)
       this._emitThinking(thinkingMsgId, plan.stepByStepReasoning);
+      console.log('[TeachAgent] Thinking published')
 
       // Check if task is complete
       if (plan.taskComplete) {
@@ -224,16 +201,9 @@ export class TeachAgent extends BaseAgent {
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
 
-        // Publish execution completed event
-        this.mainPubsub.publishTeachModeEvent({
-          eventType: 'execution_completed',
-          sessionId: this.executionContext.executionId,
-          data: {
-            workflowId: workflow.metadata.recordingId || '',
-            success: true,
-            message: completionMessage
-          }
-        });
+        // Note: Execution.ts will publish 'completed' event
+        // We just emit the final answer message
+        this._emitMessage(completionMessage, 'assistant');
         break;
       }
 
@@ -286,10 +256,7 @@ export class TeachAgent extends BaseAgent {
 
     // Check if we hit planning iteration limit
     if (!done && this.iterations >= MAX_PLANNER_ITERATIONS) {
-      this._emitTeachModeEvent('execution_failed', {
-        error: `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
-        reason: 'iteration_limit'
-      });
+      // Note: Execution.ts will publish 'failed' event when error is thrown
       throw new Error(
         `Maximum planning iterations (${MAX_PLANNER_ITERATIONS}) reached`,
       );
@@ -593,10 +560,9 @@ ${fullHistory}
     const errorMessage = error instanceof Error ? error.message : String(error);
     Logging.log("TeachAgent", `Execution error: ${errorMessage}`, "error");
 
-    // Publish execution failed event
-    this._emitTeachModeEvent('execution_failed', {
-      error: errorMessage
-    });
+    // Note: Execution.ts will publish 'failed' event when error is caught
+    // We just log the error message
+    this._emitMessage(`Error: ${errorMessage}`, 'error');
   }
 
   /**

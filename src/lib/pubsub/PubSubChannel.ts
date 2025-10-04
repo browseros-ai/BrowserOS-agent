@@ -1,4 +1,4 @@
-import { Message, PubSubEvent, SubscriptionCallback, Subscription, HumanInputRequest, HumanInputResponse, TeachModeEventPayload } from './types'
+import { Message, PubSubEvent, SubscriptionCallback, Subscription, HumanInputRequest, HumanInputResponse, TeachModeEventPayload, ExecutionEvent, ExecutionEventCallback } from './types'
 import { Logging } from '@/lib/utils/Logging'
 
 /**
@@ -11,6 +11,10 @@ export class PubSubChannel {
   private messageBuffer: PubSubEvent[] = []
   private readonly MAX_BUFFER_SIZE = 200  // Max messages to keep
   private isDestroyed: boolean = false
+
+  // NEW EVENT SYSTEM - Phase 1
+  private newSubscribers: Set<ExecutionEventCallback> = new Set()
+  private eventBuffer: ExecutionEvent[] = []
 
   constructor(executionId: string) {
     this.executionId = executionId
@@ -199,7 +203,89 @@ export class PubSubChannel {
     
     Logging.log('PubSubChannel', `Destroyed channel for execution ${this.executionId}`)
   }
-  
+
+  // ============================================
+  // NEW EVENT SYSTEM - Phase 1
+  // ============================================
+
+  /**
+   * Publish an event to the new event system
+   * Automatically adds sessionId (executionId) and timestamp
+   */
+  publish(event: Omit<ExecutionEvent, 'sessionId' | 'timestamp'>): void {
+    if (this.isDestroyed) {
+      console.warn(`PubSubChannel: Attempted to publish to destroyed channel ${this.executionId}`)
+      return
+    }
+
+    const fullEvent: ExecutionEvent = {
+      ...event,
+      sessionId: this.executionId,
+      timestamp: Date.now()
+    }
+
+    this._publishNew(fullEvent)
+  }
+
+  /**
+   * Subscribe to events on the new event system
+   */
+  subscribeToEvents(callback: ExecutionEventCallback): Subscription {
+    if (this.isDestroyed) {
+      console.warn(`PubSubChannel: Attempted to subscribe to destroyed channel ${this.executionId}`)
+      return {
+        unsubscribe: () => {}
+      }
+    }
+
+    this.newSubscribers.add(callback)
+
+    // Replay buffered events to new subscriber
+    this.eventBuffer.forEach(event => {
+      try {
+        callback(event)
+      } catch (error) {
+        console.error(`PubSubChannel[${this.executionId}]: Error replaying buffered event`, error)
+      }
+    })
+
+    return {
+      unsubscribe: () => {
+        this.newSubscribers.delete(callback)
+      }
+    }
+  }
+
+  /**
+   * Internal publish method for new event system
+   * @private
+   */
+  private _publishNew(event: ExecutionEvent): void {
+    console.log('[PubSubChannel] _publishNew called, event type:', event.type, 'channel:', this.executionId, 'subscribers:', this.newSubscribers.size)
+
+    // Add to buffer
+    this.eventBuffer.push(event)
+
+    // Trim buffer if too large
+    if (this.eventBuffer.length > this.MAX_BUFFER_SIZE) {
+      this.eventBuffer = this.eventBuffer.slice(-this.MAX_BUFFER_SIZE)
+    }
+
+    // Notify all subscribers
+    this.newSubscribers.forEach(callback => {
+      console.log('[PubSubChannel] Calling subscriber callback')
+      try {
+        callback(event)
+      } catch (error) {
+        console.error(`[PubSubChannel] Error in callback:`, error)
+      }
+    })
+
+    if (this.newSubscribers.size === 0) {
+      console.warn('[PubSubChannel] No subscribers to notify for event:', event.type, 'on channel:', this.executionId)
+    }
+  }
+
   // ============================================
   // Static helper methods (mirror PubSub API)
   // ============================================

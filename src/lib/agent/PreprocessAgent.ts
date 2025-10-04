@@ -3,6 +3,7 @@ import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import { getLLM } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
 import { invokeWithRetry } from "@/lib/utils/retryable";
+import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import {
   TeachModeRecordingSchema,
@@ -43,12 +44,10 @@ import { isDevelopmentMode } from "@/config";
  * by analyzing individual events sequentially with LLM processing
  */
 export class PreprocessAgent {
-  private pubsub: PubSubChannel | null = null;
-  private sessionId: string | null = null;
+  private pubsub: PubSubChannel;
 
-  constructor(pubsub?: PubSubChannel, sessionId?: string) {
-    this.pubsub = pubsub || null;
-    this.sessionId = sessionId || null;
+  constructor(sessionId: string) {
+    this.pubsub = PubSub.getChannel(sessionId);
     Logging.log("PreprocessAgent", "Agent instance created", "info");
   }
 
@@ -62,7 +61,7 @@ export class PreprocessAgent {
       Logging.log("PreprocessAgent", `Processing recording with ${totalEvents} events`, "info");
 
       // Emit preprocessing started
-      this._emitProgress('preprocessing_started', {
+      this._emitProgress('started', `Preprocessing ${totalEvents} events`, {
         totalEvents: totalEvents
       });
 
@@ -71,11 +70,10 @@ export class PreprocessAgent {
       if (!transcript && validatedRecording.audio) {
         Logging.log("PreprocessAgent", "Transcribing audio recording...", "info");
 
-        this._emitProgress('preprocessing_progress', {
+        this._emitProgress('progress', 'Transcribing audio narration...', {
           stage: 'transcription',
           current: 0,
-          total: totalEvents,
-          message: 'Transcribing audio narration...'
+          total: totalEvents
         });
 
         try {
@@ -93,11 +91,10 @@ export class PreprocessAgent {
           // Emit debug info for transcript
           this._emitDebug('Transcript extracted', transcript);
 
-          this._emitProgress('preprocessing_progress', {
+          this._emitProgress('progress', 'Transcription completed', {
             stage: 'transcription',
             current: 0,
             total: totalEvents,
-            message: 'Transcription completed',
             transcript
           });
         } catch (error) {
@@ -111,11 +108,10 @@ export class PreprocessAgent {
             // Metric logging failed, continue
           });
 
-          this._emitProgress('preprocessing_progress', {
+          this._emitProgress('progress', 'Continuing without transcription', {
             stage: 'transcription',
             current: 0,
             total: totalEvents,
-            message: 'Continuing without transcription',
             error: String(error)
           });
         }
@@ -140,12 +136,11 @@ export class PreprocessAgent {
         Logging.log("PreprocessAgent", `Processing event ${processedCount}/${totalEvents}: ${event.action.type}`, "info");
 
         // Emit progress for event processing stage
-        this._emitProgress('preprocessing_progress', {
+        this._emitProgress('progress', `Processing ${event.action.type} (${processedCount}/${totalEvents})`, {
           stage: 'event_processing',
           current: processedCount,
           total: totalEvents,
-          actionType: event.action.type,
-          message: `Processing ${event.action.type} (${processedCount}/${totalEvents})`
+          actionType: event.action.type
         });
 
         try {
@@ -229,7 +224,7 @@ export class PreprocessAgent {
       });
 
       // Emit preprocessing completed
-      this._emitProgress('preprocessing_completed', {
+      this._emitProgress('completed', `Workflow "${workflow.metadata.name}" created with ${steps.length} steps`, {
         workflowName: workflow.metadata.name,
         totalSteps: steps.length
       });
@@ -241,7 +236,7 @@ export class PreprocessAgent {
       Logging.log("PreprocessAgent", `Processing failed: ${errorMessage}`, "error");
 
       // Emit preprocessing failed
-      this._emitProgress('preprocessing_failed', {
+      this._emitProgress('failed', `Preprocessing failed: ${errorMessage}`, {
         error: errorMessage
       });
 
@@ -417,16 +412,11 @@ ${narration ? `"${narration}"` : "(No narration provided)"}
   /**
    * Emit progress event via PubSub
    */
-  private _emitProgress(
-    eventType: 'preprocessing_started' | 'preprocessing_progress' | 'preprocessing_completed' | 'preprocessing_failed',
-    data: any
-  ): void {
-    if (!this.pubsub || !this.sessionId) return;
-
-    this.pubsub.publishTeachModeEvent({
-      eventType,
-      sessionId: this.sessionId,
-      data
+  private _emitProgress(action: string, message: string, data?: any): void {
+    this.pubsub.publish({
+      type: 'preprocessing',
+      message,
+      data: { action, ...data }
     });
   }
 
@@ -451,11 +441,15 @@ ${narration ? `"${narration}"` : "(No narration provided)"}
       message = `${message}: ${detailString}`;
     }
 
-    // Emit as preprocessing_progress event in dev mode
-    this._emitProgress('preprocessing_progress', {
-      stage: 'debug',
+    // Emit as preprocessing event in dev mode
+    this.pubsub.publish({
+      type: 'preprocessing',
       message,
-      timestamp: Date.now()
+      data: {
+        action: 'debug',
+        details,
+        timestamp: Date.now()
+      }
     });
 
     // Also log to console for development

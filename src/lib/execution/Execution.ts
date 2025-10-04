@@ -10,6 +10,7 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { PubSub } from "@/lib/pubsub";
+import { SessionNotifier } from "@/lib/pubsub/SessionNotifier";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { getFeatureFlags } from "@/lib/utils/featureFlags";
 import { isUserCancellation } from "@/lib/utils/Abortable";
@@ -38,9 +39,9 @@ export type ExecutionOptions = z.infer<typeof ExecutionOptionsSchema>;
  */
 export class Execution {
   private static instance: Execution | null = null;
-  private static readonly EXECUTION_ID = "main";  // Fixed execution ID
-  
+
   readonly id: string;
+  private currentSessionId: string | null = null;  // Track current session
   private browserContext: BrowserContext | null = null;
   private messageManager: MessageManager | null = null;
   private pubsub: PubSubChannel | null = null;
@@ -48,8 +49,7 @@ export class Execution {
   private currentAbortController: AbortController | null = null;
 
   private constructor() {
-    this.id = Execution.EXECUTION_ID;
-    this.pubsub = PubSub.getChannel(Execution.EXECUTION_ID);
+    this.id = 'singleton';  // Just for identification
     // Initialize with default options
     this.options = {
       mode: "browse",
@@ -81,6 +81,17 @@ export class Execution {
       "Execution",
       `Updated options: mode=${this.options.mode}, tabIds=${this.options.tabIds?.length || 0}`,
     );
+  }
+
+  /**
+   * Generate unique session ID with mode prefix
+   * @param mode - Execution mode (browse/chat/teach/record)
+   * @returns Session ID in format: {mode}_{timestamp}_{random}
+   */
+  private generateSessionId(mode: 'browse' | 'chat' | 'teach' | 'record'): string {
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substr(2, 9)
+    return `${mode}_${timestamp}_${random}`
   }
 
   /**
@@ -151,9 +162,28 @@ export class Execution {
         );
       }
 
+      // Determine execution mode
+      let mode: 'browse' | 'chat' | 'teach' | 'record' = 'browse'
+      if (this.options.mode === 'chat') {
+        mode = 'chat'
+      } else if (this.options.mode === 'teach' || this.options.workflow || metadata?.executionMode === 'teach') {
+        mode = 'teach'
+      }
+      // Note: 'record' mode will be set by RecordingSession separately in Phase 5
+
+      // Generate unique session ID
+      const sessionId = this.generateSessionId(mode)
+      this.currentSessionId = sessionId
+
+      // Create session-specific pubsub channel
+      this.pubsub = PubSub.getChannel(sessionId)
+
+      // Notify session start (PortManager will broadcast to UI)
+      SessionNotifier.notifySessionStart(sessionId, mode)
+
       // Create fresh execution context with new abort signal
       const executionContext = new ExecutionContext({
-        executionId: this.id,
+        executionId: sessionId,  // Pass sessionId as executionId
         browserContext: this.browserContext!,
         messageManager: this.messageManager!,
         pubsub: this.pubsub,
@@ -209,6 +239,13 @@ export class Execution {
         });
       }
 
+      // Publish started event using new event system
+      executionContext.getPubSub().publish({
+        type: 'started',
+        message: `Starting ${mode} mode: ${query}`,
+        data: { mode, task: query }
+      })
+
       // Create fresh agent and execute based on mode
       if (this.options.mode === "teach") {
         // Teach mode with workflow
@@ -241,6 +278,13 @@ export class Execution {
           : new BrowserAgent(executionContext);
         await browseAgent.execute(query, metadata || this.options.metadata);
       }
+
+      // Publish completed event using new event system
+      executionContext.getPubSub().publish({
+        type: 'completed',
+        message: '✅ Task completed successfully',
+        data: { duration: Date.now() - startTime }
+      })
 
       // Evals2: post-execution scoring + upload
       if (ENABLE_EVALS2 && evalsEventMgr.isEnabled()) {
@@ -311,6 +355,15 @@ export class Execution {
     } catch (error) {
       if (!isUserCancellation(error)) {
         const errorMessage = error instanceof Error ? error.message : String(error);
+
+        // Publish failed event using new event system
+        this.pubsub?.publish({
+          type: 'failed',
+          message: `❌ Execution failed: ${errorMessage}`,
+          data: { error: errorMessage, duration: Date.now() - startTime }
+        })
+
+        // Also publish old-style error message (for backward compatibility during migration)
         this.pubsub?.publishMessage({
           msgId: `error_main`,
           content: `❌ Error: ${errorMessage}`,
@@ -318,11 +371,24 @@ export class Execution {
           ts: Date.now(),
         });
         throw error;  // Only re-throw if NOT cancelled
+      } else {
+        // Publish aborted event using new event system
+        this.pubsub?.publish({
+          type: 'aborted',
+          message: 'User cancelled execution',
+          data: { duration: Date.now() - startTime }
+        })
       }
       // Don't throw if it was cancelled - just return normally
     } finally {
       // Clear abort controller after run completes
       this.currentAbortController = null;
+
+      // Schedule channel cleanup (delayed) and reset session ID
+      if (this.currentSessionId) {
+        PubSub.deleteChannel(this.currentSessionId, false)
+        this.currentSessionId = null
+      }
 
       // Unlock browser context after each run
       if (this.browserContext) {
@@ -445,5 +511,13 @@ export class Execution {
       isRunning: this.isRunning(),
       mode: this.options.mode,
     };
+  }
+
+  /**
+   * Get current session ID (for background to inform UI)
+   * @returns Current session ID or null if no execution running
+   */
+  getCurrentSessionId(): string | null {
+    return this.currentSessionId
   }
 }

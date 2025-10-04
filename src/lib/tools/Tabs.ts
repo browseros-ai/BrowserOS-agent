@@ -14,10 +14,18 @@ export function TabsTool(
     description: "List all tabs in the current browser window",
     schema: TabsInputSchema,
     func: async (args: TabsInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'tabs', 'start',
+          `🔖 Listing browser tabs`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Listing browser tabs...", "thinking")
         );
@@ -40,15 +48,29 @@ export function TabsTool(
             active: tab.active || false,
           }));
 
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'tabs', 'result',
+          `✅ Found ${tabList.length} tabs`,
+          { result: { ok: true, count: tabList.length }, duration })
+
         return JSON.stringify({
           ok: true,
           output: tabList,
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'tabs', 'error',
+          `❌ Failed to list tabs: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Failed to list tabs: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to list tabs: ${errorMessage}`,
         });
       }
     },

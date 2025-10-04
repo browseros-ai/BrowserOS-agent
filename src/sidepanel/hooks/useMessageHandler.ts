@@ -11,7 +11,7 @@ interface HumanInputRequest {
 
 export function useMessageHandler() {
   const { upsertMessage, setProcessing, reset } = useChatStore()
-  const { addMessageListener, removeMessageListener, sendMessage } = useSidePanelPortMessaging()
+  const { addMessageListener, removeMessageListener, sendMessage, sendRawMessage } = useSidePanelPortMessaging()
   const [humanInputRequest, setHumanInputRequest] = useState<HumanInputRequest | null>(null)
   const handleBackendEvent = useTeachModeStore(state => state.handleBackendEvent)
   
@@ -20,14 +20,19 @@ export function useMessageHandler() {
   }, [])
 
   const handleStreamUpdate = useCallback((payload: any) => {
+    console.log('[UI] handleStreamUpdate called, payload:', payload)
+
     // Handle new architecture events (with executionId and event structure)
     if (payload?.event) {
       const event = payload.event
-      
+      console.log('[UI] Event type:', event.type, 'payload:', event.payload)
+
       // Handle message events
       if (event.type === 'message') {
         const message = event.payload as PubSubMessage
+        console.log('[UI] Upserting message, role:', message.role, 'content:', message.content?.substring(0, 40))
         upsertMessage(message)
+        console.log('[UI] Message upserted successfully')
       }
       
       // Handle human-input-request events
@@ -88,6 +93,19 @@ export function useMessageHandler() {
         setProcessing(true)
       }
 
+      // Handle new session start
+      if (message?.type === 'SESSION_STARTED') {
+        const { sessionId, mode } = message.payload
+        console.log('[UI] SESSION_STARTED received:', sessionId, mode, 'at', Date.now())
+
+        // Tell PortManager to subscribe to this session
+        console.log('[UI] Sending SUBSCRIBE_SESSION:', sessionId)
+        sendRawMessage({
+          type: 'SUBSCRIBE_SESSION',
+          sessionId
+        })
+      }
+
       // Handle panel close signal
       if (message?.type === MessageType.CLOSE_PANEL) {
         window.close()
@@ -99,7 +117,7 @@ export function useMessageHandler() {
     return () => {
       chrome.runtime.onMessage.removeListener(handleRuntimeMessage)
     }
-  }, [setProcessing])  // Only depend on setProcessing which is stable
+  }, [setProcessing, sendRawMessage])  // Added sendRawMessage to dependencies
 
   // Set up port message listeners
   useEffect(() => {

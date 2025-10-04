@@ -150,7 +150,7 @@ export class ChatAgent {
         })
         
         Logging.log('ChatAgent', `Execution failed: ${errorMessage}`, 'error')
-        this.pubsub.publishMessage(PubSub.createMessage(`Error: ${errorMessage}`, 'error'))
+        this.executionContext.publishMessage(`Error: ${errorMessage}`, 'error')
         throw error
       }
     }
@@ -309,15 +309,23 @@ export class ChatAgent {
       if (chunk.content) {
         fullContent += chunk.content
         // Stream chunk to UI
-        this.pubsub.publishMessage(PubSub.createMessageWithId(streamMsgId, fullContent, 'assistant'))
+        this.executionContext.publishEvent({
+          type: 'message',
+          message: fullContent,
+          data: { level: 'success', msgId: streamMsgId }
+        })
       }
     }
     
     // Accumulate final message for history
     const finalMessage = this._accumulateMessage(chunks)
-    
+
     // Final message with complete content
-    this.pubsub.publishMessage(PubSub.createMessageWithId(streamMsgId, fullContent, 'assistant'))
+    this.executionContext.publishEvent({
+      type: 'message',
+      message: fullContent,
+      data: { level: 'success', msgId: streamMsgId }
+    })
     
     // Add to message history
     this.messageManager.addAI(finalMessage.content as string || '')

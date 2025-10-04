@@ -226,9 +226,7 @@ export class BrowserAgent extends BaseAgent {
       const plan = planResult.output!
 
       // Publish reasoning to UI
-      this.pubsub.publishMessage(
-        PubSub.createMessage(plan.stepByStepReasoning, 'thinking')
-      )
+      this.executionContext.publishMessage(plan.stepByStepReasoning, 'info')
 
       // Check if task is complete
       if (plan.taskComplete) {
@@ -236,9 +234,7 @@ export class BrowserAgent extends BaseAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully"
-        this.pubsub.publishMessage(
-          PubSub.createMessage(completionMessage, 'assistant')
-        )
+        this.executionContext.publishMessage(completionMessage, 'success')
         break
       }
 
@@ -623,9 +619,7 @@ ${fullHistory}
       this.executionContext.setTodoList(result.todoMarkdown)
 
       // Publish reasoning
-      this.pubsub.publishMessage(
-        PubSub.createMessage(result.stepByStepReasoning, "thinking")
-      )
+      this.executionContext.publishMessage(result.stepByStepReasoning, 'info')
 
       Logging.log(
         "BrowserAgent",

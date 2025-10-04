@@ -16,10 +16,18 @@ export function TabCloseTool(
     description: "Close a specific tab by ID",
     schema: TabCloseInputSchema,
     func: async (args: TabCloseInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'tab_close', 'start',
+          `🔖 Closing tab (ID: ${args.tabId})`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Closing tab...", "thinking")
         );
@@ -31,15 +39,29 @@ export function TabCloseTool(
         // Close tab using browserContext
         await context.browserContext.closeTab(args.tabId);
 
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'tab_close', 'result',
+          `✅ Closed tab: ${title}`,
+          { result: { ok: true }, duration })
+
         return JSON.stringify({
           ok: true,
           output: `Closed tab: ${title} (ID: ${args.tabId})`,
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'tab_close', 'error',
+          `❌ Failed to close tab: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Failed to close tab ${args.tabId}: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to close tab ${args.tabId}: ${errorMessage}`,
         });
       }
     },

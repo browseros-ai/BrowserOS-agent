@@ -29,10 +29,18 @@ EXAMPLE: [42] <C> <button> "Submit" class="btn-primary"
 Returns max 15 matches, shows total count if more exist.`,
     schema: GrepElementsInputSchema,
     func: async (args: GrepElementsInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        context.publishTool(toolId, 'grep_elements', 'start',
+          `🔍 Searching for pattern: "${args.pattern}"`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage(`Searching with pattern "${args.pattern}"...`, "thinking")
         );
@@ -42,9 +50,14 @@ Returns max 15 matches, shows total count if more exist.`,
         try {
           regex = new RegExp(args.pattern, 'i');  // Case-insensitive by default
         } catch (regexError) {
+          const duration = Date.now() - startTime
+          const errorMessage = regexError instanceof Error ? regexError.message : String(regexError)
+          context.publishTool(toolId, 'grep_elements', 'error',
+            `❌ Invalid regex pattern: ${errorMessage}`,
+            { error: errorMessage, duration })
           return JSON.stringify({
             ok: false,
-            error: `Invalid regex pattern: ${regexError instanceof Error ? regexError.message : String(regexError)}`
+            error: `Invalid regex pattern: ${errorMessage}`
           });
         }
 
@@ -69,9 +82,14 @@ Returns max 15 matches, shows total count if more exist.`,
         const limitedMatches = matchingLines.slice(0, 15);
 
         if (limitedMatches.length === 0) {
+          const duration = Date.now() - startTime
+          const errorMessage = `No elements found matching pattern "${args.pattern}"`
+          context.publishTool(toolId, 'grep_elements', 'error',
+            `❌ ${errorMessage}`,
+            { error: errorMessage, duration })
           return JSON.stringify({
             ok: false,
-            error: `No elements found matching pattern "${args.pattern}". Try broader patterns like 'button', 'input', or check browser state format.`
+            error: `${errorMessage}. Try broader patterns like 'button', 'input', or check browser state format.`
           });
         }
 
@@ -80,6 +98,12 @@ Returns max 15 matches, shows total count if more exist.`,
           ? `\n\nShowing first 15 of ${totalMatches} matches.`
           : '';
 
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'grep_elements', 'result',
+          `✅ Found ${totalMatches} matching elements`,
+          { result: { ok: true, matches: totalMatches }, duration })
+
         return JSON.stringify({
           ok: true,
           output: `${limitedMatches.join('\n')}${truncationMessage}`
@@ -87,9 +111,17 @@ Returns max 15 matches, shows total count if more exist.`,
 
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'grep_elements', 'error',
+          `❌ Grep elements failed: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Grep elements failed: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Grep elements failed: ${errorMessage}`,
         });
       }
     },

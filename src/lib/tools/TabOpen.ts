@@ -20,16 +20,30 @@ export function TabOpenTool(
     description: "Open a new browser tab with optional URL",
     schema: TabOpenInputSchema,
     func: async (args: TabOpenInput) => {
+      const toolId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`
+      const startTime = Date.now()
+
       try {
         context.incrementMetric("toolCalls");
 
-        // Emit thinking message
+        // Publish tool start event
+        const targetUrl = args.url || "chrome://newtab/";
+        context.publishTool(toolId, 'tab_open', 'start',
+          `🔖 Opening new tab${args.url ? ` (${args.url})` : ''}`,
+          { args })
+
+        // Also publish to old system for backward compatibility
         context.getPubSub().publishMessage(
           PubSubChannel.createMessage("Opening tab...", "thinking")
         );
 
-        const targetUrl = args.url || "chrome://newtab/";
         const page = await context.browserContext.openTab(targetUrl);
+
+        // Publish tool result event
+        const duration = Date.now() - startTime
+        context.publishTool(toolId, 'tab_open', 'result',
+          `✅ Opened new tab (ID: ${page.tabId})`,
+          { result: { ok: true, tabId: page.tabId }, duration })
 
         return JSON.stringify({
           ok: true,
@@ -40,9 +54,17 @@ export function TabOpenTool(
         });
       } catch (error) {
         context.incrementMetric("errors");
+
+        // Publish tool error event
+        const duration = Date.now() - startTime
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        context.publishTool(toolId, 'tab_open', 'error',
+          `❌ Failed to open tab: ${errorMessage}`,
+          { error: errorMessage, duration })
+
         return JSON.stringify({
           ok: false,
-          error: `Failed to open tab: ${error instanceof Error ? error.message : String(error)}`,
+          error: `Failed to open tab: ${errorMessage}`,
         });
       }
     },

@@ -26,6 +26,9 @@ import { TeachModeHandler } from './handlers/TeachModeHandler'
 // Initialize logging
 Logging.initialize({ debugMode: isDevelopmentMode() })
 
+// Import SessionNotifier to set up session notifications
+import { SessionNotifier } from '@/lib/pubsub/SessionNotifier'
+
 // Create router and port manager
 const messageRouter = new MessageRouter()
 const portManager = new PortManager()
@@ -36,6 +39,20 @@ const providersHandler = new ProvidersHandler()
 const mcpHandler = new MCPHandler()
 const planHandler = new PlanHandler()
 const teachModeHandler = new TeachModeHandler()
+
+// Wire up SessionNotifier → UI notifications
+SessionNotifier.setCallback((sessionId: string, mode: string) => {
+  console.log('[Background] Session start callback:', sessionId, mode, 'at', Date.now())
+
+  // Broadcast SESSION_STARTED via runtime.sendMessage for UI to receive
+  console.log('[Background] Sending SESSION_STARTED via runtime.sendMessage')
+  chrome.runtime.sendMessage({
+    type: 'SESSION_STARTED',
+    payload: { sessionId, mode }
+  }).catch((err) => {
+    console.error('[Background] Failed to send SESSION_STARTED:', err)
+  })
+})
 
 // Simple panel state for singleton
 let isPanelOpen = false
@@ -373,12 +390,15 @@ function initialize(): void {
     Logging.log('Background', `Tab ${tabId} removed`)
   })
   
-  // Handle messages from newtab only
+  // Handle runtime messages
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Handle newtab query execution
     if (message.type === 'NEWTAB_EXECUTE_QUERY') {
       executionHandler.handleNewtabQuery(message, sendResponse)
       return true  // Keep message channel open for async response
     }
+
+    return false
   })
   
   Logging.log('Background', 'Nxtscape extension initialized successfully')
