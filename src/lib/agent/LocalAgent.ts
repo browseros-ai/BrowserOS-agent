@@ -1,27 +1,13 @@
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
-import { MessageManager, MessageType } from "@/lib/runtime/MessageManager";
-import { ToolManager } from "@/lib/tools/ToolManager";
+import { MessageManager } from "@/lib/runtime/MessageManager";
 import { ExecutionMetadata } from "@/lib/types/messaging";
-import { type ScreenshotSizeKey } from "@/lib/browser/BrowserOSAdapter";
-import {
-  AIMessage,
-  AIMessageChunk,
-  HumanMessage,
-  SystemMessage,
-} from "@langchain/core/messages";
-import { Runnable } from "@langchain/core/runnables";
-import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
-import { z } from "zod";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getLLM } from "@/lib/llm/LangChainProvider";
-import BrowserPage from "@/lib/browser/BrowserPage";
-import { PubSub } from "@/lib/pubsub";
-import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
-import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
 import { AbortError } from "@/lib/utils/Abortable";
-import { jsonParseToolOutput } from "@/lib/utils/utils";
-import { isDevelopmentMode } from "@/config";
 import { invokeWithRetry } from "@/lib/utils/retryable";
+import { TokenCounter } from "@/lib/utils/TokenCounter";
+import { BaseAgent } from "./BaseAgent";
 import {
   generateExecutorPrompt,
   generatePlannerPrompt,
@@ -37,35 +23,6 @@ import {
   parseTodoMarkdown,
   parseSummary,
 } from "./LocalAgent.parsing";
-import {
-  ClickTool,
-  TypeTool,
-  ClearTool,
-  ScrollTool,
-  NavigateTool,
-  KeyTool,
-  WaitTool,
-  TabsTool,
-  TabOpenTool,
-  TabFocusTool,
-  TabCloseTool,
-  ExtractTool,
-  HumanInputTool,
-  DoneTool,
-  MoondreamVisualClickTool,
-  MoondreamVisualTypeTool,
-  GrepElementsTool,
-  CelebrationTool,
-  GroupTabsTool,
-  BrowserOSInfoTool,
-  GetSelectedTabsTool,
-  DateTool,
-  MCPTool,
-} from "@/lib/tools";
-import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-import { TokenCounter } from "../utils/TokenCounter";
-import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
-import { ENABLE_EVALS2 } from '@/config';
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -73,11 +30,7 @@ const MAX_EXECUTOR_ITERATIONS = 3;
 const MAX_PREDEFINED_PLAN_ITERATIONS = 30;
 const MAX_RETRIES = 3;
 
-// Human input constants
-const HUMAN_INPUT_TIMEOUT = 600000;  // 10 minutes
-const HUMAN_INPUT_CHECK_INTERVAL = 500;  // Check every 500ms
-
-// Simplified planner output type
+// LocalAgent-specific planner output types (uses string parsing instead of Zod)
 interface PlannerOutput {
   reasoning: string;
   proposedActions: string;
@@ -85,8 +38,6 @@ interface PlannerOutput {
   finalAnswer: string;
 }
 
-
-// Predefined planner output type
 interface PredefinedPlannerOutput {
   reasoning: string;
   todoMarkdown: string;
@@ -95,12 +46,9 @@ interface PredefinedPlannerOutput {
   finalAnswer: string;
 }
 
-
-// Execution history summary type
 interface ExecutionHistorySummary {
   summary: string;
 }
-
 
 interface PlannerResult {
   ok: boolean;
@@ -120,43 +68,7 @@ interface ExecutorResult {
   requiresHumanInput?: boolean;
 }
 
-interface SingleTurnResult {
-  doneToolCalled: boolean;
-  requirePlanningCalled: boolean;
-  requiresHumanInput: boolean;
-}
-
-// ===== END PARSING FUNCTIONS =====
-
-export class LocalAgent {
-  // Tools that trigger glow animation when executed
-  private static readonly GLOW_ENABLED_TOOLS = new Set([
-    'click',
-    'type',
-    'clear',
-    'moondream_visual_click',
-    'moondream_visual_type',
-    'scroll',
-    'navigate',
-    'key',
-    'tab_open',
-    'tab_focus',
-    'tab_close',
-    'extract'
-  ]);
-
-  // Core dependencies
-  private readonly executionContext: ExecutionContext;
-  private readonly toolManager: ToolManager;
-  private readonly glowService: GlowAnimationService;
-  private executorLlmWithTools: Runnable<
-    BaseLanguageModelInput,
-    AIMessageChunk
-  > | null = null; // Pre-bound LLM with tools
-
-  // Execution state
-  private iterations: number = 0;
-
+export class LocalAgent extends BaseAgent {
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
     plannerOutput: PlannerOutput | PredefinedPlannerOutput | ExecutionHistorySummary;
@@ -166,98 +78,23 @@ export class LocalAgent {
   private toolDescriptions: string = "";
 
   constructor(executionContext: ExecutionContext) {
-    this.executionContext = executionContext;
-    this.toolManager = new ToolManager(executionContext);
-    this.glowService = GlowAnimationService.getInstance();
-    Logging.log("LocalAgent", "Agent instance created", "info");
+    super(executionContext, "LocalAgent");
+
+    // Update tool descriptions (LocalAgent doesn't use limited context mode filtering)
+    this.toolDescriptions = getToolDescriptions();
   }
 
-  private get executorMessageManager(): MessageManager {
-    return this.executionContext.messageManager;
-  }
+  // Override to register all tools without limited context filtering
+  protected async _registerStandardTools(): Promise<void> {
+    await super._registerStandardTools();
 
-  private get pubsub(): PubSubChannel {
-    return this.executionContext.getPubSub();
-  }
-
-  private checkIfAborted(): void {
-    if (this.executionContext.abortSignal.aborted) {
-      throw new AbortError();
-    }
-  }
-
-  private async _initialize(): Promise<void> {
-    // Register tools FIRST (before binding)
-    await this._registerTools();
-
-    // Create LLM with consistent temperature
-    const llm = await getLLM({
-      temperature: 0.2,
-      maxTokens: 4096,
-    });
-
-    // Validate LLM supports tool binding
-    if (!llm.bindTools || typeof llm.bindTools !== "function") {
-      throw new Error("This LLM does not support tool binding");
+    // LocalAgent always registers GrepElementsTool regardless of context mode
+    // (BaseAgent only registers it in limited context mode)
+    if (!this.executionContext.isLimitedContextMode()) {
+      this.toolManager.register((await import('@/lib/tools')).GrepElementsTool(this.executionContext));
     }
 
-    // Bind tools ONCE and store the bound LLM
-    this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
-
-    // Reset state
-    this.iterations = 0;
-
-    Logging.log(
-      "LocalAgent",
-      `Initialization complete with ${this.toolManager.getAll().length} tools bound`,
-      "info",
-    );
-  }
-
-  private async _registerTools(): Promise<void> {
-    // Core interaction tools
-    this.toolManager.register(ClickTool(this.executionContext)); // NodeId-based click
-    this.toolManager.register(TypeTool(this.executionContext)); // NodeId-based type
-    this.toolManager.register(ClearTool(this.executionContext)); // NodeId-based clear
-
-    // Visual fallback tools (Moondream-powered)
-    this.toolManager.register(MoondreamVisualClickTool(this.executionContext)); // Visual click fallback
-    this.toolManager.register(MoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
-
-    // Navigation and utility tools
-    this.toolManager.register(ScrollTool(this.executionContext));
-    this.toolManager.register(NavigateTool(this.executionContext));
-    this.toolManager.register(KeyTool(this.executionContext));
-    this.toolManager.register(WaitTool(this.executionContext));
-
-    // Planning/Todo tools
-    // this.toolManager.register(TodoSetTool(this.executionContext));
-    // this.toolManager.register(TodoGetTool(this.executionContext));
-
-    // Tab management tools
-    this.toolManager.register(TabsTool(this.executionContext));
-    this.toolManager.register(TabOpenTool(this.executionContext));
-    this.toolManager.register(TabFocusTool(this.executionContext));
-    this.toolManager.register(TabCloseTool(this.executionContext));
-    this.toolManager.register(GroupTabsTool(this.executionContext)); // Group tabs together
-    this.toolManager.register(GetSelectedTabsTool(this.executionContext)); // Get selected tabs
-
-    // Utility tools
-    this.toolManager.register(ExtractTool(this.executionContext)); // Extract text from page
-    this.toolManager.register(HumanInputTool(this.executionContext));
-    this.toolManager.register(CelebrationTool(this.executionContext)); // Celebration/confetti tool
-    this.toolManager.register(DateTool(this.executionContext)); // Date/time utilities
-    this.toolManager.register(BrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
-
-    // External integration tools
-    this.toolManager.register(MCPTool(this.executionContext)); // MCP server integration
-
-    this.toolManager.register(GrepElementsTool(this.executionContext)); // Search elements when browser state is truncated
-
-    // Completion tool
-    this.toolManager.register(DoneTool(this.executionContext));
-
-    // Populate tool descriptions after all tools are registered
+    // Update tool descriptions after all tools are registered
     this.toolDescriptions = getToolDescriptions();
 
     Logging.log(
@@ -321,9 +158,10 @@ export class LocalAgent {
     return null;
   }
 
-  // There are basically two modes of operation:
-  // 1. Dynamic planning - the agent plans and executes in a loop until done
-  // 2. Predefined plan - the agent executes a predefined set of steps in a loop until all are done
+  // ============================================
+  // Main execution entry point
+  // ============================================
+
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
     // Check for special tasks and get their predefined plans
     const specialTaskMetadata = this._getSpecialTaskMetadata(task);
@@ -336,6 +174,7 @@ export class LocalAgent {
       _metadata = { ...metadata, ...specialTaskMetadata.metadata };
       Logging.log("LocalAgent", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
     }
+
     try {
       this.executionContext.setExecutionMetrics({
         ...this.executionContext.getExecutionMetrics(),
@@ -361,19 +200,19 @@ export class LocalAgent {
       });
       this._logMetrics();
       this._cleanup();
-      
+
       // Ensure glow animation is stopped at the end of execution
-      try {
-        // Get all active glow tabs from the service
-        const activeGlows = await this.glowService.getAllActiveGlows();
-        for (const tabId of activeGlows) {
-          await this.glowService.stopGlow(tabId);
-        }
-      } catch (error) {
-        console.error(`Could not stop glow animation: ${error}`);
-      }
+      await this._stopAllGlowAnimations();
     }
   }
+
+  // ============================================
+  // Dynamic planning execution
+  // ============================================
+
+  // ============================================
+  // Predefined plan execution
+  // ============================================
 
   private async _executePredefined(task: string, plan: any): Promise<void> {
     this.executionContext.setCurrentTask(task);
@@ -388,13 +227,10 @@ export class LocalAgent {
     }
 
     // Publish start message
-    this._publishMessage(
+    this._emitMessage(
       `Executing agent: ${plan.name || 'Custom Agent'}`,
       "thinking"
     );
-
-    // Add goal for context
-    const goalMessage = plan.goal || task;
 
     let allComplete = false;
     let retries = 0;
@@ -431,7 +267,7 @@ export class LocalAgent {
       if (plan.taskComplete) {
         allComplete = true;
         const finalMessage = plan.finalAnswer || "All steps completed successfully";
-        this._publishMessage(finalMessage, 'assistant');
+        this._emitMessage(finalMessage, 'assistant');
         break;
       }
 
@@ -455,8 +291,6 @@ export class LocalAgent {
         "info"
       );
 
-      // This will be handled in _runExecutor with fresh message manager
-
       // Execute the actions
       const executorResult = await this._runExecutor(plan.proposedActions, plan);
 
@@ -464,19 +298,17 @@ export class LocalAgent {
       if (executorResult.requiresHumanInput) {
         const humanResponse = await this._waitForHumanInput();
         if (humanResponse === 'abort') {
-          this._publishMessage('❌ Task aborted by human', 'assistant');
+          this._emitMessage('❌ Task aborted by human', 'assistant');
           throw new AbortError('Task aborted by human');
         }
-        this._publishMessage('✅ Human completed manual action. Continuing...', 'thinking');
-        // Note: Human input response will be included in next iteration's planner context
+        this._emitMessage('✅ Human completed manual action. Continuing...', 'thinking');
         this.executionContext.clearHumanInputState();
       }
-
     }
 
     // Check if we hit iteration limit
     if (!allComplete && this.iterations >= MAX_PREDEFINED_PLAN_ITERATIONS) {
-      this._publishMessage(
+      this._emitMessage(
         `Predefined plan did not complete within ${MAX_PREDEFINED_PLAN_ITERATIONS} iterations`,
         "error"
       );
@@ -501,7 +333,7 @@ export class LocalAgent {
     let retries = 0;
 
     // Publish start message
-    this._publishMessage("Starting task execution...", "thinking");
+    this._emitMessage("Starting task execution...", "thinking");
 
     while (!done && this.iterations < MAX_PLANNER_ITERATIONS) {
       this.checkIfAborted();
@@ -515,7 +347,6 @@ export class LocalAgent {
 
       // Get reasoning and high-level actions
       const planResult = await this._runDynamicPlanner(task);
-      // CRITICAL: Flush any queued messages from planning
 
       if (!planResult.ok) {
         Logging.log(
@@ -531,18 +362,15 @@ export class LocalAgent {
       }
 
       const plan = planResult.output!;
-      this.pubsub.publishMessage(
-        PubSub.createMessage(plan.reasoning, "thinking"),
-      );
+
+      // Publish reasoning to UI
+      this.executionContext.publishMessage(plan.reasoning, 'info');
 
       // Check if task is complete
       if (plan.taskComplete) {
         done = true;
-        // Use final answer if provided, otherwise fallback
-        const completionMessage =
-          plan.finalAnswer || "Task completed successfully";
-        // Publish final result with 'assistant' role to match LocalAgent pattern
-        this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
+        const completionMessage = plan.finalAnswer || "Task completed successfully";
+        this.executionContext.publishMessage(completionMessage, 'success');
         break;
       }
 
@@ -566,24 +394,20 @@ export class LocalAgent {
         "info",
       );
 
-      // This will be handled in _runExecutor with fresh message manager
-
       const executorResult = await this._runExecutor(plan.proposedActions, plan);
 
       // Check execution outcomes
       if (executorResult.requiresHumanInput) {
         // Human input requested - wait for response
         const humanResponse = await this._waitForHumanInput();
-        
+
         if (humanResponse === 'abort') {
-          // Human aborted the task
-          this._publishMessage('❌ Task aborted by human', 'assistant');
+          this._emitMessage('❌ Task aborted by human', 'assistant');
           throw new AbortError('Task aborted by human');
         }
-        
+
         // Human clicked "Done" - continue with next planning iteration
-        this._publishMessage('✅ Human completed manual action. Re-planning...', 'thinking');
-        // Note: Human input response will be included in next iteration's planner context
+        this._emitMessage('✅ Human completed manual action. Re-planning...', 'thinking');
 
         // Clear human input state
         this.executionContext.clearHumanInputState();
@@ -592,7 +416,7 @@ export class LocalAgent {
 
     // Check if we hit planning iteration limit
     if (!done && this.iterations >= MAX_PLANNER_ITERATIONS) {
-      this._publishMessage(
+      this._emitMessage(
         `Task did not complete within ${MAX_PLANNER_ITERATIONS} planning iterations`,
         "error",
       );
@@ -602,78 +426,10 @@ export class LocalAgent {
     }
   }
 
-  private async _getBrowserStateMessage(
-    includeScreenshot: boolean,
-    simplified: boolean = true,
-    screenshotSize: ScreenshotSizeKey = "large",
-    includeBrowserState: boolean = true,
-    browserStateTokensLimit: number = 50000
-  ): Promise<HumanMessage> {
-    let browserStateString: string | null = null;
+  // ============================================
+  // Planner implementations
+  // ============================================
 
-    if (includeBrowserState) {
-      browserStateString = await this.executionContext.browserContext.getBrowserStateString(
-        simplified,
-      );
-
-      // check if browser state string exceed 50% of model's max tokens
-      const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
-      if (tokens > browserStateTokensLimit) {
-        // if it exceeds, first remove Hidden Elements from browser state string
-        browserStateString = await this.executionContext.browserContext.getBrowserStateString(
-          simplified,
-          true // hide hidden elements
-        );
-        // then again check if it still exceeds 50% of model's max tokens, if it does, truncate the string to 50% of model's max tokens
-        const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
-        if (tokens > browserStateTokensLimit) {
-            // Calculate the ratio to truncate by
-            const truncationRatio = browserStateTokensLimit / tokens;
-            
-            // Truncate the string (rough approximation based on character length)
-            const targetLength = Math.floor(browserStateString.length * truncationRatio);
-            browserStateString = browserStateString.substring(0, targetLength);
-            
-            // Optional: Add truncation indicator
-            browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --\n";
-        }
-      }
-    }
-
-    if (includeScreenshot && this.executionContext.supportsVision()) {
-      // Get current page and take screenshot
-      const page = await this.executionContext.browserContext.getCurrentPage();
-      const screenshot = await page.takeScreenshot(screenshotSize, includeBrowserState);
-
-      if (screenshot) {
-        // Build content array based on what is included
-        const content: any[] = [];
-        if (includeBrowserState && browserStateString !== null) {
-          content.push({ type: "text", text: `<browser-state>${browserStateString}</browser-state>` });
-        }
-        content.push({ type: "image_url", image_url: { url: screenshot } });
-
-        const message = new HumanMessage({
-          content,
-        });
-        // Tag this as a browser state message for proper handling in MessageManager
-        message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
-        return message;
-      }
-    }
-
-    // If only browser state is requested or screenshot failed/unavailable
-    if (includeBrowserState && browserStateString !== null) {
-      const message = new HumanMessage(`<browser-state>${browserStateString}</browser-state>`);
-      message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
-      return message;
-    }
-
-    // If neither browser state nor screenshot is included, return a minimal message
-    const message = new HumanMessage("");
-    message.additional_kwargs = { messageType: MessageType.BROWSER_STATE };
-    return message;
-  }
 
   private async _runDynamicPlanner(task: string): Promise<PlannerResult> {
     try {
@@ -852,32 +608,35 @@ Continue upon the previous steps what has been done so far and suggest next step
         );
       }
 
-      // Get LLM response with tool calls using fresh message manager
+      // Get LLM response with tool calls
       const llmResponse = await this._invokeLLMWithStreaming(executorMM);
 
       if (llmResponse.tool_calls && llmResponse.tool_calls.length > 0) {
         // Process tool calls
         executorMM.add(llmResponse);
-        const toolsResult = await this._processToolCalls(
-          llmResponse.tool_calls,
-          executorMM,
-          currentIterationToolMessages
+        const { result, toolResults } = await this._processToolCalls(
+          llmResponse.tool_calls
         );
 
         // Update iteration count and metrics
-        // this.iterations += llmResponse.tool_calls.length;
-        for (const toolCall of llmResponse.tool_calls) {
+        for (const toolCall of toolResults) {
           this.executionContext.incrementMetric("toolCalls");
-          this.executionContext.incrementToolUsageMetrics(toolCall.name);
+          this.executionContext.incrementToolUsageMetrics(toolCall.toolName);
+
+          executorMM.addTool(toolCall.toolResult, toolCall.toolCallId);
+          currentIterationToolMessages.push(`Tool: ${toolCall.toolName} - Result: ${toolCall.toolResult}`);
         }
 
+        // Flush any queued messages from tools (screenshots, browser states, etc.)
+        executorMM.flushQueue();
+
         // Check for special outcomes
-        if (toolsResult.doneToolCalled) {
+        if (result.doneToolCalled) {
           // Store the tool messages from this iteration before returning
           this.plannerExecutionHistory.push({
             plannerOutput,
             toolMessages: currentIterationToolMessages,
-            plannerIterations : this.iterations,
+            plannerIterations: this.iterations,
           });
 
           // Add all messages to message manager
@@ -891,12 +650,12 @@ Continue upon the previous steps what has been done so far and suggest next step
           };
         }
 
-        if (toolsResult.requiresHumanInput) {
+        if (result.requiresHumanInput) {
           // Store the tool messages from this iteration before returning
           this.plannerExecutionHistory.push({
             plannerOutput,
             toolMessages: currentIterationToolMessages,
-            plannerIterations : this.iterations,
+            plannerIterations: this.iterations,
           });
 
           // Add all messages to message manager
@@ -912,7 +671,7 @@ Continue upon the previous steps what has been done so far and suggest next step
 
         // Continue to next iteration
       } else {
-        // No tool calls, might be done or ask for planner output
+        // No tool calls, might be done
         break;
       }
     }
@@ -939,373 +698,9 @@ Continue upon the previous steps what has been done so far and suggest next step
     return { completed: false };
   }
 
-  private async _invokeLLMWithStreaming(messageManager?: MessageManager): Promise<AIMessage> {
-    const mm = messageManager || this.executorMessageManager;
-    // Use the pre-bound LLM (created and bound once during initialization)
-    if (!this.executorLlmWithTools) {
-      throw new Error("LLM not initialized - ensure _initialize() was called");
-    }
-
-    // Tags that should never be output to users
-    const PROHIBITED_TAGS = [
-      '<browser-state>',
-      '<system-reminder>',
-      '</browser-state>',
-      '</system-reminder>'
-    ];
-
-    const message_history = mm.getMessages();
-
-    const stream = await this.executorLlmWithTools.stream(message_history, {
-      signal: this.executionContext.abortSignal,
-    });
-
-    let accumulatedChunk: AIMessageChunk | undefined;
-    let accumulatedText = "";
-    let hasStartedThinking = false;
-    let currentMsgId: string | null = null;
-    let hasProhibitedContent = false;
-
-    for await (const chunk of stream) {
-      this.checkIfAborted(); // Manual check during streaming
-
-      if (chunk.content && typeof chunk.content === "string") {
-        // Accumulate text first
-        accumulatedText += chunk.content;
-
-        // Check for prohibited tags if not already detected
-        if (!hasProhibitedContent) {
-          const detectedTag = PROHIBITED_TAGS.find(tag => accumulatedText.includes(tag));
-          if (detectedTag) {
-            hasProhibitedContent = true;
-            
-            // If we were streaming, replace with "Processing..."
-            if (currentMsgId) {
-              this.pubsub.publishMessage(
-                PubSub.createMessageWithId(
-                  currentMsgId,
-                  "Processing...",
-                  "thinking",
-                ),
-              );
-            }
-            
-            // Queue warning for agent's next iteration
-            mm.queueSystemReminder(
-              "I will never output <browser-state> or <system-reminder> tags or their contents. These are for my internal reference only. If I have completed all actions, I will complete the task and call 'done' tool."
-            );
-            
-            // Log for debugging
-            Logging.log("LocalAgent", 
-              "LLM output contained prohibited tags, streaming stopped", 
-              "warning"
-            );
-            
-            // Increment error metric
-            this.executionContext.incrementMetric("errors");
-          }
-        }
-
-        // Only stream to UI if no prohibited content detected
-        if (!hasProhibitedContent) {
-          // Start thinking on first real content
-          if (!hasStartedThinking) {
-            hasStartedThinking = true;
-            // Create message ID on first content chunk
-            currentMsgId = PubSub.generateId("msg_assistant");
-          }
-
-          // Publish/update the message with accumulated content in real-time
-          if (currentMsgId) {
-            this.pubsub.publishMessage(
-              PubSub.createMessageWithId(
-                currentMsgId,
-                accumulatedText,
-                "thinking",
-              ),
-            );
-          }
-        }
-      }
-      
-      // Always accumulate chunks for final AIMessage (even with prohibited content)
-      accumulatedChunk = !accumulatedChunk
-        ? chunk
-        : accumulatedChunk.concat(chunk);
-    }
-
-    // Only finish thinking if we started, have clean content, and have a message ID
-    if (hasStartedThinking && !hasProhibitedContent && accumulatedText.trim() && currentMsgId) {
-      // Final publish with complete message
-      this.pubsub.publishMessage(
-        PubSub.createMessageWithId(currentMsgId, accumulatedText, "thinking"),
-      );
-    }
-
-    if (!accumulatedChunk) return new AIMessage({ content: "" });
-
-    // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
-      content: accumulatedChunk.content,
-      tool_calls: accumulatedChunk.tool_calls,
-    });
-  }
-
-  private async _processToolCalls(
-    toolCalls: any[],
-    messageManager: MessageManager,
-    toolMessages: string[]
-  ): Promise<SingleTurnResult> {
-    const result: SingleTurnResult = {
-      doneToolCalled: false,
-      requirePlanningCalled: false,
-      requiresHumanInput: false,
-    };
-
-    for (const toolCall of toolCalls) {
-      this.checkIfAborted();
-
-      const { name: toolName, args, id: toolCallId } = toolCall;
-
-      this._emitDevModeDebug(`Calling tool ${toolName} with args`, JSON.stringify(args));
-
-      // Start glow animation for visual tools
-      await this._maybeStartGlowAnimation(toolName);
-
-      const tool = this.toolManager.get(toolName);
-
-      let toolResult: string;
-      if (!tool) {
-        Logging.log("LocalAgent", `Unknown tool: ${toolName}`, "warning");
-        const errorMsg = `Unknown tool: ${toolName}`;
-        toolResult = JSON.stringify({
-          ok: false,
-          error: errorMsg,
-        });
-
-        this._emitDevModeDebug("Error", errorMsg);
-      } else {
-        try {
-          // Execute tool (wrap for evals2 metrics if enabled)
-          let toolFunc = tool.func;
-          if (ENABLE_EVALS2) {
-            const wrapped = wrapToolForMetrics(tool, this.executionContext, toolCallId);
-            toolFunc = wrapped.func;
-          }
-          toolResult = await toolFunc(args);
-
-        } catch (error) {
-          // Even on execution error, we must add a tool result
-          const errorMsg = `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`;
-          toolResult = JSON.stringify({
-            ok: false,
-            error: errorMsg,
-          });
-
-          // Increment error metric
-          this.executionContext.incrementMetric("errors");
-
-          Logging.log(
-            "LocalAgent",
-            `Tool ${toolName} execution failed: ${error}`,
-            "error",
-          );
-
-          this._emitDevModeDebug(`Error executing ${toolName}`, errorMsg);
-        }
-      }
-
-      // Parse result to check for special flags
-      const parsedResult = jsonParseToolOutput(toolResult);
-
-      // Add to message manager and track tool message
-      messageManager.addTool(toolResult, toolCallId);
-      toolMessages.push(`Tool: ${toolName} - Result: ${toolResult}`);
-
-      // Check for special tool outcomes but DON'T break early
-      // We must process ALL tool calls to ensure all get responses
-      if (toolName === "done" && parsedResult.ok) {
-        result.doneToolCalled = true;
-      }
-
-      if (
-        toolName === "human_input" &&
-        parsedResult.ok &&
-        parsedResult.requiresHumanInput
-      ) {
-        result.requiresHumanInput = true;
-      }
-    }
-
-    // Flush any queued messages from tools (screenshots, browser states, etc.)
-    // This is from NewAgent and is CRITICAL for API's required ordering
-    messageManager.flushQueue();
-
-    return result;
-  }
-
-  private _publishMessage(
-    content: string,
-    type: "thinking" | "assistant" | "error",
-  ): void {
-    this.pubsub.publishMessage(PubSub.createMessage(content, type as any));
-  }
-
-  // Emit debug information in development mode
-  private _emitDevModeDebug(action: string, details?: string, maxLength: number = 60): void {
-    if (isDevelopmentMode()) {
-      let message = action;
-      if (details) {
-        const truncated = details.length > maxLength 
-          ? details.substring(0, maxLength) + "..." 
-          : details;
-        message = `${action}: ${truncated}`;
-      }
-      this.pubsub.publishMessage(
-        PubSub.createMessage(`[DEV MODE] ${message}`, "thinking"),
-      );
-    }
-  }
-
-  private _handleExecutionError(error: unknown): void {
-    if (error instanceof AbortError) {
-      Logging.log("LocalAgent", "Execution aborted by user", "info");
-      return;
-    }
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    Logging.log("LocalAgent", `Execution error: ${errorMessage}`, "error");
-
-    this._publishMessage(`Error: ${errorMessage}`, "error");
-  }
-
-  private _logMetrics(): void {
-    const metrics = this.executionContext.getExecutionMetrics();
-    const duration = metrics.endTime - metrics.startTime;
-    const successRate =
-      metrics.toolCalls > 0
-        ? (
-            ((metrics.toolCalls - metrics.errors) / metrics.toolCalls) *
-            100
-          ).toFixed(1)
-        : "0";
-
-    // Convert tool frequency Map to object for logging
-    const toolFrequency: Record<string, number> = {};
-    metrics.toolFrequency.forEach((count, toolName) => {
-      toolFrequency[toolName] = count;
-    });
-
-    Logging.log(
-      "LocalAgent",
-      `Execution complete: ${this.iterations} iterations, ${metrics.toolCalls} tool calls, ` +
-        `${metrics.observations} observations, ${metrics.errors} errors, ` +
-        `${successRate}% success rate, ${duration}ms duration`,
-      "info",
-    );
-
-    // Log tool frequency if any tools were called
-    if (metrics.toolCalls > 0) {
-      Logging.log(
-        "LocalAgent",
-        `Tool frequency: ${JSON.stringify(toolFrequency)}`,
-        "info",
-      );
-    }
-
-    Logging.logMetric("newagent.execution", {
-      iterations: this.iterations,
-      toolCalls: metrics.toolCalls,
-      observations: metrics.observations,
-      errors: metrics.errors,
-      duration,
-      successRate: parseFloat(successRate),
-      toolFrequency,
-    });
-  }
-
-  private _cleanup(): void {
-    this.iterations = 0;
-    this.plannerExecutionHistory = [];
-    Logging.log("LocalAgent", "Cleanup complete", "info");
-  }
-
-  /**
-   * Handle glow animation for tools that interact with the browser
-   * @param toolName - Name of the tool being executed
-   */
-  private async _maybeStartGlowAnimation(toolName: string): Promise<boolean> {
-    // Check if this tool should trigger glow animation
-    if (!LocalAgent.GLOW_ENABLED_TOOLS.has(toolName)) {
-      return false;
-    }
-
-    try {
-      const currentPage = await this.executionContext.browserContext.getCurrentPage();
-      const tabId = currentPage.tabId;
-      
-      if (tabId && !this.glowService.isGlowActive(tabId)) {
-        await this.glowService.startGlow(tabId);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      // Log but don't fail if we can't manage glow
-      console.error(`Could not manage glow for tool ${toolName}: ${error}`);
-      return false;
-    }
-  }
-
-  /**
-   * Wait for human input with timeout
-   * @returns 'done' if human clicked Done, 'abort' if clicked Skip/Abort, 'timeout' if timed out
-   */
-  private async _waitForHumanInput(): Promise<'done' | 'abort' | 'timeout'> {
-    const startTime = Date.now();
-    const requestId = this.executionContext.getHumanInputRequestId();
-    
-    if (!requestId) {
-      console.error('No human input request ID found');
-      return 'abort';
-    }
-    
-    // Subscribe to human input responses
-    const subscription = this.pubsub.subscribe((event: PubSubEvent) => {
-      if (event.type === 'human-input-response') {
-        const response = event.payload as HumanInputResponse;
-        if (response.requestId === requestId) {
-          this.executionContext.setHumanInputResponse(response);
-        }
-      }
-    });
-    
-    try {
-      // Poll for response or timeout
-      while (!this.executionContext.shouldAbort()) {
-        // Check if response received
-        const response = this.executionContext.getHumanInputResponse();
-        if (response) {
-          return response.action;  // 'done' or 'abort'
-        }
-        
-        // Check timeout
-        if (Date.now() - startTime > HUMAN_INPUT_TIMEOUT) {
-          this._publishMessage('⏱️ Human input timed out after 10 minutes', 'error');
-          return 'timeout';
-        }
-        
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, HUMAN_INPUT_CHECK_INTERVAL));
-      }
-      
-      // Aborted externally
-      return 'abort';
-      
-    } finally {
-      // Clean up subscription
-      subscription.unsubscribe();
-    }
-  }
+  // ============================================
+  // Executor implementation
+  // ============================================
 
   /**
    * Run the predefined planner to track TODO progress and generate actions
@@ -1417,13 +812,11 @@ Continue upon your previous steps what has been done so far and suggest next ste
       this.executionContext.addReasoning(JSON.stringify(plannerState));
 
       // Publish updated TODO list
-      this._publishMessage(plan.todoMarkdown, "thinking");
+      this._emitMessage(plan.todoMarkdown, "thinking");
       this.executionContext.setTodoList(plan.todoMarkdown);
 
       // Publish reasoning
-      this.pubsub.publishMessage(
-        PubSub.createMessage(plan.reasoning, "thinking")
-      );
+      this.executionContext.publishMessage(plan.reasoning, 'info');
 
       // Log planner decision
       Logging.log(
