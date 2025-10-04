@@ -55,16 +55,16 @@ export class ElementFormatter {
    */
   formatElement(node: InteractiveNode): string {
     let SHOW_INDENTATION = true;
-    let SHOW_NODEID = true;
-    let SHOW_TYPE = true;
-    let SHOW_TAG = true;
-    let SHOW_NAME = true;
+    const SHOW_NODEID = true;
+    const SHOW_TYPE = true;
+    const SHOW_TAG = true;
+    const SHOW_NAME = true;
     let SHOW_CONTEXT = true;
     let SHOW_PATH = false;
     let SHOW_ATTRIBUTES = true;
-    let SHOW_VALUE_FOR_TYPEABLE = true; // Show value attribute for typeable elements
-    let APPEND_VIEWPORT_STATUS = true; // Append (visible)/(hidden) to indicate viewport status
-    let INDENT_SIZE = 2;
+    const SHOW_VALUE_FOR_TYPEABLE = true; // Show value attribute for typeable elements
+    const APPEND_VIEWPORT_STATUS = true; // Append (visible)/(hidden) to indicate viewport status
+    const INDENT_SIZE = 2;
     if (this.simplified) {
       SHOW_CONTEXT = false;
       SHOW_ATTRIBUTES = false;

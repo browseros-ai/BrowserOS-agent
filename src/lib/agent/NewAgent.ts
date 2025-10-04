@@ -30,30 +30,30 @@ import {
   generatePredefinedPlannerPrompt,
 } from "./NewAgent.prompt";
 import {
-  createClickTool,
-  createTypeTool,
-  createClearTool,
-  createScrollTool,
-  createNavigateTool,
-  createKeyTool,
-  createWaitTool,
-  createTodoSetTool,
-  createTodoGetTool,
-  createTabsTool,
-  createTabOpenTool,
-  createTabFocusTool,
-  createTabCloseTool,
-  createExtractTool,
-  createHumanInputTool,
-  createDoneTool,
-  createCelebrationTool,
-  createMoondreamVisualClickTool,
-  createMoondreamVisualTypeTool,
-} from "@/lib/tools/NewTools";
-import { createGroupTabsTool } from "@/lib/tools/tab/GroupTabsTool";
-import { createGetSelectedTabsTool } from "@/lib/tools/tab/GetSelectedTabsTool";
-import { createDateTool } from "@/lib/tools/utility/DateTool";
-import { createMCPTool } from "@/lib/tools/mcp/MCPTool";
+  ClickTool,
+  TypeTool,
+  ClearTool,
+  ScrollTool,
+  NavigateTool,
+  KeyTool,
+  WaitTool,
+  TodoSetTool,
+  TodoGetTool,
+  TabsTool,
+  TabOpenTool,
+  TabFocusTool,
+  TabCloseTool,
+  ExtractTool,
+  HumanInputTool,
+  DoneTool,
+  CelebrationTool,
+  MoondreamVisualClickTool,
+  MoondreamVisualTypeTool,
+  GroupTabsTool,
+  GetSelectedTabsTool,
+  DateTool,
+  MCPTool,
+} from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 // Evals2: lightweight tool wrapper + flag
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
@@ -230,43 +230,43 @@ export class NewAgent {
 
   private async _registerTools(): Promise<void> {
     // Core interaction tools
-    this.toolManager.register(createClickTool(this.executionContext)); // NodeId-based click
-    this.toolManager.register(createTypeTool(this.executionContext)); // NodeId-based type
-    this.toolManager.register(createClearTool(this.executionContext)); // NodeId-based clear
+    this.toolManager.register(ClickTool(this.executionContext)); // NodeId-based click
+    this.toolManager.register(TypeTool(this.executionContext)); // NodeId-based type
+    this.toolManager.register(ClearTool(this.executionContext)); // NodeId-based clear
 
     // Visual fallback tools (Moondream-powered)
-    this.toolManager.register(createMoondreamVisualClickTool(this.executionContext)); // Visual click fallback
-    this.toolManager.register(createMoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
+    this.toolManager.register(MoondreamVisualClickTool(this.executionContext)); // Visual click fallback
+    this.toolManager.register(MoondreamVisualTypeTool(this.executionContext)); // Visual type fallback
 
     // Navigation and utility tools
-    this.toolManager.register(createScrollTool(this.executionContext));
-    this.toolManager.register(createNavigateTool(this.executionContext));
-    this.toolManager.register(createKeyTool(this.executionContext));
-    this.toolManager.register(createWaitTool(this.executionContext));
+    this.toolManager.register(ScrollTool(this.executionContext));
+    this.toolManager.register(NavigateTool(this.executionContext));
+    this.toolManager.register(KeyTool(this.executionContext));
+    this.toolManager.register(WaitTool(this.executionContext));
 
     // Planning/Todo tools
-    // this.toolManager.register(createTodoSetTool(this.executionContext));
-    // this.toolManager.register(createTodoGetTool(this.executionContext));
+    // this.toolManager.register(TodoSetTool(this.executionContext));
+    // this.toolManager.register(TodoGetTool(this.executionContext));
 
     // Tab management tools
-    this.toolManager.register(createTabsTool(this.executionContext));
-    this.toolManager.register(createTabOpenTool(this.executionContext));
-    this.toolManager.register(createTabFocusTool(this.executionContext));
-    this.toolManager.register(createTabCloseTool(this.executionContext));
-    this.toolManager.register(createGroupTabsTool(this.executionContext)); // Group tabs together
-    this.toolManager.register(createGetSelectedTabsTool(this.executionContext)); // Get selected tabs
+    this.toolManager.register(TabsTool(this.executionContext));
+    this.toolManager.register(TabOpenTool(this.executionContext));
+    this.toolManager.register(TabFocusTool(this.executionContext));
+    this.toolManager.register(TabCloseTool(this.executionContext));
+    this.toolManager.register(GroupTabsTool(this.executionContext)); // Group tabs together
+    this.toolManager.register(GetSelectedTabsTool(this.executionContext)); // Get selected tabs
 
     // Utility tools
-    this.toolManager.register(createExtractTool(this.executionContext));
-    this.toolManager.register(createHumanInputTool(this.executionContext));
-    this.toolManager.register(createCelebrationTool(this.executionContext)); // Celebration/confetti tool
-    this.toolManager.register(createDateTool(this.executionContext)); // Date/time utilities
+    this.toolManager.register(ExtractTool(this.executionContext));
+    this.toolManager.register(HumanInputTool(this.executionContext));
+    this.toolManager.register(CelebrationTool(this.executionContext)); // Celebration/confetti tool
+    this.toolManager.register(DateTool(this.executionContext)); // Date/time utilities
 
     // External integration tools
-    this.toolManager.register(createMCPTool(this.executionContext)); // MCP server integration
+    this.toolManager.register(MCPTool(this.executionContext)); // MCP server integration
 
     // Completion tool
-    this.toolManager.register(createDoneTool(this.executionContext));
+    this.toolManager.register(DoneTool(this.executionContext));
 
     Logging.log(
       "NewAgent",
@@ -388,7 +388,7 @@ export class NewAgent {
     this.executionContext.setCurrentTask(task);
 
     // Convert predefined steps to TODO markdown
-    let todoMarkdown = plan.steps.map((step: string) => `- [ ] ${step}`).join('\n');
+    const todoMarkdown = plan.steps.map((step: string) => `- [ ] ${step}`).join('\n');
     this.executionContext.setTodoList(todoMarkdown);
 
     // executor system prompt
