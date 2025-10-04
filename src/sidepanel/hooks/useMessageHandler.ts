@@ -52,12 +52,16 @@ export function useMessageHandler() {
 
       // Handle teach-mode-event
       if (event.type === 'teach-mode-event') {
+        const eventType = event.payload?.eventType
+        console.log('[UI] Teach mode event received, eventType:', eventType, 'full payload:', event.payload)
+
+        // Route to teachmode store
         handleBackendEvent(event.payload)
 
-        // Clear processing state when teach mode completes/fails
-        const eventType = event.payload.eventType
+        // IMPORTANT: Only manage chatStore.isProcessing for completion/failure
+        // All other teach mode events should NOT touch chatStore.isProcessing
         if (eventType === 'execution_completed' || eventType === 'execution_failed') {
-          console.log('[UI] Teach mode ended, clearing isProcessing')
+          console.log('[UI] Teach mode ended, clearing chatStore.isProcessing')
           setProcessing(false)
 
           // Show completion message in agent/chat modes
@@ -70,6 +74,8 @@ export function useMessageHandler() {
             ts: Date.now()
           })
         }
+        // For all other teach mode events (started, thinking, etc), do nothing with chatStore.isProcessing
+        // It was already set to true by SESSION_STARTED
       }
     }
     // Legacy handler for old event structure (for backward compatibility during transition)
@@ -115,13 +121,23 @@ export function useMessageHandler() {
   
   // Handle workflow status for processing state
   const handleWorkflowStatus = useCallback((payload: any) => {
-    // With singleton execution, we handle all workflow status messages
-    if (payload?.status === 'success' || payload?.status === 'error') {
-      // Execution completed (success or error)
-      setProcessing(false)
-    }
-    // Note: We still let ChatInput set processing(true) when sending query
-    // This avoids race conditions and provides immediate UI feedback
+    console.log('[UI] handleWorkflowStatus called, payload:', payload)
+
+    // IMPORTANT: NEVER clear processing state from WORKFLOW_STATUS
+    // Processing state is ONLY managed by:
+    // 1. SESSION_STARTED → sets true
+    // 2. Session completion events (completed/failed/aborted) → sets false
+    // 3. User submitting query → sets true
+    //
+    // WORKFLOW_STATUS is a legacy message type that we're phasing out
+    // It should NOT control the processing state anymore
+    console.log('[UI] ✓ Ignoring WORKFLOW_STATUS - processing state managed by session events')
+    return
+
+    // Old code kept for reference (will be removed in future):
+    // if (payload?.status === 'success' || payload?.status === 'error') {
+    //   setProcessing(false)
+    // }
   }, [setProcessing])
   
   // Set up runtime message listener for execution starting notification

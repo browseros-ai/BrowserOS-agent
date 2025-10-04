@@ -172,6 +172,12 @@ export function MessageList({ messages, isProcessing = false, onScrollStateChang
     // Prevent any event propagation that might interfere
     trackFeature('example_prompt', { prompt })
 
+    // CRITICAL: Update currentMode based on current UI mode BEFORE creating user message
+    // This ensures the message gets tagged with the correct mode
+    const mode = chatMode ? 'chat' : 'browse'
+    const { setCurrentMode } = useChatStore.getState()
+    setCurrentMode(mode)
+
     // Mirror ChatInput.submitTask behavior
     const msgId = `user_${Date.now()}`
     upsertMessage({ msgId, role: 'user', content: prompt, ts: Date.now() })

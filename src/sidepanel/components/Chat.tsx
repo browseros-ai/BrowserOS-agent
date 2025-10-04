@@ -25,6 +25,11 @@ export function Chat({ isConnected }: ChatProps) {
   const { trackFeature } = useAnalytics()
   const { addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
 
+  // Debug isProcessing from store
+  useEffect(() => {
+    console.log('[Chat] isProcessing from store:', isProcessing)
+  }, [isProcessing])
+
   const handleScrollToBottom = () => {
     if (messageListRef.current) {
       messageListRef.current.scrollTo({

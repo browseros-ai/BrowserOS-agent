@@ -143,7 +143,11 @@ export const useChatStore = create<ChatState & ChatActions>((set) => ({
   
   clearMessages: () => set({ messages: [] }),
 
-  setProcessing: (processing) => set({ isProcessing: processing }),
+  setProcessing: (processing) => {
+    console.log('[chatStore] setProcessing called:', processing)
+    console.trace('[chatStore] Full stack trace:')
+    set({ isProcessing: processing })
+  },
 
   setCurrentMode: (mode) => set({ currentMode: mode }),
 
