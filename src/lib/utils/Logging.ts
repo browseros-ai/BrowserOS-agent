@@ -42,7 +42,7 @@ export class Logging {
   
   public static initialize(options: LogUtilityOptions = {}): void {
     this.debugMode = options.debugMode || false
-    
+
     if (this.posthogApiKey && !this.posthogInitialized) {
       posthog.init(this.posthogApiKey, {
         api_host: 'https://us.i.posthog.com',

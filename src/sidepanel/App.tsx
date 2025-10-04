@@ -49,7 +49,7 @@ export function App() {
   useEffect(() => {
     // Apply font size
     document.documentElement.style.setProperty('--app-font-size', `${fontSize}px`)
-    
+
     // Apply theme classes
     const root = document.documentElement
     root.classList.remove('dark')
@@ -57,6 +57,40 @@ export function App() {
     if (theme === 'dark') root.classList.add('dark')
     if (theme === 'gray') root.classList.add('gray')
   }, [fontSize, theme])
+
+  // Listen for theme changes from other tabs/views
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nxtscape-settings' && e.newValue) {
+        try {
+          const newSettings = JSON.parse(e.newValue)
+          const newTheme = newSettings?.state?.theme
+          const newFontSize = newSettings?.state?.fontSize
+
+          // Update theme if changed
+          if (newTheme && newTheme !== theme) {
+            const root = document.documentElement
+            root.classList.remove('dark', 'gray')
+            if (newTheme === 'dark') root.classList.add('dark')
+            if (newTheme === 'gray') root.classList.add('gray')
+            // Force store update
+            useSettingsStore.setState({ theme: newTheme })
+          }
+
+          // Update font size if changed
+          if (newFontSize && newFontSize !== fontSize) {
+            document.documentElement.style.setProperty('--app-font-size', `${newFontSize}px`)
+            useSettingsStore.setState({ fontSize: newFontSize })
+          }
+        } catch (err) {
+          console.error('Failed to parse settings from storage:', err)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [theme, fontSize])
   
   // Announce connection status changes
   useEffect(() => {

@@ -27,7 +27,8 @@ const DEFAULT_ANTHROPIC_MODEL = 'claude-4-sonnet'
 const DEFAULT_OLLAMA_MODEL = "qwen3:4b"
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 const DEFAULT_BROWSEROS_PROXY_URL = "https://llm.browseros.com/default/"
-const DEFAULT_BROWSEROS_MODEL = "default-llm"
+const DEFAULT_BROWSEROS_MODEL_FAMILY_URL = "https://llm.browseros.com/api/model_family"
+const DEFAULT_BROWSEROS_MODEL = "openai"  // Fallback model family
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
 
@@ -40,9 +41,13 @@ export interface ModelCapabilities {
 export class LangChainProvider {
   private static instance: LangChainProvider
   private currentProvider: BrowserOSProvider | null = null
-  
+
   // Skip token counting flag - set to true for maximum speed (returns fixed estimates)
   private static readonly SKIP_TOKEN_COUNTING = false
+
+  // Model family cache for BrowserOS
+  private modelFamilyCache: { family: string; timestamp: number } | null = null
+  private readonly CACHE_DURATION_MS = 15 * 60 * 1000  // 15 minutes
   
   // Constructor and initialization
   static getInstance(): LangChainProvider {
@@ -57,10 +62,10 @@ export class LangChainProvider {
     // Get the current provider configuration
     const provider = await LLMSettingsReader.read()
     this.currentProvider = provider
-    
+
     // Create new LLM instance based on provider type
     Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
-    const llm = this._createLLMFromProvider(provider, options)
+    const llm = await this._createLLMFromProvider(provider, options)
     
     // Log metrics about the LLM configuration
     const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
@@ -160,6 +165,7 @@ export class LangChainProvider {
   
   clearCache(): void {
     this.currentProvider = null
+    this.modelFamilyCache = null
   }
   
   private _isReasoningModel(modelId: string): boolean {
@@ -170,6 +176,9 @@ export class LangChainProvider {
   private _getDefaultModelForProvider(type: string): string {
     switch (type) {
       case 'browseros':
+        if (this.modelFamilyCache) {
+          return this.modelFamilyCache.family
+        }
         return DEFAULT_BROWSEROS_MODEL
       case 'openai':
       case 'openai_compatible':
@@ -294,23 +303,23 @@ export class LangChainProvider {
     }
   }
   
-  private _createLLMFromProvider(
+  private async _createLLMFromProvider(
     provider: BrowserOSProvider,
     options?: { temperature?: number; maxTokens?: number }
-  ): BaseChatModel {
+  ): Promise<BaseChatModel> {
     // Extract parameters from provider config first, then override with options
-    const temperature = options?.temperature ?? 
-                       provider.modelConfig?.temperature ?? 
+    const temperature = options?.temperature ??
+                       provider.modelConfig?.temperature ??
                        DEFAULT_TEMPERATURE
-    
+
     const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
-    
+
     const streaming = DEFAULT_STREAMING
-    
+
     // Map provider type to appropriate LangChain adapter
     switch (provider.type) {
       case 'browseros':
-        return this._createBrowserOSLLM(temperature, maxTokens, streaming)
+        return await this._createBrowserOSLLM(temperature, maxTokens, streaming)
       
       case 'openai':
       case 'openai_compatible':
@@ -328,32 +337,79 @@ export class LangChainProvider {
         return this._createOllamaLLM(provider, temperature, maxTokens)
       
       default:
-        Logging.log('LangChainProvider', 
-          `Unknown provider type: ${provider.type}, falling back to BrowserOS`, 
+        Logging.log('LangChainProvider',
+          `Unknown provider type: ${provider.type}, falling back to BrowserOS`,
           'warning')
-        return this._createBrowserOSLLM(temperature, maxTokens, streaming)
+        return await this._createBrowserOSLLM(temperature, maxTokens, streaming)
     }
   }
   
-  // BrowserOS built-in provider (uses proxy, no API key needed)
-  private _createBrowserOSLLM(
-    temperature: number, 
-    maxTokens?: number, 
-    streaming: boolean = true
-  ): ChatOpenAI {
-    const model = new ChatOpenAI({
-      modelName: DEFAULT_BROWSEROS_MODEL,
-      temperature,
-      maxTokens,
-      streaming,
-      openAIApiKey: 'nokey',
-      configuration: {
-        baseURL: DEFAULT_BROWSEROS_PROXY_URL,
-        apiKey: 'nokey',
-        dangerouslyAllowBrowser: true
+  // Fetch model family from BrowserOS API with caching
+  private async _fetchModelFamily(): Promise<string> {
+    if (this.modelFamilyCache) {
+      const cacheAge = Date.now() - this.modelFamilyCache.timestamp
+      if (cacheAge < this.CACHE_DURATION_MS) {
+        return this.modelFamilyCache.family
       }
-    })
-    
+    }
+
+    try {
+      const response = await fetch(DEFAULT_BROWSEROS_MODEL_FAMILY_URL)
+      if (response.ok) {
+        const data = await response.json()
+        const family = data.model_family || DEFAULT_BROWSEROS_MODEL
+
+        // Cache the result
+        this.modelFamilyCache = { family, timestamp: Date.now() }
+        Logging.log('LangChainProvider', `BrowserOS model family: ${family}`, 'info')
+        return family
+      }
+    } catch (error) {
+      Logging.log('LangChainProvider',
+        `Failed to fetch model family, defaulting to ${DEFAULT_BROWSEROS_MODEL}: ${error}`,
+        'warning')
+    }
+
+    // Default fallback
+    return DEFAULT_BROWSEROS_MODEL
+  }
+
+  // BrowserOS built-in provider (uses proxy, no API key needed)
+  private async _createBrowserOSLLM(
+    temperature: number,
+    maxTokens?: number,
+    streaming: boolean = true
+  ): Promise<BaseChatModel> {
+    const modelFamily = await this._fetchModelFamily()
+
+    // Create appropriate model based on family
+    let model: BaseChatModel
+
+    if (modelFamily === 'anthropic' || modelFamily === 'claude') {
+      model = new ChatAnthropic({
+        modelName: modelFamily,
+        temperature,
+        maxTokens,
+        streaming,
+        anthropicApiKey: 'nokey',
+        anthropicApiUrl: DEFAULT_BROWSEROS_PROXY_URL
+      })
+    } else {
+      // Default to OpenAI for 'openai' family
+      model = new ChatOpenAI({
+        modelName: modelFamily,
+        temperature,
+        maxTokens,
+        streaming,
+        openAIApiKey: 'nokey',
+        configuration: {
+          baseURL: DEFAULT_BROWSEROS_PROXY_URL,
+          apiKey: 'nokey',
+          dangerouslyAllowBrowser: true
+        }
+      })
+    }
+
     return this._patchTokenCounting(model)
   }
   

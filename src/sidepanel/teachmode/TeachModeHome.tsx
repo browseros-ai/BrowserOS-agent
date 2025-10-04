@@ -106,10 +106,15 @@ export function TeachModeHome() {
             <div className="flex flex-col items-center max-w-lg w-full space-y-3">
               {hasWorkflows ? (
                 <>
-                  {/* Your Workflows label */}
+                  {/* Your Taught Workflows label */}
                   <div className="w-full flex items-center justify-between px-2 mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">Your Workflows</span>
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
+                    <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                      <span className="text-base">🎓</span>
+                      <span className="bg-gradient-to-r from-brand to-brand/70 bg-clip-text text-transparent">
+                        Your Taught Workflows
+                      </span>
+                    </span>
+                    <span className="text-xs bg-brand/20 px-2 py-0.5 rounded-full text-brand font-semibold">
                       {recordings.length}
                     </span>
                   </div>
@@ -126,15 +131,13 @@ export function TeachModeHome() {
 
                       {/* Content with actions */}
                       <div className="relative z-10 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{recording.icon}</span>
+                        <div className="flex items-center">
                           <div className="text-left">
                             <div className="font-medium text-foreground group-hover:text-brand transition-colors duration-300">
                               {recording.name}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                               {recording.steps.length} steps
-                              {recording.runCount > 0 && ` • Run ${recording.runCount} times`}
                             </div>
                           </div>
                         </div>
@@ -168,9 +171,9 @@ export function TeachModeHome() {
               ) : (
                 /* Example Workflows - when empty */
                 [
-                  { emoji: '📧', text: 'Unsubscribe from emails' },
-                  { emoji: '📊', text: 'Extract data from websites' },
-                  { emoji: '🛍️', text: 'Find best deals online' }
+                  { emoji: '📧', text: 'Teach how to unsubscribe from promotional emails' },
+                  { emoji: '📊', text: 'Show data to extract from website and fill out a form' },
+                  { emoji: '🥳', text: 'Teach any other workflow that comes to your mind!' }
                 ].map((example, index) => (
                   <Button
                     key={index}
@@ -213,47 +216,49 @@ export function TeachModeHome() {
       {/* Bottom bar — match Chat/Agent input shell - ALWAYS PRESENT */}
       <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-3 py-3 pb-4 flex-shrink-0 overflow-hidden z-20">
         <div className="relative">
-          <div className="relative flex items-end w-full transition-all duration-300 ease-out">
-            <div className="relative flex-1">
-              {/* Faux textarea surface */}
-              <div
-                aria-label="Teach mode quick tips"
-                className={cn(
-                  'min-h-[100px] pr-44 text-sm w-full',
-                  'bg-background/80 backdrop-blur-sm border-2 border-brand/30',
-                  'hover:border-brand/50 hover:bg-background/90 hover:shadow-md',
-                  'rounded-2xl shadow-sm px-4 py-3',
-                  'transition-all duration-300 ease-out'
-                )}
-              >
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
-                  How teach mode works
+          {/* Faux textarea surface with responsive layout */}
+          <div
+            aria-label="Teach mode quick tips"
+            className={cn(
+              'text-sm w-full',
+              'bg-background/80 backdrop-blur-sm border-2 border-brand/30',
+              'hover:border-brand/50 hover:bg-background/90 hover:shadow-md',
+              'rounded-2xl shadow-sm px-4 py-3',
+              'transition-all duration-300 ease-out',
+              'flex flex-col min-[450px]:flex-row min-[450px]:items-end gap-4'
+            )}
+          >
+            {/* Tips content */}
+            <div className="flex-1">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                How teach mode works
+              </div>
+              <div className="space-y-2 text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground flex-shrink-0">1</span>
+                  <span className="text-xs min-[450px]:text-sm">Record your actions step by step</span>
                 </div>
-                <div className="space-y-2 text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">1</span>
-                    <span>Record your actions step by step</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">2</span>
-                    <span>Narrate what you're doing as you click, type</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">3</span>
-                    <span>Run your workflow anytime with one click</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground flex-shrink-0">2</span>
+                  <span className="text-xs min-[450px]:text-sm">Narrate what you're doing as you click, type</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground flex-shrink-0">3</span>
+                  <span className="text-xs min-[450px]:text-sm">Run your workflow anytime with one click</span>
                 </div>
               </div>
+            </div>
 
-              {/* CTA button — bottom-right, rounded like send */}
+            {/* CTA button — responsive position */}
+            <div className="flex justify-center min-[450px]:justify-start">
               <Button
                 onClick={handleCreateNew}
                 size="sm"
-                className="absolute right-3 bottom-4 h-9 rounded-full px-4 bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center gap-2"
-                aria-label="Create new workflow"
+                className="h-9 rounded-full px-4 bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center gap-2 whitespace-nowrap w-full min-[450px]:w-auto"
+                aria-label="Teach new workflow"
               >
                 <Wand2 className="w-4 h-4" />
-                Create New Workflow
+                Teach new workflow
               </Button>
             </div>
           </div>
