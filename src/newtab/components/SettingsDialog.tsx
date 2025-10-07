@@ -16,7 +16,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   useEffect(() => {
     if (isOpen) {
       // Get BrowserOS version from API if available
-      if ('getVersionNumber' in chrome.browserOS && typeof chrome.browserOS.getVersionNumber === 'function') {
+      if (chrome.browserOS && 'getVersionNumber' in chrome.browserOS && typeof chrome.browserOS.getVersionNumber === 'function') {
         getBrowserOSAdapter().getVersion()
           .then(v => setBrowserOSVersion(v))
           .catch(() => setBrowserOSVersion(null))
