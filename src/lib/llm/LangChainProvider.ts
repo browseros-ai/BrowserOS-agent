@@ -50,6 +50,14 @@ export interface ModelCapabilities {
   supportsImages: boolean;  // Whether the provider supports image inputs
 }
 
+// BrowserOS API response structure
+interface BrowserOSModelConfig {
+  model_family: string;  // Legacy field for backward compatibility
+  default: string;  // Default provider when no intelligence specified
+  fast: string;  // Provider for low intelligence (speed/cost optimized)
+  smart: string;  // Provider for high intelligence (quality optimized)
+}
+
 export class LangChainProvider {
   private static instance: LangChainProvider
   private currentProvider: BrowserOSProvider | null = null
@@ -57,9 +65,9 @@ export class LangChainProvider {
   // Skip token counting flag - set to true for maximum speed (returns fixed estimates)
   private static readonly SKIP_TOKEN_COUNTING = false
 
-  // Model family cache for BrowserOS
-  private modelFamilyCache: { family: string; timestamp: number } | null = null
-  private readonly CACHE_DURATION_MS = 15 * 60 * 1000  // 15 minutes
+  // Model config cache for BrowserOS - now stores full API response
+  private modelConfigCache: { config: BrowserOSModelConfig; timestamp: number } | null = null
+  private readonly CACHE_DURATION_MS = 5 * 60 * 1000  // 5 minutes
   
   // Constructor and initialization
   static getInstance(): LangChainProvider {
@@ -181,7 +189,7 @@ export class LangChainProvider {
   
   clearCache(): void {
     this.currentProvider = null
-    this.modelFamilyCache = null
+    this.modelConfigCache = null
   }
   
   private _isReasoningModel(modelId: string): boolean {
@@ -192,8 +200,8 @@ export class LangChainProvider {
   private _getDefaultModelForProvider(type: string): string {
     switch (type) {
       case 'browseros':
-        if (this.modelFamilyCache) {
-          return this.modelFamilyCache.family
+        if (this.modelConfigCache) {
+          return this.modelConfigCache.config.model_family
         }
         return DEFAULT_BROWSEROS_MODEL
       case 'openai':
@@ -363,12 +371,12 @@ export class LangChainProvider {
     }
   }
   
-  // Fetch model family from BrowserOS API with caching
-  private async _fetchModelFamily(): Promise<string> {
-    if (this.modelFamilyCache) {
-      const cacheAge = Date.now() - this.modelFamilyCache.timestamp
+  // Fetch model configuration from BrowserOS API with caching
+  private async _fetchModelConfig(): Promise<BrowserOSModelConfig> {
+    if (this.modelConfigCache) {
+      const cacheAge = Date.now() - this.modelConfigCache.timestamp
       if (cacheAge < this.CACHE_DURATION_MS) {
-        return this.modelFamilyCache.family
+        return this.modelConfigCache.config
       }
     }
 
@@ -376,21 +384,36 @@ export class LangChainProvider {
       const response = await fetch(DEFAULT_BROWSEROS_MODEL_FAMILY_URL)
       if (response.ok) {
         const data = await response.json()
-        const family = data.model_family || DEFAULT_BROWSEROS_MODEL
+
+        // Ensure all fields are present with fallbacks
+        const config: BrowserOSModelConfig = {
+          model_family: data.model_family || DEFAULT_BROWSEROS_MODEL,
+          default: data.default || data.model_family || DEFAULT_BROWSEROS_MODEL,
+          fast: data.fast || data.model_family || DEFAULT_BROWSEROS_MODEL,
+          smart: data.smart || data.model_family || DEFAULT_BROWSEROS_MODEL
+        }
 
         // Cache the result
-        this.modelFamilyCache = { family, timestamp: Date.now() }
-        Logging.log('LangChainProvider', `BrowserOS model family: ${family}`, 'info')
-        return family
+        this.modelConfigCache = { config, timestamp: Date.now() }
+        Logging.log('LangChainProvider',
+          `BrowserOS model config - default: ${config.default}, fast: ${config.fast}, smart: ${config.smart}`,
+          'info')
+        return config
       }
     } catch (error) {
       Logging.log('LangChainProvider',
-        `Failed to fetch model family, defaulting to ${DEFAULT_BROWSEROS_MODEL}: ${error}`,
+        `Failed to fetch model config, using fallbacks: ${error}`,
         'warning')
     }
 
-    // Default fallback
-    return DEFAULT_BROWSEROS_MODEL
+    // Default fallback configuration
+    const fallbackConfig: BrowserOSModelConfig = {
+      model_family: DEFAULT_BROWSEROS_MODEL,
+      default: DEFAULT_BROWSEROS_MODEL,
+      fast: DEFAULT_BROWSEROS_MODEL,
+      smart: DEFAULT_BROWSEROS_MODEL
+    }
+    return fallbackConfig
   }
 
   // BrowserOS built-in provider (uses proxy, no API key needed)
@@ -400,17 +423,32 @@ export class LangChainProvider {
     streaming: boolean = true,
     intelligence: 'low' | 'high' = DEFAULT_INTELLIGENCE
   ): Promise<BaseChatModel> {
-    const modelFamily = await this._fetchModelFamily()
+    // Fetch the complete model configuration
+    const modelConfig = await this._fetchModelConfig()
 
-    const proxyUrl = intelligence === 'low'
-      ? BROWSEROS_FAST_LLM_PROXY_URL
-      : BROWSEROS_SMART_LLM_PROXY_URL
+    // Select the appropriate provider based on intelligence level
+    let selectedProvider: string
+    let proxyUrl: string
 
+    if (intelligence === 'low') {
+      selectedProvider = modelConfig.fast
+      proxyUrl = BROWSEROS_FAST_LLM_PROXY_URL
+    } else {
+      // Default to 'high' intelligence (smart provider)
+      selectedProvider = modelConfig.smart
+      proxyUrl = BROWSEROS_SMART_LLM_PROXY_URL
+    }
+
+    Logging.log('LangChainProvider',
+      `Using ${intelligence} intelligence with provider: ${selectedProvider} at ${proxyUrl}`,
+      'info')
+
+    // Create the appropriate model based on the selected provider
     let model: BaseChatModel
 
-    if (modelFamily === 'anthropic' || modelFamily === 'claude') {
+    if (selectedProvider.includes('claude') || selectedProvider.includes('anthropic')) {
       model = new ChatAnthropic({
-        modelName: modelFamily,
+        modelName: selectedProvider,
         temperature,
         maxTokens,
         streaming,
@@ -418,9 +456,9 @@ export class LangChainProvider {
         anthropicApiUrl: proxyUrl
       })
     } else {
-      // Default to OpenAI for 'openai' family
+      // Default to OpenAI for all other providers (openai, gpt, etc.)
       model = new ChatOpenAI({
-        modelName: modelFamily,
+        modelName: selectedProvider,
         temperature,
         maxTokens,
         streaming,
