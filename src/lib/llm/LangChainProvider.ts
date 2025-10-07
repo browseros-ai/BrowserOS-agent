@@ -371,7 +371,7 @@ export class LangChainProvider {
     }
   }
   
-  // Fetch model configuration from BrowserOS API with caching
+  // Fetch model configuration from BrowserOS API
   private async _fetchModelConfig(): Promise<BrowserOSModelConfig> {
     if (this.modelConfigCache) {
       const cacheAge = Date.now() - this.modelConfigCache.timestamp
@@ -396,7 +396,7 @@ export class LangChainProvider {
         // Cache the result
         this.modelConfigCache = { config, timestamp: Date.now() }
         Logging.log('LangChainProvider',
-          `BrowserOS model config - default: ${config.default}, fast: ${config.fast}, smart: ${config.smart}`,
+          `BrowserOS model config fetched - default: ${config.default}, fast: ${config.fast}, smart: ${config.smart}`,
           'info')
         return config
       }
@@ -426,7 +426,6 @@ export class LangChainProvider {
     // Fetch the complete model configuration
     const modelConfig = await this._fetchModelConfig()
 
-    // Select the appropriate provider based on intelligence level
     let selectedProvider: string
     let proxyUrl: string
 
@@ -439,14 +438,11 @@ export class LangChainProvider {
       proxyUrl = BROWSEROS_SMART_LLM_PROXY_URL
     }
 
-    Logging.log('LangChainProvider',
-      `Using ${intelligence} intelligence with provider: ${selectedProvider} at ${proxyUrl}`,
-      'info')
-
-    // Create the appropriate model based on the selected provider
     let model: BaseChatModel
+    const isAnthropicProvider = selectedProvider.indexOf('claude') !== -1 ||
+                                selectedProvider.indexOf('anthropic') !== -1
 
-    if (selectedProvider.includes('claude') || selectedProvider.includes('anthropic')) {
+    if (isAnthropicProvider) {
       model = new ChatAnthropic({
         modelName: selectedProvider,
         temperature,
@@ -456,11 +452,13 @@ export class LangChainProvider {
         anthropicApiUrl: proxyUrl
       })
     } else {
-      // Default to OpenAI for all other providers (openai, gpt, etc.)
-      model = new ChatOpenAI({
+      // For OpenAI and all other providers (openai/, gpt, etc.)
+      // Check if it's a reasoning model that needs special handling
+      const isReasoningModel = this._isReasoningModel(selectedProvider)
+
+      const config: any = {
         modelName: selectedProvider,
-        temperature,
-        maxTokens,
+        temperature: isReasoningModel ? 1 : temperature,  // Reasoning models use temperature 1
         streaming,
         openAIApiKey: 'nokey',
         configuration: {
@@ -468,7 +466,18 @@ export class LangChainProvider {
           apiKey: 'nokey',
           dangerouslyAllowBrowser: true
         }
-      })
+      }
+
+      // For reasoning models, use max_completion_tokens instead of max_tokens
+      if (isReasoningModel && maxTokens) {
+        config.modelKwargs = {
+          max_completion_tokens: maxTokens
+        }
+      } else if (maxTokens) {
+        config.maxTokens = maxTokens
+      }
+
+      model = new ChatOpenAI(config)
     }
 
     return this._patchTokenCounting(model)

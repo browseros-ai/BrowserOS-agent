@@ -61,7 +61,7 @@ import { ENABLE_EVALS2 } from '@/config';
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
-const MAX_EXECUTOR_ITERATIONS = 3;
+const MAX_EXECUTOR_ITERATIONS = 5;
 const MAX_PREDEFINED_PLAN_ITERATIONS = 30;
 const MAX_RETRIES = 3;
 
