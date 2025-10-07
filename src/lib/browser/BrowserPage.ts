@@ -9,7 +9,7 @@ import {
   type SnapshotOptions,
   type ScreenshotSizeKey,
 } from "./BrowserOSAdapter";
-import { profileAsync } from "@/lib/utils/Profiler";
+import { profileAsync } from "@/lib/utils/profiler";
 import { ElementFormatter } from "./ElementFormatter";
 
 // Default formatter instances
