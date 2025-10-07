@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import BrowserContext from '@/lib/browser/BrowserContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
-import { getLLM as getLLMFromProvider } from '@/lib/llm/LangChainProvider'
+import { getLLM as getLLMFromProvider, LLMOptions } from '@/lib/llm/LangChainProvider'
 import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { TodoStore } from '@/lib/runtime/TodoStore'
 import { KlavisAPIManager } from '@/lib/mcp/KlavisAPIManager'
@@ -266,10 +266,7 @@ export class ExecutionContext {
    * @param options - Optional LLM configuration
    * @returns Promise resolving to chat model
    */
-  public async getLLM(options?: {
-    temperature?: number;
-    maxTokens?: number;
-  }): Promise<BaseChatModel> {
+  public async getLLM(options?: LLMOptions): Promise<BaseChatModel> {
     return getLLMFromProvider(options);
   }
 
