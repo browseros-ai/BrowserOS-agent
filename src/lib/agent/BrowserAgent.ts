@@ -228,10 +228,11 @@ export class BrowserAgent {
     // Register tools FIRST (before binding)
     await this._registerTools();
 
-    // Create LLM with consistent temperature
+    // Create LLM for executor
     const llm = await getLLM({
       temperature: 0.2,
       maxTokens: 4096,
+      intelligence: 'low'
     });
 
     // Validate LLM supports tool binding
@@ -759,6 +760,7 @@ export class BrowserAgent {
       const llm = await getLLM({
         temperature: 0.2,
         maxTokens: 4096,
+        intelligence: 'high'
       });
       const structuredLLM = llm.withStructuredOutput(PlannerOutputSchema);
       const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`;
@@ -1379,6 +1381,7 @@ ${fullHistory}
       const llm = await getLLM({
         temperature: 0.2,
         maxTokens: 4096,
+        intelligence: 'high'
       });
       const structuredLLM = llm.withStructuredOutput(PredefinedPlannerOutputSchema);
       const executionContext = `EXECUTION CONTEXT\n ${this.executionContext.isLimitedContextMode() ? this._buildExecutionContext() : ''}`;
@@ -1532,6 +1535,7 @@ ${fullHistory}
     const llm = await getLLM({
       temperature: 0.2,
       maxTokens: 4096,
+      intelligence: 'high'
     });
     const structuredLLM = llm.withStructuredOutput(ExecutionHistorySummarySchema);
     const systemPrompt = generateExecutionHistorySummaryPrompt();
