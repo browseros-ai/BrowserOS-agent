@@ -4,7 +4,7 @@ import type { TeachModeMessage, TeachModeRecording, CapturedEvent } from '@/lib/
 import { BrowserContext } from '@/lib/browser/BrowserContext'
 import { RecordingStorage } from '@/lib/teach-mode/storage/RecordingStorage'
 import { PreprocessAgent } from '@/lib/agent/PreprocessAgent'
-import { PubSub } from '@/lib/pubsub'
+import { SessionNotifier } from '@/lib/pubsub/SessionNotifier'
 
 const NAVIGATION_DELAY_MS = 100  // Delay after navigation before re-injection
 const HEARTBEAT_INTERVAL_MS = 100  // Heartbeat ping interval
@@ -72,6 +72,10 @@ export class TeachModeService {
 
       // Create new recording session with browser context
       this.currentSession = new RecordingSession(tabId, tab.url, this.browserContext || undefined)
+
+      // Notify UI of new recording session
+      const sessionId = this.currentSession.getSession().id
+      SessionNotifier.notifySessionStart(sessionId, 'record')
 
       // Capture viewport information
       const viewport = await this._captureViewport(tabId)
@@ -373,8 +377,11 @@ export class TeachModeService {
         return
       }
 
+      console.log('[TeachModeService] Received message:', teachMessage.action, 'from tab:', sender.tab?.id)
+
       switch (teachMessage.action) {
         case 'EVENT_CAPTURED':
+          console.log('[TeachModeService] EVENT_CAPTURED:', teachMessage.event?.action?.type, 'tabId:', sender.tab?.id, 'activeTabId:', this.activeTabId)
           this._handleCapturedEvent(teachMessage.event, sender.tab?.id)
           sendResponse({ success: true })
           break
@@ -398,23 +405,29 @@ export class TeachModeService {
    * Handle captured event from content script
    */
   private _handleCapturedEvent(event: CapturedEvent, tabId?: number): void {
+    console.log('[TeachModeService] _handleCapturedEvent called:', event.action.type, 'tabId:', tabId, 'activeTabId:', this.activeTabId, 'hasSession:', !!this.currentSession)
+
     if (!this.currentSession) {
+      console.warn('[TeachModeService] No active session - event ignored')
       Logging.log('TeachModeService', 'Received event but no active session', 'warning')
       return
     }
 
-    // Verify event is from the CURRENTLY active recording tab 
+    // Verify event is from the CURRENTLY active recording tab
     if (tabId !== this.activeTabId) {
+      console.warn('[TeachModeService] Event from non-active tab', tabId, 'active is', this.activeTabId)
       Logging.log('TeachModeService', `Event from non-active tab ${tabId}, active is ${this.activeTabId}`, 'warning')
       return
     }
 
+    console.log('[TeachModeService] Adding event to session:', event.action.type)
     // Add event to session - convert from CapturedEvent to expected format
     this.currentSession.addEvent({
       type: event.action.type,
       action: event.action,
       target: event.target
     })
+    console.log('[TeachModeService] Event added successfully')
   }
 
   /**
@@ -453,53 +466,21 @@ export class TeachModeService {
    */
   private async _startAsyncPreprocessing(recordingId: string, recording: TeachModeRecording): Promise<void> {
     const storage = RecordingStorage.getInstance()
-    const pubsub = PubSub.getChannel('main')
 
     try {
-      // Emit preprocessing started
-      pubsub.publishTeachModeEvent({
-        eventType: 'preprocessing_started',
-        sessionId: recording.session.id,
-        data: {
-          recordingId,
-          totalEvents: recording.events.filter(
-            e => e.action.type !== 'session_start' && e.action.type !== 'session_end'
-          ).length
-        }
-      })
-
-      // Process recording with PreprocessAgent
+      // Process recording with PreprocessAgent (agent handles all event publishing)
       console.log('Processing recording into workflow...')
-      const preprocessAgent = new PreprocessAgent(pubsub, recording.session.id)
+      const preprocessAgent = new PreprocessAgent(recording.session.id)
       const workflow = await preprocessAgent.processRecording(recording)
       console.log(`Created workflow with ${workflow.steps.length} steps`)
       Logging.log('TeachModeService', `Created workflow with ${workflow.steps.length} steps`)
 
       // Save workflow (this also updates the title)
       await storage.saveWorkflow(recordingId, workflow)
-
-      // Emit preprocessing completed
-      pubsub.publishTeachModeEvent({
-        eventType: 'preprocessing_completed',
-        sessionId: recording.session.id,
-        data: {
-          recordingId,
-          workflowSteps: workflow.steps.length
-        }
-      })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       Logging.log('TeachModeService', `Async preprocessing failed: ${errorMessage}`, 'error')
-
-      // Emit preprocessing failed event
-      pubsub.publishTeachModeEvent({
-        eventType: 'preprocessing_failed',
-        sessionId: recording.session.id,
-        data: {
-          recordingId,
-          error: errorMessage
-        }
-      })
+      // PreprocessAgent already emitted the preprocessing_failed event
     }
   }
 

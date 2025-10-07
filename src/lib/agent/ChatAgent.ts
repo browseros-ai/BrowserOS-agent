@@ -1,8 +1,7 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
 import { ToolManager } from '@/lib/tools/ToolManager'
-import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool'
-import { createScrollTool } from '@/lib/tools/navigation/ScrollTool'
+import { ScrollTool, ScreenshotTool } from '@/lib/tools'
 import { generateSystemPrompt, generatePageContextMessage, generateTaskPrompt } from './ChatAgent.prompt'
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages'
 import { PubSub } from '@/lib/pubsub'
@@ -57,8 +56,8 @@ export class ChatAgent {
    */
   private _registerTools(): void {
     // Only register the 2 essential tools for Q&A
-    this.toolManager.register(createScreenshotTool(this.executionContext))
-    this.toolManager.register(createScrollTool(this.executionContext))
+    this.toolManager.register(ScreenshotTool(this.executionContext))
+    this.toolManager.register(ScrollTool(this.executionContext))
     
     Logging.log('ChatAgent', `Registered ${this.toolManager.getAll().length} tools for Q&A mode`)
   }
@@ -151,7 +150,7 @@ export class ChatAgent {
         })
         
         Logging.log('ChatAgent', `Execution failed: ${errorMessage}`, 'error')
-        this.pubsub.publishMessage(PubSub.createMessage(`Error: ${errorMessage}`, 'error'))
+        this.executionContext.publishMessage(`Error: ${errorMessage}`, 'error')
         throw error
       }
     }
@@ -310,15 +309,23 @@ export class ChatAgent {
       if (chunk.content) {
         fullContent += chunk.content
         // Stream chunk to UI
-        this.pubsub.publishMessage(PubSub.createMessageWithId(streamMsgId, fullContent, 'assistant'))
+        this.executionContext.publishEvent({
+          type: 'message',
+          message: fullContent,
+          data: { level: 'success', msgId: streamMsgId }
+        })
       }
     }
     
     // Accumulate final message for history
     const finalMessage = this._accumulateMessage(chunks)
-    
+
     // Final message with complete content
-    this.pubsub.publishMessage(PubSub.createMessageWithId(streamMsgId, fullContent, 'assistant'))
+    this.executionContext.publishEvent({
+      type: 'message',
+      message: fullContent,
+      data: { level: 'success', msgId: streamMsgId }
+    })
     
     // Add to message history
     this.messageManager.addAI(finalMessage.content as string || '')

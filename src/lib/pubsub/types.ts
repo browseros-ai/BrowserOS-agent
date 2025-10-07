@@ -115,3 +115,33 @@ export type SubscriptionCallback = (event: PubSubEvent) => void
 export interface Subscription {
   unsubscribe: () => void
 }
+
+// ============================================================================
+// NEW EVENT SYSTEM (Phase 1 - Foundation)
+// Added for PubSub redesign - does not affect existing code above
+// ============================================================================
+
+// Event type enumeration
+export type EventType =
+  | 'started'          // Execution/Recording started
+  | 'completed'        // Execution/Recording completed successfully
+  | 'failed'           // Execution failed with error
+  | 'aborted'          // User cancelled execution
+  | 'thinking'         // Agent reasoning/planning (streaming)
+  | 'message'          // Agent discrete message
+  | 'tool'             // Tool execution (start/progress/result/error)
+  | 'human_input'      // Human interaction (request/response)
+  | 'recording'        // Recording events (teach-mode only)
+  | 'preprocessing'    // Preprocessing events (teach-mode only)
+
+// Base event structure for new system
+export interface ExecutionEvent {
+  sessionId: string       // Which execution? (format: {mode}_{timestamp}_{random})
+  type: EventType        // What happened?
+  timestamp: number      // When? (ms since epoch)
+  message: string        // Human-readable message (ALWAYS present)
+  data?: any            // Optional event-specific data
+}
+
+// Subscription callback for new event system
+export type ExecutionEventCallback = (event: ExecutionEvent) => void

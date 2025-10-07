@@ -33,10 +33,15 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [providerOk, setProviderOk] = useState<boolean>(true)
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [draftBeforeHistory, setDraftBeforeHistory] = useState<string>('')
-  
-  const { upsertMessage, setProcessing } = useChatStore()
+
+  const { upsertMessage, setProcessing, setCurrentMode } = useChatStore()
   const messages = useChatStore(state => state.messages)
-  const { chatMode } = useSettingsStore()
+
+  // Debug logging for isProcessing
+  useEffect(() => {
+    console.log('[ChatInput] isProcessing changed:', isProcessing)
+  }, [isProcessing])
+  const { chatMode, appMode } = useSettingsStore()
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
   const { getContextTabs, toggleTabSelection, clearSelectedTabs } = useTabsStore()
   const { agents, loadAgents } = useAgentsStore()
@@ -113,7 +118,12 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   
   const submitTask = (query: string) => {
     if (!query.trim()) return
-    
+
+    // CRITICAL: Update currentMode based on current UI mode BEFORE creating user message
+    // This ensures the message gets tagged with the correct mode
+    const mode = chatMode ? 'chat' : 'browse'
+    setCurrentMode(mode)
+
     // Add user message via upsert
     upsertMessage({
       msgId: `user_${Date.now()}`,
@@ -353,6 +363,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholder()}
               disabled={isProcessing}
+              data-is-processing={isProcessing}
               className={cn(
                 'min-h-[120px] max-h-[260px] resize-none pr-16 text-sm w-full',
                 'bg-background/80 backdrop-blur-sm border-2 border-brand/30',
