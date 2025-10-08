@@ -280,7 +280,7 @@ export class ChatAgent {
    * Stream LLM response with or without tools
    */
   private async _streamLLM(opts: { tools: boolean }): Promise<void> {
-    const llm = await this.executionContext.getLLM({ temperature: 0.3 })
+    const llm = await this.executionContext.getLLM({ temperature: 0.3, intelligence: 'high' })
     
     // Only bind tools in Pass 2
     const llmToUse = opts.tools && llm.bindTools

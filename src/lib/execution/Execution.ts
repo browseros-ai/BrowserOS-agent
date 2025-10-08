@@ -189,16 +189,6 @@ export class Execution {
         }
       }
 
-      // Show warning if NEW_AGENT feature flag is not enabled
-      if (!getFeatureFlags().isEnabled('NEW_AGENT') && this.options.mode !== 'chat') {
-        executionContext.getPubSub().publishMessage({
-          msgId: "old_agent_notice",
-          content: `⚠️ **Note**: You are using older version for Browser, upgrade to new one. The current agent won't work.`,
-          role: "assistant",
-          ts: Date.now(),
-        });
-      }
-
       // Notify user about limited context when in agent mode
       if (limitedContextMode && this.options.mode === 'browse') {
         executionContext.getPubSub().publishMessage({
@@ -230,14 +220,14 @@ export class Execution {
         const chatAgent = new ChatAgent(executionContext);
         await chatAgent.execute(query);
       } else {
-        // Browse mode
-        const provideType = await langChainProvider.getCurrentProviderType() || '';
-        const smallModelsList = ['ollama', 'custom', 'openai_compatible'];
+        // Browse mode - use LocalAgent for small models, BrowserAgent for others
+        const providerType = await langChainProvider.getCurrentProviderType() || '';
+        // don't include openai_comptabile, etc as they can be big models too
+        const smallModelsList = ['ollama'];
+        const useSimplerAgent = smallModelsList.includes(providerType) || limitedContextMode;
 
-        const browseAgent = getFeatureFlags().isEnabled('NEW_AGENT')
-          ? smallModelsList.includes(provideType)
-            ? new LocalAgent(executionContext)
-            : new BrowserAgent(executionContext)
+        const browseAgent = useSimplerAgent
+          ? new LocalAgent(executionContext)
           : new BrowserAgent(executionContext);
         await browseAgent.execute(query, metadata || this.options.metadata);
       }
@@ -280,14 +270,25 @@ export class Execution {
             estimatedTokens: 0
           };
 
+          // Determine agent name for metrics
+          let agentName = 'BrowserAgent';
+          if (this.options.mode === 'chat') {
+            agentName = 'ChatAgent';
+          } else if (this.options.mode === 'teach') {
+            agentName = 'TeachAgent';
+          } else {
+            // Browse mode - check if LocalAgent was used
+            const providerType = await langChainProvider.getCurrentProviderType() || '';
+            const smallModelsList = ['ollama'];
+            agentName = smallModelsList.includes(providerType) ? 'LocalAgent' : 'BrowserAgent';
+          }
+
           await braintrustLogger.logTaskScore(
             query,
             score,
             durationMs,
             {
-              agent: this.options.mode === 'chat' ? 'ChatAgent' :
-                     this.options.mode === 'teach' ? 'TeachAgent' :
-                     (getFeatureFlags().isEnabled('NEW_AGENT') ? 'LocalAgent' : 'BrowserAgent'),
+              agent: agentName,
               provider: provider?.name,
               model: provider?.modelId,
             },

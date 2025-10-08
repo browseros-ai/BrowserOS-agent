@@ -52,7 +52,6 @@ export interface ModelCapabilities {
 
 // BrowserOS API response structure
 interface BrowserOSModelConfig {
-  model_family: string;  // Legacy field for backward compatibility
   default: string;  // Default provider when no intelligence specified
   fast: string;  // Provider for low intelligence (speed/cost optimized)
   smart: string;  // Provider for high intelligence (quality optimized)
@@ -95,7 +94,7 @@ export class LangChainProvider {
     await Logging.logMetric('llm.created', {
       provider: provider.name,
       provider_type: provider.type,
-      model_name: provider.modelId || this._getDefaultModelForProvider(provider.type),
+      model_name: provider.modelId || this._getDefaultModelForProvider(provider.type, options?.intelligence),
       max_tokens: maxTokens,
       temperature: parsedOptions.temperature ?? provider.modelConfig?.temperature ?? DEFAULT_TEMPERATURE,
       intelligence: parsedOptions.intelligence ?? DEFAULT_INTELLIGENCE,
@@ -197,11 +196,16 @@ export class LangChainProvider {
     return reasoningModels.some(model => modelId.toLowerCase().includes(model))
   }
   
-  private _getDefaultModelForProvider(type: string): string {
+  private _getDefaultModelForProvider(type: string, intelligence: string  = 'high'): string {
     switch (type) {
       case 'browseros':
         if (this.modelConfigCache) {
-          return this.modelConfigCache.config.model_family
+          if (intelligence === 'low') {
+            return this.modelConfigCache.config.fast
+          } else if (intelligence === 'high') {
+            return this.modelConfigCache.config.smart
+          }
+          return this.modelConfigCache.config.default
         }
         return DEFAULT_BROWSEROS_MODEL
       case 'openai':
@@ -387,7 +391,6 @@ export class LangChainProvider {
 
         // Ensure all fields are present with fallbacks
         const config: BrowserOSModelConfig = {
-          model_family: data.model_family || DEFAULT_BROWSEROS_MODEL,
           default: data.default || data.model_family || DEFAULT_BROWSEROS_MODEL,
           fast: data.fast || data.model_family || DEFAULT_BROWSEROS_MODEL,
           smart: data.smart || data.model_family || DEFAULT_BROWSEROS_MODEL
@@ -408,7 +411,6 @@ export class LangChainProvider {
 
     // Default fallback configuration
     const fallbackConfig: BrowserOSModelConfig = {
-      model_family: DEFAULT_BROWSEROS_MODEL,
       default: DEFAULT_BROWSEROS_MODEL,
       fast: DEFAULT_BROWSEROS_MODEL,
       smart: DEFAULT_BROWSEROS_MODEL
