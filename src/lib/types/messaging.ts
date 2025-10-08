@@ -113,7 +113,7 @@ export type WorkflowStatusMessage = z.infer<typeof WorkflowStatusMessageSchema>
  */
 export const ExecutionMetadataSchema = z.object({
   source: z.enum(['newtab', 'sidepanel', 'popup']).optional(),  // Source of the query
-  executionMode: z.enum(['dynamic', 'predefined', 'teach']).default('dynamic'),  // How to execute
+  executionMode: z.enum(['dynamic', 'predefined']).default('dynamic'),  // How to execute
   predefinedPlan: z.object({  // Plan details when using predefined mode
     agentId: z.string(),
     steps: z.array(z.string()),

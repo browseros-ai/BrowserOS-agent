@@ -200,31 +200,46 @@ export class Execution {
       }
 
       // Create fresh agent and execute based on mode
+      let agentType: string;
+
       if (this.options.mode === "teach") {
         // Teach mode with workflow
         if (!this.options.workflow) {
           throw new Error("Teach mode requires a workflow to execute");
         }
+
+        agentType = 'TeachAgent';
+        Logging.logMetric('execution.agent_start', {
+          mode: this.options.mode,
+          agent_type: agentType
+        });
+
         const teachAgent = new TeachAgent(executionContext);
         await teachAgent.execute(this.options.workflow);
-      } else if (metadata?.executionMode === 'teach') {
-        // Legacy teach mode support via metadata
-        // Check if workflow is provided in metadata or options
-        const workflow = this.options.workflow || (metadata as any)?.workflow;
-        if (!workflow) {
-          throw new Error("Teach mode requires a workflow to execute. Please provide workflow in options or metadata.");
-        }
-        const teachAgent = new TeachAgent(executionContext);
-        await teachAgent.execute(workflow);
       } else if (this.options.mode === "chat") {
+
+        agentType = 'ChatAgent';
+        Logging.logMetric('execution.agent_start', {
+          mode: this.options.mode,
+          agent_type: agentType
+        });
+
         const chatAgent = new ChatAgent(executionContext);
         await chatAgent.execute(query);
       } else {
         // Browse mode - use LocalAgent for small models, BrowserAgent for others
         const providerType = await langChainProvider.getCurrentProviderType() || '';
+
         // don't include openai_comptabile, etc as they can be big models too
         const smallModelsList = ['ollama'];
         const useSimplerAgent = smallModelsList.includes(providerType) || limitedContextMode;
+
+        agentType = useSimplerAgent ? 'LocalAgent' : 'BrowserAgent';
+        Logging.logMetric('execution.agent_start', {
+          mode: this.options.mode,
+          agent_type: agentType,
+          provider_type: providerType,
+        });
 
         const browseAgent = useSimplerAgent
           ? new LocalAgent(executionContext)
