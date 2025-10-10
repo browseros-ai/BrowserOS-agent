@@ -165,7 +165,8 @@ export class Execution {
       });
 
       // Set selected tab IDs for context
-      executionContext.setSelectedTabIds(this.options.tabIds || []);
+      // null means "explicitly no tabs", undefined/[] means "use default current tab"
+      executionContext.setSelectedTabIds(this.options.tabIds === null ? null : (this.options.tabIds || []));
       executionContext.startExecution(this.options.tabId || 0);
 
       // Evals2: start a session and attach parent span to context

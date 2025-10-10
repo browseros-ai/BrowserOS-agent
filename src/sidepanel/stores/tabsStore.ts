@@ -88,14 +88,21 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
       // Filter invalid tabs and update store
       const validTabs = rawTabs.filter(isValidTab)
-      let currentTabId: number | null = null
+      let newCurrentTabId: number | null = null
       const activeTab = validTabs.find(t => t.active)
-      if (activeTab) currentTabId = activeTab.id
+      if (activeTab) newCurrentTabId = activeTab.id
+
+      // Check if current tab changed
+      const oldCurrentTabId = get().currentTabId
+      const currentTabChanged = oldCurrentTabId !== newCurrentTabId
 
       set({
         openTabs: validTabs,
-        currentTabId,
-        lastFetch: now
+        currentTabId: newCurrentTabId,
+        lastFetch: now,
+        // Reset isCurrentTabRemoved when current tab changes
+        // This ensures removed flag only applies to the specific tab that was removed
+        isCurrentTabRemoved: currentTabChanged ? false : get().isCurrentTabRemoved
       })
     } catch (err) {
       // Swallow errors here – UI can display its own message

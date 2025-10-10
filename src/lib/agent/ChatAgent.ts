@@ -214,13 +214,22 @@ export class ChatAgent {
   private async _extractPageContext(): Promise<ExtractedPageContext> {
     // Get selected tab IDs from execution context
     const selectedTabIds = this.executionContext.getSelectedTabIds()
+
+    // If explicitly null, user removed all tabs - return empty context
+    if (selectedTabIds === null) {
+      return {
+        tabs: [],
+        isSingleTab: false
+      }
+    }
+
     const hasUserSelectedTabs = Boolean(selectedTabIds && selectedTabIds.length > 0)
-    
+
     // Get browser pages
     const pages = await this.executionContext.browserContext.getPages(
       hasUserSelectedTabs && selectedTabIds ? selectedTabIds : undefined
     )
-    
+
     if (pages.length === 0) {
       throw new Error('No tabs available for context extraction')
     }

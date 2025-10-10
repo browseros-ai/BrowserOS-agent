@@ -32,7 +32,7 @@ export function generateSystemPrompt(): string {
 
 ## Instructions
 1. Be concise and direct in your responses
-2. Answer based on the page content within <browser-state> tags
+2. If page content is available in <browser-state> tags, answer based on it. Otherwise, answer from your general knowledge.
 3. Use tools only when necessary for answering the question
 4. Focus on providing accurate, helpful answers
 
@@ -44,7 +44,14 @@ You're in Q&A mode. Provide direct answers without planning or task management.`
  * This contains the actual page content extracted from tabs
  */
 export function generatePageContextMessage(pageContext: ExtractedPageContext, isUpdate: boolean = false): string {
-  const prefix = isUpdate 
+  // Handle case where user explicitly removed all tabs (no page context)
+  if (pageContext.tabs.length === 0) {
+    return isUpdate
+      ? "The user has removed all page tabs. Please answer their questions using your general knowledge since no page context is available."
+      : "No page context is available. Please answer questions using your general knowledge."
+  }
+
+  const prefix = isUpdate
     ? "I've detected that the tabs have changed. Here's the updated page content:"
     : "I've extracted the content from the current page(s). Here's what I found:"
 

@@ -30,6 +30,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [showTabSelector, setShowTabSelector] = useState(false)
   const [showSlashPalette, setShowSlashPalette] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const chatModeInitializedRef = useRef<boolean>(false)
   const [providerOk, setProviderOk] = useState<boolean>(true)
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [draftBeforeHistory, setDraftBeforeHistory] = useState<string>('')
@@ -38,7 +39,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const messages = useChatStore(state => state.messages)
   const { chatMode } = useSettingsStore()
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
-  const { getContextTabs, toggleTabSelection, clearSelectedTabs } = useTabsStore()
+  const { getContextTabs, toggleTabSelection, clearSelectedTabs, fetchOpenTabs } = useTabsStore()
   const { agents, loadAgents } = useAgentsStore()
   
   // Load agents from Chrome storage on mount
@@ -102,15 +103,65 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       setInput(e.detail)
       textareaRef.current?.focus()
     }
-    
+
     window.addEventListener('setInputValue', handleSetInput as EventListener)
     return () => {
       window.removeEventListener('setInputValue', handleSetInput as EventListener)
     }
   }, [])
-  
 
-  
+  // Fetch tabs on mount to ensure currentTabId is set
+  useEffect(() => {
+    fetchOpenTabs(undefined, true)
+  }, [fetchOpenTabs])
+
+  // Auto-select current tab when entering chat mode
+  useEffect(() => {
+    if (chatMode && !chatModeInitializedRef.current) {
+      chatModeInitializedRef.current = true
+      fetchOpenTabs(undefined, true)
+
+      const timer = setTimeout(() => {
+        const state = useTabsStore.getState()
+        // Only auto-select if current tab hasn't been explicitly removed
+        if (state.currentTabId !== null && !state.selectedTabs.includes(state.currentTabId) && !state.isCurrentTabRemoved) {
+          toggleTabSelection(state.currentTabId)
+        }
+      }, 150)
+
+      return () => clearTimeout(timer)
+    } else if (!chatMode) {
+      chatModeInitializedRef.current = false
+      // Clear selections when exiting chat mode
+      clearSelectedTabs()
+    }
+  }, [chatMode, fetchOpenTabs, toggleTabSelection, clearSelectedTabs])
+
+  // Auto-select new tab when user switches tabs in chat mode
+  useEffect(() => {
+    if (!chatMode) return
+
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      fetchOpenTabs(undefined, true)
+
+      setTimeout(() => {
+        const state = useTabsStore.getState()
+        const newCurrentTabId = state.currentTabId
+        const currentSelectedTabs = state.selectedTabs
+        const isCurrentTabRemoved = state.isCurrentTabRemoved
+
+        // Only auto-select if current tab hasn't been explicitly removed by user
+        if (newCurrentTabId !== null && !currentSelectedTabs.includes(newCurrentTabId) && !isCurrentTabRemoved) {
+          toggleTabSelection(newCurrentTabId)
+        }
+      }, 150)
+    }
+
+    chrome.tabs.onActivated.addListener(handleTabActivated)
+    return () => chrome.tabs.onActivated.removeListener(handleTabActivated)
+  }, [chatMode, fetchOpenTabs, toggleTabSelection])
+
+
   const submitTask = (query: string) => {
     if (!query.trim()) return
     
@@ -127,7 +178,11 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     
     // Get selected tab IDs from tabsStore
     const contextTabs = getContextTabs()
-    const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
+    // In chat mode, if no tabs are selected, explicitly send null to prevent using current page
+    // In agent mode, undefined means "use current active tab"
+    const tabIds = contextTabs.length > 0
+      ? contextTabs.map(tab => tab.id)
+      : (chatMode ? null : undefined)
     
     // Send to background
     setProcessing(true)
@@ -138,11 +193,16 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       chatMode  // Include chat mode setting
     })
     
-    // Clear input and selected tabs
+    // Clear input and history
     setInput('')
     setHistoryIndex(-1)
     setDraftBeforeHistory('')
-    clearSelectedTabs()
+
+    // Only clear selected tabs in agent mode (not in chat mode)
+    if (!chatMode) {
+      clearSelectedTabs()
+    }
+
     setShowTabSelector(false)
   }
   
@@ -298,8 +358,8 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
           </Button>
         </div> */}
         
-        {/* Selected tabs chips */}
-        {selectedContextTabs.length > 0 && (
+        {/* Selected tabs chips - only show in chat mode */}
+        {chatMode && selectedContextTabs.length > 0 && (
           <div className="px-2 mb-1">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
               {selectedContextTabs.map(tab => (
@@ -320,7 +380,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
                   </span>
                   <button
                     type="button"
-                    className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-foreground/10 text-xs text-muted-foreground hover:text-foreground"
+                    className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full hover:bg-foreground/10 text-sm text-muted-foreground hover:text-foreground"
                     aria-label={`Remove ${tab.title} from selection`}
                     onClick={() => handleRemoveSelectedTab(tab.id)}
                   >

@@ -158,7 +158,7 @@ export class ExecutionContext {
     return this._chatMode;
   }
 
-  public setSelectedTabIds(tabIds: number[]): void {
+  public setSelectedTabIds(tabIds: number[] | null): void {
     this.selectedTabIds = tabIds;
   }
 
