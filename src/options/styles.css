@@ -5,12 +5,12 @@
 /* BrowserOS Settings - Theme Configuration */
 @layer base {
   :root {
-    /* Light theme - Matching Sidepanel exactly */
-    --background: 0 0% 96%;
+    /* Light theme - Matching agent's white background */
+    --background: 0 0% 100%;
     --background-alt: 0 0% 100%;
     --header: 0 0% 100%;
     --foreground: 240 10% 3.9%;
-    --card: 0 0% 98%;
+    --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
@@ -31,7 +31,7 @@
     --brand: 19 96% 55%;
 
     /* Settings-specific colors - matching main background */
-    --sidebar-bg: 0 0% 96%;
+    --sidebar-bg: 0 0% 100%;
     --sidebar-hover: 240 4.8% 95.9%;
     --sidebar-active: 19 96% 55%;
     --sidebar-text: 240 10% 3.9%;
