@@ -156,11 +156,11 @@ export class WebSocketAgent {
           this.isCompleted = true;
 
           // Check if this was user-initiated cancellation
-          if (this.executionContext.abortSignal.aborted) {
-            this._publishMessage('✅ Task cancelled', 'assistant');
-          } else {
-            this._publishMessage('❌ Connection closed unexpectedly', 'error');
-          }
+        //   if (this.executionContext.abortSignal.aborted) {
+        //     this._publishMessage('✅ Task cancelled', 'assistant');
+        //   } else {
+        //     this._publishMessage('❌ Connection closed unexpectedly', 'error');
+        //   }
         }
 
         this.isConnected = false;
@@ -183,7 +183,11 @@ export class WebSocketAgent {
 
     // Gather browser context and append to task
     const browserContext = await this._getBrowserContext();
-    const taskWithContext = task + ' ' + JSON.stringify(browserContext);
+    const tabInfoStr = browserContext && browserContext.url
+      ? `\nContext: Current user's open tab: Title: ${browserContext.title} URL: ${browserContext.url}`
+      : '';
+
+    const taskWithContext = task + tabInfoStr;
 
     // Send message to server
     const message = {
@@ -297,7 +301,7 @@ export class WebSocketAgent {
     this.executionContext.incrementMetric('errors');
     Logging.log("WebSocketAgent", `Server error: ${errorMsg}`, "error");
 
-    this._publishMessage(`❌ Server error: ${errorMsg}`, 'error');
+    // this._publishMessage(`❌ Server error: ${errorMsg}`, 'error');
 
     throw new Error(errorMsg);
   }
@@ -323,7 +327,7 @@ export class WebSocketAgent {
         const errorMsg = `Agent timeout: No events received for ${WS_AGENT_CONFIG.eventGapTimeout / 1000}s`;
         this.isCompleted = true;
         Logging.log("WebSocketAgent", errorMsg, "error");
-        this._publishMessage(`❌ ${errorMsg}`, 'error');
+        // this._publishMessage(`❌ ${errorMsg}`, 'error');
         throw new Error(errorMsg);
       }
 
@@ -358,7 +362,7 @@ export class WebSocketAgent {
 
     // Publish error if not already completed
     if (!this.isCompleted) {
-      this._publishMessage(`❌ ${errorMessage}`, 'error');
+    //   this._publishMessage(`❌ ${errorMessage}`, 'error');
     }
   }
 
