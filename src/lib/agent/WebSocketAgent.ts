@@ -156,11 +156,11 @@ export class WebSocketAgent {
           this.isCompleted = true;
 
           // Check if this was user-initiated cancellation
-        //   if (this.executionContext.abortSignal.aborted) {
-        //     this._publishMessage('✅ Task cancelled', 'assistant');
-        //   } else {
-        //     this._publishMessage('❌ Connection closed unexpectedly', 'error');
-        //   }
+          if (this.executionContext.abortSignal.aborted) {
+            this._publishMessage('✅ Task cancelled', 'assistant');
+          } else {
+            this._publishMessage('❌ Connection closed unexpectedly', 'error');
+          }
         }
 
         this.isConnected = false;
