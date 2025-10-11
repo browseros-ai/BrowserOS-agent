@@ -156,6 +156,12 @@ export class ProvidersHandler {
     const ports = this.portManager.getAllPorts()
 
     for (const port of ports) {
+      // Check if port is still connected before sending
+      if (!port || typeof port.postMessage !== 'function') {
+        Logging.log('ProvidersHandler', 'Port is invalid, skipping broadcast', 'warning')
+        continue
+      }
+
       try {
         port.postMessage({
           type: MessageType.WORKFLOW_STATUS,

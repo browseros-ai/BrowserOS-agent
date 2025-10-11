@@ -20,7 +20,8 @@ export class LLMTestService {
 
   async testProvider(provider: LLMProvider): Promise<TestResult> {
     return new Promise((resolve) => {
-      const port = chrome.runtime.connect({ name: 'options' })
+      let port: chrome.runtime.Port | null = null
+      let isPortConnected = false
       const messageId = `test-${Date.now()}`
       let timeoutTimer: NodeJS.Timeout | null = null
 
@@ -29,12 +30,17 @@ export class LLMTestService {
           clearTimeout(timeoutTimer)
           timeoutTimer = null
         }
-        try {
-          port.onMessage.removeListener(listener)
-          port.disconnect()
-        } catch (e) {
-          // Port might already be disconnected
+        if (port && isPortConnected) {
+          try {
+            port.onMessage.removeListener(listener)
+            port.onDisconnect.removeListener(disconnectListener)
+            port.disconnect()
+          } catch (e) {
+            // Port might already be disconnected, ignore
+          }
         }
+        isPortConnected = false
+        port = null
       }
 
       const listener = (msg: PortMessage) => {
@@ -61,22 +67,45 @@ export class LLMTestService {
         }
       }
 
-      port.onMessage.addListener(listener)
-
-      port.postMessage({
-        type: MessageType.SETTINGS_TEST_PROVIDER,
-        payload: { provider },
-        id: messageId
-      })
-
-      timeoutTimer = setTimeout(() => {
+      const disconnectListener = () => {
+        isPortConnected = false
         cleanup()
         resolve({
           status: 'error',
-          error: 'Test timeout after 30 seconds',
+          error: 'Connection to background script lost',
           timestamp: new Date().toISOString()
         })
-      }, 30000)
+      }
+
+      try {
+        port = chrome.runtime.connect({ name: 'options' })
+        isPortConnected = true
+
+        port.onMessage.addListener(listener)
+        port.onDisconnect.addListener(disconnectListener)
+
+        port.postMessage({
+          type: MessageType.SETTINGS_TEST_PROVIDER,
+          payload: { provider },
+          id: messageId
+        })
+
+        timeoutTimer = setTimeout(() => {
+          cleanup()
+          resolve({
+            status: 'error',
+            error: 'Test timeout after 30 seconds',
+            timestamp: new Date().toISOString()
+          })
+        }, 30000)
+      } catch (error) {
+        cleanup()
+        resolve({
+          status: 'error',
+          error: `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date().toISOString()
+        })
+      }
     })
   }
 
