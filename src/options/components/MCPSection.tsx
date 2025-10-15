@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
-import { Server, CheckCircle2 } from 'lucide-react'
+import { Server, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useMCPStore } from '../stores/mcpStore'
 import { testMCPServer } from '../services/mcp-test-service'
 
 export function MCPSection() {
   const { settings, testResult, setEnabled, setTestResult, loadSettings } = useMCPStore()
   const [isTestLoading, setIsTestLoading] = useState(false)
+  const [showTools, setShowTools] = useState(false)
+  const [tools, setTools] = useState<Array<{ name: string; description: string }>>([])
 
   useEffect(() => {
     loadSettings()
@@ -24,10 +26,16 @@ export function MCPSection() {
 
     setIsTestLoading(true)
     setTestResult({ status: 'loading', timestamp: new Date().toISOString() })
+    setShowTools(false)
+    setTools([])
 
     try {
       const result = await testMCPServer(settings.serverUrl)
       setTestResult(result)
+
+      if (result.status === 'success' && result.tools) {
+        setTools(result.tools)
+      }
     } catch (error) {
       setTestResult({
         status: 'error',
@@ -136,6 +144,13 @@ export function MCPSection() {
               {getTestButtonContent()}
             </button>
 
+            {/* Success Message */}
+            {testResult.status === 'success' && testResult.toolCount !== undefined && (
+              <span className="text-green-600 text-[13px] font-medium">
+                Connected • {testResult.toolCount} tools available
+              </span>
+            )}
+
             {/* Error Message */}
             {testResult.status === 'error' && testResult.error && (
               <span className="text-red-500 text-[13px]">
@@ -143,6 +158,38 @@ export function MCPSection() {
               </span>
             )}
           </div>
+
+          {/* View Tools Section */}
+          {testResult.status === 'success' && tools.length > 0 && (
+            <div className="mt-4 border-t border-border pt-4">
+              <button
+                onClick={() => setShowTools(!showTools)}
+                className="flex items-center gap-2 text-foreground text-[14px] font-medium hover:text-brand transition-colors"
+              >
+                {showTools ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+                <span>View Tools ({tools.length})</span>
+              </button>
+
+              {showTools && (
+                <div className="mt-3 space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                  {tools.map((tool, index) => (
+                    <div key={index} className="text-[13px]">
+                      <div className="font-mono font-medium text-foreground">
+                        {tool.name}
+                      </div>
+                      <div className="text-muted-foreground mt-0.5 leading-relaxed">
+                        {tool.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

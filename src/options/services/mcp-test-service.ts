@@ -50,7 +50,9 @@ export class MCPTestService {
           resolve({
             status: payload.success ? 'success' : 'error',
             error: payload.error,
-            timestamp: payload.timestamp
+            timestamp: payload.timestamp,
+            toolCount: payload.toolCount,
+            tools: payload.tools
           })
         } else if (msg.id === messageId && msg.type === MessageType.ERROR) {
           cleanup()

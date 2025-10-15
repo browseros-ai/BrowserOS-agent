@@ -1,9 +1,16 @@
 import { z } from 'zod'
 
+export const MCPToolSchema = z.object({
+  name: z.string(),  // Tool name
+  description: z.string()  // Tool description
+})
+
 export const MCPTestResultSchema = z.object({
   status: z.enum(['idle', 'loading', 'success', 'error']),  // Test status
   error: z.string().optional(),  // Error message if test failed
-  timestamp: z.string().optional()  // When the test was run
+  timestamp: z.string().optional(),  // When the test was run
+  toolCount: z.number().optional(),  // Number of tools found
+  tools: z.array(MCPToolSchema).optional()  // List of available tools
 })
 
 export const MCPSettingsSchema = z.object({
@@ -12,5 +19,6 @@ export const MCPSettingsSchema = z.object({
   port: z.number().int().positive().optional()  // MCP server port
 })
 
+export type MCPTool = z.infer<typeof MCPToolSchema>
 export type MCPTestResult = z.infer<typeof MCPTestResultSchema>
 export type MCPSettings = z.infer<typeof MCPSettingsSchema>

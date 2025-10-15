@@ -203,12 +203,17 @@ export class SettingsHandler {
       }
 
       const toolCount = data.result.tools.length
+      const tools = data.result.tools.map((tool: any) => ({
+        name: tool.name,
+        description: tool.description
+      }))
 
       port.postMessage({
         type: MessageType.SETTINGS_TEST_MCP_RESPONSE,
         payload: {
           success: true,
           toolCount,
+          tools,
           timestamp: new Date().toISOString()
         },
         id: message.id
