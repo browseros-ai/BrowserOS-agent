@@ -4,17 +4,12 @@ import { useMCPStore } from '../stores/mcpStore'
 import { testMCPServer } from '../services/mcp-test-service'
 
 export function MCPSection() {
-  const { settings, testResult, setEnabled, setServerUrl, setTestResult, loadSettings } = useMCPStore()
+  const { settings, testResult, setEnabled, setTestResult, loadSettings } = useMCPStore()
   const [isTestLoading, setIsTestLoading] = useState(false)
 
   useEffect(() => {
     loadSettings()
-
-    // TODO: Load server URL from flags/config
-    // For now, using a default URL
-    const defaultUrl = 'http://127.0.0.1:9224'
-    setServerUrl(defaultUrl)
-  }, [loadSettings, setServerUrl])
+  }, [loadSettings])
 
   const handleToggle = async () => {
     await setEnabled(!settings.enabled)

@@ -1,58 +1,58 @@
 import { create } from 'zustand'
 import { MCPSettings, MCPTestResult, MCPSettingsSchema } from '../types/mcp-settings'
+import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
 
-const MCP_STORAGE_KEY = 'browseros-mcp-settings'
+const MCP_PREF_KEYS = {
+  ENABLED: 'browseros.server.mcp_enabled',
+  PORT: 'browseros.server.mcp_port'
+}
 
 interface MCPStore {
   settings: MCPSettings
   testResult: MCPTestResult
 
   setEnabled: (enabled: boolean) => Promise<void>
-  setServerUrl: (url: string) => void
-  setPort: (port: number) => void
+  setPort: (port: number) => Promise<void>
   setTestResult: (result: MCPTestResult) => void
   loadSettings: () => Promise<void>
 }
 
-const readMCPSettings = async (): Promise<MCPSettings | null> => {
-  if (!chrome.storage?.local) return null
+const readMCPSettings = async (): Promise<MCPSettings> => {
+  const adapter = getBrowserOSAdapter()
 
   try {
-    const result = await new Promise<Record<string, unknown>>((resolve) => {
-      chrome.storage.local.get(MCP_STORAGE_KEY, (result) => resolve(result ?? {}))
-    })
+    const [enabledPref, portPref] = await Promise.all([
+      adapter.getPref(MCP_PREF_KEYS.ENABLED),
+      adapter.getPref(MCP_PREF_KEYS.PORT)
+    ])
 
-    const raw = result?.[MCP_STORAGE_KEY]
-    if (raw) {
-      const data = typeof raw === 'string' ? JSON.parse(raw) : raw
-      return MCPSettingsSchema.parse(data)
-    }
+    const enabled = enabledPref?.value ?? false
+    const port = portPref?.value ?? undefined
+    const serverUrl = port ? `http://127.0.0.1:${port}` : ''
+
+    return { enabled, port, serverUrl }
   } catch (error) {
     console.error('[mcpStore] Failed to read MCP settings:', error)
+    return {
+      enabled: false,
+      serverUrl: '',
+      port: undefined
+    }
   }
-
-  return null
 }
 
 const writeMCPSettings = async (settings: MCPSettings): Promise<boolean> => {
-  if (!chrome.storage?.local) return false
+  const adapter = getBrowserOSAdapter()
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      chrome.storage.local.set(
-        { [MCP_STORAGE_KEY]: JSON.stringify(settings) },
-        () => {
-          if (chrome.runtime?.lastError) {
-            reject(chrome.runtime.lastError)
-          } else {
-            resolve()
-          }
-        }
-      )
-    })
-    return true
+    const enabledSuccess = await adapter.setPref(MCP_PREF_KEYS.ENABLED, settings.enabled)
+    const portSuccess = settings.port
+      ? await adapter.setPref(MCP_PREF_KEYS.PORT, settings.port)
+      : true
+
+    return enabledSuccess && portSuccess
   } catch (error) {
-    console.error('[mcpStore] Failed to save MCP settings:', error)
+    console.error('[mcpStore] Failed to write MCP settings:', error)
     return false
   }
 }
@@ -71,7 +71,10 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
 
   setEnabled: async (enabled: boolean) => {
     const currentSettings = get().settings
-    const newSettings = { ...currentSettings, enabled }
+    const newSettings = {
+      ...currentSettings,
+      enabled
+    }
 
     const success = await writeMCPSettings(newSettings)
     if (success) {
@@ -79,16 +82,18 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     }
   },
 
-  setServerUrl: (url: string) => {
-    set((state) => ({
-      settings: { ...state.settings, serverUrl: url }
-    }))
-  },
+  setPort: async (port: number) => {
+    const currentSettings = get().settings
+    const newSettings = {
+      ...currentSettings,
+      port,
+      serverUrl: `http://127.0.0.1:${port}`
+    }
 
-  setPort: (port: number) => {
-    set((state) => ({
-      settings: { ...state.settings, port }
-    }))
+    const success = await writeMCPSettings(newSettings)
+    if (success) {
+      set({ settings: newSettings })
+    }
   },
 
   setTestResult: (result: MCPTestResult) => {
@@ -97,8 +102,6 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
 
   loadSettings: async () => {
     const settings = await readMCPSettings()
-    if (settings) {
-      set({ settings })
-    }
+    set({ settings })
   }
 }))
