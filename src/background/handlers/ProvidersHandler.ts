@@ -3,6 +3,7 @@ import { PortMessage } from '@/lib/runtime/PortMessaging'
 import { LLMSettingsReader } from '@/lib/llm/settings/LLMSettingsReader'
 import { langChainProvider } from '@/lib/llm/LangChainProvider'
 import { BrowserOSProvidersConfigSchema, BROWSEROS_PREFERENCE_KEYS } from '@/lib/llm/settings/browserOSTypes'
+import { clearCustomSystemPromptCache } from '@/lib/llm/settings/customSystemPrompt'
 import { Logging } from '@/lib/utils/Logging'
 import { PortManager } from '@/background/router/PortManager'
 
@@ -69,7 +70,8 @@ export class ProvidersHandler {
       if (payload.providers) {
         payload.providers = payload.providers.map((p: any) => ({
           ...p,
-          isDefault: p.isDefault !== undefined ? p.isDefault : (p.id === 'browseros')
+          isDefault: p.isDefault !== undefined ? p.isDefault : (p.id === 'browseros'),
+          systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
         }))
       }
       const config = BrowserOSProvidersConfigSchema.parse(payload)
@@ -116,6 +118,7 @@ export class ProvidersHandler {
       const success = browserOSSuccess || storageSuccess
       if (success) {
         try { langChainProvider.clearCache() } catch (_) {}
+        clearCustomSystemPromptCache()
         this.lastProvidersConfigJson = configStr
 
         this.broadcastProvidersConfig(config)

@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { LLMProvider } from '../types/llm-settings'
 import { MessageType } from '@/lib/types/messaging'
-import { PortMessage } from '@/lib/runtime/PortMessaging'
+import { PortMessaging, PortPrefix } from '@/lib/runtime/PortMessaging'
 import { BrowserOSProvidersConfig } from '@/lib/llm/settings/browserOSTypes'
-
-const HEARTBEAT_INTERVAL_MS = 20000  // Send heartbeat every 20 seconds to keep background alive
 
 const DEFAULT_BROWSEROS_PROVIDER: LLMProvider = {
   id: 'browseros',
@@ -12,6 +10,7 @@ const DEFAULT_BROWSEROS_PROVIDER: LLMProvider = {
   type: 'browseros',
   isBuiltIn: true,
   isDefault: true,
+  systemPrompt: '',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 }
@@ -20,184 +19,115 @@ export function useBrowserOSPrefs() {
   const [providers, setProviders] = useState<LLMProvider[]>([DEFAULT_BROWSEROS_PROVIDER])
   const [defaultProvider, setDefaultProviderState] = useState<string>('browseros')
   const [isLoading, setIsLoading] = useState(true)
-  const [port, setPort] = useState<chrome.runtime.Port | null>(null)
-  const [isPortConnected, setIsPortConnected] = useState(false)
+  const messagingRef = useRef<PortMessaging | null>(null)
 
-  // Helper to check if port is connected and reconnect if needed
-  const ensurePortConnected = useCallback(() => {
-    if (!port || !isPortConnected) {
-      console.warn('[useBrowserOSPrefs] Port not connected')
-      return null
-    }
-    return port
-  }, [port, isPortConnected])
-
-  // Setup persistent port connection
+  // Setup persistent port connection with auto-reconnect
   useEffect(() => {
-    let currentPort: chrome.runtime.Port | null = null
-    let messageListener: ((msg: PortMessage) => void) | null = null
-    let disconnectListener: (() => void) | null = null
-    let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+    const messaging = PortMessaging.getInstance()
+    messagingRef.current = messaging
 
-    const setupPort = () => {
-      try {
-        currentPort = chrome.runtime.connect({ name: 'provider-settings' })
-        setIsPortConnected(true)
+    const handleWorkflowStatus = (payload: any) => {
+      if (payload?.status === 'error') {
+        console.error('[useBrowserOSPrefs] Error from background:', payload.error)
+      }
 
-        messageListener = (msg: PortMessage) => {
-          // Handle provider config responses and broadcasts
-          if (msg.type === MessageType.WORKFLOW_STATUS) {
-            const payload = msg.payload as any
-            if (payload?.status === 'error') {
-              console.error('[useBrowserOSPrefs] Error from background:', payload.error)
-            }
-            if (payload?.data?.providersConfig) {
-              const config = payload.data.providersConfig as BrowserOSProvidersConfig
-              // Ensure all providers have isDefault field (migration for old data)
-              const migratedProviders = config.providers.map(p => ({
-                ...p,
-                isDefault: p.isDefault !== undefined ? p.isDefault : (p.id === 'browseros')
-              }))
-              setProviders(migratedProviders)
-              setDefaultProviderState(config.defaultProviderId || 'browseros')
-              setIsLoading(false)
-            }
-          }
-        }
-
-        disconnectListener = () => {
-          console.warn('[useBrowserOSPrefs] Port disconnected')
-          setIsPortConnected(false)
-          setPort(null)
-
-          // Stop heartbeat on disconnect
-          if (heartbeatInterval) {
-            clearInterval(heartbeatInterval)
-            heartbeatInterval = null
-          }
-        }
-
-        currentPort.onMessage.addListener(messageListener)
-        currentPort.onDisconnect.addListener(disconnectListener)
-        setPort(currentPort)
-
-        // Start heartbeat to keep background service worker alive
-        heartbeatInterval = setInterval(() => {
-          if (currentPort) {
-            try {
-              currentPort.postMessage({
-                type: MessageType.HEARTBEAT,
-                payload: { timestamp: Date.now() },
-                id: `heartbeat-provider-settings-${Date.now()}`
-              })
-            } catch (error) {
-              console.warn('[useBrowserOSPrefs] Heartbeat failed, port likely disconnected')
-              if (heartbeatInterval) {
-                clearInterval(heartbeatInterval)
-                heartbeatInterval = null
-              }
-            }
-          }
-        }, HEARTBEAT_INTERVAL_MS)
-
-        // Send initial request
-        const initialTimeout = setTimeout(() => {
-          if (currentPort) {
-            try {
-              currentPort.postMessage({
-                type: MessageType.GET_LLM_PROVIDERS,
-                payload: {},
-                id: `get-providers-${Date.now()}`
-              })
-            } catch (error) {
-              console.error('[useBrowserOSPrefs] Failed to send initial message:', error)
-            }
-          }
-        }, 100)
-
-        // Retry after delay
-        const retryTimeout = setTimeout(() => {
-          if (isLoading && currentPort) {
-            try {
-              currentPort.postMessage({
-                type: MessageType.GET_LLM_PROVIDERS,
-                payload: {},
-                id: `get-providers-retry-${Date.now()}`
-              })
-            } catch (error) {
-              // Silently fail
-            }
-          }
-        }, 500)
-
-        return () => {
-          clearTimeout(initialTimeout)
-          clearTimeout(retryTimeout)
-        }
-      } catch (error) {
-        console.error('[useBrowserOSPrefs] Failed to setup port:', error)
-        setIsPortConnected(false)
-        return () => {}
+      if (payload?.data?.providersConfig) {
+        const config = payload.data.providersConfig as BrowserOSProvidersConfig
+        // Ensure all providers have isDefault field and systemPrompt migration
+        const migratedProviders = config.providers.map(p => ({
+          ...p,
+          isDefault: p.isDefault !== undefined ? p.isDefault : (p.id === 'browseros'),
+          systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
+        }))
+        setProviders(migratedProviders)
+        setDefaultProviderState(config.defaultProviderId || 'browseros')
+        setIsLoading(false)
       }
     }
 
-    const cleanup = setupPort()
+    messaging.addMessageListener<any>(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
+
+    // Connect with auto-reconnect enabled for reliability
+    let connected = messaging.isConnected()
+    if (!connected) {
+      connected = messaging.connect(PortPrefix.OPTIONS, true)
+      if (!connected) {
+        console.error('[useBrowserOSPrefs] Failed to connect to background port')
+        setIsLoading(false)
+      }
+    }
+
+    // Add delay to ensure port is ready before sending message
+    const initialTimeout = setTimeout(() => {
+      if (messaging.isConnected()) {
+        messaging.sendMessage(
+          MessageType.GET_LLM_PROVIDERS,
+          {},
+          `get-providers-${Date.now()}`
+        )
+      }
+    }, 100)
+
+    // Retry after a bit more time in case first one fails
+    const retryTimeout = setTimeout(() => {
+      if (isLoading && messaging.isConnected()) {
+        messaging.sendMessage(
+          MessageType.GET_LLM_PROVIDERS,
+          {},
+          `get-providers-retry-${Date.now()}`
+        )
+      }
+    }, 500)
 
     return () => {
-      cleanup?.()
-
-      // Stop heartbeat
-      if (heartbeatInterval) {
-        clearInterval(heartbeatInterval)
-        heartbeatInterval = null
+      clearTimeout(initialTimeout)
+      clearTimeout(retryTimeout)
+      messaging.removeMessageListener(MessageType.WORKFLOW_STATUS, handleWorkflowStatus)
+      if (messaging.isConnected()) {
+        messaging.disconnect()
       }
-
-      if (currentPort) {
-        try {
-          if (messageListener) currentPort.onMessage.removeListener(messageListener)
-          if (disconnectListener) currentPort.onDisconnect.removeListener(disconnectListener)
-          currentPort.disconnect()
-        } catch (error) {
-          // Port already disconnected
-        }
-      }
-      setIsPortConnected(false)
-      setPort(null)
+      messagingRef.current = null
     }
   }, [])
 
   const saveProvidersConfig = useCallback(async (updatedProviders: LLMProvider[], newDefaultId?: string) => {
-    const connectedPort = ensurePortConnected()
-    if (!connectedPort) {
-      console.error('[useBrowserOSPrefs] Port not connected, cannot save providers')
+    const messaging = messagingRef.current
+    if (!messaging || !messaging.isConnected()) {
+      console.error('[useBrowserOSPrefs] Messaging not connected, cannot save providers')
       return false
     }
+
+    const normalizedProviders = updatedProviders.map(provider => ({
+      ...provider,
+      systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
+    }))
 
     const config: BrowserOSProvidersConfig = {
       defaultProviderId: newDefaultId || defaultProvider,
-      providers: updatedProviders
+      providers: normalizedProviders
     }
 
-    // Send via persistent port with error handling
-    try {
-      connectedPort.postMessage({
-        type: MessageType.SAVE_LLM_PROVIDERS,
-        payload: config,
-        id: `save-providers-${Date.now()}`
-      })
-      return true
-    } catch (error) {
-      console.error('[useBrowserOSPrefs] Failed to send save message:', error)
-      setIsPortConnected(false)
+    // Send via persistent port - broadcast will update state automatically
+    const sent = messaging.sendMessage(
+      MessageType.SAVE_LLM_PROVIDERS,
+      config,
+      `save-providers-${Date.now()}`
+    )
+
+    if (!sent) {
+      console.error('[useBrowserOSPrefs] Failed to send providers config')
       return false
     }
-  }, [ensurePortConnected, defaultProvider])
+
+    return true
+  }, [defaultProvider])
 
   const setDefaultProvider = useCallback(async (providerId: string) => {
     setDefaultProviderState(providerId)
     const normalizedProviders = providers.map(provider => ({
       ...provider,
-      isDefault: provider.id === providerId
+      isDefault: provider.id === providerId,
+      systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
     }))
     setProviders(normalizedProviders)
     await saveProvidersConfig(normalizedProviders, providerId)
@@ -209,17 +139,28 @@ export function useBrowserOSPrefs() {
       id: provider.id || crypto.randomUUID(),
       isDefault: false,  // Ensure isDefault is always set
       isBuiltIn: provider.isBuiltIn || false,
+      systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : '',
       createdAt: provider.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
+
     const updatedProviders = [...providers, newProvider]
-    setProviders(updatedProviders)
-    const success = await saveProvidersConfig(updatedProviders)
+    const normalizedProviders = updatedProviders.map(p => ({
+      ...p,
+      systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
+    }))
+
+    // Optimistically update state
+    setProviders(normalizedProviders)
+
+    // Attempt to save
+    const success = await saveProvidersConfig(normalizedProviders)
     if (!success) {
       // Revert local state if save failed
       setProviders(providers)
       throw new Error('Failed to save provider. Connection lost. Please refresh the page and try again.')
     }
+
     return newProvider
   }, [providers, saveProvidersConfig])
 
@@ -228,20 +169,32 @@ export function useBrowserOSPrefs() {
     const updatedProvider = {
       ...provider,
       isDefault: provider.id === defaultProvider,
+      systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : '',
       updatedAt: new Date().toISOString()
     }
+
     const updatedProviders = providers.map(p =>
       p.id === provider.id
         ? updatedProvider
         : { ...p, isDefault: p.id === defaultProvider }
     )
-    setProviders(updatedProviders)
-    const success = await saveProvidersConfig(updatedProviders)
+
+    const normalizedProviders = updatedProviders.map(p => ({
+      ...p,
+      systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
+    }))
+
+    // Optimistically update state
+    setProviders(normalizedProviders)
+
+    // Attempt to save
+    const success = await saveProvidersConfig(normalizedProviders)
     if (!success) {
       // Revert local state if save failed
       setProviders(previousProviders)
       throw new Error('Failed to update provider. Connection lost. Please refresh the page and try again.')
     }
+
     return updatedProvider
   }, [providers, defaultProvider, saveProvidersConfig])
 
@@ -259,10 +212,14 @@ export function useBrowserOSPrefs() {
 
     const normalizedProviders = remainingProviders.map(p => ({
       ...p,
-      isDefault: p.id === nextDefaultId
+      isDefault: p.id === nextDefaultId,
+      systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
     }))
 
+    // Optimistically update state
     setProviders(normalizedProviders)
+
+    // Attempt to save
     const success = await saveProvidersConfig(normalizedProviders, nextDefaultId)
     if (!success) {
       // Revert local state if save failed

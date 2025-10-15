@@ -1,28 +1,88 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import {
-  Bot, Settings, Menu, X, Moon, Sun, Cloud
+  Menu, X, Moon, Sun, Cloud
 } from 'lucide-react'
 
-interface SidebarItem {
+interface SettingsSection {
   id: string
   label: string
   icon: React.ElementType
   disabled?: boolean
+  content: React.ReactNode
 }
-
-const sidebarItems: SidebarItem[] = [
-  { id: 'browseros-ai', label: 'BrowserOS AI', icon: Bot }
-]
 
 interface SettingsLayoutProps {
-  children: React.ReactNode
+  sections: SettingsSection[]
+  initialSectionId?: string
 }
 
-export function SettingsLayout({ children }: SettingsLayoutProps) {
+const STORAGE_KEY = 'browseros-options-active-section'
+
+const resolveInitialSectionId = (sections: SettingsSection[], preferredId?: string): string => {
+  if (!sections.length) {
+    return ''
+  }
+  if (preferredId && sections.some(section => section.id === preferredId)) {
+    return preferredId
+  }
+  return sections[0].id
+}
+
+export function SettingsLayout({ sections, initialSectionId }: SettingsLayoutProps) {
   const { theme, setTheme } = useSettingsStore()
-  const [activeSection, setActiveSection] = useState('browseros-ai')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const sectionIds = useMemo(
+    () => sections.map(section => section.id),
+    [sections]
+  )
+
+  const [activeSection, setActiveSection] = useState(() => {
+    const fallback = resolveInitialSectionId(sections, initialSectionId)
+    if (typeof window === 'undefined') {
+      return fallback
+    }
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY)
+      if (stored && sections.some(section => section.id === stored)) {
+        return stored
+      }
+    } catch (_error) {
+      // Ignore storage errors and fall back to default
+    }
+    return fallback
+  })
+
+  useEffect(() => {
+    if (!sectionIds.length) {
+      setActiveSection('')
+      return
+    }
+
+    if (!sectionIds.includes(activeSection)) {
+      setActiveSection(resolveInitialSectionId(sections, initialSectionId))
+    }
+  }, [sectionIds, activeSection, sections, initialSectionId])
+
+  useEffect(() => {
+    if (!activeSection || typeof window === 'undefined') {
+      return
+    }
+    if (!sectionIds.includes(activeSection)) {
+      return
+    }
+    try {
+      window.localStorage.setItem(STORAGE_KEY, activeSection)
+    } catch (_error) {
+      // Ignore storage failures; they shouldn't block UI
+    }
+  }, [activeSection, sectionIds])
+
+  const activeSectionConfig = useMemo(
+    () => sections.find(section => section.id === activeSection) ?? null,
+    [sections, activeSection]
+  )
 
   // Close sidebar on larger screens
   useEffect(() => {
@@ -122,7 +182,7 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
 
             {/* Sidebar Items */}
             <div className="flex-1 overflow-y-auto pt-2">
-              {sidebarItems.map((item) => {
+              {sections.map((item) => {
                 const Icon = item.icon
                 return (
                   <div
@@ -149,7 +209,7 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto min-w-0">
           <div className="max-w-[696px] mx-auto px-6 py-8">
-            {children}
+            {activeSectionConfig?.content ?? null}
           </div>
         </main>
       </div>

@@ -48,6 +48,7 @@ export const BrowserOSProviderSchema = z.object({
   baseUrl: z.string().optional(),  // API base URL
   apiKey: z.string().optional(),  // API key for authentication
   modelId: z.string().optional(),  // Model identifier
+  systemPrompt: z.string().optional(),  // Custom system prompt override
   capabilities: ProviderCapabilitiesSchema.optional(),  // Provider capabilities
   modelConfig: ModelConfigSchema.optional(),  // Model configuration
   createdAt: z.string(),  // ISO timestamp of creation
@@ -94,6 +95,7 @@ export function createDefaultBrowserOSProvider(): BrowserOSProvider {
     type: 'browseros',
     isDefault: true,
     isBuiltIn: true,
+    systemPrompt: '',
     createdAt: timestamp,
     updatedAt: timestamp
   }

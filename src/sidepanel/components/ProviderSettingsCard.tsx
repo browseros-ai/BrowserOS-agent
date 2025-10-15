@@ -21,7 +21,8 @@ const ProviderFormSchema = z.object({
   modelId: z.string().min(1),  // Model identifier
   supportsImages: z.boolean().optional(),  // Capability
   contextWindow: z.union([z.number(), z.string()]).optional(),  // Context size
-  temperature: z.union([z.number(), z.string()]).optional()  // Default temperature
+  temperature: z.union([z.number(), z.string()]).optional(),  // Default temperature
+  systemPrompt: z.string().optional()  // Custom system prompt override
 })
 
 type ProviderDraft = z.infer<typeof ProviderFormSchema>
@@ -88,7 +89,8 @@ export function ProviderSettingsCard(): JSX.Element | null {
       modelId: '',
       supportsImages: true,
       contextWindow: 128000,
-      temperature: 0.7
+      temperature: 0.7,
+      systemPrompt: ''
     })
   }
 
@@ -112,7 +114,8 @@ export function ProviderSettingsCard(): JSX.Element | null {
       modelId: provider.modelId ?? '',
       supportsImages: provider.capabilities?.supportsImages === true,
       contextWindow: provider.modelConfig?.contextWindow,
-      temperature: provider.modelConfig?.temperature
+      temperature: provider.modelConfig?.temperature,
+      systemPrompt: provider.systemPrompt ?? ''
     })
   }
 
@@ -135,6 +138,7 @@ export function ProviderSettingsCard(): JSX.Element | null {
       baseUrl: p.baseUrl || undefined,
       apiKey: p.apiKey || undefined,
       modelId: p.modelId || undefined,
+      systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : '',
       capabilities: p.supportsImages ? { supportsImages: true } : undefined,
       modelConfig: {
         contextWindow,

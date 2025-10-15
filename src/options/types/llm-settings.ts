@@ -32,6 +32,7 @@ export const LLMProviderSchema = z.object({
   baseUrl: z.string().optional(),  // API base URL
   apiKey: z.string().optional(),  // API key for authentication
   modelId: z.string().optional(),  // Model identifier (e.g., 'gpt-4', 'claude-3-sonnet')
+  systemPrompt: z.string().optional(),  // Custom system prompt override
   capabilities: z.object({
     supportsImages: z.boolean().optional()  // Whether the provider supports image inputs
   }).optional(),  // Provider capabilities

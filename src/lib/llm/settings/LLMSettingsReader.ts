@@ -9,6 +9,7 @@ import {
   createDefaultBrowserOSProvider,
   createDefaultProvidersConfig
 } from './browserOSTypes'
+import { setCachedDefaultProvider, clearCustomSystemPromptCache } from './customSystemPrompt'
 
 // Type definitions for chrome.browserOS API (callback-based)
 declare global {
@@ -57,6 +58,7 @@ export class LLMSettingsReader {
       ...provider,
       isDefault: provider.id === defaultProviderId,
       isBuiltIn: provider.isBuiltIn ?? false,
+      systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : '',
       createdAt: provider.createdAt ?? new Date().toISOString(),
       updatedAt: provider.updatedAt ?? new Date().toISOString()
     }))
@@ -95,11 +97,14 @@ export class LLMSettingsReader {
       const provider = config.providers.find(p => p.id === config.defaultProviderId)
         || config.providers[0]
         || this.getDefaultBrowserOSProvider()
+      setCachedDefaultProvider(provider)
       return provider
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       Logging.log('LLMSettingsReader', `Failed to read settings: ${errorMessage}`, 'error')
-      return this.getDefaultBrowserOSProvider()
+      const fallback = this.getDefaultBrowserOSProvider()
+      setCachedDefaultProvider(fallback)
+      return fallback
     }
   }
 
@@ -110,6 +115,10 @@ export class LLMSettingsReader {
     try {
       const config = await this.readProvidersConfig()
       if (config) {
+        const defaultProvider = config.providers.find(p => p.id === config.defaultProviderId)
+          || config.providers[0]
+          || null
+        setCachedDefaultProvider(defaultProvider)
         return config
       }
     } catch (error) {
@@ -117,7 +126,9 @@ export class LLMSettingsReader {
       Logging.log('LLMSettingsReader', `Failed to read providers: ${errorMessage}`, 'error')
     }
 
-    return createDefaultProvidersConfig()
+    const fallback = createDefaultProvidersConfig()
+    setCachedDefaultProvider(fallback.providers[0] || null)
+    return fallback
   }
 
   /**
@@ -300,6 +311,11 @@ export class LLMSettingsReader {
     const success = browserOSSuccess || storageSuccess
     if (!success) {
       Logging.log('LLMSettingsReader', 'Failed to save to any storage mechanism', 'error')
+    } else {
+      const defaultProvider = normalized.providers.find(p => p.id === normalized.defaultProviderId)
+        || normalized.providers[0]
+        || null
+      setCachedDefaultProvider(defaultProvider)
     }
     return success
   }

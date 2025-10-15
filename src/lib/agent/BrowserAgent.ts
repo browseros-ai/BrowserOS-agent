@@ -13,6 +13,7 @@ import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
 import { getLLM } from "@/lib/llm/LangChainProvider";
+import { applyCustomSystemPrompt } from "@/lib/llm/settings/customSystemPrompt";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
@@ -733,7 +734,7 @@ export class BrowserAgent {
 
       // Get numbeer of tokens in full history
       // System prompt for planner
-      const systemPrompt = generatePlannerPrompt(this.toolDescriptions || "");
+      const systemPrompt = await applyCustomSystemPrompt(generatePlannerPrompt(this.toolDescriptions || ""));
 
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
       const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
@@ -842,7 +843,7 @@ ${fullHistory}
   ): Promise<ExecutorResult> {
     // Use the current iteration message manager from execution context
     const executorMM = new MessageManager();
-    const systemPrompt = generateExecutorPrompt(this._buildExecutionContext());
+    const systemPrompt = await applyCustomSystemPrompt(generateExecutorPrompt(this._buildExecutionContext()));
     const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
     executorMM.addSystem(systemPrompt);
     const currentIterationToolMessages: string[] = [];
@@ -1359,7 +1360,7 @@ ${fullHistory}
       // Get accumulated execution history from all iterations
       let fullHistory = this._buildPlannerExecutionHistory();
 
-      const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
+      const systemPrompt = await applyCustomSystemPrompt(generatePredefinedPlannerPrompt(this.toolDescriptions || ""));
       const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
       const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
       Logging.log("BrowserAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
@@ -1538,7 +1539,7 @@ ${fullHistory}
       intelligence: 'high'
     });
     const structuredLLM = llm.withStructuredOutput(ExecutionHistorySummarySchema);
-    const systemPrompt = generateExecutionHistorySummaryPrompt();
+    const systemPrompt = await applyCustomSystemPrompt(generateExecutionHistorySummaryPrompt());
     const userPrompt = `Execution History: ${historyWithoutSections}`;
     const messages = [
       new SystemMessage(systemPrompt),

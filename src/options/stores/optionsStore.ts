@@ -68,7 +68,10 @@ const mergeProviderConfigs = (
 
   return {
     defaultProviderId: finalDefaultId,
-    providers: mergedProviders
+    providers: mergedProviders.map(provider => ({
+      ...provider,
+      systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
+    }))
   }
 }
 
@@ -197,7 +200,8 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
       if (config) {
         const normalizedProviders = config.providers.map(p => ({
           ...p,
-          isDefault: p.id === config.defaultProviderId
+          isDefault: p.id === config.defaultProviderId,
+          systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
         }))
 
         set({
@@ -211,7 +215,10 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
       const defaultConfig = createDefaultProvidersConfig()
       await writeProvidersToPrefs(defaultConfig)
       set({
-        providers: defaultConfig.providers,
+        providers: defaultConfig.providers.map(provider => ({
+          ...provider,
+          systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
+        })),
         defaultProviderId: defaultConfig.defaultProviderId,
         isLoading: false
       })
@@ -220,7 +227,10 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
       const fallbackConfig = createDefaultProvidersConfig()
       set({
         error: 'Failed to load providers',
-        providers: fallbackConfig.providers,
+        providers: fallbackConfig.providers.map(provider => ({
+          ...provider,
+          systemPrompt: typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
+        })),
         defaultProviderId: fallbackConfig.defaultProviderId,
         isLoading: false
       })
@@ -239,7 +249,8 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
     // Update isDefault flags
     const normalizedProviders = providers.map(p => ({
       ...p,
-      isDefault: p.id === finalDefaultId
+      isDefault: p.id === finalDefaultId,
+      systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
     }))
 
     const config: BrowserOSProvidersConfig = {
@@ -265,7 +276,8 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
     // Update isDefault flags
     const normalizedProviders = providers.map(p => ({
       ...p,
-      isDefault: p.id === providerId
+      isDefault: p.id === providerId,
+      systemPrompt: typeof p.systemPrompt === 'string' ? p.systemPrompt : ''
     }))
 
     const config: BrowserOSProvidersConfig = {
@@ -296,6 +308,7 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
     // Set timestamps
     provider.createdAt = new Date().toISOString()
     provider.updatedAt = new Date().toISOString()
+    provider.systemPrompt = typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
 
     const updatedProviders = [...providers, provider]
     await get().setProviders(updatedProviders)
@@ -306,6 +319,7 @@ export const useOptionsStore = create<OptionsStore>((set, get) => ({
 
     // Update timestamp
     provider.updatedAt = new Date().toISOString()
+    provider.systemPrompt = typeof provider.systemPrompt === 'string' ? provider.systemPrompt : ''
 
     const updatedProviders = providers.map(p =>
       p.id === provider.id ? provider : p

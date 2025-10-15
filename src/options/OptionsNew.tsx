@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react'
+import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import { SettingsLayout } from './components/SettingsLayout'
 import { LLMProvidersSection } from './components/LLMProvidersSection'
+import { BrowserOSPromptEditor } from './components/BrowserOSPromptEditor'
 import { ProviderTemplates } from './components/ProviderTemplates'
 import { ConfiguredModelsList } from './components/ConfiguredModelsList'
 import { AddProviderModal } from './components/AddProviderModal'
 import { useBrowserOSPrefs } from './hooks/useBrowserOSPrefs'
-import { useOptionsStore } from './stores/optionsStore'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { testLLMProvider } from './services/llm-test-service'
 import { LLMProvider, TestResult } from './types/llm-settings'
+import { Bot, FileText } from 'lucide-react'
 import './styles.css'
 
 export function OptionsNew() {
@@ -52,12 +53,28 @@ export function OptionsNew() {
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [theme])
 
-  const handleUseTemplate = (template: LLMProvider) => {
+  const handleUseTemplate = useCallback((template: LLMProvider) => {
     setEditingProvider(template)
     setIsAddingProvider(true)
-  }
+  }, [setEditingProvider, setIsAddingProvider])
 
-  const handleSaveProvider = async (provider: Partial<LLMProvider>) => {
+  const browserOSProvider = useMemo(
+    () => providers.find(provider => provider.id === 'browseros'),
+    [providers]
+  )
+
+  const handleSaveBrowserOSPrompt = useCallback(async (prompt: string) => {
+    const currentBrowserOSProvider = providers.find(provider => provider.id === 'browseros')
+    if (!currentBrowserOSProvider) {
+      throw new Error('BrowserOS provider not found')
+    }
+    await updateProvider({
+      ...currentBrowserOSProvider,
+      systemPrompt: prompt
+    })
+  }, [providers, updateProvider])
+
+  const handleSaveProvider = useCallback(async (provider: Partial<LLMProvider>) => {
     try {
       if (editingProvider?.id) {
         await updateProvider(provider as LLMProvider)
@@ -70,9 +87,9 @@ export function OptionsNew() {
       // Show error to user - the error will be displayed in the modal
       throw error
     }
-  }
+  }, [editingProvider, updateProvider, addProvider])
 
-  const handleTestProvider = async (providerId: string) => {
+  const handleTestProvider = useCallback(async (providerId: string) => {
     const provider = providers.find(p => p.id === providerId)
     if (!provider) return
 
@@ -98,40 +115,72 @@ export function OptionsNew() {
         }
       }))
     }
-  }
+  }, [providers, testLLMProvider])
+
+  const sections = useMemo(() => [
+    {
+      id: 'browseros-ai',
+      label: 'BrowserOS AI',
+      icon: Bot,
+      content: (
+        <div className="space-y-6">
+          <LLMProvidersSection
+            defaultProvider={defaultProvider}
+            providers={providers}
+            onDefaultChange={setDefaultProvider}
+            onAddProvider={() => setIsAddingProvider(true)}
+          />
+
+          <ProviderTemplates onUseTemplate={handleUseTemplate} />
+
+          <ConfiguredModelsList
+            providers={providers}
+            defaultProvider={defaultProvider}
+            testResults={testResults}
+            onSetDefault={setDefaultProvider}
+            onTest={handleTestProvider}
+            onEdit={(provider) => {
+              setEditingProvider(provider)
+              setIsAddingProvider(true)
+            }}
+            onDelete={deleteProvider}
+            onClearTestResult={(providerId) => {
+              setTestResults(prev => {
+                const newResults = { ...prev }
+                delete newResults[providerId]
+                return newResults
+              })
+            }}
+          />
+        </div>
+      )
+    },
+    {
+      id: 'browseros-system-prompt',
+      label: 'BrowserOS system prompt',
+      icon: FileText,
+      content: (
+        <BrowserOSPromptEditor
+          provider={browserOSProvider}
+          onSave={handleSaveBrowserOSPrompt}
+        />
+      )
+    }
+  ], [
+    browserOSProvider,
+    defaultProvider,
+    providers,
+    setDefaultProvider,
+    testResults,
+    handleUseTemplate,
+    handleSaveBrowserOSPrompt,
+    handleTestProvider,
+    deleteProvider
+  ])
 
   return (
-    <SettingsLayout>
-      <div className="space-y-6">
-        <LLMProvidersSection
-          defaultProvider={defaultProvider}
-          providers={providers}
-          onDefaultChange={setDefaultProvider}
-          onAddProvider={() => setIsAddingProvider(true)}
-        />
-
-        <ProviderTemplates onUseTemplate={handleUseTemplate} />
-
-        <ConfiguredModelsList
-          providers={providers}
-          defaultProvider={defaultProvider}
-          testResults={testResults}
-          onSetDefault={setDefaultProvider}
-          onTest={handleTestProvider}
-          onEdit={(provider) => {
-            setEditingProvider(provider)
-            setIsAddingProvider(true)
-          }}
-          onDelete={deleteProvider}
-          onClearTestResult={(providerId) => {
-            setTestResults(prev => {
-              const newResults = { ...prev }
-              delete newResults[providerId]
-              return newResults
-            })
-          }}
-        />
-      </div>
+    <>
+      <SettingsLayout sections={sections} />
 
       <AddProviderModal
         isOpen={isAddingProvider}
@@ -142,6 +191,6 @@ export function OptionsNew() {
         onSave={handleSaveProvider}
         editProvider={editingProvider}
       />
-    </SettingsLayout>
+    </>
   )
 }
