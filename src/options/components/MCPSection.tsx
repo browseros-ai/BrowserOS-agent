@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Server, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Server, CheckCircle2, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { useMCPStore } from '../stores/mcpStore'
 import { testMCPServer } from '../services/mcp-test-service'
 
@@ -8,6 +8,7 @@ export function MCPSection() {
   const [isTestLoading, setIsTestLoading] = useState(false)
   const [showTools, setShowTools] = useState(false)
   const [tools, setTools] = useState<Array<{ name: string; description: string }>>([])
+  const [isCopied, setIsCopied] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -18,6 +19,18 @@ export function MCPSection() {
     // Reset test result when toggling
     if (!settings.enabled) {
       setTestResult({ status: 'idle' })
+    }
+  }
+
+  const handleCopyUrl = async () => {
+    if (!settings.serverUrl) return
+
+    try {
+      await navigator.clipboard.writeText(settings.serverUrl)
+      setIsCopied(true)
+      setTimeout(() => setIsCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy URL:', error)
     }
   }
 
@@ -70,124 +83,145 @@ export function MCPSection() {
   }
 
   return (
-    <section className="bg-card rounded-lg px-6 py-5 border border-border shadow-sm">
-      <div className="flex items-start gap-4 mb-6">
-        {/* Server Icon */}
-        <div className="w-12 h-12 rounded-full bg-brand flex items-center justify-center flex-shrink-0 shadow-md">
+    <section className="bg-card rounded-lg border border-border shadow-sm">
+      {/* Header */}
+      <div className="flex items-start gap-4 px-6 py-5 border-b border-border">
+        <div className="w-12 h-12 rounded-full bg-brand flex items-center justify-center flex-shrink-0">
           <Server className="w-6 h-6 text-white" strokeWidth={2} />
         </div>
-
-        {/* Header Text */}
         <div className="flex-1">
-          <h2 className="text-foreground text-[18px] font-medium leading-tight mb-1">
+          <h2 className="text-foreground text-lg font-semibold mb-1">
             MCP Server
           </h2>
-          <p className="text-muted-foreground text-[14px] leading-normal">
-            Connect to Model Context Protocol server
+          <p className="text-muted-foreground text-sm">
+            Enable BrowserOS as MCP Server to be used in MCP clients.
           </p>
         </div>
       </div>
 
-      {/* Enable/Disable Toggle */}
-      <div className="flex items-center gap-3 mb-4">
-        <label className="text-foreground text-[14px] font-normal">
-          Enable MCP:
-        </label>
-        <button
-          onClick={handleToggle}
-          className={`
-            relative w-11 h-6 rounded-full transition-colors duration-200 ease-in-out
-            ${settings.enabled ? 'bg-brand' : 'bg-muted'}
-          `}
-          role="switch"
-          aria-checked={settings.enabled}
-        >
-          <span
+      {/* Content */}
+      <div className="px-6 py-5 space-y-6">
+        {/* Enable Toggle */}
+        <div className="flex items-center justify-between">
+          <label className="text-foreground text-sm font-medium">
+            Enable MCP
+          </label>
+          <button
+            onClick={handleToggle}
             className={`
-              absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md
-              transition-transform duration-200 ease-in-out
-              ${settings.enabled ? 'translate-x-5' : 'translate-x-0'}
+              relative w-11 h-6 rounded-full transition-colors duration-200 ease-in-out
+              ${settings.enabled ? 'bg-brand' : 'bg-muted'}
             `}
-          />
-        </button>
-      </div>
-
-      {/* Server URL and Test Button (shown only when enabled) */}
-      {settings.enabled && (
-        <div className="space-y-3">
-          {/* Server URL Display */}
-          <div className="flex items-center gap-3">
-            <label className="text-foreground text-[14px] font-normal min-w-[100px]">
-              Server URL:
-            </label>
-            <div className="flex-1 bg-background border border-input rounded-lg px-4 py-2 text-foreground text-[14px] font-mono">
-              {settings.serverUrl || 'Not configured'}
-            </div>
-          </div>
-
-          {/* Test Button and Result */}
-          <div className="flex items-center gap-3">
-            <div className="min-w-[100px]" />
-            <button
-              onClick={handleTest}
-              disabled={isTestLoading || !settings.serverUrl}
+            role="switch"
+            aria-checked={settings.enabled}
+          >
+            <span
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-lg text-[14px] font-medium
-                transition-all border
-                ${
-                  isTestLoading || !settings.serverUrl
-                    ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
-                    : 'bg-background border-input hover:border-brand hover:bg-brand/5 hover:text-brand'
-                }
+                absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md
+                transition-transform duration-200 ease-in-out
+                ${settings.enabled ? 'translate-x-5' : 'translate-x-0'}
               `}
-            >
-              {getTestButtonContent()}
-            </button>
+            />
+          </button>
+        </div>
 
-            {/* Success Message */}
-            {testResult.status === 'success' && testResult.toolCount !== undefined && (
-              <span className="text-green-600 text-[13px] font-medium">
-                Connected • {testResult.toolCount} tools available
-              </span>
-            )}
+        {/* Server URL and Test (shown only when enabled) */}
+        {settings.enabled && (
+          <div className="space-y-4">
+            {/* Server URL */}
+            <div>
+              <label className="text-foreground text-sm font-medium mb-2 block">
+                Server URL
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-foreground text-sm font-mono">
+                  {settings.serverUrl || 'Not configured'}
+                </div>
+                <button
+                  onClick={handleCopyUrl}
+                  disabled={!settings.serverUrl}
+                  className="p-2 rounded-lg border border-input bg-background hover:bg-accent hover:border-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Copy URL"
+                >
+                  {isCopied ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
+            </div>
 
-            {/* Error Message */}
-            {testResult.status === 'error' && testResult.error && (
-              <span className="text-red-500 text-[13px]">
-                {testResult.error}
-              </span>
-            )}
-          </div>
-
-          {/* View Tools Section */}
-          {testResult.status === 'success' && tools.length > 0 && (
-            <div className="mt-4 border-t border-border pt-4">
+            {/* Test Button */}
+            <div>
               <button
-                onClick={() => setShowTools(!showTools)}
-                className="flex items-center gap-2 text-foreground text-[14px] font-medium hover:text-brand transition-colors"
+                onClick={handleTest}
+                disabled={isTestLoading || !settings.serverUrl}
+                className={`
+                  flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                  transition-all border w-full justify-center
+                  ${
+                    isTestLoading || !settings.serverUrl
+                      ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
+                      : 'bg-background border-input hover:border-brand hover:bg-brand/5 hover:text-brand'
+                  }
+                `}
               >
-                {showTools ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-                <span>View Tools ({tools.length})</span>
+                {getTestButtonContent()}
               </button>
 
-              {showTools && (
-                <div className="mt-3 space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                  {tools.map((tool, index) => (
-                    <div key={index} className="text-[13px]">
-                      <div className="font-mono font-medium text-foreground">
-                        {tool.name}
-                      </div>
-                      <div className="text-muted-foreground mt-0.5 leading-relaxed">
-                        {tool.description}
-                      </div>
-                    </div>
-                  ))}
+              {/* Status Messages */}
+              {testResult.status === 'success' && testResult.toolCount !== undefined && (
+                <div className="mt-2 flex items-center justify-center gap-2 text-green-600 text-sm font-medium">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Connected • {testResult.toolCount} tools available</span>
                 </div>
               )}
+
+              {testResult.status === 'error' && testResult.error && (
+                <div className="mt-2 text-center text-red-500 text-sm">
+                  {testResult.error}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Available Tools Section */}
+      {settings.enabled && testResult.status === 'success' && tools.length > 0 && (
+        <div className="border-t border-border">
+          <button
+            onClick={() => setShowTools(!showTools)}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-accent/50 transition-colors"
+          >
+            <span className="text-foreground text-sm font-medium">
+              Available Tools ({tools.length})
+            </span>
+            {showTools ? (
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            )}
+          </button>
+
+          {showTools && (
+            <div className="px-6 pb-6 max-h-[500px] overflow-y-auto">
+              <div className="space-y-2">
+                {tools.map((tool, index) => (
+                  <div
+                    key={index}
+                    className="bg-background border border-border rounded-lg px-4 py-3 hover:border-brand/50 transition-colors"
+                  >
+                    <div className="font-mono text-sm font-semibold text-foreground mb-1">
+                      {tool.name}
+                    </div>
+                    <div className="text-sm text-muted-foreground leading-relaxed">
+                      {tool.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
