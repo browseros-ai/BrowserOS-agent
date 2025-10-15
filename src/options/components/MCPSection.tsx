@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Server, CheckCircle2, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { useMCPStore } from '../stores/mcpStore'
 import { testMCPServer } from '../services/mcp-test-service'
+import { getFeatureFlags } from '@/lib/utils/featureFlags'
+import { UpgradeNotice } from './UpgradeNotice'
 
 export function MCPSection() {
   const { settings, testResult, setEnabled, setTestResult, loadSettings } = useMCPStore()
@@ -9,9 +11,23 @@ export function MCPSection() {
   const [showTools, setShowTools] = useState(false)
   const [tools, setTools] = useState<Array<{ name: string; description: string }>>([])
   const [isCopied, setIsCopied] = useState(false)
+  const [isFeatureEnabled, setIsFeatureEnabled] = useState(false)
+  const [browserVersion, setBrowserVersion] = useState<string | null>(null)
 
   useEffect(() => {
     loadSettings()
+
+    // Check feature flag
+    const checkFeatureFlag = async () => {
+      const featureFlags = getFeatureFlags()
+      await featureFlags.initialize()
+      const enabled = featureFlags.isEnabled('MCP_SERVER')
+      const version = featureFlags.getVersion()
+      setIsFeatureEnabled(enabled)
+      setBrowserVersion(version)
+    }
+
+    checkFeatureFlag()
   }, [loadSettings])
 
   const handleToggle = async () => {
@@ -94,102 +110,163 @@ export function MCPSection() {
             MCP Server
           </h2>
           <p className="text-muted-foreground text-sm">
-            Enable BrowserOS as MCP Server to be used in MCP clients.
+            Enable BrowserOS as MCP Server to connect it MCP clients like claude.
           </p>
         </div>
       </div>
 
       {/* Content */}
       <div className="px-6 py-5 space-y-6">
-        {/* Enable Toggle */}
-        <div className="flex items-center justify-between">
-          <label className="text-foreground text-sm font-medium">
-            Enable MCP
-          </label>
-          <button
-            onClick={handleToggle}
-            className={`
-              relative w-11 h-6 rounded-full transition-colors duration-200 ease-in-out
-              ${settings.enabled ? 'bg-brand' : 'bg-muted'}
-            `}
-            role="switch"
-            aria-checked={settings.enabled}
-          >
-            <span
-              className={`
-                absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md
-                transition-transform duration-200 ease-in-out
-                ${settings.enabled ? 'translate-x-5' : 'translate-x-0'}
-              `}
-            />
-          </button>
-        </div>
-
-        {/* Server URL and Test (shown only when enabled) */}
-        {settings.enabled && (
-          <div className="space-y-4">
-            {/* Server URL */}
-            <div>
-              <label className="text-foreground text-sm font-medium mb-2 block">
-                Server URL
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-foreground text-sm font-mono">
-                  {settings.serverUrl || 'Not configured'}
-                </div>
+        {!isFeatureEnabled ? (
+          // Disabled state with upgrade notice
+          <div className="relative">
+            <div className="opacity-40 pointer-events-none space-y-6">
+              {/* Enable Toggle */}
+              <div className="flex items-center justify-between">
+                <label className="text-foreground text-sm font-medium">
+                  Enable MCP
+                </label>
                 <button
-                  onClick={handleCopyUrl}
-                  disabled={!settings.serverUrl}
-                  className="p-2 rounded-lg border border-input bg-background hover:bg-accent hover:border-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Copy URL"
+                  className="relative w-11 h-6 rounded-full bg-muted"
+                  role="switch"
+                  aria-checked={false}
+                  disabled
                 >
-                  {isCopied ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4 text-muted-foreground" />
-                  )}
+                  <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md" />
                 </button>
               </div>
+
+              {/* Server URL Preview */}
+              <div>
+                <label className="text-foreground text-sm font-medium mb-2 block">
+                  Server URL
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-muted-foreground text-sm font-mono">
+                   http://127.0.0.1:9233/mcp 
+                  </div>
+                  <button
+                    disabled
+                    className="p-2 rounded-lg border border-input bg-background"
+                    title="Copy URL"
+                  >
+                    <Copy className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Test Button Preview */}
+              <button
+                disabled
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border w-full justify-center bg-muted text-muted-foreground border-muted"
+              >
+                <span>Test</span>
+              </button>
             </div>
 
-            {/* Test Button */}
-            <div>
-              <button
-                onClick={handleTest}
-                disabled={isTestLoading || !settings.serverUrl}
-                className={`
-                  flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                  transition-all border w-full justify-center
-                  ${
-                    isTestLoading || !settings.serverUrl
-                      ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
-                      : 'bg-background border-input hover:border-brand hover:bg-brand/5 hover:text-brand'
-                  }
-                `}
-              >
-                {getTestButtonContent()}
-              </button>
-
-              {/* Status Messages */}
-              {testResult.status === 'success' && testResult.toolCount !== undefined && (
-                <div className="mt-2 flex items-center justify-center gap-2 text-green-600 text-sm font-medium">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Connected • {testResult.toolCount} tools available</span>
-                </div>
-              )}
-
-              {testResult.status === 'error' && testResult.error && (
-                <div className="mt-2 text-center text-red-500 text-sm">
-                  {testResult.error}
-                </div>
-              )}
+            {/* Upgrade Notice Overlay */}
+            <div className="mt-4">
+              <UpgradeNotice
+                featureName="MCP Server"
+                currentVersion={browserVersion}
+                requiredVersion="137.0.7216.69"
+              />
             </div>
           </div>
+        ) : (
+          // Enabled state with full functionality
+          <>
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between">
+              <label className="text-foreground text-sm font-medium">
+                Enable MCP
+              </label>
+              <button
+                onClick={handleToggle}
+                className={`
+                  relative w-11 h-6 rounded-full transition-colors duration-200 ease-in-out
+                  ${settings.enabled ? 'bg-brand' : 'bg-muted'}
+                `}
+                role="switch"
+                aria-checked={settings.enabled}
+              >
+                <span
+                  className={`
+                    absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md
+                    transition-transform duration-200 ease-in-out
+                    ${settings.enabled ? 'translate-x-5' : 'translate-x-0'}
+                  `}
+                />
+              </button>
+            </div>
+
+            {/* Server URL and Test (shown only when enabled) */}
+            {settings.enabled && (
+              <div className="space-y-4">
+                {/* Server URL */}
+                <div>
+                  <label className="text-foreground text-sm font-medium mb-2 block">
+                    Server URL
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-background border border-input rounded-lg px-3 py-2 text-foreground text-sm font-mono">
+                      {settings.serverUrl || 'Not configured'}
+                    </div>
+                    <button
+                      onClick={handleCopyUrl}
+                      disabled={!settings.serverUrl}
+                      className="p-2 rounded-lg border border-input bg-background hover:bg-accent hover:border-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Copy URL"
+                    >
+                      {isCopied ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Test Button */}
+                <div>
+                  <button
+                    onClick={handleTest}
+                    disabled={isTestLoading || !settings.serverUrl}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                      transition-all border w-full justify-center
+                      ${
+                        isTestLoading || !settings.serverUrl
+                          ? 'bg-muted text-muted-foreground border-muted cursor-not-allowed'
+                          : 'bg-background border-input hover:border-brand hover:bg-brand/5 hover:text-brand'
+                      }
+                    `}
+                  >
+                    {getTestButtonContent()}
+                  </button>
+
+                  {/* Status Messages */}
+                  {testResult.status === 'success' && testResult.toolCount !== undefined && (
+                    <div className="mt-2 flex items-center justify-center gap-2 text-green-600 text-sm font-medium">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Connected • {testResult.toolCount} tools available</span>
+                    </div>
+                  )}
+
+                  {testResult.status === 'error' && testResult.error && (
+                    <div className="mt-2 text-center text-red-500 text-sm">
+                      {testResult.error}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* Available Tools Section */}
-      {settings.enabled && testResult.status === 'success' && tools.length > 0 && (
+      {isFeatureEnabled && settings.enabled && testResult.status === 'success' && tools.length > 0 && (
         <div className="border-t border-border">
           <button
             onClick={() => setShowTools(!showTools)}

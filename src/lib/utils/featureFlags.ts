@@ -4,6 +4,7 @@ import { Logging } from '@/lib/utils/Logging'
 // Feature flag definitions with minimum version requirements
 const FEATURE_FLAGS = {
   TEACH_MODE: '137.0.7212.69',
+  MCP_SERVER: '137.0.7216.69',
 } as const
 
 // Version comparison utility
