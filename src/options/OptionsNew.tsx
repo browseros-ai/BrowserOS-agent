@@ -4,6 +4,7 @@ import { LLMProvidersSection } from './components/LLMProvidersSection'
 import { ProviderTemplates } from './components/ProviderTemplates'
 import { ConfiguredModelsList } from './components/ConfiguredModelsList'
 import { AddProviderModal } from './components/AddProviderModal'
+import { MCPSection } from './components/MCPSection'
 import { useBrowserOSPrefs } from './hooks/useBrowserOSPrefs'
 import { useOptionsStore } from './stores/optionsStore'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
@@ -14,6 +15,7 @@ import './styles.css'
 export function OptionsNew() {
   const { providers, defaultProvider, setDefaultProvider, addProvider, updateProvider, deleteProvider } = useBrowserOSPrefs()
   const { theme } = useSettingsStore()
+  const [activeSection, setActiveSection] = useState('browseros-ai')
   const [isAddingProvider, setIsAddingProvider] = useState(false)
   const [editingProvider, setEditingProvider] = useState<LLMProvider | null>(null)
   const [testResults, setTestResults] = useState<Record<string, TestResult>>({})
@@ -101,36 +103,44 @@ export function OptionsNew() {
   }
 
   return (
-    <SettingsLayout>
+    <SettingsLayout activeSection={activeSection} onSectionChange={setActiveSection}>
       <div className="space-y-6">
-        <LLMProvidersSection
-          defaultProvider={defaultProvider}
-          providers={providers}
-          onDefaultChange={setDefaultProvider}
-          onAddProvider={() => setIsAddingProvider(true)}
-        />
+        {activeSection === 'browseros-ai' && (
+          <>
+            <LLMProvidersSection
+              defaultProvider={defaultProvider}
+              providers={providers}
+              onDefaultChange={setDefaultProvider}
+              onAddProvider={() => setIsAddingProvider(true)}
+            />
 
-        <ProviderTemplates onUseTemplate={handleUseTemplate} />
+            <ProviderTemplates onUseTemplate={handleUseTemplate} />
 
-        <ConfiguredModelsList
-          providers={providers}
-          defaultProvider={defaultProvider}
-          testResults={testResults}
-          onSetDefault={setDefaultProvider}
-          onTest={handleTestProvider}
-          onEdit={(provider) => {
-            setEditingProvider(provider)
-            setIsAddingProvider(true)
-          }}
-          onDelete={deleteProvider}
-          onClearTestResult={(providerId) => {
-            setTestResults(prev => {
-              const newResults = { ...prev }
-              delete newResults[providerId]
-              return newResults
-            })
-          }}
-        />
+            <ConfiguredModelsList
+              providers={providers}
+              defaultProvider={defaultProvider}
+              testResults={testResults}
+              onSetDefault={setDefaultProvider}
+              onTest={handleTestProvider}
+              onEdit={(provider) => {
+                setEditingProvider(provider)
+                setIsAddingProvider(true)
+              }}
+              onDelete={deleteProvider}
+              onClearTestResult={(providerId) => {
+                setTestResults(prev => {
+                  const newResults = { ...prev }
+                  delete newResults[providerId]
+                  return newResults
+                })
+              }}
+            />
+          </>
+        )}
+
+        {activeSection === 'mcp' && (
+          <MCPSection />
+        )}
       </div>
 
       <AddProviderModal

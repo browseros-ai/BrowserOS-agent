@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import {
-  Bot, Settings, Menu, X, Moon, Sun, Cloud
+  Bot, Settings, Menu, X, Moon, Sun, Cloud, Server
 } from 'lucide-react'
 
 interface SidebarItem {
@@ -12,17 +12,22 @@ interface SidebarItem {
 }
 
 const sidebarItems: SidebarItem[] = [
-  { id: 'browseros-ai', label: 'BrowserOS AI', icon: Bot }
+  { id: 'browseros-ai', label: 'BrowserOS AI', icon: Bot },
+  { id: 'mcp', label: 'MCP', icon: Server }
 ]
 
 interface SettingsLayoutProps {
   children: React.ReactNode
+  activeSection?: string
+  onSectionChange?: (section: string) => void
 }
 
-export function SettingsLayout({ children }: SettingsLayoutProps) {
+export function SettingsLayout({ children, activeSection: controlledSection, onSectionChange }: SettingsLayoutProps) {
   const { theme, setTheme } = useSettingsStore()
-  const [activeSection, setActiveSection] = useState('browseros-ai')
+  const [internalActiveSection, setInternalActiveSection] = useState('browseros-ai')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const activeSection = controlledSection ?? internalActiveSection
 
   // Close sidebar on larger screens
   useEffect(() => {
@@ -38,8 +43,12 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
 
   const handleSectionClick = (sectionId: string, disabled?: boolean) => {
     if (!disabled) {
-      setActiveSection(sectionId)
-      setSidebarOpen(false) // Close on mobile after selection
+      if (onSectionChange) {
+        onSectionChange(sectionId)
+      } else {
+        setInternalActiveSection(sectionId)
+      }
+      setSidebarOpen(false)
     }
   }
 
