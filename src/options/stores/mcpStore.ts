@@ -28,7 +28,7 @@ const readMCPSettings = async (): Promise<MCPSettings> => {
 
     const enabled = enabledPref?.value ?? false
     const port = portPref?.value ?? undefined
-    const serverUrl = port ? `http://127.0.0.1:${port}` : ''
+    const serverUrl = port ? `http://127.0.0.1:${port}/mcp` : ''
 
     return { enabled, port, serverUrl }
   } catch (error) {
@@ -87,7 +87,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     const newSettings = {
       ...currentSettings,
       port,
-      serverUrl: `http://127.0.0.1:${port}`
+      serverUrl: `http://127.0.0.1:${port}/mcp`
     }
 
     const success = await writeMCPSettings(newSettings)

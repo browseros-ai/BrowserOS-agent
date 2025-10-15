@@ -277,6 +277,11 @@ function registerHandlers(): void {
     (msg, port) => settingsHandler.handleTestProvider(msg, port)
   )
 
+  messageRouter.registerHandler(
+    MessageType.SETTINGS_TEST_MCP,
+    (msg, port) => settingsHandler.handleTestMCP(msg, port)
+  )
+
   Logging.log('Background', 'All message handlers registered')
 }
 
