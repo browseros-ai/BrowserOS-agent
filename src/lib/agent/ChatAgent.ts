@@ -1,5 +1,5 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { MessageManager } from '@/lib/runtime/MessageManager'
+import { MessageManager, LLMMessageType } from '@/lib/runtime/MessageManager'
 import { ToolManager } from '@/lib/tools/ToolManager'
 import { ScrollTool, ScreenshotTool } from '@/lib/tools'
 import { generateSystemPrompt, generatePageContextMessage, generateTaskPrompt } from './ChatAgent.prompt'
@@ -103,18 +103,25 @@ export class ChatAgent {
         if (isFreshConversation) {
           // Fresh conversation: Clear and add simple system prompt once
           this.messageManager.clear()
-          
+
           // Simple system prompt - just sets the role
           const systemPrompt = generateSystemPrompt()
           this.messageManager.addSystem(systemPrompt)
-          
-          // Add page context as browser state message
+
+          // Add page context as browser state message (only if tabs exist)
           const contextMessage = generatePageContextMessage(pageContext, false)
-          this.messageManager.addBrowserState(contextMessage)
+          if (contextMessage) {
+            this.messageManager.addBrowserState(contextMessage)
+          }
         } else {
           // Tabs changed: replace browser state to remove old page content
           const contextMessage = generatePageContextMessage(pageContext, true)
-          this.messageManager.addBrowserState(contextMessage)
+          if (contextMessage) {
+            this.messageManager.addBrowserState(contextMessage)
+          } else {
+            // No tabs - remove browser state entirely to enable general knowledge mode
+            this.messageManager.removeMessagesByType(LLMMessageType.BROWSER_STATE)
+          }
         }
         
         // Update tracked tab IDs
@@ -169,26 +176,22 @@ export class ChatAgent {
    */
   private async _getCurrentTabIds(): Promise<Set<number>> {
     const selectedTabIds = this.executionContext.getSelectedTabIds()
-    
+
+    // If null or empty array, user deselected all tabs - return empty Set
+    if (!selectedTabIds || selectedTabIds.length === 0) {
+      return new Set()
+    }
+
     // Check if user has explicitly selected multiple tabs (using "@" selector)
-    // If only 1 tab or null, it's likely just the default current tab from NxtScape
-    const hasExplicitSelection = selectedTabIds && selectedTabIds.length > 1
-    
+    const hasExplicitSelection = selectedTabIds.length > 1
+
     if (hasExplicitSelection) {
       // User explicitly selected multiple tabs - use those
       return new Set(selectedTabIds)
     }
-    
-    // No explicit multi-tab selection - get the ACTUAL current active tab
-    // This ensures we detect tab changes even when user switches tabs between queries
-    try {
-      const currentPage = await this.executionContext.browserContext.getCurrentPage()
-      return new Set([currentPage.tabId])
-    } catch (error) {
-      // Fallback to ExecutionContext if getCurrentPage fails
-      Logging.log('ChatAgent', `Failed to get current page, using ExecutionContext: ${error}`, 'warning')
-      return new Set(selectedTabIds || [])
-    }
+
+    // Single tab selected - use it directly (don't auto-detect current page)
+    return new Set([selectedTabIds[0]])
   }
   
   /**
@@ -214,13 +217,22 @@ export class ChatAgent {
   private async _extractPageContext(): Promise<ExtractedPageContext> {
     // Get selected tab IDs from execution context
     const selectedTabIds = this.executionContext.getSelectedTabIds()
+
+    // If explicitly null, user removed all tabs - return empty context
+    if (selectedTabIds === null) {
+      return {
+        tabs: [],
+        isSingleTab: false
+      }
+    }
+
     const hasUserSelectedTabs = Boolean(selectedTabIds && selectedTabIds.length > 0)
-    
+
     // Get browser pages
     const pages = await this.executionContext.browserContext.getPages(
       hasUserSelectedTabs && selectedTabIds ? selectedTabIds : undefined
     )
-    
+
     if (pages.length === 0) {
       throw new Error('No tabs available for context extraction')
     }
