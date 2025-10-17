@@ -5,6 +5,7 @@ import { MessageManager } from "@/lib/runtime/MessageManager";
 import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { LocalAgent } from "@/lib/agent/LocalAgent";
 import { TeachAgent } from "@/lib/agent/TeachAgent";
+import { WebSocketAgent } from "@/lib/agent/WebSocketAgent";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
@@ -227,24 +228,37 @@ export class Execution {
         const chatAgent = new ChatAgent(executionContext);
         await chatAgent.execute(query);
       } else {
-        // Browse mode - use LocalAgent for small models, BrowserAgent for others
+        // Browse mode - check if BrowserOS mode is enabled
         const providerType = await langChainProvider.getCurrentProviderType() || '';
 
-        // don't include openai_comptabile, etc as they can be big models too
-        const smallModelsList = ['ollama'];
-        const useSimplerAgent = smallModelsList.includes(providerType) || limitedContextMode;
+        // Use WebSocketAgent only when BrowserOS provider is selected
+        if (providerType === 'browseros') {
+          agentType = 'WebSocketAgent';
+          Logging.logMetric('execution.agent_start', {
+            mode: this.options.mode,
+            agent_type: agentType,
+            provider_type: providerType,
+          });
 
-        agentType = useSimplerAgent ? 'LocalAgent' : 'BrowserAgent';
-        Logging.logMetric('execution.agent_start', {
-          mode: this.options.mode,
-          agent_type: agentType,
-          provider_type: providerType,
-        });
+          const wsAgent = new WebSocketAgent(executionContext);
+          await wsAgent.execute(query, metadata || this.options.metadata);
+        } else {
+          // Use LocalAgent for small models, BrowserAgent for others
+          const smallModelsList = ['ollama'];
+          const useSimplerAgent = smallModelsList.includes(providerType) || limitedContextMode;
 
-        const browseAgent = useSimplerAgent
-          ? new LocalAgent(executionContext)
-          : new BrowserAgent(executionContext);
-        await browseAgent.execute(query, metadata || this.options.metadata);
+          agentType = useSimplerAgent ? 'LocalAgent' : 'BrowserAgent';
+          Logging.logMetric('execution.agent_start', {
+            mode: this.options.mode,
+            agent_type: agentType,
+            provider_type: providerType,
+          });
+
+          const browseAgent = useSimplerAgent
+            ? new LocalAgent(executionContext)
+            : new BrowserAgent(executionContext);
+          await browseAgent.execute(query, metadata || this.options.metadata);
+        }
       }
 
       // Evals2: post-execution scoring + upload
@@ -292,10 +306,14 @@ export class Execution {
           } else if (this.options.mode === 'teach') {
             agentName = 'TeachAgent';
           } else {
-            // Browse mode - check if LocalAgent was used
+            // Browse mode - check which agent was used
             const providerType = await langChainProvider.getCurrentProviderType() || '';
-            const smallModelsList = ['ollama'];
-            agentName = smallModelsList.includes(providerType) ? 'LocalAgent' : 'BrowserAgent';
+            if (providerType === 'browseros') {
+              agentName = 'WebSocketAgent';
+            } else {
+              const smallModelsList = ['ollama'];
+              agentName = smallModelsList.includes(providerType) ? 'LocalAgent' : 'BrowserAgent';
+            }
           }
 
           await braintrustLogger.logTaskScore(
