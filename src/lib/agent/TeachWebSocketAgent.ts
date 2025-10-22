@@ -234,7 +234,7 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
 
     return new Promise((resolve, reject) => {
       const connectMsgId = PubSub.generateId('teach_ws_connect');
-      this._emitThinking(connectMsgId, '🔗 Connecting to reasoning server...');
+      this._emitThinking(connectMsgId, 'Getting ready...');
       Logging.log("TeachWebSocketAgent", `Connecting to ${wsUrl}`, "info");
 
       // Create WebSocket
@@ -255,8 +255,6 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
       // WebSocket opened
       this.ws.onopen = () => {
         Logging.log("TeachWebSocketAgent", "WebSocket connection opened", "info");
-        const openMsgId = PubSub.generateId('teach_ws_open');
-        this._emitThinking(openMsgId, '✅ WebSocket opened, waiting for server...');
       };
 
       // WebSocket message received
@@ -270,9 +268,6 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
               clearTimeout(timeout);
               this.sessionId = data.data?.sessionId;
               this.isConnected = true;
-
-              const connectedMsgId = PubSub.generateId('teach_ws_connected');
-              this._emitThinking(connectedMsgId, '✅ Connected to reasoning server');
 
               if (this.sessionId) {
                 Logging.log(

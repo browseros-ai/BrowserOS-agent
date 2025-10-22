@@ -178,7 +178,7 @@ export class WebSocketAgent {
     const wsUrl = await this.executionContext.getAgentServerUrl();
 
     return new Promise((resolve, reject) => {
-      this._publishMessage('🔗 Connecting to reasoning server...', 'thinking');
+      this._publishMessage('Getting ready...', 'thinking');
       Logging.log("WebSocketAgent", `Connecting to ${wsUrl}`, "info");
 
       // Create WebSocket
@@ -199,7 +199,6 @@ export class WebSocketAgent {
       // WebSocket opened
       this.ws.onopen = () => {
         Logging.log("WebSocketAgent", "WebSocket connection opened", "info");
-        this._publishMessage('✅ WebSocket opened, waiting for server...', 'thinking');
       };
 
       // WebSocket message received
@@ -213,8 +212,6 @@ export class WebSocketAgent {
               clearTimeout(timeout);
               this.sessionId = data.data?.sessionId;
               this.isConnected = true;
-
-              this._publishMessage('✅ Connected to reasoning server', 'thinking');
 
               if (this.sessionId) {
                 Logging.log(
