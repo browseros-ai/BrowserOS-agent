@@ -1,6 +1,6 @@
 export const WS_AGENT_CONFIG = {
-  // Connection
-  url: process.env.WS_AGENT_URL || 'ws://localhost:3000',
+  // Connection (fallback URL if BrowserOS preference not available)
+  url: 'ws://localhost:3000',
   connectionTimeout: 10000,  // 10 seconds
 
   // Event gap timeout (matches server's EVENT_GAP_TIMEOUT_MS)

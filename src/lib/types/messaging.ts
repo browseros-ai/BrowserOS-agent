@@ -131,7 +131,8 @@ export const ExecutionMetadataSchema = z.object({
     steps: z.array(z.string()),
     goal: z.string(),
     name: z.string().optional()
-  }).optional()
+  }).optional(),
+  workflow: z.any().optional()  // Teach mode workflow for context
 })
 
 export type ExecutionMetadata = z.infer<typeof ExecutionMetadataSchema>

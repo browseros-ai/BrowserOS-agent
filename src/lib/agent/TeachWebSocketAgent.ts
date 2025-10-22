@@ -1,7 +1,9 @@
 import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { PubSub } from "@/lib/pubsub";
+import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { AbortError } from "@/lib/utils/Abortable";
 import { ExecutionMetadata } from "@/lib/types/messaging";
+import { TeachModeEventPayload } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
 import { WS_AGENT_CONFIG } from "@/lib/agent/websocket/config";
 import { getWebSocketUrl } from "@/lib/agent/websocket/getWebSocketUrl";
@@ -15,12 +17,13 @@ interface PredefinedPlan {
 }
 
 /**
- * WebSocket-based agent that connects to remote server
+ * WebSocket-based agent for teach mode that connects to remote server
  * Server handles all planning, reasoning, and tool execution
- * Client sends query with browser context and streams events to PubSub
+ * Client sends query with workflow context and streams events via teach-mode pubsub
  */
-export class WebSocketAgent {
+export class TeachWebSocketAgent {
   private readonly executionContext: ExecutionContext;
+  private readonly mainPubsub: PubSubChannel;  // Main channel for teach-mode events
 
   // WebSocket state
   private ws: WebSocket | null = null;
@@ -31,11 +34,29 @@ export class WebSocketAgent {
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
-    Logging.log("WebSocketAgent", "Agent instance created", "info");
+    this.mainPubsub = PubSub.getChannel('main');  // Get main channel for teach-mode events
+    Logging.log("TeachWebSocketAgent", "Agent instance created", "info");
   }
 
-  private get pubsub() {
-    return this.executionContext.getPubSub();
+  // Helper method to emit teach-mode events
+  private _emitTeachModeEvent(
+    eventType: TeachModeEventPayload['eventType'],
+    data: any
+  ): void {
+    this.mainPubsub.publishTeachModeEvent({
+      eventType,
+      sessionId: this.executionContext.executionId,
+      data
+    });
+  }
+
+  // Helper method to emit thinking events with stable msgId
+  private _emitThinking(msgId: string, content: string): void {
+    this._emitTeachModeEvent('execution_thinking', {
+      msgId,
+      content,
+      timestamp: Date.now()
+    });
   }
 
   private checkIfAborted(): void {
@@ -133,8 +154,10 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
     if (specialTaskMetadata) {
       _task = specialTaskMetadata.task;
       _metadata = { ...metadata, ...specialTaskMetadata.metadata };
-      Logging.log("WebSocketAgent", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
+      Logging.log("TeachWebSocketAgent", `Special task detected: ${specialTaskMetadata.metadata.predefinedPlan?.name}`, "info");
     }
+
+    const workflow = _metadata?.workflow as SemanticWorkflow | undefined;
 
     try {
       this.executionContext.setCurrentTask(_task);
@@ -143,7 +166,14 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
         startTime: Date.now(),
       });
 
-      Logging.log("WebSocketAgent", "Starting execution", "info");
+      Logging.log("TeachWebSocketAgent", "Starting execution", "info");
+
+      // Publish execution started event like TeachAgent
+      this._emitTeachModeEvent('execution_started', {
+        workflowId: workflow?.metadata?.recordingId || '',
+        goal: workflow?.metadata?.goal || _task,
+        totalSteps: workflow?.steps?.length || 0
+      });
 
       // Connect to WebSocket server
       await this._connect();
@@ -152,7 +182,7 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
       await this._sendQuery(
         _task,
         _metadata?.predefinedPlan,
-        _metadata?.workflow as SemanticWorkflow | undefined
+        workflow
       );
 
       // Wait for completion with abort and timeout checks
@@ -181,14 +211,15 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
     const wsUrl = await getWebSocketUrl();
 
     return new Promise((resolve, reject) => {
-      this._publishMessage('🔗 Connecting to reasoning server...', 'thinking');
-      Logging.log("WebSocketAgent", `Connecting to ${wsUrl}`, "info");
+      const connectMsgId = PubSub.generateId('teach_ws_connect');
+      this._emitThinking(connectMsgId, '🔗 Connecting to reasoning server...');
+      Logging.log("TeachWebSocketAgent", `Connecting to ${wsUrl}`, "info");
 
       // Create WebSocket
       try {
         this.ws = new WebSocket(wsUrl);
       } catch (error) {
-        Logging.log("WebSocketAgent", `Failed to create WebSocket: ${error}`, "error");
+        Logging.log("TeachWebSocketAgent", `Failed to create WebSocket: ${error}`, "error");
         reject(error);
         return;
       }
@@ -201,8 +232,9 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
 
       // WebSocket opened
       this.ws.onopen = () => {
-        Logging.log("WebSocketAgent", "WebSocket connection opened", "info");
-        this._publishMessage('✅ WebSocket opened, waiting for server...', 'thinking');
+        Logging.log("TeachWebSocketAgent", "WebSocket connection opened", "info");
+        const openMsgId = PubSub.generateId('teach_ws_open');
+        this._emitThinking(openMsgId, '✅ WebSocket opened, waiting for server...');
       };
 
       // WebSocket message received
@@ -217,11 +249,12 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
               this.sessionId = data.data?.sessionId;
               this.isConnected = true;
 
-              this._publishMessage('✅ Connected to reasoning server', 'thinking');
+              const connectedMsgId = PubSub.generateId('teach_ws_connected');
+              this._emitThinking(connectedMsgId, '✅ Connected to reasoning server');
 
               if (this.sessionId) {
                 Logging.log(
-                  "WebSocketAgent",
+                  "TeachWebSocketAgent",
                   `Session established: ${this.sessionId.substring(0, 16)}...`,
                   "info"
                 );
@@ -230,7 +263,7 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
               resolve();
             }
           } catch (err) {
-            Logging.log("WebSocketAgent", `Failed to parse connection message: ${err}`, "error");
+            Logging.log("TeachWebSocketAgent", `Failed to parse connection message: ${err}`, "error");
           }
         }
 
@@ -241,24 +274,27 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
       // WebSocket error - don't publish, let _handleExecutionError do it
       this.ws.onerror = (error) => {
         clearTimeout(timeout);
-        Logging.log("WebSocketAgent", "WebSocket error", "error");
+        Logging.log("TeachWebSocketAgent", "WebSocket error", "error");
         reject(new Error('WebSocket connection failed'));
       };
 
       // WebSocket closed
       this.ws.onclose = (event) => {
-        Logging.log("WebSocketAgent", "WebSocket connection closed", "info");
+        Logging.log("TeachWebSocketAgent", "WebSocket connection closed", "info");
 
         // Only publish if we were actually connected (not a connection failure)
         // Connection failures are handled by onerror + _handleExecutionError
         if (this.isConnected && !this.isCompleted) {
           this.isCompleted = true;
 
-          // Check if this was user-initiated cancellation
+          // Publish execution completed/failed event
           if (this.executionContext.abortSignal.aborted) {
-            this._publishMessage('✅ Task cancelled', 'assistant');
+            const cancelMsgId = PubSub.generateId('teach_ws_cancel');
+            this._emitThinking(cancelMsgId, '✅ Task cancelled');
           } else {
-            this._publishMessage('❌ Connection closed unexpectedly', 'error');
+            this._emitTeachModeEvent('execution_failed', {
+              error: 'Connection closed unexpectedly'
+            });
           }
         }
 
@@ -294,7 +330,7 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
 
 TASK: ${task}`;
 
-      Logging.log("WebSocketAgent", `Sending workflow context: ${workflow.metadata?.goal}`, "info");
+      Logging.log("TeachWebSocketAgent", `Sending workflow context: ${workflow.metadata?.goal}`, "info");
     }
 
     // If predefined plan exists, format steps into message
@@ -311,7 +347,7 @@ Goal: ${predefinedPlan.goal}
 Steps to execute:
 ${formattedSteps}`;
 
-      Logging.log("WebSocketAgent", `Sending predefined plan: ${predefinedPlan.name}`, "info");
+      Logging.log("TeachWebSocketAgent", `Sending predefined plan: ${predefinedPlan.name}`, "info");
     }
 
     // Gather browser context and append
@@ -330,7 +366,7 @@ ${formattedSteps}`;
 
     try {
       this.ws.send(JSON.stringify(message));
-      Logging.log("WebSocketAgent", "Query sent to server", "info");
+      Logging.log("TeachWebSocketAgent", "Query sent to server", "info");
 
       // Initialize event timeout tracking
       this.lastEventTime = Date.now();
@@ -356,7 +392,7 @@ ${formattedSteps}`;
         selectedTabIds: selectedTabIds || []
       };
     } catch (error) {
-      Logging.log("WebSocketAgent", `Failed to get browser context: ${error}`, "warning");
+      Logging.log("TeachWebSocketAgent", `Failed to get browser context: ${error}`, "warning");
       return {};
     }
   }
@@ -387,14 +423,15 @@ ${formattedSteps}`;
         return;
       }
 
-      // For all other types (response, tool_use, thinking, etc), publish content
+      // For all other types (response, tool_use, thinking, etc), emit as thinking
       if (data.content) {
-        this._publishMessage(data.content, 'thinking');
+        const thinkingMsgId = PubSub.generateId('teach_ws_server');
+        this._emitThinking(thinkingMsgId, data.content);
       }
 
     } catch (error) {
       Logging.log(
-        "WebSocketAgent",
+        "TeachWebSocketAgent",
         `Failed to parse message: ${error instanceof Error ? error.message : String(error)}`,
         "error"
       );
@@ -408,12 +445,14 @@ ${formattedSteps}`;
     const finalAnswer = event.content || event.finalAnswer || 'Task completed';
     this.isCompleted = true;
 
-    Logging.log("WebSocketAgent", "Task completed", "info");
+    Logging.log("TeachWebSocketAgent", "Task completed", "info");
 
-    // Publish final answer
-    this.pubsub.publishMessage(
-      PubSub.createMessage(finalAnswer, 'assistant')
-    );
+    // Publish execution completed event like TeachAgent
+    this._emitTeachModeEvent('execution_completed', {
+      workflowId: '',
+      success: true,
+      message: finalAnswer
+    });
 
     // Add to message history
     this.executionContext.messageManager.addAI(finalAnswer);
@@ -432,9 +471,12 @@ ${formattedSteps}`;
 
     this.isCompleted = true;
     this.executionContext.incrementMetric('errors');
-    Logging.log("WebSocketAgent", `Server error: ${errorMsg}`, "error");
+    Logging.log("TeachWebSocketAgent", `Server error: ${errorMsg}`, "error");
 
-    // this._publishMessage(`❌ Server error: ${errorMsg}`, 'error');
+    // Publish execution failed event
+    this._emitTeachModeEvent('execution_failed', {
+      error: errorMsg
+    });
 
     throw new Error(errorMsg);
   }
@@ -459,8 +501,14 @@ ${formattedSteps}`;
       if (timeSinceLastEvent > WS_AGENT_CONFIG.eventGapTimeout) {
         const errorMsg = `Agent timeout: No events received for ${WS_AGENT_CONFIG.eventGapTimeout / 1000}s`;
         this.isCompleted = true;
-        Logging.log("WebSocketAgent", errorMsg, "error");
-        // this._publishMessage(`❌ ${errorMsg}`, 'error');
+        Logging.log("TeachWebSocketAgent", errorMsg, "error");
+
+        // Publish execution failed event
+        this._emitTeachModeEvent('execution_failed', {
+          error: errorMsg,
+          reason: 'timeout'
+        });
+
         throw new Error(errorMsg);
       }
 
@@ -470,32 +518,22 @@ ${formattedSteps}`;
   }
 
   /**
-   * Publish message to PubSub for UI
-   */
-  private _publishMessage(
-    content: string,
-    type: 'thinking' | 'assistant' | 'error'
-  ): void {
-    this.pubsub.publishMessage(
-      PubSub.createMessage(content, type as any)
-    );
-  }
-
-  /**
    * Handle execution errors
    */
   private _handleExecutionError(error: unknown): void {
     if (error instanceof AbortError) {
-      Logging.log("WebSocketAgent", "Execution aborted by user", "info");
+      Logging.log("TeachWebSocketAgent", "Execution aborted by user", "info");
       return;
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
-    Logging.log("WebSocketAgent", `Execution error: ${errorMessage}`, "error");
+    Logging.log("TeachWebSocketAgent", `Execution error: ${errorMessage}`, "error");
 
-    // Publish error if not already completed
+    // Publish execution failed event if not already completed
     if (!this.isCompleted) {
-    //   this._publishMessage(`❌ ${errorMessage}`, 'error');
+      this._emitTeachModeEvent('execution_failed', {
+        error: errorMessage
+      });
     }
   }
 
@@ -507,12 +545,12 @@ ${formattedSteps}`;
     const duration = metrics.endTime - metrics.startTime;
 
     Logging.log(
-      "WebSocketAgent",
+      "TeachWebSocketAgent",
       `Execution complete: ${duration}ms duration`,
       "info"
     );
 
-    Logging.logMetric("wsagent.execution", {
+    Logging.logMetric("teach_wsagent.execution", {
       duration,
       sessionId: this.sessionId,
       success: this.isCompleted
@@ -531,6 +569,6 @@ ${formattedSteps}`;
     this.sessionId = null;
     this.lastEventTime = 0;
 
-    Logging.log("WebSocketAgent", "Cleanup complete", "info");
+    Logging.log("TeachWebSocketAgent", "Cleanup complete", "info");
   }
 }

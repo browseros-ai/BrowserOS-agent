@@ -6,6 +6,7 @@ import { BrowserAgent } from "@/lib/agent/BrowserAgent";
 import { LocalAgent } from "@/lib/agent/LocalAgent";
 import { TeachAgent } from "@/lib/agent/TeachAgent";
 import { WebSocketAgent } from "@/lib/agent/WebSocketAgent";
+import { TeachWebSocketAgent } from "@/lib/agent/TeachWebSocketAgent";
 import { ChatAgent } from "@/lib/agent/ChatAgent";
 import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
@@ -209,14 +210,36 @@ export class Execution {
           throw new Error("Teach mode requires a workflow to execute");
         }
 
-        agentType = 'TeachAgent';
-        Logging.logMetric('execution.agent_start', {
-          mode: this.options.mode,
-          agent_type: agentType
-        });
+        // Check if BrowserOS provider is selected
+        const providerType = await langChainProvider.getCurrentProviderType() || '';
 
-        const teachAgent = new TeachAgent(executionContext);
-        await teachAgent.execute(this.options.workflow);
+        if (providerType === 'browseros') {
+          // Use TeachWebSocketAgent for teach mode with BrowserOS provider
+          agentType = 'TeachWebSocketAgent';
+          Logging.logMetric('execution.agent_start', {
+            mode: this.options.mode,
+            agent_type: agentType,
+            provider_type: providerType,
+          });
+
+          const teachWsAgent = new TeachWebSocketAgent(executionContext);
+          // Pass workflow through metadata for teach mode
+          const teachMetadata = {
+            ...(metadata || this.options.metadata),
+            workflow: this.options.workflow
+          };
+          await teachWsAgent.execute(query, teachMetadata);
+        } else {
+          // Use local TeachAgent for other providers
+          agentType = 'TeachAgent';
+          Logging.logMetric('execution.agent_start', {
+            mode: this.options.mode,
+            agent_type: agentType
+          });
+
+          const teachAgent = new TeachAgent(executionContext);
+          await teachAgent.execute(this.options.workflow);
+        }
       } else if (this.options.mode === "chat") {
 
         agentType = 'ChatAgent';
@@ -241,6 +264,7 @@ export class Execution {
           });
 
           const wsAgent = new WebSocketAgent(executionContext);
+          // Workflow only comes from explicit metadata, not options (options.workflow is for teach mode)
           await wsAgent.execute(query, metadata || this.options.metadata);
         } else {
           // Use LocalAgent for small models, BrowserAgent for others
