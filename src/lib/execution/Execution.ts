@@ -225,8 +225,8 @@ export class Execution {
           const teachWsAgent = new TeachWebSocketAgent(executionContext);
           // Pass workflow through metadata for teach mode
           const teachMetadata = {
-            ...(metadata || this.options.metadata),
-            workflow: this.options.workflow
+            workflow: this.options.workflow,
+            ...(metadata || this.options.metadata)
           };
           await teachWsAgent.execute(query, teachMetadata);
         } else {

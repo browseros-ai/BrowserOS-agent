@@ -1,10 +1,9 @@
-import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
+import { ExecutionContext, WS_AGENT_CONFIG, WS_CONNECTION_TIMEOUT } from "@/lib/runtime/ExecutionContext";
 import { PubSub } from "@/lib/pubsub";
 import { AbortError } from "@/lib/utils/Abortable";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { Logging } from "@/lib/utils/Logging";
-import { WS_AGENT_CONFIG } from "@/lib/agent/websocket/config";
-import { getWebSocketUrl } from "@/lib/agent/websocket/getWebSocketUrl";
+
 
 interface PredefinedPlan {
   agentId: string;
@@ -151,8 +150,8 @@ export class WebSocketAgent {
   private async _connect(): Promise<void> {
     this.checkIfAborted();
 
-    // Get WebSocket URL from BrowserOS preferences
-    const wsUrl = await getWebSocketUrl();
+    // Get WebSocket URL from ExecutionContext
+    const wsUrl = await this.executionContext.getAgentServerUrl();
 
     return new Promise((resolve, reject) => {
       this._publishMessage('🔗 Connecting to reasoning server...', 'thinking');
@@ -169,9 +168,9 @@ export class WebSocketAgent {
 
       // Connection timeout - don't publish, let _handleExecutionError do it
       const timeout = setTimeout(() => {
-        reject(new Error(`Connection timeout after ${WS_AGENT_CONFIG.connectionTimeout}ms`));
+        reject(new Error(`Connection timeout after ${WS_CONNECTION_TIMEOUT}ms`));
         this.ws?.close();
-      }, WS_AGENT_CONFIG.connectionTimeout);
+      }, WS_CONNECTION_TIMEOUT);
 
       // WebSocket opened
       this.ws.onopen = () => {
@@ -213,14 +212,14 @@ export class WebSocketAgent {
       };
 
       // WebSocket error - don't publish, let _handleExecutionError do it
-      this.ws.onerror = (error) => {
+      this.ws.onerror = (_error) => {
         clearTimeout(timeout);
         Logging.log("WebSocketAgent", "WebSocket error", "error");
         reject(new Error('WebSocket connection failed'));
       };
 
       // WebSocket closed
-      this.ws.onclose = (event) => {
+      this.ws.onclose = (_event) => {
         Logging.log("WebSocketAgent", "WebSocket connection closed", "info");
 
         // Only publish if we were actually connected (not a connection failure)
@@ -308,7 +307,7 @@ ${formattedSteps}`;
   private async _getBrowserContext(): Promise<any> {
     try {
       const currentPage = await this.executionContext.browserContext.getCurrentPage();
-      const url = await currentPage.url();
+      const url = currentPage.url();
       const title = await currentPage.title();
       const selectedTabIds = this.executionContext.getSelectedTabIds();
 

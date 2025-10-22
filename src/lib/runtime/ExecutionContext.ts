@@ -12,7 +12,32 @@ import {
   AIMessage,
   SystemMessage,
   ToolMessage,
-} from "@langchain/core/messages";
+} from "@langchain/core/messages"
+import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
+import { Logging } from '@/lib/utils/Logging'
+
+// WebSocket agent constants
+export const WS_CONNECTION_TIMEOUT = 10000  // 10 seconds
+export const WS_MAX_RECONNECT_ATTEMPTS = 3
+export const WS_RECONNECT_BACKOFF = [1000, 2000, 4000]  // Exponential backoff in ms
+export const WS_MAX_RESPONSE_SIZE = 50000  // 50KB
+
+// WebSocket agent configurable options
+export const WSAgentConfigSchema = z.object({
+  url: z.string().url(),  // Fallback URL if BrowserOS preference not available
+  eventGapTimeout: z.number().int().positive(),  // Event gap timeout in ms (matches server's EVENT_GAP_TIMEOUT_MS)
+  enableScreenshots: z.boolean(),  // Send screenshots to server
+  enableFallback: z.boolean()  // Enable fallback to local agent on failure
+})
+
+export type WSAgentConfig = z.infer<typeof WSAgentConfigSchema>
+
+export const WS_AGENT_CONFIG: WSAgentConfig = {
+  url: 'ws://localhost:9200',
+  eventGapTimeout: 60000,  // 60 seconds - client-side safety net
+  enableScreenshots: false,
+  enableFallback: true
+}
 
 // ExecutionMetrics type from NewAgent.prompt.ts
 export interface ExecutionMetrics {
@@ -268,6 +293,43 @@ export class ExecutionContext {
    */
   public async getLLM(options?: LLMOptions): Promise<BaseChatModel> {
     return getLLMFromProvider(options);
+  }
+
+  /**
+   * Get WebSocket agent server URL from BrowserOS preferences
+   * Returns WebSocket URL using browseros.server.agent_port preference value
+   * Falls back to default URL from config if preference cannot be retrieved
+   */
+  public async getAgentServerUrl(): Promise<string> {
+    const browserOS = getBrowserOSAdapter();
+
+    try {
+      const pref = await browserOS.getPref('browseros.server.agent_port');
+
+      if (pref && typeof pref.value === 'number') {
+        const wsUrl = `ws://localhost:${pref.value}`;
+        Logging.log(
+          "ExecutionContext",
+          `Using agent port from BrowserOS preferences: ${pref.value}`,
+          "info"
+        );
+        return wsUrl;
+      }
+
+      Logging.log(
+        "ExecutionContext",
+        `Agent port preference not found, using default URL: ${WS_AGENT_CONFIG.url}`,
+        "warning"
+      );
+      return WS_AGENT_CONFIG.url;
+    } catch (error) {
+      Logging.log(
+        "ExecutionContext",
+        `Failed to get agent port from BrowserOS preferences: ${error}, using default URL: ${WS_AGENT_CONFIG.url}`,
+        "error"
+      );
+      return WS_AGENT_CONFIG.url;
+    }
   }
 
   /**
