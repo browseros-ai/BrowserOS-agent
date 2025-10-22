@@ -6,6 +6,7 @@ import { ExecutionMetadata } from "@/lib/types/messaging";
 import { TeachModeEventPayload } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
 import { type SemanticWorkflow } from "@/lib/teach-mode/types";
+import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 
 interface PredefinedPlan {
   agentId: string;
@@ -22,6 +23,7 @@ interface PredefinedPlan {
 export class TeachWebSocketAgent {
   private readonly executionContext: ExecutionContext;
   private readonly mainPubsub: PubSubChannel;  // Main channel for teach-mode events
+  private readonly glowService: GlowAnimationService;
 
   // WebSocket state
   private ws: WebSocket | null = null;
@@ -33,6 +35,7 @@ export class TeachWebSocketAgent {
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
     this.mainPubsub = PubSub.getChannel('main');  // Get main channel for teach-mode events
+    this.glowService = GlowAnimationService.getInstance();
     Logging.log("TeachWebSocketAgent", "Agent instance created", "info");
   }
 
@@ -173,6 +176,16 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
         totalSteps: workflow?.steps?.length || 0
       });
 
+      // Start glow animation
+      try {
+        const currentPage = await this.executionContext.browserContext.getCurrentPage();
+        if (currentPage?.tabId && !this.glowService.isGlowActive(currentPage.tabId)) {
+          await this.glowService.startGlow(currentPage.tabId);
+        }
+      } catch (error) {
+        Logging.log("TeachWebSocketAgent", `Could not start glow animation: ${error}`, "warning");
+      }
+
       // Connect to WebSocket server
       await this._connect();
 
@@ -196,6 +209,16 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
         endTime: Date.now(),
       });
       this._logMetrics();
+
+      // Stop glow animation
+      try {
+        const activeGlows = this.glowService.getAllActiveGlows();
+        for (const tabId of activeGlows) {
+          await this.glowService.stopGlow(tabId);
+        }
+      } catch (error) {
+        Logging.log("TeachWebSocketAgent", `Could not stop glow animation: ${error}`, "warning");
+      }
     }
   }
 

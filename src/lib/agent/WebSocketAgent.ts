@@ -3,6 +3,7 @@ import { PubSub } from "@/lib/pubsub";
 import { AbortError } from "@/lib/utils/Abortable";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { Logging } from "@/lib/utils/Logging";
+import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 
 
 interface PredefinedPlan {
@@ -19,6 +20,7 @@ interface PredefinedPlan {
  */
 export class WebSocketAgent {
   private readonly executionContext: ExecutionContext;
+  private readonly glowService: GlowAnimationService;
 
   // WebSocket state
   private ws: WebSocket | null = null;
@@ -29,6 +31,7 @@ export class WebSocketAgent {
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
+    this.glowService = GlowAnimationService.getInstance();
     Logging.log("WebSocketAgent", "Agent instance created", "info");
   }
 
@@ -119,6 +122,16 @@ export class WebSocketAgent {
 
       Logging.log("WebSocketAgent", "Starting execution", "info");
 
+      // Start glow animation
+      try {
+        const currentPage = await this.executionContext.browserContext.getCurrentPage();
+        if (currentPage?.tabId && !this.glowService.isGlowActive(currentPage.tabId)) {
+          await this.glowService.startGlow(currentPage.tabId);
+        }
+      } catch (error) {
+        Logging.log("WebSocketAgent", `Could not start glow animation: ${error}`, "warning");
+      }
+
       // Connect to WebSocket server
       await this._connect();
 
@@ -141,6 +154,16 @@ export class WebSocketAgent {
         endTime: Date.now(),
       });
       this._logMetrics();
+
+      // Stop glow animation
+      try {
+        const activeGlows = this.glowService.getAllActiveGlows();
+        for (const tabId of activeGlows) {
+          await this.glowService.stopGlow(tabId);
+        }
+      } catch (error) {
+        Logging.log("WebSocketAgent", `Could not stop glow animation: ${error}`, "warning");
+      }
     }
   }
 
