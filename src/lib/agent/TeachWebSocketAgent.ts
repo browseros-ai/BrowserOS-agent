@@ -7,6 +7,7 @@ import { TeachModeEventPayload } from "@/lib/pubsub/types";
 import { Logging } from "@/lib/utils/Logging";
 import { type SemanticWorkflow } from "@/lib/teach-mode/types";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
+import { isDevelopmentMode } from '@/config';
 
 interface PredefinedPlan {
   agentId: string;
@@ -429,25 +430,62 @@ ${formattedSteps}`;
       this.lastEventTime = Date.now();
 
       // Route based on message type
-      if (data.type === 'connection') {
-        // Already handled in _connect
-        return;
-      }
+      const isDev = isDevelopmentMode();
 
-      if (data.type === 'completion') {
-        this._handleCompletion(data);
-        return;
-      }
+      switch (data.type) {
+        case 'connection':
+          // Already handled in _connect
+          break;
 
-      if (data.type === 'error') {
-        this._handleError(data);
-        return;
-      }
+        case 'completion':
+          this._handleCompletion(data);
+          break;
 
-      // For all other types (response, tool_use, thinking, etc), emit as thinking
-      if (data.content) {
-        const thinkingMsgId = PubSub.generateId('teach_ws_server');
-        this._emitThinking(thinkingMsgId, data.content);
+        case 'error':
+          this._handleError(data);
+          break;
+
+        case 'init':
+          if (isDev && data.content) {
+            const msgId = PubSub.generateId('teach_ws_server');
+            this._emitThinking(msgId, data.content);
+          }
+          break;
+
+        case 'thinking':
+          if (data.content) {
+            const msgId = PubSub.generateId('teach_ws_server');
+            this._emitThinking(msgId, data.content);
+          }
+          break;
+
+        case 'tool_use':
+          if (isDev && data.content) {
+            const msgId = PubSub.generateId('teach_ws_server');
+            this._emitThinking(msgId, data.content);
+          }
+          break;
+
+        case 'tool_result':
+          if (isDev && data.content) {
+            const msgId = PubSub.generateId('teach_ws_server');
+            this._emitThinking(msgId, data.content);
+          }
+          break;
+
+        case 'response':
+          if (data.content) {
+            const msgId = PubSub.generateId('teach_ws_server');
+            this._emitThinking(msgId, data.content);
+          }
+          break;
+
+        default:
+          if (isDev && data.content) {
+            Logging.log("TeachWebSocketAgent", `Unknown message type: ${data.type}`, "warning");
+            const msgId = PubSub.generateId('teach_ws_server');
+            this._emitThinking(msgId, data.content);
+          }
       }
 
     } catch (error) {

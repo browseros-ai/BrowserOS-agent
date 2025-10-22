@@ -4,6 +4,7 @@ import { AbortError } from "@/lib/utils/Abortable";
 import { ExecutionMetadata } from "@/lib/types/messaging";
 import { Logging } from "@/lib/utils/Logging";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
+import { isDevelopmentMode } from '@/config';
 
 
 interface PredefinedPlan {
@@ -357,24 +358,56 @@ ${formattedSteps}`;
       this.lastEventTime = Date.now();
 
       // Route based on message type
-      if (data.type === 'connection') {
-        // Already handled in _connect
-        return;
-      }
+      const isDev = isDevelopmentMode();
 
-      if (data.type === 'completion') {
-        this._handleCompletion(data);
-        return;
-      }
+      switch (data.type) {
+        case 'connection':
+          // Already handled in _connect
+          break;
 
-      if (data.type === 'error') {
-        this._handleError(data);
-        return;
-      }
+        case 'completion':
+          this._handleCompletion(data);
+          break;
 
-      // For all other types (response, tool_use, thinking, etc), publish content
-      if (data.content) {
-        this._publishMessage(data.content, 'thinking');
+        case 'error':
+          this._handleError(data);
+          break;
+
+        case 'init':
+          if (isDev && data.content) {
+            this._publishMessage(data.content, 'thinking');
+          }
+          break;
+
+        case 'thinking':
+          if (data.content) {
+            this._publishMessage(data.content, 'thinking');
+          }
+          break;
+
+        case 'tool_use':
+          if (isDev && data.content) {
+            this._publishMessage(data.content, 'thinking');
+          }
+          break;
+
+        case 'tool_result':
+          if (isDev && data.content) {
+            this._publishMessage(data.content, 'thinking');
+          }
+          break;
+
+        case 'response':
+          if (data.content) {
+            this._publishMessage(data.content, 'thinking');
+          }
+          break;
+
+        default:
+          if (isDev && data.content) {
+            Logging.log("WebSocketAgent", `Unknown message type: ${data.type}`, "warning");
+            this._publishMessage(data.content, 'thinking');
+          }
       }
 
     } catch (error) {
