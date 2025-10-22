@@ -5,7 +5,6 @@ import { ExecutionMetadata } from "@/lib/types/messaging";
 import { Logging } from "@/lib/utils/Logging";
 import { WS_AGENT_CONFIG } from "@/lib/agent/websocket/config";
 import { getWebSocketUrl } from "@/lib/agent/websocket/getWebSocketUrl";
-import { type SemanticWorkflow } from "@/lib/teach-mode/types";
 
 interface PredefinedPlan {
   agentId: string;
@@ -97,30 +96,6 @@ export class WebSocketAgent {
   }
 
   /**
-   * Format workflow into userTrajectory string for context
-   * Matches TeachAgent's approach (lines 567-573)
-   */
-  private _formatWorkflowAsUserTrajectory(workflow: SemanticWorkflow): string {
-    // Extract intent and action from workflow steps (excluding beforeSnapshot/afterSnapshot)
-    const userTrajectorySteps = workflow.steps.map(step => {
-      return {
-        intent: step.intent,
-        action: step.action,
-      };
-    });
-
-    const description = workflow.metadata?.description || '';
-    const goal = workflow.metadata?.goal || '';
-
-    return `USER TRAJECTORY (for reference):
-Description: ${description}
-Goal: ${goal}
-
-Steps demonstrated by user:
-${JSON.stringify(userTrajectorySteps, null, 2)}`;
-  }
-
-  /**
    * Main execution entry point
    */
   async execute(task: string, metadata?: ExecutionMetadata): Promise<void> {
@@ -148,11 +123,10 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
       // Connect to WebSocket server
       await this._connect();
 
-      // Send query with browser context, predefined plan, and workflow if available
+      // Send query with browser context and predefined plan if available
       await this._sendQuery(
         _task,
-        _metadata?.predefinedPlan,
-        _metadata?.workflow as SemanticWorkflow | undefined
+        _metadata?.predefinedPlan
       );
 
       // Wait for completion with abort and timeout checks
@@ -272,8 +246,7 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
    */
   private async _sendQuery(
     task: string,
-    predefinedPlan?: PredefinedPlan,
-    workflow?: SemanticWorkflow
+    predefinedPlan?: PredefinedPlan
   ): Promise<void> {
     this.checkIfAborted();
 
@@ -286,16 +259,6 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
 
     // Build message content starting with task
     let messageContent = task;
-
-    // If workflow exists, add userTrajectory context first
-    if (workflow) {
-      const userTrajectory = this._formatWorkflowAsUserTrajectory(workflow);
-      messageContent = `${userTrajectory}
-
-TASK: ${task}`;
-
-      Logging.log("WebSocketAgent", `Sending workflow context: ${workflow.metadata?.goal}`, "info");
-    }
 
     // If predefined plan exists, format steps into message
     if (predefinedPlan) {
