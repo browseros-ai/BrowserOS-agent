@@ -178,14 +178,7 @@ ${JSON.stringify(userTrajectorySteps, null, 2)}`;
       });
 
       // Start glow animation
-      try {
-        const currentPage = await this.executionContext.browserContext.getCurrentPage();
-        if (currentPage?.tabId && !this.glowService.isGlowActive(currentPage.tabId)) {
-          await this.glowService.startGlow(currentPage.tabId);
-        }
-      } catch (error) {
-        Logging.log("TeachWebSocketAgent", `Could not start glow animation: ${error}`, "warning");
-      }
+      this._maybeStartGlow();
 
       // Connect to WebSocket server
       await this._connect();
@@ -424,6 +417,8 @@ ${formattedSteps}`;
       // Update last event time for timeout tracking
       this.lastEventTime = Date.now();
 
+      this._maybeStartGlow();
+
       // Route based on message type
       const isDev = isDevelopmentMode();
 
@@ -455,7 +450,7 @@ ${formattedSteps}`;
           break;
 
         case 'tool_use':
-          if (isDev && data.content) {
+          if (data.content) {
             const msgId = PubSub.generateId('teach_ws_server');
             this._emitThinking(msgId, data.content);
           }
@@ -589,6 +584,21 @@ ${formattedSteps}`;
         error: errorMessage
       });
     }
+  }
+
+  /**
+   * Start glow animation (fire and forget)
+   */
+  private _maybeStartGlow(): void {
+    this.executionContext.browserContext.getCurrentPage()
+      .then(page => {
+        if (page?.tabId && !this.glowService.isGlowActive(page.tabId)) {
+          return this.glowService.startGlow(page.tabId);
+        }
+      })
+      .catch(error => {
+        Logging.log("TeachWebSocketAgent", `Could not start glow: ${error}`, "warning");
+      });
   }
 
   /**
