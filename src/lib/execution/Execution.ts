@@ -211,10 +211,12 @@ export class Execution {
           throw new Error("Teach mode requires a workflow to execute");
         }
 
-        // Check if BrowserOS provider is selected
+        // Check if BrowserOS provider is selected and websocket agent feature is enabled
         const providerType = await langChainProvider.getCurrentProviderType() || '';
+        const featureFlags = getFeatureFlags();
+        const wsAgentEnabled = featureFlags.isEnabled('WEBSOCKET_AGENT');
 
-        if (providerType === 'browseros') {
+        if (providerType === 'browseros' && wsAgentEnabled) {
           // Use TeachWebSocketAgent for teach mode with BrowserOS provider
           agentType = 'TeachWebSocketAgent';
           Logging.logMetric('execution.agent_start', {
@@ -252,11 +254,13 @@ export class Execution {
         const chatAgent = new ChatAgent(executionContext);
         await chatAgent.execute(query);
       } else {
-        // Browse mode - check if BrowserOS mode is enabled
+        // Browse mode - check if BrowserOS mode is enabled and websocket agent feature is enabled
         const providerType = await langChainProvider.getCurrentProviderType() || '';
+        const featureFlags = getFeatureFlags();
+        const wsAgentEnabled = featureFlags.isEnabled('WEBSOCKET_AGENT');
 
-        // Use WebSocketAgent only when BrowserOS provider is selected
-        if (providerType === 'browseros') {
+        // Use WebSocketAgent only when BrowserOS provider is selected and feature is enabled
+        if (providerType === 'browseros' && wsAgentEnabled) {
           agentType = 'WebSocketAgent';
           Logging.logMetric('execution.agent_start', {
             mode: this.options.mode,
@@ -329,11 +333,18 @@ export class Execution {
           if (this.options.mode === 'chat') {
             agentName = 'ChatAgent';
           } else if (this.options.mode === 'teach') {
-            agentName = 'TeachAgent';
+            // Check if TeachWebSocketAgent was used
+            const providerType = await langChainProvider.getCurrentProviderType() || '';
+            const featureFlags = getFeatureFlags();
+            const wsAgentEnabled = featureFlags.isEnabled('WEBSOCKET_AGENT');
+            agentName = (providerType === 'browseros' && wsAgentEnabled) ? 'TeachWebSocketAgent' : 'TeachAgent';
           } else {
             // Browse mode - check which agent was used
             const providerType = await langChainProvider.getCurrentProviderType() || '';
-            if (providerType === 'browseros') {
+            const featureFlags = getFeatureFlags();
+            const wsAgentEnabled = featureFlags.isEnabled('WEBSOCKET_AGENT');
+
+            if (providerType === 'browseros' && wsAgentEnabled) {
               agentName = 'WebSocketAgent';
             } else {
               const smallModelsList = ['ollama'];

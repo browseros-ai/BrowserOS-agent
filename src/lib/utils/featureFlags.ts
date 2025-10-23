@@ -5,6 +5,7 @@ import { Logging } from '@/lib/utils/Logging'
 const FEATURE_FLAGS = {
   TEACH_MODE: '137.0.7212.69',
   MCP_SERVER: '137.0.7216.69',
+  WEBSOCKET_AGENT: '137.0.7220.69',
 } as const
 
 // Version comparison utility
