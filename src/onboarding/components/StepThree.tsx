@@ -9,7 +9,7 @@ export function StepThree() {
   const exampleQueries = [
     {
       id: 'chat-mode',
-      title: 'Summarize Pages with Chat mode',
+      title: 'Summarize Any web Page',
       description: 'Extract today\'s news from Google News',
       query: 'summarize today\'s news',
       url: 'https://news.google.com',
@@ -155,14 +155,11 @@ export function StepThree() {
       // Wait for the tab to load
       await new Promise(resolve => setTimeout(resolve, 1500))
 
-      // Determine if this should be chat mode or browse mode
-      const chatMode = example.id === 'chat-mode'
-
       await chrome.runtime.sendMessage({
         type: 'NEWTAB_EXECUTE_QUERY',
         tabId: newTab.id,
         query: example.query,
-        chatMode: chatMode,
+        chatMode: false,
         metadata: {
           source: 'onboarding',
           executionMode: 'dynamic'
