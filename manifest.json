@@ -18,7 +18,8 @@
     "browserOS",
     "webNavigation",
     "downloads",
-    "audioCapture"
+    "audioCapture",
+    "notifications"
   ],
   "update_url": "https://cdn.browseros.com/extensions/update-manifest.xml",
   "host_permissions": [
