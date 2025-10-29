@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Hammer } from 'lucide-react'
-import { PortName } from '@/lib/runtime/PortMessaging'
+import { PortPrefix } from '@/lib/runtime/PortMessaging'
 import { MessageType } from '@/lib/types/messaging'
 
 interface ParsedPlan { name?: string; goal: string; steps: string[] }
@@ -39,7 +39,7 @@ export function PlanGenerator ({
   // --- AI Integration ---
   const sendPortMessage = (message: { type: MessageType, payload: any }, onMessage: (m: any) => void): void => {
     try {
-      const port = chrome.runtime.connect({ name: PortName.NEWTAB_TO_BACKGROUND })
+      const port = chrome.runtime.connect({ name: PortPrefix.NEWTAB })
       const id = crypto.randomUUID()
       const handler = (msg: any): void => {
         if (msg?.type === MessageType.PLAN_GENERATION_UPDATE && msg?.id === id) {
@@ -48,10 +48,10 @@ export function PlanGenerator ({
       }
       port.onMessage.addListener(handler)
       port.postMessage({ ...message, id })
-      // Auto-disconnect shortly after last update in onMessage
+      // Auto-disconnect after completion or timeout
       setTimeout(() => {
         try { port.onMessage.removeListener(handler); port.disconnect() } catch (_) {}
-      }, 10_000)
+      }, 30_000)  // Increased timeout for plan generation which can take longer
     } catch (e) {
       setAiError('Failed to connect to background')
       setIsGenerating(false)

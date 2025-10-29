@@ -237,4 +237,32 @@ export class KlavisAPIClient {
       }
     }
   }
+
+  /**
+   * Get instance status including authentication state
+   * GET /mcp-server/instance/{instanceId}
+   */
+  async getInstanceStatus(instanceId: string): Promise<{
+    instanceId: string | null
+    authNeeded: boolean
+    isAuthenticated: boolean
+    serverName: string
+    platform: string
+    externalUserId: string
+    oauthUrl: string | null
+  }> {
+    return this.request<{
+      instanceId: string | null
+      authNeeded: boolean
+      isAuthenticated: boolean
+      serverName: string
+      platform: string
+      externalUserId: string
+      oauthUrl: string | null
+    }>(
+      'GET',
+      `/mcp-server/instance/${instanceId}`,
+      undefined
+    )
+  }
 }

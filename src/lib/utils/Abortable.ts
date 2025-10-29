@@ -48,15 +48,15 @@ export function Abortable(
 
   descriptor.value = async function (this: any, ...args: any[]): Promise<any> {
     // Check if the class has executionContext
-    if (!this.executionContext?.abortController?.signal) {
+    if (!this.executionContext?.abortSignal) {
       throw new Error(
-        `@Abortable requires the class to have an executionContext with abortController. ` +
+        `@Abortable requires the class to have an executionContext with abortSignal. ` +
         `Make sure ${this.constructor.name} has this property.`
       );
     }
 
     // Check if already aborted before executing
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError();
     }
 
@@ -71,7 +71,7 @@ export function Abortable(
       }
       
       // For other errors, check if we were aborted during execution
-      if (this.executionContext.abortController.signal.aborted) {
+      if (this.executionContext.abortSignal.aborted) {
         throw new AbortError();
       }
       
@@ -93,4 +93,24 @@ export interface AbortableClass {
   executionContext: {
     abortController: AbortController;
   };
+}
+
+/**
+ * Check if an error is a user-initiated cancellation
+ * Handles both AbortError instances and fetch abort errors
+ */
+export function isUserCancellation(error: unknown): boolean {
+  if (error instanceof AbortError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    // Check for specific abort-related messages
+    return message === "request was aborted" ||
+           message === "the operation was aborted" ||
+           message.includes("request was aborted");
+  }
+
+  return false;
 }

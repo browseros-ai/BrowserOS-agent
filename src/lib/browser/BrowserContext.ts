@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import BrowserPage from './BrowserPage';
 import { Logging } from '../utils/Logging';
-import { profileAsync } from '../utils/profiler';
+import { profileAsync } from '@/lib/utils/profiler';
 
 // ============= Browser Context Configuration =============
 
@@ -17,8 +17,7 @@ export type BrowserContextWindowSize = z.infer<typeof BrowserContextWindowSizeSc
 export const BrowserContextConfigSchema = z.object({
   maximumWaitPageLoadTime: z.number().default(5.0),  // Maximum time to wait for page load
   waitBetweenActions: z.number().default(0.1),  // Time to wait between multiple actions
-  homePageUrl: z.string().default('https://www.google.com'),  // Home page url
-  useVision: z.boolean().default(true)  // Use vision mode
+  homePageUrl: z.string().default('https://www.google.com')  // Home page url
 })
 
 export type BrowserContextConfig = z.infer<typeof BrowserContextConfigSchema>
@@ -255,11 +254,11 @@ export class BrowserContext {
   /**
    * Get detailed browser state description for agents
    */
-  public async getBrowserStateString(simplified: boolean = false): Promise<string> {
+  public async getBrowserStateString(simplified: boolean = false, hideHiddenElements: boolean = false): Promise<string> {
     return profileAsync('BrowserContext.getBrowserStateString', async () => {
     try {
       // Use the structured getBrowserState API - pass simplified flag
-      const browserState = await this.getBrowserState(simplified);
+      const browserState = await this.getBrowserState(simplified, hideHiddenElements);
       
       // Format current tab
       const currentTab = `{id: ${browserState.tabId}, url: ${browserState.url}, title: ${browserState.title}}`;
@@ -495,7 +494,7 @@ ${elementsText}
    * Get structured browser state (V2 clean API)
    * @returns BrowserState object with current page info and interactive elements
    */
-  public async getBrowserState(simplified: boolean = false): Promise<BrowserState> {
+  public async getBrowserState(simplified: boolean = false, hideHiddenElements: boolean = false): Promise<BrowserState> {
     return profileAsync('BrowserContext.getBrowserState', async () => {
     try {
       const currentPage = await this.getCurrentPage();
@@ -507,8 +506,8 @@ ${elementsText}
       const tabId = currentPage.tabId;
 
       // Get formatted strings from the page - pass simplified flag
-      const clickableElementsString = await currentPage.getClickableElementsString(simplified);
-      const typeableElementsString = await currentPage.getTypeableElementsString(simplified);
+      const clickableElementsString = await currentPage.getClickableElementsString(simplified, hideHiddenElements);
+      const typeableElementsString = await currentPage.getTypeableElementsString(simplified, hideHiddenElements);
       
       // Get structured elements from the page
       const clickableElements = await currentPage.getClickableElements();

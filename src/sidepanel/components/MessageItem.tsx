@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useMemo, useCallback } from 'react'
+import React, { memo, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { MarkdownContent } from './shared/Markdown'
 import { ExpandableSection } from './shared/ExpandableSection'
 import { cn } from '@/sidepanel/lib/utils'
@@ -8,6 +8,9 @@ import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 import { TaskManagerDropdown } from './TaskManagerDropdown'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useCopyToClipboard } from '@/sidepanel/hooks/useCopyToClipboard'
+import { FeedbackButtons } from './feedback/FeedbackButtons'
+import { FeedbackModal } from './feedback/FeedbackModal'
+import type { FeedbackType } from '@/lib/types/feedback'
 
 interface MessageItemProps {
   message: Message
@@ -326,6 +329,7 @@ const ToolResultInline = ({ name, content, autoCollapseAfterMs }: ToolResultInli
 export const MessageItem = memo<MessageItemProps>(function MessageItem({ message, shouldIndent = false, showLocalIndentLine = false, applyIndentMargin = true }: MessageItemProps) {
   const { autoCollapseTools } = useSettingsStore()
   const messages = useChatStore(state => state.messages)
+  const { submitFeedback, getFeedbackForMessage, getFeedbackUIState, setFeedbackUIState } = useChatStore()
   const { copyToClipboard, isCopied } = useCopyToClipboard()
   
   // Check if this is the latest thinking message (for shimmer effect)
@@ -335,12 +339,6 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
     return lastMessage?.msgId === message.msgId
   }, [message.role, message.msgId, messages])
   
-  // Check if this is the latest narration message (for shimmer effect)
-  const isLatestNarration = useMemo(() => {
-    if (message.role !== 'narration') return false
-    const lastMessage = messages[messages.length - 1]
-    return lastMessage?.msgId === message.msgId
-  }, [message.role, message.msgId, messages])
   
   // Handle copy action for assistant messages
   const handleCopyMessage = useCallback(async () => {
@@ -353,11 +351,68 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
   const isUser = message.role === 'user'
   const isError = message.role === 'error'
   const isThinking = message.role === 'thinking'
-  const isNarration = message.role === 'narration'
   const isAssistant = message.role === 'assistant'
   
   // Special cases we still need to detect
   const isTodoTable = message.content.includes('| # | Status | Task |')
+  
+  // Feedback functionality
+  const feedback = getFeedbackForMessage(message.msgId)
+  const feedbackUI = getFeedbackUIState(message.msgId)
+  const [showThankYou, setShowThankYou] = useState(false)
+  
+  // Check if this is the latest assistant message (for completed responses)
+  const isLatestAssistant = useMemo(() => {
+    if (message.role !== 'assistant') return false
+    const lastMessage = messages[messages.length - 1]
+    return lastMessage?.msgId === message.msgId
+  }, [message.role, message.msgId, messages])
+  
+  // Check if agent is currently processing (streaming)
+  const { isProcessing } = useChatStore(state => ({ isProcessing: state.isProcessing }))
+  
+  // Determine if we should show feedback buttons
+  const shouldShowFeedback = useMemo(() => {
+    return message.role === 'assistant' && 
+           !isTodoTable &&
+           !feedback &&
+           // Show feedback for completed assistant messages (not currently streaming)
+           (!isLatestAssistant || !isProcessing)
+  }, [message.role, isTodoTable, feedback, isLatestAssistant, isProcessing])
+  
+  // Handle feedback submission
+  const handleFeedback = useCallback(async (messageId: string, type: FeedbackType) => {
+    if (type === 'thumbs_up') {
+      await submitFeedback(messageId, type)
+    } else {
+      // Open modal for thumbs down
+      setFeedbackUIState(messageId, { showModal: true })
+    }
+  }, [submitFeedback, setFeedbackUIState])
+  
+  // Handle feedback modal submission
+  const handleFeedbackModalSubmit = useCallback(async (textFeedback: string) => {
+    await submitFeedback(message.msgId, 'thumbs_down', textFeedback)
+  }, [submitFeedback, message.msgId])
+  
+  // Handle feedback modal close
+  const handleFeedbackModalClose = useCallback(() => {
+    setFeedbackUIState(message.msgId, { showModal: false })
+  }, [setFeedbackUIState, message.msgId])
+  
+ 
+  useEffect(() => {
+    if (feedback && !feedbackUI.showModal) {
+      setShowThankYou(true)
+      const timer = setTimeout(() => {
+        setShowThankYou(false)
+      }, 2000) 
+      
+      return () => clearTimeout(timer)
+    }
+  }, [feedback, feedbackUI.showModal])
+
+
 
   // Dynamic message styling based on role and content type
   const messageStyling = useMemo(() => {
@@ -412,7 +467,7 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
     switch (message.role) {
       case 'user':
         return (
-          <div className="whitespace-pre-wrap break-words font-medium">
+          <div className="whitespace-pre-wrap break-words font-medium text-sm">
             {message.content}
           </div>
         )
@@ -429,50 +484,16 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
             />
           )
         }
-        // Regular thinking message - use shimmer if it's the latest
-        if (isLatestThinking && !isTodoTable) {
-          return (
-            <div className="shimmer-container">
-              <MarkdownContent
-                content={message.content}
-                className="break-words"
-                compact={false}
-              />
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-transparent via-background/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
-            </div>
-          )
-        }
-        // Regular thinking message - use markdown
+        
+        // Regular thinking message - use MarkdownContent
         return (
           <MarkdownContent
             content={message.content}
-            className="break-words"
-            compact={false}
+            className="break-words text-xs text-muted-foreground/80"
+            compact={true}
           />
         )
 
-      case 'narration':
-        // Narration messages with shimmer effect if latest
-        if (isLatestNarration && !isTodoTable) {
-          return (
-            <div className="shimmer-container">
-              <MarkdownContent
-                content={message.content}
-                className="break-words text-muted-foreground"
-                compact={false}
-              />
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-transparent via-background/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
-            </div>
-          )
-        }
-        // Regular narration message
-        return (
-          <MarkdownContent
-            content={message.content}
-            className="break-words text-muted-foreground"
-            compact={false}
-          />
-        )
 
       case 'assistant':
         // Final results - rich markdown with emphasis
@@ -480,21 +501,36 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           <div className="space-y-3">
             <MarkdownContent
               content={message.content}
-              className="break-words font-semibold"
+              className="break-words font-medium text-sm"
               compact={false}
             />
           </div>
         )
 
       case 'error':
-        // Error messages with red styling
+        // Simple, minimalistic error messages with clickable links
+        const urlRegex = /(https?:\/\/[^\s]+)/g
+        const parts = message.content.split(urlRegex)
+        
         return (
-          <div className="text-red-500 font-medium">
-            <MarkdownContent
-              content={message.content}
-              className="break-words"
-              compact={false}
-            />
+          <div className="text-red-500 text-sm">
+            <span className="font-medium">⚠️ Error: </span>
+            {parts.map((part, index) => {
+              if (urlRegex.test(part)) {
+                return (
+                  <a
+                    key={index}
+                    href={part}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 underline hover:text-blue-400 transition-colors"
+                  >
+                    {part}
+                  </a>
+                )
+              }
+              return <span key={index}>{part}</span>
+            })}
           </div>
         )
 
@@ -553,12 +589,12 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
         return (
           <MarkdownContent
             content={message.content}
-            className="break-words"
+            className="break-words font-medium"
             compact={false}
           />
         )
     }
-  }, [message.role, message.content, message.msgId, message.metadata?.toolName, isTodoTable, autoCollapseTools, shouldIndent, isLatestThinking, isLatestNarration])
+  }, [message.role, message.content, message.msgId, message.metadata?.toolName, isTodoTable, autoCollapseTools, shouldIndent, isLatestThinking])
 
   return (
     <div 
@@ -582,18 +618,24 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
       {/* Removed DOM queries for these - they're now handled by parent component */}
 
 
-      {/* Message content - with or without bubble */}
-      {shouldShowBubble ? (
-        // Message bubble layout
+      {/* Show content in bubble if it's a bubble message */}
+      {shouldShowBubble && messageStyling && (
         <div className={cn(
-          'relative max-w-[85%] rounded-2xl px-3 py-1 transition-all duration-300',
-          messageStyling?.shadow,
-          messageStyling?.bubble,
-          // Slightly darker text for indented bubble messages to improve contrast
-          shouldIndent && 'opacity-90 text-foreground'
+          'relative rounded-2xl px-4 py-3 max-w-[85%] shadow-sm',
+          'bg-gradient-to-br from-brand to-brand/90 text-white',
+          messageStyling.bubble,
+          'group'
         )}>
+          {/* Shadow/glow effect */}
+          {messageStyling.shadow && (
+            <div className={cn(
+              'absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300',
+              messageStyling.shadow
+            )} />
+          )}
+
           {/* Glow effect */}
-          {messageStyling?.glow && (
+          {messageStyling.glow && (
             <div className={cn(
               'absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300',
               messageStyling.glow
@@ -604,19 +646,18 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
           <div className="relative z-10">
             {renderContent()}
           </div>
-
-          {/* Timestamp - only show for user and TODO messages */}
-          {(isUser || isTodoTable) && (
-            <div className={cn('text-xs opacity-50', isUser ? 'text-right' : 'text-left')}>
-              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          )}
         </div>
-      ) : (
-        // Non-bubble messages (thinking, assistant, error)
+      )}
+
+      {/* Show content without bubble for other message types */}
+      {!shouldShowBubble && (
         <div className={cn(
-          'mr-4 max-w-[85%] relative group',
-          'mt-1',
+          'relative transition-all duration-200',
+          // Match thinking section alignment: assistant messages align with brain icon position
+          isAssistant ? 'pl-3 py-2' : 'px-4 py-2',
+          // Indentation styling
+          shouldIndent && applyIndentMargin && 'ml-4',
+          shouldIndent && showLocalIndentLine && 'border-l border-border/30 pl-3 ml-1',
           // Add subtle styling for indented messages
           shouldIndent && 'opacity-90',
           // Error messages get special styling
@@ -631,11 +672,11 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
             <button
               onClick={handleCopyMessage}
               className={cn(
-                'absolute top-1 right-1 p-1.5 rounded-md transition-all duration-200',
-                'opacity-0 group-hover:opacity-100',
-                'hover:bg-muted/80 active:bg-muted',
+                'absolute top-2 right-2 opacity-0 group-hover:opacity-100',
+                'p-1.5 rounded-lg bg-background/80 backdrop-blur-sm border border-border/50',
+                'hover:bg-muted/80 transition-all duration-200',
                 'text-muted-foreground hover:text-foreground',
-                'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand/20'
+                'smooth-hover'
               )}
               title={isCopied ? 'Copied!' : 'Copy response'}
               aria-label={isCopied ? 'Copied to clipboard' : 'Copy response to clipboard'}
@@ -646,6 +687,41 @@ export const MessageItem = memo<MessageItemProps>(function MessageItem({ message
                 <Copy className="h-3.5 w-3.5" />
               )}
             </button>
+          )}
+          
+          {/* Feedback section below content for assistant messages */}
+          {message.role === 'assistant' && (shouldShowFeedback || feedback) && (
+            <div className="mt-3 flex items-center justify-start">
+              {shouldShowFeedback && (
+                <FeedbackButtons
+                  messageId={message.msgId}
+                  onFeedback={handleFeedback}
+                  isSubmitted={!!feedback}
+                  submittedType={feedback?.type}
+                  isSubmitting={feedbackUI.isSubmitting}
+                />
+              )}
+              
+              {/* Thank you message for submitted feedback */}
+              {showThankYou && feedback && !feedbackUI.showModal && (
+                <div className={cn(
+                  "text-xs text-green-600 px-2 py-1 bg-green-50 rounded-md ml-2 transition-all duration-300",
+                  "animate-in fade-in-0 slide-in-from-bottom-1"
+                )}>
+                  {feedback.type === 'thumbs_up' ? 'Thanks for your feedback!' : 'Feedback submitted'}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Feedback modal */}
+          {feedbackUI.showModal && (
+            <FeedbackModal
+              isOpen={feedbackUI.showModal}
+              onClose={handleFeedbackModalClose}
+              onSubmit={handleFeedbackModalSubmit}
+              isSubmitting={feedbackUI.isSubmitting}
+            />
           )}
         </div>
       )}

@@ -1,14 +1,13 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { MessageManager } from '@/lib/runtime/MessageManager'
+import { MessageManager, LLMMessageType } from '@/lib/runtime/MessageManager'
 import { ToolManager } from '@/lib/tools/ToolManager'
-import { createScreenshotTool } from '@/lib/tools/utils/ScreenshotTool'
-import { createScrollTool } from '@/lib/tools/navigation/ScrollTool'
+import { ScrollTool, ScreenshotTool } from '@/lib/tools'
 import { generateSystemPrompt, generatePageContextMessage, generateTaskPrompt } from './ChatAgent.prompt'
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages'
 import { PubSub } from '@/lib/pubsub'
-import { AbortError } from '@/lib/utils/Abortable'
+import { PubSubChannel } from '@/lib/pubsub/PubSubChannel'
+import { AbortError, isUserCancellation } from '@/lib/utils/Abortable'
 import { Logging } from '@/lib/utils/Logging'
-import { Subscription } from '@/lib/pubsub/types'
 
 // Type definitions
 interface ExtractedPageContext {
@@ -33,7 +32,6 @@ export class ChatAgent {
   
   private readonly executionContext: ExecutionContext
   private readonly toolManager: ToolManager
-  private statusSubscription?: Subscription  // Subscription to execution status events
   
   // State tracking for tab context caching
   private lastExtractedTabIds: Set<number> | null = null
@@ -42,7 +40,6 @@ export class ChatAgent {
     this.executionContext = executionContext
     this.toolManager = new ToolManager(executionContext)
     this._registerTools()
-    this._subscribeToExecutionStatus()
   }
 
   // Getters for context components
@@ -50,7 +47,7 @@ export class ChatAgent {
     return this.executionContext.messageManager
   }
 
-  private get pubsub(): PubSub {
+  private get pubsub(): PubSubChannel {
     return this.executionContext.getPubSub()
   }
 
@@ -59,8 +56,8 @@ export class ChatAgent {
    */
   private _registerTools(): void {
     // Only register the 2 essential tools for Q&A
-    this.toolManager.register(createScreenshotTool(this.executionContext))
-    this.toolManager.register(createScrollTool(this.executionContext))
+    this.toolManager.register(ScreenshotTool(this.executionContext))
+    this.toolManager.register(ScrollTool(this.executionContext))
     
     Logging.log('ChatAgent', `Registered ${this.toolManager.getAll().length} tools for Q&A mode`)
   }
@@ -69,35 +66,16 @@ export class ChatAgent {
    * Check abort signal and throw if aborted
    */
   private _checkAborted(): void {
-    if (this.executionContext.abortController.signal.aborted) {
+    if (this.executionContext.abortSignal.aborted) {
       throw new AbortError()
     }
   }
 
   /**
-   * Subscribe to execution status events and handle cancellation
-   */
-  private _subscribeToExecutionStatus(): void {
-    this.statusSubscription = this.pubsub.subscribe((event) => {
-      if (event.type === 'execution-status') {
-        const { status } = event.payload
-        
-        if (status === 'cancelled') {
-          this.pubsub.publishMessage(PubSub.createMessageWithId('pause_message_id','✋ Task paused. To continue this task, just type your next request OR use 🔄 to start a new task!', 'assistant'))
-          this.executionContext.cancelExecution(true)
-        }
-      }
-    })
-  }
-
-  /**
-   * Cleanup method to properly unsubscribe when agent is being destroyed
+   * Cleanup method (currently unused but kept for interface compatibility)
    */
   public cleanup(): void {
-    if (this.statusSubscription) {
-      this.statusSubscription.unsubscribe()
-      this.statusSubscription = undefined
-    }
+    // No cleanup needed currently
   }
 
   /**
@@ -125,18 +103,25 @@ export class ChatAgent {
         if (isFreshConversation) {
           // Fresh conversation: Clear and add simple system prompt once
           this.messageManager.clear()
-          
+
           // Simple system prompt - just sets the role
           const systemPrompt = generateSystemPrompt()
           this.messageManager.addSystem(systemPrompt)
-          
-          // Add page context as browser state message
+
+          // Add page context as browser state message (only if tabs exist)
           const contextMessage = generatePageContextMessage(pageContext, false)
-          this.messageManager.addBrowserState(contextMessage)
+          if (contextMessage) {
+            this.messageManager.addBrowserState(contextMessage)
+          }
         } else {
           // Tabs changed: replace browser state to remove old page content
           const contextMessage = generatePageContextMessage(pageContext, true)
-          this.messageManager.addBrowserState(contextMessage)
+          if (contextMessage) {
+            this.messageManager.addBrowserState(contextMessage)
+          } else {
+            // No tabs - remove browser state entirely to enable general knowledge mode
+            this.messageManager.removeMessagesByType(LLMMessageType.BROWSER_STATE)
+          }
         }
         
         // Update tracked tab IDs
@@ -153,9 +138,11 @@ export class ChatAgent {
       Logging.log('ChatAgent', 'Q&A response completed')
       
     } catch (error) {
-      if (error instanceof AbortError) {
-        Logging.log('ChatAgent', 'Execution aborted by user')
-        // Don't publish message here - already handled in _subscribeToExecutionStatus
+      // Check if this is a user cancellation - handle silently
+      if (isUserCancellation(error) || this.executionContext.isUserCancellation()) {
+        // User-initiated cancellation - don't rethrow, let execution end gracefully
+        Logging.log('ChatAgent', 'Execution cancelled by user')
+        return  // Don't rethrow
       } else {
         const errorMessage = error instanceof Error ? error.message : String(error)
         const errorType = error instanceof Error ? error.name : 'UnknownError'
@@ -171,13 +158,7 @@ export class ChatAgent {
         
         Logging.log('ChatAgent', `Execution failed: ${errorMessage}`, 'error')
         this.pubsub.publishMessage(PubSub.createMessage(`Error: ${errorMessage}`, 'error'))
-      }
-      throw error
-    } finally {
-      // Cleanup status subscription
-      if (this.statusSubscription) {
-        this.statusSubscription.unsubscribe()
-        this.statusSubscription = undefined
+        throw error
       }
     }
   }
@@ -195,26 +176,22 @@ export class ChatAgent {
    */
   private async _getCurrentTabIds(): Promise<Set<number>> {
     const selectedTabIds = this.executionContext.getSelectedTabIds()
-    
+
+    // If null or empty array, user deselected all tabs - return empty Set
+    if (!selectedTabIds || selectedTabIds.length === 0) {
+      return new Set()
+    }
+
     // Check if user has explicitly selected multiple tabs (using "@" selector)
-    // If only 1 tab or null, it's likely just the default current tab from NxtScape
-    const hasExplicitSelection = selectedTabIds && selectedTabIds.length > 1
-    
+    const hasExplicitSelection = selectedTabIds.length > 1
+
     if (hasExplicitSelection) {
       // User explicitly selected multiple tabs - use those
       return new Set(selectedTabIds)
     }
-    
-    // No explicit multi-tab selection - get the ACTUAL current active tab
-    // This ensures we detect tab changes even when user switches tabs between queries
-    try {
-      const currentPage = await this.executionContext.browserContext.getCurrentPage()
-      return new Set([currentPage.tabId])
-    } catch (error) {
-      // Fallback to ExecutionContext if getCurrentPage fails
-      Logging.log('ChatAgent', `Failed to get current page, using ExecutionContext: ${error}`, 'warning')
-      return new Set(selectedTabIds || [])
-    }
+
+    // Single tab selected - use it directly (don't auto-detect current page)
+    return new Set([selectedTabIds[0]])
   }
   
   /**
@@ -240,13 +217,22 @@ export class ChatAgent {
   private async _extractPageContext(): Promise<ExtractedPageContext> {
     // Get selected tab IDs from execution context
     const selectedTabIds = this.executionContext.getSelectedTabIds()
+
+    // If explicitly null, user removed all tabs - return empty context
+    if (selectedTabIds === null) {
+      return {
+        tabs: [],
+        isSingleTab: false
+      }
+    }
+
     const hasUserSelectedTabs = Boolean(selectedTabIds && selectedTabIds.length > 0)
-    
+
     // Get browser pages
     const pages = await this.executionContext.browserContext.getPages(
       hasUserSelectedTabs && selectedTabIds ? selectedTabIds : undefined
     )
-    
+
     if (pages.length === 0) {
       throw new Error('No tabs available for context extraction')
     }
@@ -306,7 +292,7 @@ export class ChatAgent {
    * Stream LLM response with or without tools
    */
   private async _streamLLM(opts: { tools: boolean }): Promise<void> {
-    const llm = await this.executionContext.getLLM({ temperature: 0.3 })
+    const llm = await this.executionContext.getLLM({ temperature: 0.3, intelligence: 'high' })
     
     // Only bind tools in Pass 2
     const llmToUse = opts.tools && llm.bindTools

@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { SimpleBraintrustEventManager } from './BraintrustEventManager';
-import { SimplifiedScorer } from './EvalScorer';
+import { BraintrustEventManager } from './BraintrustEventManager';
+import { EvalsScorer } from './EvalScorer';
 import { wrapToolForMetrics } from './EvalToolWrapper';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 
 describe('Evals2 Integration', () => {
-  let eventManager: SimpleBraintrustEventManager;
+  let eventManager: BraintrustEventManager;
   
   beforeAll(() => {
     // Set env var for testing
     process.env.ENABLE_EVALS2 = 'true';
-    eventManager = SimpleBraintrustEventManager.getInstance();
+    eventManager = BraintrustEventManager.getInstance();
   });
   
   afterAll(() => {
@@ -104,7 +104,7 @@ describe('Evals2 Integration', () => {
       })
     ];
     
-    const scorer = new SimplifiedScorer();
+    const scorer = new EvalsScorer();
     
     // Test 1: Without API key, it should throw
     if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {

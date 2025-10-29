@@ -24,6 +24,15 @@ const processEnv = {
   'process.env.POSTHOG_API_KEY': JSON.stringify(envKeys.POSTHOG_API_KEY || ''),
   'process.env.KLAVIS_API_KEY': JSON.stringify(envKeys.KLAVIS_API_KEY || ''),
   'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  'process.env.MOONDREAM_API_KEY': JSON.stringify(envKeys.MOONDREAM_API_KEY || ''),
+  // Firebase environment variables
+  'process.env.FIREBASE_API_KEY': JSON.stringify(envKeys.FIREBASE_API_KEY || ''),
+  'process.env.FIREBASE_AUTH_DOMAIN': JSON.stringify(envKeys.FIREBASE_AUTH_DOMAIN || ''),
+  'process.env.FIREBASE_PROJECT_ID': JSON.stringify(envKeys.FIREBASE_PROJECT_ID || ''),
+  'process.env.FIREBASE_STORAGE_BUCKET': JSON.stringify(envKeys.FIREBASE_STORAGE_BUCKET || ''),
+  'process.env.FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(envKeys.FIREBASE_MESSAGING_SENDER_ID || ''),
+  'process.env.FIREBASE_APP_ID': JSON.stringify(envKeys.FIREBASE_APP_ID || ''),
+  'process.env.FIREBASE_MEASUREMENT_ID': JSON.stringify(envKeys.FIREBASE_MEASUREMENT_ID || ''),
   // Braintrust Telemetry Configuration
   'process.env.ENABLE_TELEMETRY': JSON.stringify(envKeys.ENABLE_TELEMETRY || 'false'),
   'process.env.ENABLE_EVALS2': JSON.stringify(envKeys.ENABLE_EVALS2 || 'false'),
@@ -32,7 +41,9 @@ const processEnv = {
   'process.env.BRAINTRUST_PROJECT_NAME': JSON.stringify(envKeys.BRAINTRUST_PROJECT_NAME || 'browseros-agent-online'),
   // Gemini API keys for evals2 scoring
   'process.env.GOOGLE_GENAI_API_KEY': JSON.stringify(envKeys.GOOGLE_GENAI_API_KEY || ''),
-  'process.env.GEMINI_API_KEY': JSON.stringify(envKeys.GEMINI_API_KEY || '')
+  'process.env.GEMINI_API_KEY': JSON.stringify(envKeys.GEMINI_API_KEY || ''),
+  // OpenAI for voice transcription in teach mode
+  'process.env.OPENAI_API_KEY': JSON.stringify(envKeys.OPENAI_API_KEY || '')
 }
 
 console.log('API keys will be injected at build time (keys hidden for security)')
@@ -53,7 +64,10 @@ module.exports = {
     sidepanel: './src/sidepanel/index.tsx',
     background: './src/background/index.ts',
     'glow-animation': './src/content/glow-animation.ts',
-    newtab: './src/newtab/index.tsx'
+    'teach-mode-recorder': './src/content/teach-mode-recorder.ts',
+    newtab: './src/newtab/index.tsx',
+    options: './src/options/index.tsx',
+    onboarding: './src/onboarding/index.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -133,7 +147,7 @@ module.exports = {
     // Limit chunks to entry points only - prevents dynamic chunk creation
     // This forces all imports (including dynamic) to be bundled into their parent entry
     new webpack.optimize.LimitChunkCountPlugin({
-      maxChunks: 4  // One chunk per entry point (sidepanel, background, glow-animation, newtab)
+      maxChunks: 7  // One chunk per entry point (sidepanel, background, glow-animation, teach-mode-recorder, newtab, options, onboarding)
     }),
     new HtmlWebpackPlugin({
       template: './src/sidepanel/index.html',
@@ -145,10 +159,20 @@ module.exports = {
       filename: 'newtab.html',
       chunks: ['newtab']
     }),
+    new HtmlWebpackPlugin({
+      template: './browseros-settings.html',
+      filename: 'browseros-settings.html',
+      chunks: ['options']
+    }),
+    new HtmlWebpackPlugin({
+      template: './onboarding.html',
+      filename: 'onboarding.html',
+      chunks: ['onboarding']
+    }),
     new CopyPlugin({
       patterns: [
-        { 
-          from: 'manifest.json', 
+        {
+          from: 'manifest.json',
           to: '.',
           transform: (content) => {
             if (isChromeTarget) {
@@ -159,7 +183,8 @@ module.exports = {
             return content;
           }
         },
-        { from: 'assets', to: 'assets', noErrorOnMissing: true }
+        { from: 'assets', to: 'assets', noErrorOnMissing: true },
+        { from: 'src/options/theme-init.js', to: 'theme-init.js' }
       ]
     }),
     new webpack.DefinePlugin(processEnv),

@@ -1,10 +1,10 @@
 # BrowserOS Agent
 
-> **⚠️ Note:** This is only the submodule for the browserOS agent -- https://github.com/browseros-ai/BrowserOS-agent  
+> **⚠️ Note:** This is only the submodule for the browserOS agent, the main project is at -- https://github.com/browseros-ai/BrowserOS
 
 ## Contributing
 
-For information on how to contribute to this project and set up your development environment, please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+For information on how to contribute to this project and set up your development environment, please refer to the [CONTRIBUTING.md](./CONTRIBUTING.md) file.
 
 ## License
 

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { ProviderDropdown } from './ProviderDropdown'
 import { CommandPalette } from './CommandPalette'
 import { SearchDropdown } from './SearchDropdown'
-import { useProviderStore } from '../stores/providerStore'
+import { useProviderStore, type Provider } from '../stores/providerStore'
 import { useAgentsStore } from '../stores/agentsStore'
 
 interface CommandInputProps {
@@ -28,27 +28,10 @@ export function CommandInput({ onCreateAgent }: CommandInputProps = {}) {
     inputRef.current?.focus()
   }, [])
   
-  const handleProviderSelect = async (provider: any, query: string) => {
+  const handleProviderSelect = async (provider: Provider, query: string) => {
     setShowSearchDropdown(false)
-    
-    // Execute based on provider type
-    if (provider.id === 'google') {
-      window.open(`https://google.com/search?q=${encodeURIComponent(query)}`, '_blank')
-    } else if (provider.id === 'chatgpt') {
-      window.open(`https://chatgpt.com/?q=${encodeURIComponent(query)}`, '_blank')
-    } else if (provider.id === 'claude') {
-      window.open(`https://claude.ai/new?q=${encodeURIComponent(query)}`, '_blank')
-    } else if (provider.id === 'browseros') {
-      const browserosProvider = { 
-        id: 'browseros-agent', 
-        name: 'BrowserOS Agent', 
-        category: 'llm' as const,
-        actionType: 'sidepanel' as const,
-        available: true
-      }
-      await executeProviderAction(browserosProvider, query)
-    }
-    
+
+    await executeProviderAction(provider, query)
     setValue('')
   }
 

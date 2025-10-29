@@ -83,3 +83,29 @@ export type BrowserOSPrefObject = z.infer<typeof BrowserOSPrefObjectSchema>
 export const BROWSEROS_PREFERENCE_KEYS = {
   PROVIDERS: 'browseros.providers'
 } as const
+
+export const DEFAULT_BROWSEROS_PROVIDER_ID = 'browseros'
+
+export function createDefaultBrowserOSProvider(): BrowserOSProvider {
+  const timestamp = new Date().toISOString()
+  return {
+    id: DEFAULT_BROWSEROS_PROVIDER_ID,
+    name: 'BrowserOS',
+    type: 'browseros',
+    isDefault: true,
+    isBuiltIn: true,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  }
+}
+
+export function createDefaultProvidersConfig(): BrowserOSProvidersConfig {
+  const provider = createDefaultBrowserOSProvider()
+  return {
+    defaultProviderId: provider.id,
+    providers: [provider]
+  }
+}
+
+
+

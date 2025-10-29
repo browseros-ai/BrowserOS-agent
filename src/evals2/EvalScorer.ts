@@ -12,7 +12,7 @@ import {
   getContextEfficiencyPrompt 
 } from './EvalScorer.prompt';
 
-export class SimplifiedScorer {
+export class EvalsScorer {
   private llm: BaseChatModel | null | undefined = undefined;
   
   constructor() {

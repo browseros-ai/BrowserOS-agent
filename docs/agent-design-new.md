@@ -189,7 +189,7 @@ export function generatePlannerTaskPrompt();
 // src/lib/tools/utils/DoneTool.ts
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { toolSuccess } from '@/lib/tools/tool.interface';
+import { toolSuccess } from '@/lib/tools/Tool.interface';
 
 const DoneInputSchema = z.object({
   summary: z.string().optional()  // Optional completion summary

@@ -11,8 +11,6 @@ import { MessageType } from '@/lib/types/messaging'
 import { cn } from '@/sidepanel/lib/utils'
 import { Loader } from 'lucide-react'
 import { BrowserOSProvidersConfig, BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
-import { ModeToggle } from './ModeToggle'
-// Tailwind classes used in ModeToggle; no separate CSS import
 import { SlashCommandPalette } from './SlashCommandPalette'
 import { useAgentsStore } from '@/newtab/stores/agentsStore'
 
@@ -32,6 +30,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const [showTabSelector, setShowTabSelector] = useState(false)
   const [showSlashPalette, setShowSlashPalette] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const chatModeInitializedRef = useRef<boolean>(false)
   const [providerOk, setProviderOk] = useState<boolean>(true)
   const [historyIndex, setHistoryIndex] = useState<number>(-1)
   const [draftBeforeHistory, setDraftBeforeHistory] = useState<string>('')
@@ -40,7 +39,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   const messages = useChatStore(state => state.messages)
   const { chatMode } = useSettingsStore()
   const { sendMessage, addMessageListener, removeMessageListener, connected: portConnected } = useSidePanelPortMessaging()
-  const { getContextTabs, toggleTabSelection, clearSelectedTabs } = useTabsStore()
+  const { getContextTabs, toggleTabSelection, clearSelectedTabs, fetchOpenTabs } = useTabsStore()
   const { agents, loadAgents } = useAgentsStore()
   
   // Load agents from Chrome storage on mount
@@ -104,32 +103,68 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       setInput(e.detail)
       textareaRef.current?.focus()
     }
-    
+
     window.addEventListener('setInputValue', handleSetInput as EventListener)
     return () => {
       window.removeEventListener('setInputValue', handleSetInput as EventListener)
     }
   }, [])
-  
 
-  
+  // Fetch tabs on mount to ensure currentTabId is set
+  useEffect(() => {
+    fetchOpenTabs(undefined, true)
+  }, [fetchOpenTabs])
+
+  // Auto-select current tab when entering chat mode
+  useEffect(() => {
+    if (chatMode && !chatModeInitializedRef.current) {
+      chatModeInitializedRef.current = true
+      fetchOpenTabs(undefined, true)
+
+      const timer = setTimeout(() => {
+        const state = useTabsStore.getState()
+        // Only auto-select if current tab hasn't been explicitly removed
+        if (state.currentTabId !== null && !state.selectedTabs.includes(state.currentTabId) && !state.isCurrentTabRemoved) {
+          toggleTabSelection(state.currentTabId)
+        }
+      }, 150)
+
+      return () => clearTimeout(timer)
+    } else if (!chatMode) {
+      chatModeInitializedRef.current = false
+      // Clear selections when exiting chat mode
+      clearSelectedTabs()
+    }
+  }, [chatMode, fetchOpenTabs, toggleTabSelection, clearSelectedTabs])
+
+  // Auto-select new tab when user switches tabs in chat mode
+  useEffect(() => {
+    if (!chatMode) return
+
+    const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
+      fetchOpenTabs(undefined, true)
+
+      setTimeout(() => {
+        const state = useTabsStore.getState()
+        const newCurrentTabId = state.currentTabId
+        const currentSelectedTabs = state.selectedTabs
+        const isCurrentTabRemoved = state.isCurrentTabRemoved
+
+        // Only auto-select if current tab hasn't been explicitly removed by user
+        if (newCurrentTabId !== null && !currentSelectedTabs.includes(newCurrentTabId) && !isCurrentTabRemoved) {
+          toggleTabSelection(newCurrentTabId)
+        }
+      }, 150)
+    }
+
+    chrome.tabs.onActivated.addListener(handleTabActivated)
+    return () => chrome.tabs.onActivated.removeListener(handleTabActivated)
+  }, [chatMode, fetchOpenTabs, toggleTabSelection])
+
+
   const submitTask = (query: string) => {
     if (!query.trim()) return
-    
-    if (!uiConnected) {
-      // Show error message in chat
-      const msg = !connectionOk
-        ? 'Cannot send message: Extension is disconnected'
-        : 'Cannot send message: Provider not configured'
-      upsertMessage({ 
-        msgId: `error_${Date.now()}`,
-        role: 'error', 
-        content: msg,
-        ts: Date.now()
-      })
-      return
-    }
-    
+
     // Add user message via upsert
     upsertMessage({
       msgId: `user_${Date.now()}`,
@@ -137,18 +172,18 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       content: query,
       ts: Date.now()
     })
-    
-    // Add a "Thinking..." narration message immediately after user query
-    upsertMessage({
-      msgId: `thinking_${Date.now()}`,
-      role: 'thinking',
-      content: 'Thinking...',
-      ts: Date.now()
-    })
-    
+
+    // Processing state will be handled by TypingIndicator component
+    // No need to inject hardcoded "Thinking..." message
+
     // Get selected tab IDs from tabsStore
     const contextTabs = getContextTabs()
-    const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
+
+    // In chat mode, if no tabs are selected, explicitly send null to prevent using current page
+    // In agent mode, undefined means "use current active tab"
+    const tabIds = contextTabs.length > 0
+      ? contextTabs.map(tab => tab.id)
+      : (chatMode ? null : undefined)
     
     // Send to background
     setProcessing(true)
@@ -158,12 +193,19 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
       source: 'sidepanel',
       chatMode  // Include chat mode setting
     })
-    
+
     // Clear input and selected tabs
+    
+    // Clear input and history
     setInput('')
     setHistoryIndex(-1)
     setDraftBeforeHistory('')
-    clearSelectedTabs()
+
+    // Only clear selected tabs in agent mode (not in chat mode)
+    if (!chatMode) {
+      clearSelectedTabs()
+    }
+
     setShowTabSelector(false)
   }
   
@@ -287,15 +329,11 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
   )
   
   const getPlaceholder = () => {
-    if (!connectionOk) return 'Disconnected'
-    if (!providerOk) return 'Provider error'
     if (isProcessing) return 'Task running…'
     return chatMode ? 'Ask about this page...' : 'Ask me anything... (/ to pick an agent)'
   }
   
   const getHintText = () => {
-    if (!connectionOk) return 'Waiting for connection'
-    if (!providerOk) return 'Provider not configured'
     if (isProcessing) return 'Task running… Press Esc to cancel'
     return chatMode 
       ? 'Chat mode is for simple Q&A • @ to select tabs • Press Enter to send'
@@ -304,12 +342,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
   
   return (
-    <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-2 py-1 flex-shrink-0 overflow-hidden z-20">
-      
-      {/* Mode Toggle - top left, above input */}
-      <div className="px-2 mb-2">
-        <ModeToggle />
-      </div>
+    <div className="relative bg-[hsl(var(--header))] border-t border-border/50 px-3 py-3 pb-4 flex-shrink-0 overflow-hidden z-20">
 
       {/* Input container */}
       <div className="relative">
@@ -328,14 +361,14 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
           </Button>
         </div> */}
         
-        {/* Selected tabs chips */}
-        {selectedContextTabs.length > 0 && (
+        {/* Selected tabs chips - only show in chat mode */}
+        {chatMode && selectedContextTabs.length > 0 && (
           <div className="px-2 mb-1">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
               {selectedContextTabs.map(tab => (
                 <div
                   key={tab.id}
-                  className="selected-tab-chip flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-muted text-foreground/90 border border-border shadow-sm shrink-0"
+                  className="selected-tab-chip flex items-center gap-2 pl-2 pr-1 py-1 rounded-full bg-muted text-foreground/90 border border-border shadow-sm shrink-0 smooth-hover hover:bg-muted/80 hover:shadow-md message-enter"
                   title={tab.title}
                 >
                   <div className="w-4 h-4 rounded-sm overflow-hidden bg-muted-foreground/10 flex items-center justify-center">
@@ -350,7 +383,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
                   </span>
                   <button
                     type="button"
-                    className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-foreground/10 text-xs text-muted-foreground hover:text-foreground"
+                    className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full hover:bg-foreground/10 text-sm text-muted-foreground hover:text-foreground"
                     aria-label={`Remove ${tab.title} from selection`}
                     onClick={() => handleRemoveSelectedTab(tab.id)}
                   >
@@ -372,7 +405,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="w-full px-2" role="form" aria-label="Chat input form">
+        <form onSubmit={handleSubmit} className="w-full" role="form" aria-label="Chat input form">
           <div className="relative flex items-end w-full transition-all duration-300 ease-out">
             {/* Textarea grows to fill available width */}
             <div className="relative flex-1">
@@ -382,23 +415,23 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={getPlaceholder()}
-              disabled={!uiConnected}
+              disabled={isProcessing}
               className={cn(
-                'max-h-[200px] resize-none pr-16 text-sm w-full',
+                'min-h-[120px] max-h-[260px] resize-none pr-16 text-sm w-full',
                 'bg-background/80 backdrop-blur-sm border-2 border-brand/30',
-                'focus-visible:outline-none focus-visible:border-brand/60',
-                'focus:outline-none focus:border-brand/60',
-                'hover:border-brand/50 hover:bg-background/90',
-                'rounded-2xl shadow-lg',
-                'px-3 py-2',
+                'focus-visible:outline-none focus-visible:border-brand/60 focus-visible:shadow-lg focus-visible:shadow-brand/10',
+                'focus:outline-none focus:border-brand/60 focus:shadow-lg focus:shadow-brand/10',
+                'hover:border-brand/50 hover:bg-background/90 hover:shadow-md',
+                'rounded-2xl shadow-sm',
+                'px-4 py-3',
                 'transition-all duration-300 ease-out',
-                 !uiConnected && 'opacity-50 cursor-not-allowed bg-muted'
+                 isProcessing && 'opacity-50 cursor-not-allowed bg-muted'
               )}
-              rows={1}
+              rows={4}
               aria-label="Chat message input"
               aria-describedby="input-hint"
-               aria-invalid={!uiConnected}
-              aria-disabled={!uiConnected}
+               aria-invalid={isProcessing}
+              aria-disabled={isProcessing}
               />
 
               {/* Slash command palette overlay */}
@@ -411,13 +444,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
                       onSelectAgent={(agentId) => {
                         const agent = agents.find(a => a.id === agentId)
                         if (!agent) return
-                        // Add a quick narration message
-                        upsertMessage({
-                          msgId: `thinking_${Date.now()}`,
-                          role: 'thinking',
-                          content: `Executing agent: ${agent.name}`,
-                          ts: Date.now()
-                        })
+                        // Agent execution will show status via TypingIndicator
                         // Send predefined plan execution request
                         const contextTabs = getContextTabs()
                         const tabIds = contextTabs.length > 0 ? contextTabs.map(tab => tab.id) : undefined
@@ -454,9 +481,9 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
 
               <Button
                 type="submit"
-                disabled={!uiConnected || isProcessing || !input.trim()}
+                disabled={isProcessing || !input.trim()}
                 size="sm"
-                className="absolute right-3 bottom-3 h-8 w-8 p-0 rounded-full bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center justify-center"
+                className="absolute right-3 bottom-4 h-9 w-9 p-0 rounded-full bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center justify-center"
                 variant={'default'}
                 aria-label={'Send message'}
               >
@@ -466,15 +493,6 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
           </div>
         </form>
         
-        <div 
-          id="input-hint" 
-          className="mt-1 sm:mt-2 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2 px-2"
-          role="status"
-          aria-live="polite"
-        >
-          {/*getLoadingIndicator()*/}
-          <span>{getHintText()}</span>
-        </div>
       </div>
     </div>
   )

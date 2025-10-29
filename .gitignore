@@ -1,4 +1,8 @@
 # Dependencies
+accessibility-tree.txt
+
+thoughts/
+
 node_modules/
 bak/
 **/__test_output__/

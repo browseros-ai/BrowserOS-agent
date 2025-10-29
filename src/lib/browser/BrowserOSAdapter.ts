@@ -4,7 +4,8 @@
 
 export type InteractiveNode = chrome.browserOS.InteractiveNode;
 export type InteractiveSnapshot = chrome.browserOS.InteractiveSnapshot;
-export type InteractiveSnapshotOptions = chrome.browserOS.InteractiveSnapshotOptions;
+export type InteractiveSnapshotOptions =
+  chrome.browserOS.InteractiveSnapshotOptions;
 export type PageLoadStatus = chrome.browserOS.PageLoadStatus;
 export type InteractiveNodeType = chrome.browserOS.InteractiveNodeType;
 export type Rect = chrome.browserOS.BoundingRect;
@@ -20,13 +21,16 @@ export type SnapshotSection = chrome.browserOS.SnapshotSection;
 export type Snapshot = chrome.browserOS.Snapshot;
 export type SnapshotOptions = chrome.browserOS.SnapshotOptions;
 
+// Preferences types
+export type PrefObject = chrome.browserOS.PrefObject;
+
 // ============= BrowserOS Adapter =============
 
 // Screenshot size constants
 export const SCREENSHOT_SIZES = {
-  small: 256,   // Low token usage
-  medium: 512,  // Balanced (default)
-  large: 1028   // High detail (note: 1028 not 1024)
+  small: 512, // Low token usage
+  medium: 768, // Balanced (default)
+  large: 1028, // High detail (note: 1028 not 1024)
 } as const;
 
 export type ScreenshotSizeKey = keyof typeof SCREENSHOT_SIZES;
@@ -53,10 +57,15 @@ export class BrowserOSAdapter {
   /**
    * Get interactive snapshot of the current page
    */
-  async getInteractiveSnapshot(tabId: number, options?: InteractiveSnapshotOptions): Promise<InteractiveSnapshot> {
+  async getInteractiveSnapshot(
+    tabId: number,
+    options?: InteractiveSnapshotOptions,
+  ): Promise<InteractiveSnapshot> {
     try {
-      console.log(`[BrowserOSAdapter] Getting interactive snapshot for tab ${tabId} with options: ${JSON.stringify(options)}`);
-      
+      console.log(
+        `[BrowserOSAdapter] Getting interactive snapshot for tab ${tabId} with options: ${JSON.stringify(options)}`,
+      );
+
       return new Promise<InteractiveSnapshot>((resolve, reject) => {
         if (options) {
           chrome.browserOS.getInteractiveSnapshot(
@@ -66,10 +75,12 @@ export class BrowserOSAdapter {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
               } else {
-                console.log(`[BrowserOSAdapter] Retrieved snapshot with ${snapshot.elements.length} elements`);
+                console.log(
+                  `[BrowserOSAdapter] Retrieved snapshot with ${snapshot.elements.length} elements`,
+                );
                 resolve(snapshot);
               }
-            }
+            },
           );
         } else {
           chrome.browserOS.getInteractiveSnapshot(
@@ -78,16 +89,21 @@ export class BrowserOSAdapter {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
               } else {
-                console.log(`[BrowserOSAdapter] Retrieved snapshot with ${snapshot.elements.length} elements`);
+                console.log(
+                  `[BrowserOSAdapter] Retrieved snapshot with ${snapshot.elements.length} elements`,
+                );
                 resolve(snapshot);
               }
-            }
+            },
           );
         }
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to get interactive snapshot: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get interactive snapshot: ${errorMessage}`,
+      );
       throw new Error(`Failed to get interactive snapshot: ${errorMessage}`);
     }
   }
@@ -98,7 +114,7 @@ export class BrowserOSAdapter {
   async click(tabId: number, nodeId: number): Promise<void> {
     try {
       console.log(`[BrowserOSAdapter] Clicking node ${nodeId} in tab ${tabId}`);
-      
+
       return new Promise<void>((resolve, reject) => {
         chrome.browserOS.click(tabId, nodeId, () => {
           if (chrome.runtime.lastError) {
@@ -109,7 +125,8 @@ export class BrowserOSAdapter {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error(`[BrowserOSAdapter] Failed to click node: ${errorMessage}`);
       throw new Error(`Failed to click node ${nodeId}: ${errorMessage}`);
     }
@@ -120,8 +137,10 @@ export class BrowserOSAdapter {
    */
   async inputText(tabId: number, nodeId: number, text: string): Promise<void> {
     try {
-      console.log(`[BrowserOSAdapter] Inputting text into node ${nodeId} in tab ${tabId}`);
-      
+      console.log(
+        `[BrowserOSAdapter] Inputting text into node ${nodeId} in tab ${tabId}`,
+      );
+
       return new Promise<void>((resolve, reject) => {
         chrome.browserOS.inputText(tabId, nodeId, text, () => {
           if (chrome.runtime.lastError) {
@@ -132,9 +151,12 @@ export class BrowserOSAdapter {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error(`[BrowserOSAdapter] Failed to input text: ${errorMessage}`);
-      throw new Error(`Failed to input text into node ${nodeId}: ${errorMessage}`);
+      throw new Error(
+        `Failed to input text into node ${nodeId}: ${errorMessage}`,
+      );
     }
   }
 
@@ -144,7 +166,7 @@ export class BrowserOSAdapter {
   async clear(tabId: number, nodeId: number): Promise<void> {
     try {
       console.log(`[BrowserOSAdapter] Clearing node ${nodeId} in tab ${tabId}`);
-      
+
       return new Promise<void>((resolve, reject) => {
         chrome.browserOS.clear(tabId, nodeId, () => {
           if (chrome.runtime.lastError) {
@@ -155,7 +177,8 @@ export class BrowserOSAdapter {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error(`[BrowserOSAdapter] Failed to clear node: ${errorMessage}`);
       throw new Error(`Failed to clear node ${nodeId}: ${errorMessage}`);
     }
@@ -166,8 +189,10 @@ export class BrowserOSAdapter {
    */
   async scrollToNode(tabId: number, nodeId: number): Promise<boolean> {
     try {
-      console.log(`[BrowserOSAdapter] Scrolling to node ${nodeId} in tab ${tabId}`);
-      
+      console.log(
+        `[BrowserOSAdapter] Scrolling to node ${nodeId} in tab ${tabId}`,
+      );
+
       return new Promise<boolean>((resolve, reject) => {
         chrome.browserOS.scrollToNode(tabId, nodeId, (scrolled: boolean) => {
           if (chrome.runtime.lastError) {
@@ -178,8 +203,11 @@ export class BrowserOSAdapter {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to scroll to node: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to scroll to node: ${errorMessage}`,
+      );
       throw new Error(`Failed to scroll to node ${nodeId}: ${errorMessage}`);
     }
   }
@@ -190,7 +218,7 @@ export class BrowserOSAdapter {
   async sendKeys(tabId: number, keys: chrome.browserOS.Key): Promise<void> {
     try {
       console.log(`[BrowserOSAdapter] Sending keys "${keys}" to tab ${tabId}`);
-      
+
       return new Promise<void>((resolve, reject) => {
         chrome.browserOS.sendKeys(tabId, keys, () => {
           if (chrome.runtime.lastError) {
@@ -201,7 +229,8 @@ export class BrowserOSAdapter {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error(`[BrowserOSAdapter] Failed to send keys: ${errorMessage}`);
       throw new Error(`Failed to send keys: ${errorMessage}`);
     }
@@ -212,8 +241,10 @@ export class BrowserOSAdapter {
    */
   async getPageLoadStatus(tabId: number): Promise<PageLoadStatus> {
     try {
-      console.log(`[BrowserOSAdapter] Getting page load status for tab ${tabId}`);
-      
+      console.log(
+        `[BrowserOSAdapter] Getting page load status for tab ${tabId}`,
+      );
+
       return new Promise<PageLoadStatus>((resolve, reject) => {
         chrome.browserOS.getPageLoadStatus(tabId, (status: PageLoadStatus) => {
           if (chrome.runtime.lastError) {
@@ -224,8 +255,11 @@ export class BrowserOSAdapter {
         });
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to get page load status: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get page load status: ${errorMessage}`,
+      );
       throw new Error(`Failed to get page load status: ${errorMessage}`);
     }
   }
@@ -233,22 +267,34 @@ export class BrowserOSAdapter {
   /**
    * Get accessibility tree (if available)
    */
-  async getAccessibilityTree(tabId: number): Promise<chrome.browserOS.AccessibilityTree> {
+  async getAccessibilityTree(
+    tabId: number,
+  ): Promise<chrome.browserOS.AccessibilityTree> {
     try {
-      console.log(`[BrowserOSAdapter] Getting accessibility tree for tab ${tabId}`);
-      
-      return new Promise<chrome.browserOS.AccessibilityTree>((resolve, reject) => {
-        chrome.browserOS.getAccessibilityTree(tabId, (tree: chrome.browserOS.AccessibilityTree) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else {
-            resolve(tree);
-          }
-        });
-      });
+      console.log(
+        `[BrowserOSAdapter] Getting accessibility tree for tab ${tabId}`,
+      );
+
+      return new Promise<chrome.browserOS.AccessibilityTree>(
+        (resolve, reject) => {
+          chrome.browserOS.getAccessibilityTree(
+            tabId,
+            (tree: chrome.browserOS.AccessibilityTree) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(tree);
+              }
+            },
+          );
+        },
+      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to get accessibility tree: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get accessibility tree: ${errorMessage}`,
+      );
       throw new Error(`Failed to get accessibility tree: ${errorMessage}`);
     }
   }
@@ -257,40 +303,100 @@ export class BrowserOSAdapter {
    * Capture a screenshot of the tab
    * @param tabId - The tab ID to capture
    * @param size - Optional screenshot size ('small', 'medium', or 'large')
+   * @param showHighlights - Optional flag to show element highlights
+   * @param width - Optional exact width for screenshot
+   * @param height - Optional exact height for screenshot
    */
-  async captureScreenshot(tabId: number, size?: ScreenshotSizeKey): Promise<string> {
+  async captureScreenshot(
+    tabId: number,
+    size?: ScreenshotSizeKey,
+    showHighlights?: boolean,
+    width?: number,
+    height?: number,
+  ): Promise<string> {
     try {
-      const sizeDesc = size ? ` (${size})` : '';
-      console.log(`[BrowserOSAdapter] Capturing screenshot for tab ${tabId}${sizeDesc}`);
-      
+      const sizeDesc = size ? ` (${size})` : "";
+      const highlightDesc = showHighlights ? " with highlights" : "";
+      const dimensionsDesc = width && height ? ` (${width}x${height})` : "";
+      console.log(
+        `[BrowserOSAdapter] Capturing screenshot for tab ${tabId}${sizeDesc}${highlightDesc}${dimensionsDesc}`,
+      );
+
       return new Promise<string>((resolve, reject) => {
-        // Convert size string to pixels only when calling Chrome API
-        if (size !== undefined) {
-          const pixelSize = SCREENSHOT_SIZES[size];
-          // Use the new API with thumbnail size
-          chrome.browserOS.captureScreenshot(tabId, pixelSize, (dataUrl: string) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              console.log(`[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${size}: ${pixelSize}px)`);
-              resolve(dataUrl);
-            }
-          });
+        // Use exact dimensions if provided
+        if (width !== undefined && height !== undefined) {
+          chrome.browserOS.captureScreenshot(
+            tabId,
+            0, // thumbnailSize ignored when width/height specified
+            showHighlights || false,
+            width,
+            height,
+            (dataUrl: string) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                console.log(
+                  `[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${width}x${height})${highlightDesc}`,
+                );
+                resolve(dataUrl);
+              }
+            },
+          );
+        } else if (size !== undefined || showHighlights !== undefined) {
+          const pixelSize = size ? SCREENSHOT_SIZES[size] : 0;
+          // Use the API with thumbnail size and highlights
+          if (showHighlights !== undefined) {
+            chrome.browserOS.captureScreenshot(
+              tabId,
+              pixelSize,
+              showHighlights,
+              (dataUrl: string) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  console.log(
+                    `[BrowserOSAdapter] Screenshot captured for tab ${tabId}${sizeDesc}${highlightDesc}`,
+                  );
+                  resolve(dataUrl);
+                }
+              },
+            );
+          } else {
+            chrome.browserOS.captureScreenshot(
+              tabId,
+              pixelSize,
+              (dataUrl: string) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  console.log(
+                    `[BrowserOSAdapter] Screenshot captured for tab ${tabId} (${size}: ${pixelSize}px)`,
+                  );
+                  resolve(dataUrl);
+                }
+              },
+            );
+          }
         } else {
           // Use the original API without size (backwards compatibility)
           chrome.browserOS.captureScreenshot(tabId, (dataUrl: string) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
             } else {
-              console.log(`[BrowserOSAdapter] Screenshot captured for tab ${tabId}`);
+              console.log(
+                `[BrowserOSAdapter] Screenshot captured for tab ${tabId}`,
+              );
               resolve(dataUrl);
             }
           });
         }
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to capture screenshot: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to capture screenshot: ${errorMessage}`,
+      );
       throw new Error(`Failed to capture screenshot: ${errorMessage}`);
     }
   }
@@ -298,10 +404,16 @@ export class BrowserOSAdapter {
   /**
    * Get a content snapshot of the specified type from the page
    */
-  async getSnapshot(tabId: number, type: SnapshotType, options?: SnapshotOptions): Promise<Snapshot> {
+  async getSnapshot(
+    tabId: number,
+    type: SnapshotType,
+    options?: SnapshotOptions,
+  ): Promise<Snapshot> {
     try {
-      console.log(`[BrowserOSAdapter] Getting ${type} snapshot for tab ${tabId} with options: ${JSON.stringify(options)}`);
-      
+      console.log(
+        `[BrowserOSAdapter] Getting ${type} snapshot for tab ${tabId} with options: ${JSON.stringify(options)}`,
+      );
+
       return new Promise<Snapshot>((resolve, reject) => {
         if (options) {
           chrome.browserOS.getSnapshot(
@@ -312,29 +424,32 @@ export class BrowserOSAdapter {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
               } else {
-                console.log(`[BrowserOSAdapter] Retrieved ${type} snapshot with ${snapshot.sections.length} sections`);
+                console.log(
+                  `[BrowserOSAdapter] Retrieved ${type} snapshot with ${snapshot.sections.length} sections`,
+                );
                 resolve(snapshot);
               }
-            }
+            },
           );
         } else {
-          chrome.browserOS.getSnapshot(
-            tabId,
-            type,
-            (snapshot: Snapshot) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                console.log(`[BrowserOSAdapter] Retrieved ${type} snapshot with ${snapshot.sections.length} sections`);
-                resolve(snapshot);
-              }
+          chrome.browserOS.getSnapshot(tabId, type, (snapshot: Snapshot) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Retrieved ${type} snapshot with ${snapshot.sections.length} sections`,
+              );
+              resolve(snapshot);
             }
-          );
+          });
         }
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to get ${type} snapshot: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get ${type} snapshot: ${errorMessage}`,
+      );
       throw new Error(`Failed to get ${type} snapshot: ${errorMessage}`);
     }
   }
@@ -343,16 +458,22 @@ export class BrowserOSAdapter {
    * Get text content snapshot from the page
    * Convenience method for text snapshot
    */
-  async getTextSnapshot(tabId: number, options?: SnapshotOptions): Promise<Snapshot> {
-    return this.getSnapshot(tabId, 'text', options);
+  async getTextSnapshot(
+    tabId: number,
+    options?: SnapshotOptions,
+  ): Promise<Snapshot> {
+    return this.getSnapshot(tabId, "text", options);
   }
 
   /**
    * Get links snapshot from the page
    * Convenience method for links snapshot
    */
-  async getLinksSnapshot(tabId: number, options?: SnapshotOptions): Promise<Snapshot> {
-    return this.getSnapshot(tabId, 'links', options);
+  async getLinksSnapshot(
+    tabId: number,
+    options?: SnapshotOptions,
+  ): Promise<Snapshot> {
+    return this.getSnapshot(tabId, "links", options);
   }
 
   /**
@@ -362,18 +483,23 @@ export class BrowserOSAdapter {
   async invokeAPI(method: string, ...args: any[]): Promise<any> {
     try {
       console.log(`[BrowserOSAdapter] Invoking BrowserOS API: ${method}`);
-      
+
       if (!(method in chrome.browserOS)) {
         throw new Error(`Unknown BrowserOS API method: ${method}`);
       }
-      
+
       // @ts-expect-error - Dynamic API invocation
       const result = await chrome.browserOS[method](...args);
       return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to invoke API ${method}: ${errorMessage}`);
-      throw new Error(`Failed to invoke BrowserOS API ${method}: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to invoke API ${method}: ${errorMessage}`,
+      );
+      throw new Error(
+        `Failed to invoke BrowserOS API ${method}: ${errorMessage}`,
+      );
     }
   }
 
@@ -388,9 +514,9 @@ export class BrowserOSAdapter {
    * Get list of available BrowserOS APIs
    */
   getAvailableAPIs(): string[] {
-    return Object.keys(chrome.browserOS).filter(key => {
+    return Object.keys(chrome.browserOS).filter((key) => {
       // @ts-expect-error - Dynamic key access for API discovery
-      return typeof chrome.browserOS[key] === 'function';
+      return typeof chrome.browserOS[key] === "function";
     });
   }
 
@@ -399,11 +525,14 @@ export class BrowserOSAdapter {
    */
   async getVersion(): Promise<string | null> {
     try {
-      console.log('[BrowserOSAdapter] Getting BrowserOS version');
-      
+      console.log("[BrowserOSAdapter] Getting BrowserOS version");
+
       return new Promise<string | null>((resolve, reject) => {
         // Check if getVersionNumber API is available
-        if ('getVersionNumber' in chrome.browserOS && typeof chrome.browserOS.getVersionNumber === 'function') {
+        if (
+          "getVersionNumber" in chrome.browserOS &&
+          typeof chrome.browserOS.getVersionNumber === "function"
+        ) {
           chrome.browserOS.getVersionNumber((version: string) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
@@ -418,8 +547,11 @@ export class BrowserOSAdapter {
         }
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`[BrowserOSAdapter] Failed to get version: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get version: ${errorMessage}`,
+      );
       // Return null on error
       return null;
     }
@@ -428,13 +560,21 @@ export class BrowserOSAdapter {
   /**
    * Log a metric event with optional properties
    */
-  async logMetric(eventName: string, properties?: Record<string, any>): Promise<void> {
+  async logMetric(
+    eventName: string,
+    properties?: Record<string, any>,
+  ): Promise<void> {
     try {
-      console.log(`[BrowserOSAdapter] Logging metric: ${eventName} with properties: ${JSON.stringify(properties)}`);
-      
+      console.log(
+        `[BrowserOSAdapter] Logging metric: ${eventName} with properties: ${JSON.stringify(properties)}`,
+      );
+
       return new Promise<void>((resolve, reject) => {
         // Check if logMetric API is available
-        if ('logMetric' in chrome.browserOS && typeof chrome.browserOS.logMetric === 'function') {
+        if (
+          "logMetric" in chrome.browserOS &&
+          typeof chrome.browserOS.logMetric === "function"
+        ) {
           if (properties) {
             chrome.browserOS.logMetric(eventName, properties, () => {
               if (chrome.runtime.lastError) {
@@ -456,14 +596,264 @@ export class BrowserOSAdapter {
           }
         } else {
           // If API not available, log a warning but don't fail
-          console.warn(`[BrowserOSAdapter] logMetric API not available, skipping metric: ${eventName}`);
+          console.warn(
+            `[BrowserOSAdapter] logMetric API not available, skipping metric: ${eventName}`,
+          );
           resolve();
         }
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       console.error(`[BrowserOSAdapter] Failed to log metric: ${errorMessage}`);
       return;
+    }
+  }
+
+  /**
+   * Execute JavaScript code in the specified tab
+   * @param tabId - The tab ID to execute code in
+   * @param code - The JavaScript code to execute
+   * @returns The result of the execution
+   */
+  async executeJavaScript(tabId: number, code: string): Promise<any> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Executing JavaScript in tab ${tabId}`,
+      );
+
+      return new Promise<any>((resolve, reject) => {
+        // Check if executeJavaScript API is available
+        if (
+          "executeJavaScript" in chrome.browserOS &&
+          typeof chrome.browserOS.executeJavaScript === "function"
+        ) {
+          chrome.browserOS.executeJavaScript(tabId, code, (result: any) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] JavaScript executed successfully in tab ${tabId}`,
+              );
+              resolve(result);
+            }
+          });
+        } else {
+          reject(new Error("executeJavaScript API not available"));
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to execute JavaScript: ${errorMessage}`,
+      );
+      throw new Error(`Failed to execute JavaScript: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Click at specific viewport coordinates
+   * @param tabId - The tab ID to click in
+   * @param x - X coordinate in viewport pixels
+   * @param y - Y coordinate in viewport pixels
+   */
+  async clickCoordinates(tabId: number, x: number, y: number): Promise<void> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Clicking at coordinates (${x}, ${y}) in tab ${tabId}`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        // Check if clickCoordinates API is available
+        if (
+          "clickCoordinates" in chrome.browserOS &&
+          typeof chrome.browserOS.clickCoordinates === "function"
+        ) {
+          chrome.browserOS.clickCoordinates(tabId, x, y, () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Successfully clicked at (${x}, ${y}) in tab ${tabId}`,
+              );
+              resolve();
+            }
+          });
+        } else {
+          reject(new Error("clickCoordinates API not available"));
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to click at coordinates: ${errorMessage}`,
+      );
+      throw new Error(`Failed to click at coordinates (${x}, ${y}): ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Type text at specific viewport coordinates
+   * @param tabId - The tab ID to type in
+   * @param x - X coordinate in viewport pixels
+   * @param y - Y coordinate in viewport pixels
+   * @param text - Text to type at the location
+   */
+  async typeAtCoordinates(
+    tabId: number,
+    x: number,
+    y: number,
+    text: string,
+  ): Promise<void> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Typing at coordinates (${x}, ${y}) in tab ${tabId}`,
+      );
+
+      return new Promise<void>((resolve, reject) => {
+        // Check if typeAtCoordinates API is available
+        if (
+          "typeAtCoordinates" in chrome.browserOS &&
+          typeof chrome.browserOS.typeAtCoordinates === "function"
+        ) {
+          chrome.browserOS.typeAtCoordinates(tabId, x, y, text, () => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Successfully typed "${text}" at (${x}, ${y}) in tab ${tabId}`,
+              );
+              resolve();
+            }
+          });
+        } else {
+          reject(new Error("typeAtCoordinates API not available"));
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to type at coordinates: ${errorMessage}`,
+      );
+      throw new Error(
+        `Failed to type at coordinates (${x}, ${y}): ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Get a specific preference value
+   * @param name - The preference name (e.g., "browseros.server.mcp_port")
+   * @returns Promise resolving to the preference object containing key, type, and value
+   */
+  async getPref(name: string): Promise<PrefObject> {
+    try {
+      console.log(`[BrowserOSAdapter] Getting preference: ${name}`);
+
+      return new Promise<PrefObject>((resolve, reject) => {
+        chrome.browserOS.getPref(name, (pref: PrefObject) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            console.log(
+              `[BrowserOSAdapter] Retrieved preference ${name}: ${JSON.stringify(pref)}`,
+            );
+            resolve(pref);
+          }
+        });
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get preference: ${errorMessage}`,
+      );
+      throw new Error(`Failed to get preference ${name}: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Set a specific preference value
+   * @param name - The preference name (e.g., "browseros.server.mcp_enabled")
+   * @param value - The value to set
+   * @param pageId - Optional page ID for settings tracking
+   * @returns Promise resolving to true if successful
+   */
+  async setPref(
+    name: string,
+    value: any,
+    pageId?: string,
+  ): Promise<boolean> {
+    try {
+      console.log(
+        `[BrowserOSAdapter] Setting preference ${name} to ${JSON.stringify(value)}`,
+      );
+
+      return new Promise<boolean>((resolve, reject) => {
+        if (pageId !== undefined) {
+          chrome.browserOS.setPref(name, value, pageId, (success: boolean) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Successfully set preference ${name}`,
+              );
+              resolve(success);
+            }
+          });
+        } else {
+          chrome.browserOS.setPref(name, value, (success: boolean) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              console.log(
+                `[BrowserOSAdapter] Successfully set preference ${name}`,
+              );
+              resolve(success);
+            }
+          });
+        }
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to set preference: ${errorMessage}`,
+      );
+      throw new Error(`Failed to set preference ${name}: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get all preferences (filtered to browseros.* prefs)
+   * @returns Promise resolving to array of preference objects
+   */
+  async getAllPrefs(): Promise<PrefObject[]> {
+    try {
+      console.log("[BrowserOSAdapter] Getting all preferences");
+
+      return new Promise<PrefObject[]>((resolve, reject) => {
+        chrome.browserOS.getAllPrefs((prefs: PrefObject[]) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            console.log(
+              `[BrowserOSAdapter] Retrieved ${prefs.length} preferences`,
+            );
+            resolve(prefs);
+          }
+        });
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[BrowserOSAdapter] Failed to get all preferences: ${errorMessage}`,
+      );
+      throw new Error(`Failed to get all preferences: ${errorMessage}`);
     }
   }
 }

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { CommandInput } from './components/CommandInput'
 import { ThemeToggle } from './components/ThemeToggle'
-import { SettingsDialog } from './components/SettingsDialog'
 import { CreateAgentPage } from './pages/CreateAgentPage'
 import { UserAgentsSection } from './components/UserAgentsSection'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
@@ -10,10 +9,9 @@ import { Settings } from 'lucide-react'
 
 export function NewTab() {
   const { theme, fontSize } = useSettingsStore()
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [currentView, setCurrentView] = useState<'main' | 'create-agent'>('main')
   const { loadAgents } = useAgentsStore()
-  
+
   // Load agents from storage on mount
   useEffect(() => {
     // Load agents from storage
@@ -23,7 +21,7 @@ export function NewTab() {
       }
     })
   }, [loadAgents])
-  
+
   // Apply theme and font size
   useEffect(() => {
     document.documentElement.style.setProperty('--app-font-size', `${fontSize}px`)
@@ -31,6 +29,40 @@ export function NewTab() {
     root.classList.remove('dark', 'gray')
     if (theme === 'dark') root.classList.add('dark')
     if (theme === 'gray') root.classList.add('gray')
+  }, [theme, fontSize])
+
+  // Listen for theme changes from other tabs/views
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nxtscape-settings' && e.newValue) {
+        try {
+          const newSettings = JSON.parse(e.newValue)
+          const newTheme = newSettings?.state?.theme
+          const newFontSize = newSettings?.state?.fontSize
+
+          // Update theme if changed
+          if (newTheme && newTheme !== theme) {
+            const root = document.documentElement
+            root.classList.remove('dark', 'gray')
+            if (newTheme === 'dark') root.classList.add('dark')
+            if (newTheme === 'gray') root.classList.add('gray')
+            // Force store update
+            useSettingsStore.setState({ theme: newTheme })
+          }
+
+          // Update font size if changed
+          if (newFontSize && newFontSize !== fontSize) {
+            document.documentElement.style.setProperty('--app-font-size', `${newFontSize}px`)
+            useSettingsStore.setState({ fontSize: newFontSize })
+          }
+        } catch (err) {
+          console.error('Failed to parse settings from storage:', err)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [theme, fontSize])
   
   // Render create agent page if view is set
@@ -43,24 +75,24 @@ export function NewTab() {
     <div className="min-h-screen bg-background relative">
       {/* Top Right Controls - Settings and Theme Toggle */}
       <div className="absolute top-6 right-6 z-10 flex items-center gap-2">
-        {/* Settings Button */}
+        {/* LLM Provider Settings Button */}
         <button
           type="button"
           className="
-            p-2 rounded-full 
-            transition-colors duration-200 ease-in-out 
-            focus:outline-none focus:ring-2 focus:ring-offset-2 
-            focus:ring-offset-white dark:focus:ring-offset-gray-900 
-            focus:ring-gray-400 
-            text-gray-600 dark:text-gray-300
-            hover:bg-gray-100 dark:hover:bg-gray-800
+            p-2 rounded-full
+            transition-colors duration-200 ease-in-out
+            focus:outline-none focus:ring-2 focus:ring-offset-2
+            focus:ring-offset-white dark:focus:ring-offset-gray-900 gray:focus:ring-offset-gray-800
+            focus:ring-gray-400
+            text-gray-600 dark:text-gray-300 gray:text-gray-400
+            hover:bg-gray-100 dark:hover:bg-gray-800 gray:hover:bg-gray-700
           "
-          aria-label="Settings"
-          onClick={() => setIsSettingsOpen(true)}
+          aria-label="LLM Provider Settings"
+          onClick={() => chrome.runtime.openOptionsPage()}
         >
           <Settings size={20} className="transition-transform duration-200" />
         </button>
-        
+
         {/* Theme Toggle */}
         <ThemeToggle />
       </div>
@@ -87,12 +119,6 @@ export function NewTab() {
         {/* User Agents Section - Shows up to 4 random agents */}
         <UserAgentsSection onEditAgent={() => setCurrentView('create-agent')} />
       </div>
-      
-      {/* Settings Dialog */}
-      <SettingsDialog 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-      />
     </div>
   )
 }

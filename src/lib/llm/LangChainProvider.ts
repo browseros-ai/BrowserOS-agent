@@ -17,33 +17,56 @@ import { BaseMessage } from "@langchain/core/messages"
 import { LLMSettingsReader } from "@/lib/llm/settings/LLMSettingsReader"
 import { BrowserOSProvider } from '@/lib/llm/settings/browserOSTypes'
 import { Logging } from '@/lib/utils/Logging'
+import { z } from 'zod'
 
 // Default constants
-const DEFAULT_TEMPERATURE = 0.7
+const DEFAULT_TEMPERATURE = 0.2
 const DEFAULT_STREAMING = true
 const DEFAULT_MAX_TOKENS = 4096
 const DEFAULT_OPENAI_MODEL = "gpt-4o"
 const DEFAULT_ANTHROPIC_MODEL = 'claude-4-sonnet'
 const DEFAULT_OLLAMA_MODEL = "qwen3:4b"
-const DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-const DEFAULT_NXTSCAPE_PROXY_URL = "https://llm.browseros.com/default/"
-const DEFAULT_NXTSCAPE_MODEL = "default-llm"
+const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+const BROWSEROS_DEFAULT_PROXY_URL = "https://llm.browseros.com/default/"
+const BROWSEROS_FAST_LLM_PROXY_URL = "https://llm.browseros.com/fast/"
+const BROWSEROS_SMART_LLM_PROXY_URL = "https://llm.browseros.com/smart/"
+const DEFAULT_BROWSEROS_MODEL_FAMILY_URL = "https://llm.browseros.com/api/model_family"
+const DEFAULT_BROWSEROS_MODEL = "openai"  // Fallback model family
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+const DEFAULT_INTELLIGENCE = 'high'
 
-// Simple cache for LLM instances
-const llmCache = new Map<string, BaseChatModel>()
+// LLM options schema
+export const LLMOptionsSchema = z.object({
+  temperature: z.number().min(0).max(1).optional(),  // Model temperature for randomness
+  maxTokens: z.number().positive().optional(),  // Maximum tokens for response
+  intelligence: z.enum(['low', 'high']).default(DEFAULT_INTELLIGENCE).optional()  // Model intelligence level
+})
+
+export type LLMOptions = z.infer<typeof LLMOptionsSchema>
 
 // Model capabilities interface
 export interface ModelCapabilities {
   maxTokens: number;  // Maximum context window size
+  supportsImages: boolean;  // Whether the provider supports image inputs
+}
+
+// BrowserOS API response structure
+interface BrowserOSModelConfig {
+  default: string;  // Default provider when no intelligence specified
+  fast: string;  // Provider for low intelligence (speed/cost optimized)
+  smart: string;  // Provider for high intelligence (quality optimized)
 }
 
 export class LangChainProvider {
   private static instance: LangChainProvider
   private currentProvider: BrowserOSProvider | null = null
-  
+
   // Skip token counting flag - set to true for maximum speed (returns fixed estimates)
   private static readonly SKIP_TOKEN_COUNTING = false
+
+  // Model config cache for BrowserOS - now stores full API response
+  private modelConfigCache: { config: BrowserOSModelConfig; timestamp: number } | null = null
+  private readonly CACHE_DURATION_MS = 5 * 60 * 1000  // 5 minutes
   
   // Constructor and initialization
   static getInstance(): LangChainProvider {
@@ -54,89 +77,109 @@ export class LangChainProvider {
   }
   
   // Public getter methods
-  async getLLM(options?: { temperature?: number; maxTokens?: number }): Promise<BaseChatModel> {
+  async getLLM(options?: LLMOptions): Promise<BaseChatModel> {
+    // Parse and validate options with defaults
+    const parsedOptions = options ? LLMOptionsSchema.parse(options) : {}
+
     // Get the current provider configuration
     const provider = await LLMSettingsReader.read()
     this.currentProvider = provider
-    
-    // Check cache
-    const cacheKey = this._getCacheKey(provider, options)
-    if (llmCache.has(cacheKey)) {
-      Logging.log('LangChainProvider', `Using cached LLM for provider: ${provider.name}`, 'info')
-      return llmCache.get(cacheKey)!
-    }
-    
+
     // Create new LLM instance based on provider type
     Logging.log('LangChainProvider', `Creating new LLM for provider: ${provider.name}`, 'info')
-    const llm = this._createLLMFromProvider(provider, options)
-    llmCache.set(cacheKey, llm)
-    
+    const llm = await this._createLLMFromProvider(provider, parsedOptions)
+
     // Log metrics about the LLM configuration
-    const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
+    const maxTokens = this._calculateMaxTokens(provider, parsedOptions.maxTokens)
     await Logging.logMetric('llm.created', {
       provider: provider.name,
       provider_type: provider.type,
-      model_name: provider.modelId || this._getDefaultModelForProvider(provider.type),
+      model_name: provider.modelId || this._getDefaultModelForProvider(provider.type, options?.intelligence),
       max_tokens: maxTokens,
-      temperature: options?.temperature ?? provider.modelConfig?.temperature ?? DEFAULT_TEMPERATURE,
+      temperature: parsedOptions.temperature ?? provider.modelConfig?.temperature ?? DEFAULT_TEMPERATURE,
+      intelligence: parsedOptions.intelligence ?? DEFAULT_INTELLIGENCE,
     })
-    
+
     return llm
   }
   
   // Get model capabilities based on provider
   async getModelCapabilities(): Promise<ModelCapabilities> {
     const provider = await LLMSettingsReader.read()
-    
+
+    // Get image support from provider capabilities or defaults
+    const supportsImages = provider.capabilities?.supportsImages ??
+                          this._getDefaultImageSupport(provider.type)
+
+    // Get max tokens
+    let maxTokens: number
+
     // Use provider's context window if available
     if (provider.modelConfig?.contextWindow) {
-      return { maxTokens: provider.modelConfig.contextWindow }
+      maxTokens = provider.modelConfig.contextWindow
+    } else {
+      // Otherwise determine based on provider type and model
+      switch (provider.type) {
+        case 'browseros':
+          // BrowserOS/Nxtscape uses gemini 2.5 flash by default
+          maxTokens = 1_000_000
+          break
+
+        case 'openai':
+        case 'openai_compatible':
+        case 'openrouter':
+          const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
+          if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
+            maxTokens = 128_000
+          } else {
+            maxTokens = 32_768
+          }
+          break
+
+        case 'anthropic':
+          const anthropicModel = provider.modelId || DEFAULT_ANTHROPIC_MODEL
+          if (anthropicModel.includes('claude-3.7') || anthropicModel.includes('claude-4')) {
+            maxTokens = 200_000
+          } else {
+            maxTokens = 100_000
+          }
+          break
+
+        case 'google_gemini':
+          const geminiModel = provider.modelId || DEFAULT_GEMINI_MODEL
+          if (geminiModel.includes('2.5') || geminiModel.includes('2.0')) {
+            maxTokens = 1_500_000
+          } else {
+            maxTokens = 1_000_000
+          }
+          break
+
+        case 'ollama':
+          const ollamaModel = provider.modelId || DEFAULT_OLLAMA_MODEL
+          if (ollamaModel.includes('mixtral') || ollamaModel.includes('llama') ||
+              ollamaModel.includes('qwen') || ollamaModel.includes('deepseek')) {
+            maxTokens = 32_768
+          } else {
+            maxTokens = 8_192
+          }
+          break
+
+        case 'custom':
+          // Custom providers - conservative default
+          maxTokens = 32_768
+          break
+
+        default:
+          maxTokens = 8_192
+      }
     }
-    
-    // Otherwise determine based on provider type and model
-    switch (provider.type) {
-      case 'browseros':
-        // BrowserOS/Nxtscape uses gemini 2.5 flash by default
-        return { maxTokens: 1_000_000 }
-        
-      case 'openai':
-      case 'openai_compatible':
-      case 'openrouter':
-        const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
-        if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
-          return { maxTokens: 128_000 }
-        }
-        return { maxTokens: 32_768 }
-        
-      case 'anthropic':
-        const anthropicModel = provider.modelId || DEFAULT_ANTHROPIC_MODEL
-        if (anthropicModel.includes('claude-3.7') || anthropicModel.includes('claude-4')) {
-          return { maxTokens: 200_000 }
-        }
-        return { maxTokens: 100_000 }
-        
-      case 'google_gemini':
-        const geminiModel = provider.modelId || DEFAULT_GEMINI_MODEL
-        if (geminiModel.includes('2.5') || geminiModel.includes('2.0')) {
-          return { maxTokens: 1_500_000 }
-        }
-        return { maxTokens: 1_000_000 }
-        
-      case 'ollama':
-        const ollamaModel = provider.modelId || DEFAULT_OLLAMA_MODEL
-        if (ollamaModel.includes('mixtral') || ollamaModel.includes('llama') || 
-            ollamaModel.includes('qwen') || ollamaModel.includes('deepseek')) {
-          return { maxTokens: 32_768 }
-        }
-        return { maxTokens: 8_192 }
-        
-      case 'custom':
-        // Custom providers - conservative default
-        return { maxTokens: 32_768 }
-        
-      default:
-        return { maxTokens: 8_192 }
-    }
+
+    return { maxTokens, supportsImages }
+  }
+
+  async getCurrentProviderType(): Promise<string> {
+    const provider = await LLMSettingsReader.read()
+    return provider.type
   }
   
   getCurrentProvider(): BrowserOSProvider | null {
@@ -144,8 +187,8 @@ export class LangChainProvider {
   }
   
   clearCache(): void {
-    llmCache.clear()
     this.currentProvider = null
+    this.modelConfigCache = null
   }
   
   private _isReasoningModel(modelId: string): boolean {
@@ -153,10 +196,18 @@ export class LangChainProvider {
     return reasoningModels.some(model => modelId.toLowerCase().includes(model))
   }
   
-  private _getDefaultModelForProvider(type: string): string {
+  private _getDefaultModelForProvider(type: string, intelligence: string  = 'high'): string {
     switch (type) {
       case 'browseros':
-        return DEFAULT_NXTSCAPE_MODEL
+        if (this.modelConfigCache) {
+          if (intelligence === 'low') {
+            return this.modelConfigCache.config.fast
+          } else if (intelligence === 'high') {
+            return this.modelConfigCache.config.smart
+          }
+          return this.modelConfigCache.config.default
+        }
+        return DEFAULT_BROWSEROS_MODEL
       case 'openai':
       case 'openai_compatible':
       case 'openrouter':
@@ -170,6 +221,26 @@ export class LangChainProvider {
         return DEFAULT_OLLAMA_MODEL
       default:
         return 'unknown'
+    }
+  }
+
+  private _getDefaultImageSupport(type: string): boolean {
+    switch (type) {
+      case 'browseros':
+      case 'openai':
+      case 'openai_compatible':
+      case 'anthropic':
+      case 'google_gemini':
+      case 'openrouter':
+        return true
+      case 'ollama':
+        // Most Ollama models don't support images by default
+        return false
+      case 'custom':
+        // Conservative default for custom providers
+        return false
+      default:
+        return false
     }
   }
   
@@ -260,66 +331,157 @@ export class LangChainProvider {
     }
   }
   
-  private _createLLMFromProvider(
+  private async _createLLMFromProvider(
     provider: BrowserOSProvider,
-    options?: { temperature?: number; maxTokens?: number }
-  ): BaseChatModel {
+    options?: LLMOptions
+  ): Promise<BaseChatModel> {
     // Extract parameters from provider config first, then override with options
-    const temperature = options?.temperature ?? 
-                       provider.modelConfig?.temperature ?? 
+    const temperature = options?.temperature ??
+                       provider.modelConfig?.temperature ??
                        DEFAULT_TEMPERATURE
-    
+
     const maxTokens = this._calculateMaxTokens(provider, options?.maxTokens)
-    
+
     const streaming = DEFAULT_STREAMING
-    
+
     // Map provider type to appropriate LangChain adapter
     switch (provider.type) {
       case 'browseros':
-        return this._createBrowserOSLLM(temperature, maxTokens, streaming)
-      
+        // Only BrowserOS uses intelligence parameter
+        const intelligence = options?.intelligence ?? DEFAULT_INTELLIGENCE
+        return await this._createBrowserOSLLM(temperature, maxTokens, streaming, intelligence)
+
       case 'openai':
       case 'openai_compatible':
       case 'openrouter':
       case 'custom':
         return this._createOpenAICompatibleLLM(provider, temperature, maxTokens, streaming)
-      
+
       case 'anthropic':
         return this._createAnthropicLLM(provider, temperature, maxTokens, streaming)
-      
+
       case 'google_gemini':
         return this._createGeminiLLM(provider, temperature, maxTokens)
-      
+
       case 'ollama':
         return this._createOllamaLLM(provider, temperature, maxTokens)
-      
+
       default:
-        Logging.log('LangChainProvider', 
-          `Unknown provider type: ${provider.type}, falling back to BrowserOS`, 
+        Logging.log('LangChainProvider',
+          `Unknown provider type: ${provider.type}, falling back to BrowserOS`,
           'warning')
-        return this._createBrowserOSLLM(temperature, maxTokens, streaming)
+        const defaultIntelligence = options?.intelligence ?? DEFAULT_INTELLIGENCE
+        return await this._createBrowserOSLLM(temperature, maxTokens, streaming, defaultIntelligence)
     }
   }
   
-  // BrowserOS built-in provider (uses proxy, no API key needed)
-  private _createBrowserOSLLM(
-    temperature: number, 
-    maxTokens?: number, 
-    streaming: boolean = true
-  ): ChatOpenAI {
-    const model = new ChatOpenAI({
-      modelName: DEFAULT_NXTSCAPE_MODEL,
-      temperature,
-      maxTokens,
-      streaming,
-      openAIApiKey: 'nokey',
-      configuration: {
-        baseURL: DEFAULT_NXTSCAPE_PROXY_URL,
-        apiKey: 'nokey',
-        dangerouslyAllowBrowser: true
+  // Fetch model configuration from BrowserOS API
+  private async _fetchModelConfig(): Promise<BrowserOSModelConfig> {
+    if (this.modelConfigCache) {
+      const cacheAge = Date.now() - this.modelConfigCache.timestamp
+      if (cacheAge < this.CACHE_DURATION_MS) {
+        return this.modelConfigCache.config
       }
-    })
-    
+    }
+
+    try {
+      const response = await fetch(DEFAULT_BROWSEROS_MODEL_FAMILY_URL)
+      if (response.ok) {
+        const data = await response.json()
+
+        // Ensure all fields are present with fallbacks
+        const config: BrowserOSModelConfig = {
+          default: data.default || data.model_family || DEFAULT_BROWSEROS_MODEL,
+          fast: data.fast || data.model_family || DEFAULT_BROWSEROS_MODEL,
+          smart: data.smart || data.model_family || DEFAULT_BROWSEROS_MODEL
+        }
+
+        // Cache the result
+        this.modelConfigCache = { config, timestamp: Date.now() }
+        Logging.log('LangChainProvider',
+          `BrowserOS model config fetched - default: ${config.default}, fast: ${config.fast}, smart: ${config.smart}`,
+          'info')
+        return config
+      }
+    } catch (error) {
+      Logging.log('LangChainProvider',
+        `Failed to fetch model config, using fallbacks: ${error}`,
+        'warning')
+    }
+
+    // Default fallback configuration
+    const fallbackConfig: BrowserOSModelConfig = {
+      default: DEFAULT_BROWSEROS_MODEL,
+      fast: DEFAULT_BROWSEROS_MODEL,
+      smart: DEFAULT_BROWSEROS_MODEL
+    }
+    return fallbackConfig
+  }
+
+  // BrowserOS built-in provider (uses proxy, no API key needed)
+  private async _createBrowserOSLLM(
+    temperature: number,
+    maxTokens?: number,
+    streaming: boolean = true,
+    intelligence: 'low' | 'high' = DEFAULT_INTELLIGENCE
+  ): Promise<BaseChatModel> {
+    // Fetch the complete model configuration
+    const modelConfig = await this._fetchModelConfig()
+
+    let selectedProvider: string
+    let proxyUrl: string
+
+    if (intelligence === 'low') {
+      selectedProvider = modelConfig.fast
+      proxyUrl = BROWSEROS_FAST_LLM_PROXY_URL
+    } else {
+      // Default to 'high' intelligence (smart provider)
+      selectedProvider = modelConfig.smart
+      proxyUrl = BROWSEROS_SMART_LLM_PROXY_URL
+    }
+
+    let model: BaseChatModel
+    const isAnthropicProvider = selectedProvider.indexOf('claude') !== -1 ||
+                                selectedProvider.indexOf('anthropic') !== -1
+
+    if (isAnthropicProvider) {
+      model = new ChatAnthropic({
+        modelName: selectedProvider,
+        temperature,
+        maxTokens,
+        streaming,
+        anthropicApiKey: 'nokey',
+        anthropicApiUrl: proxyUrl
+      })
+    } else {
+      // For OpenAI and all other providers (openai/, gpt, etc.)
+      // Check if it's a reasoning model that needs special handling
+      const isReasoningModel = this._isReasoningModel(selectedProvider)
+
+      const config: any = {
+        modelName: selectedProvider,
+        temperature: isReasoningModel ? 1 : temperature,  // Reasoning models use temperature 1
+        streaming,
+        openAIApiKey: 'nokey',
+        configuration: {
+          baseURL: proxyUrl,
+          apiKey: 'nokey',
+          dangerouslyAllowBrowser: true
+        }
+      }
+
+      // For reasoning models, use max_completion_tokens instead of max_tokens
+      if (isReasoningModel && maxTokens) {
+        config.modelKwargs = {
+          max_completion_tokens: maxTokens
+        }
+      } else if (maxTokens) {
+        config.maxTokens = maxTokens
+      }
+
+      model = new ChatOpenAI(config)
+    }
+
     return this._patchTokenCounting(model)
   }
   
@@ -331,14 +493,15 @@ export class LangChainProvider {
     streaming: boolean = true
   ): ChatOpenAI {
     if (!provider.apiKey && provider.type !== 'custom') {
-      Logging.log('LangChainProvider', 
-        `Warning: No API key for ${provider.name} provider, using default`, 
+      Logging.log('LangChainProvider',
+        `Warning: No API key for ${provider.name} provider, using default`,
         'warning')
     }
-    
+
     const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
+
     const isReasoningModel = this._isReasoningModel(modelId)
-    
+
     const config: any = {
       modelName: modelId,
       streaming,
@@ -349,7 +512,7 @@ export class LangChainProvider {
         dangerouslyAllowBrowser: true
       }
     }
-    
+
     if (isReasoningModel) {
       config.temperature = 1
       if (maxTokens) {
@@ -363,7 +526,7 @@ export class LangChainProvider {
         config.maxTokens = maxTokens
       }
     }
-    
+
     const model = new ChatOpenAI(config)
     return this._patchTokenCounting(model)
   }
@@ -378,16 +541,18 @@ export class LangChainProvider {
     if (!provider.apiKey) {
       throw new Error(`API key required for ${provider.name} provider`)
     }
-    
+
+    const modelId = provider.modelId || DEFAULT_ANTHROPIC_MODEL
+
     const model = new ChatAnthropic({
-      modelName: provider.modelId || DEFAULT_ANTHROPIC_MODEL,
+      modelName: modelId,
       temperature,
       maxTokens,
       streaming,
       anthropicApiKey: provider.apiKey,
       anthropicApiUrl: provider.baseUrl || 'https://api.anthropic.com'
     })
-    
+
     return this._patchTokenCounting(model)
   }
   
@@ -400,15 +565,17 @@ export class LangChainProvider {
     if (!provider.apiKey) {
       throw new Error(`API key required for ${provider.name} provider`)
     }
-    
+
+    const modelId = provider.modelId || DEFAULT_GEMINI_MODEL
+
     const model = new ChatGoogleGenerativeAI({
-      model: provider.modelId || DEFAULT_GEMINI_MODEL,
+      model: modelId,
       temperature,
       maxOutputTokens: maxTokens,
       apiKey: provider.apiKey,
       convertSystemMessageToHumanContent: true
     })
-    
+
     return this._patchTokenCounting(model)
   }
   
@@ -418,53 +585,33 @@ export class LangChainProvider {
     temperature: number,
     maxTokens?: number
   ): ChatOllama {
+    // Ensure we use 127.0.0.1 instead of localhost for better compatibility
+    // TODO: move this to C++ patch
+    let baseUrl = provider.baseUrl || DEFAULT_OLLAMA_BASE_URL
+    if (baseUrl.includes('localhost')) {
+      baseUrl = baseUrl.replace('localhost', '127.0.0.1')
+      Logging.log('LangChainProvider',
+        'Replaced "localhost" with "127.0.0.1" in Ollama URL for better compatibility',
+        'info')
+    }
+
+    const modelId = provider.modelId || DEFAULT_OLLAMA_MODEL
+
     const ollamaConfig: any = {
-      model: provider.modelId || DEFAULT_OLLAMA_MODEL,
+      model: modelId,
       temperature,
       maxRetries: 2,
-      baseUrl: provider.baseUrl || DEFAULT_OLLAMA_BASE_URL
+      baseUrl
     }
-    
+
     // Add context window if specified in provider config
     if (provider.modelConfig?.contextWindow) {
       ollamaConfig.numCtx = provider.modelConfig.contextWindow
     }
-    
+
     const model = new ChatOllama(ollamaConfig)
-    
+
     return this._patchTokenCounting(model)
-  }
-  
-  // Cache key includes all relevant provider settings and options
-  private _getCacheKey(
-    provider: BrowserOSProvider, 
-    options?: { temperature?: number; maxTokens?: number }
-  ): string {
-    // Create a deterministic string from all cache-relevant values
-    // Using string concatenation is faster than JSON.stringify for simple cases
-    const keyParts = [
-      provider.id,
-      provider.type,
-      provider.modelId || 'd',
-      provider.baseUrl || 'd',
-      provider.apiKey ? provider.apiKey.slice(-8) : 'n',  // Last 8 chars of API key
-      provider.modelConfig?.temperature?.toString() || 'd',
-      provider.modelConfig?.contextWindow?.toString() || 'd',
-      options?.temperature?.toString() || 'd',
-      options?.maxTokens?.toString() || 'd',
-      provider.updatedAt  // Include update timestamp to invalidate cache on provider changes
-    ]
-    
-    // Use FNV-1a hash (very fast, good distribution for short strings)
-    const str = keyParts.join('|')
-    let hash = 2166136261  // FNV offset basis
-    for (let i = 0; i < str.length; i++) {
-      hash ^= str.charCodeAt(i)
-      hash = (hash * 16777619) >>> 0  // FNV prime, keep as 32-bit unsigned
-    }
-    
-    // Return provider ID with hash for readability (base36 is compact)
-    return `${provider.id}-${hash.toString(36)}`
   }
 }
 
@@ -472,6 +619,6 @@ export class LangChainProvider {
 export const langChainProvider = LangChainProvider.getInstance()
 
 // Convenience function for quick access
-export async function getLLM(options?: { temperature?: number; maxTokens?: number }): Promise<BaseChatModel> {
+export async function getLLM(options?: LLMOptions): Promise<BaseChatModel> {
   return langChainProvider.getLLM(options)
 }

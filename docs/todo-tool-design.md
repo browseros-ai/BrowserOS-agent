@@ -154,7 +154,7 @@ export function createTodoManagerTool(executionContext: ExecutionContext): Dynam
 ```typescript
 // NTN -- this method should be in MessageManager
   addSystemReminder(content: string): void {
-    this.messageManager.addSystem(`<BrowserState>${content}</BrowserState>`);
+    this.messageManager.addSystem(`<browser-state>${content}</browser-state>`);
   }
 
 /// NTN -- in browseragent, there should be a method to fetch latest todo list and add it to message manager as a system reminder.

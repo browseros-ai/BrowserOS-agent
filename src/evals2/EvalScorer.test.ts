@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SimplifiedScorer } from './EvalScorer';
+import { EvalsScorer } from './EvalScorer';
 import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
 
 describe('SimplifiedScorer with Gemini', () => {
   it('tests that the scorer can be created', () => {
-    const scorer = new SimplifiedScorer();
+    const scorer = new EvalsScorer();
     expect(scorer).toBeDefined();
   });
   
   it('tests that scores are in 1-10 range', async () => {
-    const scorer = new SimplifiedScorer();
+    const scorer = new EvalsScorer();
     // Use heuristic scoring for testing without API key
     scorer['llm'] = null;
     const score = await scorer.scoreFromMessages([], 'test query');
@@ -42,7 +42,7 @@ describe('SimplifiedScorer with Gemini', () => {
       })
     ];
     
-    const scorer = new SimplifiedScorer();
+    const scorer = new EvalsScorer();
     // Use heuristic scoring for testing without API key
     scorer['llm'] = null;
     const score = await scorer.scoreFromMessages(messages, 'test');
@@ -51,7 +51,7 @@ describe('SimplifiedScorer with Gemini', () => {
   });
   
   it('tests that time efficiency scoring works', async () => {
-    const scorer = new SimplifiedScorer();
+    const scorer = new EvalsScorer();
     // Use heuristic scoring for testing without API key
     scorer['llm'] = null;
     
@@ -82,7 +82,7 @@ describe('SimplifiedScorer with Gemini', () => {
   
   it('tests that heuristic fallback works', async () => {
     // Test without LLM available
-    const scorer = new SimplifiedScorer();
+    const scorer = new EvalsScorer();
     // Mock getLLM to return null
     scorer['llm'] = null;
     

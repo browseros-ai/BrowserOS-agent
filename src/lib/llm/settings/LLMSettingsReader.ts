@@ -1,27 +1,28 @@
 import { Logging } from '@/lib/utils/Logging'
 import { isMockLLMSettings } from '@/config'
-import { 
+import {
   BrowserOSProvider,
   BrowserOSProvidersConfig,
   BrowserOSProvidersConfigSchema,
   BrowserOSPrefObject,
-  BROWSEROS_PREFERENCE_KEYS
+  BROWSEROS_PREFERENCE_KEYS,
+  createDefaultBrowserOSProvider,
+  createDefaultProvidersConfig
 } from './browserOSTypes'
 
-// Type definitions for chrome.browserOS API
+// Type definitions for chrome.browserOS API (callback-based)
 declare global {
   interface ChromeBrowserOS {
     getPref(name: string, callback: (pref: BrowserOSPrefObject) => void): void
     setPref(name: string, value: any, pageId?: string, callback?: (success: boolean) => void): void
     getAllPrefs(callback: (prefs: BrowserOSPrefObject[]) => void): void
   }
-  
+
   interface Chrome {
     browserOS?: ChromeBrowserOS
   }
 }
 
-// Default constants
 const DEFAULT_OPENAI_MODEL = 'gpt-4o'
 const DEFAULT_ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest'
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
@@ -33,219 +34,287 @@ const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
  */
 export class LLMSettingsReader {
   private static mockProvider: BrowserOSProvider | null = null
-  
+
+  private static parseProvidersConfig(raw: unknown): BrowserOSProvidersConfig | null {
+    try {
+      const data = typeof raw === 'string' ? JSON.parse(raw) : raw
+      if (!data) return null
+      const parsed = BrowserOSProvidersConfigSchema.parse(data)
+      return this.normalizeConfig(parsed)
+    } catch (error) {
+      Logging.log('LLMSettingsReader', `Failed to parse providers config: ${error}`, 'error')
+      return null
+    }
+  }
+
+  private static normalizeConfig(config: BrowserOSProvidersConfig): BrowserOSProvidersConfig {
+    let defaultProviderId = config.defaultProviderId
+    if (!config.providers.some(p => p.id === defaultProviderId)) {
+      defaultProviderId = config.providers[0]?.id || 'browseros'
+    }
+
+    const normalizedProviders = config.providers.map(provider => ({
+      ...provider,
+      isDefault: provider.id === defaultProviderId,
+      isBuiltIn: provider.isBuiltIn ?? false,
+      createdAt: provider.createdAt ?? new Date().toISOString(),
+      updatedAt: provider.updatedAt ?? new Date().toISOString()
+    }))
+
+    if (normalizedProviders.length === 0) {
+      return createDefaultProvidersConfig()
+    }
+
+    return {
+      defaultProviderId,
+      providers: normalizedProviders
+    }
+  }
+
   /**
    * Set mock provider for testing (DEV MODE ONLY)
-   * @param provider - Mock provider configuration
    */
   static setMockProvider(provider: Partial<BrowserOSProvider>): void {
     if (!isMockLLMSettings()) {
       Logging.log('LLMSettingsReader', 'setMockProvider is only available in development mode', 'warning')
       return
     }
-    
+
     this.mockProvider = {
       ...this.getDefaultBrowserOSProvider(),
       ...provider
     }
-    Logging.log('LLMSettingsReader', `Mock provider set: ${provider.name || provider.type}`)
   }
+
   /**
    * Read the default provider configuration
-   * @returns Promise resolving to the default BrowserOS provider
    */
   static async read(): Promise<BrowserOSProvider> {
     try {
-      Logging.log('LLMSettingsReader', 'Reading provider settings from BrowserOS preferences')
-      
-      // Try chrome.browserOS.getPref API
-      const provider = await this.readFromBrowserOS()
-      if (provider) {
-        Logging.log('LLMSettingsReader', `Provider loaded: ${provider.name} (${provider.type})`)
-        return provider
-      }
+      const config = await this.readAllProviders()
+      const provider = config.providers.find(p => p.id === config.defaultProviderId)
+        || config.providers[0]
+        || this.getDefaultBrowserOSProvider()
+      return provider
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       Logging.log('LLMSettingsReader', `Failed to read settings: ${errorMessage}`, 'error')
+      return this.getDefaultBrowserOSProvider()
     }
-    
-    // Return default BrowserOS provider if reading fails
-    const defaultProvider = this.getDefaultBrowserOSProvider()
-    Logging.log('LLMSettingsReader', 'Using default BrowserOS provider')
-    return defaultProvider
   }
-  
+
   /**
    * Read all providers configuration
-   * @returns Promise resolving to all providers configuration
    */
   static async readAllProviders(): Promise<BrowserOSProvidersConfig> {
     try {
       const config = await this.readProvidersConfig()
       if (config) {
-        Logging.log('LLMSettingsReader', `Loaded ${config.providers.length} providers`)
         return config
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       Logging.log('LLMSettingsReader', `Failed to read providers: ${errorMessage}`, 'error')
     }
-    
-    // Return default config with BrowserOS provider only
-    return {
-      defaultProviderId: 'browseros',
-      providers: [this.getDefaultBrowserOSProvider()]
-    }
+
+    return createDefaultProvidersConfig()
   }
-  
+
   /**
-   * Read from chrome.browserOS.getPref API
-   * @returns Promise resolving to the default provider or null
+   * Merge two provider configs, deduplicating by provider.id
+   * Prefers providers with newer updatedAt timestamp
    */
-  private static async readFromBrowserOS(): Promise<BrowserOSProvider | null> {
-    // Check if API is available
-    const browserOS = (chrome as any)?.browserOS as ChromeBrowserOS | undefined
-    if (!browserOS?.getPref) {
-      // Fallback: try chrome.storage.local
-      try {
-        const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
-        const stored = await new Promise<any>((resolve) => {
-          chrome.storage?.local?.get(key, (result) => resolve(result))
-        })
-        const raw = stored?.[key]
-        if (!raw) {
-          if (isMockLLMSettings()) {
-            Logging.log('LLMSettingsReader', 'No stored providers found, using mock provider', 'warning')
-            return this.getMockProvider()
-          }
-          return null
+  private static mergeProviderConfigs(
+    config1: BrowserOSProvidersConfig | null,
+    config2: BrowserOSProvidersConfig | null
+  ): BrowserOSProvidersConfig | null {
+    if (!config1 && !config2) return null
+    if (!config1) return config2
+    if (!config2) return config1
+
+    // Merge providers by id, preferring newer updatedAt
+    const providerMap = new Map<string, BrowserOSProvider>()
+
+    for (const provider of config1.providers) {
+      providerMap.set(provider.id, provider)
+    }
+
+    for (const provider of config2.providers) {
+      const existing = providerMap.get(provider.id)
+      if (!existing) {
+        providerMap.set(provider.id, provider)
+      } else {
+        // Prefer provider with newer updatedAt timestamp
+        const existingTime = new Date(existing.updatedAt || 0).getTime()
+        const newTime = new Date(provider.updatedAt || 0).getTime()
+        if (newTime > existingTime) {
+          providerMap.set(provider.id, provider)
         }
-        const config = BrowserOSProvidersConfigSchema.parse(typeof raw === 'string' ? JSON.parse(raw) : raw)
-        const def = config.providers.find(p => p.id === config.defaultProviderId) || null
-        return def
-      } catch (e) {
-        if (isMockLLMSettings()) {
-          Logging.log('LLMSettingsReader', 'Storage read failed, using mock provider', 'warning')
-          return this.getMockProvider()
-        }
-        return null
       }
     }
-    
-    return new Promise<BrowserOSProvider | null>((resolve) => {
-      browserOS!.getPref(BROWSEROS_PREFERENCE_KEYS.PROVIDERS, (pref: BrowserOSPrefObject) => {
-        if (chrome.runtime.lastError) {
-          Logging.log('LLMSettingsReader', 
-            `Failed to read preference: ${chrome.runtime.lastError.message}`, 'warning')
-          resolve(null)
-          return
-        }
-        
-        if (!pref?.value) {
-          Logging.log('LLMSettingsReader', 'No providers configuration found', 'warning')
-          resolve(null)
-          return
-        }
-        
-        try {
-          // Parse the JSON string
-          const config = BrowserOSProvidersConfigSchema.parse(JSON.parse(pref.value))
-          // Normalize isDefault flags for safety
-          config.providers = config.providers.map(p => ({
-            ...p,
-            isDefault: p.id === config.defaultProviderId
-          }))
-          
-          // Find and return the default provider
-          const defaultProvider = config.providers.find(p => p.id === config.defaultProviderId)
-          
-          if (!defaultProvider) {
-            Logging.log('LLMSettingsReader', 'Default provider not found in config', 'warning')
-            resolve(null)
-          } else {
-            resolve(defaultProvider)
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error)
-          Logging.log('LLMSettingsReader', `Failed to parse providers config: ${errorMessage}`, 'error')
-          resolve(null)
-        }
-      })
-    })
+
+    const mergedProviders = Array.from(providerMap.values())
+
+    // Use defaultProviderId from config with more providers (or config1 if equal)
+    const defaultProviderId = config1.providers.length >= config2.providers.length
+      ? config1.defaultProviderId
+      : config2.defaultProviderId
+
+    // Ensure default provider exists in merged list
+    const finalDefaultId = mergedProviders.some(p => p.id === defaultProviderId)
+      ? defaultProviderId
+      : (mergedProviders[0]?.id || 'browseros')
+
+    return {
+      defaultProviderId: finalDefaultId,
+      providers: mergedProviders
+    }
   }
-  
+
   /**
-   * Read full providers configuration
-   * @returns Promise resolving to providers config or null
+   * Read full providers configuration with MERGE strategy
+   * Reads from BOTH storages and merges to recover from stale data overwrites
    */
   private static async readProvidersConfig(): Promise<BrowserOSProvidersConfig | null> {
-    const browserOS = (chrome as any)?.browserOS as ChromeBrowserOS | undefined
-    if (!browserOS?.getPref) {
-      // Fallback: try chrome.storage.local
-      try {
-        const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
+    try {
+      const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
+      let browserOSConfig: BrowserOSProvidersConfig | null = null
+      let storageLocalConfig: BrowserOSProvidersConfig | null = null
+
+      // Read from BrowserOS prefs
+      if ((chrome as any)?.browserOS?.getPref) {
+        try {
+          const pref = await new Promise<BrowserOSPrefObject>((resolve, reject) => {
+            (chrome as any).browserOS.getPref(key, (pref: BrowserOSPrefObject) => {
+              if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError)
+              } else {
+                resolve(pref)
+              }
+            })
+          })
+
+          if (pref?.value) {
+            const data = typeof pref.value === 'string' ? JSON.parse(pref.value) : pref.value
+            // Ensure all providers have isDefault field
+            if (data.providers) {
+              data.providers = data.providers.map((p: any) => ({
+                ...p,
+                isDefault: p.isDefault !== undefined ? p.isDefault : (p.id === 'browseros')
+              }))
+            }
+            browserOSConfig = BrowserOSProvidersConfigSchema.parse(data)
+          }
+        } catch (getPrefError) {
+          // Silently continue to fallback
+        }
+      }
+
+      // Read from chrome.storage.local
+      if (chrome.storage?.local) {
         const stored = await new Promise<any>((resolve) => {
-          chrome.storage?.local?.get(key, (result) => resolve(result))
+          chrome.storage.local.get(key, (result) => resolve(result))
         })
         const raw = stored?.[key]
-        if (!raw) return null
-        return BrowserOSProvidersConfigSchema.parse(typeof raw === 'string' ? JSON.parse(raw) : raw)
-      } catch (_e) {
+        if (raw) {
+          const data = typeof raw === 'string' ? JSON.parse(raw) : raw
+          // Ensure all providers have isDefault field
+          if (data.providers) {
+            data.providers = data.providers.map((p: any) => ({
+              ...p,
+              isDefault: p.isDefault !== undefined ? p.isDefault : (p.id === 'browseros')
+            }))
+          }
+          storageLocalConfig = BrowserOSProvidersConfigSchema.parse(data)
+        }
+      }
+
+      // Merge both configs
+      const mergedConfig = this.mergeProviderConfigs(browserOSConfig, storageLocalConfig)
+
+      if (!mergedConfig) {
         return null
       }
+
+      // Check if merge recovered providers - auto-save if recovery happened
+      const browserOSCount = browserOSConfig?.providers.length || 0
+      const storageLocalCount = storageLocalConfig?.providers.length || 0
+      const mergedCount = mergedConfig.providers.length
+
+      if (mergedCount > browserOSCount || mergedCount > storageLocalCount) {
+        await this.saveProvidersConfig(mergedConfig)
+      }
+
+      return mergedConfig
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : JSON.stringify(error)
+      Logging.log('LLMSettingsReader', `Error reading providers: ${errorMessage}`, 'error')
+      if (error instanceof Error && error.stack) {
+        Logging.log('LLMSettingsReader', `Stack trace: ${error.stack}`, 'error')
+      }
+      return null
     }
-    
-    return new Promise<BrowserOSProvidersConfig | null>((resolve) => {
-      browserOS!.getPref(BROWSEROS_PREFERENCE_KEYS.PROVIDERS, (pref: BrowserOSPrefObject) => {
-        if (chrome.runtime.lastError || !pref?.value) {
-          resolve(null)
-          return
-        }
-        
-        try {
-          const config = BrowserOSProvidersConfigSchema.parse(JSON.parse(pref.value))
-          // Normalize isDefault flags for safety
-          config.providers = config.providers.map(p => ({
-            ...p,
-            isDefault: p.id === config.defaultProviderId
-          }))
-          resolve(config)
-        } catch (error) {
-          resolve(null)
-        }
+  }
+
+  static async saveProvidersConfig(config: BrowserOSProvidersConfig): Promise<boolean> {
+    const normalized = this.normalizeConfig(config)
+    const key = BROWSEROS_PREFERENCE_KEYS.PROVIDERS
+    const payload = JSON.stringify(normalized)
+
+    let browserOSSuccess = false
+    let storageSuccess = false
+
+    // Save to chrome.browserOS.setPref (for BrowserOS browser)
+    if ((chrome as any)?.browserOS?.setPref) {
+      browserOSSuccess = await new Promise<boolean>((resolve) => {
+        (chrome as any).browserOS.setPref(key, payload, undefined, (success?: boolean) => {
+          const error = chrome.runtime?.lastError
+          if (error) {
+            Logging.log('LLMSettingsReader', `BrowserOS setPref error: ${error.message}`, 'warning')
+            resolve(false)
+          } else if (success !== false) {
+            resolve(true)
+          } else {
+            Logging.log('LLMSettingsReader', 'BrowserOS setPref returned false', 'warning')
+            resolve(false)
+          }
+        })
       })
-    })
-  }
-  
-  /**
-   * Get default BrowserOS built-in provider
-   * @returns Default BrowserOS provider configuration
-   */
-  private static getDefaultBrowserOSProvider(): BrowserOSProvider {
-    return {
-      id: 'browseros',
-      name: 'BrowserOS',
-      type: 'browseros',
-      isDefault: true,
-      isBuiltIn: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
     }
+
+    // ALSO save to chrome.storage.local (always, for extension reliability)
+    if (chrome.storage?.local) {
+      storageSuccess = await new Promise((resolve) => {
+        chrome.storage.local.set({ [key]: payload }, () => {
+          if (chrome.runtime.lastError) {
+            Logging.log('LLMSettingsReader', `chrome.storage.local save error: ${chrome.runtime.lastError.message}`, 'error')
+            resolve(false)
+          } else {
+            resolve(true)
+          }
+        })
+      })
+    }
+
+    // Success if either storage mechanism worked
+    const success = browserOSSuccess || storageSuccess
+    if (!success) {
+      Logging.log('LLMSettingsReader', 'Failed to save to any storage mechanism', 'error')
+    }
+    return success
   }
-  
-  /**
-   * Get mock provider for development
-   * @returns Mock provider configuration
-   */
+
+  private static getDefaultBrowserOSProvider(): BrowserOSProvider {
+    return createDefaultBrowserOSProvider()
+  }
+
   private static getMockProvider(): BrowserOSProvider {
-    // Return custom mock if set
     if (this.mockProvider) {
       return this.mockProvider
     }
-    
-    // Can be overridden via environment
+
     const mockType = process.env.MOCK_PROVIDER_TYPE || 'browseros'
-    
+
     const mockProviders: Record<string, BrowserOSProvider> = {
       browseros: this.getDefaultBrowserOSProvider(),
       openai: {
@@ -303,8 +372,14 @@ export class LLMSettingsReader {
         updatedAt: new Date().toISOString()
       }
     }
-    
+
     return mockProviders[mockType] || this.getDefaultBrowserOSProvider()
   }
-  
-} 
+}
+
+
+
+
+
+
+

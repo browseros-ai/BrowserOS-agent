@@ -4,20 +4,11 @@ import { z } from 'zod'
 export const MessageSchema = z.object({
   msgId: z.string(),  // Stable ID for message (e.g., "msg_think_1", "msg_tool_result_2")
   content: z.string(),  // Full markdown content
-  role: z.enum(['thinking', 'user', 'assistant', 'error', 'narration', 'plan_editor']),  // Message role (added plan_editor)
+  role: z.enum(['thinking', 'user', 'assistant', 'error', 'plan_editor']),  // Message role
   ts: z.number(),  // Timestamp in milliseconds
 })
 
 export type Message = z.infer<typeof MessageSchema>
-
-// Execution status
-export const ExecutionStatusSchema = z.object({
-  status: z.enum(['running', 'done', 'cancelled', 'error']),  // Current execution state
-  ts: z.number(),  // Timestamp when status changed
-  message: z.string().optional(),  // Optional message (e.g., error details)
-})
-
-export type ExecutionStatus = z.infer<typeof ExecutionStatusSchema>
 
 // Human input request/response schemas
 export const HumanInputRequestSchema = z.object({
@@ -62,15 +53,36 @@ export const PlanEditResponseSchema = z.object({
 
 export type PlanEditResponse = z.infer<typeof PlanEditResponseSchema>
 
+// Teach mode event payload
+export const TeachModeEventPayloadSchema = z.object({
+  eventType: z.enum([
+    'recording_started',
+    'recording_stopped',
+    'event_captured',
+    'state_captured',
+    'transcript_update',
+    'tab_switched',
+    'viewport_updated',
+    'preprocessing_started',
+    'preprocessing_progress',
+    'preprocessing_completed',
+    'preprocessing_failed',
+    'execution_started',
+    'execution_thinking',
+    'execution_completed',
+    'execution_failed'
+  ]),  // Type of teach mode event
+  sessionId: z.string(),  // Recording session ID or execution ID
+  data: z.any()  // Event-specific data
+})
+
+export type TeachModeEventPayload = z.infer<typeof TeachModeEventPayloadSchema>
+
 // Pub-sub event types
 export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('message'),
     payload: MessageSchema
-  }),
-  z.object({
-    type: z.literal('execution-status'),
-    payload: ExecutionStatusSchema
   }),
   z.object({
     type: z.literal('human-input-request'),
@@ -87,6 +99,10 @@ export const PubSubEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('plan-edit-response'),
     payload: PlanEditResponseSchema
+  }),
+  z.object({
+    type: z.literal('teach-mode-event'),
+    payload: TeachModeEventPayloadSchema
   }),
 ])
 

@@ -126,67 +126,103 @@ export class KlavisAPIManager {
    */
   private async _handleOAuth(oauthUrl: string, instanceId: string): Promise<boolean> {
     return new Promise((resolve) => {
+      // State machine for tracking authentication status
+      enum AuthState {
+        PENDING = 'pending',
+        SUCCESS = 'success',
+        CANCELLED = 'cancelled',
+        TIMEOUT = 'timeout'
+      }
+
+      let state: AuthState = AuthState.PENDING
+      let resolved = false
+
+      // Helper to safely resolve only once
+      const resolveOnce = (value: boolean) => {
+        if (!resolved) {
+          resolved = true
+          resolve(value)
+        }
+      }
+
       // Open OAuth URL in new tab
       chrome.tabs.create({ url: oauthUrl, active: true }, (tab) => {
         if (!tab.id) {
           console.error('Failed to create OAuth tab')
-          resolve(false)
+          resolveOnce(false)
           return
         }
 
         const tabId = tab.id
         let pollInterval: NodeJS.Timeout
         let timeoutId: NodeJS.Timeout
-        let tabClosed = false
-        
-        // Monitor if user closes the tab manually
+
+        // Cleanup helper
+        const cleanup = () => {
+          clearInterval(pollInterval)
+          clearTimeout(timeoutId)
+          chrome.tabs.onRemoved.removeListener(tabRemovedListener)
+        }
+
+        // Monitor if user closes the tab - but don't immediately fail
         const tabRemovedListener = (removedTabId: number) => {
-          if (removedTabId === tabId) {
-            tabClosed = true
-            clearInterval(pollInterval)
-            clearTimeout(timeoutId)
+          if (removedTabId === tabId && state === AuthState.PENDING) {
             chrome.tabs.onRemoved.removeListener(tabRemovedListener)
-            console.log('OAuth tab closed by user')
-            resolve(false)  // User cancelled
+            console.log('OAuth tab closed - starting grace period for auth propagation')
+
+            // Give 20 seconds for auth to propagate after tab close
+            // This handles cases where OAuth provider auto-closes tab after success
+            // and eventual consistency delays between OAuth provider and Klavis
+            setTimeout(() => {
+              if (state === AuthState.PENDING) {
+                state = AuthState.CANCELLED
+                cleanup()
+                console.log('OAuth cancelled by user after extended grace period')
+                resolveOnce(false)
+              }
+              // If state changed to SUCCESS during grace period, we're good
+            }, 20000)  // Allows for 10 polling cycles (20s / 2s per poll)
           }
         }
         chrome.tabs.onRemoved.addListener(tabRemovedListener)
-        
+
         // Wait 3 seconds before starting to poll (let OAuth page load)
         setTimeout(() => {
-          if (tabClosed) return
-          
-          // Poll authentication status every 2 seconds
+          // Start polling for authentication status
           pollInterval = setInterval(async () => {
+            // Skip if already resolved
+            if (state !== AuthState.PENDING) return
+
             try {
               // Check if authenticated using Klavis API
-              const authData = await this.client.getAuthMetadata(instanceId)
-              
-              if (authData.success && authData.authData) {
+              const instanceStatus = await this.client.getInstanceStatus(instanceId)
+
+              if (instanceStatus.isAuthenticated) {
                 // Success! Authentication completed
-                clearInterval(pollInterval)
-                clearTimeout(timeoutId)
-                chrome.tabs.onRemoved.removeListener(tabRemovedListener)
-                
-                // Close the OAuth tab
+                state = AuthState.SUCCESS
+                cleanup()
+
+                // Try to close tab if still open
                 await chrome.tabs.remove(tabId).catch(() => {})
-                
+
                 console.log(`OAuth completed successfully for instance ${instanceId}`)
-                resolve(true)
+                resolveOnce(true)
               }
             } catch (error) {
               // Not authenticated yet or API error, keep polling
               console.debug('Auth check failed, continuing to poll:', error)
             }
           }, 2000)  // Poll every 2 seconds
-          
+
           // Timeout after 5 minutes
           timeoutId = setTimeout(() => {
-            clearInterval(pollInterval)
-            chrome.tabs.onRemoved.removeListener(tabRemovedListener)
-            chrome.tabs.remove(tabId).catch(() => {})
-            console.warn('OAuth timeout after 5 minutes')
-            resolve(false)  // Timeout - auth failed
+            if (state === AuthState.PENDING) {
+              state = AuthState.TIMEOUT
+              cleanup()
+              chrome.tabs.remove(tabId).catch(() => {})
+              console.warn('OAuth timeout after 5 minutes')
+              resolveOnce(false)
+            }
           }, 5 * 60 * 1000)
         }, 3000)  // Initial 3 second delay
       })

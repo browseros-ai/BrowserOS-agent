@@ -1,4 +1,5 @@
 import { BaseMessage, AIMessage } from '@langchain/core/messages'
+import { Logging } from "@/lib/utils/Logging";
 
 const MAX_RETRIES = 3
 
@@ -36,6 +37,7 @@ export async function invokeWithRetry<T> (
       return await llm.invoke(messagesToSend)
     } catch (error) {
       lastError = error as Error
+      Logging.log('invokeWithRetry', `Attempt ${attempt} failed: ${lastError.message}`)
       if (attempt === maxRetries) throw error
     }
   }

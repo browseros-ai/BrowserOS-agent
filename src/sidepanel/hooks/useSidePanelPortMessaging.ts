@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { PortMessaging, PortName } from '@/lib/runtime/PortMessaging'
+import { PortMessaging } from '@/lib/runtime/PortMessaging'
 import { MessageType } from '@/lib/types/messaging'
 
 /**
- * Custom hook for managing port messaging specifically for the side panel.
- * Uses SIDEPANEL_TO_BACKGROUND port name to distinguish from options page messaging.
+ * Custom hook for managing port messaging for the side panel.
+ * Uses a fixed port name for the singleton execution.
  */
 export function useSidePanelPortMessaging() {
   const messagingRef = useRef<PortMessaging | null>(null)
@@ -19,22 +19,39 @@ export function useSidePanelPortMessaging() {
     const messaging = messagingRef.current
     if (!messaging) return
 
-    // Set up connection listener
-    const handleConnectionChange = (isConnected: boolean) => {
-      setConnected(isConnected)
+    // Initialize connection with fixed port name
+    const initializeConnection = () => {
+      try {
+        // Set up connection listener
+        const handleConnectionChange = (isConnected: boolean) => {
+          setConnected(isConnected)
+        }
+
+        messaging.addConnectionListener(handleConnectionChange)
+
+        // Connect to background script using fixed port name
+        const success = messaging.connect("sidepanel", true)
+        
+        if (!success) {
+          console.error(`[SidePanelPortMessaging] Failed to connect`)
+        } else {
+          console.log(`[SidePanelPortMessaging] Connected successfully`)
+        }
+      } catch (error) {
+        console.error('[SidePanelPortMessaging] Error during connection:', error)
+      }
     }
 
-    messaging.addConnectionListener(handleConnectionChange)
-
-    // Connect to background script using sidepanel port name
-    const success = messaging.connect(PortName.SIDEPANEL_TO_BACKGROUND, true)
-    if (!success) {
-      console.warn('[SidePanelPortMessaging] Failed to connect to background script')
-    }
+    initializeConnection()
 
     // Cleanup on unmount: remove listener but keep the global connection alive
     return () => {
-      messaging.removeConnectionListener(handleConnectionChange)
+      const messaging = messagingRef.current
+      if (messaging) {
+        messaging.removeConnectionListener((isConnected: boolean) => {
+          setConnected(isConnected)
+        })
+      }
     }
   }, [])
 
@@ -47,6 +64,24 @@ export function useSidePanelPortMessaging() {
    */
   const sendMessage = useCallback(<T>(type: MessageType, payload: T, messageId?: string): boolean => {
     return messagingRef.current?.sendMessage(type, payload, messageId) ?? false
+  }, [])
+
+  /**
+   * Send a message and wait for a response
+   * @param type - Message type
+   * @param payload - Message payload
+   * @param timeoutMs - Optional timeout in milliseconds (default 30000)
+   * @returns Promise that resolves with the response payload
+   */
+  const sendMessageWithResponse = useCallback(async <T>(
+    type: MessageType,
+    payload: unknown,
+    timeoutMs?: number
+  ): Promise<T> => {
+    if (!messagingRef.current) {
+      throw new Error('Port messaging not initialized')
+    }
+    return messagingRef.current.sendMessageWithResponse<T>(type, payload, timeoutMs)
   }, [])
 
   /**
@@ -76,6 +111,7 @@ export function useSidePanelPortMessaging() {
   return {
     connected,
     sendMessage,
+    sendMessageWithResponse,
     addMessageListener,
     removeMessageListener
   }

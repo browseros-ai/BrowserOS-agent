@@ -8,6 +8,10 @@
   const GLOW_STYLES_ID = 'nxtscape-glow-styles'
   const GLOW_INITIALIZED_KEY = 'nxtscape-glow-initialized'
   const GLOW_ENABLED_KEY = 'nxtscape-glow-enabled'  // Stored in chrome.storage.local
+
+  // Glow thickness controls - adjust these to change glow intensity
+  const GLOW_THICKNESS = 1.0  // Multiplier for all glow values (0.5 = thinner, 1.5 = thicker)
+  const GLOW_OPACITY = 0.6  // Final opacity of the glow overlay (0.0 - 1.0)
   
   // Check if already initialized to prevent duplicate listeners
   if ((window as any)[GLOW_INITIALIZED_KEY]) {
@@ -23,39 +27,42 @@
     if (document.getElementById(GLOW_STYLES_ID)) {
       return
     }
-    
+
+    // Calculate glow values based on thickness multiplier
+    const t = GLOW_THICKNESS
+
     const style = document.createElement('style')
     style.id = GLOW_STYLES_ID
     style.textContent = `
       @keyframes nxtscape-glow-pulse {
         0% {
           box-shadow:
-            inset 0 0 42px 19px transparent,
-            inset 0 0 36px 16px rgba(251, 102, 24, 0.06),
-            inset 0 0 30px 13px rgba(251, 102, 24, 0.12),
-            inset 0 0 24px 10px rgba(251, 102, 24, 0.18);
+            inset 0 0 ${58 * t}px ${26 * t}px transparent,
+            inset 0 0 ${50 * t}px ${22 * t}px rgba(251, 102, 24, 0.06),
+            inset 0 0 ${42 * t}px ${18 * t}px rgba(251, 102, 24, 0.12),
+            inset 0 0 ${34 * t}px ${14 * t}px rgba(251, 102, 24, 0.18);
         }
         50% {
           box-shadow:
-            inset 0 0 52px 25px transparent,
-            inset 0 0 46px 23px rgba(251, 102, 24, 0.10),
-            inset 0 0 39px 19px rgba(251, 102, 24, 0.18),
-            inset 0 0 33px 16px rgba(251, 102, 24, 0.24);
+            inset 0 0 ${72 * t}px ${35 * t}px transparent,
+            inset 0 0 ${64 * t}px ${32 * t}px rgba(251, 102, 24, 0.10),
+            inset 0 0 ${54 * t}px ${26 * t}px rgba(251, 102, 24, 0.18),
+            inset 0 0 ${46 * t}px ${22 * t}px rgba(251, 102, 24, 0.24);
         }
         100% {
           box-shadow:
-            inset 0 0 42px 19px transparent,
-            inset 0 0 36px 16px rgba(251, 102, 24, 0.06),
-            inset 0 0 30px 13px rgba(251, 102, 24, 0.12),
-            inset 0 0 24px 10px rgba(251, 102, 24, 0.18);
+            inset 0 0 ${58 * t}px ${26 * t}px transparent,
+            inset 0 0 ${50 * t}px ${22 * t}px rgba(251, 102, 24, 0.06),
+            inset 0 0 ${42 * t}px ${18 * t}px rgba(251, 102, 24, 0.12),
+            inset 0 0 ${34 * t}px ${14 * t}px rgba(251, 102, 24, 0.18);
         }
       }
-      
+
       @keyframes nxtscape-glow-fade-in {
         from { opacity: 0; }
-        to { opacity: 0.6; }
+        to { opacity: ${GLOW_OPACITY}; }
       }
-      
+
       #${GLOW_OVERLAY_ID} {
         position: fixed !important;
         top: 0 !important;
@@ -66,7 +73,7 @@
         z-index: 2147483647 !important;
         opacity: 0;
         will-change: opacity;
-        animation: 
+        animation:
           nxtscape-glow-pulse 3s ease-in-out infinite,
           nxtscape-glow-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
       }

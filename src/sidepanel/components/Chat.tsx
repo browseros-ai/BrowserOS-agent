@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Header } from './Header'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { SelectTabsButton } from './SelectTabsButton'
@@ -19,7 +18,7 @@ interface ChatProps {
  * Orchestrates the layout and manages the overall chat interface
  */
 export function Chat({ isConnected }: ChatProps) {
-  const { messages, isProcessing, reset, upsertMessage } = useChatStore()
+  const { messages, isProcessing } = useChatStore()
   const [isUserScrolling, setIsUserScrolling] = useState(false)
   const [showSelectTabsButton, setShowSelectTabsButton] = useState(false)
   const messageListRef = useRef<HTMLDivElement>(null)
@@ -46,13 +45,6 @@ export function Chat({ isConnected }: ChatProps) {
   return (
     <div className="flex flex-col h-full bg-background-alt">
 
-      {/* Header */}
-      <Header 
-        onReset={reset}
-        showReset={messages.length > 0}
-        isProcessing={isProcessing}
-      />
-      
       {/* Main content - takes remaining space and scrolls */}
       <div className="flex-1 min-h-0">
         <ErrorBoundary
@@ -70,10 +62,11 @@ export function Chat({ isConnected }: ChatProps) {
             </div>
           )}
         >
-          <main id="main-content" className="h-full">
+          <main id="main-content" className="h-full min-h-0">
             
             <MessageList 
               messages={messages} 
+              isProcessing={isProcessing}
               onScrollStateChange={setIsUserScrolling}
               scrollToBottom={handleScrollToBottom}
               containerRef={messageListRef}

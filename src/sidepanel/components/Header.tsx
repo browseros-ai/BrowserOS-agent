@@ -6,7 +6,7 @@ import { useAnalytics } from '../hooks/useAnalytics'
 import { SettingsModal } from './SettingsModal'
 import { HelpSection } from './HelpSection'
 // import { ExperimentModal } from './ExperimentModal'  // Removed - old evals system deprecated
-import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star } from 'lucide-react'
+import { HelpCircle, Settings, Pause, RotateCcw, ChevronDown, Plus, Trash2, Star, Copy } from 'lucide-react'
 import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import { useEffect } from 'react'
 import { z } from 'zod'
@@ -20,8 +20,9 @@ const MCP_FEATURE_ENABLED = true
 
 interface HeaderProps {
   onReset: () => void
-  showReset: boolean
+  showReset: boolean  // This now means "has messages to reset"
   isProcessing: boolean
+  isTeachMode?: boolean  // Hide pause/reset buttons in teach mode
 }
 
 /**
@@ -29,7 +30,7 @@ interface HeaderProps {
  * Displays title, connection status, and action buttons (pause/reset)
  * Memoized to prevent unnecessary re-renders
  */
-export const Header = memo(function Header({ onReset, showReset, isProcessing }: HeaderProps) {
+export const Header = memo(function Header({ onReset, showReset, isProcessing, isTeachMode = false }: HeaderProps) {
   const { sendMessage, connected, addMessageListener, removeMessageListener } = useSidePanelPortMessaging()
   const { trackClick } = useAnalytics()
   const [showSettings, setShowSettings] = useState(false)
@@ -40,7 +41,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   const [mcpInstallStatus, setMcpInstallStatus] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [installedServers, setInstalledServers] = useState<any[]>([])
   const { theme } = useSettingsStore()
-  
   
   const handleCancel = () => {
     trackClick('pause_task')
@@ -69,6 +69,24 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
   const handleStarClick = () => {
     trackClick('github_star')
     window.open(GITHUB_REPO_URL, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleOpenOptions = async () => {
+    trackClick('open_options_page')
+    try {
+      // Try the standard API first
+      await chrome.runtime.openOptionsPage()
+    } catch (error) {
+      // Fallback: manually create tab with options page URL
+      // This handles cases where openOptionsPage() fails after browser restart
+      try {
+        await chrome.tabs.create({
+          url: chrome.runtime.getURL('browseros-settings.html')
+        })
+      } catch (fallbackError) {
+        console.error('Failed to open options page:', fallbackError)
+      }
+    }
   }
 
   const handleMCPInstall = (serverId: string) => {
@@ -177,7 +195,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
         role="banner"
       >
 
-        <div className="flex items-center ">
+        <div className="flex items-center">
           {providersConfig && (
             <div className="relative mt-0.5">
               <select
@@ -185,6 +203,15 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                 value={providersConfig.defaultProviderId}
                 onChange={(e) => {
                   const nextId = e.target.value
+
+                  // Check if "+ Add Provider" was selected
+                  if (nextId === '__add_new_provider__') {
+                    handleOpenOptions()
+                    // Reset select to current provider
+                    e.target.value = providersConfig.defaultProviderId
+                    return
+                  }
+
                   const nextProviders = providersConfig.providers.map(p => ({ ...p, isDefault: p.id === nextId }))
                   const nextConfig: BrowserOSProvidersConfig = {
                     defaultProviderId: nextId,
@@ -205,6 +232,17 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                 {providersConfig.providers.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
+                <option
+                  value="__add_new_provider__"
+                  style={{
+                    borderTop: '1px solid #ddd',
+                    paddingTop: '6px',
+                    marginTop: '4px',
+                    fontWeight: '600'
+                  }}
+                >
+                  + New Provider
+                </option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground opacity-80" />
             </div>
@@ -219,7 +257,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             onClick={handleStarClick}
             variant="ghost"
             size="sm"
-            className="h-9 px-2 sm:px-3 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20 hover:text-yellow-600 dark:hover:text-yellow-400 transition-all duration-300 flex items-center gap-1.5 group"
+            className="h-9 px-2 sm:px-3 rounded-xl hover:bg-yellow-100 dark:hover:bg-yellow-900/20 hover:text-yellow-600 dark:hover:text-yellow-400 smooth-hover smooth-transform hover:scale-105 flex items-center gap-1.5 group"
             aria-label="Star on GitHub"
             title="Star us on GitHub"
           >
@@ -234,7 +272,7 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
                 onClick={() => setShowMCPDropdown(!showMCPDropdown)}
                 variant="ghost"
                 size="sm"
-                className="flex items-center gap-1 h-9 px-2 rounded-xl hover:bg-brand/10 hover:text-brand transition-all duration-300"
+                className="flex items-center gap-1 h-9 px-2 rounded-xl hover:bg-brand/10 hover:text-brand smooth-hover smooth-transform hover:scale-105"
                 aria-label="Connect integrations"
               >
                 <Plus className="w-4 h-4" />
@@ -309,7 +347,35 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
             </div>
           )}
 
-          {/* Settings button - Third position */}
+          {/* Show Pause button if processing and NOT in teach mode */}
+          {isProcessing && !isTeachMode && (
+            <Button
+              onClick={handleCancel}
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-all duration-300"
+              aria-label="Pause current task"
+              title="Pause"
+            >
+              <Pause className="w-4 h-4" />
+            </Button>
+          )}
+
+          {/* Show Reset button if has messages and NOT in teach mode */}
+          {showReset && !isTeachMode && (
+            <Button
+              onClick={handleReset}
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-xl hover:bg-orange-100 dark:hover:bg-orange-900/20 hover:text-orange-600 dark:hover:text-orange-400 transition-all duration-300"
+              aria-label="Reset conversation"
+              title="Reset"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          )}
+
+          {/* Settings button - Last position (rightmost) */}
           <Button
             onClick={handleSettingsClick}
             variant="ghost"
@@ -319,41 +385,6 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing }:
           >
             <Settings className="w-4 h-4" />
           </Button>
-
-          {/* Experiment Modal - renders its own button */}
-          {/* <ExperimentModal
-            trackClick={trackClick}
-            sendMessage={sendMessage}
-            addMessageListener={addMessageListener}
-            removeMessageListener={removeMessageListener}
-            isProcessing={isProcessing}
-          /> */}  {/* Commented out - old evals system deprecated */}
-
-          {isProcessing && (
-            <Button
-              onClick={handleCancel}
-              variant="ghost"
-              size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
-              aria-label="Pause current task"
-            >
-              <Pause className="w-4 h-4" />
-              Pause
-            </Button>
-          )}
-          
-          {showReset && !isProcessing && (
-            <Button
-              onClick={handleReset}
-              variant="ghost"
-              size="sm"
-              className="text-xs hover:bg-brand/5 hover:text-brand transition-all duration-300 flex items-center gap-1"
-              aria-label="Reset conversation"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </Button>
-          )}
         </nav>
 
         {/* Settings Modal */}

@@ -62,7 +62,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
   - Styles → .css (using Tailwind CSS)
 - Prefer named exports for components
 - Types/Interfaces in PascalCase (e.g. User, ButtonProps)
-- OUR PRODUCT NAME IS Nxtscape (the "s" is small letter) -- so use that name correctly when naming things.
+- OUR PRODUCT NAME IS BrowserOS -- so use that name correctly when naming things.
 
 # Functions & Logic
 - Keep functions short and single-purpose (<20 lines).
@@ -231,7 +231,7 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 
 # UI & Styling (Tailwind CSS)
 - Use Tailwind CSS utility classes directly in components
-- Single `styles.css` file per UI module (sidepanel/v2, newtab)
+- Single `styles.css` file per UI module (sidepanel, newtab)
 - Define CSS custom properties (variables) for theming:
   - Theme variables in `:root`, `.dark`, and custom theme classes
   - Use semantic variable names (--background, --foreground, --primary, etc.)
@@ -384,14 +384,13 @@ This is a Chrome extension that provides AI-powered web automation using LLM age
 
 ### UI Components
 - **IMPORTANT: Use ONLY these directories for UI work:**
-  - `src/sidepanel/v2/` - Modern side panel UI (primary interface)
+  - `src/sidepanel/` - Side panel UI (primary interface)
   - `src/newtab/` - New tab page UI
-- **NEVER update files in `src/sidepanel/` (without v2)** - Legacy code being removed
 - **DO NOT use SCSS modules or `.module.scss` files** - Use Tailwind CSS instead
 
-#### Side Panel V2 (`src/sidepanel/v2/`)
+#### Side Panel (`src/sidepanel/`)
 - Modern Chrome side panel with React + Tailwind CSS
-- Components: Chat, MessageList, Header, SettingsModal, TabSelector, etc.
+- Components: Chat, MessageList, Header, SettingsModal, TabSelector, TeachMode, etc.
 - Hooks: useMessageHandler, useKeyboardShortcuts, useAutoScroll, etc.
 - Store: Zustand-based state management (chatStore, settingsStore)
 - Real-time streaming display for agent execution
@@ -402,7 +401,7 @@ This is a Chrome extension that provides AI-powered web automation using LLM age
 - Components: AgentCard, CommandPalette, ThemeToggle, etc.
 - Stores: agentsStore, providerStore (Zustand)
 - Pages: CreateAgentPage for agent configuration
-- Consistent styling approach with sidepanel/v2
+- Consistent styling approach with sidepanel
 
 ### UI Component Patterns
 - **Component Structure**: 
@@ -430,7 +429,7 @@ This is a Chrome extension that provides AI-powered web automation using LLM age
 
 ### LLM Integration
 - **LangChainProviderFactory** (`src/lib/llm/LangChainProviderFactory.ts`) - Abstraction over multiple LLM providers
-- **Provider Strategies**: AnthropicStrategy, OpenAIStrategy, OllamaStrategy, NxtscapeStrategy
+- **Provider Strategies**: AnthropicStrategy, OpenAIStrategy, OllamaStrategy, BrowserOS Strategy
 - **LLM Settings**: LLMSettingsReader for configuration management
 - **Supported Providers**: Claude (Anthropic), OpenAI, Ollama
 - **LangChain Integration** - Uses @langchain packages for agent execution
@@ -604,7 +603,7 @@ describe('MyTool', () => {
 ### Execution Flow
 
 ```
-User Query → NxtScape.run() → BrowserAgent.execute()
+User Query → BrowserOS.run() → BrowserAgent.execute()
                                         ↓
                               ClassificationTool
                                    ↙        ↘

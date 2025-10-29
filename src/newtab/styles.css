@@ -55,6 +55,7 @@
   .gray {
     --background: 220 10% 3%;
     --background-alt: 220 8% 6%;
+    --header: 220 7% 16%;
     --foreground: 0 0% 96%;
     --card: 220 8% 12%;
     --card-foreground: 0 0% 96%;
