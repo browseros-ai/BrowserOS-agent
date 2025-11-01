@@ -368,6 +368,88 @@ async function toggleSidePanel(tabId: number): Promise<void> {
 }
 
 /**
+ * Register notification interaction handlers ( notification click , button click etc. )
+ */
+function registerNotificationListeners() {
+
+  // key: notificationId , value: windowId
+  const windowIds = new Map<string, number>();
+
+  // key: windowId , value: notificationId[]
+  const notificationIds = new Map<number, Array<string>>();
+
+  const getNotificationIds = (windowId: number): Array<string> => {
+
+    if( !notificationIds.has(windowId) ) {
+      return [];
+    }
+
+    return notificationIds.get(windowId)!;
+
+  }
+
+  // event listener to listen for detecting when browser is opened/resumed
+  chrome.windows.onFocusChanged.addListener(async (windowId) => {
+
+    // windowId is not none when all chrome windows 
+    // are out of focus that means no notification needs to be cleared
+    if (windowId == chrome.windows.WINDOW_ID_NONE) {
+      return;
+    }
+
+    const data = getNotificationIds(windowId);
+
+    data.forEach(notificationId => chrome.notifications.clear(notificationId));
+
+    notificationIds.delete(windowId);
+
+  });
+
+  //handle click of notification
+  chrome.notifications.onClicked.addListener((notificationId) => {
+
+
+    const windowId = windowIds.get(notificationId);
+
+    if( windowId !== undefined ) {
+
+      //open browser window
+      chrome.windows.update( windowId , { focused: true });
+      windowIds.delete(notificationId);
+
+      // Not clearing `notificationId` from `notficationIds` map here becaue
+      // the above code will open browser window and it will be cleared in the 
+      // `onFocusChange` handler
+    }
+
+    // clear notification
+    chrome.notifications.clear(notificationId);
+
+  });
+
+  //listener for sending notification
+  chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+    if (request.action === "send-notification") {
+      const windowId = request.windowId;
+
+      //setting window if against notification so that it can be used to clear notification when the window opens
+      chrome.notifications.create(request.options, async (notificationId) => {
+        if (windowId) {
+          let existingNotificationIds = getNotificationIds(windowId!);
+          existingNotificationIds.push(notificationId);
+          
+          notificationIds.set(windowId!, existingNotificationIds);
+          windowIds.set(notificationId, windowId!);
+        }
+        sendResponse(notificationId);
+      });
+    }
+    return true;
+  });
+
+}
+
+/**
  * Handle extension installation
  */
 chrome.runtime.onInstalled.addListener(async (details) => {
@@ -399,6 +481,8 @@ function initialize(): void {
 
   // Register all handlers
   registerHandlers()
+
+  registerNotificationListeners();
 
   // Set up port connection listener
   chrome.runtime.onConnect.addListener(handlePortConnection)
@@ -441,4 +525,3 @@ function initialize(): void {
 
 // Initialize the extension
 initialize()
-
