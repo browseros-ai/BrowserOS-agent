@@ -12,7 +12,7 @@ import { langChainProvider } from "@/lib/llm/LangChainProvider";
 import { Logging } from "@/lib/utils/Logging";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { PubSub } from "@/lib/pubsub";
-import { ExecutionMetadata } from "@/lib/types/messaging";
+import { ExecutionMetadata, MessageType } from "@/lib/types/messaging";
 import { getFeatureFlags } from "@/lib/utils/featureFlags";
 import { isUserCancellation } from "@/lib/utils/Abortable";
 // Evals2: session, scoring, and logging
@@ -453,6 +453,18 @@ export class Execution {
       };
       this.currentAbortController.abort(abortReason);
       this.currentAbortController = null;
+    }
+
+    // Clear PDF cache for this execution
+    try {
+      Logging.log('Execution', `Sending PDF_CLEAR_CACHE for execution: ${this.id}`);
+      chrome.runtime.sendMessage({
+        type: MessageType.PDF_CLEAR_CACHE,
+        payload: { executionId: this.id }
+      });
+    } catch (error) {
+      // Ignore errors if sidepanel not available
+      Logging.log('Execution', `Failed to clear PDF cache: ${error}`, 'warning');
     }
 
     // Clear message history

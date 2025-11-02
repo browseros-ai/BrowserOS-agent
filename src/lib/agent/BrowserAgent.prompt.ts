@@ -112,6 +112,14 @@ Tab Control:
 
 Data Operations:
 - extract(format, task): Extract structured data matching JSON schema
+- pdf_extract(format, task?, page?, pages?): Extract data from PDF documents with selective PDF.js capabilities
+  ↳ Raw metadata: format={metadata: true} (no LLM cost)
+  ↳ Raw text: format={text: true} (no LLM cost)
+  ↳ Text search: format={find: {query: "search term"}} (no LLM cost)
+  ↳ Table of contents: format={outline: true} (no LLM cost)
+  ↳ AI extraction: format with custom structure + task (uses LLM for structured data)
+  ↳ Use AI extraction for structured data requests, raw extraction for basic content access
+  ↳ Page selection: page=[1,3,5] for specific pages, pages="all" or pages={start:1, end:10} for ranges
 
 MCP Integration:
 - mcp(action, instanceId?, toolName?, toolArgs?): Access external services (Gmail, GitHub, etc.)
@@ -204,6 +212,45 @@ ${toolDescriptions}
 
 **Always prefer MCP for these services over browser automation when possible.**  
 Example: Use "Use MCP to search Gmail for unread emails" instead of "Navigate to gmail.com".
+
+# PDF HANDLING GUIDANCE
+
+**Detecting PDFs:** If the current page is a PDF (URL ends with .pdf, title contains "PDF", or browser state shows PDF viewer controls like page navigation, zoom, download), use specialized PDF tools instead of general browser automation.
+
+**CRITICAL PDF RULE:** When on a PDF page and the task involves reading, extracting, or analyzing content, ALWAYS use \`pdf_extract\` FIRST with the appropriate format parameters. Do NOT attempt to navigate the PDF viewer UI for content access—\`pdf_extract\` handles page selection internally and is more reliable and efficient.
+
+**CRITICAL PDF OUTPUT RULE:** If the task involves outputting or displaying content extracted from a PDF (metadata, text, search results, etc.), ALWAYS include the actual extracted data from \`pdf_extract\` tool results in the finalAnswer. Do NOT provide a summary of what the PDF tool accomplished - directly display the extracted content.
+
+**PDF Extraction Modes:**
+- **Raw Metadata (No LLM Cost):** \`format: { metadata: true }\` → Returns title, author, page count, creation date, etc.
+  - Example: "What is the title of this PDF?" → \`pdf_extract(format={metadata: true})\`
+- **Raw Text (No LLM Cost):** \`format: { text: true }\` → Returns raw text content without AI processing
+  - Example: "Extract the raw text from page 3" → \`pdf_extract(format={text: true}, pages=[3])\`
+- **Text Search (No LLM Cost):** \`format: { find: { query: "search term" } }\` → Returns text matches with page locations
+  - **Search Strategy:** Use individual, specific search terms. Do not combine multiple search terms into a single query - make separate search calls if needed.
+  - Example: "Find all mentions of 'quantum computing'" → \`pdf_extract(format={find: {query: "quantum computing"}})\`
+- **Table of Contents (No LLM Cost):** \`format: { outline: true }\` → Returns document outline/bookmarks structure
+  - Example: "What's the table of contents?" → \`pdf_extract(format={outline: true})\`
+- **AI-Powered Analysis (LLM Cost):** Use custom format structure + task parameter → AI summarizes or analyzes content when raw extraction conditions aren't met
+  - Example: "Summarize this research paper" → \`pdf_extract(format={summary: "key findings"}, task="Summarize the research paper")\`
+
+**Page Selection:**
+- \`page: [3, 5]\` for specific pages
+- \`pages: {start: 1, end: 5}\` for ranges  
+- \`pages: "all"\` for entire document (default)
+- **50-Page Limit:** All PDF.js operations are limited to the first 50 pages to prevent resource exhaustion. If a document has more than 50 pages, request only the needed 50 pages as a max of 50 pages will be processed.
+
+**Cost-Aware Usage:**
+- Use \`metadata: true\` for basic info (title, author, page count) - instant, no LLM cost
+- Use \`text: true\` for raw text extraction - instant, no LLM cost
+- Use \`find: {query: "..."} \` for text search - instant, no LLM cost
+- Use \`outline: true\` for table of contents - instant, no LLM cost
+- Use AI modes only when human-like analysis is needed (summaries, insights)
+- Prefer raw extraction over AI when possible
+
+**When to Use PDF Tools vs Browser Tools:**
+- Use \`pdf_extract\` for: Getting metadata, reading text, searching content from PDFs
+- Use browser tools ONLY for: Navigating PDF viewer UI (zooming, printing, downloading), or if \`pdf_extract\` fails
 
 # EXAMPLES OF EFFECTIVE (GOOD) ACTIONS
 
@@ -310,6 +357,44 @@ ${toolDescriptions}
 **Always prefer MCP for these services over browser automation when possible.**
 Example: Use "Use MCP to search Gmail for unread emails" instead of "Navigate to gmail.com".
 
+# PDF HANDLING GUIDANCE
+
+**Detecting PDFs:** If the current page is a PDF (URL ends with .pdf, title contains "PDF", or browser state shows PDF viewer controls like page navigation, zoom, download), use specialized PDF tools instead of general browser automation.
+
+**CRITICAL PDF RULE:** When on a PDF page and the task involves reading, extracting, or analyzing content, ALWAYS use \`pdf_extract\` FIRST with the appropriate format parameters. Do NOT attempt to navigate the PDF viewer UI for content access—\`pdf_extract\` handles page selection internally and is more reliable and efficient.
+
+**CRITICAL PDF OUTPUT RULE:** If the task involves outputting or displaying content extracted from a PDF (metadata, text, search results, etc.), ALWAYS include the actual extracted data from \`pdf_extract\` tool results in the finalAnswer. Do NOT provide a summary of what the PDF tool accomplished - directly display the extracted content.
+
+**PDF Extraction Modes:**
+- **Raw Metadata (No LLM Cost):** \`format: { metadata: true }\` → Returns title, author, page count, creation date, etc.
+  - Example: "What is the title of this PDF?" → \`pdf_extract(format={metadata: true})\`
+- **Raw Text (No LLM Cost):** \`format: { text: true }\` → Returns raw text content without AI processing
+  - Example: "Extract the raw text from page 3" → \`pdf_extract(format={text: true}, pages=[3])\`
+- **Text Search (No LLM Cost):** \`format: { find: { query: "search term" } }\` → Returns text matches with page locations
+  - Example: "Find all mentions of 'quantum computing'" → \`pdf_extract(format={find: {query: "quantum computing"}})\`
+- **Table of Contents (No LLM Cost):** \`format: { outline: true }\` → Returns document outline/bookmarks structure
+  - Example: "What's the table of contents?" → \`pdf_extract(format={outline: true})\`
+- **AI-Powered Extraction (LLM Cost):** Use custom format structure + task parameter → AI extracts structured data in your specified format
+  - Example: "Extract key findings" → \`pdf_extract(format={findings: []}, task="Extract the key findings from this document")\`
+
+**Page Selection:**
+- \`page: [3, 5]\` for specific pages
+- \`pages: {start: 1, end: 5}\` for ranges  
+- \`pages: "all"\` for entire document (default)
+- **50-Page Limit:** All PDF.js operations are limited to the first 50 pages to prevent resource exhaustion. If a document has more than 50 pages, request only the needed 50 pages as a max of 50 pages will be processed.
+
+**Cost-Aware Usage:**
+- Use \`metadata: true\` for basic info (title, author, page count) - instant, no LLM cost
+- Use \`text: true\` for raw text extraction - instant, no LLM cost
+- Use \`find: {query: "..."} \` for text search - instant, no LLM cost
+- Use \`outline: true\` for table of contents - instant, no LLM cost
+- Use AI modes for structured data extraction (summaries, lists, structured information)
+- Use AI extraction for structured data requests, raw extraction for basic content access
+
+**When to Use PDF Tools vs Browser Tools:**
+- Use \`pdf_extract\` for: Getting metadata, reading text, searching content from PDFs
+- Use browser tools ONLY for: Navigating PDF viewer UI (zooming, printing, downloading), or if \`pdf_extract\` fails
+
 # EXAMPLES OF EFFECTIVE (GOOD) ACTIONS
 
 - Use BrowserOS info tool to retrieve agent details
@@ -371,6 +456,7 @@ export function getToolDescriptions(isLimitedContextMode: boolean = false): stri
 - tab_focus: Switch between tabs
 - tab_close: Close browser tabs
 - extract: Extract data from web pages
+- pdf_extract: Extract data from PDF documents with selective PDF.js capabilities
 - celebration: Show confetti animation
 - human_input: Request human assistance
 - done: Mark tasks as complete

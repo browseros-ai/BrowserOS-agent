@@ -65,6 +65,10 @@ export enum MessageType {
   TEACH_MODE_GET_WORKFLOW = 'TEACH_MODE_GET_WORKFLOW',
   TEACH_MODE_UPDATE_WORKFLOW = 'TEACH_MODE_UPDATE_WORKFLOW',
   EXECUTE_TEACH_MODE_WORKFLOW = 'EXECUTE_TEACH_MODE_WORKFLOW',
+  // PDF processing
+  PDF_PARSE_REQUEST = 'PDF_PARSE_REQUEST',
+  PDF_PARSE_RESPONSE = 'PDF_PARSE_RESPONSE',
+  PDF_CLEAR_CACHE = 'PDF_CLEAR_CACHE',
   ERROR = 'ERROR'
 }
 
@@ -327,6 +331,18 @@ export const PlanGenerationUpdateMessageSchema = MessageSchema.extend({
 
 export type PlanGenerationUpdateMessage = z.infer<typeof PlanGenerationUpdateMessageSchema>
 
+/**
+ * PDF cache clear message schema
+ */
+export const PdfClearCacheMessageSchema = MessageSchema.extend({
+  type: z.literal(MessageType.PDF_CLEAR_CACHE),
+  payload: z.object({
+    executionId: z.string()
+  })
+})
+
+export type PdfClearCacheMessage = z.infer<typeof PdfClearCacheMessageSchema>
+
 
 /**
  * Union of all message types
@@ -345,7 +361,8 @@ export const ExtensionMessageSchema = z.discriminatedUnion('type', [
   GlowStopMessageSchema,
   GeneratePlanMessageSchema,
   RefinePlanMessageSchema,
-  PlanGenerationUpdateMessageSchema
+  PlanGenerationUpdateMessageSchema,
+  PdfClearCacheMessageSchema
 ])
 
 export type ExtensionMessage = z.infer<typeof ExtensionMessageSchema>

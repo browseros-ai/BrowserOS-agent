@@ -53,6 +53,7 @@ import {
   GetSelectedTabsTool,
   DateTool,
   MCPTool,
+  PdfExtractTool,
 } from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
@@ -290,6 +291,7 @@ export class BrowserAgent {
 
     // External integration tools
     this.toolManager.register(MCPTool(this.executionContext)); // MCP server integration
+    this.toolManager.register(PdfExtractTool(this.executionContext)); // PDF extraction tool
 
     // Limited context mode tools - only register when in limited context mode
     if (this.executionContext.isLimitedContextMode()) {

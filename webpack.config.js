@@ -184,7 +184,8 @@ module.exports = {
           }
         },
         { from: 'assets', to: 'assets', noErrorOnMissing: true },
-        { from: 'src/options/theme-init.js', to: 'theme-init.js' }
+        { from: 'src/options/theme-init.js', to: 'theme-init.js' },
+        { from: 'node_modules/pdfjs-dist/build/pdf.worker.mjs', to: 'pdf.worker.mjs', noErrorOnMissing: true }
       ]
     }),
     new webpack.DefinePlugin(processEnv),
