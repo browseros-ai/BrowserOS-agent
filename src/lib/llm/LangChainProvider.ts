@@ -129,7 +129,9 @@ export class LangChainProvider {
         case 'openai_compatible':
         case 'openrouter':
           const modelId = provider.modelId || DEFAULT_OPENAI_MODEL
-          if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
+          if (modelId.includes('gpt-5') || modelId.includes('gpt-6')) {
+            maxTokens = 400_000
+          } else if (modelId.includes('gpt-4') || modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')) {
             maxTokens = 128_000
           } else {
             maxTokens = 32_768
@@ -194,6 +196,16 @@ export class LangChainProvider {
   private _isReasoningModel(modelId: string): boolean {
     const reasoningModels = ['o1', 'o3', 'o4', 'gpt-5', 'gpt-6']
     return reasoningModels.some(model => modelId.toLowerCase().includes(model))
+  }
+
+  private _isO1StyleReasoningModel(modelId: string): boolean {
+    const o1Models = ['o1', 'o3', 'o4']
+    return o1Models.some(model => modelId.toLowerCase().includes(model))
+  }
+
+  private _isGPT5StyleReasoningModel(modelId: string): boolean {
+    const gpt5Models = ['gpt-5', 'gpt-6']
+    return gpt5Models.some(model => modelId.toLowerCase().includes(model))
   }
   
   private _getDefaultModelForProvider(type: string, intelligence: string  = 'high'): string {
@@ -470,10 +482,14 @@ export class LangChainProvider {
         }
       }
 
-      // For reasoning models, use max_completion_tokens instead of max_tokens
+      // For reasoning models, use appropriate token parameter
       if (isReasoningModel && maxTokens) {
-        config.modelKwargs = {
-          max_completion_tokens: maxTokens
+        if (this._isO1StyleReasoningModel(selectedProvider)) {
+          config.modelKwargs = {
+            max_completion_tokens: maxTokens
+          }
+        } else if (this._isGPT5StyleReasoningModel(selectedProvider)) {
+          // GPT-5: No token limit until API schema is officially released
         }
       } else if (maxTokens) {
         config.maxTokens = maxTokens
@@ -516,8 +532,13 @@ export class LangChainProvider {
     if (isReasoningModel) {
       config.temperature = 1
       if (maxTokens) {
-        config.modelKwargs = {
-          max_completion_tokens: maxTokens
+        if (this._isO1StyleReasoningModel(modelId)) {
+          config.modelKwargs = {
+            max_completion_tokens: maxTokens
+          }
+        } else if (this._isGPT5StyleReasoningModel(modelId)) {
+          // GPT-5: No token limit until API schema is officially released
+          // When available, this should use: max_output_tokens
         }
       }
     } else {

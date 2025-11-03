@@ -14,6 +14,10 @@ export interface ModelsData {
 
 export const MODELS_DATA: ModelsData = {
   openai: [
+    // GPT-5 Series - 400K context (272K input + 128K output)
+    { modelId: 'gpt-5', contextLength: 400000 },
+    { modelId: 'gpt-5-mini', contextLength: 400000 },
+    { modelId: 'gpt-5-nano', contextLength: 400000 },
     // GPT-4.1 Series - 1M context
     { modelId: 'gpt-4.1', contextLength: 1000000 },
     { modelId: 'gpt-4.1-mini', contextLength: 1000000 },

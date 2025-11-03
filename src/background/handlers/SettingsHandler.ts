@@ -249,13 +249,29 @@ export class SettingsHandler {
 
         switch (provider.type) {
           case 'openai':
-            llm = new ChatOpenAI({
+            const modelId = provider.modelId || 'gpt-4o-mini'
+            const isGPT5Model = modelId.includes('gpt-5') || modelId.includes('gpt-6')
+            const isO1Model = modelId.includes('o1') || modelId.includes('o3') || modelId.includes('o4')
+            
+            const openaiConfig: any = {
               openAIApiKey: provider.apiKey,
-              modelName: provider.modelId || 'gpt-4o-mini',
-              temperature: 0.7,
-              maxTokens: 100,
+              modelName: modelId,
+              temperature: (isGPT5Model || isO1Model) ? 1 : 0.7,
               streaming: false
-            })
+            }
+
+            // GPT-5 models: no token limit (API schema unclear until official release)
+            // o1 models: use max_completion_tokens
+            // Regular models: use maxTokens
+            if (isGPT5Model) {
+              // Don't set any token limit for GPT-5 models yet
+            } else if (isO1Model) {
+              openaiConfig.modelKwargs = { max_completion_tokens: 100 }
+            } else {
+              openaiConfig.maxTokens = 100
+            }
+
+            llm = new ChatOpenAI(openaiConfig)
             break
 
           case 'anthropic':
@@ -298,16 +314,29 @@ export class SettingsHandler {
             if (!provider.apiKey) {
               throw new Error('API key required for OpenRouter')
             }
-            llm = new ChatOpenAI({
+            const openrouterModelId = provider.modelId || 'auto'
+            const isOpenRouterGPT5 = openrouterModelId.includes('gpt-5') || openrouterModelId.includes('gpt-6')
+            const isOpenRouterO1 = openrouterModelId.includes('o1') || openrouterModelId.includes('o3') || openrouterModelId.includes('o4')
+            
+            const openrouterConfig: any = {
               openAIApiKey: provider.apiKey,
-              modelName: provider.modelId || 'auto',
-              temperature: 0.7,
-              maxTokens: 100,
+              modelName: openrouterModelId,
+              temperature: (isOpenRouterGPT5 || isOpenRouterO1) ? 1 : 0.7,
               streaming: false,
               configuration: {
                 baseURL: provider.baseUrl || 'https://openrouter.ai/api/v1'
               }
-            })
+            }
+
+            if (isOpenRouterGPT5) {
+              // Don't set any token limit for GPT-5 models yet
+            } else if (isOpenRouterO1) {
+              openrouterConfig.modelKwargs = { max_completion_tokens: 100 }
+            } else {
+              openrouterConfig.maxTokens = 100
+            }
+
+            llm = new ChatOpenAI(openrouterConfig)
             break
 
           case 'openai_compatible':
@@ -315,16 +344,29 @@ export class SettingsHandler {
             if (!provider.baseUrl) {
               throw new Error('Base URL required for OpenAI Compatible provider')
             }
-            llm = new ChatOpenAI({
+            const compatibleModelId = provider.modelId || 'default'
+            const isCompatibleGPT5 = compatibleModelId.includes('gpt-5') || compatibleModelId.includes('gpt-6')
+            const isCompatibleO1 = compatibleModelId.includes('o1') || compatibleModelId.includes('o3') || compatibleModelId.includes('o4')
+            
+            const compatibleConfig: any = {
               openAIApiKey: provider.apiKey || 'dummy-key',
-              modelName: provider.modelId || 'default',
-              temperature: 0.7,
-              maxTokens: 100,
+              modelName: compatibleModelId,
+              temperature: (isCompatibleGPT5 || isCompatibleO1) ? 1 : 0.7,
               streaming: false,
               configuration: {
                 baseURL: provider.baseUrl
               }
-            })
+            }
+
+            if (isCompatibleGPT5) {
+              // Don't set any token limit for GPT-5 models yet
+            } else if (isCompatibleO1) {
+              compatibleConfig.modelKwargs = { max_completion_tokens: 100 }
+            } else {
+              compatibleConfig.maxTokens = 100
+            }
+
+            llm = new ChatOpenAI(compatibleConfig)
             break
 
           case 'browseros':
