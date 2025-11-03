@@ -6,6 +6,7 @@ const FEATURE_FLAGS = {
   TEACH_MODE: '137.0.7212.69',
   MCP_SERVER: '137.0.7216.69',
   WEBSOCKET_AGENT: '137.0.7220.69',
+  NEW_SNAPSHOT_FORMAT: '137.0.7220.69',  // New snapshot format with items array
 } as const
 
 // Version comparison utility

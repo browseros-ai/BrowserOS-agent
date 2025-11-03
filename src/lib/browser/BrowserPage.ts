@@ -6,6 +6,8 @@ import {
   type InteractiveNode,
   type InteractiveSnapshot,
   type Snapshot,
+  type NewSnapshot,
+  type SnapshotResult,
   type SnapshotOptions,
   type ScreenshotSizeKey,
 } from "./BrowserOSAdapter";
@@ -904,66 +906,143 @@ export class BrowserPage {
 
   /**
    * Get text content snapshot from the page
+   * Returns old or new format based on feature flag
    * @param options - Optional snapshot options (context, sections)
-   * @returns Snapshot with text content from specified sections
+   * @returns Snapshot (old or new format)
    */
-  async getTextSnapshot(options?: SnapshotOptions): Promise<Snapshot> {
+  async getTextSnapshot(options?: SnapshotOptions): Promise<SnapshotResult> {
     return await this._browserOS.getTextSnapshot(this._tabId, options);
   }
 
   /**
    * Get links snapshot from the page
+   * Returns old or new format based on feature flag
    * @param options - Optional snapshot options (context, sections)
-   * @returns Snapshot with links from specified sections
+   * @returns Snapshot (old or new format)
    */
-  async getLinksSnapshot(options?: SnapshotOptions): Promise<Snapshot> {
+  async getLinksSnapshot(options?: SnapshotOptions): Promise<SnapshotResult> {
     return await this._browserOS.getLinksSnapshot(this._tabId, options);
   }
 
   /**
    * Get text content as a simple string
+   * Handles both old (sections) and new (items) snapshot formats
    * @param options - Optional snapshot options
-   * @returns Plain text string from all sections
+   * @returns Plain text string
    */
   async getTextSnapshotString(options?: SnapshotOptions): Promise<string> {
-    const snapshot = await this.getTextSnapshot(options);
+    const snapshot = await this._browserOS.getSnapshot(this._tabId, 'text', options);
+    return this._formatSnapshot(snapshot, false);
+  }
 
-    // Extract text from all sections
-    const textParts: string[] = [];
-
-    for (const section of snapshot.sections) {
-      if (section.textResult?.text) {
-        textParts.push(section.textResult.text);
-      }
-    }
-
-    // Join with double newline for readability
-    return textParts.join("\n\n").trim();
+  /**
+   * Get text content with links as a formatted string
+   * Handles both old (sections) and new (items) snapshot formats
+   * @param options - Optional snapshot options
+   * @returns Formatted string with text and links
+   */
+  async getTextWithLinksString(options?: SnapshotOptions): Promise<string> {
+    const snapshot = await this._browserOS.getSnapshot(this._tabId, 'links', options);
+    return this._formatSnapshot(snapshot, true);
   }
 
   /**
    * Get links as a simple formatted string
+   * Handles both old (sections) and new (items) snapshot formats
    * @param options - Optional snapshot options
    * @returns Formatted string with link text and URLs
    */
   async getLinksSnapshotString(options?: SnapshotOptions): Promise<string> {
-    const snapshot = await this.getLinksSnapshot(options);
+    const snapshot = await this._browserOS.getLinksSnapshot(this._tabId, options);
 
-    // Extract all links from sections
+    // Check if new format
+    if (this._isNewSnapshot(snapshot)) {
+      return this._formatSnapshot(snapshot, true);
+    }
+
+    // Old format: Extract all links from sections
     const linkStrings: string[] = [];
-
     for (const section of snapshot.sections) {
       if (section.linksResult?.links) {
         for (const link of section.linksResult.links) {
-          // Format: "text: url" or just "url" if no text
           const linkStr = link.text ? `${link.text}: ${link.url}` : link.url;
           linkStrings.push(linkStr);
         }
       }
     }
 
-    // Join with newlines, no duplicates
     return [...new Set(linkStrings)].join("\n").trim();
+  }
+
+  // ============= Snapshot Formatting Helpers =============
+
+  /**
+   * Type guard to check if snapshot is new format
+   */
+  private _isNewSnapshot(snapshot: SnapshotResult): snapshot is NewSnapshot {
+    return 'items' in snapshot && Array.isArray((snapshot as NewSnapshot).items);
+  }
+
+  /**
+   * Format snapshot into readable text (handles both old and new formats)
+   * @param snapshot - Snapshot in either format
+   * @param includeLinks - Whether to include links
+   * @returns Formatted content string
+   */
+  private _formatSnapshot(snapshot: SnapshotResult, includeLinks: boolean): string {
+    if (this._isNewSnapshot(snapshot)) {
+      // New format: items array
+      return this._formatNewSnapshot(snapshot, includeLinks);
+    } else {
+      // Old format: sections
+      return this._formatOldSnapshot(snapshot, includeLinks);
+    }
+  }
+
+  /**
+   * Format new snapshot format (items-based)
+   */
+  private _formatNewSnapshot(snapshot: NewSnapshot, includeLinks: boolean): string {
+    if (!snapshot.items || snapshot.items.length === 0) {
+      return '';
+    }
+
+    let content = '';
+
+    for (const item of snapshot.items) {
+      if (item.type === 'heading') {
+        const prefix = '#'.repeat(item.level || 1);
+        content += `${prefix} ${item.text}\n`;
+      } else if (item.type === 'text') {
+        content += `${item.text}\n`;
+      } else if (item.type === 'link' && includeLinks) {
+        content += `[${item.text}](${item.url})\n`;
+      }
+    }
+
+    return content.trim();
+  }
+
+  /**
+   * Format old snapshot format (sections-based)
+   */
+  private _formatOldSnapshot(snapshot: Snapshot, includeLinks: boolean): string {
+    const parts: string[] = [];
+
+    for (const section of snapshot.sections) {
+      if (section.textResult?.text) {
+        parts.push(section.textResult.text);
+      }
+
+      if (includeLinks && section.linksResult?.links) {
+        for (const link of section.linksResult.links) {
+          const linkStr = link.text ? `[${link.text}](${link.url})` : link.url;
+          parts.push(linkStr);
+        }
+      }
+    }
+
+    return parts.join("\n\n").trim();
   }
 
   isFileUploader(element: any): boolean {

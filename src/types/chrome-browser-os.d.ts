@@ -272,13 +272,25 @@ declare namespace chrome.browserOS {
     linksResult?: LinksSnapshotResult;
   }
 
-  // Main snapshot result
+  // Main snapshot result (old format - sections-based)
   interface Snapshot {
     type: SnapshotType;
     context: SnapshotContext;
     timestamp: number;
     sections: SnapshotSection[];
     processingTimeMs: number;
+  }
+
+  // New snapshot format (items-based)
+  interface NewSnapshotItem {
+    text: string;
+    type: 'heading' | 'link' | 'text';
+    level?: number;  // Heading level (1-6)
+    url?: string;    // URL for links
+  }
+
+  interface NewSnapshot {
+    items: NewSnapshotItem[];
   }
 
   // Options for getSnapshot
@@ -308,6 +320,17 @@ declare namespace chrome.browserOS {
 
   function getSnapshot(
     type: SnapshotType,
+    callback: (snapshot: Snapshot) => void,
+  ): void;
+
+  function getSnapshot(
+    tabId: number,
+    callback: (snapshot: Snapshot) => void,
+  ): void;
+
+  function getSnapshot(
+    tabId: number,
+    options: SnapshotOptions,
     callback: (snapshot: Snapshot) => void,
   ): void;
 

@@ -1,5 +1,7 @@
 /// <reference path="../../types/chrome-browser-os.d.ts" />
 
+import { getFeatureFlags } from '@/lib/utils/featureFlags'
+
 // ============= Re-export types from chrome.browserOS namespace =============
 
 export type InteractiveNode = chrome.browserOS.InteractiveNode;
@@ -10,7 +12,7 @@ export type PageLoadStatus = chrome.browserOS.PageLoadStatus;
 export type InteractiveNodeType = chrome.browserOS.InteractiveNodeType;
 export type Rect = chrome.browserOS.BoundingRect;
 
-// New snapshot types
+// Snapshot types (old format - sections-based)
 export type SnapshotType = chrome.browserOS.SnapshotType;
 export type SnapshotContext = chrome.browserOS.SnapshotContext;
 export type SectionType = chrome.browserOS.SectionType;
@@ -20,6 +22,13 @@ export type LinksSnapshotResult = chrome.browserOS.LinksSnapshotResult;
 export type SnapshotSection = chrome.browserOS.SnapshotSection;
 export type Snapshot = chrome.browserOS.Snapshot;
 export type SnapshotOptions = chrome.browserOS.SnapshotOptions;
+
+// Snapshot types (new format - items-based)
+export type NewSnapshotItem = chrome.browserOS.NewSnapshotItem;
+export type NewSnapshot = chrome.browserOS.NewSnapshot;
+
+// Union type for both old and new snapshot formats
+export type SnapshotResult = Snapshot | NewSnapshot;
 
 // Preferences types
 export type PrefObject = chrome.browserOS.PrefObject;
@@ -403,76 +412,81 @@ export class BrowserOSAdapter {
 
   /**
    * Get a content snapshot of the specified type from the page
+   * Returns old format (sections) or new format (items) based on feature flag
+   * @param tabId - Tab ID to get snapshot from
+   * @param type - Type of snapshot ('text' or 'links')
+   * @param options - Optional snapshot options
    */
   async getSnapshot(
     tabId: number,
     type: SnapshotType,
     options?: SnapshotOptions,
-  ): Promise<Snapshot> {
+  ): Promise<SnapshotResult> {
     try {
+      // Check feature flag for new format
+      const featureFlags = getFeatureFlags();
+      const useNewFormat = featureFlags.isEnabled('NEW_SNAPSHOT_FORMAT');
+
       console.log(
-        `[BrowserOSAdapter] Getting ${type} snapshot for tab ${tabId} with options: ${JSON.stringify(options)}`,
+        `[BrowserOSAdapter] Getting snapshot for tab ${tabId} with type ${type}, newFormat: ${useNewFormat}, options: ${JSON.stringify(options)}`,
       );
 
       return new Promise<Snapshot>((resolve, reject) => {
-        if (options) {
-          chrome.browserOS.getSnapshot(
-            tabId,
-            type,
-            options,
-            (snapshot: Snapshot) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError?.message || 'Unknown error'));
-              } else {
-                console.log(
-                  `[BrowserOSAdapter] Retrieved ${type} snapshot with ${snapshot.sections.length} sections`,
-                );
-                resolve(snapshot);
-              }
-            },
-          );
+        const callback = (snapshot: Snapshot) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            console.log(
+              `[BrowserOSAdapter] Retrieved snapshot: ${JSON.stringify(snapshot)}`,
+            );
+            resolve(snapshot);
+          }
+        };
+
+        // Old format: getSnapshot(tabId, type, [options], callback)
+        // New format: getSnapshot(tabId, [options], callback)
+        if (useNewFormat) {
+          if (options) {
+            chrome.browserOS.getSnapshot(tabId, options, callback);
+          } else {
+            chrome.browserOS.getSnapshot(tabId, callback);
+          }
         } else {
-          chrome.browserOS.getSnapshot(tabId, type, (snapshot: Snapshot) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError?.message || 'Unknown error'));
-            } else {
-              console.log(
-                `[BrowserOSAdapter] Retrieved ${type} snapshot with ${snapshot.sections.length} sections`,
-              );
-              resolve(snapshot);
-            }
-          });
+          if (options) {
+            chrome.browserOS.getSnapshot(tabId, type, options, callback);
+          } else {
+            chrome.browserOS.getSnapshot(tabId, type, callback);
+          }
         }
       });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `[BrowserOSAdapter] Failed to get ${type} snapshot: ${errorMessage}`,
-      );
-      throw new Error(`Failed to get ${type} snapshot: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[BrowserOSAdapter] Failed to get snapshot: ${errorMessage}`);
+      throw new Error(`Failed to get snapshot: ${errorMessage}`);
     }
   }
 
   /**
    * Get text content snapshot from the page
    * Convenience method for text snapshot
+   * Returns old or new format based on feature flag
    */
   async getTextSnapshot(
     tabId: number,
     options?: SnapshotOptions,
-  ): Promise<Snapshot> {
+  ): Promise<SnapshotResult> {
     return this.getSnapshot(tabId, "text", options);
   }
 
   /**
    * Get links snapshot from the page
    * Convenience method for links snapshot
+   * Returns old or new format based on feature flag
    */
   async getLinksSnapshot(
     tabId: number,
     options?: SnapshotOptions,
-  ): Promise<Snapshot> {
+  ): Promise<SnapshotResult> {
     return this.getSnapshot(tabId, "links", options);
   }
 

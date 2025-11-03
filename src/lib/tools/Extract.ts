@@ -4,6 +4,8 @@ import { ExecutionContext } from "@/lib/runtime/ExecutionContext";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { Logging } from "@/lib/utils/Logging";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { getFeatureFlags } from "@/lib/utils/featureFlags";
+import type { BrowserPage } from "@/lib/browser/BrowserPage";
 
 export function ExtractTool(
   context: ExecutionContext,
@@ -42,103 +44,47 @@ export function ExtractTool(
         // Get page details
         const pageDetails = await page.getPageDetails();
 
-        // Get hierarchical text content
-        const hierarchicalContent = await page.getHierarchicalText();
+        // Get page content based on format (checks feature flag internally)
+        const { mainContent, linksContent } = await _getPageContent(page, extractionMode);
 
-        // Get links only if extraction mode includes links
-        const linksContent = extractionMode === 'text-with-links'
-          ? await page.getLinksSnapshotString()
-          : null;
+        // Determine content limit
+        const contentCharLimit = _getContentLimit(context.messageManager.getMaxTokens());
 
-        // Determine content limit based on message manager's max tokens
-        const maxTokens = context.messageManager.getMaxTokens();
-        let contentCharLimit: number;
+        // Prepare content with truncation
+        const preparedContent = _prepareContent(mainContent, contentCharLimit);
 
-        if (maxTokens >= 1000000) {
-          // 1M+ tokens: no limit
-          contentCharLimit = Number.MAX_SAFE_INTEGER;
-        } else if (maxTokens >= 200000) {
-          // 200K+ tokens: 100K char limit
-          contentCharLimit = 100000;
-        } else {
-          // Less than 200K tokens: 16K char limit (≈4K tokens)
-          contentCharLimit = 16000;
-        }
+        // Build extraction prompt
+        const userPrompt = _buildPrompt(
+          task,
+          format,
+          pageDetails,
+          preparedContent,
+          linksContent,
+          extractionMode
+        );
 
-        // Get LLM instance
+        Logging.log(
+          "ExtractTool",
+          `Extracting data (mode: ${extractionMode})`,
+          "info",
+        );
+
+        // Get LLM and invoke extraction
         const llm = await context.getLLM({
           temperature: 0.1,
           maxTokens: 8000,
         });
 
-        // Create extraction prompt
-        const systemPrompt =
-          "You are a data extraction specialist. Extract the requested information from the page content and return it in the exact JSON structure provided.";
-
-        // Prepare content with truncation if needed
-        const preparedContent = contentCharLimit === Number.MAX_SAFE_INTEGER ||
-                                hierarchicalContent.length <= contentCharLimit
-          ? hierarchicalContent
-          : hierarchicalContent.substring(0, contentCharLimit) + "\n...[truncated]";
-
-        // Build prompt with hierarchical content
-        let userPrompt = `Task: ${task}
-
-Desired output format:
-${JSON.stringify(format, null, 2)}
-
-Page content:
-URL: ${pageDetails.url}
-Title: ${pageDetails.title}
-
-Content (hierarchical structure with tab indentation):
-${preparedContent}`;
-
-        // Add links section if requested
-        if (extractionMode === 'text-with-links' && linksContent) {
-          userPrompt += `\n\nLinks found:
-${linksContent.substring(0, 2000)}${linksContent.length > 2000 ? "\n...[more links]" : ""}`;
-        }
-
-        userPrompt += `\n\nExtract the requested data and return it matching the exact structure of the format provided.`;
-
-        Logging.log(
-          "NewAgent",
-          `Extracting data with format: ${JSON.stringify(format)}, mode: ${extractionMode}`,
-          "info",
-        );
-
-        // Just invoke LLM without structured output - let it figure out the JSON
         const response = await llm.invoke([
           new SystemMessage(
-            systemPrompt +
-            "\n\nIMPORTANT: Return ONLY valid JSON, no explanations or markdown."
+            "You are a data extraction specialist. Extract the requested information from the page content and return it in the exact JSON structure provided.\n\nIMPORTANT: Return ONLY valid JSON, no explanations or markdown."
           ),
           new HumanMessage(userPrompt),
         ]);
 
-        // Try to parse the JSON response
-        try {
-          const content = response.content as string;
-          // Clean up response - remove markdown code blocks if present
-          const cleanedContent = content
-            .replace(/```json\s*/gi, "")
-            .replace(/```\s*/g, "")
-            .trim();
+        // Parse and return result
+        return _parseExtractionResult(response.content as string);
 
-          const extractedData = JSON.parse(cleanedContent);
-
-          return JSON.stringify({
-            ok: true,
-            output: extractedData,
-          });
-        } catch (parseError) {
-          // If parsing fails, return the raw response with an error
-          return JSON.stringify({
-            ok: false,
-            error: `Failed to parse extraction result as JSON. Raw output: ${response.content}`,
-          });
-        }
       } catch (error) {
         context.incrementMetric("errors");
         return JSON.stringify({
@@ -148,4 +94,127 @@ ${linksContent.substring(0, 2000)}${linksContent.length > 2000 ? "\n...[more lin
       }
     },
   });
+}
+
+// ============= Helper Functions =============
+
+/**
+ * Get page content based on extraction mode
+ * BrowserPage methods automatically handle both old and new snapshot formats
+ */
+async function _getPageContent(
+  page: BrowserPage,
+  extractionMode: 'text' | 'text-with-links'
+): Promise<{ mainContent: string; linksContent: string | null }> {
+  // Check feature flag
+  const featureFlags = getFeatureFlags();
+  const useNewFormat = featureFlags.isEnabled('NEW_SNAPSHOT_FORMAT');
+
+  if (useNewFormat) {
+    // New format: unified methods handle both formats internally
+    if (extractionMode === 'text-with-links') {
+      const content = await page.getTextWithLinksString();
+      return { mainContent: content, linksContent: null };  // Links already included
+    } else {
+      const content = await page.getTextSnapshotString();
+      return { mainContent: content, linksContent: null };
+    }
+  } else {
+    // Old format: hierarchical text and separate links
+    const mainContent = await page.getHierarchicalText();
+    const linksContent = extractionMode === 'text-with-links'
+      ? await page.getLinksSnapshotString()
+      : null;
+    return { mainContent, linksContent };
+  }
+}
+
+/**
+ * Determine content character limit based on max tokens
+ */
+function _getContentLimit(maxTokens: number): number {
+  if (maxTokens >= 1000000) {
+    return Number.MAX_SAFE_INTEGER;  // No limit for 1M+ tokens
+  } else if (maxTokens >= 200000) {
+    return 100000;  // 100K chars for 200K+ tokens
+  } else {
+    return 16000;  // 16K chars for <200K tokens
+  }
+}
+
+/**
+ * Prepare content with truncation if needed
+ */
+function _prepareContent(content: string, limit: number): string {
+  if (limit === Number.MAX_SAFE_INTEGER || content.length <= limit) {
+    return content;
+  }
+  return content.substring(0, limit) + "\n...[truncated]";
+}
+
+/**
+ * Build extraction prompt
+ */
+function _buildPrompt(
+  task: string,
+  format: any,
+  pageDetails: { url: string; title: string; tabId: number },
+  preparedContent: string,
+  linksContent: string | null,
+  extractionMode: 'text' | 'text-with-links'
+): string {
+  // Check feature flag
+  const featureFlags = getFeatureFlags();
+  const useNewFormat = featureFlags.isEnabled('NEW_SNAPSHOT_FORMAT');
+
+  const contentLabel = useNewFormat
+    ? "Content (markdown format with headings and links):"
+    : "Content (hierarchical structure with tab indentation):";
+
+  let prompt = `Task: ${task}
+
+Desired output format:
+${JSON.stringify(format, null, 2)}
+
+Page content:
+URL: ${pageDetails.url}
+Title: ${pageDetails.title}
+
+${contentLabel}
+${preparedContent}`;
+
+  // Add links section only for old format with separate links
+  if (!useNewFormat && extractionMode === 'text-with-links' && linksContent) {
+    prompt += `\n\nLinks found:
+${linksContent.substring(0, 2000)}${linksContent.length > 2000 ? "\n...[more links]" : ""}`;
+  }
+
+  prompt += `\n\nExtract the requested data and return it matching the exact structure of the format provided.`;
+
+  return prompt;
+}
+
+/**
+ * Parse extraction result from LLM response
+ */
+function _parseExtractionResult(content: string): string {
+  try {
+    // Clean up response - remove markdown code blocks if present
+    const cleanedContent = content
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+
+    const extractedData = JSON.parse(cleanedContent);
+
+    return JSON.stringify({
+      ok: true,
+      output: extractedData,
+    });
+  } catch (parseError) {
+    return JSON.stringify({
+      ok: false,
+      error: `Failed to parse extraction result as JSON. Raw output: ${content}`,
+    });
+  }
 }

@@ -237,34 +237,19 @@ export class ChatAgent {
       throw new Error('No tabs available for context extraction')
     }
     
-    // Extract content from each tab
+    // Extract content from each tab using helper methods that handle both old and new formats
     const tabs = await Promise.all(
       pages.map(async page => {
-        const textSnapshot = await page.getTextSnapshot()
-        const textSections = (textSnapshot.sections || [])
-          .map((section: any) => {
-            if (section?.textResult?.text && typeof section.textResult.text === 'string') return section.textResult.text
-            if (typeof section.text === 'string') return section.text
-            if (typeof section.content === 'string') return section.content
-            return ''
-          })
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
-        const text = textSections.join('\n') || 'No content found'
+        // Use unified methods that handle both snapshot formats
+        const text = await page.getTextSnapshotString() || 'No content found'
 
         let linksBlock = ''
         if (ChatAgent.INCLUDE_LINKS) {
-          const linksSnapshot = await page.getLinksSnapshot()
-          const linkLines = (linksSnapshot.sections || [])
-            .flatMap((section: any) => Array.isArray(section?.linksResult?.links) ? section.linksResult.links : [])
-            .map((link: any) => {
-              const url = link?.href || link?.url || ''
-              const label = typeof link?.text === 'string' ? link.text.trim() : ''
-              const parts = [label, url].filter((p: string) => p && p.length > 0)
-              return parts.join(' - ')
-            })
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
+          const linksText = await page.getLinksSnapshotString()
+          const linkLines = linksText
+            .split('\n')
+            .map((line: string) => line.trim())
+            .filter((line: string) => line.length > 0)
           if (linkLines.length > 0) {
             linksBlock = ['Links:', linkLines.join('\n')].join('\n')
           }
