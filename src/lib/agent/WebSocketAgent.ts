@@ -27,8 +27,10 @@ export class WebSocketAgent {
   private ws: WebSocket | null = null;
   private sessionId: string | null = null;
   private isConnected = false;
-  private isCompleted = false;
+  private isDisposed = false;  // Agent lifecycle (disposed = can't be reused)
+  private currentMessageComplete = false;  // Current message completion (resets per message)
   private lastEventTime = 0;  // Track last event for timeout
+  private isPendingCancellation = false;  // True when cancelled, waiting for server to stop
 
   constructor(executionContext: ExecutionContext) {
     this.executionContext = executionContext;
@@ -115,6 +117,9 @@ export class WebSocketAgent {
     }
 
     try {
+      // Reset per-message state
+      this.currentMessageComplete = false;
+
       this.executionContext.setCurrentTask(_task);
       this.executionContext.setExecutionMetrics({
         ...this.executionContext.getExecutionMetrics(),
@@ -126,23 +131,22 @@ export class WebSocketAgent {
       // Start glow animation
       this._maybeStartGlow();
 
-      // Connect to WebSocket server
-      await this._connect();
+      // Connect to WebSocket server (if not already connected)
+      if (!this.isConnected) {
+        await this._connect();
+      }
 
-      // Send query with browser context and predefined plan if available
-      await this._sendQuery(
-        _task,
-        _metadata?.predefinedPlan
-      );
+      // Send message (extracted to helper for reuse)
+      await this._sendMessage(_task, this.executionContext.abortSignal, _metadata?.predefinedPlan);
 
-      // Wait for completion with abort and timeout checks
-      await this._waitForCompletion();
+      // Wait for this message to complete
+      await this._waitForMessageCompletion(this.executionContext.abortSignal);
 
     } catch (error) {
       this._handleExecutionError(error);
       throw error;
     } finally {
-      this._cleanup();
+      // DON'T call _cleanup() - keep connection alive for follow-ups!
       this.executionContext.setExecutionMetrics({
         ...this.executionContext.getExecutionMetrics(),
         endTime: Date.now(),
@@ -238,8 +242,8 @@ export class WebSocketAgent {
 
         // Only publish if we were actually connected (not a connection failure)
         // Connection failures are handled by onerror + _handleExecutionError
-        if (this.isConnected && !this.isCompleted) {
-          this.isCompleted = true;
+        if (this.isConnected && !this.isDisposed) {
+          this.isDisposed = true;
 
           // Check if this was user-initiated cancellation
           if (this.executionContext.abortSignal.aborted) {
@@ -255,17 +259,25 @@ export class WebSocketAgent {
   }
 
   /**
-   * Send query to server with browser context
+   * Send message to server with browser context
+   * Generic helper used by both initial execute() and follow-up messages
    */
-  private async _sendQuery(
+  private async _sendMessage(
     task: string,
+    abortSignal: AbortSignal,
     predefinedPlan?: PredefinedPlan
   ): Promise<void> {
-    this.checkIfAborted();
+    // Check abort with provided signal (not stored one)
+    if (abortSignal.aborted) {
+      throw new AbortError();
+    }
 
     if (!this.ws || !this.isConnected) {
       throw new Error('WebSocket not connected');
     }
+
+    // Clear pending cancellation flag (starting new message)
+    this.isPendingCancellation = false;
 
     // Add user message to history (UI already showed it optimistically)
     this.executionContext.messageManager.addHuman(task);
@@ -306,12 +318,40 @@ ${formattedSteps}`;
 
     try {
       this.ws.send(JSON.stringify(message));
-      Logging.log("WebSocketAgent", "Query sent to server", "info");
+      Logging.log("WebSocketAgent", "Message sent to server", "info");
 
       // Initialize event timeout tracking
       this.lastEventTime = Date.now();
     } catch (error) {
       throw new Error(`Failed to send message: ${error}`);
+    }
+  }
+
+  /**
+   * Send cancel message to server to stop current execution
+   */
+  private _sendCancelToServer(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      Logging.log("WebSocketAgent", "Cannot send cancel - WebSocket not open", "warning");
+      return;
+    }
+
+    if (!this.sessionId) {
+      Logging.log("WebSocketAgent", "Cannot send cancel - no sessionId", "warning");
+      return;
+    }
+
+    try {
+      const cancelMessage = {
+        type: 'cancel',
+        sessionId: this.sessionId
+      };
+
+      this.ws.send(JSON.stringify(cancelMessage));
+      Logging.log("WebSocketAgent", "Sent cancel message to server", "info");
+    } catch (error) {
+      Logging.log("WebSocketAgent", `Failed to send cancel message: ${error}`, "error");
+      // Don't throw - cancellation is best-effort, client-side filtering will handle it
     }
   }
 
@@ -346,6 +386,16 @@ ${formattedSteps}`;
 
       // Update last event time for timeout tracking
       this.lastEventTime = Date.now();
+
+      // If we're in pending cancellation, ignore all events except cancelled ack
+      if (this.isPendingCancellation) {
+        if (data.type === 'cancelled') {
+          Logging.log("WebSocketAgent", "Server acknowledged cancellation", "info");
+          // Keep isPendingCancellation=true until next message
+        }
+        // Ignore all other events from the cancelled task
+        return;
+      }
 
       // Trigger glow
       this._maybeStartGlow();
@@ -417,9 +467,11 @@ ${formattedSteps}`;
    */
   private _handleCompletion(event: any): void {
     const finalAnswer = event.content || event.finalAnswer || 'Task completed';
-    this.isCompleted = true;
 
-    Logging.log("WebSocketAgent", "Task completed", "info");
+    // Mark current MESSAGE as complete (not agent!)
+    this.currentMessageComplete = true;
+
+    Logging.log("WebSocketAgent", "Message completed, ready for follow-up", "info");
 
     // Publish final answer
     this.pubsub.publishMessage(
@@ -429,10 +481,8 @@ ${formattedSteps}`;
     // Add to message history
     this.executionContext.messageManager.addAI(finalAnswer);
 
-    // Close connection
-    if (this.ws) {
-      this.ws.close();
-    }
+    // DON'T close connection - keep alive for follow-ups!
+    // Connection will be closed explicitly via disconnect() or when agent is disposed
   }
 
   /**
@@ -441,7 +491,7 @@ ${formattedSteps}`;
   private _handleError(event: any): void {
     const errorMsg = event.content || event.error || 'Unknown error';
 
-    this.isCompleted = true;
+    this.isDisposed = true;  // Error = agent is done
     this.executionContext.incrementMetric('errors');
     Logging.log("WebSocketAgent", `Server error: ${errorMsg}`, "error");
 
@@ -451,17 +501,23 @@ ${formattedSteps}`;
   }
 
   /**
-   * Wait for task completion with abort and timeout checks
+   * Wait for current message completion with abort and timeout checks
    * Client-side safety timeout matching server's EVENT_GAP_TIMEOUT_MS (60s)
    */
-  private async _waitForCompletion(): Promise<void> {
-    while (!this.isCompleted) {
+  private async _waitForMessageCompletion(abortSignal: AbortSignal): Promise<void> {
+    while (!this.currentMessageComplete && !this.isDisposed) {
       // Check if user cancelled
-      if (this.executionContext.abortSignal.aborted) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          this.ws.close();
-        }
-        this.isCompleted = true;
+      if (abortSignal.aborted) {
+        // Send cancel message to server so it stops processing
+        this._sendCancelToServer();
+
+        // Mark as pending cancellation (ignore subsequent events)
+        this.isPendingCancellation = true;
+
+        // Mark current message as complete (ready for next message)
+        this.currentMessageComplete = true;
+
+        Logging.log("WebSocketAgent", "Message cancelled, agent ready for follow-up", "info");
         throw new AbortError();
       }
 
@@ -469,7 +525,7 @@ ${formattedSteps}`;
       const timeSinceLastEvent = Date.now() - this.lastEventTime;
       if (timeSinceLastEvent > WS_AGENT_CONFIG.eventGapTimeout) {
         const errorMsg = `Agent timeout: No events received for ${WS_AGENT_CONFIG.eventGapTimeout / 1000}s`;
-        this.isCompleted = true;
+        this.isDisposed = true;  // Timeout = agent is done
         Logging.log("WebSocketAgent", errorMsg, "error");
         // this._publishMessage(`❌ ${errorMsg}`, 'error');
         throw new Error(errorMsg);
@@ -519,8 +575,8 @@ ${formattedSteps}`;
     const errorMessage = error instanceof Error ? error.message : String(error);
     Logging.log("WebSocketAgent", `Execution error: ${errorMessage}`, "error");
 
-    // Publish error if not already completed
-    if (!this.isCompleted) {
+    // Publish error if not already disposed
+    if (!this.isDisposed) {
     //   this._publishMessage(`❌ ${errorMessage}`, 'error');
     }
   }
@@ -541,12 +597,65 @@ ${formattedSteps}`;
     Logging.logMetric("wsagent.execution", {
       duration,
       sessionId: this.sessionId,
-      success: this.isCompleted
+      success: this.currentMessageComplete
     });
   }
 
   /**
-   * Cleanup resources
+   * Check if agent is ready to accept follow-up messages
+   * @returns true if agent can accept follow-ups, false otherwise
+   */
+  isReadyForFollowUp(): boolean {
+    return this.isConnected && !this.isDisposed && this.currentMessageComplete;
+  }
+
+  /**
+   * Send a follow-up message using the same WebSocket connection
+   * Reuses existing session context for conversation continuity
+   * @param message - The follow-up message to send
+   * @param abortSignal - Fresh abort signal for this message
+   */
+  async sendFollowUpMessage(message: string, abortSignal: AbortSignal): Promise<void> {
+    if (!this.isReadyForFollowUp()) {
+      throw new Error('Agent is not ready for follow-up. Connection may be closed or message still in progress.');
+    }
+
+    try {
+      // Reset per-message state
+      this.currentMessageComplete = false;
+
+      Logging.log("WebSocketAgent", "Sending follow-up message", "info");
+
+      // Send message using existing connection
+      await this._sendMessage(message, abortSignal);
+
+      // Wait for this message to complete
+      await this._waitForMessageCompletion(abortSignal);
+
+    } catch (error) {
+      this._handleExecutionError(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Explicitly disconnect the WebSocket agent
+   * Closes connection and cleans up all resources
+   * Call this when switching modes, resetting, or disposing
+   */
+  async disconnect(): Promise<void> {
+    if (!this.isConnected && !this.ws) {
+      Logging.log("WebSocketAgent", "Already disconnected", "info");
+      return;
+    }
+
+    Logging.log("WebSocketAgent", "Disconnecting WebSocket agent", "info");
+    this._cleanup();
+  }
+
+  /**
+   * Cleanup resources - closes connection and resets state
+   * Called when agent is being disposed (not after each message)
    */
   private _cleanup(): void {
     if (this.ws) {
@@ -554,9 +663,12 @@ ${formattedSteps}`;
       this.ws = null;
     }
     this.isConnected = false;
-    this.sessionId = null;
+    this.isDisposed = true;
+    this.currentMessageComplete = false;
+    this.isPendingCancellation = false;  // Clear cancellation flag
+    this.sessionId = null;  // Clear session on full cleanup
     this.lastEventTime = 0;
 
-    Logging.log("WebSocketAgent", "Cleanup complete", "info");
+    Logging.log("WebSocketAgent", "Agent cleanup complete", "info");
   }
 }

@@ -48,6 +48,7 @@ export class Execution {
   private pubsub: PubSubChannel | null = null;
   private options: ExecutionOptions;
   private currentAbortController: AbortController | null = null;
+  private currentWebSocketAgent: WebSocketAgent | null = null;  // Persistent WebSocket agent for follow-ups
 
   private constructor() {
     this.id = Execution.EXECUTION_ID;
@@ -268,9 +269,27 @@ export class Execution {
             provider_type: providerType,
           });
 
-          const wsAgent = new WebSocketAgent(executionContext);
-          // Workflow only comes from explicit metadata, not options (options.workflow is for teach mode)
-          await wsAgent.execute(query, metadata || this.options.metadata);
+          // Check if we can reuse existing WebSocket agent for follow-up
+          if (this.currentWebSocketAgent?.isReadyForFollowUp()) {
+            Logging.log("Execution", "Reusing existing WebSocket agent for follow-up", "info");
+            await this.currentWebSocketAgent.sendFollowUpMessage(
+              query,
+              this.currentAbortController!.signal
+            );
+          } else {
+            // Need fresh agent (first message, or previous agent disconnected/errored)
+            if (this.currentWebSocketAgent) {
+              // Cleanup old agent that's no longer usable
+              await this.currentWebSocketAgent.disconnect();
+            }
+
+            Logging.log("Execution", "Creating new WebSocket agent", "info");
+            const wsAgent = new WebSocketAgent(executionContext);
+            this.currentWebSocketAgent = wsAgent;
+
+            // Workflow only comes from explicit metadata, not options (options.workflow is for teach mode)
+            await wsAgent.execute(query, metadata || this.options.metadata);
+          }
         } else {
           // Use LocalAgent for small models, BrowserAgent for others
           const smallModelsList = ['ollama'];
@@ -444,7 +463,7 @@ export class Execution {
    * Reset conversation history for a fresh start
    * Cancels current execution and clears message history
    */
-  reset(): void {
+  async reset(): Promise<void> {
     // Cancel current execution if running
     if (this.currentAbortController) {
       const abortReason = {
@@ -453,6 +472,12 @@ export class Execution {
       };
       this.currentAbortController.abort(abortReason);
       this.currentAbortController = null;
+    }
+
+    // Disconnect WebSocket agent to start fresh
+    if (this.currentWebSocketAgent) {
+      await this.currentWebSocketAgent.disconnect();
+      this.currentWebSocketAgent = null;
     }
 
     // Clear message history
@@ -480,6 +505,12 @@ export class Execution {
     if (this.currentAbortController) {
       this.currentAbortController.abort();
       this.currentAbortController = null;
+    }
+
+    // Disconnect WebSocket agent
+    if (this.currentWebSocketAgent) {
+      await this.currentWebSocketAgent.disconnect();
+      this.currentWebSocketAgent = null;
     }
 
     // Cleanup browser context

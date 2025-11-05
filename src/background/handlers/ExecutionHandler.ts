@@ -134,14 +134,14 @@ export class ExecutionHandler {
   /**
    * Handle RESET_CONVERSATION message
    */
-  handleResetConversation(
+  async handleResetConversation(
     message: PortMessage,
     port: chrome.runtime.Port
-  ): void {
+  ): Promise<void> {
     Logging.log('ExecutionHandler', `Resetting execution`)
-    
+
     try {
-      this.execution.reset()
+      await this.execution.reset()
 
       // Send success response
       port.postMessage({
