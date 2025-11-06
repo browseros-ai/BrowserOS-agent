@@ -15,6 +15,7 @@ import {
 } from "@langchain/core/messages"
 import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
 import { Logging } from '@/lib/utils/Logging'
+import { PDFDocumentProxy } from 'pdfjs-dist'
 
 // WebSocket agent constants
 export const WS_CONNECTION_TIMEOUT = 10000  // 10 seconds
@@ -111,6 +112,9 @@ export class ExecutionContext {
     endTime: 0,
     toolFrequency: new Map<string, number>(),
   };
+  
+  // PDF proxy cache for task-scoped PDF loading
+  pdfCache: Map<string, PDFDocumentProxy> = new Map();
   
   // Tool metrics Map for evals2 lightweight tracking
   toolMetrics: Map<string, {
@@ -285,7 +289,7 @@ export class ExecutionContext {
       toolFrequency: new Map<string, number>(),
     };
   }
-
+  
   /**
    * Get LLM instance for agent/tool usage
    * @param options - Optional LLM configuration

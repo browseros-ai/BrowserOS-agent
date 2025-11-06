@@ -47,6 +47,7 @@
     "match-sorter": "^6.3.4",
     "ollama": "^0.5.16",
     "openai": "^5.15.0",
+    "pdfjs-dist": "^5.4.296",
     "posthog-js": "^1.252.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
