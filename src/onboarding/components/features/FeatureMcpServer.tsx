@@ -123,7 +123,16 @@ export function FeatureMcpServer() {
       {/* Info Card */}
       <div className="text-center p-4 bg-muted/30 border border-border/50 rounded-xl">
         <p className="text-sm text-muted-foreground">
-          💡 <span className="font-semibold">Pro Tip:</span> Use commands like "Open amazon.com on browseros" to control your browser directly from Claude!
+          💡 <span className="font-semibold">Pro Tip:</span> Use commands like "Open amazon.com on browseros" to control your browser directly from Claude!{' '}
+          <a
+            href="https://docs.browseros.com/browseros-mcp/how-to-guide"
+            className="text-brand hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Read the setup guide
+          </a>{' '}
+          to get started.
         </p>
       </div>
 
