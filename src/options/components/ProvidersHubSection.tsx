@@ -211,7 +211,9 @@ export function ProvidersHubSection() {
 
   const handleDelete = async (provider: ThirdPartyLLMProvider) => {
     setActionError(null)
-    const shouldDelete = window.confirm(`Remove ${provider.name} from your Providers Hub?`)
+    const shouldDelete = window.confirm(
+      `Remove ${provider.name} from your LLM chat and hub providers?`
+    )
     if (!shouldDelete) return
 
     try {
@@ -240,9 +242,9 @@ export function ProvidersHubSection() {
             <Globe2 className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-medium text-foreground">Providers Hub</h2>
+            <h2 className="text-lg font-medium text-foreground">Configure LLM Chat and Hub</h2>
             <p className="text-sm text-muted-foreground">
-              Curate your favourite LLM chat and hub providers
+              Curate and configure your favourite LLM chat and hub providers
             </p>
           </div>
         </div>
@@ -256,10 +258,14 @@ export function ProvidersHubSection() {
             setFormError(null)
           }}
           disabled={!isBrowserOS}
-          className="inline-flex items-center gap-2 rounded-lg border-2 border-brand/40 px-4 py-2 text-sm font-medium text-brand hover:bg-brand/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg border-2 border-brand/30 transition-all text-[14px] font-medium flex-shrink-0 ${
+            isBrowserOS
+              ? 'bg-transparent text-foreground hover:border-brand hover:bg-brand/5 hover:text-brand'
+              : 'bg-transparent text-muted-foreground opacity-50 cursor-not-allowed pointer-events-none'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          {isFormOpen ? 'Cancel' : 'Add provider'}
+          <Plus className="w-5 h-5" />
+          <span>{isFormOpen ? 'Cancel' : 'Add provider'}</span>
         </button>
       </div>
 
