@@ -255,10 +255,11 @@ export function SearchProvidersSection() {
         {/* Header Text */}
         <div className="flex-1">
           <h2 className="text-foreground text-[18px] font-medium leading-tight mb-1">
-            Search Providers
+            Configure Search Engines
           </h2>
           <p className="text-muted-foreground text-[14px] leading-normal">
-            Manage your search providers and custom shortcuts
+            Configure search engines that show up when you type a search query in a new tab of BrowserOS.
+            {' '}Manage your search providers and custom shortcuts.
           </p>
         </div>
 

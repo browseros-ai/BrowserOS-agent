@@ -211,7 +211,9 @@ export function ProvidersHubSection() {
 
   const handleDelete = async (provider: ThirdPartyLLMProvider) => {
     setActionError(null)
-    const shouldDelete = window.confirm(`Remove ${provider.name} from your Providers Hub?`)
+    const shouldDelete = window.confirm(
+      `Remove ${provider.name} from your LLM chat and hub providers?`
+    )
     if (!shouldDelete) return
 
     try {
@@ -240,9 +242,9 @@ export function ProvidersHubSection() {
             <Globe2 className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-medium text-foreground">Providers Hub</h2>
+            <h2 className="text-lg font-medium text-foreground">Configure LLM Chat and Hub</h2>
             <p className="text-sm text-muted-foreground">
-              Curate your favourite LLM chat and hub providers
+              Curate and configure your favourite LLM chat and hub providers
             </p>
           </div>
         </div>

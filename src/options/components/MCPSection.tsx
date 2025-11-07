@@ -107,10 +107,10 @@ export function MCPSection() {
         </div>
         <div className="flex-1">
           <h2 className="text-foreground text-lg font-semibold mb-1">
-            MCP Server
+            BrowserOS as MCP server
           </h2>
           <p className="text-muted-foreground text-sm">
-            Enable BrowserOS as MCP Server to connect it MCP clients like claude.
+            Enable BrowserOS as an MCP server so MCP clients like Claude can connect.
           </p>
         </div>
       </div>
@@ -124,7 +124,7 @@ export function MCPSection() {
               {/* Enable Toggle */}
               <div className="flex items-center justify-between">
                 <label className="text-foreground text-sm font-medium">
-                  Enable MCP
+                  Enable BrowserOS as MCP server
                 </label>
                 <button
                   className="relative w-11 h-6 rounded-full bg-muted"
@@ -167,7 +167,7 @@ export function MCPSection() {
             {/* Upgrade Notice Overlay */}
             <div className="mt-4">
               <UpgradeNotice
-                featureName="MCP Server"
+                featureName="BrowserOS as MCP server"
                 currentVersion={browserVersion}
                 requiredVersion="137.0.7216.69"
               />
@@ -179,7 +179,7 @@ export function MCPSection() {
             {/* Enable Toggle */}
             <div className="flex items-center justify-between">
               <label className="text-foreground text-sm font-medium">
-                Enable MCP
+                Enable BrowserOS as MCP server
               </label>
               <button
                 onClick={handleToggle}
