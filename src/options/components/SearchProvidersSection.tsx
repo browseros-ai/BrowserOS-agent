@@ -258,8 +258,7 @@ export function SearchProvidersSection() {
             Configure Search Engines
           </h2>
           <p className="text-muted-foreground text-[14px] leading-normal">
-            Configure search engines that show up when you type a search query in a new tab of BrowserOS.
-            {' '}Manage your search providers and custom shortcuts.
+            Pick which search engines appear in BrowserOS new tabs and manage any custom shortcuts.
           </p>
         </div>
 

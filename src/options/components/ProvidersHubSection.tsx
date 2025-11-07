@@ -258,9 +258,9 @@ export function ProvidersHubSection() {
             setFormError(null)
           }}
           disabled={!isBrowserOS}
-          className="inline-flex items-center gap-2 rounded-lg border-2 border-brand/40 px-4 py-2 text-sm font-medium text-brand hover:bg-brand/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-5 py-2 bg-transparent border-2 border-brand/30 text-foreground rounded-lg hover:border-brand hover:bg-brand/5 hover:text-brand transition-all text-[14px] font-medium flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-5 h-5" strokeWidth={2} />
           {isFormOpen ? 'Cancel' : 'Add provider'}
         </button>
       </div>
