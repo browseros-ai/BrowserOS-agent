@@ -258,7 +258,7 @@ export function SearchProvidersSection() {
             Configure Search Engines
           </h2>
           <p className="text-muted-foreground text-[14px] leading-normal">
-            Pick which search engines appear in BrowserOS new tabs and manage any custom shortcuts.
+            Pick the search engines you want to show in the BrowserOS new tab search bar.
           </p>
         </div>
 
