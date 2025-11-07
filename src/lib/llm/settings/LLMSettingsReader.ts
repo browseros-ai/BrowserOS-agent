@@ -155,15 +155,37 @@ export class LLMSettingsReader {
 
     const mergedProviders = Array.from(providerMap.values())
 
-    // Use defaultProviderId from config with more providers (or config1 if equal)
-    const defaultProviderId = config1.providers.length >= config2.providers.length
-      ? config1.defaultProviderId
-      : config2.defaultProviderId
+    const config1Ids = new Set(config1.providers.map(p => p.id))
+    const config2Ids = new Set(config2.providers.map(p => p.id))
 
-    // Ensure default provider exists in merged list
-    const finalDefaultId = mergedProviders.some(p => p.id === defaultProviderId)
-      ? defaultProviderId
-      : (mergedProviders[0]?.id || 'browseros')
+    const candidateOrder: string[] = []
+
+    const addCandidate = (id: string | undefined) => {
+      if (!id) return
+      if (!candidateOrder.includes(id)) {
+        candidateOrder.push(id)
+      }
+    }
+
+    const config1DefaultInBoth = config1Ids.has(config1.defaultProviderId)
+      && config2Ids.has(config1.defaultProviderId)
+    const config2DefaultInBoth = config2Ids.has(config2.defaultProviderId)
+      && config1Ids.has(config2.defaultProviderId)
+
+    if (config1DefaultInBoth) {
+      addCandidate(config1.defaultProviderId)
+    }
+
+    if (config2DefaultInBoth) {
+      addCandidate(config2.defaultProviderId)
+    }
+
+    addCandidate(config1.defaultProviderId)
+    addCandidate(config2.defaultProviderId)
+
+    const finalDefaultId = candidateOrder.find(id => mergedProviders.some(p => p.id === id))
+      || mergedProviders[0]?.id
+      || 'browseros'
 
     return {
       defaultProviderId: finalDefaultId,
