@@ -255,10 +255,10 @@ export function TeachModeHome() {
                 onClick={handleCreateNew}
                 size="sm"
                 className="h-9 rounded-full px-4 bg-[hsl(var(--brand))] hover:bg-[hsl(var(--brand))]/90 text-white shadow-lg flex items-center gap-2 whitespace-nowrap w-full min-[450px]:w-auto"
-                aria-label="Teach new workflow"
+                aria-label="Teach"
               >
                 <Wand2 className="w-4 h-4" />
-                Teach new workflow
+                Teach
               </Button>
             </div>
           </div>
