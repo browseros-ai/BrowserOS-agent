@@ -13,6 +13,7 @@ import {
 } from "./BrowserOSAdapter";
 import { profileAsync } from "@/lib/utils/profiler";
 import { ElementFormatter } from "./ElementFormatter";
+import { WebsiteToolsDiscovery, type WebsiteTool } from "./WebsiteToolsDiscovery";
 
 // Default formatter instances
 const FULL_FORMATTER = new ElementFormatter(false); // Full format
@@ -1085,6 +1086,34 @@ export class BrowserPage {
       title: this._title,
       tabId: this._tabId,
     };
+  }
+
+  /**
+   * Discover website-provided MCP tools from llms.txt
+   * Checks /.well-known/llms.txt for available tools the website exposes to AI agents
+   * @returns Array of WebsiteTool definitions
+   */
+  async getWebsiteTools(): Promise<WebsiteTool[]> {
+    try {
+      const tools = await WebsiteToolsDiscovery.discoverTools(this._url);
+      if (tools.length > 0) {
+        Logging.log(
+          "BrowserPage",
+          `Discovered ${tools.length} website tools`,
+          "info",
+        );
+        return tools;
+      }
+      Logging.log("BrowserPage", "No website tools discovered", "info");
+      return [];
+    } catch (error) {
+      Logging.log(
+        "BrowserPage",
+        `Error getting website tools: ${error}`,
+        "error",
+      );
+      return [];
+    }
   }
 }
 

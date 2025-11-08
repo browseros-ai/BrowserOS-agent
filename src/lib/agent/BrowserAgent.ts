@@ -13,7 +13,6 @@ import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
 import { getLLM } from "@/lib/llm/LangChainProvider";
-import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
@@ -58,6 +57,7 @@ import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
+import { createWebsiteMCPTools } from "../tools/CreateWebMCPTools";
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -302,11 +302,32 @@ export class BrowserAgent {
     // Populate tool descriptions after all tools are registered
     this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
 
+    await this._registerWebsiteTools();
+
     Logging.log(
       "BrowserAgent",
       `Registered ${this.toolManager.getAll().length} tools`,
       "info",
     );
+  }
+
+  private async _registerWebsiteTools(): Promise<void> {
+    try {
+      const page = await this.executionContext.browserContext.getCurrentPage()
+      const websiteTools = await page.getWebsiteTools()
+      
+      if (websiteTools.length > 0) {
+        Logging.log('BrowserAgent', `Discovering ${websiteTools.length} website tools`, 'info')
+        
+        for (const toolDef of websiteTools) {
+          const tool = createWebsiteMCPTools(this.executionContext, toolDef)
+          this.toolManager.register(tool)
+          Logging.log('BrowserAgent', `Registered website tool: ${toolDef.name}`, 'info')
+        }
+      }
+    } catch (error) {
+      Logging.log('BrowserAgent', `Failed to register website tools: ${error}`, 'warning')
+    }
   }
 
   /**
@@ -679,6 +700,19 @@ export class BrowserAgent {
             // Optional: Add truncation indicator
             browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --\n";
         }
+      }
+
+    const page = await this.executionContext.browserContext.getCurrentPage()
+    const websiteTools = await page.getWebsiteTools()
+  
+      if (websiteTools.length > 0) {
+        const toolsDescription = websiteTools.map(t => 
+          `- ${t.name}: ${t.description} (params: ${Object.keys(t.parameters).join(', ')})`
+        ).join('\n')
+
+        const toolName = websiteTools.map(t => t.name).join(', ');
+      
+        browserStateString += `\n\n<website-tools>\nAvailable website actions:\n${toolsDescription}\nUse website_${toolName} tools instead of clicking/typing when available.\n</website-tools>`
       }
     }
 
