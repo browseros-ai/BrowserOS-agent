@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Server, CheckCircle2, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
+import { Server, CheckCircle2, ChevronDown, ChevronUp, Copy, Check, ExternalLink } from 'lucide-react'
 import { useMCPStore } from '../stores/mcpStore'
 import { testMCPServer } from '../services/mcp-test-service'
 import { getFeatureFlags } from '@/lib/utils/featureFlags'
@@ -112,6 +112,15 @@ export function MCPSection() {
           <p className="text-muted-foreground text-sm">
             Enable BrowserOS as an MCP server so MCP clients like Claude can connect.
           </p>
+          <a
+            href="https://docs.browseros.com/browseros-mcp/how-to-guide"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-brand hover:text-brand/80 transition-colors text-sm font-medium underline decoration-brand/30 hover:decoration-brand/60"
+          >
+            View setup guide
+            <ExternalLink className="w-3.5 h-3.5" strokeWidth={2} />
+          </a>
         </div>
       </div>
 
