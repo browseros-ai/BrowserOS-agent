@@ -46,6 +46,7 @@ export interface ExecutionMetrics {
   errors: number;
   startTime: number;
   endTime: number;
+  websiteToolCalls: number;
   toolFrequency: Map<string, number>;  // Track frequency of each tool called
 }
 
@@ -109,6 +110,7 @@ export class ExecutionContext {
     errors: 0,
     startTime: Date.now(),
     endTime: 0,
+    websiteToolCalls: 0,
     toolFrequency: new Map<string, number>(),
   };
   
@@ -282,6 +284,7 @@ export class ExecutionContext {
       errors: 0,
       startTime: Date.now(),
       endTime: 0,
+      websiteToolCalls: 0,
       toolFrequency: new Map<string, number>(),
     };
   }
@@ -454,7 +457,7 @@ export class ExecutionContext {
    * @param metric - The metric to increment
    */
   public incrementMetric(
-    metric: "toolCalls" | "observations" | "errors",
+    metric: "toolCalls" | "observations" | "errors" | "websiteToolCalls",
   ): void {
     this._executionMetrics[metric]++;
   }
