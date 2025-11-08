@@ -845,7 +845,11 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
               setShowTabSelector(true)
             }
           }}
-          placeholder={isProcessing ? "Interrupt with new task..." : "Ask me anything..."}
+          placeholder={
+            isProcessing
+              ? "Interrupt with new task..."
+              : "I can answer questions about this tab (or attach other tabs using @)"
+          }
           disabled={!isConnected}
           rows={1}
         />
