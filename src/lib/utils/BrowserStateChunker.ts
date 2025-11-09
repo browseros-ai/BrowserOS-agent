@@ -1,5 +1,3 @@
-import { TokenCounter } from './TokenCounter';
-
 /**
  * Chunks browser state strings for LLM processing with token limits
  */
@@ -14,15 +12,15 @@ export class BrowserStateChunker {
     const header = browserStateString.substring(0, elementsStartIndex);
     const elementsSection = browserStateString.substring(elementsStartIndex);
     
-    // Check if everything fits in one chunk
-    const totalTokens = TokenCounter.countString(browserStateString);
+    // Check if everything fits in one chunk (simple character-based estimation)
+    const totalTokens = Math.ceil(browserStateString.length / 4);
     if (totalTokens <= maxTokensPerChunk) {
       this.chunks.push(browserStateString);
       return;
     }
     
     // Calculate available tokens for elements in each chunk
-    const headerTokens = TokenCounter.countString(header);
+    const headerTokens = Math.ceil(header.length / 4);
     const bufferTokens = 500; // Safety margin
     const availableForElements = maxTokensPerChunk - headerTokens - bufferTokens;
     
@@ -36,7 +34,7 @@ export class BrowserStateChunker {
     let currentTokens = 0;
     
     for (const line of elementLines) {
-      const lineTokens = TokenCounter.countString(line);
+      const lineTokens = Math.ceil(line.length / 4);
       
       // Check if adding this line would exceed the limit
       if (currentTokens + lineTokens > availableForElements && currentLines.length > 0) {

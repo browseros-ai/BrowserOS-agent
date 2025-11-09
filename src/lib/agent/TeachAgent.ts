@@ -53,7 +53,6 @@ import {
   MCPTool,
 } from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
 import { type SemanticWorkflow } from "@/lib/teach-mode/types";
@@ -224,12 +223,6 @@ export class TeachAgent {
     // Bind tools ONCE and store the bound LLM
     this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
 
-    // Set model name for cost tracking
-    const provider = langChainProvider.getCurrentProvider();
-    if (provider?.modelId) {
-      this.executionContext.setModelName(provider.modelId);
-    }
-
     // Reset state
     this.iterations = 0;
 
@@ -383,12 +376,6 @@ export class TeachAgent {
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
 
-        // Add cost summary to completion message
-        const costSummary = this.executionContext.getCostSummary();
-        const messageWithCost = costSummary !== 'No tokens used yet' 
-          ? `${completionMessage}\n\n📊 ${costSummary}`
-          : completionMessage;
-
         // Publish execution completed event
         this.mainPubsub.publishTeachModeEvent({
           eventType: 'execution_completed',
@@ -396,7 +383,7 @@ export class TeachAgent {
           data: {
             workflowId: workflow.metadata.recordingId || '',
             success: true,
-            message: messageWithCost
+            message: completionMessage
           }
         });
         break;
@@ -533,9 +520,9 @@ export class TeachAgent {
       // System prompt for planner
       const systemPrompt = generatePlannerPromptWithUserTrajectory(this.toolDescriptions || "");
 
-      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
-      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
-      Logging.log("TeachAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const fullHistoryTokens = Math.ceil(fullHistory.length / 4);
+      Logging.log("TeachAgent", `Full execution history tokens: ~${fullHistoryTokens}`, "info");
 
       // If full history exceeds 70% of max tokens, summarize it
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
@@ -861,11 +848,6 @@ ${fullHistory}
       tool_calls: accumulatedChunk.tool_calls,
       usage_metadata: accumulatedChunk.usage_metadata,
     });
-
-    // Track token usage from this LLM response
-    if (finalMessage.usage_metadata) {
-      this.executionContext.trackTokenUsage(finalMessage);
-    }
 
     return finalMessage;
   }

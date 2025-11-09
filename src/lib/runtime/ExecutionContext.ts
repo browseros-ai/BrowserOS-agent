@@ -15,7 +15,6 @@ import {
 } from "@langchain/core/messages"
 import { getBrowserOSAdapter } from '@/lib/browser/BrowserOSAdapter'
 import { Logging } from '@/lib/utils/Logging'
-import { ModelPricing } from '@/lib/utils/ModelPricing'
 
 // WebSocket agent constants
 export const WS_CONNECTION_TIMEOUT = 10000  // 10 seconds
@@ -49,16 +48,6 @@ export interface ExecutionMetrics {
   endTime: number;
   websiteToolCalls: number;
   toolFrequency: Map<string, number>;  // Track frequency of each tool called
-  inputTokens: number;  // Total LLM input tokens consumed
-  outputTokens: number;  // Total LLM output tokens generated
-  totalTokens: number;  // Total LLM tokens (input + output)
-  estimatedCost: number;  // Estimated LLM cost in USD
-  modelName: string;  // Current LLM model being used
-  moondreamInputTokens: number;  // Moondream vision API input tokens
-  moondreamOutputTokens: number;  // Moondream vision API output tokens
-  moondreamCost: number;  // Moondream vision API cost in USD
-  klavisApiCalls: number;  // Number of Klavis MCP API calls
-  klavisApiCost: number;  // Klavis MCP API cost in USD
 }
 
 // ToolResult interface for parsing tool messages
@@ -115,7 +104,6 @@ export class ExecutionContext {
   private _maxTokens: number = 128000  // Maximum token limit of the model
   private _reasoningHistory: string[] = []; // Planner reasoning history
   private _executionMetrics: ExecutionMetrics = {
-    // Tool execution metrics
     toolCalls: 0,
     observations: 0,
     errors: 0,
@@ -123,16 +111,6 @@ export class ExecutionContext {
     endTime: 0,
     websiteToolCalls: 0,
     toolFrequency: new Map<string, number>(),
-    inputTokens: 0,
-    outputTokens: 0,
-    totalTokens: 0,
-    estimatedCost: 0,
-    modelName: 'unknown',
-    moondreamInputTokens: 0,
-    moondreamOutputTokens: 0,
-    moondreamCost: 0,
-    klavisApiCalls: 0,
-    klavisApiCost: 0,
   };
   
   // Tool metrics Map for evals2 lightweight tracking
@@ -307,16 +285,6 @@ export class ExecutionContext {
       endTime: 0,
       websiteToolCalls: 0,
       toolFrequency: new Map<string, number>(),
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      estimatedCost: 0,
-      modelName: 'unknown',
-      moondreamInputTokens: 0,
-      moondreamOutputTokens: 0,
-      moondreamCost: 0,
-      klavisApiCalls: 0,
-      klavisApiCost: 0,
     };
   }
 
@@ -502,213 +470,22 @@ export class ExecutionContext {
   }
 
   /**
-   * Track token usage from an LLM response
-   * Extracts usage_metadata from AIMessage and updates execution metrics
-   * @param message - The AIMessage from LLM response
-   * @param modelName - Optional model name (uses current provider if not specified)
-   */
-  public trackTokenUsage(message: AIMessage, modelName?: string): void {
-    // Extract usage metadata from AIMessage
-    const usageMetadata = message.usage_metadata;
-    
-    if (!usageMetadata) {
-      // No usage metadata available - this can happen with streaming or some providers
-      Logging.log('ExecutionContext', 'No usage_metadata in AIMessage for token tracking', 'warning');
-      return;
-    }
-
-    // Extract token counts
-    const inputTokens = usageMetadata.input_tokens || 0;
-    const outputTokens = usageMetadata.output_tokens || 0;
-    const totalTokens = usageMetadata.total_tokens || (inputTokens + outputTokens);
-
-    // Update metrics
-    this._executionMetrics.inputTokens += inputTokens;
-    this._executionMetrics.outputTokens += outputTokens;
-    this._executionMetrics.totalTokens += totalTokens;
-
-    // Update model name if provided
-    if (modelName) {
-      this._executionMetrics.modelName = modelName;
-    }
-
-    // Calculate cost incrementally
-    const cost = ModelPricing.calculateCost(
-      this._executionMetrics.modelName,
-      inputTokens,
-      outputTokens
-    );
-    this._executionMetrics.estimatedCost += cost;
-
-    Logging.log(
-      'ExecutionContext',
-      `Token usage: +${inputTokens} in / +${outputTokens} out | Total: ${this._executionMetrics.totalTokens} tokens, ${ModelPricing.formatCost(this._executionMetrics.estimatedCost)}`,
-      'info'
-    );
-  }
-
-  /**
-   * Set the model name for cost calculation
-   * @param modelName - The model name being used
-   */
-  public setModelName(modelName: string): void {
-    this._executionMetrics.modelName = modelName;
-  }
-
-  /**
-   * Track Moondream Vision API usage (token-based pricing)
-   * @param inputTokens - Estimated input tokens (default: 1500 for typical screenshot)
-   * @param outputTokens - Estimated output tokens (default: 50 for coordinate response)
-   */
-  public trackMoondreamUsage(inputTokens: number = 1500, outputTokens: number = 50): void {
-    this._executionMetrics.moondreamInputTokens += inputTokens;
-    this._executionMetrics.moondreamOutputTokens += outputTokens;
-    
-    // Calculate cost using Moondream pricing
-    const cost = ModelPricing.calculateCost('moondream', inputTokens, outputTokens);
-    this._executionMetrics.moondreamCost += cost;
-    
-    Logging.log(
-      'ExecutionContext',
-      `Moondream API: +${inputTokens} in / +${outputTokens} out | Total: ${this._executionMetrics.moondreamInputTokens + this._executionMetrics.moondreamOutputTokens} tokens, ${ModelPricing.formatCost(this._executionMetrics.moondreamCost)}`,
-      'info'
-    );
-  }
-
-  /**
-   * Track Klavis MCP API usage (per-call pricing)
-   * @param callCount - Number of API calls made (default: 1)
-   * @param plan - Klavis plan tier: 'hobby', 'pro', 'team', or 'enterprise' (default: 'pro')
-   */
-  public trackKlavisUsage(callCount: number = 1, plan: string = 'pro'): void {
-    this._executionMetrics.klavisApiCalls += callCount;
-    
-    // Calculate cost using Klavis pricing
-    const apiName = plan === 'enterprise' ? 'klavis' : `klavis-${plan}`;
-    const cost = ModelPricing.calculateApiCallCost(apiName, callCount);
-    this._executionMetrics.klavisApiCost += cost;
-    
-    Logging.log(
-      'ExecutionContext',
-      `Klavis MCP API: +${callCount} call${callCount > 1 ? 's' : ''} | Total: ${this._executionMetrics.klavisApiCalls} calls, ${ModelPricing.formatCost(this._executionMetrics.klavisApiCost)}`,
-      'info'
-    );
-  }
-
-  /**
-   * Get a formatted cost summary
-   * @returns Human-readable cost and token usage summary
-   */
-  public getCostSummary(): string {
-    const metrics = this._executionMetrics;
-    
-    const totalCost = metrics.estimatedCost + metrics.moondreamCost + metrics.klavisApiCost;
-    const moondreamTotalTokens = metrics.moondreamInputTokens + metrics.moondreamOutputTokens;
-    
-    if (metrics.totalTokens === 0 && moondreamTotalTokens === 0 && metrics.klavisApiCalls === 0) {
-      return 'No usage yet';
-    }
-
-    const parts: string[] = [];
-    const breakdown: string[] = [];
-    
-    // LLM costs breakdown
-    if (metrics.totalTokens > 0) {
-      const tokenInfo = `${metrics.totalTokens.toLocaleString()} tokens (${metrics.inputTokens.toLocaleString()} in / ${metrics.outputTokens.toLocaleString()} out)`;
-      const llmCost = ModelPricing.formatCost(metrics.estimatedCost);
-      
-      if (ModelPricing.isFreeModel(metrics.modelName)) {
-        breakdown.push(`${tokenInfo} - Local model (Free)`);
-      } else {
-        breakdown.push(`${tokenInfo} - LLM: ${llmCost}`);
-      }
-    }
-    
-    // Moondream Vision API costs breakdown
-    if (moondreamTotalTokens > 0) {
-      breakdown.push(`${moondreamTotalTokens.toLocaleString()} Moondream tokens (${metrics.moondreamInputTokens.toLocaleString()} in / ${metrics.moondreamOutputTokens.toLocaleString()} out) - Vision: ${ModelPricing.formatCost(metrics.moondreamCost)}`);
-    }
-    
-    // Klavis MCP API costs breakdown
-    if (metrics.klavisApiCalls > 0) {
-      breakdown.push(`${metrics.klavisApiCalls} Klavis MCP call${metrics.klavisApiCalls > 1 ? 's' : ''} - MCP: ${ModelPricing.formatCost(metrics.klavisApiCost)}`);
-    }
-    
-    // Always show total cost when there are any costs
-    if (totalCost > 0) {
-      parts.push(...breakdown);
-      parts.push(`💰 Total Cost: ${ModelPricing.formatCost(totalCost)}`);
-    } else {
-      // All free (local model, no external APIs)
-      parts.push(...breakdown);
-    }
-    
-    return parts.join(' | ');
-  }
-
-  /**
-   * Get detailed execution statistics including cost
+   * Get detailed execution statistics
    * @returns Object with execution statistics
    */
   public getExecutionStats(): {
     duration: number;
     toolCalls: number;
     errors: number;
-    tokens: { 
-      llm: { input: number; output: number; total: number };
-      moondream: { input: number; output: number; total: number };
-    };
-    cost: { 
-      llm: { amount: number; formatted: string; model: string };
-      moondream: { tokens: number; amount: number; formatted: string };
-      klavis: { calls: number; amount: number; formatted: string };
-      total: { amount: number; formatted: string };
-    };
   } {
     const duration = this._executionMetrics.endTime > 0
       ? this._executionMetrics.endTime - this._executionMetrics.startTime
       : Date.now() - this._executionMetrics.startTime;
 
-    const totalCost = this._executionMetrics.estimatedCost + this._executionMetrics.moondreamCost + this._executionMetrics.klavisApiCost;
-    const moondreamTotalTokens = this._executionMetrics.moondreamInputTokens + this._executionMetrics.moondreamOutputTokens;
-
     return {
       duration,
       toolCalls: this._executionMetrics.toolCalls,
       errors: this._executionMetrics.errors,
-      tokens: {
-        llm: {
-          input: this._executionMetrics.inputTokens,
-          output: this._executionMetrics.outputTokens,
-          total: this._executionMetrics.totalTokens,
-        },
-        moondream: {
-          input: this._executionMetrics.moondreamInputTokens,
-          output: this._executionMetrics.moondreamOutputTokens,
-          total: moondreamTotalTokens,
-        },
-      },
-      cost: {
-        llm: {
-          amount: this._executionMetrics.estimatedCost,
-          formatted: ModelPricing.formatCost(this._executionMetrics.estimatedCost),
-          model: this._executionMetrics.modelName,
-        },
-        moondream: {
-          tokens: moondreamTotalTokens,
-          amount: this._executionMetrics.moondreamCost,
-          formatted: ModelPricing.formatCost(this._executionMetrics.moondreamCost),
-        },
-        klavis: {
-          calls: this._executionMetrics.klavisApiCalls,
-          amount: this._executionMetrics.klavisApiCost,
-          formatted: ModelPricing.formatCost(this._executionMetrics.klavisApiCost),
-        },
-        total: {
-          amount: totalCost,
-          formatted: ModelPricing.formatCost(totalCost),
-        },
-      },
     };
   }
 

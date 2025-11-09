@@ -187,10 +187,6 @@ export class MCPToolImpl {
         parsedArgs || {}
       )
 
-      // Track Klavis MCP API usage for cost calculation (per-call pricing)
-      // Default to 'pro' plan pricing ($0.02 per call)
-      this.executionContext.trackKlavisUsage(1, 'pro');
-
       if (!result.success) {
         // Log metric for tool failure
         Logging.logMetric('mcp_tool_failed', {

@@ -313,11 +313,6 @@ export class ChatAgent {
     // Accumulate final message for history
     const finalMessage = this._accumulateMessage(chunks)
     
-    // Track token usage from this LLM response
-    if (finalMessage.usage_metadata) {
-      this.executionContext.trackTokenUsage(finalMessage)
-    }
-    
     // Final message with complete content
     this.pubsub.publishMessage(PubSub.createMessageWithId(streamMsgId, fullContent, 'assistant'))
     

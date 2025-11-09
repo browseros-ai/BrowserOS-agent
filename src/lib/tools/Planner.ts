@@ -8,7 +8,6 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { MessageType } from '@/lib/runtime/MessageManager';
 import { invokeWithRetry } from '@/lib/utils/retryable';
 import { PubSub } from '@/lib/pubsub';
-import { TokenCounter } from '@/lib/utils/TokenCounter';
 import { Logging } from '@/lib/utils/Logging';
 
 const PLANNING_CONFIG = {
@@ -52,7 +51,7 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
         const browserState = await executionContext.browserContext.getBrowserStateString();
         
         // Check if browser state exceeds token limit
-        const browserStateTokens = TokenCounter.countString(browserState);
+        const browserStateTokens = Math.ceil(browserState.length / 4);
         const maxTokens = executionContext.messageManager.getMaxTokens();
         
         // If browser state is too large, use a placeholder message
@@ -75,9 +74,13 @@ export function PlannerTool(executionContext: ExecutionContext): DynamicStructur
           new HumanMessage(taskPrompt)
         ];
         
-        // Log token count
-        const tokenCount = TokenCounter.countMessages(messages);
-        Logging.log('PlannerTool', `Invoking LLM with ${TokenCounter.format(tokenCount)}`, 'info');
+        // Log token count (simple estimation)
+        const totalChars = messages.reduce((sum, msg) => {
+          const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+          return sum + content.length;
+        }, 0);
+        const tokenCount = Math.ceil(totalChars / 4);
+        Logging.log('PlannerTool', `Invoking LLM with ~${tokenCount} tokens`, 'info');
         
         // Get structured response from LLM with retry logic
         const structuredLLM = llm.withStructuredOutput(PlanSchema);

@@ -1,5 +1,4 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
-import { TokenCounter } from './TokenCounter'
 
 /**
  * Utility functions for LLM interactions
@@ -26,8 +25,8 @@ export function trimToMaxTokens(
   // Calculate available tokens (leave room for response)
   const availableTokens = maxTokens - reserveTokens
   
-  // Count current tokens
-  const currentTokens = TokenCounter.countString(content)
+  // Count current tokens using simple character-based estimation
+  const currentTokens = Math.ceil(content.length / 4)
   
   // If within limits, return as-is
   if (currentTokens <= availableTokens) {
