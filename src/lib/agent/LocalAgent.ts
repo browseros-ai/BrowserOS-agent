@@ -12,7 +12,7 @@ import {
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
-import { getLLM } from "@/lib/llm/LangChainProvider";
+import { getLLM, langChainProvider } from "@/lib/llm/LangChainProvider";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
@@ -203,6 +203,12 @@ export class LocalAgent {
 
     // Bind tools ONCE and store the bound LLM
     this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
+
+    // Set model name for cost tracking
+    const provider = langChainProvider.getCurrentProvider();
+    if (provider?.modelId) {
+      this.executionContext.setModelName(provider.modelId);
+    }
 
     // Reset state
     this.iterations = 0;
@@ -431,7 +437,14 @@ export class LocalAgent {
       if (plan.taskComplete) {
         allComplete = true;
         const finalMessage = plan.finalAnswer || "All steps completed successfully";
-        this._publishMessage(finalMessage, 'assistant');
+        
+        // Add cost summary to completion message
+        const costSummary = this.executionContext.getCostSummary();
+        const messageWithCost = costSummary !== 'No tokens used yet' 
+          ? `${finalMessage}\n\n📊 ${costSummary}`
+          : finalMessage;
+        
+        this._publishMessage(messageWithCost, 'assistant');
         break;
       }
 
@@ -541,8 +554,15 @@ export class LocalAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
+        
+        // Add cost summary to completion message
+        const costSummary = this.executionContext.getCostSummary();
+        const messageWithCost = costSummary !== 'No tokens used yet' 
+          ? `${completionMessage}\n\n📊 ${costSummary}`
+          : completionMessage;
+        
         // Publish final result with 'assistant' role to match LocalAgent pattern
-        this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
+        this.pubsub.publishMessage(PubSub.createMessage(messageWithCost, "assistant"));
         break;
       }
 
@@ -1045,10 +1065,18 @@ Continue upon the previous steps what has been done so far and suggest next step
     if (!accumulatedChunk) return new AIMessage({ content: "" });
 
     // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
+    const finalMessage = new AIMessage({
       content: accumulatedChunk.content,
       tool_calls: accumulatedChunk.tool_calls,
+      usage_metadata: accumulatedChunk.usage_metadata,
     });
+
+    // Track token usage from this LLM response
+    if (finalMessage.usage_metadata) {
+      this.executionContext.trackTokenUsage(finalMessage);
+    }
+
+    return finalMessage;
   }
 
   private async _processToolCalls(

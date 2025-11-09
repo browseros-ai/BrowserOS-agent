@@ -24,6 +24,18 @@ export class ToolManager {
     return Array.from(this.tools.values());
   }
 
+  unregister(name: string): boolean {
+    return this.tools.delete(name);
+  }
+
+  clear(): void {
+    this.tools.clear();
+  }
+
+  has(name: string): boolean {
+    return this.tools.has(name);
+  }
+
   getDescriptions(): string {
     const tools = this.getAll();
     if (tools.length === 0) {

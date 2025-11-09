@@ -12,7 +12,7 @@ import {
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
-import { getLLM } from "@/lib/llm/LangChainProvider";
+import { getLLM, langChainProvider } from "@/lib/llm/LangChainProvider";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
@@ -194,6 +194,8 @@ export class BrowserAgent {
 
   // Execution state
   private iterations: number = 0;
+  private currentPageId: string | null = null;
+  private websiteToolNames: Set<string> = new Set();  // Track registered website tools
 
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
@@ -242,6 +244,12 @@ export class BrowserAgent {
 
     // Bind tools ONCE and store the bound LLM
     this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
+
+    // Set model name for cost tracking
+    const provider = langChainProvider.getCurrentProvider();
+    if (provider?.modelId) {
+      this.executionContext.setModelName(provider.modelId);
+    }
 
     // Reset state
     this.iterations = 0;
@@ -302,7 +310,11 @@ export class BrowserAgent {
     // Populate tool descriptions after all tools are registered
     this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
 
-    await this._registerWebsiteTools();
+    // Register website-provided tools dynamically (if enabled in settings)
+    const enableWebsiteMCP = await this._getWebsiteMCPSetting()
+    if (enableWebsiteMCP) {
+      await this._registerWebsiteTools();
+    }
 
     Logging.log(
       "BrowserAgent",
@@ -311,22 +323,79 @@ export class BrowserAgent {
     );
   }
 
+  /**
+   * Get Website MCP tools setting from storage
+   * @returns True if website MCP tools should be enabled
+   */
+  private async _getWebsiteMCPSetting(): Promise<boolean> {
+    try {
+      const result = await chrome.storage.local.get('nxtscape-settings')
+      if (result && result['nxtscape-settings']) {
+        const settings = JSON.parse(result['nxtscape-settings'])
+        // Zustand persist stores state directly, not under a "state" key
+        // Default to true if setting is undefined (for backwards compatibility)
+        const enabled = settings.state?.enableWebsiteMCP ?? settings.enableWebsiteMCP
+        if (enabled !== undefined) {
+          Logging.log('BrowserAgent', `Website MCP tools setting: ${enabled ? 'Enabled' : 'Disabled'}`, 'info')
+          return enabled !== false
+        }
+      }
+    } catch (error) {
+      Logging.log('BrowserAgent', `Failed to read website MCP setting: ${error}`, 'warning')
+    }
+    // Default to true if we can't read the setting
+    Logging.log('BrowserAgent', 'Website MCP tools setting not found, defaulting to Enabled', 'info')
+    return true
+  }
+
   private async _registerWebsiteTools(): Promise<void> {
     try {
       const page = await this.executionContext.browserContext.getCurrentPage()
+      const currentUrl = page.url()
+      const currentPath = new URL(currentUrl).pathname
+      
+      Logging.log('BrowserAgent', `[TOOL REGISTRATION] Current URL: ${currentUrl} | Path: ${currentPath}`, 'info')
+      
+      // Clear previous website tools if page changed
+      if (this.currentPageId && this.currentPageId !== currentPath) {
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] Page changed from ${this.currentPageId} to ${currentPath}, clearing old tools`, 'info')
+        this._clearWebsiteTools()
+      }
+      
       const websiteTools = await page.getWebsiteTools()
       
       if (websiteTools.length > 0) {
-        Logging.log('BrowserAgent', `Discovering ${websiteTools.length} website tools`, 'info')
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] Discovered ${websiteTools.length} website tools for ${currentPath}`, 'info')
         
         for (const toolDef of websiteTools) {
           const tool = createWebsiteMCPTools(this.executionContext, toolDef)
           this.toolManager.register(tool)
-          Logging.log('BrowserAgent', `Registered website tool: ${toolDef.name}`, 'info')
+          this.websiteToolNames.add(tool.name)  // Track the tool name
+          Logging.log('BrowserAgent', `[TOOL REGISTRATION] ✓ Registered: ${toolDef.name} | Event: ${toolDef.eventName}`, 'info')
         }
+        
+        // Log all currently registered tools
+        const allTools = this.toolManager.getAll().map(t => t.name)
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] Total tools available: ${allTools.length} | Website tools: ${this.websiteToolNames.size}`, 'info')
+      } else {
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] No website tools found for ${currentPath}`, 'warning')
       }
+
+      this.currentPageId = currentPath
     } catch (error) {
-      Logging.log('BrowserAgent', `Failed to register website tools: ${error}`, 'warning')
+      Logging.log('BrowserAgent', `[TOOL REGISTRATION] Failed to register website tools: ${error}`, 'error')
+    }
+  }
+
+  private _clearWebsiteTools(): void {
+    // Remove all previously registered website tools
+    // We track them by storing their names
+    if (this.websiteToolNames.size > 0) {
+      Logging.log('BrowserAgent', `Clearing ${this.websiteToolNames.size} website tools`, 'info');
+      for (const toolName of this.websiteToolNames) {
+        this.toolManager.unregister(toolName);
+      }
+      this.websiteToolNames.clear();
     }
   }
 
@@ -604,8 +673,15 @@ export class BrowserAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
+        
+        // Add cost summary to completion message
+        const costSummary = this.executionContext.getCostSummary();
+        const messageWithCost = costSummary !== 'No tokens used yet' 
+          ? `${completionMessage}\n\n📊 ${costSummary}`
+          : completionMessage;
+        
         // Publish final result with 'assistant' role to match BrowserAgent pattern
-        this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
+        this.pubsub.publishMessage(PubSub.createMessage(messageWithCost, "assistant"));
         break;
       }
 
@@ -703,8 +779,11 @@ export class BrowserAgent {
       }
 
     const page = await this.executionContext.browserContext.getCurrentPage()
-    const websiteTools = await page.getWebsiteTools()
-  
+    // Only include website tools if the setting is enabled
+    const enableWebsiteMCP = await this._getWebsiteMCPSetting()
+    if (enableWebsiteMCP) {
+      const websiteTools = await page.getWebsiteTools()
+    
       if (websiteTools.length > 0) {
         const toolsDescription = websiteTools.map(t => 
           `- ${t.name}: ${t.description} (params: ${Object.keys(t.parameters).join(', ')})`
@@ -714,6 +793,7 @@ export class BrowserAgent {
       
         browserStateString += `\n\n<website-tools>\nAvailable website actions:\n${toolsDescription}\nUse website_${toolName} tools instead of clicking/typing when available.\n</website-tools>`
       }
+    }
     }
 
     if (includeScreenshot && this.executionContext.supportsVision()) {
@@ -976,6 +1056,10 @@ ${fullHistory}
           };
         }
 
+        // After tool execution, check if we need to re-register website tools
+        // This handles cases where navigation changes the page
+        await this._maybeReRegisterWebsiteTools();
+        
         // Continue to next iteration
       } else {
         // No tool calls, might be done or ask for planner output
@@ -1003,6 +1087,37 @@ ${fullHistory}
     });
 
     return { completed: false };
+  }
+
+  /**
+   * Re-register website tools if the page has changed
+   * This is called after each tool execution to ensure tools are up-to-date
+   */
+  private async _maybeReRegisterWebsiteTools(): Promise<void> {
+    try {
+      const page = await this.executionContext.browserContext.getCurrentPage();
+      const currentPath = new URL(page.url()).pathname;
+      
+      // Only re-register if the page has actually changed
+      if (this.currentPageId !== currentPath) {
+        Logging.log('BrowserAgent', `[AUTO RE-REGISTER] Page changed: ${this.currentPageId} → ${currentPath}`, 'info');
+        await this._registerWebsiteTools();
+        
+        // Rebind tools to LLM after registration
+        const llm = await getLLM({
+          temperature: 0.2,
+          maxTokens: 4096,
+          intelligence: 'low'
+        });
+        
+        if (llm.bindTools && typeof llm.bindTools === 'function') {
+          this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
+          Logging.log('BrowserAgent', `[AUTO RE-REGISTER] ✓ Tools re-bound to LLM`, 'info');
+        }
+      }
+    } catch (error) {
+      Logging.log('BrowserAgent', `[AUTO RE-REGISTER] Failed: ${error}`, 'warning');
+    }
   }
 
   private async _invokeLLMWithStreaming(messageManager?: MessageManager): Promise<AIMessage> {
@@ -1111,10 +1226,18 @@ ${fullHistory}
     if (!accumulatedChunk) return new AIMessage({ content: "" });
 
     // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
+    const finalMessage = new AIMessage({
       content: accumulatedChunk.content,
       tool_calls: accumulatedChunk.tool_calls,
+      usage_metadata: accumulatedChunk.usage_metadata,
     });
+
+    // Track token usage from this LLM response
+    if (finalMessage.usage_metadata) {
+      this.executionContext.trackTokenUsage(finalMessage);
+    }
+
+    return finalMessage;
   }
 
   private async _processToolCalls(

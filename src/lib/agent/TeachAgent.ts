@@ -12,7 +12,7 @@ import {
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
-import { getLLM } from "@/lib/llm/LangChainProvider";
+import { getLLM, langChainProvider } from "@/lib/llm/LangChainProvider";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
@@ -224,6 +224,12 @@ export class TeachAgent {
     // Bind tools ONCE and store the bound LLM
     this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
 
+    // Set model name for cost tracking
+    const provider = langChainProvider.getCurrentProvider();
+    if (provider?.modelId) {
+      this.executionContext.setModelName(provider.modelId);
+    }
+
     // Reset state
     this.iterations = 0;
 
@@ -377,6 +383,12 @@ export class TeachAgent {
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
 
+        // Add cost summary to completion message
+        const costSummary = this.executionContext.getCostSummary();
+        const messageWithCost = costSummary !== 'No tokens used yet' 
+          ? `${completionMessage}\n\n📊 ${costSummary}`
+          : completionMessage;
+
         // Publish execution completed event
         this.mainPubsub.publishTeachModeEvent({
           eventType: 'execution_completed',
@@ -384,7 +396,7 @@ export class TeachAgent {
           data: {
             workflowId: workflow.metadata.recordingId || '',
             success: true,
-            message: completionMessage
+            message: messageWithCost
           }
         });
         break;
@@ -844,10 +856,18 @@ ${fullHistory}
     if (!accumulatedChunk) return new AIMessage({ content: "" });
 
     // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
+    const finalMessage = new AIMessage({
       content: accumulatedChunk.content,
       tool_calls: accumulatedChunk.tool_calls,
+      usage_metadata: accumulatedChunk.usage_metadata,
     });
+
+    // Track token usage from this LLM response
+    if (finalMessage.usage_metadata) {
+      this.executionContext.trackTokenUsage(finalMessage);
+    }
+
+    return finalMessage;
   }
 
   private async _processToolCalls(

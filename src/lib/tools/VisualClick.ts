@@ -97,6 +97,10 @@ export function MoondreamVisualClickTool(
 
         const data: MoondreamPointResponse = await response.json();
 
+        // Track Moondream API usage for cost calculation (token-based pricing)
+        // Estimate: ~1500 input tokens (screenshot), ~50 output tokens (coordinates)
+        context.trackMoondreamUsage(1500, 50);
+
         // Check if any points were found
         if (!data.points || data.points.length === 0) {
           return JSON.stringify({

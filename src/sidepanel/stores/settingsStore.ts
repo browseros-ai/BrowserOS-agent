@@ -9,7 +9,8 @@ const SettingsSchema = z.object({
   autoScroll: z.boolean().default(true),  // Auto-scroll chat to bottom
   autoCollapseTools: z.boolean().default(false),  // Auto-collapse tool results
   chatMode: z.boolean().default(false),  // Legacy: Chat mode for Q&A (kept for backwards compatibility)
-  appMode: z.enum(['chat', 'agent', 'teach']).default('agent')  // Current app mode
+  appMode: z.enum(['chat', 'agent', 'teach']).default('agent'),  // Current app mode
+  enableWebsiteMCP: z.boolean().default(true)  // Enable website-provided MCP tools discovery
 })
 
 type Settings = z.infer<typeof SettingsSchema>
@@ -22,6 +23,7 @@ interface SettingsActions {
   setAutoCollapseTools: (enabled: boolean) => void
   setChatMode: (enabled: boolean) => void
   setAppMode: (mode: 'chat' | 'agent' | 'teach') => void
+  setEnableWebsiteMCP: (enabled: boolean) => void
   resetSettings: () => void
 }
 
@@ -32,7 +34,8 @@ const initialState: Settings = {
   autoScroll: true,
   autoCollapseTools: false,
   chatMode: false,
-  appMode: 'agent'
+  appMode: 'agent',
+  enableWebsiteMCP: true
 }
 
 // Create the store with persistence
@@ -79,6 +82,10 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
         })
       },
 
+      setEnableWebsiteMCP: (enabled) => {
+        set({ enableWebsiteMCP: enabled })
+      },
+
       resetSettings: () => {
         set(initialState)
         // Reset document styles
@@ -89,7 +96,7 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
     }),
     {
       name: 'nxtscape-settings',  // localStorage key
-      version: 5,
+      version: 6,
       migrate: (persisted: any, version: number) => {
         // Migrate from v1 isDarkMode -> theme
         if (version === 1 && persisted) {
@@ -126,6 +133,18 @@ export const useSettingsStore = create<Settings & SettingsActions>()(
             autoScroll: typeof persisted.autoScroll === 'boolean' ? persisted.autoScroll : true,
             autoCollapseTools: typeof persisted.autoCollapseTools === 'boolean' ? persisted.autoCollapseTools : false,
             chatMode: false
+          } as Settings
+        }
+        // Migrate to v6 add enableWebsiteMCP default true
+        if (version === 5 && persisted) {
+          return {
+            fontSize: typeof persisted.fontSize === 'number' ? persisted.fontSize : 16,
+            theme: persisted.theme === 'dark' || persisted.theme === 'gray' ? persisted.theme : 'light',
+            autoScroll: typeof persisted.autoScroll === 'boolean' ? persisted.autoScroll : true,
+            autoCollapseTools: typeof persisted.autoCollapseTools === 'boolean' ? persisted.autoCollapseTools : false,
+            chatMode: typeof persisted.chatMode === 'boolean' ? persisted.chatMode : false,
+            appMode: persisted.appMode === 'chat' || persisted.appMode === 'agent' || persisted.appMode === 'teach' ? persisted.appMode : 'agent',
+            enableWebsiteMCP: true
           } as Settings
         }
         return persisted as Settings

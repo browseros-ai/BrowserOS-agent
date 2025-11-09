@@ -122,7 +122,19 @@ Completion:
 - done(success, message): Call when ALL actions are executed successfully
 </tools>
 
-<mcp-instructions>
+<integration-tools>
+WEBSITE-PROVIDED TOOLS:
+Modern websites can expose custom tools specifically designed for AI agents. These tools appear automatically when you visit compatible websites and are prefixed with the website's domain or functionality.
+
+Examples of website tools:
+- add_to_cart: Add items to shopping cart
+- search_products: Search catalog
+- book_consultation: Schedule appointments
+- navigate_to_route: Navigate between site pages
+- filter_results: Apply filters to search
+
+These tools are context-aware and change based on which page you're on. Use them when available - they're optimized for that specific website.
+
 MCP TOOL USAGE (for Gmail, GitHub, Slack, etc.):
 CRITICAL: Never skip steps or guess tool names. Always execute in exact order:
 
@@ -153,8 +165,11 @@ Available MCP Servers:
 - Google Docs: Document operations (read, write, format)
 - Notion: Note management (pages, databases)
 
-Use MCP when task involves these services instead of browser automation.
-</mcp-instructions>`;
+TOOL PREFERENCE ORDER:
+1. Website-provided tools (when available for current page)
+2. MCP services (for Gmail, Calendar, etc.)
+3. Browser automation (click, type, navigate)
+</integration-tools>`;
 
   return executorInstructions;
 }
@@ -194,24 +209,42 @@ You do NOT perform actions yourself. Your role is to propose clear, actionable n
 
 ${toolDescriptions}
 
-# MCP SERVICES (PREFERRED FOR GOOGLE/NOTION TASKS) AVAILABLE TO THE EXECUTOR AGENT
+# INTEGRATION TOOLS AVAILABLE TO THE EXECUTOR AGENT
 
+**WEBSITE-PROVIDED TOOLS:**
+Many websites expose custom tools designed specifically for AI agents. These tools:
+- Automatically appear when visiting compatible websites
+- Are context-aware and change based on the current page/route
+- Provide optimized actions for that specific website
+- Examples: add_to_cart, search_products, book_consultation, navigate_to_route
+
+**MCP SERVICES (FOR GOOGLE/NOTION TASKS):**
 - Google Calendar: event management and scheduling
 - Gmail: email search, reading, and sending
 - Google Sheets: spreadsheet reading, writing, and formulas
 - Google Docs: document reading, writing, and formatting
 - Notion: note and database management
 
-**Always prefer MCP for these services over browser automation when possible.**  
-Example: Use "Use MCP to search Gmail for unread emails" instead of "Navigate to gmail.com".
+**TOOL PREFERENCE ORDER:**
+1. **Website-provided tools first** - When a website offers custom tools for the action you need (e.g., "Add pizza to cart"), use them instead of manual browser automation. They're more reliable and faster.
+2. **MCP services second** - For Gmail/Calendar/Sheets tasks, prefer MCP over browser automation
+3. **Browser automation last** - Use click/type/navigate only when no specialized tool exists
+
+Examples:
+- ✅ "Use add_to_cart tool with productId" (website tool)
+- ✅ "Use MCP to search Gmail for unread emails" (MCP service)
+- ❌ "Navigate to cart page and click add button" (browser automation when website tool exists)
 
 # EXAMPLES OF EFFECTIVE (GOOD) ACTIONS
 
+- Use add_to_cart tool to add product (when website provides this tool)
+- Use navigate_to_route tool to go to consultations page (when website provides this tool)
+- Use search_products tool with query "pizza" (when website provides this tool)
 - Use BrowserOS info tool to retrieve agent details
 - Use MCP to search Gmail for unread emails
 - Use MCP to get today's Google Calendar events
 - Use MCP to read data from a specific Google Sheet
-- Navigate to "https://example.com/login"
+- Navigate to "https://example.com/login" (when no website tool available)
 - Fill the email field with "user@example.com"
 - Click the submit button
 - Use visual click on the blue submit button (if standard click has failed previously)
@@ -299,24 +332,42 @@ You do NOT perform actions yourself. Your role is to manage the TODO list, analy
 
 ${toolDescriptions}
 
-# MCP SERVICES (PREFERRED FOR GOOGLE/NOTION TASKS) AVAILABLE TO THE EXECUTOR AGENT
+# INTEGRATION TOOLS AVAILABLE TO THE EXECUTOR AGENT
 
+**WEBSITE-PROVIDED TOOLS:**
+Many websites expose custom tools designed specifically for AI agents. These tools:
+- Automatically appear when visiting compatible websites
+- Are context-aware and change based on the current page/route
+- Provide optimized actions for that specific website
+- Examples: add_to_cart, search_products, book_consultation, navigate_to_route
+
+**MCP SERVICES (FOR GOOGLE/NOTION TASKS):**
 - Google Calendar: event management and scheduling
 - Gmail: email search, reading, and sending
 - Google Sheets: spreadsheet reading, writing, and formulas
 - Google Docs: document reading, writing, and formatting
 - Notion: note and database management
 
-**Always prefer MCP for these services over browser automation when possible.**
-Example: Use "Use MCP to search Gmail for unread emails" instead of "Navigate to gmail.com".
+**TOOL PREFERENCE ORDER:**
+1. **Website-provided tools first** - When a website offers custom tools for the action you need (e.g., "Add pizza to cart"), use them instead of manual browser automation. They're more reliable and faster.
+2. **MCP services second** - For Gmail/Calendar/Sheets tasks, prefer MCP over browser automation
+3. **Browser automation last** - Use click/type/navigate only when no specialized tool exists
+
+Examples:
+- ✅ "Use add_to_cart tool with productId" (website tool)
+- ✅ "Use MCP to search Gmail for unread emails" (MCP service)
+- ❌ "Navigate to cart page and click add button" (browser automation when website tool exists)
 
 # EXAMPLES OF EFFECTIVE (GOOD) ACTIONS
 
+- Use add_to_cart tool to add product (when website provides this tool)
+- Use navigate_to_route tool to go to consultations page (when website provides this tool)
+- Use search_products tool with query "pizza" (when website provides this tool)
 - Use BrowserOS info tool to retrieve agent details
 - Use MCP to search Gmail for unread emails
 - Use MCP to get today's Google Calendar events
 - Use MCP to read data from a specific Google Sheet
-- Navigate to "https://example.com/login"
+- Navigate to "https://example.com/login" (when no website tool available)
 - Fill the email field with "user@example.com"
 - Click the submit button
 - Use visual click on the blue submit button (if standard click has failed previously)
