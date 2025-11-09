@@ -14,6 +14,7 @@ import { BrowserOSProvidersConfig, BrowserOSProvidersConfigSchema } from '@/lib/
 import { MCP_SERVERS, type MCPServerConfig } from '@/config/mcpServers'
 
 const GITHUB_REPO_URL: string = 'https://github.com/browseros-ai/BrowserOS'
+const DOCS_URL: string = 'https://docs.browseros.com/'
 
 // Feature flag to enable/disable MCP connector dropdown
 const MCP_FEATURE_ENABLED = true
@@ -388,12 +389,14 @@ export const Header = memo(function Header({ onReset, showReset, isProcessing, i
         </nav>
 
         {/* Settings Modal */}
-        <SettingsModal 
+        <SettingsModal
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
           onOpenHelp={() => {
             setShowSettings(false)
-            setShowHelp(true)
+            if (typeof window !== 'undefined') {
+              window.open(DOCS_URL, '_blank', 'noopener,noreferrer')
+            }
           }}
         />
       </header>
