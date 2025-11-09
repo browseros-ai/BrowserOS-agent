@@ -29,7 +29,7 @@ export function AboutSection() {
     {
       title: 'Documentation',
       description: 'Installation guides and tips',
-      url: 'https://browseros.notion.site/',
+      url: 'https://docs.browseros.com/',
       icon: <BookOpen size={20} />
     },
     {
