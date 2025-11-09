@@ -332,7 +332,7 @@ export function ChatInput({ isConnected, isProcessing }: ChatInputProps) {
     if (isProcessing) return 'Task running…'
     return chatMode
       ? 'I can answer questions about this tab (or attach other tabs using @)'
-      : 'Tell me what to do'
+      : 'Tell me what action you want to take...'
   }
   
   const getHintText = () => {
