@@ -5,6 +5,7 @@ import { ExecutionMetadata } from "@/lib/types/messaging";
 import { Logging } from "@/lib/utils/Logging";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { isDevelopmentMode } from '@/config';
+import { getUserId } from '@/lib/utils/user-id';
 
 
 interface PredefinedPlan {
@@ -171,8 +172,9 @@ export class WebSocketAgent {
   private async _connect(): Promise<void> {
     this.checkIfAborted();
 
-    // Get WebSocket URL from ExecutionContext
+    // Get WebSocket URL and user ID
     const wsUrl = await this.executionContext.getAgentServerUrl();
+    const userId = await getUserId();
 
     return new Promise((resolve, reject) => {
       this._publishMessage('Getting ready...', 'thinking');
@@ -193,9 +195,25 @@ export class WebSocketAgent {
         this.ws?.close();
       }, WS_CONNECTION_TIMEOUT);
 
-      // WebSocket opened
+      // WebSocket opened - send session.create with userId
       this.ws.onopen = () => {
         Logging.log("WebSocketAgent", "WebSocket connection opened", "info");
+
+        // Send session.create message with userId for Klavis MCP integration
+        try {
+          const sessionCreateMessage = {
+            type: 'session.create',
+            userId: userId,
+            agentType: 'codex-sdk'
+          };
+
+          this.ws?.send(JSON.stringify(sessionCreateMessage));
+          Logging.log("WebSocketAgent", `Sent session.create with userId: ${userId.substring(0, 16)}...`, "info");
+        } catch (error) {
+          Logging.log("WebSocketAgent", `Failed to send session.create: ${error}`, "error");
+          clearTimeout(timeout);
+          reject(error);
+        }
       };
 
       // WebSocket message received
