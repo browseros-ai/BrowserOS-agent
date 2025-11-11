@@ -6,7 +6,6 @@ import {
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
-import { TokenCounter } from "@/lib/utils/TokenCounter";
 import { Logging } from "@/lib/utils/Logging";
 
 // Constants
@@ -146,8 +145,8 @@ export class MessageManager {
         break;
     }
 
-    // Calculate tokens once using TokenCounter utility
-    const tokens = TokenCounter.countMessage(message);
+    // Calculate tokens using simple character-based estimation
+    const tokens = this._getTokensForMessage(message);
 
     // this._ensureSpace(tokens); # No need to trim messages (as compation is already built in for planner while for executor, we dont need to trim)
 
@@ -165,7 +164,7 @@ export class MessageManager {
 
     Logging.log(
       "MessageManager",
-      `Total tokens in message manager: ${TokenCounter.format(this.totalTokens)}`,
+      `Total tokens in message manager: ~${this.totalTokens}`,
       "info",
     );
   }
@@ -411,10 +410,32 @@ export class MessageManager {
     return LLMMessageType.AI;
   }
 
-  // Calculate tokens for a single message
+  // Calculate tokens for a single message (simple character-based estimation)
   private _getTokensForMessage(message: BaseMessage): number {
-    // Delegate to TokenCounter utility
-    return TokenCounter.countMessage(message);
+    // Extract content as string
+    let content = '';
+    if (typeof message.content === 'string') {
+      content = message.content;
+    } else if (message.content) {
+      content = JSON.stringify(message.content);
+    }
+
+    // Base token count (approx 4 chars per token)
+    let tokens = Math.ceil(content.length / 4);
+
+    // Add overhead for message structure
+    tokens += 3;
+
+    // Add extra tokens for tool calls in AI messages
+    if (message._getType() === 'ai') {
+      const aiMsg = message as AIMessage;
+      if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+        const toolCallsStr = JSON.stringify(aiMsg.tool_calls);
+        tokens += Math.ceil(toolCallsStr.length / 4);
+      }
+    }
+
+    return tokens;
   }
 
   // Ensure we have space for new tokens

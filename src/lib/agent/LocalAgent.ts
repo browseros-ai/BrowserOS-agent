@@ -12,7 +12,7 @@ import {
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
-import { getLLM } from "@/lib/llm/LangChainProvider";
+import { getLLM, langChainProvider } from "@/lib/llm/LangChainProvider";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
@@ -63,7 +63,6 @@ import {
   MCPTool,
 } from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
 
@@ -431,6 +430,7 @@ export class LocalAgent {
       if (plan.taskComplete) {
         allComplete = true;
         const finalMessage = plan.finalAnswer || "All steps completed successfully";
+        
         this._publishMessage(finalMessage, 'assistant');
         break;
       }
@@ -541,6 +541,7 @@ export class LocalAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
+        
         // Publish final result with 'assistant' role to match LocalAgent pattern
         this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
         break;
@@ -616,19 +617,19 @@ export class LocalAgent {
         simplified,
       );
 
-      // check if browser state string exceed 50% of model's max tokens
-      const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
-      if (tokens > browserStateTokensLimit) {
+      // Simple character-based limit check (approx 4 chars per token)
+      const estimatedTokens = Math.ceil(browserStateString.length / 4);
+      if (estimatedTokens > browserStateTokensLimit) {
         // if it exceeds, first remove Hidden Elements from browser state string
         browserStateString = await this.executionContext.browserContext.getBrowserStateString(
           simplified,
           true // hide hidden elements
         );
-        // then again check if it still exceeds 50% of model's max tokens, if it does, truncate the string to 50% of model's max tokens
-        const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
-        if (tokens > browserStateTokensLimit) {
+        // then again check if it still exceeds token limit
+        const estimatedTokens = Math.ceil(browserStateString.length / 4);
+        if (estimatedTokens > browserStateTokensLimit) {
             // Calculate the ratio to truncate by
-            const truncationRatio = browserStateTokensLimit / tokens;
+            const truncationRatio = browserStateTokensLimit / estimatedTokens;
             
             // Truncate the string (rough approximation based on character length)
             const targetLength = Math.floor(browserStateString.length * truncationRatio);
@@ -693,9 +694,9 @@ export class LocalAgent {
       // System prompt for planner
       const systemPrompt = generatePlannerPrompt(this.toolDescriptions || "");
 
-      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
-      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
-      Logging.log("LocalAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const fullHistoryTokens = Math.ceil(fullHistory.length / 4);
+      Logging.log("LocalAgent", `Full execution history tokens: ~${fullHistoryTokens}`, "info");
 
       // If full history exceeds 70% of max tokens, summarize it
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
@@ -736,7 +737,7 @@ ${fullHistory}
 
 Continue upon the previous steps what has been done so far and suggest next steps to complete the task.
 `;
-      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const userPromptTokens = Math.ceil(userPrompt.length / 4);
       const browserStateMessage = await this._getBrowserStateMessage(
         /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
         /* simplified */ true,
@@ -811,7 +812,7 @@ Continue upon the previous steps what has been done so far and suggest next step
     // Use the current iteration message manager from execution context
     const executorMM = new MessageManager();
     const systemPrompt = generateExecutorPrompt(this._buildExecutionContext());
-    const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
+    const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
     executorMM.addSystem(systemPrompt);
     const currentIterationToolMessages: string[] = [];
     let executorIterations = 0;
@@ -829,7 +830,8 @@ Continue upon the previous steps what has been done so far and suggest next step
         const plannerOutputForExecutor = this._formatPlannerOutputForExecutor(plannerOutput);
 
         const executionContext = this._buildExecutionContext();
-        const additionalTokens = TokenCounter.countMessage(new HumanMessage(executionContext + '\n'+ plannerOutputForExecutor));
+        const additionalContent = executionContext + '\n' + plannerOutputForExecutor;
+        const additionalTokens = Math.ceil(additionalContent.length / 4);
 
         const browserStateMessage = await this._getBrowserStateMessage(
           /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
@@ -1045,10 +1047,13 @@ Continue upon the previous steps what has been done so far and suggest next step
     if (!accumulatedChunk) return new AIMessage({ content: "" });
 
     // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
+    const finalMessage = new AIMessage({
       content: accumulatedChunk.content,
       tool_calls: accumulatedChunk.tool_calls,
+      usage_metadata: accumulatedChunk.usage_metadata,
     });
+
+    return finalMessage;
   }
 
   private async _processToolCalls(
@@ -1328,9 +1333,9 @@ Continue upon the previous steps what has been done so far and suggest next step
       let fullHistory = this._buildPlannerExecutionHistory();
 
       const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
-      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
-      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
-      Logging.log("LocalAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const fullHistoryTokens = Math.ceil(fullHistory.length / 4);
+      Logging.log("LocalAgent", `Full execution history tokens: ~${fullHistoryTokens}`, "info");
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
         const summary = await this.summarizeExecutionHistory(fullHistory);
 
@@ -1368,7 +1373,7 @@ ${fullHistory}
 
 Continue upon your previous steps what has been done so far and suggest next steps to complete the current TODO item.
 `;
-      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const userPromptTokens = Math.ceil(userPrompt.length / 4);
       const browserStateMessage = await this._getBrowserStateMessage(
         /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
         /* simplified */ true,

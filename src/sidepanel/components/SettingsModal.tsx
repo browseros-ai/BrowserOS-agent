@@ -21,7 +21,7 @@ const SettingsModalPropsSchema = z.object({
 type SettingsModalProps = z.infer<typeof SettingsModalPropsSchema>
 
 export function SettingsModal({ isOpen, onClose, onOpenHelp }: SettingsModalProps) {
-  const { fontSize, theme, autoScroll, autoCollapseTools, chatMode, setFontSize, setTheme, setAutoScroll, setAutoCollapseTools, setChatMode } = useSettingsStore()
+  const { fontSize, theme, autoScroll, autoCollapseTools, chatMode, enableWebsiteMCP, setFontSize, setTheme, setAutoScroll, setAutoCollapseTools, setChatMode, setEnableWebsiteMCP } = useSettingsStore()
   const [glowEnabled, setGlowEnabled] = useState<boolean>(true)
   const [agentVersion, setAgentVersion] = useState<string>('1.0.0')
   const { sendMessage } = useSidePanelPortMessaging()
@@ -214,6 +214,20 @@ export function SettingsModal({ isOpen, onClose, onOpenHelp }: SettingsModalProp
               aria-label={`${autoCollapseTools ? 'Disable' : 'Enable'} auto-collapse for tool results`}
             >
               {autoCollapseTools ? 'On' : 'Off'}
+            </Button>
+          </div>
+
+          {/* Website MCP Tools */}
+          <div className="flex items-center justify-between px-4 py-2 rounded-xl border border-border/50 bg-card">
+            <p className="text-xs text-muted-foreground">Website-provided MCP tools</p>
+            <Button
+              onClick={() => setEnableWebsiteMCP(!enableWebsiteMCP)}
+              variant="ghost"
+              size="sm"
+              className={`h-7 px-2 text-xs ${enableWebsiteMCP ? 'text-foreground' : 'text-muted-foreground'}`}
+              aria-label={`${enableWebsiteMCP ? 'Disable' : 'Enable'} website MCP tools`}
+            >
+              {enableWebsiteMCP ? 'On' : 'Off'}
             </Button>
           </div>
 

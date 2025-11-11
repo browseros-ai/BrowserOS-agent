@@ -12,7 +12,7 @@ import {
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
-import { getLLM } from "@/lib/llm/LangChainProvider";
+import { getLLM, langChainProvider } from "@/lib/llm/LangChainProvider";
 import BrowserPage from "@/lib/browser/BrowserPage";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
@@ -53,7 +53,6 @@ import {
   MCPTool,
 } from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
 import { type SemanticWorkflow } from "@/lib/teach-mode/types";
@@ -521,9 +520,9 @@ export class TeachAgent {
       // System prompt for planner
       const systemPrompt = generatePlannerPromptWithUserTrajectory(this.toolDescriptions || "");
 
-      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
-      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
-      Logging.log("TeachAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const fullHistoryTokens = Math.ceil(fullHistory.length / 4);
+      Logging.log("TeachAgent", `Full execution history tokens: ~${fullHistoryTokens}`, "info");
 
       // If full history exceeds 70% of max tokens, summarize it
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
@@ -844,10 +843,13 @@ ${fullHistory}
     if (!accumulatedChunk) return new AIMessage({ content: "" });
 
     // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
+    const finalMessage = new AIMessage({
       content: accumulatedChunk.content,
       tool_calls: accumulatedChunk.tool_calls,
+      usage_metadata: accumulatedChunk.usage_metadata,
     });
+
+    return finalMessage;
   }
 
   private async _processToolCalls(

@@ -46,6 +46,7 @@ export interface ExecutionMetrics {
   errors: number;
   startTime: number;
   endTime: number;
+  websiteToolCalls: number;
   toolFrequency: Map<string, number>;  // Track frequency of each tool called
 }
 
@@ -103,12 +104,12 @@ export class ExecutionContext {
   private _maxTokens: number = 128000  // Maximum token limit of the model
   private _reasoningHistory: string[] = []; // Planner reasoning history
   private _executionMetrics: ExecutionMetrics = {
-    // Tool execution metrics
     toolCalls: 0,
     observations: 0,
     errors: 0,
     startTime: Date.now(),
     endTime: 0,
+    websiteToolCalls: 0,
     toolFrequency: new Map<string, number>(),
   };
   
@@ -282,6 +283,7 @@ export class ExecutionContext {
       errors: 0,
       startTime: Date.now(),
       endTime: 0,
+      websiteToolCalls: 0,
       toolFrequency: new Map<string, number>(),
     };
   }
@@ -454,7 +456,7 @@ export class ExecutionContext {
    * @param metric - The metric to increment
    */
   public incrementMetric(
-    metric: "toolCalls" | "observations" | "errors",
+    metric: "toolCalls" | "observations" | "errors" | "websiteToolCalls",
   ): void {
     this._executionMetrics[metric]++;
   }
@@ -465,6 +467,26 @@ export class ExecutionContext {
   public incrementToolUsageMetrics(toolName: string): void {
     const currentCount = this._executionMetrics.toolFrequency.get(toolName) || 0;
     this._executionMetrics.toolFrequency.set(toolName, currentCount + 1);
+  }
+
+  /**
+   * Get detailed execution statistics
+   * @returns Object with execution statistics
+   */
+  public getExecutionStats(): {
+    duration: number;
+    toolCalls: number;
+    errors: number;
+  } {
+    const duration = this._executionMetrics.endTime > 0
+      ? this._executionMetrics.endTime - this._executionMetrics.startTime
+      : Date.now() - this._executionMetrics.startTime;
+
+    return {
+      duration,
+      toolCalls: this._executionMetrics.toolCalls,
+      errors: this._executionMetrics.errors,
+    };
   }
 
   /**

@@ -5,7 +5,6 @@ import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import BrowserContext from '@/lib/browser/BrowserContext'
 import { MessageManager } from '@/lib/runtime/MessageManager'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
-import { TokenCounter } from '@/lib/utils/TokenCounter'
 import { invokeWithRetry } from '@/lib/utils/retryable'
 import { PubSub } from '@/lib/pubsub'
 
@@ -163,8 +162,12 @@ export class PlanGeneratorService {
       new HumanMessage(humanPrompt)
     ]
 
-    const tokenCount = TokenCounter.countMessages(messages)
-    Logging.log('PlanGeneratorService', `Generating goal/name with ${TokenCounter.format(tokenCount)}`, 'info')
+    const totalChars = messages.reduce((sum, msg) => {
+      const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+      return sum + content.length
+    }, 0)
+    const tokenCount = Math.ceil(totalChars / 4)
+    Logging.log('PlanGeneratorService', `Generating goal/name with ~${tokenCount} tokens`, 'info')
 
     const structuredLLM = llm.withStructuredOutput(AgentMetaSchema)
     const meta = await invokeWithRetry<z.infer<typeof AgentMetaSchema>>(structuredLLM, messages, 3)

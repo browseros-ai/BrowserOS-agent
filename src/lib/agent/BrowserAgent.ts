@@ -12,8 +12,7 @@ import {
 import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { z } from "zod";
-import { getLLM } from "@/lib/llm/LangChainProvider";
-import BrowserPage from "@/lib/browser/BrowserPage";
+import { getLLM, langChainProvider } from "@/lib/llm/LangChainProvider";
 import { PubSub } from "@/lib/pubsub";
 import { PubSubChannel } from "@/lib/pubsub/PubSubChannel";
 import { HumanInputResponse, PubSubEvent } from "@/lib/pubsub/types";
@@ -55,9 +54,9 @@ import {
   MCPTool,
 } from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
-import { TokenCounter } from "../utils/TokenCounter";
 import { wrapToolForMetrics } from '@/evals2/EvalToolWrapper';
 import { ENABLE_EVALS2 } from '@/config';
+import { createWebsiteMCPTools } from "../tools/CreateWebMCPTools";
 
 // Constants
 const MAX_PLANNER_ITERATIONS = 50;
@@ -194,6 +193,8 @@ export class BrowserAgent {
 
   // Execution state
   private iterations: number = 0;
+  private currentPageId: string | null = null;
+  private websiteToolNames: Set<string> = new Set();  // Track registered website tools
 
   // Planner context - accumulates across all iterations
   private plannerExecutionHistory: Array<{
@@ -302,11 +303,93 @@ export class BrowserAgent {
     // Populate tool descriptions after all tools are registered
     this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
 
+    // Register website-provided tools dynamically (if enabled in settings)
+    const enableWebsiteMCP = await this._getWebsiteMCPSetting()
+    if (enableWebsiteMCP) {
+      await this._registerWebsiteTools();
+    }
+
     Logging.log(
       "BrowserAgent",
       `Registered ${this.toolManager.getAll().length} tools`,
       "info",
     );
+  }
+
+  /**
+   * Get Website MCP tools setting from storage
+   * @returns True if website MCP tools should be enabled
+   */
+  private async _getWebsiteMCPSetting(): Promise<boolean> {
+    try {
+      const result = await chrome.storage.local.get('nxtscape-settings')
+      if (result && result['nxtscape-settings']) {
+        const settings = JSON.parse(result['nxtscape-settings'])
+        // Zustand persist stores state directly, not under a "state" key
+        // Default to true if setting is undefined (for backwards compatibility)
+        const enabled = settings.state?.enableWebsiteMCP ?? settings.enableWebsiteMCP
+        if (enabled !== undefined) {
+          Logging.log('BrowserAgent', `Website MCP tools setting: ${enabled ? 'Enabled' : 'Disabled'}`, 'info')
+          return enabled !== false
+        }
+      }
+    } catch (error) {
+      Logging.log('BrowserAgent', `Failed to read website MCP setting: ${error}`, 'warning')
+    }
+    // Default to true if we can't read the setting
+    Logging.log('BrowserAgent', 'Website MCP tools setting not found, defaulting to Enabled', 'info')
+    return true
+  }
+
+  private async _registerWebsiteTools(): Promise<void> {
+    try {
+      const page = await this.executionContext.browserContext.getCurrentPage()
+      const currentUrl = page.url()
+      const currentPath = new URL(currentUrl).pathname
+      
+      Logging.log('BrowserAgent', `[TOOL REGISTRATION] Current URL: ${currentUrl} | Path: ${currentPath}`, 'info')
+      
+      // Clear previous website tools if page changed
+      if (this.currentPageId && this.currentPageId !== currentPath) {
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] Page changed from ${this.currentPageId} to ${currentPath}, clearing old tools`, 'info')
+        this._clearWebsiteTools()
+      }
+      
+      const websiteTools = await page.getWebsiteTools()
+      
+      if (websiteTools.length > 0) {
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] Discovered ${websiteTools.length} website tools for ${currentPath}`, 'info')
+        
+        for (const toolDef of websiteTools) {
+          const tool = createWebsiteMCPTools(this.executionContext, toolDef)
+          this.toolManager.register(tool)
+          this.websiteToolNames.add(tool.name)  // Track the tool name
+          Logging.log('BrowserAgent', `[TOOL REGISTRATION] ✓ Registered: ${toolDef.name} | Event: ${toolDef.eventName}`, 'info')
+        }
+        
+        // Log all currently registered tools
+        const allTools = this.toolManager.getAll().map(t => t.name)
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] Total tools available: ${allTools.length} | Website tools: ${this.websiteToolNames.size}`, 'info')
+      } else {
+        Logging.log('BrowserAgent', `[TOOL REGISTRATION] No website tools found for ${currentPath}`, 'warning')
+      }
+
+      this.currentPageId = currentPath
+    } catch (error) {
+      Logging.log('BrowserAgent', `[TOOL REGISTRATION] Failed to register website tools: ${error}`, 'error')
+    }
+  }
+
+  private _clearWebsiteTools(): void {
+    // Remove all previously registered website tools
+    // We track them by storing their names
+    if (this.websiteToolNames.size > 0) {
+      Logging.log('BrowserAgent', `Clearing ${this.websiteToolNames.size} website tools`, 'info');
+      for (const toolName of this.websiteToolNames) {
+        this.toolManager.unregister(toolName);
+      }
+      this.websiteToolNames.clear();
+    }
   }
 
   /**
@@ -583,6 +666,7 @@ export class BrowserAgent {
         // Use final answer if provided, otherwise fallback
         const completionMessage =
           plan.finalAnswer || "Task completed successfully";
+        
         // Publish final result with 'assistant' role to match BrowserAgent pattern
         this.pubsub.publishMessage(PubSub.createMessage(completionMessage, "assistant"));
         break;
@@ -658,19 +742,19 @@ export class BrowserAgent {
         simplified,
       );
 
-      // check if browser state string exceed 50% of model's max tokens
-      const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
-      if (tokens > browserStateTokensLimit) {
+      // Simple character-based limit check (approx 4 chars per token)
+      const estimatedTokens = Math.ceil(browserStateString.length / 4);
+      if (estimatedTokens > browserStateTokensLimit) {
         // if it exceeds, first remove Hidden Elements from browser state string
         browserStateString = await this.executionContext.browserContext.getBrowserStateString(
           simplified,
           true // hide hidden elements
         );
-        // then again check if it still exceeds 50% of model's max tokens, if it does, truncate the string to 50% of model's max tokens
-        const tokens = TokenCounter.countMessage(new HumanMessage(browserStateString));
-        if (tokens > browserStateTokensLimit) {
+        // then again check if it still exceeds token limit
+        const estimatedTokens = Math.ceil(browserStateString.length / 4);
+        if (estimatedTokens > browserStateTokensLimit) {
             // Calculate the ratio to truncate by
-            const truncationRatio = browserStateTokensLimit / tokens;
+            const truncationRatio = browserStateTokensLimit / estimatedTokens;
             
             // Truncate the string (rough approximation based on character length)
             const targetLength = Math.floor(browserStateString.length * truncationRatio);
@@ -680,6 +764,23 @@ export class BrowserAgent {
             browserStateString += "\n\n-- IMPORTANT: TRUNCATED DUE TO TOKEN LIMIT, USE GREP ELEMENTS TOOL TO SEARCH FOR ELEMENTS IF NEEDED --\n";
         }
       }
+
+    const page = await this.executionContext.browserContext.getCurrentPage()
+    // Only include website tools if the setting is enabled
+    const enableWebsiteMCP = await this._getWebsiteMCPSetting()
+    if (enableWebsiteMCP) {
+      const websiteTools = await page.getWebsiteTools()
+    
+      if (websiteTools.length > 0) {
+        const toolsDescription = websiteTools.map(t => 
+          `- ${t.name}: ${t.description} (params: ${Object.keys(t.parameters).join(', ')})`
+        ).join('\n')
+
+        const toolName = websiteTools.map(t => t.name).join(', ');
+      
+        browserStateString += `\n\n<website-tools>\nAvailable website actions:\n${toolsDescription}\nUse website_${toolName} tools instead of clicking/typing when available.\n</website-tools>`
+      }
+    }
     }
 
     if (includeScreenshot && this.executionContext.supportsVision()) {
@@ -731,13 +832,13 @@ export class BrowserAgent {
       // Get accumulated execution history from all iterations
       let fullHistory = this._buildPlannerExecutionHistory();
 
-      // Get numbeer of tokens in full history
+      // Get number of tokens in full history
       // System prompt for planner
       const systemPrompt = generatePlannerPrompt(this.toolDescriptions || "");
 
-      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
-      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
-      Logging.log("BrowserAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const fullHistoryTokens = Math.ceil(fullHistory.length / 4);
+      Logging.log("BrowserAgent", `Full execution history tokens: ~${fullHistoryTokens}`, "info");
 
       // If full history exceeds 70% of max tokens, summarize it
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
@@ -778,7 +879,7 @@ ${executionContext}
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
 ${fullHistory}
 `;
-      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const userPromptTokens = Math.ceil(userPrompt.length / 4);
       const browserStateMessage = await this._getBrowserStateMessage(
         /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
         /* simplified */ true,
@@ -843,7 +944,7 @@ ${fullHistory}
     // Use the current iteration message manager from execution context
     const executorMM = new MessageManager();
     const systemPrompt = generateExecutorPrompt(this._buildExecutionContext());
-    const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
+    const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
     executorMM.addSystem(systemPrompt);
     const currentIterationToolMessages: string[] = [];
     let executorIterations = 0;
@@ -861,7 +962,8 @@ ${fullHistory}
         const plannerOutputForExecutor = this._formatPlannerOutputForExecutor(plannerOutput);
 
         const executionContext = this._buildExecutionContext();
-        const additionalTokens = TokenCounter.countMessage(new HumanMessage(executionContext + '\n'+ plannerOutputForExecutor));
+        const additionalContent = executionContext + '\n' + plannerOutputForExecutor;
+        const additionalTokens = Math.ceil(additionalContent.length / 4);
 
         const browserStateMessage = await this._getBrowserStateMessage(
           /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
@@ -942,6 +1044,10 @@ ${fullHistory}
           };
         }
 
+        // After tool execution, check if we need to re-register website tools
+        // This handles cases where navigation changes the page
+        await this._maybeReRegisterWebsiteTools();
+        
         // Continue to next iteration
       } else {
         // No tool calls, might be done or ask for planner output
@@ -969,6 +1075,37 @@ ${fullHistory}
     });
 
     return { completed: false };
+  }
+
+  /**
+   * Re-register website tools if the page has changed
+   * This is called after each tool execution to ensure tools are up-to-date
+   */
+  private async _maybeReRegisterWebsiteTools(): Promise<void> {
+    try {
+      const page = await this.executionContext.browserContext.getCurrentPage();
+      const currentPath = new URL(page.url()).pathname;
+      
+      // Only re-register if the page has actually changed
+      if (this.currentPageId !== currentPath) {
+        Logging.log('BrowserAgent', `[AUTO RE-REGISTER] Page changed: ${this.currentPageId} → ${currentPath}`, 'info');
+        await this._registerWebsiteTools();
+        
+        // Rebind tools to LLM after registration
+        const llm = await getLLM({
+          temperature: 0.2,
+          maxTokens: 4096,
+          intelligence: 'low'
+        });
+        
+        if (llm.bindTools && typeof llm.bindTools === 'function') {
+          this.executorLlmWithTools = llm.bindTools(this.toolManager.getAll());
+          Logging.log('BrowserAgent', `[AUTO RE-REGISTER] ✓ Tools re-bound to LLM`, 'info');
+        }
+      }
+    } catch (error) {
+      Logging.log('BrowserAgent', `[AUTO RE-REGISTER] Failed: ${error}`, 'warning');
+    }
   }
 
   private async _invokeLLMWithStreaming(messageManager?: MessageManager): Promise<AIMessage> {
@@ -1077,10 +1214,13 @@ ${fullHistory}
     if (!accumulatedChunk) return new AIMessage({ content: "" });
 
     // Convert the final chunk back to a standard AIMessage
-    return new AIMessage({
+    const finalMessage = new AIMessage({
       content: accumulatedChunk.content,
       tool_calls: accumulatedChunk.tool_calls,
+      usage_metadata: accumulatedChunk.usage_metadata,
     });
+
+    return finalMessage;
   }
 
   private async _processToolCalls(
@@ -1360,9 +1500,9 @@ ${fullHistory}
       let fullHistory = this._buildPlannerExecutionHistory();
 
       const systemPrompt = generatePredefinedPlannerPrompt(this.toolDescriptions || "");
-      const systemPromptTokens = TokenCounter.countMessage(new SystemMessage(systemPrompt));
-      const fullHistoryTokens = TokenCounter.countMessage(new HumanMessage(fullHistory));
-      Logging.log("BrowserAgent", `Full execution history tokens: ${fullHistoryTokens}`, "info");
+      const systemPromptTokens = Math.ceil(systemPrompt.length / 4);
+      const fullHistoryTokens = Math.ceil(fullHistory.length / 4);
+      Logging.log("BrowserAgent", `Full execution history tokens: ~${fullHistoryTokens}`, "info");
       if (fullHistoryTokens + systemPromptTokens > this.executionContext.getMaxTokens() * 0.7) {
         const summary = await this.summarizeExecutionHistory(fullHistory);
 
@@ -1400,7 +1540,7 @@ ${executionContext}
 YOUR PREVIOUS STEPS DONE SO FAR (what you thought would work):
 ${fullHistory}
 `;
-      const userPromptTokens = TokenCounter.countMessage(new HumanMessage(userPrompt));
+      const userPromptTokens = Math.ceil(userPrompt.length / 4);
       const browserStateMessage = await this._getBrowserStateMessage(
         /* includeScreenshot */ this.executionContext.supportsVision() && !this.executionContext.isLimitedContextMode(),
         /* simplified */ true,

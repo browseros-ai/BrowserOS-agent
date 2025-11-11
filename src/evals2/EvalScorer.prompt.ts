@@ -1,6 +1,5 @@
 import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { ToolExecution } from './EvalScorer.types';
-import { TokenCounter } from '@/lib/utils/TokenCounter';
 
 /**
  * Individual scoring prompts for Gemini 2.5 Pro - each dimension scored separately
@@ -327,14 +326,14 @@ export function getContextEfficiencyPrompt(
   messages: BaseMessage[],
   toolCalls: ToolExecution[]
 ): string {
-  // Calculate context usage with proper TokenCounter
+  // Calculate context usage with simple character-based estimation
   const messageCount = messages.length;
   const totalChars = messages.reduce((sum, msg) => {
     const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
     return sum + content.length;
   }, 0);
   
-  const estimatedTokens = TokenCounter.countMessages(messages); // Use accurate token counting
+  const estimatedTokens = Math.ceil(totalChars / 4); // Simple token estimation
   
   // Analyze redundancy
   const toolNames = toolCalls.map(t => t.toolName);
@@ -364,7 +363,7 @@ export function getContextEfficiencyPrompt(
 - Tokens per tool: ${toolCalls.length > 0 ? Math.round(estimatedTokens / toolCalls.length) : 'N/A'}
 - Average message length: ${Math.round(totalChars / Math.max(1, messageCount))} chars
 - Unique vs total tools: ${new Set(toolNames).size}/${toolNames.length}
-- Token estimation method: TokenCounter with overhead`);
+- Token estimation method: Character-based approximation`);
   
   prompt += '\n\n';
   
