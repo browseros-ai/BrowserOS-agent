@@ -31,8 +31,8 @@ export class CreateTabGroupToolImpl {
       let tabIdsToGroup = input.tabIds || []
       
       if (tabIdsToGroup.length === 0) {
-        // Get current tab as default
-        const currentTab = await chrome.tabs.getCurrent()
+        // Get current active tab as default
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true })
         if (currentTab?.id) {
           tabIdsToGroup = [currentTab.id]
         } else {
