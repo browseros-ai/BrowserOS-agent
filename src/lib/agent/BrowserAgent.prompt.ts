@@ -109,6 +109,9 @@ Tab Control:
 - tab_open(url?): Open new tab
 - tab_focus(tabId): Switch to specific tab
 - tab_close(tabId): Close tab
+- create_tab_group(name, color?, tabIds?): Create a new tab group with a name and color
+- list_tab_groups(): List all existing tab groups with their IDs, names, and tab counts
+- add_tab_to_group(tabId, groupId): Add a specific tab to an existing tab group
 
 Data Operations:
 - extract(format, task): Extract structured data matching JSON schema
@@ -313,6 +316,8 @@ Example: Use "Use MCP to search Gmail for unread emails" instead of "Navigate to
 # EXAMPLES OF EFFECTIVE (GOOD) ACTIONS
 
 - Use BrowserOS info tool to retrieve agent details
+- Use list_tab_groups() first, then create_tab_group("Work", "blue") for a single category, and add_tab_to_group() for each tab belonging to that category. Then repeat for other categories.
+- Use create_tab_group("Social Media", "pink") followed by multiple add_tab_to_group() calls to organize related tabs
 - Use MCP to search Gmail for unread emails
 - Use MCP to get today's Google Calendar events
 - Use MCP to read data from a specific Google Sheet
@@ -328,6 +333,7 @@ Example: Use "Use MCP to search Gmail for unread emails" instead of "Navigate to
 
 - Click element [123] (do not reference node IDs directly; executor agent determines this)
 - Type into nodeId 456 (do not reference node IDs directly; executor agent determines this)
+- Navigate to chrome://tab-groups/ or chrome://tabs to organize tabs (use the tools instead)
 - Add Farmhouse Pepperoni Pizza to the cart when the button is hidden in the screenshot (instead, scroll down, check updated screenshot and then propose the action)
 - Navigate to a generic site (e.g., "Go to a pizza website") without specifying the actual URL
 
@@ -370,6 +376,10 @@ export function getToolDescriptions(isLimitedContextMode: boolean = false): stri
 - tab_open: Open new browser tabs
 - tab_focus: Switch between tabs
 - tab_close: Close browser tabs
+- create_tab_group: Create a new tab group with name and color
+- list_tab_groups: List all existing tab groups
+- add_tab_to_group: Add a specific tab to an existing tab group
+- get_selected_tabs_tool: Get information about currently selected tabs
 - extract: Extract data from web pages
 - celebration: Show confetti animation
 - human_input: Request human assistance

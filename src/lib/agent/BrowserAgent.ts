@@ -49,6 +49,9 @@ import {
   GrepElementsTool,
   CelebrationTool,
   GroupTabsTool,
+  CreateTabGroupTool,
+  ListTabGroupsTool,
+  AddTabToGroupTool,
   BrowserOSInfoTool,
   GetSelectedTabsTool,
   DateTool,
@@ -279,6 +282,9 @@ export class BrowserAgent {
     this.toolManager.register(TabFocusTool(this.executionContext));
     this.toolManager.register(TabCloseTool(this.executionContext));
     this.toolManager.register(GroupTabsTool(this.executionContext)); // Group tabs together
+    this.toolManager.register(CreateTabGroupTool(this.executionContext)); // Create new tab group
+    this.toolManager.register(ListTabGroupsTool(this.executionContext)); // List all tab groups
+    this.toolManager.register(AddTabToGroupTool(this.executionContext)); // Add tab to existing group
     this.toolManager.register(GetSelectedTabsTool(this.executionContext)); // Get selected tabs
 
     // Utility tools
@@ -300,7 +306,8 @@ export class BrowserAgent {
     this.toolManager.register(DoneTool(this.executionContext));
 
     // Populate tool descriptions after all tools are registered
-    this.toolDescriptions = getToolDescriptions(this.executionContext.isLimitedContextMode());
+    // Use ToolManager's dynamic descriptions which include all registered tools
+    this.toolDescriptions = this.toolManager.getDescriptions();
 
     Logging.log(
       "BrowserAgent",
