@@ -53,6 +53,7 @@ import {
   GetSelectedTabsTool,
   DateTool,
   MCPTool,
+  YouTubeTool,
 } from "@/lib/tools";
 import { GlowAnimationService } from '@/lib/services/GlowAnimationService';
 import { TokenCounter } from "../utils/TokenCounter";
@@ -287,6 +288,7 @@ export class BrowserAgent {
     this.toolManager.register(CelebrationTool(this.executionContext)); // Celebration/confetti tool
     this.toolManager.register(DateTool(this.executionContext)); // Date/time utilities
     this.toolManager.register(BrowserOSInfoTool(this.executionContext)); // BrowserOS info tool
+    this.toolManager.register(YouTubeTool(this.executionContext)); // YouTube video analysis
 
     // External integration tools
     this.toolManager.register(MCPTool(this.executionContext)); // MCP server integration
