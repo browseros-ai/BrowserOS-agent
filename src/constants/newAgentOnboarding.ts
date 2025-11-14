@@ -1,0 +1,1 @@
+export const NEW_AGENT_ONBOARDING = 'chrome-extension://bflpfmnmnokmjhmgnolecpppdbdophmk/onboarding.html'

@@ -15,6 +15,7 @@ import { MCPHandler } from './handlers/MCPHandler'
 import { PlanHandler } from './handlers/PlanHandler'
 import { SettingsHandler } from './handlers/SettingsHandler'
 import { TeachModeHandler } from './handlers/TeachModeHandler'
+import { NEW_AGENT_ONBOARDING } from '@/constants/newAgentOnboarding'
 
 /**
  * Background script for the Nxtscape extension
@@ -377,8 +378,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       Logging.log('Background', 'First install - showing onboarding')
       Logging.logMetric('onboarding_started', { trigger: 'install' })
 
-      const onboardingUrl = chrome.runtime.getURL('onboarding.html')
-      await chrome.tabs.create({ url: onboardingUrl })
+      await chrome.tabs.create({ url: NEW_AGENT_ONBOARDING })
       await OnboardingStorage.markAsSeen()
 
       console.log('[Onboarding] Shown and marked as seen')

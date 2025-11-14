@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/sidepanel/stores/settingsStore'
 import {
   Bot, Settings, Menu, X, Moon, Sun, Cloud, Server, ScanSearch, Info, LogIn, Globe2
 } from 'lucide-react'
+import { NEW_AGENT_ONBOARDING } from '@/constants/newAgentOnboarding'
 
 interface SidebarItem {
   id: string
@@ -87,8 +88,7 @@ export function SettingsLayout({ children, activeSection: controlledSection, onS
   const handleRevisitOnboarding = async () => {
     try {
       // Just open onboarding - don't reset flag (user has already seen it)
-      const onboardingUrl = chrome.runtime.getURL('onboarding.html')
-      await chrome.tabs.create({ url: onboardingUrl })
+      await chrome.tabs.create({ url: NEW_AGENT_ONBOARDING })
     } catch (error) {
       console.error('Failed to open onboarding:', error)
     }
