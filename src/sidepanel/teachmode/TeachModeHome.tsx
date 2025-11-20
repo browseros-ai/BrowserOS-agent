@@ -231,7 +231,17 @@ export function TeachModeHome() {
             {/* Tips content */}
             <div className="flex-1">
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
-                How teach mode works
+                How to guide{' '}
+                <span className="normal-case font-normal">
+                  (<a
+                    className="text-brand hover:underline"
+                    href="https://youtu.be/0Ex-MgAtgGw"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    tutorial
+                  </a>):
+                </span>
               </div>
               <div className="space-y-2 text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -244,7 +254,10 @@ export function TeachModeHome() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground flex-shrink-0">3</span>
-                  <span className="text-xs min-[450px]:text-sm">Run your workflow anytime with one click</span>
+                  <span className="text-xs min-[450px]:text-sm">Stop and wait for processing to complete</span>
+                </div>
+                <div className="text-xs min-[450px]:text-sm text-foreground pt-1">
+                  After that you can run the workflow anytime!
                 </div>
               </div>
             </div>
