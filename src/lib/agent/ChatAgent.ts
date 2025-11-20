@@ -1,7 +1,7 @@
 import { ExecutionContext } from '@/lib/runtime/ExecutionContext'
 import { MessageManager, LLMMessageType } from '@/lib/runtime/MessageManager'
 import { ToolManager } from '@/lib/tools/ToolManager'
-import { ScrollTool, ScreenshotTool } from '@/lib/tools'
+import { ScrollTool, ScreenshotTool, PdfExtractTool } from '@/lib/tools'
 import { generateSystemPrompt, generatePageContextMessage, generateTaskPrompt } from './ChatAgent.prompt'
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages'
 import { PubSub } from '@/lib/pubsub'
@@ -27,7 +27,7 @@ interface ExtractedPageContext {
 export class ChatAgent {
   // Constants
   private static readonly MAX_TURNS = 20
-  private static readonly TOOLS = ['screenshot_tool', 'scroll_tool']
+  private static readonly TOOLS = ['screenshot_tool', 'scroll_tool', 'pdf_extract']
   private static readonly INCLUDE_LINKS = true
   
   private readonly executionContext: ExecutionContext
@@ -55,9 +55,10 @@ export class ChatAgent {
    * Register only the minimal tools needed for Q&A
    */
   private _registerTools(): void {
-    // Only register the 2 essential tools for Q&A
+    // Only register the essential tools for Q&A + PDF support
     this.toolManager.register(ScreenshotTool(this.executionContext))
     this.toolManager.register(ScrollTool(this.executionContext))
+    this.toolManager.register(PdfExtractTool(this.executionContext))
     
     Logging.log('ChatAgent', `Registered ${this.toolManager.getAll().length} tools for Q&A mode`)
   }
