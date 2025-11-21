@@ -663,7 +663,7 @@ export class LangChainProvider {
       let openAIBaseUrl = baseUrl
       if (!openAIBaseUrl.endsWith('/v1')) {
         openAIBaseUrl = `${openAIBaseUrl.replace(/\/+$/, '')}/v1`
-
+      }
       const config: any = {
         modelName: provider.modelId || DEFAULT_OLLAMA_MODEL,
         temperature,
