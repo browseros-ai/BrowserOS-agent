@@ -656,6 +656,32 @@ export class LangChainProvider {
         'info')
     }
 
+    if (provider.apiKey && provider.apiKey.trim().length > 0) {
+      Logging.log('LangChainProvider', 'Ollama Auth detected: Switching to OpenAI Adapter', 'info')
+
+      // Ensure baseUrl ends with /v1 for OpenAI compatibility
+      let openAIBaseUrl = baseUrl
+      if (!openAIBaseUrl.endsWith('/v1')) {
+        openAIBaseUrl = `${openAIBaseUrl.replace(/\/+$/, '')}/v1`
+
+      const config: any = {
+        modelName: provider.modelId || DEFAULT_OLLAMA_MODEL,
+        temperature,
+        streaming: true,
+        openAIApiKey: provider.apiKey, // set API key for OpenAI adapter
+        configuration: {
+          baseURL: openAIBaseUrl,
+          apiKey: provider.apiKey,
+          dangerouslyAllowBrowser: true
+        }
+      }
+
+      if (maxTokens) config.maxTokens = maxTokens
+
+      const model = new ChatOpenAI(config)
+      return this._patchTokenCounting(model)
+    }
+
     const modelId = provider.modelId || DEFAULT_OLLAMA_MODEL
 
     const ollamaConfig: any = {
