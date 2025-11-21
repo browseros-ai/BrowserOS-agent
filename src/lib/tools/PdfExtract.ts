@@ -75,7 +75,7 @@ AI-powered extraction (uses LLM):
 
       pages: z
         .union([
-          z.literal("all"),
+          z.enum(["all"]),  // Using enum instead of literal for Gemini API compatibility (Gemini doesn't support JSON Schema "const" keyword)
           z.object({
             start: z.number(),
             end: z.number()
