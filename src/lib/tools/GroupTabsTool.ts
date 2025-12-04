@@ -24,7 +24,7 @@ export class GroupTabsToolImpl {
     try {
       // Get current window ID
       this.executionContext.getPubSub().publishMessage(PubSub.createMessage(`Grouping tabs ${input.tabIds.join(", ")} with name: ${input.groupName}`, 'thinking'))
-      const currentTab = await chrome.tabs.getCurrent()
+      const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true })
       const windowId = currentTab?.windowId
       
       // Validate tab IDs exist in current window
