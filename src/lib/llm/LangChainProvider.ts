@@ -608,10 +608,12 @@ export class LangChainProvider {
       temperature,
       maxTokens,
       streaming,
-      topP: 1,
       anthropicApiKey: provider.apiKey,
       anthropicApiUrl: provider.baseUrl || 'https://api.anthropic.com'
     })
+
+    // Force topP to undefined to avoid -1 default conflicting with temperature on Claude 4.5 models
+    model.topP = undefined
 
     return this._patchTokenCounting(model)
   }
