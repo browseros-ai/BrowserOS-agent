@@ -1,6 +1,16 @@
 import React, { useState } from 'react'
+import { PrismLight as SyntaxHighlighterBase } from 'react-syntax-highlighter'
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Copy, Check, ChevronDown, ChevronRight, Code } from 'lucide-react'
 import { cn } from '@/sidepanel/lib/utils'
+
+// Register only TypeScript language for smaller bundle
+SyntaxHighlighterBase.registerLanguage('typescript', typescript)
+
+// Cast to any to fix React 18 type compatibility issue
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SyntaxHighlighter = SyntaxHighlighterBase as any
 
 interface CodeBlockProps {
   code: string
@@ -11,7 +21,7 @@ interface CodeBlockProps {
 }
 
 /**
- * CodeBlock component for displaying code with copy functionality
+ * CodeBlock component for displaying code with syntax highlighting and copy functionality
  */
 export function CodeBlock({
   code,
@@ -41,26 +51,26 @@ export function CodeBlock({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+    <div className="rounded-lg border border-border overflow-hidden">
       {/* Header */}
       <div
         className={cn(
-          "flex items-center justify-between px-3 py-2 bg-muted/50 border-b border-border",
-          collapsible && "cursor-pointer hover:bg-muted/70 transition-colors"
+          "flex items-center justify-between px-3 py-2 bg-[#282c34] border-b border-border",
+          collapsible && "cursor-pointer hover:bg-[#2c313a] transition-colors"
         )}
         onClick={toggleExpand}
       >
         <div className="flex items-center gap-2">
           {collapsible && (
             expanded ? (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              <ChevronDown className="w-4 h-4 text-gray-400" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <ChevronRight className="w-4 h-4 text-gray-400" />
             )
           )}
-          <Code className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">{title}</span>
-          <span className="text-xs text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+          <Code className="w-4 h-4 text-gray-400" />
+          <span className="text-sm font-medium text-gray-200">{title}</span>
+          <span className="text-xs text-gray-500 px-1.5 py-0.5 bg-[#21252b] rounded">
             {language}
           </span>
         </div>
@@ -70,8 +80,8 @@ export function CodeBlock({
           className={cn(
             "flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors",
             copied
-              ? "text-green-600 bg-green-100"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              ? "text-green-400 bg-green-900/30"
+              : "text-gray-400 hover:text-gray-200 hover:bg-[#21252b]"
           )}
           title={copied ? "Copied!" : "Copy code"}
         >
@@ -89,15 +99,29 @@ export function CodeBlock({
         </button>
       </div>
 
-      {/* Code content */}
+      {/* Code content with syntax highlighting */}
       {(!collapsible || expanded) && (
-        <div className="overflow-x-auto">
-          <pre className="p-3 text-xs leading-relaxed">
-            <code className="text-foreground font-mono whitespace-pre">
-              {code}
-            </code>
-          </pre>
-        </div>
+        <SyntaxHighlighter
+          language={language}
+          style={oneDark}
+          customStyle={{
+            margin: 0,
+            padding: '12px',
+            fontSize: '12px',
+            lineHeight: '1.5',
+            borderRadius: 0,
+            background: '#282c34'
+          }}
+          showLineNumbers={true}
+          lineNumberStyle={{
+            minWidth: '2.5em',
+            paddingRight: '1em',
+            color: '#636d83',
+            userSelect: 'none'
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
       )}
     </div>
   )
