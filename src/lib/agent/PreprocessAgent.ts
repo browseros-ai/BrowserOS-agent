@@ -29,12 +29,18 @@ const WorkflowMetadataSchema = z.object({
   workflowName: z.string()  // Concise 2-3 word workflow name
 });
 
+const WorkflowCodeSchema = z.object({
+  code: z.string()  // Generated TypeScript code using Agent API
+});
+
 type EventAnalysis = z.infer<typeof EventAnalysisSchema>;
 type WorkflowMetadata = z.infer<typeof WorkflowMetadataSchema>;
+type WorkflowCode = z.infer<typeof WorkflowCodeSchema>;
 
 import {
   generateEventAnalysisPrompt,
-  generateWorkflowMetadataPrompt
+  generateWorkflowMetadataPrompt,
+  generateCodeGenerationPrompt
 } from "./PreprocessAgent.prompt";
 import { isDevelopmentMode } from "@/config";
 
@@ -179,6 +185,24 @@ export class PreprocessAgent {
       // Emit debug info for metadata
       this._emitDebug('Workflow metadata generated', metadata);
 
+      // Generate TypeScript code for the workflow
+      Logging.log("PreprocessAgent", "Generating workflow code...", "info");
+      this._emitProgress('preprocessing_progress', {
+        stage: 'code_generation',
+        current: totalEvents,
+        total: totalEvents,
+        message: 'Generating workflow code...'
+      });
+
+      const generatedCode = await this._generateWorkflowCode(steps, metadata);
+      Logging.log("PreprocessAgent", `Code generation complete: ${generatedCode.length} chars`, "info");
+
+      // Emit debug info for generated code
+      this._emitDebug('Workflow code generated', {
+        codeLength: generatedCode.length,
+        preview: generatedCode.substring(0, 200)
+      });
+
       // Create final workflow
       const workflow: SemanticWorkflow = {
         metadata: {
@@ -187,6 +211,7 @@ export class PreprocessAgent {
           goal: metadata.userGoal,
           description: metadata.workflowDescription,
           transcript: transcript || undefined,
+          generatedCode: generatedCode || undefined,
           createdAt: Date.now(),
           duration: validatedRecording.session.endTimestamp ?
             validatedRecording.session.endTimestamp - validatedRecording.session.startTimestamp : undefined
@@ -219,6 +244,8 @@ export class PreprocessAgent {
         workflowGoal: workflow.metadata.goal,
         hasTranscript: !!transcript,
         transcript: transcript || undefined,
+        hasGeneratedCode: !!generatedCode,
+        generatedCodeLength: generatedCode?.length || 0,
         actionTypeCounts,
         steps: workflow.steps.map(s => ({
           intent: s.intent,
@@ -231,7 +258,8 @@ export class PreprocessAgent {
       // Emit preprocessing completed
       this._emitProgress('preprocessing_completed', {
         workflowName: workflow.metadata.name,
-        totalSteps: steps.length
+        totalSteps: steps.length,
+        generatedCode: generatedCode || undefined
       });
 
       return SemanticWorkflowSchema.parse(workflow);
@@ -547,6 +575,98 @@ ${stepSummary}
         userGoal: narration || "Perform the same workflow as demonstrated",
         workflowName
       };
+    }
+  }
+
+  /**
+   * Generate TypeScript code for the workflow using Agent API
+   */
+  private async _generateWorkflowCode(
+    steps: SemanticWorkflow['steps'],
+    metadata: WorkflowMetadata
+  ): Promise<string> {
+    try {
+      if (steps.length === 0) {
+        return "// No steps recorded - empty workflow";
+      }
+
+      this._emitDebug('Generating workflow code', {
+        stepCount: steps.length,
+        workflowName: metadata.workflowName
+      });
+
+      const structuredLLM = await getStructuredLLM(WorkflowCodeSchema, {
+        temperature: 0.2,
+        maxTokens: 4096
+      });
+
+      const systemPrompt = generateCodeGenerationPrompt();
+
+      // Build step details for LLM
+      const stepDetails = steps.map((step, idx) => {
+        const contextData: Record<string, any> = {};
+
+        // Extract context from step based on action type
+        if (step.stateAfter?.page?.url) {
+          contextData.url = step.stateAfter.page.url;
+        }
+
+        return `Step ${idx + 1}:
+  - Type: ${step.action.type}
+  - Intent: ${step.intent}
+  - Description: ${step.action.description}
+  - Element: ${step.action.nodeIdentificationStrategy || 'N/A'}`;
+      }).join('\n\n');
+
+      // Get starting URL from first step's state
+      const startUrl = steps[0]?.stateBefore?.page?.url ||
+                       steps[0]?.stateAfter?.page?.url ||
+                       'https://example.com';
+
+      const userPrompt = `
+## Workflow: ${metadata.workflowName}
+**Goal:** ${metadata.userGoal}
+
+**Starting URL:** ${startUrl}
+
+## Steps to implement:
+
+${stepDetails}
+
+Generate clean TypeScript code using the BrowserOS Agent API to replicate this workflow.
+`;
+
+      const messages = [
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userPrompt)
+      ];
+
+      const response = await invokeWithRetry<WorkflowCode>(structuredLLM, messages, 3);
+
+      Logging.log("PreprocessAgent", `Generated ${response.code.length} chars of workflow code`, "info");
+
+      return response.code;
+
+    } catch (error) {
+      Logging.log("PreprocessAgent", `Code generation failed: ${error}`, "warning");
+
+      // Fallback: generate basic template code
+      const functionName = metadata.workflowName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
+
+      return `import { Agent } from '@browseros/agent'
+
+async function ${functionName || 'runWorkflow'}() {
+  const agent = new Agent()
+
+  // TODO: Implement ${steps.length} steps
+  // Goal: ${metadata.userGoal}
+${steps.slice(0, 5).map((s, i) => `  // Step ${i + 1}: ${s.intent}`).join('\n')}
+
+  await agent.close()
+}`;
     }
   }
 

@@ -185,3 +185,103 @@ Output:
 - Name is catchy and domain-specific when possible
 `;
 }
+
+export function generateCodeGenerationPrompt(): string {
+  return `
+You are generating TypeScript code for a browser automation workflow using the BrowserOS Agent API.
+
+## BrowserOS Agent API Reference
+
+The Agent API uses a builder pattern. Methods chain together and execute with \`.exec()\`.
+
+### Core Methods:
+
+\`\`\`typescript
+// Navigation - go to a URL
+agent.nav(url: string)
+
+// Action - perform browser actions (clicks, typing, form filling)
+agent.act(instruction: string, options?: { context?: Record<string, any> })
+
+// Extract - pull structured data from page
+agent.extract(instruction: string, options: { schema: ZodSchema })
+
+// Execute - run the chain
+agent.exec(): Promise<T | void>
+\`\`\`
+
+### Key Patterns:
+
+1. **Simple Navigation + Action:**
+\`\`\`typescript
+await agent
+  .nav('https://example.com')
+  .act('click the login button')
+  .exec()
+\`\`\`
+
+2. **Action with Context (data to use):**
+\`\`\`typescript
+await agent
+  .act('fill the login form', {
+    context: {
+      email: 'user@example.com',
+      password: 'secret123'
+    }
+  })
+  .exec()
+\`\`\`
+
+3. **Extract Data:**
+\`\`\`typescript
+const products = await agent
+  .extract('get all product names and prices', {
+    schema: z.array(z.object({
+      name: z.string(),
+      price: z.number()
+    }))
+  })
+  .exec()
+\`\`\`
+
+4. **Chained Operations:**
+\`\`\`typescript
+await agent
+  .nav('https://amazon.com')
+  .act('search for headphones', { context: { query: 'wireless headphones' } })
+  .act('click on the first result')
+  .act('add to cart')
+  .exec()
+\`\`\`
+
+## Your Task
+
+Given a workflow with steps, generate clean TypeScript code that replicates the workflow using the Agent API.
+
+### Guidelines:
+- Start with necessary imports (Agent from '@browseros/agent', z from 'zod')
+- Create an agent instance
+- Map workflow steps to appropriate API calls:
+  - Navigation events → \`nav(url)\`
+  - Click/type/input events → \`act(description, { context })\`
+  - If data extraction needed → \`extract(instruction, { schema })\`
+- Chain related operations when they flow together
+- Use \`.exec()\` to execute chains
+- Close agent at end with \`agent.close()\`
+- Add brief comments for clarity
+- Keep code clean and readable
+
+### Action Type Mapping:
+- \`navigate\`, \`navigation\` → \`nav(url)\`
+- \`click\`, \`dblclick\` → \`act('click on X')\`
+- \`input\`, \`type\`, \`change\` → \`act('type/enter X', { context: { value } })\`
+- \`scroll\` → \`act('scroll to X')\`
+- \`keydown\`, \`keypress\` → \`act('press X key')\`
+- \`session_start\`, \`session_end\` → skip (handled by agent lifecycle)
+- \`tab_*\` events → skip for now (single tab workflows)
+
+### Output Format:
+Generate ONLY the TypeScript code. No explanations before or after.
+Wrap the workflow in an async function with a descriptive name based on the workflow goal.
+`;
+}

@@ -217,6 +217,7 @@ export const SemanticWorkflowSchema = z.object({
     goal: z.string(),  // High-level goal
     description: z.string().optional(),  // Detailed description
     transcript: z.string().optional(),  // Raw transcript from narration/audio
+    generatedCode: z.string().optional(),  // Generated TypeScript code using Agent API
     createdAt: z.number(),  // Creation timestamp
     duration: z.number().optional()  // Total duration in ms
   }),
