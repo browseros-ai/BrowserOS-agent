@@ -27,6 +27,7 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'gpt-4o-mini', contextLength: 128000 },
   ],
   anthropic: [
+    { modelId: 'claude-opus-4-5-20251101', contextLength: 200000 },
     { modelId: 'claude-sonnet-4-5-20250929', contextLength: 200000 },
     { modelId: 'claude-sonnet-4-20250514', contextLength: 200000 },
     { modelId: 'claude-opus-4-20250514', contextLength: 200000 },
