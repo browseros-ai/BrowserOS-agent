@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { Play, ArrowLeft } from 'lucide-react'
 import { Button } from '@/sidepanel/components/ui/button'
 import { SemanticStepTimeline } from './components/SemanticStepTimeline'
+import { CodeBlock } from './components/CodeBlock'
 import { useTeachModeStore } from './teachmode.store'
 import { formatTime } from './teachmode.utils'
 import type { SemanticWorkflow } from '@/lib/teach-mode/types'
@@ -252,6 +253,19 @@ export function TeachModeDetail() {
             }}
           />
         </div>
+
+        {/* Generated Code Section */}
+        {workflow?.metadata?.generatedCode && (
+          <div className="mt-6">
+            <CodeBlock
+              code={workflow.metadata.generatedCode}
+              title="Generated Code"
+              language="typescript"
+              collapsible={true}
+              defaultExpanded={false}
+            />
+          </div>
+        )}
 
         {/* Feedback section at bottom */}
         {(!feedbackSubmitted || showThankYou) && (
