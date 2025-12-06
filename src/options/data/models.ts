@@ -30,12 +30,14 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'claude-sonnet-4-5-20250929', contextLength: 200000 },
     { modelId: 'claude-sonnet-4-20250514', contextLength: 200000 },
     { modelId: 'claude-opus-4-20250514', contextLength: 200000 },
+    { modelId: 'claude-opus-4-5-20251101', contextLength: 200000 },
     { modelId: 'claude-3-7-sonnet-20250219', contextLength: 200000 },
     { modelId: 'claude-3-5-haiku-20241022', contextLength: 200000 }
   ],
   google_gemini: [
     { modelId: 'gemini-2.5-flash', contextLength: 1048576 },  // 1M context
     { modelId: 'gemini-2.5-pro', contextLength: 1048576 },  // 1M context
+    { modelId: 'gemini-3-pro-preview', contextLength: 1048576 },  // 1M context
   ],
   openrouter: [
     { modelId: 'google/gemini-2.5-flash', contextLength: 1048576 },
