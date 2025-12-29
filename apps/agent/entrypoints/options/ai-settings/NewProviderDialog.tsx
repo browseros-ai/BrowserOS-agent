@@ -1,0 +1,840 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
+import { type FC, useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Feature } from '@/lib/browseros/capabilities'
+import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { useCapabilities } from '@/lib/browseros/useCapabilities'
+import { AI_PROVIDER_ADDED_EVENT } from '@/lib/constants/analyticsEvents'
+import {
+  getDefaultBaseUrlForProviders,
+  getProviderTemplate,
+  providerTypeOptions,
+} from '@/lib/llm-providers/providerTemplates'
+import { type TestResult, testProvider } from '@/lib/llm-providers/testProvider'
+import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
+import { track } from '@/lib/metrics/track'
+import { getModelContextLength, getModelOptions } from './models'
+
+const providerTypeEnum = z.enum([
+  'anthropic',
+  'openai',
+  'openai-compatible',
+  'google',
+  'openrouter',
+  'azure',
+  'ollama',
+  'lmstudio',
+  'bedrock',
+  'browseros',
+])
+
+/**
+ * Zod schema for provider form validation
+ * @public
+ */
+export const providerFormSchema = z
+  .object({
+    type: providerTypeEnum,
+    name: z.string().min(1, 'Provider name is required').max(50),
+    baseUrl: z.string().optional(),
+    modelId: z.string().min(1, 'Model ID is required'),
+    apiKey: z.string().optional(),
+    supportsImages: z.boolean(),
+    contextWindow: z.number().int().min(1000).max(2000000),
+    temperature: z.number().min(0).max(2),
+    // Azure-specific
+    resourceName: z.string().optional(),
+    // Bedrock-specific
+    accessKeyId: z.string().optional(),
+    secretAccessKey: z.string().optional(),
+    region: z.string().optional(),
+    sessionToken: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Azure: require either resourceName or baseUrl
+    if (data.type === 'azure') {
+      if (!data.resourceName && !data.baseUrl) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Either Resource Name or Base URL is required',
+          path: ['resourceName'],
+        })
+      }
+      if (!data.apiKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'API Key is required for Azure',
+          path: ['apiKey'],
+        })
+      }
+    }
+    // Bedrock: require AWS credentials
+    else if (data.type === 'bedrock') {
+      if (!data.accessKeyId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Access Key ID is required',
+          path: ['accessKeyId'],
+        })
+      }
+      if (!data.secretAccessKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Secret Access Key is required',
+          path: ['secretAccessKey'],
+        })
+      }
+      if (!data.region) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Region is required',
+          path: ['region'],
+        })
+      }
+    }
+    // Other providers: require baseUrl
+    else if (!data.baseUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Base URL is required',
+        path: ['baseUrl'],
+      })
+    } else if (!/^https?:\/\/.+/.test(data.baseUrl)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Must be a valid URL',
+        path: ['baseUrl'],
+      })
+    }
+  })
+
+/**
+ * Type for form values
+ * @public
+ */
+export type ProviderFormValues = z.infer<typeof providerFormSchema>
+
+/**
+ * Props for NewProviderDialog
+ * @public
+ */
+export interface NewProviderDialogProps {
+  /** Whether the dialog is open */
+  open: boolean
+  /** Callback when dialog should close */
+  onOpenChange: (open: boolean) => void
+  /** Optional initial values for editing or template prefill */
+  initialValues?: Partial<LlmProviderConfig>
+  /** Callback when provider is saved */
+  onSave: (provider: LlmProviderConfig) => Promise<void>
+}
+
+/**
+ * Dialog for configuring a new LLM provider
+ * @public
+ */
+export const NewProviderDialog: FC<NewProviderDialogProps> = ({
+  open,
+  onOpenChange,
+  initialValues,
+  onSave,
+}) => {
+  const [isCustomModel, setIsCustomModel] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const { supports } = useCapabilities()
+
+  const filteredProviderTypeOptions = providerTypeOptions.filter((opt) => {
+    if (opt.value === 'openai-compatible') {
+      return supports(Feature.OPENAI_COMPATIBLE_SUPPORT)
+    }
+    return true
+  })
+
+  const form = useForm<ProviderFormValues>({
+    resolver: zodResolver(providerFormSchema),
+    defaultValues: {
+      type: initialValues?.type || 'openai',
+      name: initialValues?.name || '',
+      baseUrl:
+        initialValues?.baseUrl || getDefaultBaseUrlForProviders('openai'),
+      modelId: initialValues?.modelId || '',
+      apiKey: initialValues?.apiKey || '',
+      supportsImages: initialValues?.supportsImages ?? false,
+      contextWindow: initialValues?.contextWindow || 128000,
+      temperature: initialValues?.temperature ?? 0.2,
+      // Azure-specific
+      resourceName: initialValues?.resourceName || '',
+      // Bedrock-specific
+      accessKeyId: initialValues?.accessKeyId || '',
+      secretAccessKey: initialValues?.secretAccessKey || '',
+      region: initialValues?.region || '',
+      sessionToken: initialValues?.sessionToken || '',
+    },
+  })
+
+  const watchedType = form.watch('type')
+  const watchedModelId = form.watch('modelId')
+
+  // Watch credential fields to clear test result when they change
+  const watchedApiKey = form.watch('apiKey')
+  const watchedBaseUrl = form.watch('baseUrl')
+  const watchedResourceName = form.watch('resourceName')
+  const watchedAccessKeyId = form.watch('accessKeyId')
+  const watchedSecretAccessKey = form.watch('secretAccessKey')
+  const watchedRegion = form.watch('region')
+  const watchedSessionToken = form.watch('sessionToken')
+
+  // Clear test result when credential fields change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional - clear result when any credential changes
+  useEffect(() => {
+    setTestResult(null)
+  }, [
+    watchedType,
+    watchedModelId,
+    watchedApiKey,
+    watchedBaseUrl,
+    watchedResourceName,
+    watchedAccessKeyId,
+    watchedSecretAccessKey,
+    watchedRegion,
+    watchedSessionToken,
+  ])
+
+  // Get model options for current provider type
+  const modelOptions = getModelOptions(watchedType as ProviderType)
+
+  // Handle provider type change (user-initiated via Select)
+  const handleTypeChange = (newType: ProviderType) => {
+    form.setValue('type', newType)
+    const defaultUrl = getDefaultBaseUrlForProviders(newType)
+    if (defaultUrl) {
+      form.setValue('baseUrl', defaultUrl)
+    }
+    form.setValue('modelId', '')
+    setIsCustomModel(false)
+  }
+
+  // Auto-fill context window when model changes
+  useEffect(() => {
+    if (watchedModelId && watchedModelId !== 'custom') {
+      const contextLength = getModelContextLength(
+        watchedType as ProviderType,
+        watchedModelId,
+      )
+      if (contextLength) {
+        form.setValue('contextWindow', contextLength)
+      }
+    }
+  }, [watchedModelId, watchedType, form])
+
+  // Handle model selection (including custom option)
+  const handleModelChange = (value: string) => {
+    if (value === 'custom') {
+      setIsCustomModel(true)
+      form.setValue('modelId', '')
+    } else {
+      setIsCustomModel(false)
+      form.setValue('modelId', value)
+    }
+  }
+
+  // Reset form when initialValues change
+  useEffect(() => {
+    if (initialValues) {
+      form.reset({
+        type: initialValues.type || 'openai',
+        name: initialValues.name || '',
+        baseUrl:
+          initialValues.baseUrl ||
+          getDefaultBaseUrlForProviders(initialValues.type || 'openai'),
+        modelId: initialValues.modelId || '',
+        apiKey: initialValues.apiKey || '',
+        supportsImages: initialValues.supportsImages ?? false,
+        contextWindow: initialValues.contextWindow || 128000,
+        temperature: initialValues.temperature ?? 0.2,
+        // Azure-specific
+        resourceName: initialValues.resourceName || '',
+        // Bedrock-specific
+        accessKeyId: initialValues.accessKeyId || '',
+        secretAccessKey: initialValues.secretAccessKey || '',
+        region: initialValues.region || '',
+        sessionToken: initialValues.sessionToken || '',
+      })
+      setIsCustomModel(false)
+    }
+  }, [initialValues, form])
+
+  // Reset form when dialog opens fresh (no initial values)
+  useEffect(() => {
+    if (open && !initialValues) {
+      const defaultType = 'openai'
+      form.reset({
+        type: defaultType,
+        name: '',
+        baseUrl: getDefaultBaseUrlForProviders(defaultType),
+        modelId: '',
+        apiKey: '',
+        supportsImages: false,
+        contextWindow: 128000,
+        temperature: 0.2,
+        // Azure-specific
+        resourceName: '',
+        // Bedrock-specific
+        accessKeyId: '',
+        secretAccessKey: '',
+        region: '',
+        sessionToken: '',
+      })
+      setIsCustomModel(false)
+    }
+    // Clear test result when dialog opens/closes
+    setTestResult(null)
+  }, [open, initialValues, form])
+
+  const onSubmit = async (values: ProviderFormValues) => {
+    const isNewProvider = !initialValues?.id
+    const provider: LlmProviderConfig = {
+      id: initialValues?.id || crypto.randomUUID(),
+      ...values,
+      createdAt: initialValues?.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    }
+
+    await onSave(provider)
+    if (isNewProvider) {
+      track(AI_PROVIDER_ADDED_EVENT, {
+        provider_type: values.type,
+        model: values.modelId,
+      })
+    }
+    form.reset()
+    onOpenChange(false)
+  }
+
+  // Check if we have enough info to test the connection
+  const canTest = (): boolean => {
+    if (!watchedModelId) return false
+
+    if (watchedType === 'azure') {
+      return !!(watchedResourceName || watchedBaseUrl) && !!watchedApiKey
+    }
+    if (watchedType === 'bedrock') {
+      return !!watchedAccessKeyId && !!watchedSecretAccessKey && !!watchedRegion
+    }
+    // Standard providers need baseUrl, most need apiKey (except ollama/lmstudio)
+    if (!watchedBaseUrl) return false
+    if (!['ollama', 'lmstudio'].includes(watchedType) && !watchedApiKey) {
+      return false
+    }
+    return true
+  }
+
+  const handleTest = async () => {
+    setIsTesting(true)
+    setTestResult(null)
+
+    try {
+      const agentServerUrl = await getAgentServerUrl()
+      const values = form.getValues()
+
+      const result = await testProvider(
+        {
+          id: 'test',
+          type: values.type,
+          name: values.name || 'Test',
+          baseUrl: values.baseUrl,
+          modelId: values.modelId,
+          apiKey: values.apiKey,
+          supportsImages: values.supportsImages,
+          contextWindow: values.contextWindow,
+          temperature: values.temperature,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          resourceName: values.resourceName,
+          accessKeyId: values.accessKeyId,
+          secretAccessKey: values.secretAccessKey,
+          region: values.region,
+          sessionToken: values.sessionToken,
+        },
+        agentServerUrl,
+      )
+
+      setTestResult(result)
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Test failed',
+      })
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
+  const providerTemplate = getProviderTemplate(watchedType as ProviderType)
+  const setupGuideUrl = providerTemplate?.setupGuideUrl
+  const providerName = providerTemplate?.name
+
+  const handleSetupGuideClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (setupGuideUrl) chrome.tabs.create({ url: setupGuideUrl })
+  }
+
+  const renderProviderSpecificFields = () => {
+    if (watchedType === 'azure') {
+      return (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="resourceName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Resource Name *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="your-resource-name" {...field} />
+                  </FormControl>
+                  <FormDescription>Azure OpenAI resource name</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="baseUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Base URL Override</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Optional custom URL" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Overrides resource name if set
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name="apiKey"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>API Key *</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="Enter your Azure API key"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </>
+      )
+    }
+
+    if (watchedType === 'bedrock') {
+      return (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="accessKeyId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Access Key ID *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="AKIA..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="secretAccessKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Secret Access Key *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Enter your secret access key"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Region *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="us-east-1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="sessionToken"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Session Token</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Optional (for STS credentials)"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Required for temporary credentials
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </>
+      )
+    }
+
+    // Standard providers (OpenAI, Anthropic, Google, etc.)
+    return (
+      <>
+        <FormField
+          control={form.control}
+          name="baseUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Base URL *</FormLabel>
+              <FormControl>
+                <Input placeholder="https://api.openai.com/v1" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="apiKey"
+          render={({ field }) => {
+            const isApiKeyOptional = ['ollama', 'lmstudio'].includes(
+              watchedType,
+            )
+            return (
+              <FormItem>
+                <FormLabel>API Key{isApiKeyOptional ? '' : ' *'}</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder={
+                      isApiKeyOptional
+                        ? 'Enter your API key (optional)'
+                        : 'Enter your API key'
+                    }
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Your API key is encrypted and stored locally.{' '}
+                  {setupGuideUrl && (
+                    <a
+                      href={setupGuideUrl}
+                      onClick={handleSetupGuideClick}
+                      className="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {providerName} setup guide
+                    </a>
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )
+          }}
+        />
+      </>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {initialValues?.id ? 'Edit Provider' : 'Configure New Provider'}
+          </DialogTitle>
+          <DialogDescription>
+            {initialValues?.id
+              ? 'Update your LLM provider configuration.'
+              : 'Add a new LLM provider configuration with API key and model settings.'}
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            {/* Row 1: Provider Type & Name */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provider Type *</FormLabel>
+                    <Select
+                      onValueChange={(v) => handleTypeChange(v as ProviderType)}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select provider type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {filteredProviderTypeOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provider Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Work OpenAI" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {renderProviderSpecificFields()}
+
+            {/* Model field - shown for all providers */}
+            <FormField
+              control={form.control}
+              name="modelId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Model *</FormLabel>
+                  {isCustomModel || modelOptions.length === 1 ? (
+                    <>
+                      <FormControl>
+                        <Input
+                          placeholder={
+                            watchedType === 'azure'
+                              ? 'Enter your deployment name'
+                              : watchedType === 'bedrock'
+                                ? 'e.g., anthropic.claude-3-5-sonnet-20241022-v2:0'
+                                : 'Enter custom model ID'
+                          }
+                          {...field}
+                        />
+                      </FormControl>
+                      {modelOptions.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-xs"
+                          onClick={() => setIsCustomModel(false)}
+                        >
+                          ← Back to model list
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <Select
+                      onValueChange={handleModelChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a model" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {modelOptions.map((modelId) => (
+                          <SelectItem key={modelId} value={modelId}>
+                            {modelId === 'custom' ? '+ Custom model' : modelId}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Model Configuration */}
+            <div className="space-y-4 border-border border-t pt-4">
+              <h4 className="font-medium text-sm">Model Configuration</h4>
+              <FormField
+                control={form.control}
+                name="supportsImages"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Supports Images
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="contextWindow"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Context Window Size</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Auto-filled based on model
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="temperature"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Temperature (0-2)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="2"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Controls response randomness
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Test Result Banner */}
+            {testResult && (
+              <div
+                className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${
+                  testResult.success
+                    ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300'
+                    : 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300'
+                }`}
+              >
+                {testResult.success ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                ) : (
+                  <XCircle className="h-4 w-4 shrink-0" />
+                )}
+                <span className="flex-1">{testResult.message}</span>
+                {testResult.responseTime && (
+                  <span className="text-xs opacity-70">
+                    {testResult.responseTime}ms
+                  </span>
+                )}
+              </div>
+            )}
+
+            <DialogFooter className="gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleTest}
+                disabled={!canTest() || isTesting}
+              >
+                {isTesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isTesting ? 'Testing...' : 'Test'}
+              </Button>
+              <Button type="submit" disabled={isTesting}>
+                {initialValues?.id ? 'Update' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  )
+}

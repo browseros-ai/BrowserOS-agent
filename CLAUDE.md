@@ -104,6 +104,29 @@ AI Agent/MCP Client → HTTP Server (Hono) → Tool Handler
                         CDP (direct) ←── or ──→ WebSocket → Extension → Chrome APIs
 ```
 
+## Creating Packages
+
+When creating new packages in this monorepo:
+
+- **Location:** Packages go in `packages/`, apps go in `apps/`
+- **No index.ts:** Don't create or export an `index.ts` - it inflates the bundle with all exports
+- **Separate export files:** Keep exports in individual files (e.g., `logger.ts`, `ports.ts`)
+- **Import pattern:** `import { X } from "@my-package/name/logger"` - only imports what's needed
+
+**package.json exports:** Must include both `types` and `default` for TypeScript:
+```json
+"exports": {
+  "./ports": {
+    "types": "./src/ports.ts",
+    "default": "./src/ports.ts"
+  },
+  "./logger": {
+    "types": "./src/logger.ts",
+    "default": "./src/logger.ts"
+  }
+}
+```
+
 ## Test Organization
 
 Tests are in `apps/server/tests/`:
