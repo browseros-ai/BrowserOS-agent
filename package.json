@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "start": "bun --env-file=.env.dev apps/server/src/index.ts",

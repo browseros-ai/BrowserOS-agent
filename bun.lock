@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "browseros-server",
@@ -35,7 +36,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.30",
+      "version": "0.0.31",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
@@ -80,7 +81,7 @@
         "chrome-devtools-mcp": "latest",
       },
     },
-    "apps/shared": {
+    "packages/shared": {
       "name": "@browseros/shared",
       "version": "0.0.1",
     },
@@ -143,7 +144,7 @@
 
     "@browseros/server": ["@browseros/server@workspace:apps/server"],
 
-    "@browseros/shared": ["@browseros/shared@workspace:apps/shared"],
+    "@browseros/shared": ["@browseros/shared@workspace:packages/shared"],
 
     "@discoveryjs/json-ext": ["@discoveryjs/json-ext@0.6.3", "", {}, "sha512-4B4OijXeVNOPZlYA2oEwWOTkzyltLao+xbotHQeqN++Rv27Y6s818+n2Qkp8q+Fxhn0t/5lA5X1Mxktud8eayQ=="],
 
