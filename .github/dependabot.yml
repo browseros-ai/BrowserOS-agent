@@ -3,10 +3,11 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
+      interval:  weekly
       day: 'sunday'
       time: '02:00'
       timezone: Europe/Berlin
+    open-pull-requests-limit: 10
     groups:
       dependencies:
         dependency-type: production
@@ -14,7 +15,7 @@ updates:
           - 'puppeteer*'
         patterns:
           - '*'
-      dev-dependencies:
+      dev-dependencies: 
         dependency-type: development
         exclude-patterns:
           - 'puppeteer*'
@@ -29,8 +30,12 @@ updates:
       interval: weekly
       day: 'sunday'
       time: '04:00'
-      timezone: Europe/Berlin
+      timezone:  Europe/Berlin
+    open-pull-requests-limit: 10
     groups:
-      all:
+      all: 
         patterns:
           - '*'
+
+enable-beta-ecosystems: true
+security-updates-only: true
