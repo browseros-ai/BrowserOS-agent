@@ -81,7 +81,7 @@ The main MCP server that exposes browser automation tools via HTTP/SSE.
 - CDP tools require a direct CDP connection (`--cdp-port`)
 - Controller tools work via the browser extension over WebSocket
 
-### Shared (`apps/shared`)
+### Shared (`packages/shared`)
 Shared constants and configuration used by both server and extension. Avoids magic numbers.
 
 **Exports:** `@browseros/shared/ports`, `@browseros/shared/timeouts`, `@browseros/shared/limits`, `@browseros/shared/urls`, `@browseros/shared/paths`
