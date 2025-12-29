@@ -1,6 +1,6 @@
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
@@ -10,12 +10,14 @@ updates:
     open-pull-requests-limit: 10
     groups:
       dependencies:
+        applies-to: security-updates
         dependency-type: production
         exclude-patterns:
           - 'puppeteer*'
         patterns:
           - '*'
       dev-dependencies:
+        applies-to: security-updates
         dependency-type: development
         exclude-patterns:
           - 'puppeteer*'
@@ -34,8 +36,6 @@ updates:
     open-pull-requests-limit: 10
     groups:
       all:
+        applies-to: security-updates
         patterns:
           - '*'
-
-enable-beta-ecosystems: true
-security-updates-only: true
