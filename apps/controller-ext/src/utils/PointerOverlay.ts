@@ -40,7 +40,7 @@ export class PointerOverlay {
       ? `
       var label = document.createElement('div');
       label.style.cssText = 'position: absolute; top: 20px; left: 12px; background: rgba(0,0,0,0.9); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.5);';
-      label.textContent = '${text.replace(/'/g, "\\'")}';
+      label.textContent = '${text.replace(/[`$\\]/g, '\\$&').replace(/'/g, "\\'")}';
       shadow.appendChild(label);
     `
       : ''
