@@ -1,24 +1,9 @@
-// TODO: WIP -- this needs to implemented still. Just creating rough UI as of now.
-export interface ScheduledJob {
-  id: string
-  name: string
-  query: string
-  scheduleType: 'daily' | 'hourly' | 'minutes'
-  scheduleTime?: string
-  scheduleInterval?: number
-  enabled: boolean
-  createdAt: string
-  lastRunAt?: string
-}
+import type {
+  ScheduledJob,
+  ScheduledJobRun,
+} from '@/lib/schedules/scheduleTypes'
 
-export interface ScheduledJobRun {
-  id: string
-  jobId: string
-  startedAt: string
-  completedAt?: string
-  status: 'running' | 'completed' | 'failed'
-  result?: string
-}
+export type { ScheduledJob, ScheduledJobRun }
 
 export interface ScheduledTasksStorage {
   loadJobs(): Promise<ScheduledJob[]>
