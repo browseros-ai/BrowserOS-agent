@@ -16,7 +16,7 @@
  */
 export const DEFAULT_PORTS = {
   cdp: 9000,
-  httpMcp: 9100,
+  server: 9100,
   extension: 9300,
 } as const
 
@@ -26,7 +26,7 @@ export const DEFAULT_PORTS = {
  */
 export const TEST_PORTS = {
   cdp: 9005,
-  httpMcp: 9105,
+  server: 9105,
   extension: 9305,
 } as const
 

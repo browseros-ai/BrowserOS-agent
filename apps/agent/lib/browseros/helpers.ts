@@ -25,8 +25,8 @@ export async function getAgentServerUrl(): Promise<string> {
 }
 
 async function getAgentPort(): Promise<number> {
-  if (env.VITE_BROWSEROS_AGENT_PORT) {
-    return env.VITE_BROWSEROS_AGENT_PORT
+  if (env.VITE_BROWSEROS_SERVER_PORT) {
+    return env.VITE_BROWSEROS_SERVER_PORT
   }
 
   try {

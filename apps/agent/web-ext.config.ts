@@ -85,11 +85,8 @@ if (useBrowserOS) {
   if (env.BROWSEROS_CDP_PORT) {
     chromiumArgs.push(`--browseros-cdp-port=${env.BROWSEROS_CDP_PORT}`)
   }
-  if (env.BROWSEROS_MCP_PORT) {
-    chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_MCP_PORT}`)
-  }
-  if (env.BROWSEROS_AGENT_PORT) {
-    chromiumArgs.push(`--browseros-agent-port=${env.BROWSEROS_AGENT_PORT}`)
+  if (env.BROWSEROS_SERVER_PORT) {
+    chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
   }
   if (env.BROWSEROS_EXTENSION_PORT) {
     chromiumArgs.push(

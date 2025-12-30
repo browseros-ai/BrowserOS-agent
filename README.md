@@ -1,68 +1,141 @@
 # BrowserOS Server
 
-The automation engine inside [BrowserOS](https://github.com/browseros-ai/BrowserOS). This MCP server powers the built-in AI agent and lets external tools like `claude-code` or `gemini-cli` control your browser.
+The automation engine inside BrowserOS. This server powers the built-in AI agent and exposes browser control via MCP (Model Context Protocol), allowing external tools like `claude-code` to control the browser.
 
-## How It Works
-
-When BrowserOS launches, this server starts automatically in the background. The built-in agent UI connects to it, giving you a sidepanel where you can chat with AI and automate browser tasks.
-
-```
-BrowserOS launches
-       ↓
-MCP Server starts (this repo)
-       ↓
-Agent extension connects
-       ↓
-You can chat and automate tasks
-```
-
-You can also connect external MCP clients to control BrowserOS from your terminal or other AI tools.
-
-## Architecture
-
-The server exposes browser automation tools through two channels:
-
-- **Controller tools** - High-level commands via a Chrome extension (navigation, clicks, screenshots, tabs, history, bookmarks)
-- **CDP tools** - Low-level access via Chrome DevTools Protocol (network inspection, console logs, emulation)
+## Monorepo Structure
 
 ```
 apps/
-├── server/          # MCP server (HTTP + WebSocket)
-└── controller-ext/  # Chrome extension for browser control
+  server/          # Bun server - MCP endpoints + agent loop
+  agent/           # Agent UI (Chrome extension)
+  controller-ext/  # BrowserOS Controller (Chrome extension for chrome.* APIs)
+
+packages/
+  shared/          # Shared constants (ports, timeouts, limits)
 ```
 
-## For Developers
+| Package | Description |
+|---------|-------------|
+| `apps/server` | Bun server exposing MCP tools and running the agent loop |
+| `apps/agent` | Agent UI - Chrome extension for the chat interface |
+| `apps/controller-ext` | BrowserOS Controller - Chrome extension that bridges `chrome.*` APIs (tabs, bookmarks, history) to the server via WebSocket |
+| `packages/shared` | Shared constants used across packages |
+
+## Architecture
+
+- `apps/server`: Bun server which contains the agent loop and tools.
+- `apps/agent`: Agent UI (Chrome extension).
+- `apps/controller-ext`: BrowserOS Controller - a Chrome extension that bridges `chrome.*` APIs to the server. Controller tools within the server communicate with this extension via WebSocket.
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         External Clients                                  │
+│                (Agent UI, claude-code via MCP)                           │
+└──────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ HTTP/SSE
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                 BrowserOS Server (serverPort: 9100)                      │
+│                                                                          │
+│   /mcp ─────── MCP tool endpoints                                        │
+│   /chat ────── Agent streaming                                           │
+│   /health ─── Health check                                               │
+│                                                                          │
+│   Tools:                                                                 │
+│   ├── CDP Tools (console, network, input, screenshot, ...)              │
+│   └── Controller Tools (tabs, navigation, clicks, bookmarks, history)   │
+└──────────────────────────────────────────────────────────────────────────┘
+          │                                         │
+          │ CDP (client)                            │ WebSocket (server)
+          ▼                                         ▼
+┌─────────────────────┐              ┌─────────────────────────────────────┐
+│   Chromium CDP      │              │   BrowserOS Controller Extension    │
+│  (cdpPort: 9000)    │              │     (extensionPort: 9300)           │
+│                     │              │                                     │
+│ Server connects     │              │ Bridges chrome.tabs, chrome.history │
+│ TO this as client   │              │ chrome.bookmarks to the server      │
+└─────────────────────┘              └─────────────────────────────────────┘
+```
+
+### Ports
+
+| Port | Env Variable | Purpose |
+|------|--------------|---------|
+| 9100 | `BROWSEROS_SERVER_PORT` | HTTP server - MCP endpoints, agent chat, health |
+| 9000 | `BROWSEROS_CDP_PORT` | Chromium CDP server (BrowserOS Server connects as client) |
+| 9300 | `BROWSEROS_EXTENSION_PORT` | WebSocket server for controller extension |
+
+## Development
+
+### Setup
 
 ```bash
 # Install dependencies
 bun install
 
-# Start the server (for local development)
-bun run start
-
-# Run tests
-bun run test              # Unit tests
-bun run test:cdp          # CDP tests (needs browser running)
-bun run test:all          # Everything
-
-# Lint and type check
-bun run lint
-bun run typecheck
-
-# Build for production
-bun run dist:server       # All platforms
-bun run dist:ext          # Extension
+# Copy environment file
+cp .env.example .env.development
 ```
 
-## Using with External MCP Clients
+### Environment Variables
 
-Once BrowserOS is running, you can connect any MCP client to `http://127.0.0.1:<port>/mcp`. See [our docs](https://docs.browseros.com/browseros-mcp/how-to-guide) for setup with `claude-code` and `gemini-cli`.
+Single `.env.development` at root. Key variables:
 
-## Related Repos
+**Ports**
 
-- [BrowserOS](https://github.com/browseros-ai/BrowserOS) - The Chromium fork (main product)
-- BrowserOS Agent - The built-in sidepanel extension for chatting with AI
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BROWSEROS_SERVER_PORT` | 9100 | Server HTTP port (MCP, chat, health) |
+| `BROWSEROS_CDP_PORT` | 9000 | Chromium CDP port (server connects as client) |
+| `BROWSEROS_EXTENSION_PORT` | 9300 | WebSocket port for controller extension |
+| `VITE_BROWSEROS_SERVER_PORT` | 9100 | Agent UI uses this to connect to server (must match `BROWSEROS_SERVER_PORT`) |
+
+**BrowserOS Config**
+
+| Variable | Description |
+|----------|-------------|
+| `BROWSEROS_CONFIG_URL` | Remote config endpoint for rate limits and LLM provider config |
+| `BROWSEROS_INSTALL_ID` | Unique installation identifier (for analytics) |
+| `BROWSEROS_CLIENT_ID` | Client identifier (for analytics) |
+
+**Telemetry**
+
+Server (Bun process) and Agent UI (Chrome extension) run in different environments, so they require separate telemetry configuration. Server uses `posthog-node`, Agent UI uses `posthog-js`. The `VITE_` prefix exposes variables to the browser bundle.
+
+| Variable | Description |
+|----------|-------------|
+| `POSTHOG_API_KEY` | Server-side PostHog API key |
+| `POSTHOG_ENDPOINT` | Server-side PostHog endpoint |
+| `SENTRY_DSN` | Server-side Sentry DSN |
+| `VITE_PUBLIC_POSTHOG_KEY` | Agent UI PostHog key |
+| `VITE_PUBLIC_POSTHOG_HOST` | Agent UI PostHog host |
+| `VITE_PUBLIC_SENTRY_DSN` | Agent UI Sentry DSN |
+
+### Commands
+
+```bash
+# Start
+bun run start:server          # Start the server
+bun run start:agent           # Start agent extension (dev mode)
+
+# Build
+bun run build:server          # Build server for production
+bun run build:agent           # Build agent extension
+bun run build:ext             # Build controller extension
+
+# Test
+bun run test                  # Run standard tests
+bun run test:cdp              # Run CDP-based tests
+bun run test:controller       # Run controller-based tests
+bun run test:integration      # Run integration tests
+
+# Quality
+bun run lint                  # Check with Biome
+bun run lint:fix              # Auto-fix
+bun run typecheck             # TypeScript check
+```
 
 ## License
 
-AGPL-3.0-or-later
+AGPL-3.0

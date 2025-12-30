@@ -101,7 +101,7 @@ void (async () => {
   const toolMutex = new Mutex()
 
   const httpServer = createHttpServer({
-    port: config.httpMcpPort,
+    port: config.serverPort,
     host: '0.0.0.0',
     logger,
     // MCP config
@@ -117,8 +117,8 @@ void (async () => {
     rateLimiter: new RateLimiter(db, dailyRateLimit),
   })
 
-  logger.info(`HTTP server listening on http://127.0.0.1:${config.httpMcpPort}`)
-  logger.info(`Health endpoint: http://127.0.0.1:${config.httpMcpPort}/health`)
+  logger.info(`HTTP server listening on http://127.0.0.1:${config.serverPort}`)
+  logger.info(`Health endpoint: http://127.0.0.1:${config.serverPort}/health`)
 
   logSummary(config)
 
@@ -238,7 +238,7 @@ function logSummary(serverConfig: ServerConfig) {
   logger.info(
     `  Controller Server: ws://127.0.0.1:${serverConfig.extensionPort}`,
   )
-  logger.info(`  HTTP Server: http://127.0.0.1:${serverConfig.httpMcpPort}`)
+  logger.info(`  HTTP Server: http://127.0.0.1:${serverConfig.serverPort}`)
   logger.info('')
 }
 
