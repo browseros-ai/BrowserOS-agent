@@ -9,7 +9,7 @@ import type {
   InteractiveSnapshot,
   Rect,
 } from '@/adapters/BrowserOSAdapter'
-import { logger } from '@/utils/Logger'
+import { logger } from '@/utils/logger'
 
 /**
  * SnapshotCache - Caches interactive snapshots per tabId for multi-agent support

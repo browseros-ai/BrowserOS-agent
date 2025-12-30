@@ -8,7 +8,7 @@ import {
   BrowserOSAdapter,
   type ScreenshotSizeKey,
 } from '@/adapters/BrowserOSAdapter'
-import { logger } from '@/utils/Logger'
+import { logger } from '@/utils/logger'
 import { PointerOverlay } from '@/utils/PointerOverlay'
 import { SnapshotCache } from '@/utils/SnapshotCache'
 import { ActionHandler } from '../ActionHandler'

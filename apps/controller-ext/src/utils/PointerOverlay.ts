@@ -5,7 +5,7 @@
  */
 
 import { getBrowserOSAdapter } from '@/adapters/BrowserOSAdapter'
-import { logger } from '@/utils/Logger'
+import { logger } from '@/utils/logger'
 
 const POINTER_DISPLAY_DURATION_MS = 3000
 const POINTER_DELAY_BEFORE_ACTION_MS = 500
