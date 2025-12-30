@@ -9,7 +9,7 @@
  * Options:
  *   --provider  AI provider (default: google)
  *   --model     Model name (default: gemini-2.5-flash)
- *   --port      Server port (default: $AGENT_PORT or 9200)
+ *   --port      Server port (default: $BROWSEROS_SERVER_PORT or 9100)
  *   --show-full-output  Show full tool output (default: truncated to 50 chars)
  */
 
@@ -31,7 +31,7 @@ function parseArgs(): {
   const args = process.argv.slice(2)
   let provider = 'google'
   let model = 'gemini-2.5-flash'
-  let port = process.env.AGENT_PORT || '9200'
+  let port = process.env.BROWSEROS_SERVER_PORT || '9100'
   let showFullOutput = false
   let message = ''
 

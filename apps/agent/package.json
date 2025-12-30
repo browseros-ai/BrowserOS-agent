@@ -1,11 +1,11 @@
 {
-  "name": "Assistant",
+  "name": "agent",
   "description": "manifest.json description",
   "private": true,
   "version": "0.0.20",
   "type": "module",
   "scripts": {
-    "dev": "bun --env-file=.env.development wxt",
+    "dev": "bun --env-file=../../.env.development wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",

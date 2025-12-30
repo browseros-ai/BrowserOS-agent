@@ -13,7 +13,7 @@ import { join } from 'node:path'
 
 export interface BrowserConfig {
   cdpPort: number
-  httpMcpPort: number
+  serverPort: number
   extensionPort: number
   binaryPath: string
 }
@@ -79,7 +79,7 @@ export async function spawnBrowser(
       '--headless=new',
       `--user-data-dir=${tempUserDataDir}`,
       `--remote-debugging-port=${config.cdpPort}`,
-      `--browseros-mcp-port=${config.httpMcpPort}`,
+      `--browseros-mcp-port=${config.serverPort}`,
       `--browseros-extension-port=${config.extensionPort}`,
       '--disable-browseros-server',
     ],

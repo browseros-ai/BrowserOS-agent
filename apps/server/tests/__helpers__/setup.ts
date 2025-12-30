@@ -18,18 +18,21 @@ import { killProcessOnPort } from './utils.js'
 
 export interface TestEnvironmentConfig {
   cdpPort: number
-  httpMcpPort: number
+  serverPort: number
   extensionPort: number
 }
 
 const DEFAULT_CONFIG: TestEnvironmentConfig = {
-  cdpPort: Number.parseInt(process.env.CDP_PORT || String(TEST_PORTS.cdp), 10),
-  httpMcpPort: Number.parseInt(
-    process.env.HTTP_MCP_PORT || String(TEST_PORTS.httpMcp),
+  cdpPort: Number.parseInt(
+    process.env.BROWSEROS_CDP_PORT || String(TEST_PORTS.cdp),
+    10,
+  ),
+  serverPort: Number.parseInt(
+    process.env.BROWSEROS_SERVER_PORT || String(TEST_PORTS.server),
     10,
   ),
   extensionPort: Number.parseInt(
-    process.env.EXTENSION_PORT || String(TEST_PORTS.extension),
+    process.env.BROWSEROS_EXTENSION_PORT || String(TEST_PORTS.extension),
     10,
   ),
 }
@@ -72,7 +75,7 @@ function configsMatch(
 ): boolean {
   return (
     a.cdpPort === b.cdpPort &&
-    a.httpMcpPort === b.httpMcpPort &&
+    a.serverPort === b.serverPort &&
     a.extensionPort === b.extensionPort
   )
 }
@@ -90,7 +93,7 @@ export async function ensureBrowserOS(
 ): Promise<TestEnvironmentConfig> {
   const config: TestEnvironmentConfig = {
     cdpPort: options?.cdpPort ?? DEFAULT_CONFIG.cdpPort,
-    httpMcpPort: options?.httpMcpPort ?? DEFAULT_CONFIG.httpMcpPort,
+    serverPort: options?.serverPort ?? DEFAULT_CONFIG.serverPort,
     extensionPort: options?.extensionPort ?? DEFAULT_CONFIG.extensionPort,
   }
 
@@ -103,7 +106,7 @@ export async function ensureBrowserOS(
     configsMatch(serverState.config, config) &&
     configsMatch(browserState.config, config)
   ) {
-    if (await isExtensionConnected(config.httpMcpPort)) {
+    if (await isExtensionConnected(config.serverPort)) {
       console.log('Reusing existing test environment')
       return config
     }
@@ -113,7 +116,7 @@ export async function ensureBrowserOS(
   console.log('\n=== Setting up BrowserOS test environment ===')
 
   // 1. Kill conflicting processes on ports
-  await killProcessOnPort(config.httpMcpPort)
+  await killProcessOnPort(config.serverPort)
   await killProcessOnPort(config.extensionPort)
   await killProcessOnPort(config.cdpPort)
 
@@ -129,7 +132,7 @@ export async function ensureBrowserOS(
 
   // 4. Wait for extension to connect
   console.log('Waiting for extension to connect...')
-  await waitForExtensionConnection(config.httpMcpPort)
+  await waitForExtensionConnection(config.serverPort)
   console.log('Extension connected')
 
   console.log('=== Test environment ready ===\n')
