@@ -151,6 +151,9 @@ packages/*/dist
 !.vscode/*.template.json
 !.vscode/extensions.json
 
+# Stores Zed specific settings
+.zed
+
 # yarn v2
 .yarn/cache
 .yarn/unplugged
