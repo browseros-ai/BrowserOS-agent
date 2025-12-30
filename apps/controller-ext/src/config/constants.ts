@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+import { CONTENT_LIMITS } from '@browseros/shared/limits'
+import { DEFAULT_PORTS } from '@browseros/shared/ports'
+import { TIMEOUTS } from '@browseros/shared/timeouts'
 export type WebSocketProtocol = 'ws' | 'wss'
 
 export interface WebSocketConfig {
@@ -26,7 +28,7 @@ export interface ConcurrencyConfig {
 
 export interface LoggingConfig {
   readonly enabled: boolean
-  readonly level: LogLevel
+  readonly level: 'debug' | 'info' | 'warn' | 'error'
   readonly prefix: string
 }
 
@@ -34,20 +36,20 @@ export const WEBSOCKET_CONFIG: WebSocketConfig = {
   protocol: 'ws',
   host: '127.0.0.1',
   path: '/controller',
-  defaultExtensionPort: 9300,
+  defaultExtensionPort: DEFAULT_PORTS.extension,
 
-  reconnectIntervalMs: 5000,
+  reconnectIntervalMs: TIMEOUTS.WS_RECONNECT_INTERVAL,
 
-  heartbeatInterval: 20000,
-  heartbeatTimeout: 5000,
+  heartbeatInterval: TIMEOUTS.WS_HEARTBEAT_INTERVAL,
+  heartbeatTimeout: TIMEOUTS.WS_HEARTBEAT_TIMEOUT,
 
-  connectionTimeout: 10000,
-  requestTimeout: 30000,
+  connectionTimeout: TIMEOUTS.WS_CONNECTION_TIMEOUT,
+  requestTimeout: TIMEOUTS.WS_REQUEST_TIMEOUT,
 }
 
 export const CONCURRENCY_CONFIG: ConcurrencyConfig = {
   maxConcurrent: 1,
-  maxQueueSize: 1000,
+  maxQueueSize: CONTENT_LIMITS.MAX_QUEUE_SIZE,
 }
 
 export const LOGGING_CONFIG: LoggingConfig = {

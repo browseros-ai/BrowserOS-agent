@@ -1,7 +1,7 @@
 {
   "name": "@browseros/server",
-  "version": "0.0.1",
-  "description": "Unified BrowserOS server - main application",
+  "version": "0.0.31",
+  "description": "BrowserOS server",
   "type": "module",
   "main": "./src/index.ts",
   "bin": {
@@ -13,6 +13,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@browseros/shared": "workspace:*",
     "@ai-sdk/amazon-bedrock": "^3.0.59",
     "@ai-sdk/anthropic": "^2.0.47",
     "@ai-sdk/azure": "^2.0.74",
@@ -24,7 +25,7 @@
     "@google/gemini-cli-core": "^0.16.0",
     "@google/genai": "1.30.0",
     "@hono/node-server": "^1.19.6",
-    "@modelcontextprotocol/sdk": "1.19.1",
+    "@modelcontextprotocol/sdk": "1.24.0",
     "@openrouter/ai-sdk-provider": "^1.5.2",
     "@sentry/bun": "^10.31.0",
     "ai": "^5.0.101",
@@ -32,12 +33,15 @@
     "core-js": "3.45.1",
     "debug": "4.4.3",
     "hono": "^4.6.0",
+    "@hono/mcp": "^0.2.2",
     "posthog-node": "^4.17.0",
     "puppeteer-core": "24.23.0",
     "ws": "^8.18.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "pino": "^9.6.0"
   },
   "devDependencies": {
+    "pino-pretty": "^13.0.0",
     "@types/bun": "latest",
     "@types/debug": "^4.1.12",
     "@types/node": "^24.3.3",
@@ -47,10 +51,6 @@
   },
   "optionalDependencies": {
     "chrome-devtools-mcp": "latest"
-  },
-  "engines": {
-    "bun": ">=1.0.0",
-    "node": "^20.19.0 || ^22.12.0 || >=23"
   },
   "license": "AGPL-3.0-or-later"
 }

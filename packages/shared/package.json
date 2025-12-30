@@ -1,0 +1,34 @@
+{
+  "name": "@browseros/shared",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./ports": {
+      "types": "./src/ports.ts",
+      "default": "./src/ports.ts"
+    },
+    "./timeouts": {
+      "types": "./src/timeouts.ts",
+      "default": "./src/timeouts.ts"
+    },
+    "./limits": {
+      "types": "./src/limits.ts",
+      "default": "./src/limits.ts"
+    },
+    "./urls": {
+      "types": "./src/urls.ts",
+      "default": "./src/urls.ts"
+    },
+    "./paths": {
+      "types": "./src/paths.ts",
+      "default": "./src/paths.ts"
+    },
+    "./logger": {
+      "types": "./src/logger.ts",
+      "default": "./src/logger.ts"
+    }
+  }
+}

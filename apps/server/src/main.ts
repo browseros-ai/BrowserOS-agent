@@ -7,12 +7,9 @@
 // Sentry import should happen before any other logic
 
 import fs from 'node:fs'
-import type http from 'node:http'
 import path from 'node:path'
-import {
-  createHttpServer as createAgentHttpServer,
-  RateLimiter,
-} from './agent/index.js'
+import { RATE_LIMITS } from '@browseros/shared/limits'
+import { RateLimiter } from './agent/index.js'
 import {
   ensureBrowserConnected,
   fetchBrowserOSConfig,
@@ -22,7 +19,6 @@ import {
   McpContext,
   Mutex,
   metrics,
-  readVersion,
 } from './common/index.js'
 import { Sentry } from './common/sentry/instrument.js'
 import { loadServerConfig, type ServerConfig } from './config.js'
@@ -30,14 +26,14 @@ import {
   ControllerBridge,
   ControllerContext,
 } from './controller-server/index.js'
-import { createHttpMcpServer, shutdownMcpServer } from './mcp/index.js'
+import { createHttpServer } from './http/index.js'
 import {
   allCdpTools,
   allControllerTools,
   type ToolDefinition,
 } from './tools/index.js'
+import { VERSION } from './version.js'
 
-const version = readVersion()
 const configResult = loadServerConfig()
 
 if (!configResult.ok) {
@@ -63,7 +59,7 @@ identity.initialize({
 })
 
 const browserosId = identity.getBrowserOSId()
-logger.info('[Identity] BrowserOS ID initialized', {
+logger.info('BrowserOS ID initialized', {
   browserosId: browserosId.slice(0, 12),
   fromConfig: !!config.instanceInstallId,
 })
@@ -83,17 +79,14 @@ Sentry.setContext('browseros', {
   chromium_version: config.instanceChromiumVersion,
 })
 
-const DEFAULT_DAILY_RATE_LIMIT = 5
-const DEV_DAILY_RATE_LIMIT = 100
-
 void (async () => {
-  logger.info(`Starting BrowserOS Server v${version}`)
+  logger.info(`Starting BrowserOS Server v${VERSION}`)
 
   // Fetch rate limit config from Cloudflare worker
   const dailyRateLimit = await fetchDailyRateLimit()
 
   logger.info(
-    `[Controller Server] Starting on ws://127.0.0.1:${config.extensionPort}`,
+    `Controller server starting on ws://127.0.0.1:${config.extensionPort}`,
   )
   const { controllerBridge, controllerContext } = createController(
     config.extensionPort,
@@ -107,24 +100,29 @@ void (async () => {
   const tools = mergeTools(cdpContext, controllerContext)
   const toolMutex = new Mutex()
 
-  const mcpServer = startMcpServer({
-    config,
-    version,
+  const httpServer = createHttpServer({
+    port: config.httpMcpPort,
+    host: '0.0.0.0',
+    logger,
+    // MCP config
+    version: VERSION,
     tools,
     cdpContext,
     controllerContext,
     toolMutex,
+    allowRemote: config.mcpAllowRemote,
+    // Chat/Klavis config
+    browserosId,
+    tempDir: config.executionDir || config.resourcesDir,
+    rateLimiter: new RateLimiter(db, dailyRateLimit),
   })
 
-  const agentServer = startAgentServer(config, dailyRateLimit)
+  logger.info(`HTTP server listening on http://127.0.0.1:${config.httpMcpPort}`)
+  logger.info(`Health endpoint: http://127.0.0.1:${config.httpMcpPort}/health`)
 
   logSummary(config)
 
-  const shutdown = createShutdownHandler(
-    mcpServer,
-    agentServer,
-    controllerBridge,
-  )
+  const shutdown = createShutdownHandler(httpServer, controllerBridge)
   process.on('SIGINT', shutdown)
   process.on('SIGTERM', shutdown)
 })()
@@ -192,56 +190,27 @@ function mergeTools(
   return [...cdpTools, ...wrappedControllerTools]
 }
 
-function startMcpServer(params: {
-  config: ServerConfig
-  version: string
-  tools: Array<ToolDefinition<any, any, any>>
-  cdpContext: McpContext | null
-  controllerContext: ControllerContext
-  toolMutex: Mutex
-}): http.Server {
-  const { config, version, tools, cdpContext, controllerContext, toolMutex } =
-    params
-
-  const mcpServer = createHttpMcpServer({
-    port: config.httpMcpPort,
-    version,
-    tools,
-    context: cdpContext || ({} as any),
-    controllerContext,
-    toolMutex,
-    logger,
-    allowRemote: config.mcpAllowRemote,
-  })
-
-  logger.info(
-    `[MCP Server] Listening on http://127.0.0.1:${config.httpMcpPort}/mcp`,
-  )
-  logger.info(
-    `[MCP Server] Health check: http://127.0.0.1:${config.httpMcpPort}/health`,
-  )
-  if (config.mcpAllowRemote) {
-    logger.warn('[MCP Server] Remote connections enabled (--mcp-allow-remote)')
+async function fetchDailyRateLimit(): Promise<number> {
+  // Test mode: skip rate limiting entirely
+  if (process.env.NODE_ENV === 'test') {
+    logger.info('Test mode: rate limiting disabled')
+    return RATE_LIMITS.TEST_DAILY
   }
 
-  return mcpServer
-}
-
-async function fetchDailyRateLimit(): Promise<number> {
   // Dev mode: skip fetch, use higher limit for local development
   if (process.env.NODE_ENV === 'development') {
-    logger.info('[Config] Dev mode: using dev rate limit', {
-      dailyRateLimit: DEV_DAILY_RATE_LIMIT,
+    logger.info('Dev mode: using dev rate limit', {
+      dailyRateLimit: RATE_LIMITS.DEV_DAILY,
     })
-    return DEV_DAILY_RATE_LIMIT
+    return RATE_LIMITS.DEV_DAILY
   }
 
   const configUrl = process.env.BROWSEROS_CONFIG_URL
   if (!configUrl) {
-    logger.info('[Config] No BROWSEROS_CONFIG_URL, using default rate limit', {
-      dailyRateLimit: DEFAULT_DAILY_RATE_LIMIT,
+    logger.info('No BROWSEROS_CONFIG_URL, using default rate limit', {
+      dailyRateLimit: RATE_LIMITS.DEFAULT_DAILY,
     })
-    return DEFAULT_DAILY_RATE_LIMIT
+    return RATE_LIMITS.DEFAULT_DAILY
   }
 
   try {
@@ -250,47 +219,17 @@ async function fetchDailyRateLimit(): Promise<number> {
       (p) => p.name === 'default',
     )
     const dailyRateLimit =
-      defaultProvider?.dailyRateLimit ?? DEFAULT_DAILY_RATE_LIMIT
+      defaultProvider?.dailyRateLimit ?? RATE_LIMITS.DEFAULT_DAILY
 
-    logger.info('[Config] Rate limit config fetched', { dailyRateLimit })
+    logger.info('Rate limit config fetched', { dailyRateLimit })
     return dailyRateLimit
   } catch (error) {
-    logger.warn('[Config] Failed to fetch rate limit config, using default', {
+    logger.warn('Failed to fetch rate limit config, using default', {
       error: error instanceof Error ? error.message : String(error),
-      dailyRateLimit: DEFAULT_DAILY_RATE_LIMIT,
+      dailyRateLimit: RATE_LIMITS.DEFAULT_DAILY,
     })
-    return DEFAULT_DAILY_RATE_LIMIT
+    return RATE_LIMITS.DEFAULT_DAILY
   }
-}
-
-function startAgentServer(
-  serverConfig: ServerConfig,
-  dailyRateLimit: number,
-): {
-  server: any
-  config: any
-} {
-  const mcpServerUrl = `http://127.0.0.1:${serverConfig.httpMcpPort}/mcp`
-
-  const rateLimiter = new RateLimiter(db, dailyRateLimit)
-  logger.info('[Agent Server] Rate limiter initialized', { dailyRateLimit })
-
-  const { server, config } = createAgentHttpServer({
-    port: serverConfig.agentPort,
-    host: '0.0.0.0',
-    corsOrigins: ['*'],
-    tempDir: serverConfig.executionDir || serverConfig.resourcesDir,
-    mcpServerUrl,
-    rateLimiter,
-    browserosId,
-  })
-
-  logger.info(
-    `[Agent Server] Listening on http://127.0.0.1:${serverConfig.agentPort}`,
-  )
-  logger.info(`[Agent Server] MCP Server URL: ${mcpServerUrl}`)
-
-  return { server, config }
 }
 
 function logSummary(serverConfig: ServerConfig) {
@@ -299,14 +238,12 @@ function logSummary(serverConfig: ServerConfig) {
   logger.info(
     `  Controller Server: ws://127.0.0.1:${serverConfig.extensionPort}`,
   )
-  logger.info(`  Agent Server: http://127.0.0.1:${serverConfig.agentPort}`)
-  logger.info(`  MCP Server: http://127.0.0.1:${serverConfig.httpMcpPort}/mcp`)
+  logger.info(`  HTTP Server: http://127.0.0.1:${serverConfig.httpMcpPort}`)
   logger.info('')
 }
 
 function createShutdownHandler(
-  mcpServer: http.Server,
-  agentServer: { server: any; config: any },
+  httpServer: { server: ReturnType<typeof Bun.serve> },
   controllerBridge: ControllerBridge,
 ) {
   return () => {
@@ -318,8 +255,7 @@ function createShutdownHandler(
     }, 5000)
 
     Promise.all([
-      shutdownMcpServer(mcpServer, logger),
-      Promise.resolve(agentServer.server.stop()),
+      Promise.resolve(httpServer.server.stop()),
       controllerBridge.close(),
       metrics.shutdown(),
     ])

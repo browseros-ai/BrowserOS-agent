@@ -1,11 +1,12 @@
 {
-  "name": "browseros-server",
-  "version": "0.0.25",
-  "description": "Unified BrowserOS server with MCP and Agent support",
+  "name": "browseros-monorepo",
+  "version": "1.0.0",
+  "description": "BrowserOS monorepo - server, extension, and shared packages",
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "start": "bun --env-file=.env.dev apps/server/src/index.ts",
@@ -15,15 +16,19 @@
     "dev:ext": "rimraf dist/ext && bun run --filter browseros-controller build:dev && mkdir -p dist/ext && cp -r apps/controller-ext/dist/* dist/ext/",
     "dist:server": "rimraf dist/server && bun scripts/build_server.ts --mode=prod --target=all",
     "dist:ext": "rimraf dist/ext && mkdir -p dist/ext && bun run --filter browseros-controller build && cp -r apps/controller-ext/dist/* dist/ext/",
-    "test": "bun test; bun run test:cleanup",
-    "test:server": "bun run --filter @browseros/server test",
-    "test:cleanup": "./scripts/cleanup-test-resources.sh",
+    "test": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/tools apps/server/tests/common",
+    "test:integration": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/server.integration.test.ts",
+    "test:cdp": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/tools/cdp-based",
+    "test:controller": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/tools/controller-based",
+    "test:all": "bun run test:cleanup && bun --env-file=.env.dev test",
+    "test:cleanup": "./apps/server/tests/__helpers__/cleanup.sh",
     "typecheck": "tsc --build",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write --unsafe",
     "docs": "npm run docs:generate && npm run format",
     "docs:generate": "node --experimental-strip-types scripts/generate-docs.ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "version:server": "cd apps/server && npm version --no-git-tag-version"
   },
   "repository": "browseros-ai/BrowserOS-server",
   "author": "BrowserOS",
@@ -34,6 +39,7 @@
   "homepage": "https://github.com/browseros-ai/BrowserOS#readme",
   "devDependencies": {
     "@biomejs/biome": "2.3.10",
+    "@sentry/cli": "^2.42.2",
     "@types/node": "^24.3.3",
     "dotenv": "^17.2.3",
     "globals": "^16.4.0",
@@ -45,7 +51,7 @@
     "lefthook"
   ],
   "engines": {
-    "bun": ">=1.0.0",
+    "bun": "1.3.5",
     "node": "please-use-bun",
     "npm": "please-use-bun",
     "yarn": "please-use-bun",
