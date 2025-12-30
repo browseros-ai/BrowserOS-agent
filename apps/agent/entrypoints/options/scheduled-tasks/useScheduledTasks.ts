@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { mockStorage } from './storage.mock'
 import type {
   ScheduledJob,
@@ -36,57 +36,45 @@ export function useScheduledTasks(
     load()
   }, [storage])
 
-  const createJob = useCallback(
-    async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
-      const newJob: ScheduledJob = {
-        ...data,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      }
-      const updated = [...jobs, newJob]
-      setJobs(updated)
-      await storage.saveJobs(updated)
-    },
-    [jobs, storage],
-  )
+  const createJob = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
+    const newJob: ScheduledJob = {
+      ...data,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    }
+    const updated = [...jobs, newJob]
+    setJobs(updated)
+    await storage.saveJobs(updated)
+  }
 
-  const updateJob = useCallback(
-    async (id: string, data: Partial<ScheduledJob>) => {
-      const updated = jobs.map((job) =>
-        job.id === id ? { ...job, ...data } : job,
+  const updateJob = async (id: string, data: Partial<ScheduledJob>) => {
+    const updated = jobs.map((job) =>
+      job.id === id ? { ...job, ...data } : job,
+    )
+    setJobs(updated)
+    await storage.saveJobs(updated)
+  }
+
+  const deleteJob = async (id: string) => {
+    const updatedJobs = jobs.filter((job) => job.id !== id)
+    const updatedRuns = runs.filter((run) => run.jobId !== id)
+    setJobs(updatedJobs)
+    setRuns(updatedRuns)
+    await Promise.all([
+      storage.saveJobs(updatedJobs),
+      storage.saveRuns(updatedRuns),
+    ])
+  }
+
+  const getRunsForJob = (jobId: string) => {
+    return runs
+      .filter((r) => r.jobId === jobId)
+      .sort(
+        (a, b) =>
+          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
       )
-      setJobs(updated)
-      await storage.saveJobs(updated)
-    },
-    [jobs, storage],
-  )
-
-  const deleteJob = useCallback(
-    async (id: string) => {
-      const updatedJobs = jobs.filter((job) => job.id !== id)
-      const updatedRuns = runs.filter((run) => run.jobId !== id)
-      setJobs(updatedJobs)
-      setRuns(updatedRuns)
-      await Promise.all([
-        storage.saveJobs(updatedJobs),
-        storage.saveRuns(updatedRuns),
-      ])
-    },
-    [jobs, runs, storage],
-  )
-
-  const getRunsForJob = useCallback(
-    (jobId: string) => {
-      return runs
-        .filter((r) => r.jobId === jobId)
-        .sort(
-          (a, b) =>
-            new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
-        )
-        .slice(0, 10)
-    },
-    [runs],
-  )
+      .slice(0, 10)
+  }
 
   return {
     jobs,
