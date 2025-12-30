@@ -5,6 +5,7 @@ import { ConnectMCP } from './connect-mcp/ConnectMCP'
 import { DashboardLayout } from './layout/DashboardLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
+import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 
 export const App: FC = () => {
   return (
@@ -21,6 +22,7 @@ export const App: FC = () => {
             path="onboarding"
             element={<AISettingsPage key="onboarding" />}
           />
+          <Route path="scheduled" element={<ScheduledTasksPage />} />
         </Route>
       </Routes>
     </HashRouter>

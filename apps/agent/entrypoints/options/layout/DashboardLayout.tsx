@@ -1,5 +1,6 @@
 import {
   Bot,
+  CalendarClock,
   Info,
   type LucideIcon,
   Menu,
@@ -51,6 +52,12 @@ const navigationItems: NavItem[] = [
     icon: PlugZap,
     enabled: true,
     feature: Feature.MANAGED_MCP_SUPPORT,
+  },
+  {
+    name: 'Scheduled Tasks',
+    to: '/scheduled',
+    icon: CalendarClock,
+    enabled: true,
   },
   {
     name: 'BrowserOS MCP',
