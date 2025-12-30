@@ -15,6 +15,8 @@ const POINTER_DELAY_BEFORE_ACTION_MS = 500
  *
  * Injects JavaScript to display a pointer arrow at the specified coordinates.
  * The pointer auto-removes after POINTER_DISPLAY_DURATION_MS.
+ *
+ * biome-ignore lint/complexity/noStaticOnlyClass: class created before biome was setup
  */
 export class PointerOverlay {
   private static browserOS = getBrowserOSAdapter()
@@ -39,27 +41,37 @@ export class PointerOverlay {
       var label = document.createElement('div');
       label.style.cssText = 'position: absolute; top: 20px; left: 12px; background: rgba(0,0,0,0.9); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.5);';
       label.textContent = '${text.replace(/'/g, "\\'")}';
-      container.appendChild(label);
+      shadow.appendChild(label);
     `
       : ''
 
     const script = `
       (function() {
-        var existing = document.querySelector('.browseros-pointer');
+        var existing = document.querySelector('browseros-pointer');
         if (existing) existing.remove();
 
-        var container = document.createElement('div');
-        container.id = '${pointerId}';
-        container.className = 'browseros-pointer';
-        container.style.cssText = 'position: fixed; left: ${x}px; top: ${y}px; z-index: 2147483647; pointer-events: none;';
+        if (!customElements.get('browseros-pointer')) {
+          customElements.define('browseros-pointer', class extends HTMLElement {
+            constructor() {
+              super();
+              this.attachShadow({ mode: 'open' });
+            }
+          });
+        }
+
+        var host = document.createElement('browseros-pointer');
+        host.id = '${pointerId}';
+        host.style.cssText = 'position: fixed; left: ${x}px; top: ${y}px; z-index: 2147483647; pointer-events: none;';
+
+        var shadow = host.shadowRoot;
 
         var arrow = document.createElement('div');
         arrow.style.cssText = 'width: 0; height: 0; border-style: solid; border-width: 0 12px 20px 12px; border-color: transparent transparent #FB6618 transparent; transform: translate(-3px, -3px) rotate(45deg); filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.4));';
-        container.appendChild(arrow);
+        shadow.appendChild(arrow);
 
         ${textLabel}
 
-        document.body.appendChild(container);
+        document.body.appendChild(host);
 
         setTimeout(function() {
           var el = document.getElementById('${pointerId}');
