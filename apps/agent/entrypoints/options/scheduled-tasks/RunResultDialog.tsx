@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { ScheduledJobRun } from './useScheduledTasks'
+import type { ScheduledJobRun } from './types'
 
 interface RunResultDialogProps {
   run: ScheduledJobRun | null

@@ -13,7 +13,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Switch } from '@/components/ui/switch'
-import type { ScheduledJob, ScheduledJobRun } from './useScheduledTasks'
+import type { ScheduledJob, ScheduledJobRun } from './types'
 
 interface ScheduledTaskCardProps {
   job: ScheduledJob

@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import type { FC } from 'react'
 import { ScheduledTaskCard } from './ScheduledTaskCard'
-import type { ScheduledJob, ScheduledJobRun } from './useScheduledTasks'
+import type { ScheduledJob, ScheduledJobRun } from './types'
 
 interface ScheduledTasksListProps {
   jobs: ScheduledJob[]

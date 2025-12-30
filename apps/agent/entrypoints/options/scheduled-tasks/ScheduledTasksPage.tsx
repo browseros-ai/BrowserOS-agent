@@ -13,11 +13,8 @@ import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
 import { RunResultDialog } from './RunResultDialog'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
 import { ScheduledTasksList } from './ScheduledTasksList'
-import {
-  type ScheduledJob,
-  type ScheduledJobRun,
-  useScheduledTasks,
-} from './useScheduledTasks'
+import type { ScheduledJob, ScheduledJobRun } from './types'
+import { useScheduledTasks } from './useScheduledTasks'
 
 /**
  * Main page for managing scheduled tasks

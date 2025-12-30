@@ -23,7 +23,6 @@ export default defineConfig({
           `https://${PRODUCT_WEB_HOST}/*`,
           `https://*.${PRODUCT_WEB_HOST}/*`,
         ],
-        // @ts-expect-error - extension_ids type is missing in wxt types
         extension_ids: [LEGACY_AGENT_EXTENSION_ID],
       },
     ],

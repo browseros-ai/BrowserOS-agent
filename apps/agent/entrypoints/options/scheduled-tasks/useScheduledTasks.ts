@@ -6,8 +6,6 @@ import type {
   ScheduledTasksStorage,
 } from './types'
 
-export type { ScheduledJob, ScheduledJobRun, ScheduledTasksStorage }
-
 export interface UseScheduledTasksReturn {
   jobs: ScheduledJob[]
   isLoading: boolean

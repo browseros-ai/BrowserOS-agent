@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import type { ScheduledJob } from './useScheduledTasks'
+import type { ScheduledJob } from './types'
 
 const formSchema = z
   .object({
