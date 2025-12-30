@@ -112,6 +112,11 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
       )
       .option('--server-port <port>', 'Server HTTP port', parsePortArg)
       .option(
+        '--http-mcp-port <port>',
+        '[DEPRECATED] Use --server-port',
+        parsePortArg,
+      )
+      .option(
         '--agent-port <port>',
         '[DEPRECATED] Use --server-port',
         parsePortArg,
@@ -155,6 +160,10 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
     )
   }
 
+  if (opts.httpMcpPort !== undefined) {
+    console.warn('Warning: --http-mcp-port is deprecated. Use --server-port.')
+  }
+
   if (opts.agentPort !== undefined) {
     console.warn(
       'Warning: --agent-port is deprecated and has no effect. Use --server-port.',
@@ -170,7 +179,7 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
       cwd,
       overrides: filterUndefined({
         cdpPort: opts.cdpPort,
-        serverPort: opts.serverPort,
+        serverPort: opts.serverPort ?? opts.httpMcpPort,
         extensionPort: opts.extensionPort,
         resourcesDir: opts.resourcesDir
           ? resolvePath(opts.resourcesDir, cwd)
