@@ -2,6 +2,8 @@
 
 Monorepo for the BrowserOS-agent -- contains 3 packages: agent-UI, server (which contains the agent loop) and controller-extension (which is used by the tools within the agent loop).
 
+> **⚠️ NOTE:** This is only a submodule, the main project is at -- https://github.com/browseros-ai/BrowserOS
+
 ## Monorepo Structure
 
 ```
