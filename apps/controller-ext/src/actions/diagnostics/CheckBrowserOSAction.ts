@@ -62,6 +62,7 @@ export class CheckBrowserOSAction extends ActionHandler<
       const browserOS = chrome.browserOS
 
       for (const key in browserOS) {
+        // @ts-expect-error browser os keys aren't fully typed
         if (typeof browserOS[key] === 'function') {
           apis.push(key)
         }

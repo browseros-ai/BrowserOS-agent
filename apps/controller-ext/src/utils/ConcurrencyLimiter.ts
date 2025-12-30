@@ -50,6 +50,7 @@ export class ConcurrencyLimiter {
     return new Promise<T>((resolve, reject) => {
       this.queue.push({
         task,
+        // @ts-expect-error - TS can't infer generic type here
         resolve,
         reject,
       })
