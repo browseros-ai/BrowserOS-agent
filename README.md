@@ -1,6 +1,6 @@
-# BrowserOS Server
+# BrowserOS Agent
 
-The automation engine inside BrowserOS. This server powers the built-in AI agent and exposes browser control via MCP (Model Context Protocol), allowing external tools like `claude-code` to control the browser.
+Monorepo for the BrowserOS-agent -- contains 3 packages: agent-UI, server (which contains the agent loop) and controller-extension (which is used by the tools within the agent loop).
 
 ## Monorepo Structure
 
