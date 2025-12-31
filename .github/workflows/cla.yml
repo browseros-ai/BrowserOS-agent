@@ -25,10 +25,13 @@ jobs:
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_SIGNATURES_TOKEN }}
         with:
-          path-to-signatures: '.github/cla-signatures.json'
+          path-to-signatures: 'cla-signatures.json'
           path-to-document: 'https://github.com/${{ github.repository }}/blob/main/CLA.md'
           branch: 'main'
+          remote-organization-name: 'browseros-ai'
+          remote-repository-name: 'cla-signatures'
           allowlist: 'bot*,*[bot],dependabot,renovate,github-actions,snyk-bot,imgbot,greenkeeper,semantic-release-bot,allcontributors'
           lock-pullrequest-aftermerge: false
           custom-notsigned-prcomment: |

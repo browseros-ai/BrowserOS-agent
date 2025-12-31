@@ -9,19 +9,18 @@
     "packages/*"
   ],
   "scripts": {
-    "start:server": "bun --env-file=.env.development apps/server/src/index.ts",
+    "start:server": "bun run --filter @browseros/server start",
     "start:agent": "bun run --filter agent dev",
 
-    "build:server": "bun scripts/build_server.ts --mode=prod --target=all",
+    "build:server": "bun run --filter @browseros/server build",
     "build:agent": "bun run --filter agent build",
     "build:ext": "bun run --filter browseros-controller build",
 
-    "test": "bun run test:cleanup && bun --env-file=.env.development test apps/server/tests/tools apps/server/tests/common",
-    "test:all": "bun run test:cleanup && bun --env-file=.env.development test",
-    "test:cdp": "bun run test:cleanup && bun --env-file=.env.development test apps/server/tests/tools/cdp-based",
-    "test:controller": "bun run test:cleanup && bun --env-file=.env.development test apps/server/tests/tools/controller-based",
-    "test:integration": "bun run test:cleanup && bun --env-file=.env.development test apps/server/tests/server.integration.test.ts",
-    "test:cleanup": "./apps/server/tests/__helpers__/cleanup.sh",
+    "test": "bun run --filter @browseros/server test",
+    "test:all": "bun run --filter @browseros/server test:all",
+    "test:cdp": "bun run --filter @browseros/server test:cdp",
+    "test:controller": "bun run --filter @browseros/server test:controller",
+    "test:integration": "bun run --filter @browseros/server test:integration",
 
     "typecheck": "tsc --build",
     "lint": "bunx biome check",

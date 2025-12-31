@@ -50,7 +50,6 @@ export default defineConfig({
     ],
   },
   vite: () => ({
-    envDir: '../..',
     build: {
       sourcemap: 'hidden',
     },

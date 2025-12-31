@@ -76,43 +76,45 @@ packages/
 # Install dependencies
 bun install
 
-# Copy environment file
-cp .env.example .env.development
+# Copy environment files for each package
+cp apps/server/.env.example apps/server/.env.development
+cp apps/agent/.env.example apps/agent/.env.development
 ```
 
 ### Environment Variables
 
-Single `.env.development` at root. Key variables:
+Each package has its own `.env.development` file:
 
-**Ports**
+- `apps/server/.env.development` - Server configuration
+- `apps/agent/.env.development` - Agent UI configuration
+
+**Server Variables** (`apps/server/.env.development`)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BROWSEROS_SERVER_PORT` | 9100 | Server HTTP port (MCP, chat, health) |
+| `BROWSEROS_SERVER_PORT` | 9100 | HTTP server port (MCP, chat, health) |
 | `BROWSEROS_CDP_PORT` | 9000 | Chromium CDP port (server connects as client) |
 | `BROWSEROS_EXTENSION_PORT` | 9300 | WebSocket port for controller extension |
-| `VITE_BROWSEROS_SERVER_PORT` | 9100 | Agent UI uses this to connect to server (must match `BROWSEROS_SERVER_PORT`) |
+| `BROWSEROS_CONFIG_URL` | - | Remote config endpoint for rate limits |
+| `BROWSEROS_INSTALL_ID` | - | Unique installation identifier (analytics) |
+| `BROWSEROS_CLIENT_ID` | - | Client identifier (analytics) |
+| `POSTHOG_API_KEY` | - | Server-side PostHog API key |
+| `SENTRY_DSN` | - | Server-side Sentry DSN |
 
-**BrowserOS Config**
+**Agent Variables** (`apps/agent/.env.development`)
 
-| Variable | Description |
-|----------|-------------|
-| `BROWSEROS_CONFIG_URL` | Remote config endpoint for rate limits and LLM provider config |
-| `BROWSEROS_INSTALL_ID` | Unique installation identifier (for analytics) |
-| `BROWSEROS_CLIENT_ID` | Client identifier (for analytics) |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BROWSEROS_SERVER_PORT` | 9100 | Passed to BrowserOS via CLI args |
+| `BROWSEROS_CDP_PORT` | 9000 | Passed to BrowserOS via CLI args |
+| `BROWSEROS_EXTENSION_PORT` | 9300 | Passed to BrowserOS via CLI args |
+| `VITE_BROWSEROS_SERVER_PORT` | 9100 | Agent UI connects to server (must match `BROWSEROS_SERVER_PORT`) |
+| `BROWSEROS_BINARY` | - | Path to BrowserOS binary |
+| `USE_BROWSEROS_BINARY` | true | Use BrowserOS instead of default Chrome |
+| `VITE_PUBLIC_POSTHOG_KEY` | - | Agent UI PostHog key |
+| `VITE_PUBLIC_SENTRY_DSN` | - | Agent UI Sentry DSN |
 
-**Telemetry**
-
-Server (Bun process) and Agent UI (Chrome extension) run in different environments, so they require separate telemetry configuration. Server uses `posthog-node`, Agent UI uses `posthog-js`. The `VITE_` prefix exposes variables to the browser bundle.
-
-| Variable | Description |
-|----------|-------------|
-| `POSTHOG_API_KEY` | Server-side PostHog API key |
-| `POSTHOG_ENDPOINT` | Server-side PostHog endpoint |
-| `SENTRY_DSN` | Server-side Sentry DSN |
-| `VITE_PUBLIC_POSTHOG_KEY` | Agent UI PostHog key |
-| `VITE_PUBLIC_POSTHOG_HOST` | Agent UI PostHog host |
-| `VITE_PUBLIC_SENTRY_DSN` | Agent UI Sentry DSN |
+> **Note:** Port variables are duplicated in both files and must be kept in sync when running server and agent together.
 
 ### Commands
 
