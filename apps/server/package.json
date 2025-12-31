@@ -8,9 +8,15 @@
     "browseros-server": "./src/index.ts"
   },
   "scripts": {
-    "start": "bun src/index.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "start": "bun --env-file=.env.development src/index.ts",
+    "build": "bun ../../scripts/build_server.ts --mode=prod --target=all",
+    "test": "bun run test:cleanup && bun --env-file=.env.development test tests/tools tests/common",
+    "test:all": "bun run test:cleanup && bun --env-file=.env.development test",
+    "test:cdp": "bun run test:cleanup && bun --env-file=.env.development test tests/tools/cdp-based",
+    "test:controller": "bun run test:cleanup && bun --env-file=.env.development test tests/tools/controller-based",
+    "test:integration": "bun run test:cleanup && bun --env-file=.env.development test tests/server.integration.test.ts",
+    "test:cleanup": "./tests/__helpers__/cleanup.sh",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@browseros/shared": "workspace:*",
