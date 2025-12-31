@@ -28,4 +28,6 @@ wt config shell install
 
 ## Hooks
 
-- **on_create**: Runs `setup-worktree.sh` which installs dependencies and copies env files
+Hooks are configured in `.config/wt.toml`:
+
+- **post-create**: Runs `bun install` and copies env files from the main worktree

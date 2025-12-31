@@ -1,2 +1,0 @@
-[hooks]
-on_create = [".worktrunk/setup-worktree.sh"]
