@@ -69,14 +69,16 @@ export async function spawnBrowser(
   const tempUserDataDir = mkdtempSync(join(tmpdir(), 'browseros-test-'))
   console.log(`Created temp profile: ${tempUserDataDir}`)
 
+  const headless = process.env.BROWSEROS_TEST_HEADLESS === 'true'
+
   console.log(`Starting BrowserOS on CDP port ${config.cdpPort}...`)
-  const process = spawn(
+  const browserProcess = spawn(
     config.binaryPath,
     [
       '--use-mock-keychain',
       '--show-component-extension-options',
       '--enable-logging=stderr',
-      '--headless=new',
+      ...(headless ? ['--headless=new'] : []),
       `--user-data-dir=${tempUserDataDir}`,
       `--remote-debugging-port=${config.cdpPort}`,
       `--browseros-mcp-port=${config.serverPort}`,
@@ -88,17 +90,17 @@ export async function spawnBrowser(
     },
   )
 
-  process.stdout?.on('data', (_data) => {
+  browserProcess.stdout?.on('data', (_data) => {
     // Uncomment for debugging
     // console.log(`[BROWSER] ${_data.toString().trim()}`)
   })
 
-  process.stderr?.on('data', (_data) => {
+  browserProcess.stderr?.on('data', (_data) => {
     // Uncomment for debugging
     // console.log(`[BROWSER] ${_data.toString().trim()}`)
   })
 
-  process.on('error', (error) => {
+  browserProcess.on('error', (error) => {
     console.error('Failed to start BrowserOS:', error)
   })
 
@@ -106,7 +108,7 @@ export async function spawnBrowser(
   await waitForCdp(config.cdpPort)
   console.log('CDP is ready')
 
-  browserState = { process, tempUserDataDir, config }
+  browserState = { process: browserProcess, tempUserDataDir, config }
   return browserState
 }
 
