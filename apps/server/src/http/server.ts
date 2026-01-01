@@ -20,6 +20,7 @@ import { health } from './routes/health.js'
 import { createKlavisRoutes } from './routes/klavis.js'
 import { createMcpRoutes } from './routes/mcp.js'
 import { createProviderRoutes } from './routes/provider.js'
+import { createSdkRoutes } from './routes/sdk.js'
 import type { Env, HttpServerConfig } from './types.js'
 import { defaultCorsConfig } from './utils/cors.js'
 
@@ -78,6 +79,16 @@ export function createHttpServer(config: HttpServerConfig) {
         tempDir,
         browserosId,
         rateLimiter,
+      }),
+    )
+    .route(
+      '/sdk',
+      createSdkRoutes({
+        controllerContext,
+        logger: log,
+        port,
+        tempDir,
+        browserosId,
       }),
     )
 

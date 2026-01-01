@@ -44,6 +44,14 @@ describe('Agent', () => {
       expect(agent).toBeDefined()
     })
 
+    it('creates agent with url and llm config', () => {
+      const agent = new Agent({
+        url: TEST_URL,
+        llm: { provider: 'openai', model: 'gpt-4o', apiKey: 'sk-test' },
+      })
+      expect(agent).toBeDefined()
+    })
+
     it('strips trailing slash from url', () => {
       const fetchMock = mockFetch({ success: true })
       globalThis.fetch = fetchMock
@@ -159,6 +167,7 @@ describe('Agent', () => {
           context: undefined,
           maxSteps: undefined,
           windowId: undefined,
+          llm: undefined,
         }),
       })
     })
@@ -182,6 +191,28 @@ describe('Agent', () => {
           context: { query: 'headphones' },
           maxSteps: 5,
           windowId: 789,
+          llm: undefined,
+        }),
+      })
+    })
+
+    it('includes llm config from constructor', async () => {
+      const fetchMock = mockFetch({ success: true, steps: [] })
+      globalThis.fetch = fetchMock
+
+      const llmConfig = { provider: 'openai' as const, model: 'gpt-4o', apiKey: 'sk-test' }
+      const agent = new Agent({ url: TEST_URL, llm: llmConfig })
+      await agent.act('click the button')
+
+      expect(fetchMock).toHaveBeenCalledWith('http://localhost:9222/sdk/act', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instruction: 'click the button',
+          context: undefined,
+          maxSteps: undefined,
+          windowId: undefined,
+          llm: llmConfig,
         }),
       })
     })
@@ -255,6 +286,7 @@ describe('Agent', () => {
             instruction: 'get product info',
             schema: expectedJsonSchema,
             context: undefined,
+            llm: undefined,
           }),
         },
       )
@@ -280,6 +312,31 @@ describe('Agent', () => {
             instruction: 'get product info',
             schema: expectedJsonSchema,
             context: { format: 'USD' },
+            llm: undefined,
+          }),
+        },
+      )
+    })
+
+    it('includes llm config from constructor', async () => {
+      const fetchMock = mockFetch({ data: { name: 'Test', price: 99 } })
+      globalThis.fetch = fetchMock
+
+      const llmConfig = { provider: 'anthropic' as const, model: 'claude-3', apiKey: 'key' }
+      const agent = new Agent({ url: TEST_URL, llm: llmConfig })
+      await agent.extract('get product info', { schema: productSchema })
+
+      const expectedJsonSchema = zodToJsonSchema(productSchema)
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:9222/sdk/extract',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instruction: 'get product info',
+            schema: expectedJsonSchema,
+            context: undefined,
+            llm: llmConfig,
           }),
         },
       )
@@ -346,6 +403,7 @@ describe('Agent', () => {
           body: JSON.stringify({
             expectation: 'search results are visible',
             context: undefined,
+            llm: undefined,
           }),
         },
       )
@@ -366,6 +424,29 @@ describe('Agent', () => {
           body: JSON.stringify({
             expectation: 'price is correct',
             context: { expected: 99.99 },
+            llm: undefined,
+          }),
+        },
+      )
+    })
+
+    it('includes llm config from constructor', async () => {
+      const fetchMock = mockFetch({ success: true, reason: 'Verified' })
+      globalThis.fetch = fetchMock
+
+      const llmConfig = { provider: 'google' as const, model: 'gemini-pro' }
+      const agent = new Agent({ url: TEST_URL, llm: llmConfig })
+      await agent.verify('page loaded')
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:9222/sdk/verify',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            expectation: 'page loaded',
+            context: undefined,
+            llm: llmConfig,
           }),
         },
       )

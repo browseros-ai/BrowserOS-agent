@@ -14,6 +14,8 @@ export type {
   AgentOptions,
   ExtractOptions,
   ExtractResult,
+  LLMConfig,
+  LLMProvider,
   NavOptions,
   NavResult,
   ProgressEvent,

@@ -13,6 +13,7 @@ import type {
   AgentOptions,
   ExtractOptions,
   ExtractResult,
+  LLMConfig,
   NavOptions,
   NavResult,
   ProgressEvent,
@@ -22,10 +23,12 @@ import type {
 
 export class Agent {
   private readonly baseUrl: string
+  private readonly llmConfig?: LLMConfig
   private progressCallback?: (event: ProgressEvent) => void
 
   constructor(options: AgentOptions) {
     this.baseUrl = options.url.replace(/\/$/, '')
+    this.llmConfig = options.llm
     this.progressCallback = options.onProgress
   }
 
@@ -104,6 +107,7 @@ export class Agent {
         context: options?.context,
         maxSteps: options?.maxSteps,
         windowId: options?.windowId,
+        llm: this.llmConfig,
       },
       ActionError,
     )
@@ -129,6 +133,7 @@ export class Agent {
         instruction,
         schema: jsonSchema,
         context: options.context,
+        llm: this.llmConfig,
       },
       ExtractionError,
     )
@@ -151,6 +156,7 @@ export class Agent {
       {
         expectation,
         context: options?.context,
+        llm: this.llmConfig,
       },
       VerificationError,
     )
