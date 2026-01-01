@@ -6,12 +6,15 @@ import { fetchMcpTools } from '@/lib/mcp/client'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
 import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { scheduledJobRuns } from './scheduledJobRuns'
 
-export default defineBackground(async () => {
+export default defineBackground(() => {
   chrome.sidePanel.setOptions({ enabled: false })
 
-  await Capabilities.initialize()
+  Capabilities.initialize().catch(() => null)
   setupLlmProvidersBackupToBrowserOS()
+
+  scheduledJobRuns()
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (tab.id) {
