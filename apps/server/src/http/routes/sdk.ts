@@ -4,16 +4,24 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * SDK Routes - REST API for @browseros/agent-sdk
+ * Uses MCP client for browser operations, LLM client for AI operations.
  */
 
 import { PATHS } from '@browseros/shared/constants/paths'
+import type { LLMConfig } from '@browseros/shared/types/llm'
+import type { ModelMessage } from 'ai'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { GeminiAgent } from '../../agent/agent/GeminiAgent.js'
 import { AIProvider } from '../../agent/agent/gemini-vercel-sdk-adapter/types.js'
+import { LLMClient } from '../../agent/llm/client.js'
 import type { Logger } from '../../common/index.js'
-import type { ControllerContext } from '../../controller-server/index.js'
 import type { Env } from '../types.js'
+import {
+  callMcpTool,
+  getImageContent,
+  getTextContent,
+} from '../utils/mcp-client.js'
 import { validateRequest } from '../utils/validation.js'
 
 // LLM config schema (matches SDK LLMConfig type)
@@ -69,15 +77,25 @@ const VerifyRequestSchema = z.object({
 })
 
 interface SdkRouteDeps {
-  controllerContext: ControllerContext
-  logger: Logger
   port: number
+  logger: Logger
   tempDir?: string
   browserosId?: string
 }
 
+interface ActiveTabResult {
+  tabId: number
+  url: string
+  title: string
+  windowId: number
+}
+
+interface PageContentResult {
+  content?: string
+}
+
 export function createSdkRoutes(deps: SdkRouteDeps) {
-  const { controllerContext, logger, port, tempDir, browserosId } = deps
+  const { port, logger, tempDir, browserosId } = deps
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
 
@@ -92,11 +110,16 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
     logger.info('SDK nav request', { url, tabId, windowId })
 
     try {
-      await controllerContext.executeAction('navigate', {
+      const result = await callMcpTool(mcpServerUrl, 'browser_navigate', {
         url,
-        tabId,
-        windowId,
+        ...(tabId && { tabId }),
+        ...(windowId && { windowId }),
       })
+
+      if (result.isError) {
+        return c.json({ error: { message: getTextContent(result) } }, 500)
+      }
+
       return c.json({ success: true })
     } catch (error) {
       const message =
@@ -175,7 +198,6 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
       }
 
       // Execute agent (no streaming for SDK - we collect results)
-      // For now, we pass a no-op stream since execute() requires it
       const noopStream = { write: async () => {} }
 
       await agent.execute(
@@ -207,15 +229,66 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
 
     logger.info('SDK extract request', { instruction })
 
-    // TODO: Implement extraction with LLM
-    return c.json(
-      {
-        error: {
-          message: 'extract() not yet implemented - coming soon',
-        },
-      },
-      501,
-    )
+    try {
+      // Get active tab via MCP
+      const activeTabResult = await callMcpTool<ActiveTabResult>(
+        mcpServerUrl,
+        'browser_get_active_tab',
+        {},
+      )
+
+      if (
+        activeTabResult.isError ||
+        !activeTabResult.structuredContent?.tabId
+      ) {
+        return c.json({ error: { message: 'Failed to get active tab' } }, 500)
+      }
+
+      const tabId = activeTabResult.structuredContent.tabId
+
+      // Get page content via MCP
+      const contentResult = await callMcpTool<PageContentResult>(
+        mcpServerUrl,
+        'browser_get_page_content',
+        { tabId, type: 'text' },
+      )
+
+      if (contentResult.isError) {
+        return c.json({ error: { message: 'Failed to get page content' } }, 500)
+      }
+
+      // Extract page content from structured content or text
+      const pageContent =
+        contentResult.structuredContent?.content ||
+        getTextContent(contentResult)
+
+      if (!pageContent) {
+        return c.json({ error: { message: 'No content found on page' } }, 400)
+      }
+
+      // Create LLM client
+      const llmConfig: LLMConfig = llm ?? { provider: 'browseros' }
+      const client = await LLMClient.create(llmConfig, browserosId)
+
+      // Build prompt
+      let prompt = `Extract the following from this page:\n\n${instruction}`
+      if (context) {
+        prompt += `\n\nAdditional context:\n${JSON.stringify(context, null, 2)}`
+      }
+      prompt += `\n\nPage content:\n${pageContent}`
+
+      const messages: ModelMessage[] = [{ role: 'user', content: prompt }]
+
+      // Generate structured output
+      const data = await client.generateStructuredOutput(messages, schema)
+
+      return c.json({ data })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Extraction failed'
+      logger.error('SDK extract error', { instruction, error: message })
+      return c.json({ error: { message } }, 500)
+    }
   })
 
   // POST /sdk/verify - Verify a condition on the page
@@ -226,15 +299,100 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
 
     logger.info('SDK verify request', { expectation })
 
-    // TODO: Implement verification with LLM
-    return c.json(
-      {
-        error: {
-          message: 'verify() not yet implemented - coming soon',
+    try {
+      // Get active tab via MCP
+      const activeTabResult = await callMcpTool<ActiveTabResult>(
+        mcpServerUrl,
+        'browser_get_active_tab',
+        {},
+      )
+
+      if (
+        activeTabResult.isError ||
+        !activeTabResult.structuredContent?.tabId
+      ) {
+        return c.json({ error: { message: 'Failed to get active tab' } }, 500)
+      }
+
+      const tabId = activeTabResult.structuredContent.tabId
+
+      // Get screenshot and page content via MCP in parallel
+      const [screenshotResult, contentResult] = await Promise.all([
+        callMcpTool(mcpServerUrl, 'browser_get_screenshot', {
+          tabId,
+          size: 'medium',
+        }),
+        callMcpTool<PageContentResult>(
+          mcpServerUrl,
+          'browser_get_page_content',
+          { tabId, type: 'text' },
+        ),
+      ])
+
+      if (screenshotResult.isError) {
+        return c.json(
+          { error: { message: 'Failed to capture screenshot' } },
+          500,
+        )
+      }
+
+      // Extract page content
+      const pageContent =
+        contentResult.structuredContent?.content ||
+        getTextContent(contentResult)
+
+      // Get image from MCP response
+      const image = getImageContent(screenshotResult)
+      if (!image) {
+        return c.json({ error: { message: 'Screenshot not available' } }, 500)
+      }
+
+      // Create LLM client
+      const llmConfig: LLMConfig = llm ?? { provider: 'browseros' }
+      const client = await LLMClient.create(llmConfig, browserosId)
+
+      // Build multimodal prompt
+      let textPrompt = `Verify this expectation about the current page:\n\n${expectation}`
+      if (context) {
+        textPrompt += `\n\nAdditional context:\n${JSON.stringify(context, null, 2)}`
+      }
+      textPrompt += `\n\nPage text content:\n${pageContent}`
+
+      // Build image URL from base64
+      const imageUrl = `data:${image.mimeType};base64,${image.data}`
+
+      const messages: ModelMessage[] = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', image: imageUrl },
+            { type: 'text', text: textPrompt },
+          ],
         },
-      },
-      501,
-    )
+      ]
+
+      // Fixed response schema for verify
+      const verifySchema = {
+        type: 'object' as const,
+        properties: {
+          success: { type: 'boolean' as const },
+          reason: { type: 'string' as const },
+        },
+        required: ['success', 'reason'],
+      }
+
+      const result = await client.generateStructuredOutput<{
+        success: boolean
+        reason: string
+      }>(messages, verifySchema)
+
+      return c.json(result)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Verification failed'
+      logger.error('SDK verify error', { expectation, error: message })
+      return c.json({ error: { message } }, 500)
+    }
   })
 
   return sdk

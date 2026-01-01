@@ -159,6 +159,7 @@
       "name": "@browseros/agent-sdk",
       "version": "0.0.1",
       "dependencies": {
+        "@browseros/shared": "workspace:*",
         "zod-to-json-schema": "^3.24.1",
       },
       "peerDependencies": {

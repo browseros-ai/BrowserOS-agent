@@ -115,41 +115,50 @@ describe('Agent SDK Integration', () => {
   })
 
   describe('extract()', () => {
-    it('returns 501 (not yet implemented)', async () => {
+    it('extracts structured data from page', async () => {
       const { z } = await import('zod')
       const agent = createAgent()
 
-      try {
-        await agent.extract('get title', {
-          schema: z.object({ title: z.string() }),
-        })
-        assert.fail('Should have thrown 501 error')
-      } catch (error) {
-        assert.ok(error instanceof Error, 'Should throw an error')
-        assert.ok(
-          error.message.includes('not yet implemented'),
-          'Should indicate not implemented',
-        )
-        console.log('✓ extract() correctly returns 501')
-      }
-    }, 30000)
+      await agent.nav(
+        'data:text/html,<h1>Welcome to My Site</h1><p>This is a test page.</p>',
+      )
+
+      const result = await agent.extract('get the page title', {
+        schema: z.object({ title: z.string() }),
+      })
+
+      console.log('\n=== extract() Response ===')
+      console.log(JSON.stringify(result, null, 2))
+
+      assert.ok(result.data, 'Should return extracted data')
+      assert.ok(
+        typeof result.data.title === 'string',
+        'Title should be a string',
+      )
+    }, 60000)
   })
 
   describe('verify()', () => {
-    it('returns 501 (not yet implemented)', async () => {
+    it('verifies page state', async () => {
       const agent = createAgent()
 
-      try {
-        await agent.verify('page is loaded')
-        assert.fail('Should have thrown 501 error')
-      } catch (error) {
-        assert.ok(error instanceof Error, 'Should throw an error')
-        assert.ok(
-          error.message.includes('not yet implemented'),
-          'Should indicate not implemented',
-        )
-        console.log('✓ verify() correctly returns 501')
-      }
-    }, 30000)
+      await agent.nav('data:text/html,<h1>Hello World</h1>')
+
+      const result = await agent.verify(
+        'the page contains a heading that says Hello World',
+      )
+
+      console.log('\n=== verify() Response ===')
+      console.log(JSON.stringify(result, null, 2))
+
+      assert.ok(
+        typeof result.success === 'boolean',
+        'Should return success boolean',
+      )
+      assert.ok(
+        typeof result.reason === 'string',
+        'Should return reason string',
+      )
+    }, 60000)
   })
 })

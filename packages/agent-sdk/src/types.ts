@@ -1,30 +1,8 @@
 import type { ZodSchema } from 'zod'
 
-export type LLMProvider =
-  | 'anthropic'
-  | 'openai'
-  | 'google'
-  | 'openrouter'
-  | 'azure'
-  | 'ollama'
-  | 'lmstudio'
-  | 'bedrock'
-  | 'browseros'
-  | 'openai-compatible'
+export type { LLMConfig, LLMProvider } from '@browseros/shared/types/llm'
 
-export interface LLMConfig {
-  provider: LLMProvider
-  model?: string
-  apiKey?: string
-  baseUrl?: string
-  // Azure-specific
-  resourceName?: string
-  // AWS Bedrock-specific
-  region?: string
-  accessKeyId?: string
-  secretAccessKey?: string
-  sessionToken?: string
-}
+import type { LLMConfig } from '@browseros/shared/types/llm'
 
 export interface AgentOptions {
   url: string
