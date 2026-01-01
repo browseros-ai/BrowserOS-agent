@@ -1,4 +1,5 @@
 import { createAlarmFromJob } from '@/lib/schedules/createAlarmFromJob'
+import { getChatServerResponse } from '@/lib/schedules/getChatServerResponse'
 import { scheduledJobStorage } from '@/lib/schedules/scheduleStorage'
 
 export const scheduledJobRuns = async () => {
@@ -17,6 +18,27 @@ export const scheduledJobRuns = async () => {
       }
     }
   }
+
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    const jobId = alarm.name.replace('scheduled-job-', '')
+
+    const job = (await scheduledJobStorage.getValue()).find(
+      (each) => each.id === jobId,
+    )
+
+    if (job) {
+      try {
+        await getChatServerResponse({
+          message: job.query,
+        })
+        // console.log(response.text)
+      } catch (_e) {
+        // console.error('Error executing scheduled job:', e)
+      }
+    } else {
+      // console.error('job not found')
+    }
+  })
 
   chrome.runtime.onStartup.addListener(async () => {
     await syncAlarmState()

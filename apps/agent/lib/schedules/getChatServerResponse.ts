@@ -1,4 +1,3 @@
-import { processAssistantStream } from '@ai-sdk/ui-utils'
 import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
@@ -15,7 +14,12 @@ interface ChatServerRequest {
 
 interface ChatServerResponse {
   text: string
-  conversationId?: string
+  conversationId: string
+}
+
+interface StreamEvent {
+  type: string
+  delta?: string
 }
 
 const getDefaultProvider = async (): Promise<LlmProviderConfig | null> => {
@@ -64,14 +68,61 @@ export async function getChatServerResponse(
     )
   }
 
+  const text = await parseSSEStream(response)
+
+  return { text, conversationId }
+}
+
+async function parseSSEStream(response: Response): Promise<string> {
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error('Response body is not readable')
+  }
+
+  const decoder = new TextDecoder()
   let result = ''
+  let buffer = ''
 
-  await processAssistantStream({
-    stream: response.body!,
-    onTextPart: (text) => {
-      result += text
-    },
-  })
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
 
-  return { text: result, conversationId }
+    buffer += decoder.decode(value, { stream: true })
+
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue
+
+      const data = line.slice(6)
+      if (data === '[DONE]') continue
+
+      try {
+        const event: StreamEvent = JSON.parse(data)
+        if (event.type === 'text-delta' && event.delta) {
+          result += event.delta
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }
+
+  // Process remaining buffer
+  if (buffer.startsWith('data: ')) {
+    const data = buffer.slice(6)
+    if (data !== '[DONE]') {
+      try {
+        const event: StreamEvent = JSON.parse(data)
+        if (event.type === 'text-delta' && event.delta) {
+          result += event.delta
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }
+
+  return result
 }
