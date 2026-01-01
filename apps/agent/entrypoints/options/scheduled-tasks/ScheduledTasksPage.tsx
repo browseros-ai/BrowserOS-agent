@@ -28,7 +28,7 @@ export const ScheduledTasksPage: FC = () => {
   // const { jobs, isLoading, createJob, updateJob, deleteJob, getRunsForJob } =
   //   useScheduledTasks()
 
-  const { jobs, addJob, editJob, removeJob } = useScheduledJobs()
+  const { jobs, addJob, editJob, toggleJob, removeJob } = useScheduledJobs()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null)
@@ -56,16 +56,16 @@ export const ScheduledTasksPage: FC = () => {
   //   }
   // }
 
-  // const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
-  //   if (editingJob) {
-  //     await updateJob(editingJob.id, data)
-  //   } else {
-  //     await createJob(data)
-  //   }
-  // }
+  const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
+    if (editingJob) {
+      await editJob(editingJob.id, data)
+    } else {
+      await addJob(data)
+    }
+  }
 
   const handleToggle = async (jobId: string, enabled: boolean) => {
-    await editJob(jobId, { enabled })
+    await toggleJob(jobId, enabled)
   }
 
   const handleViewRun = (run: ScheduledJobRun) => {
@@ -89,14 +89,14 @@ export const ScheduledTasksPage: FC = () => {
         onViewRun={handleViewRun}
       />
 
-      {/*<NewScheduledTaskDialog
+      <NewScheduledTaskDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         initialValues={editingJob}
         onSave={handleSave}
       />
 
-      <RunResultDialog
+      {/*<RunResultDialog
         run={viewingRun}
         jobName={
           viewingRun
