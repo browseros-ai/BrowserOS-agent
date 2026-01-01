@@ -6,29 +6,29 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
-    "./ports": {
-      "types": "./src/ports.ts",
-      "default": "./src/ports.ts"
+    "./constants/ports": {
+      "types": "./src/constants/ports.ts",
+      "default": "./src/constants/ports.ts"
     },
-    "./timeouts": {
-      "types": "./src/timeouts.ts",
-      "default": "./src/timeouts.ts"
+    "./constants/timeouts": {
+      "types": "./src/constants/timeouts.ts",
+      "default": "./src/constants/timeouts.ts"
     },
-    "./limits": {
-      "types": "./src/limits.ts",
-      "default": "./src/limits.ts"
+    "./constants/limits": {
+      "types": "./src/constants/limits.ts",
+      "default": "./src/constants/limits.ts"
     },
-    "./urls": {
-      "types": "./src/urls.ts",
-      "default": "./src/urls.ts"
+    "./constants/urls": {
+      "types": "./src/constants/urls.ts",
+      "default": "./src/constants/urls.ts"
     },
-    "./paths": {
-      "types": "./src/paths.ts",
-      "default": "./src/paths.ts"
+    "./constants/paths": {
+      "types": "./src/constants/paths.ts",
+      "default": "./src/constants/paths.ts"
     },
-    "./logger": {
-      "types": "./src/logger.ts",
-      "default": "./src/logger.ts"
+    "./types/logger": {
+      "types": "./src/types/logger.ts",
+      "default": "./src/types/logger.ts"
     }
   }
 }

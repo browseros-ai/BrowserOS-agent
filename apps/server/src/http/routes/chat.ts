@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { PATHS } from '@browseros/shared/paths'
+import { PATHS } from '@browseros/shared/constants/paths'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { AIProvider } from '../../agent/agent/gemini-vercel-sdk-adapter/types.js'

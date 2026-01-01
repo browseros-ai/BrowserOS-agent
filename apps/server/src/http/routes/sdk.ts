@@ -6,7 +6,7 @@
  * SDK Routes - REST API for @browseros/agent-sdk
  */
 
-import { PATHS } from '@browseros/shared/paths'
+import { PATHS } from '@browseros/shared/constants/paths'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { GeminiAgent } from '../../agent/agent/GeminiAgent.js'

@@ -9,7 +9,7 @@
  * through the full VercelAIContentGenerator pipeline.
  */
 
-import { TIMEOUTS } from '@browseros/shared/timeouts'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { Content } from '@google/genai'
 import { VercelAIContentGenerator } from './index.js'
 import type { VercelAIConfig } from './types.js'

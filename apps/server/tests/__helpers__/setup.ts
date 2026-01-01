@@ -5,7 +5,7 @@
  * Unified test environment orchestrator.
  * Ensures server + browser + extension are all ready.
  */
-import { TEST_PORTS } from '@browseros/shared/ports'
+import { TEST_PORTS } from '@browseros/shared/constants/ports'
 
 import {
   type BrowserConfig,
