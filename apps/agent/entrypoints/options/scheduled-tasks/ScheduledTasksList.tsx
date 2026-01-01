@@ -10,7 +10,6 @@ interface ScheduledTasksListProps {
   onDelete: (jobId: string) => void
   onToggle: (jobId: string, enabled: boolean) => void
   onViewRun: (run: ScheduledJobRun) => void
-  getRunsForJob: (jobId: string) => ScheduledJobRun[]
 }
 
 export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
@@ -20,7 +19,6 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
   onDelete,
   onToggle,
   onViewRun,
-  getRunsForJob,
 }) => {
   if (isLoading) {
     return (
@@ -51,7 +49,6 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
         <ScheduledTaskCard
           key={job.id}
           job={job}
-          runs={getRunsForJob(job.id)}
           onEdit={() => onEdit(job)}
           onDelete={() => onDelete(job.id)}
           onToggle={(enabled) => onToggle(job.id, enabled)}

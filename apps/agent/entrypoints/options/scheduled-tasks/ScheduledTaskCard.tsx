@@ -5,7 +5,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react'
-import { type FC, useState } from 'react'
+import { type FC, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -13,11 +13,11 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Switch } from '@/components/ui/switch'
+import { useScheduledJobRuns } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJob, ScheduledJobRun } from './types'
 
 interface ScheduledTaskCardProps {
   job: ScheduledJob
-  runs: ScheduledJobRun[]
   onEdit: () => void
   onDelete: () => void
   onToggle: (enabled: boolean) => void
@@ -81,13 +81,25 @@ function formatRunDate(dateStr: string): string {
 
 export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
   job,
-  runs,
   onEdit,
   onDelete,
   onToggle,
   onViewRun,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+
+  const { jobRuns } = useScheduledJobRuns()
+
+  const runs = useMemo(
+    () =>
+      jobRuns
+        .filter((run) => run.jobId === job.id)
+        .sort(
+          (a, b) =>
+            new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+        ),
+    [jobRuns, job.id],
+  )
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm">

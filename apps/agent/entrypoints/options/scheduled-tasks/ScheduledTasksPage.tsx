@@ -9,6 +9,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  useScheduledJobRuns,
+  useScheduledJobs,
+} from '@/lib/schedules/scheduleStorage'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
 import { RunResultDialog } from './RunResultDialog'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
@@ -21,8 +25,10 @@ import { useScheduledTasks } from './useScheduledTasks'
  * @public
  */
 export const ScheduledTasksPage: FC = () => {
-  const { jobs, isLoading, createJob, updateJob, deleteJob, getRunsForJob } =
-    useScheduledTasks()
+  // const { jobs, isLoading, createJob, updateJob, deleteJob, getRunsForJob } =
+  //   useScheduledTasks()
+
+  const { jobs, addJob, editJob, removeJob } = useScheduledJobs()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null)
@@ -43,32 +49,32 @@ export const ScheduledTasksPage: FC = () => {
     setDeleteJobId(jobId)
   }
 
-  const confirmDelete = async () => {
-    if (deleteJobId) {
-      await deleteJob(deleteJobId)
-      setDeleteJobId(null)
-    }
-  }
+  // const confirmDelete = async () => {
+  //   if (deleteJobId) {
+  //     await deleteJob(deleteJobId)
+  //     setDeleteJobId(null)
+  //   }
+  // }
 
-  const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
-    if (editingJob) {
-      await updateJob(editingJob.id, data)
-    } else {
-      await createJob(data)
-    }
-  }
+  // const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
+  //   if (editingJob) {
+  //     await updateJob(editingJob.id, data)
+  //   } else {
+  //     await createJob(data)
+  //   }
+  // }
 
   const handleToggle = async (jobId: string, enabled: boolean) => {
-    await updateJob(jobId, { enabled })
+    await editJob(jobId, { enabled })
   }
 
   const handleViewRun = (run: ScheduledJobRun) => {
     setViewingRun(run)
   }
 
-  const jobToDelete = deleteJobId
-    ? jobs.find((j) => j.id === deleteJobId)
-    : null
+  // const jobToDelete = deleteJobId
+  //   ? jobs.find((j) => j.id === deleteJobId)
+  //   : null
 
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
@@ -76,15 +82,14 @@ export const ScheduledTasksPage: FC = () => {
 
       <ScheduledTasksList
         jobs={jobs}
-        isLoading={isLoading}
+        isLoading={false && 'isLoading'}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onToggle={handleToggle}
         onViewRun={handleViewRun}
-        getRunsForJob={getRunsForJob}
       />
 
-      <NewScheduledTaskDialog
+      {/*<NewScheduledTaskDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         initialValues={editingJob}
@@ -120,7 +125,7 @@ export const ScheduledTasksPage: FC = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog>*/}
     </div>
   )
 }
