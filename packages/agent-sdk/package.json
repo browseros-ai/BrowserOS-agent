@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "exports": {
