@@ -1,6 +1,9 @@
 import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
+import { createAlarmFromJob } from './createAlarmFromJob'
 import type { ScheduledJob, ScheduledJobRun } from './scheduleTypes'
+
+const getAlarmName = (jobId: string) => `scheduled-job-${jobId}`
 
 export const scheduledJobStorage = storage.defineItem<ScheduledJob[]>(
   'local:scheduledJobs',
@@ -28,25 +31,40 @@ export function useScheduledJobs() {
   }, [])
 
   const addJob = async (job: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
-    const newJob = {
+    const newJob: ScheduledJob = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       ...job,
     }
     const current = (await scheduledJobStorage.getValue()) ?? []
     await scheduledJobStorage.setValue([...current, newJob])
+
+    if (newJob.enabled) {
+      await createAlarmFromJob(newJob)
+    }
   }
 
   const removeJob = async (id: string) => {
+    await chrome.alarms.clear(getAlarmName(id))
+
     const current = (await scheduledJobStorage.getValue()) ?? []
     await scheduledJobStorage.setValue(current.filter((j) => j.id !== id))
   }
 
   const toggleJob = async (id: string, enabled: boolean) => {
     const current = (await scheduledJobStorage.getValue()) ?? []
+    const job = current.find((j) => j.id === id)
+    if (!job) return
+
     await scheduledJobStorage.setValue(
       current.map((j) => (j.id === id ? { ...j, enabled } : j)),
     )
+
+    if (enabled) {
+      await createAlarmFromJob({ ...job, enabled })
+    } else {
+      await chrome.alarms.clear(getAlarmName(id))
+    }
   }
 
   const editJob = async (
@@ -54,14 +72,22 @@ export function useScheduledJobs() {
     updates: Omit<ScheduledJob, 'id' | 'createdAt'>,
   ) => {
     const current = (await scheduledJobStorage.getValue()) ?? []
-    const updatedJob = {
+    const existingJob = current.find((j) => j.id === id)
+    if (!existingJob) return
+
+    const updatedJob: ScheduledJob = {
       id,
-      createdAt: new Date().toISOString(),
+      createdAt: existingJob.createdAt,
       ...updates,
     }
     await scheduledJobStorage.setValue(
       current.map((j) => (j.id === id ? updatedJob : j)),
     )
+
+    await chrome.alarms.clear(getAlarmName(id))
+    if (updatedJob.enabled) {
+      await createAlarmFromJob(updatedJob)
+    }
   }
 
   return { jobs, addJob, removeJob, editJob, toggleJob }
