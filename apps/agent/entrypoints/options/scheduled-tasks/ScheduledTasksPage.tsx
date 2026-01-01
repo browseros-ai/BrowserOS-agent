@@ -9,16 +9,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  useScheduledJobRuns,
-  useScheduledJobs,
-} from '@/lib/schedules/scheduleStorage'
+import { useScheduledJobs } from '@/lib/schedules/scheduleStorage'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
 import { RunResultDialog } from './RunResultDialog'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
 import { ScheduledTasksList } from './ScheduledTasksList'
 import type { ScheduledJob, ScheduledJobRun } from './types'
-import { useScheduledTasks } from './useScheduledTasks'
 
 /**
  * Main page for managing scheduled tasks
@@ -49,12 +45,12 @@ export const ScheduledTasksPage: FC = () => {
     setDeleteJobId(jobId)
   }
 
-  // const confirmDelete = async () => {
-  //   if (deleteJobId) {
-  //     await deleteJob(deleteJobId)
-  //     setDeleteJobId(null)
-  //   }
-  // }
+  const confirmDelete = async () => {
+    if (deleteJobId) {
+      await removeJob(deleteJobId)
+      setDeleteJobId(null)
+    }
+  }
 
   const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
     if (editingJob) {
@@ -72,9 +68,9 @@ export const ScheduledTasksPage: FC = () => {
     setViewingRun(run)
   }
 
-  // const jobToDelete = deleteJobId
-  //   ? jobs.find((j) => j.id === deleteJobId)
-  //   : null
+  const jobToDelete = deleteJobId
+    ? jobs.find((j) => j.id === deleteJobId)
+    : null
 
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
@@ -96,7 +92,7 @@ export const ScheduledTasksPage: FC = () => {
         onSave={handleSave}
       />
 
-      {/*<RunResultDialog
+      <RunResultDialog
         run={viewingRun}
         jobName={
           viewingRun
@@ -125,7 +121,7 @@ export const ScheduledTasksPage: FC = () => {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>*/}
+      </AlertDialog>
     </div>
   )
 }
