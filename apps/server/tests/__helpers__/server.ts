@@ -6,6 +6,12 @@
  * Use setup.ts:ensureBrowserOS() for the full test environment.
  */
 import { type ChildProcess, spawn } from 'node:child_process'
+import { dirname, resolve } from 'node:path'
+
+const SERVER_ENTRYPOINT_PATH = resolve(
+  dirname(import.meta.path),
+  '../../src/index.ts',
+)
 
 export interface ServerConfig {
   cdpPort: number
@@ -65,7 +71,7 @@ export async function spawnServer(config: ServerConfig): Promise<ServerState> {
   const process = spawn(
     'bun',
     [
-      'apps/server/src/index.ts',
+      SERVER_ENTRYPOINT_PATH,
       '--cdp-port',
       config.cdpPort.toString(),
       '--server-port',
@@ -75,7 +81,6 @@ export async function spawnServer(config: ServerConfig): Promise<ServerState> {
     ],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: globalThis.process.cwd(),
       env: { ...globalThis.process.env, NODE_ENV: 'test' },
     },
   )

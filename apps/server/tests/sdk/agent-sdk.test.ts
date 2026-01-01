@@ -80,18 +80,37 @@ describe('Agent SDK Integration', () => {
   })
 
   describe('act()', () => {
-    it('executes action with agent loop', async () => {
+    it('clicks a button on a test page', async () => {
       const agent = createAgent()
-      try {
-        const result = await agent.act('click the button')
-        console.log('\n=== act() Response ===')
-        console.log(JSON.stringify(result, null, 2))
-        assert.ok(result.success !== undefined, 'Should return a result')
-      } catch (error) {
-        // act() may fail if BROWSEROS_CONFIG_URL not set - expected in test env
-        assert.ok(error instanceof Error, 'Should throw an error')
-        console.log(`✓ act() threw expected error: ${(error as Error).message}`)
-      }
+
+      // Navigate to a simple test page with a button
+      await agent.nav(
+        'data:text/html,<button id="btn" onclick="this.textContent=\'Clicked!\'">Click me</button>',
+      )
+
+      const result = await agent.act('click the button')
+
+      console.log('\n=== act() Response ===')
+      console.log(JSON.stringify(result, null, 2))
+
+      assert.ok(result.success, 'Action should succeed')
+    }, 60000)
+
+    it('emits progress events during action', async () => {
+      const agent = createAgent()
+      const events: unknown[] = []
+      agent.onProgress((event) => events.push(event))
+
+      await agent.nav('data:text/html,<h1>Test</h1>')
+      await agent.act('describe what you see')
+
+      console.log('\n=== act() Progress Events ===')
+      console.log(JSON.stringify(events, null, 2))
+
+      const actEvents = events.filter(
+        (e) => (e as { type: string }).type === 'act',
+      )
+      assert.ok(actEvents.length > 0, 'Should emit act progress events')
     }, 60000)
   })
 
