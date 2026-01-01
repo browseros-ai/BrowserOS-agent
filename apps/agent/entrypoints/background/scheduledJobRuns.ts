@@ -17,7 +17,9 @@ export const scheduledJobRuns = async () => {
   }
 
   const syncAlarmState = async () => {
-    const jobs = await scheduledJobStorage.getValue()
+    const jobs = (await scheduledJobStorage.getValue()).filter(
+      (each) => each.enabled,
+    )
 
     for (let i = 0; i < jobs.length; i++) {
       const job = jobs[i]
