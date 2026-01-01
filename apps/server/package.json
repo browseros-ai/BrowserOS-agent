@@ -47,6 +47,8 @@
     "pino": "^9.6.0"
   },
   "devDependencies": {
+    "@browseros/agent-sdk": "workspace:*",
+    "async-mutex": "^0.5.0",
     "pino-pretty": "^13.0.0",
     "@types/bun": "latest",
     "@types/debug": "^4.1.12",

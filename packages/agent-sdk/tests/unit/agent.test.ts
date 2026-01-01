@@ -200,7 +200,11 @@ describe('Agent', () => {
       const fetchMock = mockFetch({ success: true, steps: [] })
       globalThis.fetch = fetchMock
 
-      const llmConfig = { provider: 'openai' as const, model: 'gpt-4o', apiKey: 'sk-test' }
+      const llmConfig = {
+        provider: 'openai' as const,
+        model: 'gpt-4o',
+        apiKey: 'sk-test',
+      }
       const agent = new Agent({ url: TEST_URL, llm: llmConfig })
       await agent.act('click the button')
 
@@ -322,7 +326,11 @@ describe('Agent', () => {
       const fetchMock = mockFetch({ data: { name: 'Test', price: 99 } })
       globalThis.fetch = fetchMock
 
-      const llmConfig = { provider: 'anthropic' as const, model: 'claude-3', apiKey: 'key' }
+      const llmConfig = {
+        provider: 'anthropic' as const,
+        model: 'claude-3',
+        apiKey: 'key',
+      }
       const agent = new Agent({ url: TEST_URL, llm: llmConfig })
       await agent.extract('get product info', { schema: productSchema })
 
