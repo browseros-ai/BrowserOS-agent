@@ -24,7 +24,7 @@ import { Sentry } from '../../common/sentry/instrument.js'
 import type { BrowserContext } from '../../http/types.js'
 import { AgentExecutionError } from '../errors.js'
 import { KlavisClient } from '../klavis/index.js'
-import { getSystemPrompt } from './GeminiAgent.prompt.js'
+import { buildSystemPrompt } from './GeminiAgent.prompt.js'
 import {
   AIProvider,
   VercelAIContentGenerator,
@@ -198,7 +198,9 @@ export class GeminiAgent {
     ).contentGenerator = contentGenerator
 
     const client = geminiConfig.getGeminiClient()
-    client.getChat().setSystemInstruction(getSystemPrompt())
+    client
+      .getChat()
+      .setSystemInstruction(buildSystemPrompt(resolvedConfig.userSystemPrompt))
     await client.setTools()
 
     // Disable chat recording to prevent disk writes

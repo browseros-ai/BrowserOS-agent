@@ -169,4 +169,9 @@ export function getSystemPrompt(): string {
   return systemPrompt
 }
 
+export function buildSystemPrompt(userSystemPrompt?: string): string {
+  if (!userSystemPrompt) return systemPrompt
+  return `${systemPrompt}\n\n---\n\n## User Preferences:\n\n${userSystemPrompt}`
+}
+
 export { systemPrompt }
