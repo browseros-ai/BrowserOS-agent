@@ -120,8 +120,6 @@ export const scheduledJobRuns = async () => {
 
     const jobRun = await createJobRun(jobId, 'running')
 
-    const jobRun = await createJobRun(jobId, 'running')
-
     try {
       const response = await getChatServerResponse({
         message: job.query,
