@@ -47,8 +47,13 @@ export function useScheduledJobs() {
   const removeJob = async (id: string) => {
     await chrome.alarms.clear(getAlarmName(id))
 
-    const current = (await scheduledJobStorage.getValue()) ?? []
-    await scheduledJobStorage.setValue(current.filter((j) => j.id !== id))
+    const currentJobs = (await scheduledJobStorage.getValue()) ?? []
+    await scheduledJobStorage.setValue(currentJobs.filter((j) => j.id !== id))
+
+    const currentRuns = (await scheduledJobRunStorage.getValue()) ?? []
+    await scheduledJobRunStorage.setValue(
+      currentRuns.filter((r) => r.jobId !== id),
+    )
   }
 
   const toggleJob = async (id: string, enabled: boolean) => {
