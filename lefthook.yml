@@ -21,6 +21,20 @@ pre-commit:
       run: npx @biomejs/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
       stage_fixed: true
 
+    file-length:
+      glob: "*.{ts,tsx}"
+      exclude: "*.{test,spec,d}.ts|*.{test,spec}.tsx|**/__tests__/**|**/tests/**|**/*.generated.*"
+      run: |
+        for file in {staged_files}; do
+          if [[ -f "$file" ]]; then
+            lines=$(wc -l < "$file" | tr -d ' ')
+            if [[ $lines -gt 400 ]]; then
+              echo "⚠️  Warning: $file has $lines lines (threshold: 400)"
+              echo "   Consider splitting this file if it has multiple responsibilities."
+            fi
+          fi
+        done
+
 pre-push:
   commands:
     branch-name:
