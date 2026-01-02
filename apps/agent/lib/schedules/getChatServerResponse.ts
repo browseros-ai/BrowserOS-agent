@@ -43,6 +43,7 @@ export async function getChatServerResponse(
     headers: {
       'Content-Type': 'application/json',
     },
+    // Important: this chat logic is also used in apps/agent/entrypoints/sidepanel/index/useChatSession.ts for sidepanel conversation. Make sure to keep them in sync for any future changes.
     body: JSON.stringify({
       messages: [{ role: 'user', content: request.message }],
       message: request.message,
