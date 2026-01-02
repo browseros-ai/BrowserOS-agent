@@ -1,4 +1,6 @@
-import { CheckCircle2, XCircle } from 'lucide-react'
+import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,7 +11,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import type { ScheduledJobRun } from './types'
+import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
+
+dayjs.extend(duration)
 
 interface RunResultDialogProps {
   run: ScheduledJobRun | null
@@ -17,25 +21,15 @@ interface RunResultDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-function formatDateTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
+const formatDateTime = (dateStr: string) =>
+  dayjs(dateStr).format('MMM D, YYYY, h:mm A')
 
 function formatDuration(startedAt: string, completedAt?: string): string {
   if (!completedAt) return 'Still running'
-  const start = new Date(startedAt).getTime()
-  const end = new Date(completedAt).getTime()
-  const diffMs = end - start
-  const diffSecs = Math.floor(diffMs / 1000)
-  const mins = Math.floor(diffSecs / 60)
-  const secs = diffSecs % 60
+  const diff = dayjs(completedAt).diff(dayjs(startedAt))
+  const d = dayjs.duration(diff)
+  const mins = Math.floor(d.asMinutes())
+  const secs = d.seconds()
   if (mins === 0) return `${secs} seconds`
   return `${mins}m ${secs}s`
 }
@@ -56,7 +50,9 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
               <CheckCircle2 className="h-5 w-5 text-green-500" />
             ) : run.status === 'failed' ? (
               <XCircle className="h-5 w-5 text-destructive" />
-            ) : null}
+            ) : (
+              <Loader2 className="h-5 w-5 animate-spin text-accent-orange" />
+            )}
             {jobName || 'Run Result'}
           </DialogTitle>
           <div className="text-muted-foreground text-sm">

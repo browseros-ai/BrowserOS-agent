@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo, useState } from 'react'
+import { RunResultDialog } from '@/components/ai-elements/run-result-dialog'
 import {
   useScheduledJobRuns,
   useScheduledJobs,
@@ -42,6 +43,7 @@ const formatTimestamp = (dateString: string) => dayjs(dateString).fromNow()
 
 export const ScheduleResults: FC = () => {
   const [showSchedulerOutputs, setShowSchedulerOutputs] = useState(false)
+  const [viewingRun, setViewingRun] = useState<JobRunWithDetails | null>(null)
 
   const { jobRuns } = useScheduledJobRuns()
   const { jobs } = useScheduledJobs()
@@ -95,9 +97,11 @@ export const ScheduleResults: FC = () => {
       {showSchedulerOutputs && (
         <div className="fade-in-0 slide-in-from-top-2 animate-in space-y-2 duration-200">
           {displayedRuns.map((run) => (
-            <div
+            <button
+              type="button"
               key={run.id}
-              className="rounded-xl border border-border/50 bg-card p-4 transition-all hover:border-border"
+              onClick={() => setViewingRun(run)}
+              className="w-full cursor-pointer rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-1 items-start gap-3">
@@ -113,17 +117,23 @@ export const ScheduleResults: FC = () => {
                       </span>
                     </div>
                     {run.result && (
-                      <p className="text-muted-foreground text-xs">
+                      <p className="line-clamp-2 text-muted-foreground text-xs">
                         {run.result}
                       </p>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      <RunResultDialog
+        run={viewingRun}
+        jobName={viewingRun?.job?.name}
+        onOpenChange={(open) => !open && setViewingRun(null)}
+      />
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { type FC, useState } from 'react'
+import { RunResultDialog } from '@/components/ai-elements/run-result-dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,11 +11,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useScheduledJobs } from '@/lib/schedules/scheduleStorage'
+import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
-import { RunResultDialog } from './RunResultDialog'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
 import { ScheduledTasksList } from './ScheduledTasksList'
-import type { ScheduledJob, ScheduledJobRun } from './types'
+import type { ScheduledJob } from './types'
 
 /**
  * Main page for managing scheduled tasks
