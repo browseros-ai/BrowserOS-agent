@@ -3,7 +3,7 @@
  * @license
  * Copyright 2025 BrowserOS
  *
- * Main entry point for BrowserOS unified server
+ * BrowserOS Server - Entry Point
  */
 
 // Runtime check for Bun
@@ -19,14 +19,29 @@ if (typeof Bun === 'undefined') {
 import './common/polyfill.js'
 import { CommanderError } from 'commander'
 import { Sentry } from './common/sentry/instrument.js'
+import { loadServerConfig } from './config.js'
+import { Application } from './main.js'
 
-// Start the main server
-import('./main.js').catch((error) => {
+const configResult = loadServerConfig()
+
+if (!configResult.ok) {
+  Sentry.captureException(new Error(configResult.error))
+  console.error(configResult.error)
+  process.exit(1)
+}
+
+const app = new Application(configResult.value)
+
+try {
+  await app.start()
+} catch (error) {
   if (error instanceof CommanderError) {
-    // Commander already printed its message (help, validation error, etc)
     process.exit(error.exitCode)
   }
   Sentry.captureException(error)
   console.error('Failed to start server:', error)
   process.exit(1)
-})
+}
+
+process.on('SIGINT', () => app.stop())
+process.on('SIGTERM', () => app.stop())

@@ -1,18 +1,21 @@
 /**
  * @license
  * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Main server orchestration
+ * BrowserOS Server Application
+ *
+ * Manages server lifecycle: initialization, startup, and shutdown.
  */
-// Sentry import should happen before any other logic
 
+import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
-import { RATE_LIMITS } from '@browseros/shared/constants/limits'
+
 import { RateLimiter } from './agent/index.js'
+import { fetchDailyRateLimit } from './agent/rate-limiter/fetch-config.js'
 import {
   ensureBrowserConnected,
-  fetchBrowserOSConfig,
   identity,
   initializeDb,
   logger,
@@ -21,232 +24,69 @@ import {
   metrics,
 } from './common/index.js'
 import { Sentry } from './common/sentry/instrument.js'
-import { loadServerConfig, type ServerConfig } from './config.js'
+import type { ServerConfig } from './config.js'
 import {
   ControllerBridge,
   ControllerContext,
 } from './controller-server/index.js'
 import { createHttpServer } from './http/index.js'
-import {
-  allCdpTools,
-  allControllerTools,
-  type ToolDefinition,
-} from './tools/index.js'
+import { createToolRegistry } from './tools/registry.js'
 import { VERSION } from './version.js'
 
-const configResult = loadServerConfig()
+export class Application {
+  private config: ServerConfig
+  private controllerBridge: ControllerBridge | null = null
+  private httpServer: ReturnType<typeof createHttpServer> | null = null
+  private db: Database | null = null
 
-if (!configResult.ok) {
-  Sentry.captureException(new Error(configResult.error))
-  console.error(configResult.error)
-  process.exit(1)
-}
+  constructor(config: ServerConfig) {
+    this.config = config
+  }
 
-const config: ServerConfig = configResult.value
+  async start(): Promise<void> {
+    logger.info(`Starting BrowserOS Server v${VERSION}`)
 
-configureLogDirectory(config.executionDir)
+    this.initCoreServices()
 
-// Initialize database and identity service
-const dbPath = path.join(
-  config.executionDir || config.resourcesDir,
-  'browseros.db',
-)
-const db = initializeDb(dbPath)
+    const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-identity.initialize({
-  installId: config.instanceInstallId,
-  db,
-})
+    const { controllerBridge, controllerContext } = this.createController()
+    this.controllerBridge = controllerBridge
 
-const browserosId = identity.getBrowserOSId()
-logger.info('BrowserOS ID initialized', {
-  browserosId: browserosId.slice(0, 12),
-  fromConfig: !!config.instanceInstallId,
-})
+    const cdpContext = await this.connectToCdp()
 
-// Initialize metrics and Sentry (uses install_id from config for analytics)
-metrics.initialize({
-  client_id: config.instanceClientId,
-  install_id: config.instanceInstallId,
-  browseros_version: config.instanceBrowserosVersion,
-  chromium_version: config.instanceChromiumVersion,
-})
-
-Sentry.setContext('browseros', {
-  client_id: config.instanceClientId,
-  install_id: config.instanceInstallId,
-  browseros_version: config.instanceBrowserosVersion,
-  chromium_version: config.instanceChromiumVersion,
-})
-
-void (async () => {
-  logger.info(`Starting BrowserOS Server v${VERSION}`)
-
-  // Fetch rate limit config from Cloudflare worker
-  const dailyRateLimit = await fetchDailyRateLimit()
-
-  logger.info(
-    `Controller server starting on ws://127.0.0.1:${config.extensionPort}`,
-  )
-  const { controllerBridge, controllerContext } = createController(
-    config.extensionPort,
-  )
-
-  const cdpContext = await connectToCdp(config.cdpPort)
-
-  logger.info(
-    `Loaded ${allControllerTools.length} controller (extension) tools`,
-  )
-  const tools = mergeTools(cdpContext, controllerContext)
-  const toolMutex = new Mutex()
-
-  const httpServer = createHttpServer({
-    port: config.serverPort,
-    host: '0.0.0.0',
-    logger,
-    // MCP config
-    version: VERSION,
-    tools,
-    cdpContext,
-    controllerContext,
-    toolMutex,
-    allowRemote: config.mcpAllowRemote,
-    // Chat/Klavis config
-    browserosId,
-    tempDir: config.executionDir || config.resourcesDir,
-    rateLimiter: new RateLimiter(db, dailyRateLimit),
-  })
-
-  logger.info(`HTTP server listening on http://127.0.0.1:${config.serverPort}`)
-  logger.info(`Health endpoint: http://127.0.0.1:${config.serverPort}/health`)
-
-  logSummary(config)
-
-  const shutdown = createShutdownHandler(httpServer, controllerBridge)
-  process.on('SIGINT', shutdown)
-  process.on('SIGTERM', shutdown)
-})()
-
-function createController(extensionPort: number) {
-  const controllerBridge = new ControllerBridge(extensionPort, logger)
-  const controllerContext = new ControllerContext(controllerBridge)
-  return { controllerBridge, controllerContext }
-}
-
-async function connectToCdp(
-  cdpPort: number | null,
-): Promise<McpContext | null> {
-  if (!cdpPort) {
     logger.info(
-      'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
+      `Loaded ${(await import('./tools/index.js')).allControllerTools.length} controller (extension) tools`,
     )
-    return null
-  }
+    const tools = createToolRegistry(cdpContext, controllerContext)
+    const toolMutex = new Mutex()
 
-  try {
-    const browser = await ensureBrowserConnected(`http://127.0.0.1:${cdpPort}`)
-    logger.info(`Connected to CDP at http://127.0.0.1:${cdpPort}`)
-    const context = await McpContext.from(browser, logger)
-    logger.info(`Loaded ${allCdpTools.length} CDP tools`)
-    return context
-  } catch (_error) {
-    logger.warn(
-      `Warning: Could not connect to CDP at http://127.0.0.1:${cdpPort}`,
-    )
-    logger.warn(
-      'CDP tools will not be available. Only extension tools will work.',
-    )
-    return null
-  }
-}
-
-function wrapControllerTools(
-  tools: typeof allControllerTools,
-  controllerContext: ControllerContext,
-): Array<ToolDefinition<any, any, any>> {
-  return tools.map((tool: any) => ({
-    ...tool,
-    handler: async (request: any, response: any, _context: any) => {
-      return tool.handler(request, response, controllerContext)
-    },
-  }))
-}
-
-function mergeTools(
-  cdpContext: McpContext | null,
-  controllerContext: ControllerContext,
-): Array<ToolDefinition<any, any, any>> {
-  const cdpTools = cdpContext ? allCdpTools : []
-  const wrappedControllerTools = wrapControllerTools(
-    allControllerTools,
-    controllerContext,
-  )
-
-  logger.info(
-    `Total tools available: ${cdpTools.length + wrappedControllerTools.length} ` +
-      `(${cdpTools.length} CDP + ${wrappedControllerTools.length} extension)`,
-  )
-
-  return [...cdpTools, ...wrappedControllerTools]
-}
-
-async function fetchDailyRateLimit(): Promise<number> {
-  // Test mode: skip rate limiting entirely
-  if (process.env.NODE_ENV === 'test') {
-    logger.info('Test mode: rate limiting disabled')
-    return RATE_LIMITS.TEST_DAILY
-  }
-
-  // Dev mode: skip fetch, use higher limit for local development
-  if (process.env.NODE_ENV === 'development') {
-    logger.info('Dev mode: using dev rate limit', {
-      dailyRateLimit: RATE_LIMITS.DEV_DAILY,
+    this.httpServer = createHttpServer({
+      port: this.config.serverPort,
+      host: '0.0.0.0',
+      logger,
+      version: VERSION,
+      tools,
+      cdpContext,
+      controllerContext,
+      toolMutex,
+      allowRemote: this.config.mcpAllowRemote,
+      browserosId: identity.getBrowserOSId(),
+      tempDir: this.config.executionDir || this.config.resourcesDir,
+      rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
     })
-    return RATE_LIMITS.DEV_DAILY
-  }
 
-  const configUrl = process.env.BROWSEROS_CONFIG_URL
-  if (!configUrl) {
-    logger.info('No BROWSEROS_CONFIG_URL, using default rate limit', {
-      dailyRateLimit: RATE_LIMITS.DEFAULT_DAILY,
-    })
-    return RATE_LIMITS.DEFAULT_DAILY
-  }
-
-  try {
-    const browserosConfig = await fetchBrowserOSConfig(configUrl, browserosId)
-    const defaultProvider = browserosConfig.providers.find(
-      (p) => p.name === 'default',
+    logger.info(
+      `HTTP server listening on http://127.0.0.1:${this.config.serverPort}`,
     )
-    const dailyRateLimit =
-      defaultProvider?.dailyRateLimit ?? RATE_LIMITS.DEFAULT_DAILY
+    logger.info(
+      `Health endpoint: http://127.0.0.1:${this.config.serverPort}/health`,
+    )
 
-    logger.info('Rate limit config fetched', { dailyRateLimit })
-    return dailyRateLimit
-  } catch (error) {
-    logger.warn('Failed to fetch rate limit config, using default', {
-      error: error instanceof Error ? error.message : String(error),
-      dailyRateLimit: RATE_LIMITS.DEFAULT_DAILY,
-    })
-    return RATE_LIMITS.DEFAULT_DAILY
+    this.logStartupSummary()
   }
-}
 
-function logSummary(serverConfig: ServerConfig) {
-  logger.info('')
-  logger.info('Services running:')
-  logger.info(
-    `  Controller Server: ws://127.0.0.1:${serverConfig.extensionPort}`,
-  )
-  logger.info(`  HTTP Server: http://127.0.0.1:${serverConfig.serverPort}`)
-  logger.info('')
-}
-
-function createShutdownHandler(
-  httpServer: { server: ReturnType<typeof Bun.serve> },
-  controllerBridge: ControllerBridge,
-) {
-  return () => {
+  stop(): void {
     logger.info('Shutting down server...')
 
     const forceExitTimeout = setTimeout(() => {
@@ -255,8 +95,8 @@ function createShutdownHandler(
     }, 5000)
 
     Promise.all([
-      Promise.resolve(httpServer.server.stop()),
-      controllerBridge.close(),
+      Promise.resolve(this.httpServer?.server.stop()),
+      this.controllerBridge?.close(),
       metrics.shutdown(),
     ])
       .then(() => {
@@ -270,21 +110,119 @@ function createShutdownHandler(
         process.exit(1)
       })
   }
-}
 
-function configureLogDirectory(logDirCandidate: string): void {
-  const resolvedDir = path.isAbsolute(logDirCandidate)
-    ? logDirCandidate
-    : path.resolve(process.cwd(), logDirCandidate)
+  private initCoreServices(): void {
+    this.configureLogDirectory()
 
-  try {
-    fs.mkdirSync(resolvedDir, { recursive: true })
-    logger.setLogFile(resolvedDir)
-  } catch (error) {
-    console.warn(
-      `Failed to configure log directory ${resolvedDir}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+    const dbPath = path.join(
+      this.config.executionDir || this.config.resourcesDir,
+      'browseros.db',
     )
+    this.db = initializeDb(dbPath)
+
+    identity.initialize({
+      installId: this.config.instanceInstallId,
+      db: this.db,
+    })
+
+    const browserosId = identity.getBrowserOSId()
+    logger.info('BrowserOS ID initialized', {
+      browserosId: browserosId.slice(0, 12),
+      fromConfig: !!this.config.instanceInstallId,
+    })
+
+    metrics.initialize({
+      client_id: this.config.instanceClientId,
+      install_id: this.config.instanceInstallId,
+      browseros_version: this.config.instanceBrowserosVersion,
+      chromium_version: this.config.instanceChromiumVersion,
+    })
+
+    Sentry.setContext('browseros', {
+      client_id: this.config.instanceClientId,
+      install_id: this.config.instanceInstallId,
+      browseros_version: this.config.instanceBrowserosVersion,
+      chromium_version: this.config.instanceChromiumVersion,
+    })
+  }
+
+  private configureLogDirectory(): void {
+    const logDir = this.config.executionDir
+    const resolvedDir = path.isAbsolute(logDir)
+      ? logDir
+      : path.resolve(process.cwd(), logDir)
+
+    try {
+      fs.mkdirSync(resolvedDir, { recursive: true })
+      logger.setLogFile(resolvedDir)
+    } catch (error) {
+      console.warn(
+        `Failed to configure log directory ${resolvedDir}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+
+  private createController(): {
+    controllerBridge: ControllerBridge
+    controllerContext: ControllerContext
+  } {
+    logger.info(
+      `Controller server starting on ws://127.0.0.1:${this.config.extensionPort}`,
+    )
+    const controllerBridge = new ControllerBridge(
+      this.config.extensionPort,
+      logger,
+    )
+    const controllerContext = new ControllerContext(controllerBridge)
+    return { controllerBridge, controllerContext }
+  }
+
+  private async connectToCdp(): Promise<McpContext | null> {
+    if (!this.config.cdpPort) {
+      logger.info(
+        'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
+      )
+      return null
+    }
+
+    try {
+      const browser = await ensureBrowserConnected(
+        `http://127.0.0.1:${this.config.cdpPort}`,
+      )
+      logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
+      const context = await McpContext.from(browser, logger)
+      const { allCdpTools } = await import('./tools/index.js')
+      logger.info(`Loaded ${allCdpTools.length} CDP tools`)
+      return context
+    } catch (_error) {
+      logger.warn(
+        `Warning: Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+      )
+      logger.warn(
+        'CDP tools will not be available. Only extension tools will work.',
+      )
+      return null
+    }
+  }
+
+  private logStartupSummary(): void {
+    logger.info('')
+    logger.info('Services running:')
+    logger.info(
+      `  Controller Server: ws://127.0.0.1:${this.config.extensionPort}`,
+    )
+    logger.info(`  HTTP Server: http://127.0.0.1:${this.config.serverPort}`)
+    logger.info('')
+  }
+
+  private getDb(): Database {
+    if (!this.db) {
+      throw new Error(
+        'Database not initialized. Call initCoreServices() first.',
+      )
+    }
+    return this.db
   }
 }
