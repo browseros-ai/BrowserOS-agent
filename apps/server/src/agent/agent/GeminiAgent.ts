@@ -11,51 +11,19 @@ import {
   type GeminiClient,
   Config as GeminiConfig,
   GeminiEventType,
-  MCPServerConfig,
+  type MCPServerConfig,
   type ToolCallRequestInfo,
 } from '@google/gemini-cli-core'
 import type { Content, Part } from '@google/genai'
-import {
-  fetchBrowserOSConfig,
-  getLLMConfigFromProvider,
-  logger,
-} from '../../common/index.js'
+import { logger } from '../../common/index.js'
 import { Sentry } from '../../common/sentry/instrument.js'
 import type { BrowserContext } from '../../http/types.js'
 import { AgentExecutionError } from '../errors.js'
-import { KlavisClient } from '../klavis/index.js'
 import { buildSystemPrompt } from './GeminiAgent.prompt.js'
-import {
-  AIProvider,
-  VercelAIContentGenerator,
-} from './gemini-vercel-sdk-adapter/index.js'
+import { VercelAIContentGenerator } from './gemini-vercel-sdk-adapter/index.js'
 import type { HonoSSEStream } from './gemini-vercel-sdk-adapter/types.js'
 import { UIMessageStreamWriter } from './gemini-vercel-sdk-adapter/ui-message-stream.js'
 import type { AgentConfig } from './types.js'
-
-interface McpHttpServerOptions {
-  httpUrl: string
-  headers?: Record<string, string>
-  trust?: boolean
-}
-
-// MCP Server Config for HTTP is a positional argument in the constructor (can't be passed as an object)
-function createHttpMcpServerConfig(
-  options: McpHttpServerOptions,
-): MCPServerConfig {
-  return new MCPServerConfig(
-    undefined, // command (stdio)
-    undefined, // args (stdio)
-    undefined, // env (stdio)
-    undefined, // cwd (stdio)
-    undefined, // url (sse transport)
-    options.httpUrl, // httpUrl (streamable http)
-    options.headers, // headers
-    undefined, // tcp (websocket)
-    undefined, // timeout
-    options.trust, // trust
-  )
-}
 
 export class GeminiAgent {
   private constructor(
@@ -65,133 +33,49 @@ export class GeminiAgent {
     private conversationId: string,
   ) {}
 
-  static async create(config: AgentConfig): Promise<GeminiAgent> {
-    const tempDir = config.tempDir
-
-    // If provider is BROWSEROS, fetch config from BROWSEROS_CONFIG_URL
-    let resolvedConfig = { ...config }
-    if (config.provider === AIProvider.BROWSEROS) {
-      const configUrl = process.env.BROWSEROS_CONFIG_URL
-      if (!configUrl) {
-        throw new Error(
-          'BROWSEROS_CONFIG_URL environment variable is required for BrowserOS provider',
-        )
-      }
-
-      logger.info('Fetching BrowserOS config', {
-        configUrl,
-        browserosId: config.browserosId,
-      })
-      const browserosConfig = await fetchBrowserOSConfig(
-        configUrl,
-        config.browserosId,
-      )
-      const llmConfig = getLLMConfigFromProvider(browserosConfig, 'default')
-
-      resolvedConfig = {
-        ...config,
-        model: llmConfig.modelName,
-        apiKey: llmConfig.apiKey,
-        baseUrl: llmConfig.baseUrl,
-        upstreamProvider: llmConfig.providerType,
-      }
-
-      logger.info('Using BrowserOS config', {
-        model: resolvedConfig.model,
-        baseUrl: resolvedConfig.baseUrl,
-        upstreamProvider: resolvedConfig.upstreamProvider,
-      })
-    }
-
-    const modelString = `${resolvedConfig.provider}/${resolvedConfig.model}`
-
-    // Calculate compression threshold based on context window size
-    // Formula: (COMPRESSION_RATIO * contextWindowSize) / CONTEXT_WINDOW
-    // This converts absolute token threshold to gemini-cli-core's multiplier format
+  private static calculateCompressionThreshold(
+    contextWindowSize?: number,
+  ): number {
     const contextWindow =
-      resolvedConfig.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
-    const compressionThreshold =
+      contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+    return (
       (AGENT_LIMITS.DEFAULT_COMPRESSION_RATIO * contextWindow) /
       AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+    )
+  }
+
+  static async create(
+    config: AgentConfig,
+    mcpServers?: Record<string, MCPServerConfig>,
+  ): Promise<GeminiAgent> {
+    const modelString = `${config.provider}/${config.model}`
+    const compressionThreshold = GeminiAgent.calculateCompressionThreshold(
+      config.contextWindowSize,
+    )
 
     logger.info('Compression config', {
-      contextWindow,
-      compressionRatio: compressionThreshold,
+      contextWindow:
+        config.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW,
       compressionThreshold,
       compressesAtTokens: Math.floor(
-        AGENT_LIMITS.DEFAULT_COMPRESSION_RATIO * contextWindow,
+        AGENT_LIMITS.DEFAULT_COMPRESSION_RATIO *
+          (config.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW),
       ),
     })
 
-    // Build MCP servers config
-    const mcpServers: Record<string, MCPServerConfig> = {}
-
-    // Add BrowserOS MCP server if configured
-    if (resolvedConfig.mcpServerUrl) {
-      mcpServers['browseros-mcp'] = createHttpMcpServerConfig({
-        httpUrl: resolvedConfig.mcpServerUrl,
-        headers: { Accept: 'application/json, text/event-stream' },
-        trust: true,
-      })
-    }
-
-    // Add Klavis Strata MCP server if browserosId and enabled servers are provided
-    if (
-      resolvedConfig.browserosId &&
-      resolvedConfig.enabledMcpServers?.length
-    ) {
-      try {
-        const klavisClient = new KlavisClient()
-        const result = await klavisClient.createStrata(
-          resolvedConfig.browserosId,
-          resolvedConfig.enabledMcpServers,
-        )
-        mcpServers['klavis-strata'] = createHttpMcpServerConfig({
-          httpUrl: result.strataServerUrl,
-          trust: true,
-        })
-        logger.info('Added Klavis Strata MCP server', {
-          browserosId: resolvedConfig.browserosId.slice(0, 12),
-          servers: resolvedConfig.enabledMcpServers,
-        })
-      } catch (error) {
-        logger.error('Failed to create Klavis Strata MCP server', {
-          browserosId: resolvedConfig.browserosId?.slice(0, 12),
-          servers: resolvedConfig.enabledMcpServers,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-
-    // Add custom third-party MCP servers
-    if (resolvedConfig.customMcpServers?.length) {
-      for (const server of resolvedConfig.customMcpServers) {
-        mcpServers[`custom-${server.name}`] = createHttpMcpServerConfig({
-          httpUrl: server.url,
-          trust: true,
-        })
-        logger.info('Added custom MCP server', {
-          name: server.name,
-          url: server.url,
-        })
-      }
-    }
-
-    logger.debug('MCP servers config', { mcpServers })
-
     const geminiConfig = new GeminiConfig({
-      sessionId: resolvedConfig.conversationId,
-      targetDir: tempDir,
-      cwd: tempDir,
+      sessionId: config.conversationId,
+      targetDir: config.tempDir,
+      cwd: config.tempDir,
       debugMode: false,
       model: modelString,
       excludeTools: ['run_shell_command', 'write_file', 'replace'],
-      compressionThreshold: compressionThreshold,
-      mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+      compressionThreshold,
+      mcpServers,
     })
 
     await geminiConfig.initialize()
-    const contentGenerator = new VercelAIContentGenerator(resolvedConfig)
+    const contentGenerator = new VercelAIContentGenerator(config)
 
     ;(
       geminiConfig as unknown as { contentGenerator: VercelAIContentGenerator }
@@ -200,7 +84,7 @@ export class GeminiAgent {
     const client = geminiConfig.getGeminiClient()
     client
       .getChat()
-      .setSystemInstruction(buildSystemPrompt(resolvedConfig.userSystemPrompt))
+      .setSystemInstruction(buildSystemPrompt(config.userSystemPrompt))
     await client.setTools()
 
     // Disable chat recording to prevent disk writes
@@ -212,16 +96,16 @@ export class GeminiAgent {
     }
 
     logger.info('GeminiAgent created', {
-      conversationId: resolvedConfig.conversationId,
-      provider: resolvedConfig.provider,
-      model: resolvedConfig.model,
+      conversationId: config.conversationId,
+      provider: config.provider,
+      model: config.model,
     })
 
     return new GeminiAgent(
       client,
       geminiConfig,
       contentGenerator,
-      resolvedConfig.conversationId,
+      config.conversationId,
     )
   }
 
@@ -264,8 +148,7 @@ export class GeminiAgent {
       messageWithContext = `${contextLines.join('\n')}\n\n---\n\n${message}`
     }
 
-    let currentParts: Part[] = [{ text: messageWithContext }]
-    let turnCount = 0
+    const initialParts: Part[] = [{ text: messageWithContext }]
 
     // Create single UIMessageStreamWriter to manage entire stream lifecycle
     const uiStream = honoStream
@@ -291,6 +174,42 @@ export class GeminiAgent {
       historyLength: this.client.getHistory().length,
       browserContextWindowId: browserContext?.windowId,
     })
+
+    try {
+      await this.executeAgentLoop(
+        initialParts,
+        abortSignal,
+        promptId,
+        browserContext,
+        uiStream,
+      )
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Agent execution failed'
+      logger.error('Agent execution error', {
+        conversationId: this.conversationId,
+        error: errorMessage,
+      })
+      if (uiStream) {
+        await uiStream.writeError(errorMessage)
+      }
+      throw error
+    } finally {
+      if (uiStream) {
+        await uiStream.finish()
+      }
+    }
+  }
+
+  private async executeAgentLoop(
+    initialParts: Part[],
+    abortSignal: AbortSignal,
+    promptId: string,
+    browserContext: BrowserContext | undefined,
+    uiStream: UIMessageStreamWriter | null,
+  ): Promise<void> {
+    let currentParts = initialParts
+    let turnCount = 0
 
     while (true) {
       turnCount++
@@ -478,11 +397,6 @@ export class GeminiAgent {
         })
         break
       }
-    }
-
-    // Finish the UI stream after all turns complete
-    if (uiStream) {
-      await uiStream.finish()
     }
   }
 }

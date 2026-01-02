@@ -3,6 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import type { MCPServerConfig } from '@google/gemini-cli-core'
 import { logger } from '../../common/index.js'
 
 import { GeminiAgent } from '../agent/GeminiAgent.js'
@@ -11,7 +12,10 @@ import type { AgentConfig } from '../agent/types.js'
 export class SessionManager {
   private sessions = new Map<string, GeminiAgent>()
 
-  async getOrCreate(config: AgentConfig): Promise<GeminiAgent> {
+  async getOrCreate(
+    config: AgentConfig,
+    mcpServers?: Record<string, MCPServerConfig>,
+  ): Promise<GeminiAgent> {
     const existing = this.sessions.get(config.conversationId)
 
     if (existing) {
@@ -22,7 +26,7 @@ export class SessionManager {
       return existing
     }
 
-    const agent = await GeminiAgent.create(config)
+    const agent = await GeminiAgent.create(config, mcpServers)
     this.sessions.set(config.conversationId, agent)
 
     logger.info('Session added to manager', {

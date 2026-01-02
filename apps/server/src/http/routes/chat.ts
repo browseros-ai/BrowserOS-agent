@@ -4,114 +4,74 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { PATHS } from '@browseros/shared/constants/paths'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
-import { AIProvider } from '../../agent/agent/gemini-vercel-sdk-adapter/types.js'
-import {
-  formatUIMessageStreamDone,
-  formatUIMessageStreamEvent,
-} from '../../agent/agent/gemini-vercel-sdk-adapter/ui-message-stream.js'
-import { AgentExecutionError } from '../../agent/errors.js'
 import type { RateLimiter } from '../../agent/rate-limiter/index.js'
-import { SessionManager } from '../../agent/session/SessionManager.js'
+import type { SessionManager } from '../../agent/session/SessionManager.js'
 import { logger } from '../../common/index.js'
 import { Sentry } from '../../common/sentry/instrument.js'
+import type { ChatService } from '../../services/ChatService.js'
+import { browserosRateLimitMiddleware } from '../middleware/browseros-rate-limit.js'
 import type { ChatRequest } from '../types.js'
 import { ChatRequestSchema } from '../types.js'
 import { validateRequest } from '../utils/validation.js'
 
 interface ChatRouteDeps {
-  port: number
-  tempDir?: string
+  chatService: ChatService
+  sessionManager: SessionManager
   browserosId?: string
   rateLimiter?: RateLimiter
 }
 
 export function createChatRoutes(deps: ChatRouteDeps) {
-  const { port, tempDir, browserosId, rateLimiter } = deps
-
-  // MCP endpoint is on the same consolidated server
-  const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
-
-  // Session manager - one per server instance
-  const sessionManager = new SessionManager()
+  const { chatService, sessionManager, browserosId, rateLimiter } = deps
 
   const chat = new Hono()
 
-  chat.post('/', validateRequest(ChatRequestSchema), async (c) => {
-    const request = c.get('validatedBody') as ChatRequest
+  const rateLimitMiddleware = browserosRateLimitMiddleware({
+    rateLimiter,
+    browserosId,
+  })
 
-    const { provider, model, baseUrl } = request
+  chat.post(
+    '/',
+    validateRequest(ChatRequestSchema),
+    rateLimitMiddleware,
+    async (c) => {
+      const request = c.get('validatedBody') as ChatRequest
 
-    Sentry.setContext('request', { provider, model, baseUrl })
+      const { provider, model, baseUrl } = request
 
-    logger.info('Chat request received', {
-      conversationId: request.conversationId,
-      provider: request.provider,
-      model: request.model,
-      browserContext: request.browserContext,
-    })
+      Sentry.setContext('request', { provider, model, baseUrl })
 
-    // Rate limiting for BrowserOS provider
-    if (
-      request.provider === AIProvider.BROWSEROS &&
-      rateLimiter &&
-      browserosId
-    ) {
-      rateLimiter.check(browserosId)
-      rateLimiter.record({
+      logger.info('Chat request received', {
         conversationId: request.conversationId,
-        browserosId,
         provider: request.provider,
+        model: request.model,
+        browserContext: request.browserContext,
       })
-    }
 
-    c.header('Content-Type', 'text/event-stream')
-    c.header('x-vercel-ai-ui-message-stream', 'v1')
-    c.header('Cache-Control', 'no-cache')
-    c.header('Connection', 'keep-alive')
+      c.header('Content-Type', 'text/event-stream')
+      c.header('x-vercel-ai-ui-message-stream', 'v1')
+      c.header('Cache-Control', 'no-cache')
+      c.header('Connection', 'keep-alive')
 
-    // Create AbortController that we can trigger from multiple sources
-    const abortController = new AbortController()
-    const abortSignal = abortController.signal
+      const abortController = new AbortController()
+      const abortSignal = abortController.signal
 
-    // Forward raw request abort to our controller
-    if (c.req.raw.signal) {
-      c.req.raw.signal.addEventListener(
-        'abort',
-        () => {
+      if (c.req.raw.signal) {
+        c.req.raw.signal.addEventListener(
+          'abort',
+          () => {
+            abortController.abort()
+          },
+          { once: true },
+        )
+      }
+
+      return stream(c, async (honoStream) => {
+        honoStream.onAbort(() => {
           abortController.abort()
-        },
-        { once: true },
-      )
-    }
-
-    return stream(c, async (honoStream) => {
-      // Register onAbort callback - fires when client disconnects
-      honoStream.onAbort(() => {
-        abortController.abort()
-      })
-
-      try {
-        const agent = await sessionManager.getOrCreate({
-          conversationId: request.conversationId,
-          provider: request.provider,
-          model: request.model,
-          apiKey: request.apiKey,
-          baseUrl: request.baseUrl,
-          resourceName: request.resourceName,
-          region: request.region,
-          accessKeyId: request.accessKeyId,
-          secretAccessKey: request.secretAccessKey,
-          sessionToken: request.sessionToken,
-          contextWindowSize: request.contextWindowSize,
-          tempDir: tempDir || PATHS.DEFAULT_TEMP_DIR,
-          mcpServerUrl,
-          browserosId,
-          enabledMcpServers: request.browserContext?.enabledMcpServers,
-          customMcpServers: request.browserContext?.customMcpServers,
-          userSystemPrompt: request.userSystemPrompt,
         })
 
         const sseStream = {
@@ -120,33 +80,24 @@ export function createChatRoutes(deps: ChatRouteDeps) {
           },
         }
 
-        await agent.execute(
-          request.message,
-          sseStream,
-          abortSignal,
-          request.browserContext,
-        )
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Agent execution failed'
-        logger.error('Agent execution error', {
-          conversationId: request.conversationId,
-          error: errorMessage,
-        })
-        await honoStream.write(
-          formatUIMessageStreamEvent({
-            type: 'error',
-            errorText: errorMessage,
-          }),
-        )
-        await honoStream.write(formatUIMessageStreamDone())
-        throw new AgentExecutionError(
-          'Agent execution failed',
-          error instanceof Error ? error : undefined,
-        )
-      }
-    })
-  })
+        try {
+          await chatService.processMessage(
+            request,
+            sseStream,
+            abortSignal,
+            request.browserContext,
+          )
+        } catch (error) {
+          logger.error('Chat request failed', {
+            conversationId: request.conversationId,
+            error:
+              error instanceof Error ? error.message : 'Chat request failed',
+          })
+          throw error
+        }
+      })
+    },
+  )
 
   chat.delete('/:conversationId', (c) => {
     const conversationId = c.req.param('conversationId')

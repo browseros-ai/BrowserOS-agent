@@ -10,11 +10,15 @@
  * - MCP HTTP routes (using @hono/mcp transport)
  */
 
+import { PATHS } from '@browseros/shared/constants/paths'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
+import { BrowserOSConfigResolver } from '../agent/config/BrowserOSConfigResolver.js'
 import { HttpAgentError } from '../agent/errors.js'
+import { SessionManager } from '../agent/session/SessionManager.js'
 import { logger } from '../common/index.js'
+import { ChatService } from '../services/ChatService.js'
 import { createChatRoutes } from './routes/chat.js'
 import { createExtensionStatusRoute } from './routes/extension-status.js'
 import { health } from './routes/health.js'
@@ -46,6 +50,19 @@ export function createHttpServer(config: HttpServerConfig) {
     allowRemote,
   } = config
 
+  // Create shared services
+  const sessionManager = new SessionManager()
+  const configResolver = new BrowserOSConfigResolver()
+  const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
+
+  const chatService = new ChatService({
+    logger,
+    sessionManager,
+    configResolver,
+    tempDir: tempDir || PATHS.DEFAULT_TEMP_DIR,
+    mcpServerUrl,
+  })
+
   // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
@@ -70,8 +87,8 @@ export function createHttpServer(config: HttpServerConfig) {
     .route(
       '/chat',
       createChatRoutes({
-        port,
-        tempDir,
+        chatService,
+        sessionManager,
         browserosId,
         rateLimiter,
       }),
