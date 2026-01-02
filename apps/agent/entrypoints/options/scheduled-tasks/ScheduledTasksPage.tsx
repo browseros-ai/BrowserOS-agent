@@ -22,7 +22,7 @@ import type { ScheduledJob } from './types'
  * @public
  */
 export const ScheduledTasksPage: FC = () => {
-  const { jobs, addJob, editJob, toggleJob, removeJob } = useScheduledJobs()
+  const { jobs, addJob, editJob, toggleJob, removeJob, runJob } = useScheduledJobs()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null)
@@ -62,6 +62,10 @@ export const ScheduledTasksPage: FC = () => {
     await toggleJob(jobId, enabled)
   }
 
+  const handleRun = async (jobId: string) => {
+    await runJob(jobId)
+  }
+
   const handleViewRun = (run: ScheduledJobRun) => {
     setViewingRun(run)
   }
@@ -79,6 +83,7 @@ export const ScheduledTasksPage: FC = () => {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onToggle={handleToggle}
+        onRun={handleRun}
         onViewRun={handleViewRun}
       />
 

@@ -1,3 +1,4 @@
+import { onScheduleMessage } from '@/lib/messaging/schedules/scheduleMessages'
 import { createAlarmFromJob } from '@/lib/schedules/createAlarmFromJob'
 import { getChatServerResponse } from '@/lib/schedules/getChatServerResponse'
 import {
@@ -96,16 +97,14 @@ export const scheduledJobRuns = async () => {
     )
   }
 
-  chrome.alarms.onAlarm.addListener(async (alarm) => {
-    if (!alarm.name.startsWith('scheduled-job-')) return
-
-    const jobId = alarm.name.replace('scheduled-job-', '')
-
+  const executeScheduledJob = async (jobId: string): Promise<void> => {
     const job = (await scheduledJobStorage.getValue()).find(
       (each) => each.id === jobId,
     )
 
-    if (!job) return
+    if (!job) {
+      throw new Error(`Job not found: ${jobId}`)
+    }
 
     const backgroundWindow = await chrome.windows.create({
       url: 'chrome://newtab',
@@ -122,7 +121,9 @@ export const scheduledJobRuns = async () => {
 
     const backgroundTab = backgroundWindow?.tabs?.[0]
 
-    if (!backgroundWindow || !backgroundTab) return
+    if (!backgroundWindow || !backgroundTab) {
+      throw new Error('Failed to create background window')
+    }
 
     const jobRun = await createJobRun(jobId, 'running')
 
@@ -149,6 +150,21 @@ export const scheduledJobRuns = async () => {
       if (backgroundWindow.id) {
         await chrome.windows.remove(backgroundWindow.id)
       }
+    }
+  }
+
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (!alarm.name.startsWith('scheduled-job-')) return
+    const jobId = alarm.name.replace('scheduled-job-', '')
+    await executeScheduledJob(jobId)
+  })
+
+  onScheduleMessage('runScheduledJob', async ({ data }) => {
+    try {
+      await executeScheduledJob(data.jobId)
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) }
     }
   })
 

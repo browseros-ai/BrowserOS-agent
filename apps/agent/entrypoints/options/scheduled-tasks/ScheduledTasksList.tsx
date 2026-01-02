@@ -7,6 +7,7 @@ interface ScheduledTasksListProps {
   onEdit: (job: ScheduledJob) => void
   onDelete: (jobId: string) => void
   onToggle: (jobId: string, enabled: boolean) => void
+  onRun: (jobId: string) => void
   onViewRun: (run: ScheduledJobRun) => void
 }
 
@@ -15,6 +16,7 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
   onEdit,
   onDelete,
   onToggle,
+  onRun,
   onViewRun,
 }) => {
   if (jobs.length === 0) {
@@ -38,6 +40,7 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
           onEdit={() => onEdit(job)}
           onDelete={() => onDelete(job.id)}
           onToggle={(enabled) => onToggle(job.id, enabled)}
+          onRun={() => onRun(job.id)}
           onViewRun={onViewRun}
         />
       ))}
