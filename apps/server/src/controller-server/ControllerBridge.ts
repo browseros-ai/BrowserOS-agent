@@ -127,6 +127,11 @@ export class ControllerBridge {
     const payloadObj = payload as Record<string, unknown> | null
     const windowId = payloadObj?.windowId as number | undefined
 
+    // FIXME: Race condition - when a new window is created, the window_created
+    // WebSocket message may not be processed before requests arrive for that window.
+    // This causes fallback to primaryClientId. For single-profile setups this works,
+    // but breaks multi-profile routing. Proper fix: poll/wait for window ownership
+    // registration here (e.g., retry for up to 500ms before falling back).
     let targetClientId = this.primaryClientId
     if (windowId !== undefined) {
       const ownerClientId = this.windowOwnership.get(windowId)
@@ -321,7 +326,7 @@ export class ControllerBridge {
     }
 
     this.windowOwnership.set(windowId, clientId)
-    this.logger.debug('Window created and registered', { clientId, windowId })
+    this.logger.info('Window created and registered', { clientId, windowId })
   }
 
   private handleWindowRemoved(clientId: string, windowId: number): void {
