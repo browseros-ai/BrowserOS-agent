@@ -11,6 +11,13 @@ import {
 import type { FC } from 'react'
 import { useMemo, useState } from 'react'
 import { RunResultDialog } from '@/components/ai-elements/run-result-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   useScheduledJobRuns,
   useScheduledJobs,
@@ -42,11 +49,13 @@ const getStatusIcon = (status: JobRunWithDetails['status']) => {
 const formatTimestamp = (dateString: string) => dayjs(dateString).fromNow()
 
 export const ScheduleResults: FC = () => {
-  const [showSchedulerOutputs, setShowSchedulerOutputs] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
   const [viewingRun, setViewingRun] = useState<JobRunWithDetails | null>(null)
 
   const { jobRuns } = useScheduledJobRuns()
   const { jobs } = useScheduledJobs()
+
+  const runningCount = jobRuns.filter((r) => r.status === 'running').length
 
   const displayedRuns: JobRunWithDetails[] = useMemo(() => {
     const enrichWithJob = (run: ScheduledJobRun): JobRunWithDetails => ({
@@ -75,65 +84,69 @@ export const ScheduleResults: FC = () => {
   }, [jobRuns, jobs])
 
   return (
-    <div className="space-y-3">
-      <button
-        onClick={() => setShowSchedulerOutputs(!showSchedulerOutputs)}
-        className="group flex w-full items-center justify-between rounded-xl border border-border/50 bg-card/50 p-3 transition-all hover:border-border hover:bg-card"
-      >
-        <div className="flex items-center gap-3">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium text-foreground text-sm">
-            Scheduler Outputs
-          </span>
-          <span className="text-muted-foreground text-xs">
-            ({jobRuns.filter((r) => r.status === 'running').length} running)
-          </span>
-        </div>
-        <ChevronDown
-          className={`h-4 w-4 text-muted-foreground transition-transform ${showSchedulerOutputs ? 'rotate-180' : ''}`}
-        />
-      </button>
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="mb-16 space-y-3"
+    >
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          className="group flex h-auto w-full items-center justify-between rounded-xl border border-border/50 bg-card/50 p-3 transition-all hover:border-border hover:bg-card"
+        >
+          <div className="flex items-center gap-3">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-foreground text-sm">
+              Scheduler Outputs
+            </span>
+            {runningCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {runningCount} running
+              </Badge>
+            )}
+          </div>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </Button>
+      </CollapsibleTrigger>
 
-      {showSchedulerOutputs && (
-        <div className="fade-in-0 slide-in-from-top-2 animate-in space-y-2 duration-200">
-          {displayedRuns.map((run) => (
-            <button
-              type="button"
-              key={run.id}
-              onClick={() => setViewingRun(run)}
-              className="w-full cursor-pointer rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex flex-1 items-start gap-3">
-                  {getStatusIcon(run.status)}
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="truncate font-medium text-foreground text-sm">
-                        {run.job?.name}
-                      </span>
-                      <span className="flex items-center gap-1 text-muted-foreground text-xs">
-                        <Clock className="h-3 w-3" />
-                        {formatTimestamp(run.startedAt)}
-                      </span>
-                    </div>
-                    {run.result && (
-                      <p className="line-clamp-2 text-muted-foreground text-xs">
-                        {run.result}
-                      </p>
-                    )}
-                  </div>
+      <CollapsibleContent className="fade-in-0 slide-in-from-top-2 animate-in space-y-2 duration-200">
+        {displayedRuns.map((run) => (
+          <Button
+            key={run.id}
+            variant="ghost"
+            onClick={() => setViewingRun(run)}
+            className="h-auto w-full justify-start rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
+          >
+            <div className="flex w-full items-start gap-3">
+              {getStatusIcon(run.status)}
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="truncate font-medium text-foreground text-sm">
+                    {run.job?.name}
+                  </span>
+                  <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                    <Clock className="h-3 w-3" />
+                    {formatTimestamp(run.startedAt)}
+                  </span>
                 </div>
+                {run.result && (
+                  <p className="line-clamp-2 text-ellipsis text-muted-foreground text-xs">
+                    {run.result}
+                  </p>
+                )}
               </div>
-            </button>
-          ))}
-        </div>
-      )}
+            </div>
+          </Button>
+        ))}
+      </CollapsibleContent>
 
       <RunResultDialog
         run={viewingRun}
         jobName={viewingRun?.job?.name}
         onOpenChange={(open) => !open && setViewingRun(null)}
       />
-    </div>
+    </Collapsible>
   )
 }
