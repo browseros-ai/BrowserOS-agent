@@ -5,6 +5,7 @@ import {
   providersStorage,
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
+import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 
 interface ActiveTab {
   id?: number
@@ -46,6 +47,15 @@ export async function getChatServerResponse(
   const provider = await getDefaultProvider()
   const conversationId = request.conversationId ?? crypto.randomUUID()
 
+  const mcpServers = (await mcpServerStorage.getValue()) ?? []
+  const enabledMcpServers = mcpServers
+    .filter((s) => s.type === 'managed')
+    .map((s) => s.managedServerName)
+    .filter((name): name is string => !!name)
+  const customMcpServers = mcpServers
+    .filter((s) => s.type === 'custom' && s.config?.url)
+    .map((s) => ({ name: s.displayName, url: s.config!.url! }))
+
   const response = await fetch(`${agentServerUrl}/chat`, {
     method: 'POST',
     headers: {
@@ -69,10 +79,17 @@ export async function getChatServerResponse(
       region: provider?.region,
       sessionToken: provider?.sessionToken,
       browserContext:
-        request.activeTab || request.windowId
+        request.activeTab ||
+        request.windowId ||
+        enabledMcpServers.length ||
+        customMcpServers.length
           ? {
               windowId: request.windowId,
               activeTab: request.activeTab,
+              enabledMcpServers:
+                enabledMcpServers.length > 0 ? enabledMcpServers : undefined,
+              customMcpServers:
+                customMcpServers.length > 0 ? customMcpServers : undefined,
             }
           : undefined,
     }),
