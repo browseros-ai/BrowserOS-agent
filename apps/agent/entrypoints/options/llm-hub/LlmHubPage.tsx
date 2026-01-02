@@ -17,14 +17,8 @@ import { LlmHubHeader } from './LlmHubHeader'
 
 /** @public */
 export const LlmHubPage: FC = () => {
-  const {
-    providers,
-    selectedIndex,
-    isLoading,
-    saveProvider,
-    setSelectedIndex,
-    deleteProvider,
-  } = useLlmHubProviders()
+  const { providers, isLoading, saveProvider, deleteProvider } =
+    useLlmHubProviders()
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -64,9 +58,7 @@ export const LlmHubPage: FC = () => {
 
       <HubProvidersList
         providers={providers}
-        selectedIndex={selectedIndex}
         isLoading={isLoading}
-        onSelectProvider={setSelectedIndex}
         onEditProvider={handleEditProvider}
         onDeleteProvider={handleDeleteProvider}
         onAddProvider={handleAddProvider}

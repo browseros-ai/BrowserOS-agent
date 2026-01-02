@@ -6,9 +6,7 @@ import type { LlmHubProvider } from './models'
 
 interface HubProvidersListProps {
   providers: LlmHubProvider[]
-  selectedIndex: number
   isLoading?: boolean
-  onSelectProvider: (index: number) => void
   onEditProvider: (index: number) => void
   onDeleteProvider: (index: number) => void
   onAddProvider: () => void
@@ -16,9 +14,7 @@ interface HubProvidersListProps {
 
 export const HubProvidersList: FC<HubProvidersListProps> = ({
   providers,
-  selectedIndex,
   isLoading = false,
-  onSelectProvider,
   onEditProvider,
   onDeleteProvider,
   onAddProvider,
@@ -77,9 +73,7 @@ export const HubProvidersList: FC<HubProvidersListProps> = ({
           <HubProviderRow
             key={provider.url}
             provider={provider}
-            isSelected={index === selectedIndex}
             canDelete={providers.length > 1}
-            onSelect={() => onSelectProvider(index)}
             onEdit={() => onEditProvider(index)}
             onDelete={() => onDeleteProvider(index)}
           />

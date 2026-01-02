@@ -172,6 +172,9 @@
     "packages/shared": {
       "name": "@browseros/shared",
       "version": "0.0.1",
+      "dependencies": {
+        "zod": "^3.24.2",
+      },
     },
   },
   "trustedDependencies": [

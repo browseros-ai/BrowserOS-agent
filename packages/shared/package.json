@@ -5,6 +5,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
   "exports": {
     "./constants/ports": {
       "types": "./src/constants/ports.ts",

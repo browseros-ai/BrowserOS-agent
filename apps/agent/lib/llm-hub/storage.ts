@@ -15,44 +15,33 @@ export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
   { name: 'Perplexity', url: 'https://www.perplexity.ai' },
 ]
 
-export async function loadProviders(): Promise<{
-  providers: LlmHubProvider[]
-  selectedIndex: number
-}> {
+export async function loadProviders(): Promise<LlmHubProvider[]> {
   try {
     const adapter = getBrowserOSAdapter()
-
-    const [providersPref, selectedPref] = await Promise.all([
-      adapter.getPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS),
-      adapter.getPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_SELECTED),
-    ])
-
+    const providersPref = await adapter.getPref(
+      BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS,
+    )
     const providers = (providersPref?.value as LlmHubProvider[]) || []
-    const selectedIndex = (selectedPref?.value as number) || 0
 
     if (providers.length === 0) {
-      return { providers: DEFAULT_PROVIDERS, selectedIndex: 0 }
+      return DEFAULT_PROVIDERS
     }
 
-    return { providers, selectedIndex }
+    return providers
   } catch {
-    return { providers: DEFAULT_PROVIDERS, selectedIndex: 0 }
+    return DEFAULT_PROVIDERS
   }
 }
 
 export async function saveProviders(
   providers: LlmHubProvider[],
-  selectedIndex: number,
 ): Promise<boolean> {
   try {
     const adapter = getBrowserOSAdapter()
-
-    const [providersSuccess, selectedSuccess] = await Promise.all([
-      adapter.setPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS, providers),
-      adapter.setPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_SELECTED, selectedIndex),
-    ])
-
-    return providersSuccess && selectedSuccess
+    return await adapter.setPref(
+      BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS,
+      providers,
+    )
   } catch {
     return false
   }
