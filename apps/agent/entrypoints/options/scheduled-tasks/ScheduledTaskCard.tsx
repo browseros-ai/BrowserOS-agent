@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   ChevronDown,
+  Loader2,
   Pencil,
   Trash2,
   XCircle,
@@ -172,7 +173,7 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
                   ) : run.status === 'failed' ? (
                     <XCircle className="h-4 w-4 shrink-0 text-destructive" />
                   ) : (
-                    <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent-orange" />
                   )}
                   <div className="min-w-0 flex-1">
                     <span className="text-sm">
