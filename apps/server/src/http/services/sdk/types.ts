@@ -8,7 +8,6 @@
 
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
-import type { Logger } from '../../../common/index.js'
 
 // Request validation schemas
 
@@ -47,7 +46,6 @@ export type VerifyRequest = z.infer<typeof VerifyRequestSchema>
 
 export interface SdkDeps {
   port: number
-  logger: Logger
   browserosId?: string
 }
 

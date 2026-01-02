@@ -103,7 +103,6 @@ void (async () => {
   const httpServer = createHttpServer({
     port: config.serverPort,
     host: '0.0.0.0',
-    logger,
     // MCP config
     version: VERSION,
     tools,
