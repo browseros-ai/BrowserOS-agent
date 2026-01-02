@@ -76,7 +76,6 @@ export const ScheduledTasksPage: FC = () => {
 
       <ScheduledTasksList
         jobs={jobs}
-        isLoading={false && 'isLoading'}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onToggle={handleToggle}

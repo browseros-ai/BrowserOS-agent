@@ -1,11 +1,9 @@
-import { Loader2 } from 'lucide-react'
 import type { FC } from 'react'
 import { ScheduledTaskCard } from './ScheduledTaskCard'
 import type { ScheduledJob, ScheduledJobRun } from './types'
 
 interface ScheduledTasksListProps {
   jobs: ScheduledJob[]
-  isLoading: boolean
   onEdit: (job: ScheduledJob) => void
   onDelete: (jobId: string) => void
   onToggle: (jobId: string, enabled: boolean) => void
@@ -14,23 +12,11 @@ interface ScheduledTasksListProps {
 
 export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
   jobs,
-  isLoading,
   onEdit,
   onDelete,
   onToggle,
   onViewRun,
 }) => {
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Loading scheduled tasks...</span>
-        </div>
-      </div>
-    )
-  }
-
   if (jobs.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
