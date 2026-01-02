@@ -10,7 +10,10 @@ export class AgentSDKError extends Error {
 }
 
 export class ConnectionError extends AgentSDKError {
-  constructor(message: string, url: string) {
+  constructor(
+    message: string,
+    public readonly url: string,
+  ) {
     super(message, 'CONNECTION_ERROR')
     this.name = 'ConnectionError'
   }

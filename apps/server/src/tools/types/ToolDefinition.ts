@@ -12,7 +12,9 @@ import type { ToolCategories } from './ToolCategories.js'
  */
 export interface ToolDefinition<
   Schema extends z.ZodRawShape = z.ZodRawShape,
+  // biome-ignore lint/suspicious/noExplicitAny: generic default for flexible tool contexts
   TContext = any,
+  // biome-ignore lint/suspicious/noExplicitAny: generic default for flexible tool responses
   TResponse = any,
 > {
   /** Unique identifier for the tool */
@@ -55,7 +57,9 @@ export interface Request<Schema extends z.ZodRawShape> {
  */
 export function defineTool<
   Schema extends z.ZodRawShape,
+  // biome-ignore lint/suspicious/noExplicitAny: generic default for flexible tool contexts
   TContext = any,
+  // biome-ignore lint/suspicious/noExplicitAny: generic default for flexible tool responses
   TResponse = any,
 >(
   definition: ToolDefinition<Schema, TContext, TResponse>,

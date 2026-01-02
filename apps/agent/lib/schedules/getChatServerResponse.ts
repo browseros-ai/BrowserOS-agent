@@ -53,8 +53,9 @@ export async function getChatServerResponse(
     .map((s) => s.managedServerName)
     .filter((name): name is string => !!name)
   const customMcpServers = mcpServers
-    .filter((s) => s.type === 'custom' && s.config?.url)
-    .map((s) => ({ name: s.displayName, url: s.config!.url! }))
+    .filter((s) => s.type === 'custom' && !!s.config?.url)
+    // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
+    .map((s) => ({ name: s.displayName, url: s.config!.url }))
 
   const response = await fetch(`${agentServerUrl}/chat`, {
     method: 'POST',

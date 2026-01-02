@@ -16,12 +16,16 @@ const getBingSuggestions = async (query: string): Promise<string[]> => {
   return data[1] || []
 }
 
+interface YahooSuggestionItem {
+  key: string
+}
+
 const getYahooIndiaSuggestions = async (query: string): Promise<string[]> => {
   const response = await fetch(
     `https://in.search.yahoo.com/sugg/gossip/gossip-in-loc/?command=${encodeURIComponent(query)}&output=json`,
   )
   const data = await response.json()
-  return data.gossip.results.map((item: any) => item.key) || []
+  return data.gossip.results.map((item: YahooSuggestionItem) => item.key) || []
 }
 
 const getDuckDuckGoSuggestions = async (query: string): Promise<string[]> => {

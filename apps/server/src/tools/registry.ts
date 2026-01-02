@@ -19,6 +19,7 @@ import {
 export function createToolRegistry(
   cdpContext: McpContext | null,
   controllerContext: ControllerContext,
+  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool registry requires any
 ): Array<ToolDefinition<any, any, any>> {
   const cdpTools = cdpContext ? allCdpTools : []
   const wrappedControllerTools = wrapControllerTools(
@@ -37,9 +38,12 @@ export function createToolRegistry(
 function wrapControllerTools(
   tools: typeof allControllerTools,
   controllerContext: ControllerContext,
+  // biome-ignore lint/suspicious/noExplicitAny: wrapper function for heterogeneous tools
 ): Array<ToolDefinition<any, any, any>> {
+  // biome-ignore lint/suspicious/noExplicitAny: tool has heterogeneous schema
   return tools.map((tool: any) => ({
     ...tool,
+    // biome-ignore lint/suspicious/noExplicitAny: handler params are dynamically typed
     handler: async (request: any, response: any, _context: any) => {
       return tool.handler(request, response, controllerContext)
     },

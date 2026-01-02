@@ -20,18 +20,18 @@ export const createAlarmFromJob = async (job: ScheduledJob) => {
 
   let time: chrome.alarms.AlarmCreateInfo | undefined
 
-  if (job.scheduleType === 'daily') {
+  if (job.scheduleType === 'daily' && job.scheduleTime) {
     time = {
-      when: getNextScheduledTime(job.scheduleTime!),
+      when: getNextScheduledTime(job.scheduleTime),
       periodInMinutes: 24 * 60, // Repeat every 24 hours
     }
-  } else if (job.scheduleType === 'hourly') {
-    const intervalInMinutes = job.scheduleInterval! * 60
+  } else if (job.scheduleType === 'hourly' && job.scheduleInterval) {
+    const intervalInMinutes = job.scheduleInterval * 60
     time = {
       delayInMinutes: intervalInMinutes,
       periodInMinutes: intervalInMinutes,
     }
-  } else if (job.scheduleType === 'minutes') {
+  } else if (job.scheduleType === 'minutes' && job.scheduleInterval) {
     time = {
       delayInMinutes: job.scheduleInterval,
       periodInMinutes: job.scheduleInterval,

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { z } from 'zod'
+import { z } from 'zod/v3'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
