@@ -7,7 +7,6 @@
  * Uses MCP client for browser operations, LLM client for AI operations.
  */
 
-import { PATHS } from '@browseros/shared/constants/paths'
 import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 import {
   LLM_PROVIDERS,
@@ -17,8 +16,6 @@ import {
 import type { ModelMessage } from 'ai'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { GeminiAgent } from '../../agent/agent/GeminiAgent.js'
-import { AIProvider } from '../../agent/agent/gemini-vercel-sdk-adapter/types.js'
 import { LLMClient } from '../../agent/llm/client.js'
 import type { Logger } from '../../common/index.js'
 import type { Env } from '../types.js'
@@ -59,7 +56,6 @@ const VerifyRequestSchema = z.object({
 interface SdkRouteDeps {
   port: number
   logger: Logger
-  tempDir?: string
   browserosId?: string
 }
 
@@ -75,7 +71,7 @@ interface PageContentResult {
 }
 
 export function createSdkRoutes(deps: SdkRouteDeps) {
-  const { port, logger, tempDir, browserosId } = deps
+  const { port, logger, browserosId } = deps
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
 
@@ -110,6 +106,7 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
   })
 
   // POST /sdk/act - Execute an instruction using the agent loop
+  // Calls the /chat endpoint internally to reuse agent infrastructure
   sdk.post('/act', validateRequest(ActRequestSchema), async (c) => {
     const { instruction, context, maxSteps, windowId, llm } = c.get(
       'validatedBody',
@@ -120,31 +117,11 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
     // Resolve LLM config: use provided config or default to BROWSEROS
     const resolvedLlm = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
 
-    // Map SDK provider string to AIProvider enum
-    const providerMap: Record<string, AIProvider> = {
-      anthropic: AIProvider.ANTHROPIC,
-      openai: AIProvider.OPENAI,
-      google: AIProvider.GOOGLE,
-      openrouter: AIProvider.OPENROUTER,
-      azure: AIProvider.AZURE,
-      ollama: AIProvider.OLLAMA,
-      lmstudio: AIProvider.LMSTUDIO,
-      bedrock: AIProvider.BEDROCK,
-      browseros: AIProvider.BROWSEROS,
-      'openai-compatible': AIProvider.OPENAI_COMPATIBLE,
-    }
-
-    const provider = providerMap[resolvedLlm.provider]
-    if (!provider) {
-      return c.json(
-        { error: { message: `Unknown provider: ${resolvedLlm.provider}` } },
-        400,
-      )
-    }
-
-    // BROWSEROS provider requires model (it gets resolved from config)
-    // Other providers require explicit model
-    if (provider !== AIProvider.BROWSEROS && !resolvedLlm.model) {
+    // BROWSEROS provider gets model from config, others require explicit model
+    if (
+      resolvedLlm.provider !== LLM_PROVIDERS.BROWSEROS &&
+      !resolvedLlm.model
+    ) {
       return c.json(
         { error: { message: 'model is required for non-browseros providers' } },
         400,
@@ -152,43 +129,57 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
     }
 
     try {
-      // Create throwaway agent for this request
-      const conversationId = crypto.randomUUID()
-
-      const agent = await GeminiAgent.create({
-        conversationId,
-        provider,
-        model: resolvedLlm.model ?? 'default',
-        apiKey: resolvedLlm.apiKey,
-        baseUrl: resolvedLlm.baseUrl,
-        resourceName: resolvedLlm.resourceName,
-        region: resolvedLlm.region,
-        accessKeyId: resolvedLlm.accessKeyId,
-        secretAccessKey: resolvedLlm.secretAccessKey,
-        sessionToken: resolvedLlm.sessionToken,
-        tempDir: tempDir ?? PATHS.DEFAULT_TEMP_DIR,
-        mcpServerUrl,
-        browserosId,
-      })
-
       // Build message with context if provided
       let message = instruction
       if (context) {
         message = `${instruction}\n\nContext:\n${JSON.stringify(context, null, 2)}`
       }
 
-      // Execute agent (no streaming for SDK - we collect results)
-      const noopStream = { write: async () => {} }
+      // Create a unique conversation ID for this request
+      const conversationId = crypto.randomUUID()
 
-      await agent.execute(
-        message,
-        noopStream,
-        undefined,
-        windowId ? { windowId } : undefined,
-      )
+      // Call the chat endpoint internally
+      const chatUrl = `http://127.0.0.1:${port}/chat`
+      const response = await fetch(chatUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          message,
+          provider: resolvedLlm.provider,
+          model: resolvedLlm.model ?? 'default',
+          apiKey: resolvedLlm.apiKey,
+          baseUrl: resolvedLlm.baseUrl,
+          resourceName: resolvedLlm.resourceName,
+          region: resolvedLlm.region,
+          accessKeyId: resolvedLlm.accessKeyId,
+          secretAccessKey: resolvedLlm.secretAccessKey,
+          sessionToken: resolvedLlm.sessionToken,
+          browserContext: windowId ? { windowId } : undefined,
+        }),
+      })
 
-      // Return success (agent completed)
-      // TODO: Collect actual steps from agent execution
+      if (!response.ok) {
+        const errorText = await response.text()
+        return c.json(
+          { error: { message: errorText || 'Chat request failed' } },
+          response.status as 400 | 500,
+        )
+      }
+
+      // Consume the SSE stream (we don't need to process it for SDK)
+      // The agent executes and we just need to know it completed
+      const reader = response.body?.getReader()
+      if (reader) {
+        while (true) {
+          const { done } = await reader.read()
+          if (done) break
+        }
+      }
+
+      // Clean up the session after use
+      await fetch(`${chatUrl}/${conversationId}`, { method: 'DELETE' })
+
       return c.json({
         success: true,
         steps: [],

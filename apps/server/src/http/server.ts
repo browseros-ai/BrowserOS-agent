@@ -86,7 +86,6 @@ export function createHttpServer(config: HttpServerConfig) {
       createSdkRoutes({
         port,
         logger: log,
-        tempDir,
         browserosId,
       }),
     )
