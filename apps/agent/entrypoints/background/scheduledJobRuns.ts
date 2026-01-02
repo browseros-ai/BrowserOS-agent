@@ -7,8 +7,31 @@ import {
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 
 const MAX_RUNS_PER_JOB = 15
+const STALE_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
 export const scheduledJobRuns = async () => {
+  const cleanupStaleJobRuns = async () => {
+    const current = (await scheduledJobRunStorage.getValue()) ?? []
+    const now = Date.now()
+
+    const updated = current.map((run) => {
+      if (run.status !== 'running') return run
+
+      const startedAt = new Date(run.startedAt).getTime()
+      if (now - startedAt > STALE_TIMEOUT_MS) {
+        return {
+          ...run,
+          status: 'failed' as const,
+          completedAt: new Date().toISOString(),
+          result: 'Job timed out!',
+        }
+      }
+      return run
+    })
+
+    await scheduledJobRunStorage.setValue(updated)
+  }
+
   const syncAlarmState = async () => {
     const jobs = (await scheduledJobStorage.getValue()).filter(
       (each) => each.enabled,
@@ -124,10 +147,12 @@ export const scheduledJobRuns = async () => {
   })
 
   chrome.runtime.onStartup.addListener(async () => {
+    await cleanupStaleJobRuns()
     await syncAlarmState()
   })
 
   chrome.runtime.onInstalled.addListener(async () => {
+    await cleanupStaleJobRuns()
     await syncAlarmState()
   })
 }
