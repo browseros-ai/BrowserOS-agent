@@ -84,11 +84,24 @@ export const scheduledJobRuns = async () => {
 
     if (!job) return
 
+    const backgroundWindow = await chrome.windows.create({
+      url: 'chrome://newtab',
+      focused: false,
+      state: 'minimized',
+      type: 'normal',
+    })
+
+    const backgroundTab = backgroundWindow?.tabs?.[0]
+
+    if (!backgroundWindow || !backgroundTab) return
+
     const jobRun = await createJobRun(jobId, 'running')
 
     try {
       const response = await getChatServerResponse({
         message: job.query,
+        activeTab: backgroundTab,
+        windowId: backgroundWindow.id,
       })
 
       await updateJobRun(jobRun.id, {
@@ -105,6 +118,9 @@ export const scheduledJobRuns = async () => {
     }
 
     await updateJobLastRunAt(jobId)
+    if (backgroundWindow.id) {
+      await chrome.windows.remove(backgroundWindow.id)
+    }
   })
 
   chrome.runtime.onStartup.addListener(async () => {

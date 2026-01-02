@@ -6,10 +6,18 @@ import {
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 
+interface ActiveTab {
+  id?: number
+  url?: string
+  title?: string
+}
+
 interface ChatServerRequest {
   message: string
   mode?: ChatMode
   conversationId?: string
+  windowId?: number
+  activeTab?: ActiveTab
 }
 
 interface ChatServerResponse {
@@ -60,6 +68,13 @@ export async function getChatServerResponse(
       secretAccessKey: provider?.secretAccessKey,
       region: provider?.region,
       sessionToken: provider?.sessionToken,
+      browserContext:
+        request.activeTab || request.windowId
+          ? {
+              windowId: request.windowId,
+              activeTab: request.activeTab,
+            }
+          : undefined,
     }),
   })
 
