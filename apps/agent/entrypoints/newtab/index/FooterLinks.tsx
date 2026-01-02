@@ -1,4 +1,4 @@
-import { Network } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { Feature } from '@/lib/browseros/capabilities'
@@ -14,11 +14,11 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
   return (
     <div className="flex items-center justify-center gap-4 pt-4">
       <a
-        href="/graph.html"
+        href="/options.html#/scheduled"
         className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
       >
-        <Network className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
-        Graph Mode{' '}
+        <Calendar className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
+        Scheduler{' '}
         <span className="text-accent-orange group-hover:text-accent-orange-bright">
           (new)
         </span>
