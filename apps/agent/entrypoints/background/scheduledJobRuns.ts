@@ -6,6 +6,8 @@ import {
 } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 
+const MAX_RUNS_PER_JOB = 15
+
 export const scheduledJobRuns = async () => {
   const syncAlarmState = async () => {
     const jobs = (await scheduledJobStorage.getValue()).filter(
@@ -33,8 +35,22 @@ export const scheduledJobRuns = async () => {
       startedAt: new Date().toISOString(),
       status,
     }
+
     const current = (await scheduledJobRunStorage.getValue()) ?? []
-    await scheduledJobRunStorage.setValue([...current, jobRun])
+    const otherJobRuns = current.filter((r) => r.jobId !== jobId)
+    const thisJobRuns = current
+      .filter((r) => r.jobId === jobId)
+      .sort(
+        (a, b) =>
+          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+      )
+      .slice(0, MAX_RUNS_PER_JOB - 1)
+
+    await scheduledJobRunStorage.setValue([
+      ...otherJobRuns,
+      ...thisJobRuns,
+      jobRun,
+    ])
     return jobRun
   }
 
