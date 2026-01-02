@@ -120,6 +120,8 @@ export const scheduledJobRuns = async () => {
 
     const jobRun = await createJobRun(jobId, 'running')
 
+    const jobRun = await createJobRun(jobId, 'running')
+
     try {
       const response = await getChatServerResponse({
         message: job.query,
@@ -138,11 +140,11 @@ export const scheduledJobRuns = async () => {
         completedAt: new Date().toISOString(),
         result: e instanceof Error ? e.message : String(e),
       })
-    }
-
-    await updateJobLastRunAt(jobId)
-    if (backgroundWindow.id) {
-      await chrome.windows.remove(backgroundWindow.id)
+    } finally {
+      await updateJobLastRunAt(jobId)
+      if (backgroundWindow.id) {
+        await chrome.windows.remove(backgroundWindow.id)
+      }
     }
   })
 
