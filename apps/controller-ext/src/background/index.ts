@@ -168,6 +168,8 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 })
 
 chrome.windows.onCreated.addListener((window) => {
+  logger.info('Window created event received', { windowId: window.id })
+
   if (window.id === undefined) {
     return
   }

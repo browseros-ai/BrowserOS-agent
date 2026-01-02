@@ -114,6 +114,12 @@ export const scheduledJobRuns = async () => {
       type: 'normal',
     })
 
+    // FIXME: Race condition - the controller-ext extension sends a window_created
+    // WebSocket message to register window ownership, but our HTTP request may arrive
+    // at the server before that registration completes. This delay is a temporary fix.
+    // Proper solution: ControllerBridge should wait/poll for window ownership registration.
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     const backgroundTab = backgroundWindow?.tabs?.[0]
 
     if (!backgroundWindow || !backgroundTab) return

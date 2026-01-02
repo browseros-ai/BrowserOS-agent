@@ -105,7 +105,7 @@ export class BrowserOSController {
   notifyWindowCreated(windowId: number): void {
     try {
       this.wsClient.send({ type: 'window_created', windowId })
-      logger.debug('Sent window_created event', { windowId })
+      logger.info('Sent window_created event', { windowId })
     } catch (error) {
       logger.warn('Failed to send window_created event', {
         windowId,
