@@ -20,9 +20,9 @@
  * - Conversion must handle invalid inputs gracefully (no throws)
  */
 
+import { beforeEach, describe, expect, it as t } from 'bun:test'
 import type { FunctionDeclaration, Schema, Tool } from '@google/genai'
 import { Type } from '@google/genai'
-import { beforeEach, describe, expect, it as t } from 'vitest'
 
 import { ToolConversionStrategy } from './tool.js'
 

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { AGENT_LIMITS } from '@browseros/shared/limits'
-import { TIMEOUTS } from '@browseros/shared/timeouts'
+import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import {
   executeToolCall,
   type GeminiClient,

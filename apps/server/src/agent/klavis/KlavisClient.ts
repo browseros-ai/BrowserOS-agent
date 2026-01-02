@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { EXTERNAL_URLS } from '@browseros/shared/urls'
+import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 
 export interface StrataCreateResponse {
   strataServerUrl: string

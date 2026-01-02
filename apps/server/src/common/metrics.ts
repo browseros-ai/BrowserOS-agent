@@ -2,7 +2,7 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import { EXTERNAL_URLS } from '@browseros/shared/urls'
+import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 import { PostHog } from 'posthog-node'
 
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY

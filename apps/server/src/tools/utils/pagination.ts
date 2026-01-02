@@ -2,7 +2,7 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import { PAGINATION } from '@browseros/shared/limits'
+import { PAGINATION } from '@browseros/shared/constants/limits'
 
 export interface PaginationOptions {
   pageSize?: number

@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  */
 
-import { TIMEOUTS } from '@browseros/shared/timeouts'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { WebSocket } from 'ws'
 import { WebSocketServer } from 'ws'
 import type { Logger } from '../common/index.js'

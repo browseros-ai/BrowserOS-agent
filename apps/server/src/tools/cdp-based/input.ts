@@ -2,7 +2,7 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import { TIMEOUTS } from '@browseros/shared/timeouts'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { ElementHandle } from 'puppeteer-core'
 import z from 'zod'
 

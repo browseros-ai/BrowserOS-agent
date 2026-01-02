@@ -9,4 +9,5 @@
 export const EXTERNAL_URLS = {
   KLAVIS_PROXY: 'https://llm.browseros.com/klavis',
   POSTHOG_DEFAULT: 'https://us.i.posthog.com',
+  CODEGEN_SERVICE: 'https://browseros-codegen.fly.dev',
 } as const

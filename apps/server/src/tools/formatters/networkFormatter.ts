@@ -4,7 +4,7 @@
  */
 
 import { isUtf8 } from 'node:buffer'
-import { CONTENT_LIMITS } from '@browseros/shared/limits'
+import { CONTENT_LIMITS } from '@browseros/shared/constants/limits'
 
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
 

@@ -20,9 +20,9 @@
  * - Usage retrieval is ASYNC and happens AFTER stream (may fail)
  */
 
+import { beforeEach, describe, expect, it as t } from 'bun:test'
 import type { GenerateContentResponse } from '@google/genai'
 import { FinishReason } from '@google/genai'
-import { beforeEach, describe, expect, it as t } from 'vitest'
 
 import { BaseProviderAdapter } from '../adapters/base.js'
 

@@ -5,7 +5,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { TIMEOUTS } from '@browseros/shared/timeouts'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type {
   Browser,
   ConsoleMessage,

@@ -8,7 +8,7 @@
  * Factory and exports for provider-specific adapters
  */
 
-import { AIProvider } from '../types.js'
+import { LLM_PROVIDERS, type LLMProvider } from '@browseros/shared/schemas/llm'
 import type { ProviderAdapter } from './base.js'
 import { BaseProviderAdapter } from './base.js'
 import { GoogleAdapter } from './google.js'
@@ -18,11 +18,11 @@ import { OpenRouterAdapter } from './openrouter.js'
  * Create the appropriate adapter for a provider.
  * Returns base adapter (no-op) for providers without special requirements.
  */
-export function createProviderAdapter(provider: AIProvider): ProviderAdapter {
+export function createProviderAdapter(provider: LLMProvider): ProviderAdapter {
   switch (provider) {
-    case AIProvider.GOOGLE:
+    case LLM_PROVIDERS.GOOGLE:
       return new GoogleAdapter()
-    case AIProvider.OPENROUTER:
+    case LLM_PROVIDERS.OPENROUTER:
       return new OpenRouterAdapter()
     default:
       return new BaseProviderAdapter()

@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { CONTENT_LIMITS } from '@browseros/shared/limits'
-import { DEFAULT_PORTS } from '@browseros/shared/ports'
-import { TIMEOUTS } from '@browseros/shared/timeouts'
+import { CONTENT_LIMITS } from '@browseros/shared/constants/limits'
+import { DEFAULT_PORTS } from '@browseros/shared/constants/ports'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 export type WebSocketProtocol = 'ws' | 'wss'
 
 export interface WebSocketConfig {

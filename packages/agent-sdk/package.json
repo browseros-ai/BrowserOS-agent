@@ -1,0 +1,22 @@
+{
+  "name": "@browseros/agent-sdk",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@browseros/shared": "workspace:*",
+    "zod-to-json-schema": "^3.24.1"
+  },
+  "peerDependencies": {
+    "zod": "^3.x"
+  }
+}
