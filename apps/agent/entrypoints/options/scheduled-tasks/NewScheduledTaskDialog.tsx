@@ -39,10 +39,7 @@ const formSchema = z
       .string()
       .min(1, 'Name is required')
       .max(100, 'Name must be 100 characters or less'),
-    query: z
-      .string()
-      .min(1, 'Query is required')
-      .max(2000, 'Query must be 2000 characters or less'),
+    query: z.string().min(1, 'Prompt is required'),
     scheduleType: z.enum(['daily', 'hourly', 'minutes']),
     scheduleTime: z.string().optional(),
     scheduleInterval: z.number().int().min(1).max(60).optional(),
@@ -172,7 +169,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
               name="query"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Query</FormLabel>
+                  <FormLabel>Prompt</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="What should the agent do? e.g., Check my email and summarize important messages"
