@@ -7,11 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Write minimal code comments. Only add comments for non-obvious logic, complex algorithms, or critical warnings. Skip comments for self-explanatory code, obvious function names, and simple operations.
 - Logger messages should not include `[prefix]` tags (e.g., `[Config]`, `[HTTP Server]`). Source tracking automatically adds file:line:function in development mode.
 - Avoid magic constants scattered in the codebase. Use `@browseros/shared` for all shared configuration:
-  - `@browseros/shared/ports` - Port numbers (DEFAULT_PORTS, TEST_PORTS)
-  - `@browseros/shared/timeouts` - Timeout values (TIMEOUTS)
-  - `@browseros/shared/limits` - Rate limits, pagination, content limits (RATE_LIMITS, AGENT_LIMITS, etc.)
-  - `@browseros/shared/urls` - External service URLs (EXTERNAL_URLS)
-  - `@browseros/shared/paths` - File system paths (PATHS)
+  - `@browseros/shared/constants/ports` - Port numbers (DEFAULT_PORTS, TEST_PORTS)
+  - `@browseros/shared/constants/timeouts` - Timeout values (TIMEOUTS)
+  - `@browseros/shared/constants/limits` - Rate limits, pagination, content limits (RATE_LIMITS, AGENT_LIMITS, etc.)
+  - `@browseros/shared/constants/urls` - External service URLs (EXTERNAL_URLS)
+  - `@browseros/shared/constants/paths` - File system paths (PATHS)
+  - `@browseros/shared/types/logger` - Logger interface types (LoggerInterface, LogLevel)
 
 ## Project Overview
 
@@ -82,9 +83,13 @@ The main MCP server that exposes browser automation tools via HTTP/SSE.
 - Controller tools work via the browser extension over WebSocket
 
 ### Shared (`packages/shared`)
-Shared constants and configuration used by both server and extension. Avoids magic numbers.
+Shared constants, types, and configuration used by both server and extension. Avoids magic numbers.
 
-**Exports:** `@browseros/shared/ports`, `@browseros/shared/timeouts`, `@browseros/shared/limits`, `@browseros/shared/urls`, `@browseros/shared/paths`
+**Structure:**
+- `src/constants/` - Configuration values (ports, timeouts, limits, urls, paths)
+- `src/types/` - Shared type definitions (logger)
+
+**Exports:** `@browseros/shared/constants/*`, `@browseros/shared/types/*`
 
 ### Controller Extension (`apps/controller-ext`)
 Chrome extension that receives commands from the server via WebSocket.
@@ -116,13 +121,13 @@ When creating new packages in this monorepo:
 **package.json exports:** Must include both `types` and `default` for TypeScript:
 ```json
 "exports": {
-  "./ports": {
-    "types": "./src/ports.ts",
-    "default": "./src/ports.ts"
+  "./constants/ports": {
+    "types": "./src/constants/ports.ts",
+    "default": "./src/constants/ports.ts"
   },
-  "./logger": {
-    "types": "./src/logger.ts",
-    "default": "./src/logger.ts"
+  "./types/logger": {
+    "types": "./src/types/logger.ts",
+    "default": "./src/types/logger.ts"
   }
 }
 ```

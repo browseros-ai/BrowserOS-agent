@@ -132,7 +132,7 @@ export async function withMcpServer(
       version: '1.0.0',
     })
 
-    const serverUrl = new URL(`http://127.0.0.1:${config.httpMcpPort}/mcp`)
+    const serverUrl = new URL(`http://127.0.0.1:${config.serverPort}/mcp`)
     const transport = new StreamableHTTPClientTransport(serverUrl)
 
     try {

@@ -17,7 +17,7 @@ const portSchema = z.number().int()
 
 export const ServerConfigSchema = z.object({
   cdpPort: portSchema.nullable(),
-  httpMcpPort: portSchema,
+  serverPort: portSchema,
   agentPort: portSchema,
   extensionPort: portSchema,
   resourcesDir: z.string(),
@@ -33,7 +33,7 @@ export type ServerConfig = z.infer<typeof ServerConfigSchema>
 
 type PartialConfig = {
   cdpPort?: number | null
-  httpMcpPort?: number
+  serverPort?: number
   agentPort?: number
   extensionPort?: number
   resourcesDir?: string
@@ -72,8 +72,8 @@ export function loadServerConfig(
     cli.value.overrides,
   )
 
-  // 5. agentPort is deprecated - always use httpMcpPort
-  merged.agentPort = merged.httpMcpPort
+  // 5. agentPort is deprecated - always use serverPort
+  merged.agentPort = merged.serverPort
 
   // 6. Validate with Zod (single source of truth)
   const result = ServerConfigSchema.safeParse(merged)
@@ -110,8 +110,17 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
         'CDP WebSocket port (optional)',
         parsePortArg,
       )
-      .option('--http-mcp-port <port>', 'MCP HTTP server port', parsePortArg)
-      .option('--agent-port <port>', 'Agent communication port', parsePortArg)
+      .option('--server-port <port>', 'Server HTTP port', parsePortArg)
+      .option(
+        '--http-mcp-port <port>',
+        '[DEPRECATED] Use --server-port',
+        parsePortArg,
+      )
+      .option(
+        '--agent-port <port>',
+        '[DEPRECATED] Use --server-port',
+        parsePortArg,
+      )
       .option(
         '--extension-port <port>',
         'Extension WebSocket port',
@@ -151,9 +160,13 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
     )
   }
 
+  if (opts.httpMcpPort !== undefined) {
+    console.warn('Warning: --http-mcp-port is deprecated. Use --server-port.')
+  }
+
   if (opts.agentPort !== undefined) {
     console.warn(
-      'Warning: --agent-port is deprecated and has no effect. Agent uses --http-mcp-port.',
+      'Warning: --agent-port is deprecated and has no effect. Use --server-port.',
     )
   }
 
@@ -166,7 +179,7 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
       cwd,
       overrides: filterUndefined({
         cdpPort: opts.cdpPort,
-        httpMcpPort: opts.httpMcpPort,
+        serverPort: opts.serverPort ?? opts.httpMcpPort,
         extensionPort: opts.extensionPort,
         resourcesDir: opts.resourcesDir
           ? resolvePath(opts.resourcesDir, cwd)
@@ -210,7 +223,7 @@ function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
       ok: true,
       value: filterUndefined({
         cdpPort: cfg.ports?.cdp,
-        httpMcpPort: cfg.ports?.http_mcp,
+        serverPort: cfg.ports?.server ?? cfg.ports?.http_mcp,
         extensionPort: cfg.ports?.extension,
         resourcesDir: resolvePathIfString(
           cfg.directories?.resources,
@@ -248,17 +261,19 @@ function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
 
 function loadEnv(env: NodeJS.ProcessEnv): PartialConfig {
   return filterUndefined({
-    cdpPort: env.CDP_PORT ? safeParseInt(env.CDP_PORT) : undefined,
-    httpMcpPort: env.HTTP_MCP_PORT
-      ? safeParseInt(env.HTTP_MCP_PORT)
+    cdpPort: env.BROWSEROS_CDP_PORT
+      ? safeParseInt(env.BROWSEROS_CDP_PORT)
       : undefined,
-    extensionPort: env.EXTENSION_PORT
-      ? safeParseInt(env.EXTENSION_PORT)
+    serverPort: env.BROWSEROS_SERVER_PORT
+      ? safeParseInt(env.BROWSEROS_SERVER_PORT)
       : undefined,
-    resourcesDir: env.RESOURCES_DIR,
-    executionDir: env.EXECUTION_DIR,
-    instanceInstallId: env.INSTALL_ID,
-    instanceClientId: env.CLIENT_ID,
+    extensionPort: env.BROWSEROS_EXTENSION_PORT
+      ? safeParseInt(env.BROWSEROS_EXTENSION_PORT)
+      : undefined,
+    resourcesDir: env.BROWSEROS_RESOURCES_DIR,
+    executionDir: env.BROWSEROS_EXECUTION_DIR,
+    instanceInstallId: env.BROWSEROS_INSTALL_ID,
+    instanceClientId: env.BROWSEROS_CLIENT_ID,
   })
 }
 

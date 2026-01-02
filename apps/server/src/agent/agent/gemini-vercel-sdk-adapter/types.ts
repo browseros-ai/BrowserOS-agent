@@ -10,9 +10,9 @@
  */
 
 import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
+import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import type { jsonSchema } from 'ai'
 import { z } from 'zod'
-// Vercel AI SDK
 
 // === Vercel SDK Runtime Shapes (What We Receive) ===
 
@@ -201,7 +201,7 @@ export interface HonoSSEStream {
 }
 
 /**
- * Supported AI providers
+ * Supported AI providers (enum for runtime comparisons)
  */
 export enum AIProvider {
   ANTHROPIC = 'anthropic',
@@ -218,22 +218,12 @@ export enum AIProvider {
 
 /**
  * Zod schema for Vercel AI adapter configuration
- * Single source of truth - use z.infer for the type
+ * Extends shared LLMConfigSchema with agent-specific fields
  */
-export const VercelAIConfigSchema = z.object({
-  provider: z.nativeEnum(AIProvider),
+export const VercelAIConfigSchema = LLMConfigSchema.extend({
   model: z.string().min(1, 'Model name is required'),
-  apiKey: z.string().optional(),
-  baseUrl: z.string().optional(),
   // For BROWSEROS provider: upstream provider type from ai-gateway
   upstreamProvider: z.string().optional(),
-  // Azure-specific
-  resourceName: z.string().optional(),
-  // AWS Bedrock-specific
-  region: z.string().optional(),
-  accessKeyId: z.string().optional(),
-  secretAccessKey: z.string().optional(),
-  sessionToken: z.string().optional(),
 })
 
 export type VercelAIConfig = z.infer<typeof VercelAIConfigSchema>

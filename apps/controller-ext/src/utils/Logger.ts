@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import type { LoggerInterface, LogLevel } from '@browseros/shared/logger'
+import type { LoggerInterface, LogLevel } from '@browseros/shared/types/logger'
 import { LOGGING_CONFIG } from '@/config/constants'
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {

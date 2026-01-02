@@ -12,8 +12,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { CONTENT_LIMITS } from '@browseros/shared/limits'
-import type { LoggerInterface, LogLevel } from '@browseros/shared/logger'
+import { CONTENT_LIMITS } from '@browseros/shared/constants/limits'
+import type { LoggerInterface, LogLevel } from '@browseros/shared/types/logger'
 import pino from 'pino'
 
 const isDev = process.env.NODE_ENV === 'development'

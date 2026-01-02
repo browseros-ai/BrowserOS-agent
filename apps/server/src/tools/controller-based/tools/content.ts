@@ -179,6 +179,9 @@ export const getPageContent = defineTool<z.ZodRawShape, Context, Response>({
 
       response.appendResponseLine('')
       response.appendResponseLine('='.repeat(60))
+
+      // Add structured content for programmatic access
+      response.addStructuredContent('content', fullContent)
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

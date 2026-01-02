@@ -9,6 +9,11 @@ lerna-debug.log*
 .env.dev
 .env.prod
 
+# Ignore all .env files except .env.example
+**/.env.*
+!**/.env.example
+
+
 # sqlite database
 browseros.db
 browseros.db-*

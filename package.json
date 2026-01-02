@@ -9,26 +9,24 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "bun --env-file=.env.dev apps/server/src/index.ts",
-    "start:with_config": "bun --env-file=.env.dev apps/server/src/index.ts --config config.dev.json",
-    "start:debug": "bun --inspect-brk --env-file=.env.dev apps/server/src/index.ts",
-    "dev:server": "mkdir -p dist/server && bun build --compile apps/server/src/index.ts --outfile dist/server/browseros-server --minify --env inline",
-    "dev:ext": "rimraf dist/ext && bun run --filter browseros-controller build:dev && mkdir -p dist/ext && cp -r apps/controller-ext/dist/* dist/ext/",
-    "dist:server": "rimraf dist/server && bun scripts/build_server.ts --mode=prod --target=all",
-    "dist:ext": "rimraf dist/ext && mkdir -p dist/ext && bun run --filter browseros-controller build && cp -r apps/controller-ext/dist/* dist/ext/",
-    "test": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/tools apps/server/tests/common",
-    "test:integration": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/server.integration.test.ts",
-    "test:cdp": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/tools/cdp-based",
-    "test:controller": "bun run test:cleanup && bun --env-file=.env.dev test apps/server/tests/tools/controller-based",
-    "test:all": "bun run test:cleanup && bun --env-file=.env.dev test",
-    "test:cleanup": "./apps/server/tests/__helpers__/cleanup.sh",
+    "start:server": "bun run --filter @browseros/server start",
+    "start:agent": "bun run --filter agent dev",
+
+    "build:server": "bun run --filter @browseros/server build",
+    "build:agent": "bun run --filter agent build",
+    "build:ext": "bun run --filter browseros-controller build",
+
+    "test": "bun run --filter @browseros/server test",
+    "test:all": "bun run --filter @browseros/server test:all",
+    "test:cdp": "bun run --filter @browseros/server test:cdp",
+    "test:controller": "bun run --filter @browseros/server test:controller",
+    "test:integration": "bun run --filter @browseros/server test:integration",
+
     "typecheck": "tsc --build",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write --unsafe",
-    "docs": "npm run docs:generate && npm run format",
-    "docs:generate": "node --experimental-strip-types scripts/generate-docs.ts",
-    "clean": "rimraf dist",
-    "version:server": "cd apps/server && npm version --no-git-tag-version"
+
+    "clean": "rimraf dist"
   },
   "repository": "browseros-ai/BrowserOS-server",
   "author": "BrowserOS",

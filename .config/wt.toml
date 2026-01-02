@@ -1,0 +1,4 @@
+[post-create]
+install = "bun install"
+env-server = "cp {{ repo_root }}/apps/server/.env.development apps/server/.env.development"
+env-agent = "cp {{ repo_root }}/apps/agent/.env.development apps/agent/.env.development"

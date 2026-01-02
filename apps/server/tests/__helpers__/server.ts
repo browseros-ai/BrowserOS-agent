@@ -6,10 +6,16 @@
  * Use setup.ts:ensureBrowserOS() for the full test environment.
  */
 import { type ChildProcess, spawn } from 'node:child_process'
+import { dirname, resolve } from 'node:path'
+
+const SERVER_ENTRYPOINT_PATH = resolve(
+  dirname(import.meta.path),
+  '../../src/index.ts',
+)
 
 export interface ServerConfig {
   cdpPort: number
-  httpMcpPort: number
+  serverPort: number
   extensionPort: number
 }
 
@@ -50,8 +56,8 @@ export async function spawnServer(config: ServerConfig): Promise<ServerState> {
     serverState &&
     JSON.stringify(serverState.config) === JSON.stringify(config)
   ) {
-    if (await isServerRunning(config.httpMcpPort)) {
-      console.log(`Reusing existing server on port ${config.httpMcpPort}`)
+    if (await isServerRunning(config.serverPort)) {
+      console.log(`Reusing existing server on port ${config.serverPort}`)
       return serverState
     }
   }
@@ -61,21 +67,20 @@ export async function spawnServer(config: ServerConfig): Promise<ServerState> {
     await killServer()
   }
 
-  console.log(`Starting BrowserOS Server on port ${config.httpMcpPort}...`)
+  console.log(`Starting BrowserOS Server on port ${config.serverPort}...`)
   const process = spawn(
     'bun',
     [
-      'apps/server/src/index.ts',
+      SERVER_ENTRYPOINT_PATH,
       '--cdp-port',
       config.cdpPort.toString(),
-      '--http-mcp-port',
-      config.httpMcpPort.toString(),
+      '--server-port',
+      config.serverPort.toString(),
       '--extension-port',
       config.extensionPort.toString(),
     ],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: globalThis.process.cwd(),
       env: { ...globalThis.process.env, NODE_ENV: 'test' },
     },
   )
@@ -95,7 +100,7 @@ export async function spawnServer(config: ServerConfig): Promise<ServerState> {
   })
 
   console.log('Waiting for server to be ready...')
-  await waitForHealth(config.httpMcpPort)
+  await waitForHealth(config.serverPort)
   console.log('Server is ready')
 
   serverState = { process, config }

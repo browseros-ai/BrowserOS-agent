@@ -20,12 +20,13 @@ describe('loadServerConfig', () => {
     originalEnv = { ...process.env }
 
     // Clear relevant env vars
-    delete process.env.CDP_PORT
-    delete process.env.HTTP_MCP_PORT
-    delete process.env.AGENT_PORT
-    delete process.env.EXTENSION_PORT
-    delete process.env.RESOURCES_DIR
-    delete process.env.EXECUTION_DIR
+    delete process.env.BROWSEROS_CDP_PORT
+    delete process.env.BROWSEROS_SERVER_PORT
+    delete process.env.BROWSEROS_EXTENSION_PORT
+    delete process.env.BROWSEROS_RESOURCES_DIR
+    delete process.env.BROWSEROS_EXECUTION_DIR
+    delete process.env.BROWSEROS_INSTALL_ID
+    delete process.env.BROWSEROS_CLIENT_ID
   })
 
   afterEach(() => {
@@ -39,15 +40,15 @@ describe('loadServerConfig', () => {
         'bun',
         'src/index.ts',
         '--cdp-port=9222',
-        '--http-mcp-port=9223',
+        '--server-port=9223',
         '--extension-port=9224',
       ])
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
       assert.strictEqual(result.value.cdpPort, 9222)
-      assert.strictEqual(result.value.httpMcpPort, 9223)
-      // agentPort is deprecated - always equals httpMcpPort
+      assert.strictEqual(result.value.serverPort, 9223)
+      // agentPort is deprecated - always equals serverPort
       assert.strictEqual(result.value.agentPort, 9223)
       assert.strictEqual(result.value.extensionPort, 9224)
       assert.strictEqual(result.value.mcpAllowRemote, false)
@@ -57,7 +58,7 @@ describe('loadServerConfig', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
-        '--http-mcp-port=9223',
+        '--server-port=9223',
         '--extension-port=9224',
         '--allow-remote-in-mcp',
       ])
@@ -71,7 +72,7 @@ describe('loadServerConfig', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
-        '--http-mcp-port=9223',
+        '--server-port=9223',
         '--extension-port=9224',
       ])
 
@@ -84,38 +85,33 @@ describe('loadServerConfig', () => {
   describe('environment variables', () => {
     it('reads from env when CLI not provided', () => {
       const result = loadServerConfig(['bun', 'src/index.ts'], {
-        CDP_PORT: '9222',
-        HTTP_MCP_PORT: '9223',
-        EXTENSION_PORT: '9224',
+        BROWSEROS_CDP_PORT: '9222',
+        BROWSEROS_SERVER_PORT: '9223',
+        BROWSEROS_EXTENSION_PORT: '9224',
       })
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
       assert.strictEqual(result.value.cdpPort, 9222)
-      assert.strictEqual(result.value.httpMcpPort, 9223)
-      // agentPort is deprecated - always equals httpMcpPort
+      assert.strictEqual(result.value.serverPort, 9223)
+      // agentPort is deprecated - always equals serverPort
       assert.strictEqual(result.value.agentPort, 9223)
       assert.strictEqual(result.value.extensionPort, 9224)
     })
 
     it('CLI takes precedence over env', () => {
       const result = loadServerConfig(
-        [
-          'bun',
-          'src/index.ts',
-          '--http-mcp-port=1111',
-          '--extension-port=3333',
-        ],
+        ['bun', 'src/index.ts', '--server-port=1111', '--extension-port=3333'],
         {
-          HTTP_MCP_PORT: '9999',
-          EXTENSION_PORT: '9999',
+          BROWSEROS_SERVER_PORT: '9999',
+          BROWSEROS_EXTENSION_PORT: '9999',
         },
       )
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
-      assert.strictEqual(result.value.httpMcpPort, 1111)
-      // agentPort is deprecated - always equals httpMcpPort
+      assert.strictEqual(result.value.serverPort, 1111)
+      // agentPort is deprecated - always equals serverPort
       assert.strictEqual(result.value.agentPort, 1111)
       assert.strictEqual(result.value.extensionPort, 3333)
     })
@@ -147,8 +143,8 @@ describe('loadServerConfig', () => {
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
       assert.strictEqual(result.value.cdpPort, 9222)
-      assert.strictEqual(result.value.httpMcpPort, 3000)
-      // agentPort is deprecated - always equals httpMcpPort
+      assert.strictEqual(result.value.serverPort, 3000)
+      // agentPort is deprecated - always equals serverPort
       assert.strictEqual(result.value.agentPort, 3000)
       assert.strictEqual(result.value.extensionPort, 3002)
       assert.strictEqual(result.value.mcpAllowRemote, true)
@@ -170,13 +166,13 @@ describe('loadServerConfig', () => {
         'bun',
         'src/index.ts',
         `--config=${configPath}`,
-        '--http-mcp-port=9999',
+        '--server-port=9999',
       ])
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
-      assert.strictEqual(result.value.httpMcpPort, 9999)
-      // agentPort is deprecated - always equals httpMcpPort
+      assert.strictEqual(result.value.serverPort, 9999)
+      // agentPort is deprecated - always equals serverPort
       assert.strictEqual(result.value.agentPort, 9999)
     })
 
@@ -194,12 +190,12 @@ describe('loadServerConfig', () => {
 
       const result = loadServerConfig(
         ['bun', 'src/index.ts', `--config=${configPath}`],
-        { HTTP_MCP_PORT: '9999' },
+        { BROWSEROS_SERVER_PORT: '9999' },
       )
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
-      assert.strictEqual(result.value.httpMcpPort, 3000)
+      assert.strictEqual(result.value.serverPort, 3000)
     })
 
     it('resolves relative paths in config file', () => {
@@ -265,7 +261,7 @@ describe('loadServerConfig', () => {
 
       assert.strictEqual(result.ok, false)
       if (result.ok) return
-      assert.ok(result.error.includes('httpMcpPort'))
+      assert.ok(result.error.includes('serverPort'))
       assert.ok(result.error.includes('extensionPort'))
     })
 
@@ -317,7 +313,7 @@ describe('loadServerConfig', () => {
       // Should fail Zod validation since http_mcp is invalid
       assert.strictEqual(result.ok, false)
       if (result.ok) return
-      assert.ok(result.error.includes('httpMcpPort'))
+      assert.ok(result.error.includes('serverPort'))
     })
 
     it('ignores invalid instance types (no strict validation)', () => {
@@ -352,7 +348,7 @@ describe('loadServerConfig', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
-        '--http-mcp-port=3000',
+        '--server-port=3000',
         '--extension-port=3002',
       ])
 
@@ -366,7 +362,7 @@ describe('loadServerConfig', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
-        '--http-mcp-port=3000',
+        '--server-port=3000',
         '--extension-port=3002',
       ])
 
@@ -379,7 +375,7 @@ describe('loadServerConfig', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
-        '--http-mcp-port=3000',
+        '--server-port=3000',
         '--extension-port=3002',
       ])
 
@@ -388,17 +384,17 @@ describe('loadServerConfig', () => {
       assert.strictEqual(result.value.cdpPort, null)
     })
 
-    it('agentPort always equals httpMcpPort (deprecated)', () => {
+    it('agentPort always equals serverPort (deprecated)', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
-        '--http-mcp-port=3000',
+        '--server-port=3000',
         '--extension-port=3002',
       ])
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
-      assert.strictEqual(result.value.agentPort, result.value.httpMcpPort)
+      assert.strictEqual(result.value.agentPort, result.value.serverPort)
     })
   })
 })

@@ -5,7 +5,7 @@
  */
 
 import type { Database } from 'bun:sqlite'
-import { RATE_LIMITS } from '@browseros/shared/limits'
+import { RATE_LIMITS } from '@browseros/shared/constants/limits'
 
 import { logger } from '../../common/index.js'
 

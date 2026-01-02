@@ -22,13 +22,13 @@
  * - Empty messages (no text, no parts) should be skipped
  */
 
+import { beforeEach, describe, expect, it as t } from 'bun:test'
 import type {
   Content,
   ContentUnion,
   FunctionCall,
   FunctionResponse,
 } from '@google/genai'
-import { beforeEach, describe, expect, it as t } from 'vitest'
 
 import { BaseProviderAdapter } from '../adapters/base.js'
 import type {

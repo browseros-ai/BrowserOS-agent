@@ -25,7 +25,7 @@ let mcpClient: Client | null = null
 let mcpTransport: StreamableHTTPClientTransport | null = null
 
 function getBaseUrl(): string {
-  return `http://127.0.0.1:${config.httpMcpPort}`
+  return `http://127.0.0.1:${config.serverPort}`
 }
 
 describe('HTTP Server Integration Tests', () => {
