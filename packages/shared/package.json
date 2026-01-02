@@ -30,9 +30,9 @@
       "types": "./src/types/logger.ts",
       "default": "./src/types/logger.ts"
     },
-    "./types/llm": {
-      "types": "./src/types/llm.ts",
-      "default": "./src/types/llm.ts"
+    "./schemas/llm": {
+      "types": "./src/schemas/llm.ts",
+      "default": "./src/schemas/llm.ts"
     }
   }
 }

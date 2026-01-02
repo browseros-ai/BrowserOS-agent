@@ -9,7 +9,11 @@
 
 import { PATHS } from '@browseros/shared/constants/paths'
 import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
-import type { LLMConfig } from '@browseros/shared/types/llm'
+import {
+  LLM_PROVIDERS,
+  type LLMConfig,
+  LLMConfigSchema,
+} from '@browseros/shared/schemas/llm'
 import type { ModelMessage } from 'ai'
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -24,30 +28,6 @@ import {
   getTextContent,
 } from '../utils/mcp-client.js'
 import { validateRequest } from '../utils/validation.js'
-
-// LLM config schema (matches SDK LLMConfig type)
-const LLMConfigSchema = z.object({
-  provider: z.enum([
-    'anthropic',
-    'openai',
-    'google',
-    'openrouter',
-    'azure',
-    'ollama',
-    'lmstudio',
-    'bedrock',
-    'browseros',
-    'openai-compatible',
-  ]),
-  model: z.string().optional(),
-  apiKey: z.string().optional(),
-  baseUrl: z.string().optional(),
-  resourceName: z.string().optional(),
-  region: z.string().optional(),
-  accessKeyId: z.string().optional(),
-  secretAccessKey: z.string().optional(),
-  sessionToken: z.string().optional(),
-})
 
 // Request schemas
 const NavRequestSchema = z.object({
@@ -138,7 +118,7 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
     logger.info('SDK act request', { instruction, maxSteps, windowId })
 
     // Resolve LLM config: use provided config or default to BROWSEROS
-    const resolvedLlm = llm ?? { provider: 'browseros' as const }
+    const resolvedLlm = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
 
     // Map SDK provider string to AIProvider enum
     const providerMap: Record<string, AIProvider> = {
@@ -361,7 +341,7 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
       }
 
       // Create LLM client
-      const llmConfig: LLMConfig = llm ?? { provider: 'browseros' }
+      const llmConfig: LLMConfig = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
       const client = await LLMClient.create(llmConfig, browserosId)
 
       // Build multimodal prompt with simple SUCCESS/FAILURE markers

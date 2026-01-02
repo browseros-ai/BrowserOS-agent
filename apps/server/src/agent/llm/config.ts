@@ -6,7 +6,7 @@
  * LLM config resolution - handles BROWSEROS provider lookup.
  */
 
-import type { LLMConfig } from '@browseros/shared/types/llm'
+import { LLM_PROVIDERS, type LLMConfig } from '@browseros/shared/schemas/llm'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
@@ -18,7 +18,7 @@ export async function resolveLLMConfig(
   config: LLMConfig,
   browserosId?: string,
 ): Promise<ResolvedLLMConfig> {
-  if (config.provider !== 'browseros') {
+  if (config.provider !== LLM_PROVIDERS.BROWSEROS) {
     if (!config.model) {
       throw new Error(`model is required for ${config.provider} provider`)
     }

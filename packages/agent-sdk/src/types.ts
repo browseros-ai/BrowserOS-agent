@@ -1,8 +1,7 @@
+import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import type { ZodSchema } from 'zod'
 
-export type { LLMConfig, LLMProvider } from '@browseros/shared/types/llm'
-
-import type { LLMConfig } from '@browseros/shared/types/llm'
+export type { LLMConfig, LLMProvider } from '@browseros/shared/schemas/llm'
 
 export interface AgentOptions {
   url: string

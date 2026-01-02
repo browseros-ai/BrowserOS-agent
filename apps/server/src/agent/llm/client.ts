@@ -7,7 +7,7 @@
  * Used by SDK verify endpoint.
  */
 
-import type { LLMConfig } from '@browseros/shared/types/llm'
+import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import type { LanguageModel, ModelMessage } from 'ai'
 import { generateText } from 'ai'
 import { resolveLLMConfig } from './config.js'

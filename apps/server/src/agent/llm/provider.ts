@@ -12,6 +12,7 @@ import { createAzure } from '@ai-sdk/azure'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import { logger } from '../../common/index.js'
@@ -22,19 +23,19 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
   const { provider, model, apiKey, baseUrl, upstreamProvider } = config
 
   switch (provider) {
-    case 'anthropic':
+    case LLM_PROVIDERS.ANTHROPIC:
       if (!apiKey) throw new Error('Anthropic provider requires apiKey')
       return createAnthropic({ apiKey })(model)
 
-    case 'openai':
+    case LLM_PROVIDERS.OPENAI:
       if (!apiKey) throw new Error('OpenAI provider requires apiKey')
       return createOpenAI({ apiKey })(model)
 
-    case 'google':
+    case LLM_PROVIDERS.GOOGLE:
       if (!apiKey) throw new Error('Google provider requires apiKey')
       return createGoogleGenerativeAI({ apiKey })(model)
 
-    case 'openrouter':
+    case LLM_PROVIDERS.OPENROUTER:
       if (!apiKey) throw new Error('OpenRouter provider requires apiKey')
       return createOpenRouter({
         apiKey,
@@ -42,7 +43,7 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
         fetch: createOpenRouterCompatibleFetch(),
       })(model)
 
-    case 'azure':
+    case LLM_PROVIDERS.AZURE:
       if (!apiKey || !config.resourceName) {
         throw new Error('Azure provider requires apiKey and resourceName')
       }
@@ -51,7 +52,7 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
         apiKey,
       })(model)
 
-    case 'ollama':
+    case LLM_PROVIDERS.OLLAMA:
       if (!baseUrl) throw new Error('Ollama provider requires baseUrl')
       return createOpenAICompatible({
         name: 'ollama',
@@ -59,7 +60,7 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
         ...(apiKey && { apiKey }),
       })(model)
 
-    case 'lmstudio':
+    case LLM_PROVIDERS.LMSTUDIO:
       if (!baseUrl) throw new Error('LMStudio provider requires baseUrl')
       return createOpenAICompatible({
         name: 'lmstudio',
@@ -67,7 +68,7 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
         ...(apiKey && { apiKey }),
       })(model)
 
-    case 'bedrock':
+    case LLM_PROVIDERS.BEDROCK:
       if (!config.accessKeyId || !config.secretAccessKey || !config.region) {
         throw new Error(
           'Bedrock provider requires accessKeyId, secretAccessKey, and region',
@@ -80,21 +81,21 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
         sessionToken: config.sessionToken,
       })(model)
 
-    case 'browseros':
+    case LLM_PROVIDERS.BROWSEROS:
       if (!baseUrl) throw new Error('BrowserOS provider requires baseUrl')
       switch (upstreamProvider) {
-        case 'openrouter':
+        case LLM_PROVIDERS.OPENROUTER:
           return createOpenRouter({
             baseURL: baseUrl,
             ...(apiKey && { apiKey }),
             fetch: createOpenRouterCompatibleFetch(),
           })(model)
-        case 'anthropic':
+        case LLM_PROVIDERS.ANTHROPIC:
           return createAnthropic({
             baseURL: baseUrl,
             ...(apiKey && { apiKey }),
           })(model)
-        case 'azure':
+        case LLM_PROVIDERS.AZURE:
           return createAzure({
             baseURL: baseUrl,
             ...(apiKey && { apiKey }),
@@ -108,7 +109,7 @@ export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
           })(model)
       }
 
-    case 'openai-compatible':
+    case LLM_PROVIDERS.OPENAI_COMPATIBLE:
       if (!baseUrl)
         throw new Error('OpenAI-compatible provider requires baseUrl')
       return createOpenAICompatible({
