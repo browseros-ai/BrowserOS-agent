@@ -31,7 +31,7 @@ export const createAlarmFromJob = async (job: ScheduledJob) => {
       delayInMinutes: intervalInMinutes,
       periodInMinutes: intervalInMinutes,
     }
-  } else if (job.scheduleType === 'minutes') {
+  } else if (job.scheduleType === 'minutes' && job.scheduleInterval) {
     time = {
       delayInMinutes: job.scheduleInterval,
       periodInMinutes: job.scheduleInterval,
