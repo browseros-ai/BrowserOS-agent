@@ -32,6 +32,7 @@ import {
 } from './lib/suggestions/useSuggestions'
 import { NewTabBranding } from './NewTabBranding'
 import { NewTabFocusGrid } from './NewTabFocusGrid'
+import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { TopSites } from './TopSites'
@@ -420,6 +421,8 @@ export const NewTab = () => {
         {!isSuggestionsVisible && (
           <FooterLinks onOpenShortcuts={() => setShortcutsDialogOpen(true)} />
         )}
+
+        {mounted && !isSuggestionsVisible && <ScheduleResults />}
       </div>
       {mounted && (
         <ShortcutsDialog
