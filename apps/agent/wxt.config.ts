@@ -23,7 +23,6 @@ export default defineConfig({
           `https://${PRODUCT_WEB_HOST}/*`,
           `https://*.${PRODUCT_WEB_HOST}/*`,
         ],
-        // @ts-expect-error - extension_ids type is missing in wxt types
         extension_ids: [LEGACY_AGENT_EXTENSION_ID],
       },
     ],
@@ -39,7 +38,14 @@ export default defineConfig({
       },
       default_title: 'Ask BrowserOS',
     },
-    permissions: ['topSites', 'tabs', 'storage', 'sidePanel', 'browserOS'],
+    permissions: [
+      'topSites',
+      'tabs',
+      'storage',
+      'sidePanel',
+      'browserOS',
+      'alarms',
+    ],
     host_permissions: [
       'http://127.0.0.1/*',
       'https://suggestqueries.google.com/*',

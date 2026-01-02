@@ -18,14 +18,13 @@ import {
 import { TabSelector } from '@/components/elements/tab-selector'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Button } from '@/components/ui/button'
-import { Feature } from '@/lib/browseros/capabilities'
-import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
   createAITabAction,
   createBrowserOSAction,
 } from '@/lib/chat-actions/types'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { cn } from '@/lib/utils'
+import { FooterLinks } from './FooterLinks'
 import type { SuggestionItem } from './lib/suggestions/types'
 import {
   getSuggestionLabel,
@@ -33,6 +32,7 @@ import {
 } from './lib/suggestions/useSuggestions'
 import { NewTabBranding } from './NewTabBranding'
 import { NewTabFocusGrid } from './NewTabFocusGrid'
+import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { TopSites } from './TopSites'
@@ -56,7 +56,6 @@ export const NewTab = () => {
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
-  const { supports } = useCapabilities()
 
   const toggleTab = (tab: chrome.tabs.Tab) => {
     setSelectedTabs((prev) => {
@@ -419,53 +418,11 @@ export const NewTab = () => {
         {/* Top sites */}
         {!isSuggestionsVisible && <TopSites />}
 
-        {/* Footer links */}
         {!isSuggestionsVisible && (
-          <div className="flex items-center justify-center gap-4 pt-4">
-            <a
-              href="/options.html"
-              className="text-muted-foreground text-xs transition-colors hover:text-foreground"
-            >
-              Settings
-            </a>
-
-            <span className="text-muted-foreground">•</span>
-            <Button
-              variant="link"
-              onClick={() => setShortcutsDialogOpen(true)}
-              className="hover:no-underline! px-0! text-muted-foreground text-xs transition-colors hover:text-foreground"
-            >
-              Shortcuts
-            </Button>
-
-            {supports(Feature.MANAGED_MCP_SUPPORT) && (
-              <>
-                <span className="text-muted-foreground">•</span>
-                <a
-                  href="/options.html#/connect-mcp"
-                  className="text-muted-foreground text-xs transition-colors hover:text-foreground"
-                >
-                  Connect MCP servers{' '}
-                  <span className="text-[var(--accent-orange)]">(new)</span>
-                </a>
-              </>
-            )}
-            {/*<span className="text-muted-foreground">•</span>
-            <a
-              href="/settings"
-              className="text-muted-foreground text-xs transition-colors hover:text-foreground"
-            >
-              Shortcuts
-            </a>
-            <span className="text-muted-foreground">•</span>
-            <a
-              href="/settings"
-              className="text-muted-foreground text-xs transition-colors hover:text-foreground"
-            >
-              Personalize
-            </a>*/}
-          </div>
+          <FooterLinks onOpenShortcuts={() => setShortcutsDialogOpen(true)} />
         )}
+
+        {mounted && !isSuggestionsVisible && <ScheduleResults />}
       </div>
       {mounted && (
         <ShortcutsDialog

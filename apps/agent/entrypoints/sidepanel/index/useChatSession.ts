@@ -177,6 +177,7 @@ export const useChatSession = () => {
     error: chatError,
   } = useChat({
     transport: new DefaultChatTransport({
+      // Important: this chat logic is also used in apps/agent/lib/schedules/getChatServerResponse.ts for scheduled jobs. Make sure to keep them in sync for any future changes.
       prepareSendMessagesRequest: async ({ messages }) => {
         const activeTabsList = await chrome.tabs.query({
           active: true,
