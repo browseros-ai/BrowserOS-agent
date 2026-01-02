@@ -64,7 +64,6 @@ export class Application {
     this.httpServer = createHttpServer({
       port: this.config.serverPort,
       host: '0.0.0.0',
-      logger,
       version: VERSION,
       tools,
       cdpContext,
