@@ -364,8 +364,19 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
       const llmConfig: LLMConfig = llm ?? { provider: 'browseros' }
       const client = await LLMClient.create(llmConfig, browserosId)
 
-      // Build multimodal prompt
-      let textPrompt = `Verify this expectation about the current page:\n\n${expectation}`
+      // Build multimodal prompt with simple SUCCESS/FAILURE markers
+      let textPrompt = `Verify this expectation about the current page:
+
+${expectation}
+
+Look at the screenshot and page content. Determine if the expectation is met.
+
+Your response MUST start with exactly one of these words:
+- SUCCESS - if the expectation is met
+- FAILURE - if the expectation is NOT met
+
+Then explain your reasoning.`
+
       if (context) {
         textPrompt += `\n\nAdditional context:\n${JSON.stringify(context, null, 2)}`
       }
@@ -384,22 +395,15 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
         },
       ]
 
-      // Fixed response schema for verify
-      const verifySchema = {
-        type: 'object' as const,
-        properties: {
-          success: { type: 'boolean' as const },
-          reason: { type: 'string' as const },
-        },
-        required: ['success', 'reason'],
-      }
+      // Use generateText instead of structured output for broader model compatibility
+      const response = await client.generateText(messages)
 
-      const result = await client.generateStructuredOutput<{
-        success: boolean
-        reason: string
-      }>(messages, verifySchema)
+      // Parse SUCCESS/FAILURE from response
+      const trimmed = response.trim()
+      const success = /^SUCCESS\b/i.test(trimmed)
+      const reason = trimmed.replace(/^(SUCCESS|FAILURE)\s*/i, '').trim()
 
-      return c.json(result)
+      return c.json({ success, reason })
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Verification failed'
