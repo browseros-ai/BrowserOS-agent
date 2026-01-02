@@ -10,16 +10,10 @@ import {
   type VercelAIConfig,
   VercelAIConfigSchema,
 } from '../../agent/agent/gemini-vercel-sdk-adapter/types.js'
-import type { Logger } from '../../common/index.js'
+import { logger } from '../../common/index.js'
 import { validateRequest } from '../utils/validation.js'
 
-interface ProviderRouteDeps {
-  logger: Logger
-}
-
-export function createProviderRoutes(deps: ProviderRouteDeps) {
-  const { logger } = deps
-
+export function createProviderRoutes() {
   return new Hono().post(
     '/',
     validateRequest(VercelAIConfigSchema),

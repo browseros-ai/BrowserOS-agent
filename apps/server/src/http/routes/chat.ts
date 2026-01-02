@@ -10,7 +10,7 @@ import { stream } from 'hono/streaming'
 import { KlavisClient } from '../../agent/klavis/index.js'
 import type { RateLimiter } from '../../agent/rate-limiter/index.js'
 import { SessionManager } from '../../agent/session/SessionManager.js'
-import type { Logger } from '../../common/index.js'
+import { logger } from '../../common/index.js'
 import { Sentry } from '../../common/sentry/instrument.js'
 import { ChatService } from '../../services/ChatService.js'
 import { createBrowserosRateLimitMiddleware } from '../middleware/browseros-rate-limit.js'
@@ -19,7 +19,6 @@ import { ChatRequestSchema } from '../types.js'
 import { validateRequest } from '../utils/validation.js'
 
 interface ChatRouteDeps {
-  logger: Logger
   port: number
   tempDir?: string
   browserosId?: string

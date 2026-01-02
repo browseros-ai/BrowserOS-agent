@@ -8,6 +8,7 @@
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { Hono } from 'hono'
+import { logger } from '../../common/index.js'
 import { BrowserService } from '../services/sdk/browser.js'
 import { ChatService } from '../services/sdk/chat.js'
 import { ExtractService } from '../services/sdk/extract.js'
@@ -28,7 +29,7 @@ import type { Env } from '../types.js'
 import { validateRequest } from '../utils/validation.js'
 
 export function createSdkRoutes(deps: SdkDeps) {
-  const { port, logger, browserosId } = deps
+  const { port, browserosId } = deps
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
 
