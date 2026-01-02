@@ -16,7 +16,7 @@ import type { SessionManager } from '../agent/session/SessionManager.js'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
-  type Logger,
+  logger,
 } from '../common/index.js'
 import type { BrowserContext, ChatRequest } from '../http/types.js'
 
@@ -44,7 +44,6 @@ function createHttpMcpServerConfig(
 }
 
 export interface ChatServiceDeps {
-  logger: Logger
   sessionManager: SessionManager
   klavisClient: KlavisClient
   tempDir: string
@@ -60,7 +59,7 @@ export class ChatService {
     rawStream: HonoSSEStream,
     abortSignal: AbortSignal,
   ): Promise<void> {
-    const { logger, sessionManager } = this.deps
+    const { sessionManager } = this.deps
 
     const providerConfig = await this.resolveProviderConfig(request)
     logger.debug('Provider config resolved', {
@@ -104,8 +103,6 @@ export class ChatService {
   private async resolveProviderConfig(
     request: ChatRequest,
   ): Promise<ProviderConfig> {
-    const { logger } = this.deps
-
     if (request.provider === LLM_PROVIDERS.BROWSEROS) {
       const configUrl = process.env.BROWSEROS_CONFIG_URL
       if (!configUrl) {
@@ -156,7 +153,7 @@ export class ChatService {
   private async buildMcpServers(
     browserContext?: BrowserContext,
   ): Promise<Record<string, MCPServerConfig>> {
-    const { logger, klavisClient, mcpServerUrl, browserosId } = this.deps
+    const { klavisClient, mcpServerUrl, browserosId } = this.deps
     const servers: Record<string, MCPServerConfig> = {}
 
     if (mcpServerUrl) {

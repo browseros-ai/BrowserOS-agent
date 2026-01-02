@@ -26,7 +26,7 @@ interface ChatRouteDeps {
 }
 
 export function createChatRoutes(deps: ChatRouteDeps) {
-  const { logger, port, browserosId, rateLimiter } = deps
+  const { port, browserosId, rateLimiter } = deps
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
   const tempDir = deps.tempDir || PATHS.DEFAULT_TEMP_DIR
@@ -35,7 +35,6 @@ export function createChatRoutes(deps: ChatRouteDeps) {
   const klavisClient = new KlavisClient()
 
   const chatService = new ChatService({
-    logger,
     sessionManager,
     klavisClient,
     tempDir,
