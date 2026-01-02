@@ -8,6 +8,7 @@
  */
 
 import { PATHS } from '@browseros/shared/constants/paths'
+import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 import type { LLMConfig } from '@browseros/shared/types/llm'
 import type { ModelMessage } from 'ai'
 import { Hono } from 'hono'
@@ -67,7 +68,6 @@ const ExtractRequestSchema = z.object({
   instruction: z.string().min(1),
   schema: z.record(z.unknown()),
   context: z.record(z.unknown()).optional(),
-  llm: LLMConfigSchema.optional(),
 })
 
 const VerifyRequestSchema = z.object({
@@ -223,11 +223,13 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
 
   // POST /sdk/extract - Extract structured data from the page
   sdk.post('/extract', validateRequest(ExtractRequestSchema), async (c) => {
-    const { instruction, schema, context, llm } = c.get(
-      'validatedBody',
-    ) as z.infer<typeof ExtractRequestSchema>
+    const { instruction, schema, context } = c.get('validatedBody') as z.infer<
+      typeof ExtractRequestSchema
+    >
 
-    logger.info('SDK extract request', { instruction })
+    logger.info('SDK extract request (using remote extraction service)', {
+      instruction,
+    })
 
     try {
       // Get active tab via MCP
@@ -266,23 +268,34 @@ export function createSdkRoutes(deps: SdkRouteDeps) {
         return c.json({ error: { message: 'No content found on page' } }, 400)
       }
 
-      // Create LLM client
-      const llmConfig: LLMConfig = llm ?? { provider: 'browseros' }
-      const client = await LLMClient.create(llmConfig, browserosId)
+      // Call remote extraction service
+      const response = await fetch(
+        `${EXTERNAL_URLS.CODEGEN_SERVICE}/api/extract`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instruction,
+            schema,
+            content: pageContent,
+            context,
+          }),
+        },
+      )
 
-      // Build prompt
-      let prompt = `Extract the following from this page:\n\n${instruction}`
-      if (context) {
-        prompt += `\n\nAdditional context:\n${JSON.stringify(context, null, 2)}`
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage =
+          (errorData as { error?: string }).error || 'Extraction service failed'
+        const status =
+          response.status >= 400 && response.status < 600
+            ? response.status
+            : 500
+        return c.json({ error: { message: errorMessage } }, status as 400 | 500)
       }
-      prompt += `\n\nPage content:\n${pageContent}`
 
-      const messages: ModelMessage[] = [{ role: 'user', content: prompt }]
-
-      // Generate structured output
-      const data = await client.generateStructuredOutput(messages, schema)
-
-      return c.json({ data })
+      const result = await response.json()
+      return c.json({ data: (result as { data: unknown }).data })
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Extraction failed'
