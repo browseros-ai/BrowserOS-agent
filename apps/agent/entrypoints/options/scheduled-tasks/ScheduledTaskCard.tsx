@@ -121,14 +121,9 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onRun}
-            className="text-muted-foreground hover:bg-[var(--accent-orange)]/10 hover:text-[var(--accent-orange)]"
-            aria-label={`Run ${job.name} now`}
-          >
-            <Play className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={onRun}>
+            <Play className="mr-1.5 h-3 w-3" />
+            Test
           </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil className="mr-1.5 h-3 w-3" />
