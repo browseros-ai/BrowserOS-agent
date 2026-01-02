@@ -1,3 +1,6 @@
+import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+import relativeTime from 'dayjs/plugin/relativeTime'
 import {
   CheckCircle2,
   ChevronDown,
@@ -16,6 +19,9 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { useScheduledJobRuns } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJob, ScheduledJobRun } from './types'
+
+dayjs.extend(relativeTime)
+dayjs.extend(duration)
 
 interface ScheduledTaskCardProps {
   job: ScheduledJob
@@ -42,43 +48,20 @@ function formatSchedule(job: ScheduledJob): string {
   return 'Not scheduled'
 }
 
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
+const formatRelativeTime = (dateStr: string) => dayjs(dateStr).fromNow()
 
 function formatDuration(startedAt: string, completedAt?: string): string {
   if (!completedAt) return 'Running...'
-  const start = new Date(startedAt).getTime()
-  const end = new Date(completedAt).getTime()
-  const diffMs = end - start
-  const diffSecs = Math.floor(diffMs / 1000)
-  const mins = Math.floor(diffSecs / 60)
-  const secs = diffSecs % 60
+  const diff = dayjs(completedAt).diff(dayjs(startedAt))
+  const d = dayjs.duration(diff)
+  const mins = Math.floor(d.asMinutes())
+  const secs = d.seconds()
   if (mins === 0) return `${secs}s`
   return `${mins}m ${secs}s`
 }
 
-function formatRunDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
+const formatRunDate = (dateStr: string) =>
+  dayjs(dateStr).format('MMM D, h:mm A')
 
 export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
   job,
