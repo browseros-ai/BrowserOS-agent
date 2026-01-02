@@ -97,7 +97,7 @@ export const ScheduleResults: FC = () => {
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-foreground text-sm">
-              Scheduler Outputs
+              Scheduled Task Outputs
             </span>
             {runningCount > 0 && (
               <Badge variant="secondary" className="text-xs">
