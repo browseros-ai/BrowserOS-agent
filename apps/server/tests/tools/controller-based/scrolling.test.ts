@@ -150,6 +150,7 @@ describe('MCP Controller Scrolling Tools', () => {
             arguments: { tabId: 'invalid' },
           })
           assert.fail('Should have thrown validation error')
+          // biome-ignore lint/suspicious/noExplicitAny: test needs to access error.message
         } catch (error: any) {
           console.log('\n=== Scroll Down Invalid Type Error ===')
           console.log(error.message)
@@ -171,6 +172,7 @@ describe('MCP Controller Scrolling Tools', () => {
             arguments: { tabId: 'invalid' },
           })
           assert.fail('Should have thrown validation error')
+          // biome-ignore lint/suspicious/noExplicitAny: test needs to access error.message
         } catch (error: any) {
           console.log('\n=== Scroll Up Invalid Type Error ===')
           console.log(error.message)

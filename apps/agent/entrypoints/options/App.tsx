@@ -15,7 +15,7 @@ export const App: FC = () => {
           <Route index element={<Navigate to="/ai" replace />} />
           <Route path="ai" element={<AISettingsPage key="ai" />} />
           <Route path="chat" element={<LlmHubPage />} />
-          <Route path="search" element={<></>} />
+          <Route path="search" element={null} />
           <Route path="connect-mcp" element={<ConnectMCP />} />
           <Route path="mcp" element={<MCPSettingsPage />} />
           <Route

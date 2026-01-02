@@ -22,7 +22,8 @@ import type { ScheduledJob } from './types'
  * @public
  */
 export const ScheduledTasksPage: FC = () => {
-  const { jobs, addJob, editJob, toggleJob, removeJob, runJob } = useScheduledJobs()
+  const { jobs, addJob, editJob, toggleJob, removeJob, runJob } =
+    useScheduledJobs()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null)

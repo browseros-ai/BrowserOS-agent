@@ -18,6 +18,7 @@ describe('script', () => {
         response,
         context,
       )
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       const lineEvaluation = response.responseLines.at(2)!
       assert.strictEqual(JSON.parse(lineEvaluation), 10)
     })
@@ -30,6 +31,7 @@ describe('script', () => {
         context,
       )
 
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       let lineEvaluation = response.responseLines.at(2)!
       assert.strictEqual(JSON.parse(lineEvaluation), '')
 
@@ -47,6 +49,7 @@ describe('script', () => {
         context,
       )
 
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       lineEvaluation = response.responseLines.at(2)!
       assert.strictEqual(JSON.parse(lineEvaluation), 'New Page')
     })
@@ -73,6 +76,7 @@ describe('script', () => {
         response,
         context,
       )
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       const lineEvaluation = response.responseLines.at(2)!
       assert.deepEqual(JSON.parse(lineEvaluation), {
         scripts: [],
@@ -98,6 +102,7 @@ describe('script', () => {
         response,
         context,
       )
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       const lineEvaluation = response.responseLines.at(2)!
       assert.strictEqual(JSON.parse(lineEvaluation), 'Works')
     })
@@ -123,6 +128,7 @@ describe('script', () => {
         response,
         context,
       )
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       const lineEvaluation = response.responseLines.at(2)!
       assert.strictEqual(JSON.parse(lineEvaluation), 'test')
     })
@@ -148,6 +154,7 @@ describe('script', () => {
         response,
         context,
       )
+      // biome-ignore lint/style/noNonNullAssertion: test asserts value exists
       const lineEvaluation = response.responseLines.at(2)!
       assert.strictEqual(JSON.parse(lineEvaluation), true)
     })

@@ -164,7 +164,10 @@ export const scheduledJobRuns = async () => {
       await executeScheduledJob(data.jobId)
       return { success: true }
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : String(e) }
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      }
     }
   })
 

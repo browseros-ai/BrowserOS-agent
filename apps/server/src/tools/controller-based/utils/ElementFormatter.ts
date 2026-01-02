@@ -29,6 +29,7 @@ export interface InteractiveNode {
     type?: string
     value?: string
     'aria-label'?: string
+    // biome-ignore lint/suspicious/noExplicitAny: index signature for dynamic attributes
     [key: string]: any
   }
 }

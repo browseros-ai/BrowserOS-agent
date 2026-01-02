@@ -94,7 +94,7 @@ export const startTrace = defineTool({
 
     if (request.params.autoStop) {
       await new Promise((resolve) => setTimeout(resolve, 5_000))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: McpContext compatible cast
       await stopTracingAndAppendOutput(page, response, context as any)
     } else {
       response.appendResponseLine(
@@ -118,7 +118,7 @@ export const stopTrace = defineTool({
       return
     }
     const page = context.getSelectedPage()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: McpContext compatible cast
     await stopTracingAndAppendOutput(page, response, context as any)
   },
 })
@@ -175,7 +175,7 @@ async function stopTracingAndAppendOutput(
     response.appendResponseLine('The performance trace has been stopped.')
     if (traceResultIsSuccess(result)) {
       // Convert to core TraceResult type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: flexible trace result structure
       const coreResult = { ...result, name: 'trace' } as any
       context.storeTraceRecording(coreResult)
       response.appendResponseLine(

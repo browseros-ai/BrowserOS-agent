@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { FC } from 'react'
 import { useForm } from 'react-hook-form'
-import { z } from 'zod'
+import { z } from 'zod/v3'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

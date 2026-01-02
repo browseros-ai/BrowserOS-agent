@@ -34,6 +34,7 @@ export const executeJavaScript = defineTool<z.ZodRawShape, Context, Response>({
       code,
       windowId,
     })
+    // biome-ignore lint/suspicious/noExplicitAny: JS execution returns arbitrary values
     const data = result as { result: any }
 
     response.appendResponseLine(`JavaScript executed in tab ${tabId}`)

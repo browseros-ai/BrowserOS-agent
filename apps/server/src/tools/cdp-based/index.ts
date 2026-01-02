@@ -10,7 +10,7 @@ import * as networkTools from './network.js'
 /**
  * All available CDP-based browser automation tools
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool collection requires any
 export const allCdpTools: Array<ToolDefinition<any>> = [
   //FIXME: nikhil - figure out the better wway to enable/disable tools
   ...Object.values(consoleTools),
