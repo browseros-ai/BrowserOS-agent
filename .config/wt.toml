@@ -2,3 +2,7 @@
 install = "bun install"
 env-server = "cp {{ repo_root }}/apps/server/.env.development apps/server/.env.development"
 env-agent = "cp {{ repo_root }}/apps/agent/.env.development apps/agent/.env.development"
+llm = "cp -r {{ repo_root }}/.llm . 2>/dev/null || true"
+
+[pre-remove]
+llm-sync = "rsync -au .llm/ {{ repo_root }}/.llm/ 2>/dev/null || true"
