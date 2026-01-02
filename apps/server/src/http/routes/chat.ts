@@ -15,14 +15,13 @@ import {
 import { AgentExecutionError } from '../../agent/errors.js'
 import type { RateLimiter } from '../../agent/rate-limiter/index.js'
 import { SessionManager } from '../../agent/session/SessionManager.js'
-import type { Logger } from '../../common/index.js'
+import { logger } from '../../common/index.js'
 import { Sentry } from '../../common/sentry/instrument.js'
 import type { ChatRequest } from '../types.js'
 import { ChatRequestSchema } from '../types.js'
 import { validateRequest } from '../utils/validation.js'
 
 interface ChatRouteDeps {
-  logger: Logger
   port: number
   tempDir?: string
   browserosId?: string
@@ -30,7 +29,7 @@ interface ChatRouteDeps {
 }
 
 export function createChatRoutes(deps: ChatRouteDeps) {
-  const { logger, port, tempDir, browserosId, rateLimiter } = deps
+  const { port, tempDir, browserosId, rateLimiter } = deps
 
   // MCP endpoint is on the same consolidated server
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`

@@ -14,6 +14,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors.js'
+import { logger } from '../common/index.js'
 import { createChatRoutes } from './routes/chat.js'
 import { createExtensionStatusRoute } from './routes/extension-status.js'
 import { health } from './routes/health.js'
@@ -34,7 +35,6 @@ export function createHttpServer(config: HttpServerConfig) {
   const {
     port,
     host = '0.0.0.0',
-    logger: log,
     browserosId,
     tempDir,
     rateLimiter,
@@ -54,11 +54,8 @@ export function createHttpServer(config: HttpServerConfig) {
       '/extension-status',
       createExtensionStatusRoute({ controllerContext }),
     )
-    .route('/test-provider', createProviderRoutes({ logger: log }))
-    .route(
-      '/klavis',
-      createKlavisRoutes({ browserosId: browserosId || '', logger: log }),
-    )
+    .route('/test-provider', createProviderRoutes())
+    .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(
       '/mcp',
       createMcpRoutes({
@@ -67,14 +64,12 @@ export function createHttpServer(config: HttpServerConfig) {
         cdpContext,
         controllerContext,
         toolMutex,
-        logger: log,
         allowRemote,
       }),
     )
     .route(
       '/chat',
       createChatRoutes({
-        logger: log,
         port,
         tempDir,
         browserosId,
@@ -85,7 +80,6 @@ export function createHttpServer(config: HttpServerConfig) {
       '/sdk',
       createSdkRoutes({
         port,
-        logger: log,
         browserosId,
       }),
     )
@@ -95,7 +89,7 @@ export function createHttpServer(config: HttpServerConfig) {
     const error = err as Error
 
     if (error instanceof HttpAgentError) {
-      log.warn('HTTP Agent Error', {
+      logger.warn('HTTP Agent Error', {
         name: error.name,
         message: error.message,
         code: error.code,
@@ -104,7 +98,7 @@ export function createHttpServer(config: HttpServerConfig) {
       return c.json(error.toJSON(), error.statusCode as ContentfulStatusCode)
     }
 
-    log.error('Unhandled Error', {
+    logger.error('Unhandled Error', {
       message: error.message,
       stack: error.stack,
     })
@@ -131,7 +125,7 @@ export function createHttpServer(config: HttpServerConfig) {
     idleTimeout: 0, // Disable idle timeout for long-running LLM streams
   })
 
-  log.info('Consolidated HTTP Server started', { port, host })
+  logger.info('Consolidated HTTP Server started', { port, host })
 
   return {
     app,
