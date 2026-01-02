@@ -1,7 +1,9 @@
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
-import type { FC } from 'react'
+import DOMPurify from 'dompurify'
+import { Check, CheckCircle2, Copy, Loader2, XCircle } from 'lucide-react'
+import { marked } from 'marked'
+import { type FC, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -39,6 +41,21 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
   jobName,
   onOpenChange,
 }) => {
+  const [copied, setCopied] = useState(false)
+
+  const renderedContent = useMemo(() => {
+    if (!run?.result) return null
+    const html = marked.parse(run.result, { async: false }) as string
+    return DOMPurify.sanitize(html)
+  }, [run?.result])
+
+  const handleCopy = async () => {
+    if (!run?.result) return
+    await navigator.clipboard.writeText(run.result)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (!run) return null
 
   return (
@@ -61,15 +78,40 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[400px]">
-          <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <pre className="whitespace-pre-wrap font-mono text-sm">
-              {run.result || 'No result available'}
-            </pre>
-          </div>
+        <ScrollArea className="max-h-100">
+          {renderedContent ? (
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-border bg-muted/50 p-4"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: renderedContent is sanitized with DOMPurify
+              dangerouslySetInnerHTML={{ __html: renderedContent }}
+            />
+          ) : (
+            <div className="rounded-lg border border-border bg-muted/50 p-4 text-muted-foreground text-sm">
+              No result available
+            </div>
+          )}
         </ScrollArea>
 
         <DialogFooter>
+          {run.result && (
+            <Button
+              variant="outline"
+              onClick={handleCopy}
+              className="mr-2 sm:mr-0"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  Copy
+                </>
+              )}
+            </Button>
+          )}
           <Button onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>

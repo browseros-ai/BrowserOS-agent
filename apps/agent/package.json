@@ -50,11 +50,13 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dayjs": "^1.11.19",
+    "dompurify": "^3.3.1",
     "downshift": "^9.0.10",
     "embla-carousel-react": "^8.6.0",
     "es-toolkit": "^1.42.0",
     "klavis": "^2.15.0",
     "lucide-react": "^0.554.0",
+    "marked": "^17.0.1",
     "motion": "^12.23.24",
     "nanoid": "^5.1.6",
     "next-themes": "^0.4.6",
@@ -76,6 +78,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.17",
     "@types/chrome": "^0.1.28",
     "@types/react": "^19.1.12",
