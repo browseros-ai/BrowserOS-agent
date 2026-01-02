@@ -43,6 +43,7 @@ export const ChatRequestSchema = VercelAIConfigSchema.extend({
   message: z.string().min(1, 'Message cannot be empty'),
   contextWindowSize: z.number().optional(),
   browserContext: BrowserContextSchema.optional(),
+  userSystemPrompt: z.string().optional(),
 })
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>

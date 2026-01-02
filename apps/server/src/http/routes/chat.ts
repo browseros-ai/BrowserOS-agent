@@ -112,6 +112,7 @@ export function createChatRoutes(deps: ChatRouteDeps) {
           browserosId,
           enabledMcpServers: request.browserContext?.enabledMcpServers,
           customMcpServers: request.browserContext?.customMcpServers,
+          userSystemPrompt: request.userSystemPrompt,
         })
 
         const sseStream = {
