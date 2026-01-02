@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Loader2,
   Pencil,
+  Play,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ interface ScheduledTaskCardProps {
   onEdit: () => void
   onDelete: () => void
   onToggle: (enabled: boolean) => void
+  onRun: () => void
   onViewRun: (run: ScheduledJobRun) => void
 }
 
@@ -68,6 +70,7 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
   onEdit,
   onDelete,
   onToggle,
+  onRun,
   onViewRun,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -118,6 +121,15 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRun}
+            className="text-muted-foreground hover:bg-[var(--accent-orange)]/10 hover:text-[var(--accent-orange)]"
+            aria-label={`Run ${job.name} now`}
+          >
+            <Play className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil className="mr-1.5 h-3 w-3" />
             Edit

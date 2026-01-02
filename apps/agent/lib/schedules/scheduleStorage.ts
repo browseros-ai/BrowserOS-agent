@@ -1,5 +1,6 @@
 import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
+import { sendScheduleMessage } from '@/lib/messaging/schedules/scheduleMessages'
 import { createAlarmFromJob } from './createAlarmFromJob'
 import type { ScheduledJob, ScheduledJobRun } from './scheduleTypes'
 
@@ -95,7 +96,11 @@ export function useScheduledJobs() {
     }
   }
 
-  return { jobs, addJob, removeJob, editJob, toggleJob }
+  const runJob = async (id: string) => {
+    return sendScheduleMessage('runScheduledJob', { jobId: id })
+  }
+
+  return { jobs, addJob, removeJob, editJob, toggleJob, runJob }
 }
 
 export function useScheduledJobRuns() {
