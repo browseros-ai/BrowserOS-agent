@@ -7,7 +7,7 @@
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/agent/gemini-vercel-sdk-adapter/types.js'
 import type { RateLimiter } from '../agent/rate-limiter/index.js'
-import type { Logger, McpContext, Mutex } from '../common/index.js'
+import type { McpContext, Mutex } from '../common/index.js'
 import type { ControllerContext } from '../controller-server/index.js'
 import type { ToolDefinition } from '../tools/index.js'
 
@@ -74,7 +74,6 @@ export interface HttpServerConfig {
   // Server basics
   port: number
   host?: string
-  logger: Logger
 
   // For MCP routes - server will create McpServer internally
   version: string

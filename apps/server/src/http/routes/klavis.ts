@@ -7,15 +7,14 @@
 import { Hono } from 'hono'
 import { KlavisClient } from '../../agent/klavis/KlavisClient.js'
 import { OAUTH_MCP_SERVERS } from '../../agent/klavis/OAuthMcpServers.js'
-import type { Logger } from '../../common/index.js'
+import { logger } from '../../common/index.js'
 
 interface KlavisRouteDeps {
   browserosId: string
-  logger: Logger
 }
 
 export function createKlavisRoutes(deps: KlavisRouteDeps) {
-  const { browserosId, logger } = deps
+  const { browserosId } = deps
   const klavisClient = new KlavisClient()
 
   const klavis = new Hono()

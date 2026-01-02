@@ -10,8 +10,8 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
-import type { Logger, McpContext, Mutex } from '../../common/index.js'
-import { metrics } from '../../common/index.js'
+import type { McpContext, Mutex } from '../../common/index.js'
+import { logger, metrics } from '../../common/index.js'
 import { Sentry } from '../../common/sentry/instrument.js'
 import type { ControllerContext } from '../../controller-server/index.js'
 import type { ToolDefinition } from '../../tools/index.js'
@@ -25,7 +25,6 @@ interface McpRouteDeps {
   cdpContext: McpContext | null
   controllerContext: ControllerContext
   toolMutex: Mutex
-  logger: Logger
   allowRemote: boolean
 }
 
@@ -34,8 +33,7 @@ interface McpRouteDeps {
  * Reuses the same logic from the old mcp/server.ts
  */
 function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
-  const { version, tools, cdpContext, controllerContext, toolMutex, logger } =
-    deps
+  const { version, tools, cdpContext, controllerContext, toolMutex } = deps
 
   const server = new McpServer(
     {
@@ -130,7 +128,7 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {
-  const { logger, allowRemote } = deps
+  const { allowRemote } = deps
 
   // Create MCP server once with all tools registered
   const mcpServer = createMcpServerWithTools(deps)
