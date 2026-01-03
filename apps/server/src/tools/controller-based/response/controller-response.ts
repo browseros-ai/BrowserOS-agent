@@ -7,7 +7,7 @@ import type {
   TextContent,
 } from '@modelcontextprotocol/sdk/types.js'
 
-import type { ImageContentData, Response } from '../types/Response.js'
+import type { ImageContentData, Response } from '../types/response.js'
 
 /**
  * Response builder for controller tools.

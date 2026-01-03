@@ -12,7 +12,7 @@ import {
   getFormattedRequestBody,
   getFormattedResponseBody,
   getShortDescriptionForRequest,
-} from '../../../src/tools/formatters/networkFormatter.js'
+} from '../../../src/tools/formatters/network-formatter.js'
 
 import { getMockRequest, getMockResponse } from '../../__helpers__/utils.js'
 

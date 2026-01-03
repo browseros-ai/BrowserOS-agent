@@ -4,14 +4,14 @@
  */
 
 // Response implementation
-export { ControllerResponse } from './response/ControllerResponse.js'
+export { ControllerResponse } from './response/controller-response.js'
 // All controller tools (named exports)
 export * from './tools/index.js'
 // Types
-export type { Context } from './types/Context.js'
-export type { ImageContentData, Response } from './types/Response.js'
+export type { Context } from './types/context.js'
+export type { ImageContentData, Response } from './types/response.js'
 // Utilities
-export { parseDataUrl } from './utils/parseDataUrl.js'
+export { parseDataUrl } from './utils/parse-data-url.js'
 
 // Import all tools for the array export
 import {
@@ -44,7 +44,7 @@ import {
   listTabs,
   openTab,
   switchTab,
-} from './tools/tabManagement.js'
+} from './tools/tab-management.js'
 
 // Array export for convenience (28 tools)
 export const allControllerTools = [

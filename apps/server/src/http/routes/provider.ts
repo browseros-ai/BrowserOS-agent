@@ -5,7 +5,7 @@
  */
 
 import { Hono } from 'hono'
-import { testProviderConnection } from '../../agent/agent/gemini-vercel-sdk-adapter/testProvider.js'
+import { testProviderConnection } from '../../agent/agent/gemini-vercel-sdk-adapter/test-provider.js'
 import {
   type VercelAIConfig,
   VercelAIConfigSchema,

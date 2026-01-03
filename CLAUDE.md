@@ -14,6 +14,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `@browseros/shared/constants/paths` - File system paths (PATHS)
   - `@browseros/shared/types/logger` - Logger interface types (LoggerInterface, LogLevel)
 
+## File Naming Convention
+
+Use **kebab-case** for all file and folder names:
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Multi-word files | kebab-case | `gemini-agent.ts`, `mcp-context.ts` |
+| Single-word files | lowercase | `types.ts`, `browser.ts`, `index.ts` |
+| Test files | `.test.ts` suffix | `mcp-context.test.ts` |
+| Folders | kebab-case | `controller-server/`, `rate-limiter/` |
+
+Classes remain PascalCase in code, but live in kebab-case files:
+```typescript
+// file: gemini-agent.ts
+export class GeminiAgent { ... }
+```
+
 ## Project Overview
 
 **BrowserOS Server** - The automation engine inside BrowserOS. This MCP server powers the built-in AI agent and lets external tools like `claude-code` or `gemini-cli` control the browser. Starts automatically when BrowserOS launches.

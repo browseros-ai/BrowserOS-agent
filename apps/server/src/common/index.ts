@@ -15,8 +15,8 @@ export type {
   McpContext as McpContextType,
   TextSnapshot,
   TextSnapshotNode,
-} from './McpContext.js'
-export { McpContext } from './McpContext.js'
-export { Mutex } from './Mutex.js'
+} from './mcp-context.js'
+export { McpContext } from './mcp-context.js'
+export { Mutex } from './mutex.js'
 export { type MetricsConfig, metrics } from './metrics.js'
 export type { TraceResult } from './types.js'

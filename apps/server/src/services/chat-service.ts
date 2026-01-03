@@ -12,7 +12,7 @@ import type {
   ResolvedAgentConfig,
 } from '../agent/agent/types.js'
 import type { KlavisClient } from '../agent/klavis/index.js'
-import type { SessionManager } from '../agent/session/SessionManager.js'
+import type { SessionManager } from '../agent/session/session-manager.js'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,

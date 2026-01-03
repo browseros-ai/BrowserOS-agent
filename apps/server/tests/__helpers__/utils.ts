@@ -14,8 +14,8 @@ import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
 
 import { logger } from '../../src/common/logger.js'
-import { McpContext } from '../../src/common/McpContext.js'
-import { McpResponse } from '../../src/tools/response/McpResponse.js'
+import { McpContext } from '../../src/common/mcp-context.js'
+import { McpResponse } from '../../src/tools/response/mcp-response.js'
 
 import { ensureBrowserOS } from './setup.js'
 

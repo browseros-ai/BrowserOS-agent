@@ -5,8 +5,8 @@
 import type { JSHandle } from 'puppeteer-core'
 import z from 'zod'
 
-import { ToolCategories } from '../types/ToolCategories.js'
-import { defineTool } from '../types/ToolDefinition.js'
+import { ToolCategories } from '../types/tool-categories.js'
+import { defineTool } from '../types/tool-definition.js'
 
 export const evaluateScript = defineTool({
   name: 'evaluate_script',

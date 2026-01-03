@@ -6,7 +6,7 @@
 import type { MCPServerConfig } from '@google/gemini-cli-core'
 import { logger } from '../../common/index.js'
 
-import { GeminiAgent } from '../agent/GeminiAgent.js'
+import { GeminiAgent } from '../agent/gemini-agent.js'
 import type { ResolvedAgentConfig } from '../agent/types.js'
 
 export class SessionManager {

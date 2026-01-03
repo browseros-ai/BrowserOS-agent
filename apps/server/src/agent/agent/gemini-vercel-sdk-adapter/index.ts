@@ -358,6 +358,6 @@ export class VercelAIContentGenerator implements ContentGenerator {
 
 // Re-export types for consumers
 export { AIProvider }
-export type { ProviderTestResult } from './testProvider.js'
-export { testProviderConnection } from './testProvider.js'
+export type { ProviderTestResult } from './test-provider.js'
+export { testProviderConnection } from './test-provider.js'
 export type { HonoSSEStream, VercelAIConfig } from './types.js'

@@ -35,4 +35,4 @@ export {
   listTabs,
   openTab,
   switchTab,
-} from './tabManagement.js'
+} from './tab-management.js'

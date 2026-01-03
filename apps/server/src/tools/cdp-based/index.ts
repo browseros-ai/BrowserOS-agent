@@ -2,7 +2,7 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import type { ToolDefinition } from '../types/ToolDefinition.js'
+import type { ToolDefinition } from '../types/tool-definition.js'
 
 import * as consoleTools from './console.js'
 import * as networkTools from './network.js'

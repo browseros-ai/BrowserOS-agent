@@ -15,9 +15,9 @@ import {
   parseRawTraceBuffer,
   traceResultIsSuccess,
 } from '../trace-processing/parse.js'
-import type { Response } from '../types/Response.js'
-import { ToolCategories } from '../types/ToolCategories.js'
-import { defineTool } from '../types/ToolDefinition.js'
+import type { Response } from '../types/response.js'
+import { ToolCategories } from '../types/tool-categories.js'
+import { defineTool } from '../types/tool-definition.js'
 
 // Type aliases for compatibility
 type Context = McpContext

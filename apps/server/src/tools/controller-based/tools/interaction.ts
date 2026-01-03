@@ -4,14 +4,14 @@
  */
 import { z } from 'zod'
 
-import { ToolCategories } from '../../types/ToolCategories.js'
-import { defineTool } from '../../types/ToolDefinition.js'
-import type { Context } from '../types/Context.js'
-import type { Response } from '../types/Response.js'
+import { ToolCategories } from '../../types/tool-categories.js'
+import { defineTool } from '../../types/tool-definition.js'
+import type { Context } from '../types/context.js'
+import type { Response } from '../types/response.js'
 import {
   ElementFormatter,
   type InteractiveNode,
-} from '../utils/ElementFormatter.js'
+} from '../utils/element-formatter.js'
 
 const FULL_FORMATTER = new ElementFormatter(false)
 const SIMPLIFIED_FORMATTER = new ElementFormatter(true)
