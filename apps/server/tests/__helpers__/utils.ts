@@ -80,7 +80,7 @@ export async function withBrowser(
   _options: { debug?: boolean } = {},
 ): Promise<void> {
   return await browserMutex.runExclusive(async () => {
-    const config = await ensureBrowserOS()
+    const config = await ensureBrowserOS({ skipExtension: true })
 
     if (!cachedBrowser || !cachedBrowser.connected) {
       cachedBrowser = await puppeteer.connect({
