@@ -20,6 +20,7 @@ export interface TestEnvironmentConfig {
   cdpPort: number
   serverPort: number
   extensionPort: number
+  skipExtension?: boolean
 }
 
 const DEFAULT_CONFIG: TestEnvironmentConfig = {
@@ -95,9 +96,10 @@ export async function ensureBrowserOS(
     cdpPort: options?.cdpPort ?? DEFAULT_CONFIG.cdpPort,
     serverPort: options?.serverPort ?? DEFAULT_CONFIG.serverPort,
     extensionPort: options?.extensionPort ?? DEFAULT_CONFIG.extensionPort,
+    skipExtension: options?.skipExtension ?? false,
   }
 
-  // Fast path: already running with same config and extension connected
+  // Fast path: already running with same config
   const serverState = getServerState()
   const browserState = getBrowserState()
   if (
@@ -106,7 +108,10 @@ export async function ensureBrowserOS(
     configsMatch(serverState.config, config) &&
     configsMatch(browserState.config, config)
   ) {
-    if (await isExtensionConnected(config.serverPort)) {
+    if (
+      config.skipExtension ||
+      (await isExtensionConnected(config.serverPort))
+    ) {
       console.log('Reusing existing test environment')
       return config
     }
@@ -130,10 +135,14 @@ export async function ensureBrowserOS(
   }
   await spawnBrowser(browserConfig)
 
-  // 4. Wait for extension to connect
-  console.log('Waiting for extension to connect...')
-  await waitForExtensionConnection(config.serverPort)
-  console.log('Extension connected')
+  // 4. Wait for extension to connect (unless skipped for CDP-only tests)
+  if (!config.skipExtension) {
+    console.log('Waiting for extension to connect...')
+    await waitForExtensionConnection(config.serverPort)
+    console.log('Extension connected')
+  } else {
+    console.log('Skipping extension connection (CDP-only mode)')
+  }
 
   console.log('=== Test environment ready ===\n')
   return config
