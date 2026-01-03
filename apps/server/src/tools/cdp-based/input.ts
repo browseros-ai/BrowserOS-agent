@@ -6,8 +6,8 @@ import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { ElementHandle } from 'puppeteer-core'
 import z from 'zod'
 
-import { ToolCategories } from '../types/ToolCategories.js'
-import { defineTool } from '../types/ToolDefinition.js'
+import { ToolCategories } from '../types/tool-categories.js'
+import { defineTool } from '../types/tool-definition.js'
 
 export const click = defineTool({
   name: 'click',

@@ -7,7 +7,7 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import type { ConsoleMessage } from 'puppeteer-core'
 
-import { formatConsoleEvent } from '../../../src/tools/formatters/consoleFormatter.js'
+import { formatConsoleEvent } from '../../../src/tools/formatters/console-formatter.js'
 
 function getMockConsoleMessage(options: {
   type: string

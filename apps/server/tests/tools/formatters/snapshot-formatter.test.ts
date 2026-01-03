@@ -7,8 +7,8 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import type { ElementHandle } from 'puppeteer-core'
 
-import type { TextSnapshotNode } from '../../../src/common/McpContext.js'
-import { formatA11ySnapshot } from '../../../src/tools/formatters/snapshotFormatter.js'
+import type { TextSnapshotNode } from '../../../src/common/mcp-context.js'
+import { formatA11ySnapshot } from '../../../src/tools/formatters/snapshot-formatter.js'
 
 describe('snapshotFormatter', () => {
   it('formats a snapshot with value properties', () => {

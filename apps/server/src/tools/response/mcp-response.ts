@@ -10,16 +10,16 @@ import type {
 import type { ResourceType } from 'puppeteer-core'
 import type { McpContext } from '../../common/index.js'
 
-import { formatConsoleEvent } from '../formatters/consoleFormatter.js'
+import { formatConsoleEvent } from '../formatters/console-formatter.js'
 import {
   getFormattedHeaderValue,
   getFormattedRequestBody,
   getFormattedResponseBody,
   getShortDescriptionForRequest,
   getStatusFromRequest,
-} from '../formatters/networkFormatter.js'
-import { formatA11ySnapshot } from '../formatters/snapshotFormatter.js'
-import type { ImageContentData, Response } from '../types/Response.js'
+} from '../formatters/network-formatter.js'
+import { formatA11ySnapshot } from '../formatters/snapshot-formatter.js'
+import type { ImageContentData, Response } from '../types/response.js'
 import { type PaginationOptions, paginate } from '../utils/pagination.js'
 
 interface NetworkRequestData {

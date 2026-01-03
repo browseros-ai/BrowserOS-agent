@@ -6,8 +6,8 @@
 import z from 'zod'
 import { logger } from '../../common/index.js'
 
-import { ToolCategories } from '../types/ToolCategories.js'
-import { commonSchemas, defineTool, ERRORS } from '../types/ToolDefinition.js'
+import { ToolCategories } from '../types/tool-categories.js'
+import { commonSchemas, defineTool, ERRORS } from '../types/tool-definition.js'
 
 export const listPages = defineTool({
   name: 'list_pages',

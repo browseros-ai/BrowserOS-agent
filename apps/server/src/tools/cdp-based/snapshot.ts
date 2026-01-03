@@ -5,8 +5,8 @@
 import { type Frame, Locator } from 'puppeteer-core'
 import z from 'zod'
 
-import { ToolCategories } from '../types/ToolCategories.js'
-import { commonSchemas, defineTool } from '../types/ToolDefinition.js'
+import { ToolCategories } from '../types/tool-categories.js'
+import { commonSchemas, defineTool } from '../types/tool-definition.js'
 
 export const takeSnapshot = defineTool({
   name: 'take_snapshot',
