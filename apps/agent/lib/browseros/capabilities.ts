@@ -2,31 +2,12 @@ import { BrowserOSAdapter } from './adapter'
 
 const SERVER_VERSION_PREF = 'browseros.server.version'
 
-type FeatureConfig =
-  | {
-      minBrowserOSVersion: string
-      maxBrowserOSVersion?: string
-      minServerVersion?: string
-      maxServerVersion?: string
-    }
-  | {
-      maxBrowserOSVersion: string
-      minBrowserOSVersion?: string
-      minServerVersion?: string
-      maxServerVersion?: string
-    }
-  | {
-      minServerVersion: string
-      minBrowserOSVersion?: string
-      maxBrowserOSVersion?: string
-      maxServerVersion?: string
-    }
-  | {
-      maxServerVersion: string
-      minBrowserOSVersion?: string
-      maxBrowserOSVersion?: string
-      minServerVersion?: string
-    }
+type FeatureConfig = {
+  minBrowserOSVersion?: string
+  maxBrowserOSVersion?: string
+  minServerVersion?: string
+  maxServerVersion?: string
+}
 
 /**
  * Features gated by BrowserOS version.
@@ -40,6 +21,8 @@ export enum Feature {
   OPENAI_COMPATIBLE_SUPPORT = 'OPENAI_COMPATIBLE_SUPPORT',
   // Managed MCP servers integration
   MANAGED_MCP_SUPPORT = 'MANAGED_MCP_SUPPORT',
+  // Chat personalization via system prompt
+  PERSONALIZATION_SUPPORT = 'PERSONALIZATION_SUPPORT',
 }
 
 /**
@@ -55,6 +38,7 @@ export enum Feature {
 const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.OPENAI_COMPATIBLE_SUPPORT]: { minBrowserOSVersion: '0.33.0.1' },
   [Feature.MANAGED_MCP_SUPPORT]: { minBrowserOSVersion: '0.34.0.0' },
+  [Feature.PERSONALIZATION_SUPPORT]: { minServerVersion: '0.0.32' },
 }
 
 function parseVersion(version: string): number[] {
