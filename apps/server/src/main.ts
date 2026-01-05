@@ -84,7 +84,7 @@ export class Application {
 
     this.logStartupSummary()
 
-    metrics.log('server.started', { version: VERSION })
+    metrics.log('http_server.started', { version: VERSION })
   }
 
   stop(): void {
