@@ -91,7 +91,7 @@ export class Application {
     const forceExitTimeout = setTimeout(() => {
       logger.warn('Graceful shutdown timed out, forcing exit')
       process.exit(1)
-    }, 5000)
+    }, 500)
 
     Promise.all([
       Promise.resolve(this.httpServer?.server.stop()),
