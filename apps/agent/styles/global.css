@@ -282,6 +282,29 @@
     }
   }
 
+  /* Collapsible animations for smooth expand/collapse */
+  @keyframes collapsible-down {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+
+  @keyframes collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
+
   .bg-grid-pattern {
     background-image:
       linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
@@ -330,5 +353,14 @@
   /* Added utility class for shine animation on card hover */
   .animate-shine {
     animation: shine 0.8s ease-in-out;
+  }
+
+  /* Collapsible animation utility classes */
+  .animate-collapsible-down {
+    animation: collapsible-down 0.2s ease-out;
+  }
+
+  .animate-collapsible-up {
+    animation: collapsible-up 0.2s ease-out;
   }
 }

@@ -1,6 +1,6 @@
 export const templates = {
   aboutYou: {
-    template: `## About Me
+    template: `# About Me
 
 - **Name:** [Your name]
 - **Role:** [Your job title or role]

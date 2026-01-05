@@ -58,7 +58,7 @@ export const Personalize = () => {
   ]
 
   return (
-    <>
+    <div className="pt-[max(5vh,16px)]">
       <div className="absolute top-6 left-6 z-10">
         <Button variant="outline" asChild className="rounded-xl">
           <NavLink to="/" className="gap-2">
@@ -68,7 +68,7 @@ export const Personalize = () => {
         </Button>
       </div>
 
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-16">
+      <div className="relative flex min-h-screen items-center justify-center px-4 py-16 md:w-xl">
         <div
           className={`w-full max-w-3xl space-y-8 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
         >
@@ -101,7 +101,7 @@ export const Personalize = () => {
                   onOpenChange={(open) =>
                     setExpandedSection(open ? section.key : null)
                   }
-                  className="overflow-hidden rounded-xl border border-border/50 bg-card transition-colors hover:border-border"
+                  className="w-full rounded-xl border border-border/50 bg-card transition-colors hover:border-border"
                 >
                   <CollapsibleTrigger asChild>
                     <Button
@@ -117,50 +117,52 @@ export const Personalize = () => {
                         </p>
                       </div>
                       <ChevronDown
-                        className={`h-5 w-5 text-muted-foreground transition-transform ${expandedSection === section.key ? 'rotate-180' : ''}`}
+                        className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${expandedSection === section.key ? 'rotate-180' : ''}`}
                       />
                     </Button>
                   </CollapsibleTrigger>
 
-                  <CollapsibleContent className="animate-fadeInUp space-y-3 px-4 pb-4">
-                    <div>
-                      <p className="mb-2 font-medium text-muted-foreground text-xs">
-                        Template (click to copy):
-                      </p>
-                      <div className="relative">
-                        <pre className="styled-scrollbar overflow-x-auto rounded-lg border border-border bg-accent/50 p-4 text-foreground text-xs">
-                          {templates[section.key].template}
-                        </pre>
-                        <Button
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => copyTemplate(section.key)}
-                          className="absolute top-3 right-3"
-                          title="Copy template"
-                        >
-                          {copiedSection === section.key ? (
-                            <Check className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </Button>
+                  <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    <div className="space-y-3 px-4 pb-4">
+                      <div>
+                        <p className="mb-2 font-medium text-muted-foreground text-xs">
+                          Template (click to copy):
+                        </p>
+                        <div className="relative">
+                          <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-accent/50 p-4 text-foreground text-xs">
+                            {templates[section.key].template}
+                          </pre>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => copyTemplate(section.key)}
+                            className="absolute top-3 right-3"
+                            title="Copy template"
+                          >
+                            {copiedSection === section.key ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <p className="mb-2 font-medium text-muted-foreground text-xs">
-                        Example:
+                      <div>
+                        <p className="mb-2 font-medium text-muted-foreground text-xs">
+                          Example:
+                        </p>
+                        <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border/30 bg-muted/30 p-4 text-muted-foreground text-xs">
+                          {templates[section.key].example}
+                        </pre>
+                      </div>
+
+                      <p className="text-muted-foreground text-xs">
+                        Click the copy button to add this template to your
+                        clipboard, then paste it into the text area above and
+                        customize it.
                       </p>
-                      <pre className="styled-scrollbar overflow-x-auto rounded-lg border border-border/30 bg-muted/30 p-4 text-muted-foreground text-xs">
-                        {templates[section.key].example}
-                      </pre>
                     </div>
-
-                    <p className="text-muted-foreground text-xs">
-                      Click the copy button to add this template to your
-                      clipboard, then paste it into the text area above and
-                      customize it.
-                    </p>
                   </CollapsibleContent>
                 </Collapsible>
               ))}
@@ -168,6 +170,6 @@ export const Personalize = () => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
