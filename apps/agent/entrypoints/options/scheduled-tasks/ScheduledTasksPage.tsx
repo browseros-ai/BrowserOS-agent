@@ -55,9 +55,9 @@ export const ScheduledTasksPage: FC = () => {
 
   const confirmDelete = async () => {
     if (deleteJobId) {
-      track(SCHEDULED_TASK_DELETED_EVENT)
       await removeJob(deleteJobId)
       setDeleteJobId(null)
+      track(SCHEDULED_TASK_DELETED_EVENT)
     }
   }
 
@@ -70,28 +70,28 @@ export const ScheduledTasksPage: FC = () => {
         time: data.scheduleTime,
       })
     } else {
+      await addJob(data)
       track(NEW_SCHEDULED_TASK_CREATED_EVENT, {
         scheduleType: data.scheduleType,
         interval: data.scheduleInterval,
         time: data.scheduleTime,
       })
-      await addJob(data)
     }
   }
 
   const handleToggle = async (jobId: string, enabled: boolean) => {
-    track(SCHEDULED_TASK_TOGGLED_EVENT)
     await toggleJob(jobId, enabled)
+    track(SCHEDULED_TASK_TOGGLED_EVENT)
   }
 
   const handleRun = async (jobId: string) => {
-    track(SCHEDULED_TASK_TESTED_EVENT)
     await runJob(jobId)
+    track(SCHEDULED_TASK_TESTED_EVENT)
   }
 
   const handleViewRun = (run: ScheduledJobRun) => {
-    track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
     setViewingRun(run)
+    track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
   }
 
   const jobToDelete = deleteJobId
