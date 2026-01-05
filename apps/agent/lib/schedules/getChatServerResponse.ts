@@ -6,6 +6,7 @@ import {
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
+import { personalizationStorage } from '../personalization/personalizationStorage'
 
 interface ActiveTab {
   id?: number
@@ -46,6 +47,7 @@ export async function getChatServerResponse(
   const agentServerUrl = await getAgentServerUrl()
   const provider = await getDefaultProvider()
   const conversationId = request.conversationId ?? crypto.randomUUID()
+  const personalization = await personalizationStorage.getValue()
 
   const mcpServers = (await mcpServerStorage.getValue()) ?? []
   const enabledMcpServers = mcpServers
@@ -93,6 +95,7 @@ export async function getChatServerResponse(
                 customMcpServers.length > 0 ? customMcpServers : undefined,
             }
           : undefined,
+      userSystemPrompt: personalization,
     }),
   })
 

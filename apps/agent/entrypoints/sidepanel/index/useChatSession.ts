@@ -16,6 +16,7 @@ import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { type McpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { track } from '@/lib/metrics/track'
+import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import type { ChatMode, Provider } from './chatTypes'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
@@ -83,6 +84,13 @@ export const useChatSession = () => {
     isLoading: isLoadingProviders,
     setDefaultProvider,
   } = useLlmProviders()
+
+  const { personalization } = usePersonalization()
+  const personalizationRef = useRef(personalization)
+
+  useEffect(() => {
+    personalizationRef.current = personalization
+  }, [personalization])
 
   const {
     baseUrl: agentServerUrl,
@@ -261,6 +269,7 @@ export const useChatSession = () => {
             region: provider?.region,
             sessionToken: provider?.sessionToken,
             browserContext,
+            userSystemPrompt: personalizationRef.current,
           },
         }
       },
