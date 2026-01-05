@@ -1,5 +1,6 @@
 import { env } from '@/lib/env'
 import { getBrowserOSAdapter } from './adapter'
+import { Capabilities, Feature } from './capabilities'
 import { BROWSEROS_PREFS } from './prefs'
 
 export class AgentPortError extends Error {
@@ -20,6 +21,10 @@ export class McpPortError extends Error {
  * @public
  */
 export async function getAgentServerUrl(): Promise<string> {
+  if (Capabilities.supports(Feature.UNIFIED_PORT_SUPPORT)) {
+    const port = await getMcpPort()
+    return `http://127.0.0.1:${port}`
+  }
   const port = await getAgentPort()
   return `http://127.0.0.1:${port}`
 }

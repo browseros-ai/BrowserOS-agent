@@ -23,6 +23,8 @@ export enum Feature {
   MANAGED_MCP_SUPPORT = 'MANAGED_MCP_SUPPORT',
   // Chat personalization via system prompt
   PERSONALIZATION_SUPPORT = 'PERSONALIZATION_SUPPORT',
+  // Unified port: agent uses MCP port instead of separate agent port
+  UNIFIED_PORT_SUPPORT = 'UNIFIED_PORT_SUPPORT',
 }
 
 /**
@@ -39,6 +41,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.OPENAI_COMPATIBLE_SUPPORT]: { minBrowserOSVersion: '0.33.0.1' },
   [Feature.MANAGED_MCP_SUPPORT]: { minBrowserOSVersion: '0.34.0.0' },
   [Feature.PERSONALIZATION_SUPPORT]: { minServerVersion: '0.0.32' },
+  [Feature.UNIFIED_PORT_SUPPORT]: { minServerVersion: '0.0.32' },
 }
 
 function parseVersion(version: string): number[] {
