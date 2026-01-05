@@ -22,7 +22,7 @@
     "test:controller": "bun run --filter @browseros/server test:controller",
     "test:integration": "bun run --filter @browseros/server test:integration",
 
-    "typecheck": "tsc --build",
+    "typecheck": "bun run --filter '*' typecheck",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write --unsafe",
 
