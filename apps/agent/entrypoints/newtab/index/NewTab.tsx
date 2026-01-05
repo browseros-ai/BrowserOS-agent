@@ -16,7 +16,6 @@ import {
   GlowingElement,
 } from '@/components/elements/glowing-border'
 import { TabSelector } from '@/components/elements/tab-selector'
-import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Button } from '@/components/ui/button'
 import {
   createAITabAction,
@@ -31,7 +30,6 @@ import {
   useSuggestions,
 } from './lib/suggestions/useSuggestions'
 import { NewTabBranding } from './NewTabBranding'
-import { NewTabFocusGrid } from './NewTabFocusGrid'
 import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
@@ -200,14 +198,7 @@ export const NewTab = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center overflow-hidden bg-background px-6 pt-[max(25vh,16px)]">
-      {/* Subtle grid background */}
-      <NewTabFocusGrid />
-
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
-
+    <div className="pt-[max(25vh,16px)]">
       {/* Main content */}
       <div className={'relative w-full max-w-3xl space-y-8'}>
         {/* Logo and branding */}

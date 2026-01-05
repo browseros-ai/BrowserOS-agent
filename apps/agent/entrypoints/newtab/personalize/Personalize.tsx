@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, ChevronDown, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router'
-import { ThemeToggle } from '@/components/elements/theme-toggle'
+import { NewTabBranding } from '../index/NewTabBranding'
 import { templates } from './templates'
 
 export const Personalize = () => {
@@ -50,13 +50,7 @@ export const Personalize = () => {
   ]
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-background via-background to-accent/5">
-      {/* Subtle grid background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-40"></div>
-        <div className="absolute inset-0 bg-gradient-radial-focus"></div>
-      </div>
-
+    <>
       <div className="absolute top-6 left-6 z-10">
         <NavLink
           to="/"
@@ -67,37 +61,13 @@ export const Personalize = () => {
         </NavLink>
       </div>
 
-      <div className="absolute top-6 right-6 z-10">
-        <ThemeToggle />
-      </div>
-
       {/* Main content */}
       <div className="relative flex min-h-screen items-center justify-center px-4 py-16">
         <div
           className={`w-full max-w-3xl space-y-8 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
         >
           {/* Logo and title */}
-          <div className="space-y-4 text-center">
-            <div className="mb-2 flex items-center justify-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-orange)] shadow-lg">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-7 w-7 text-white"
-                  fill="currentColor"
-                >
-                  <path d="M12 2C9.5 2 7.5 4 7.5 6.5C7.5 8 8.5 9.5 9.5 10C8 10.5 6.5 11.5 6.5 13.5V16C6.5 16.5 7 17 7.5 17H8.5V20C8.5 21.1 9.4 22 10.5 22H13.5C14.6 22 15.5 21.1 15.5 20V17H16.5C17 17 17.5 16.5 17.5 16V13.5C17.5 11.5 16 10.5 14.5 10C15.5 9.5 16.5 8 16.5 6.5C16.5 4 14.5 2 12 2M12 4C13.4 4 14.5 5.1 14.5 6.5C14.5 7.9 13.4 9 12 9C10.6 9 9.5 7.9 9.5 6.5C9.5 5.1 10.6 4 12 4Z" />
-                </svg>
-              </div>
-            </div>
-            <h1 className="font-bold text-4xl text-foreground">
-              Personalize BrowserOS
-            </h1>
-            <p className="mx-auto max-w-xl text-muted-foreground">
-              Help BrowserOS understand you better. Share information about
-              yourself, your preferences, and your workflows to get more
-              personalized responses.
-            </p>
-          </div>
+          <NewTabBranding />
 
           {/* Main text area */}
           <div className="space-y-3">
@@ -198,6 +168,6 @@ export const Personalize = () => {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
