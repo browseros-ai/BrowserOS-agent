@@ -1,5 +1,5 @@
 import { storage } from '@wxt-dev/storage'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export const personalizationStorage = storage.defineItem<string>(
   'local:personalization',
@@ -10,22 +10,45 @@ export const personalizationStorage = storage.defineItem<string>(
 
 export function usePersonalization() {
   const [personalization, setPersonalizationState] = useState('')
+  const isLocalUpdate = useRef(false)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     personalizationStorage.getValue().then(setPersonalizationState)
     const unwatch = personalizationStorage.watch((newValue) => {
-      setPersonalizationState(newValue ?? '')
+      if (!isLocalUpdate.current) {
+        setPersonalizationState(newValue ?? '')
+      }
+      isLocalUpdate.current = false
     })
     return unwatch
   }, [])
 
-  const setPersonalization = async (value: string) => {
-    await personalizationStorage.setValue(value)
-  }
+  const setPersonalization = useCallback((value: string) => {
+    setPersonalizationState(value)
+    isLocalUpdate.current = true
 
-  const clearPersonalization = async () => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+    debounceTimer.current = setTimeout(() => {
+      personalizationStorage.setValue(value)
+    }, 300)
+  }, [])
+
+  const clearPersonalization = useCallback(async () => {
+    setPersonalizationState('')
+    isLocalUpdate.current = true
     await personalizationStorage.setValue('')
-  }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current)
+      }
+    }
+  }, [])
 
   return { personalization, setPersonalization, clearPersonalization }
 }
