@@ -10,7 +10,7 @@ import { stream } from 'hono/streaming'
 import { KlavisClient } from '../../agent/klavis/index.js'
 import type { RateLimiter } from '../../agent/rate-limiter/index.js'
 import { SessionManager } from '../../agent/session/session-manager.js'
-import { logger } from '../../common/index.js'
+import { logger, metrics } from '../../common/index.js'
 import { Sentry } from '../../common/sentry/instrument.js'
 import { ChatService } from '../../services/chat-service.js'
 import { createBrowserosRateLimitMiddleware } from '../middleware/browseros-rate-limit.js'
@@ -57,6 +57,11 @@ export function createChatRoutes(deps: ChatRouteDeps) {
         baseUrl: request.baseUrl,
       })
 
+      metrics.log('chat.request', {
+        provider: request.provider,
+        model: request.model,
+      })
+
       logger.info('Chat request received', {
         conversationId: request.conversationId,
         provider: request.provider,
@@ -80,7 +85,13 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       }
 
       return stream(c, async (honoStream) => {
-        honoStream.onAbort(() => abortController.abort())
+        honoStream.onAbort(() => {
+          abortController.abort()
+          metrics.log('chat.aborted', {
+            provider: request.provider,
+            model: request.model,
+          })
+        })
 
         const rawStream = {
           write: async (data: string): Promise<void> => {

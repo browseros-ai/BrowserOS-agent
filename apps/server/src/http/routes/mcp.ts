@@ -28,6 +28,19 @@ interface McpRouteDeps {
   allowRemote: boolean
 }
 
+const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
+
+type McpRequestSource = 'gemini-agent' | 'sdk-internal' | 'third-party'
+
+function getMcpRequestSource(
+  headerValue: string | undefined,
+): McpRequestSource {
+  if (headerValue === 'gemini-agent' || headerValue === 'sdk-internal') {
+    return headerValue
+  }
+  return 'third-party'
+}
+
 /**
  * Creates an MCP server with registered tools.
  * Reuses the same logic from the old mcp/server.ts
@@ -137,8 +150,12 @@ export function createMcpRoutes(deps: McpRouteDeps) {
     // Security check: localhost only (unless allowRemote is enabled)
     if (!allowRemote && !isLocalhostRequest(c)) {
       logger.warn('Rejected non-localhost MCP request')
+      metrics.log('mcp.rejected', { reason: 'non_localhost' })
       return c.json({ error: 'Forbidden: Only localhost access allowed' }, 403)
     }
+
+    const source = getMcpRequestSource(c.req.header(MCP_SOURCE_HEADER))
+    metrics.log('mcp.request', { source })
 
     try {
       // Create a new transport for EACH request to prevent request ID collisions.

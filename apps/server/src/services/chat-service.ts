@@ -159,7 +159,10 @@ export class ChatService {
     if (mcpServerUrl) {
       servers['browseros-mcp'] = createHttpMcpServerConfig({
         httpUrl: mcpServerUrl,
-        headers: { Accept: 'application/json, text/event-stream' },
+        headers: {
+          Accept: 'application/json, text/event-stream',
+          'X-BrowserOS-Source': 'gemini-agent',
+        },
         trust: true,
       })
     }
