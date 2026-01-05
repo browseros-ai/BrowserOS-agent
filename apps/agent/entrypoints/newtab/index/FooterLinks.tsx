@@ -1,5 +1,6 @@
 import { Calendar } from 'lucide-react'
 import type { FC } from 'react'
+import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
@@ -23,6 +24,18 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
           (new)
         </span>
       </a>
+      <span className="text-muted-foreground">•</span>
+
+      <NavLink
+        to="/personalize"
+        className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
+      >
+        <Calendar className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
+        Personalize{' '}
+        <span className="text-accent-orange group-hover:text-accent-orange-bright">
+          (new)
+        </span>
+      </NavLink>
       <span className="text-muted-foreground">•</span>
 
       {supports(Feature.MANAGED_MCP_SUPPORT) && (
