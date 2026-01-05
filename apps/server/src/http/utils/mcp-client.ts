@@ -33,7 +33,11 @@ export async function callMcpTool<T = Record<string, unknown>>(
     version: '1.0.0',
   })
 
-  const transport = new StreamableHTTPClientTransport(new URL(serverUrl))
+  const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
+    requestInit: {
+      headers: { 'X-BrowserOS-Source': 'sdk-internal' },
+    },
+  })
 
   try {
     await client.connect(transport)

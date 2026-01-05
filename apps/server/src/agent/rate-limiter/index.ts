@@ -7,7 +7,7 @@
 import type { Database } from 'bun:sqlite'
 import { RATE_LIMITS } from '@browseros/shared/constants/limits'
 
-import { logger } from '../../common/index.js'
+import { logger, metrics } from '../../common/index.js'
 
 import { RateLimitError } from './errors.js'
 
@@ -50,6 +50,10 @@ export class RateLimiter {
         browserosId,
         count,
         dailyRateLimit: this.dailyRateLimit,
+      })
+      metrics.log('rate_limit.triggered', {
+        count,
+        daily_limit: this.dailyRateLimit,
       })
       throw new RateLimitError(count, this.dailyRateLimit)
     }
