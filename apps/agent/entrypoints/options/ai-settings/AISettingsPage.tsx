@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import type { ProviderTemplate } from '@/lib/llm-providers/providerTemplates'
 import { testProvider } from '@/lib/llm-providers/testProvider'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
@@ -32,6 +32,7 @@ export const AISettingsPage: FC = () => {
     setDefaultProvider,
     deleteProvider,
   } = useLlmProviders()
+  const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -89,10 +90,21 @@ export const AISettingsPage: FC = () => {
   }
 
   const handleTestProvider = async (provider: LlmProviderConfig) => {
+    if (!agentServerUrl) {
+      toast.error('Test Failed', {
+        description: (
+          <span className="text-red-600 text-sm dark:text-red-400">
+            Server URL not available
+          </span>
+        ),
+        duration: 3000,
+      })
+      return
+    }
+
     setTestingProviderId(provider.id)
 
     try {
-      const agentServerUrl = await getAgentServerUrl()
       const result = await testProvider(provider, agentServerUrl)
 
       if (result.success) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAgentServerUrl } from './helpers'
+import { useCapabilities } from './useCapabilities'
 
 interface UseAgentServerUrlResult {
   baseUrl: string | null
@@ -11,11 +12,14 @@ interface UseAgentServerUrlResult {
  * @public
  */
 export function useAgentServerUrl(): UseAgentServerUrlResult {
+  const { isLoading: capabilitiesLoading } = useCapabilities()
   const [baseUrl, setBaseUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
+    if (capabilitiesLoading) return
+
     let cancelled = false
 
     async function loadUrl() {
@@ -38,7 +42,7 @@ export function useAgentServerUrl(): UseAgentServerUrlResult {
     return () => {
       cancelled = true
     }
-  }, []) // Empty dependency array - only run once on mount
+  }, [capabilitiesLoading])
 
-  return { baseUrl, isLoading, error }
+  return { baseUrl, isLoading: isLoading || capabilitiesLoading, error }
 }

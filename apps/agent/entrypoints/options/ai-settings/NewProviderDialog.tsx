@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Feature } from '@/lib/browseros/capabilities'
-import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { AI_PROVIDER_ADDED_EVENT } from '@/lib/constants/analyticsEvents'
 import {
@@ -172,6 +172,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const { supports } = useCapabilities()
+  const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
   const filteredProviderTypeOptions = providerTypeOptions.filter((opt) => {
     if (opt.value === 'openai-compatible') {
@@ -360,11 +361,18 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   }
 
   const handleTest = async () => {
+    if (!agentServerUrl) {
+      setTestResult({
+        success: false,
+        message: 'Server URL not available',
+      })
+      return
+    }
+
     setIsTesting(true)
     setTestResult(null)
 
     try {
-      const agentServerUrl = await getAgentServerUrl()
       const values = form.getValues()
 
       const result = await testProvider(
