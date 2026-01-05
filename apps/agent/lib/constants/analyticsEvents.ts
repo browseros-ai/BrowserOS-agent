@@ -29,3 +29,31 @@ export const MCP_EXTERNAL_ACCESS_DISABLED_EVENT =
 
 /** @public */
 export const MCP_SERVER_RESTARTED_EVENT = 'settings.mcp_server.restarted'
+
+/** @public */
+export const NEW_SCHEDULED_TASK_CREATED_EVENT =
+  'settings.scheduled_task.created'
+
+/** @public */
+export const SCHEDULED_TASK_EDITED_EVENT = 'settings.scheduled_task.edited'
+
+/** @public */
+export const SCHEDULED_TASK_DELETED_EVENT = 'settings.scheduled_task.deleted'
+
+/** @public */
+export const SCHEDULED_TASK_TOGGLED_EVENT = 'settings.scheduled_task.toggled'
+
+/** @public */
+export const SCHEDULED_TASK_TESTED_EVENT = 'settings.scheduled_task.tested'
+
+/** @public */
+export const SCHEDULED_TASK_VIEW_RESULTS_EVENT =
+  'settings.scheduled_task.viewed_results'
+
+/** @public */
+export const SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT =
+  'newtab.scheduled_task.viewed_results'
+
+/** @public */
+export const SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT =
+  'newtab.scheduled_task.view_more'

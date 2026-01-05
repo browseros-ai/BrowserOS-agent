@@ -18,6 +18,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 import {
   useScheduledJobRuns,
   useScheduledJobs,
@@ -83,6 +85,11 @@ export const ScheduleResults: FC = () => {
     return [...runningJobs, ...completedOrFailed]
   }, [jobRuns, jobs])
 
+  const viewRun = (run: JobRunWithDetails) => {
+    track(SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT)
+    setViewingRun(run)
+  }
+
   return (
     <Collapsible
       open={isOpen}
@@ -116,7 +123,7 @@ export const ScheduleResults: FC = () => {
           <Button
             key={run.id}
             variant="ghost"
-            onClick={() => setViewingRun(run)}
+            onClick={() => viewRun(run)}
             className="h-auto w-full justify-start rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
           >
             <div className="flex w-full items-start gap-3">
