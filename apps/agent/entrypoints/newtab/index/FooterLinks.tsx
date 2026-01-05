@@ -23,17 +23,21 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
       </a>
       <span className="text-muted-foreground">•</span>
 
-      <NavLink
-        to="/personalize"
-        className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
-      >
-        <UserPen className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
-        Personalize{' '}
-        <span className="text-accent-orange group-hover:text-accent-orange-bright">
-          (new)
-        </span>
-      </NavLink>
-      <span className="text-muted-foreground">•</span>
+      {supports(Feature.PERSONALIZATION_SUPPORT) && (
+        <>
+          <NavLink
+            to="/personalize"
+            className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
+          >
+            <UserPen className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
+            Personalize{' '}
+            <span className="text-accent-orange group-hover:text-accent-orange-bright">
+              (new)
+            </span>
+          </NavLink>
+          <span className="text-muted-foreground">•</span>
+        </>
+      )}
 
       {supports(Feature.MANAGED_MCP_SUPPORT) && (
         <>

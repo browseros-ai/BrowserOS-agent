@@ -1,10 +1,13 @@
 import { BrowserOSAdapter } from './adapter'
 
-type VersionTuple = [number, number, number, number]
+const SERVER_VERSION_PREF = 'browseros.server.version'
 
-type FeatureConfig =
-  | { minVersion: string; maxVersion?: string }
-  | { minVersion?: string; maxVersion: string }
+type FeatureConfig = {
+  minBrowserOSVersion?: string
+  maxBrowserOSVersion?: string
+  minServerVersion?: string
+  maxServerVersion?: string
+}
 
 /**
  * Features gated by BrowserOS version.
@@ -18,38 +21,47 @@ export enum Feature {
   OPENAI_COMPATIBLE_SUPPORT = 'OPENAI_COMPATIBLE_SUPPORT',
   // Managed MCP servers integration
   MANAGED_MCP_SUPPORT = 'MANAGED_MCP_SUPPORT',
+  // Chat personalization via system prompt
+  PERSONALIZATION_SUPPORT = 'PERSONALIZATION_SUPPORT',
 }
 
 /**
  * Version requirements for each feature.
- * - minVersion: feature enabled when OS >= this version
- * - maxVersion: feature enabled when OS < this version (for deprecation)
+ * - minBrowserOSVersion: feature enabled when BrowserOS >= this version
+ * - maxBrowserOSVersion: feature enabled when BrowserOS < this version (for deprecation)
+ * - minServerVersion: feature enabled when server >= this version
+ * - maxServerVersion: feature enabled when server < this version (for deprecation)
  *
  * TypeScript enforces that every Feature has a config entry.
  * Note: In development mode, all features are enabled regardless of version.
  */
 const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
-  [Feature.OPENAI_COMPATIBLE_SUPPORT]: { minVersion: '0.33.0.1' },
-  [Feature.MANAGED_MCP_SUPPORT]: { minVersion: '0.34.0.0' },
+  [Feature.OPENAI_COMPATIBLE_SUPPORT]: { minBrowserOSVersion: '0.33.0.1' },
+  [Feature.MANAGED_MCP_SUPPORT]: { minBrowserOSVersion: '0.34.0.0' },
+  [Feature.PERSONALIZATION_SUPPORT]: { minServerVersion: '0.0.32' },
 }
 
-function parseVersion(version: string): VersionTuple {
+function parseVersion(version: string): number[] {
   const parts = version.split('.').map(Number)
-  if (parts.length !== 4 || parts.some(Number.isNaN)) {
+  if (parts.length < 2 || parts.some(Number.isNaN)) {
     throw new Error(`Invalid version format: ${version}`)
   }
-  return parts as VersionTuple
+  return parts
 }
 
-function compareVersions(a: VersionTuple, b: VersionTuple): number {
-  for (let i = 0; i < 4; i++) {
-    if (a[i] < b[i]) return -1
-    if (a[i] > b[i]) return 1
+function compareVersions(a: number[], b: number[]): number {
+  const maxLen = Math.max(a.length, b.length)
+  for (let i = 0; i < maxLen; i++) {
+    const aVal = a[i] ?? 0
+    const bVal = b[i] ?? 0
+    if (aVal < bVal) return -1
+    if (aVal > bVal) return 1
   }
   return 0
 }
 
-let osVersion: VersionTuple | null = null
+let browserOSVersion: number[] | null = null
+let serverVersion: number[] | null = null
 let initialized = false
 
 /**
@@ -60,15 +72,24 @@ export const Capabilities = {
   async initialize(): Promise<void> {
     if (initialized) return
 
-    try {
-      const adapter = BrowserOSAdapter.getInstance()
-      const versionStr = await adapter.getBrowserosVersion()
+    const adapter = BrowserOSAdapter.getInstance()
 
+    try {
+      const versionStr = await adapter.getBrowserosVersion()
       if (versionStr) {
-        osVersion = parseVersion(versionStr)
+        browserOSVersion = parseVersion(versionStr)
       }
     } catch {
-      // Version unknown - features will be disabled
+      // BrowserOS version unknown - features requiring it will be disabled
+    }
+
+    try {
+      const pref = await adapter.getPref(SERVER_VERSION_PREF)
+      if (pref?.value) {
+        serverVersion = parseVersion(pref.value)
+      }
+    } catch {
+      // Server version unknown - features requiring it will be disabled
     }
 
     initialized = true
@@ -86,35 +107,52 @@ export const Capabilities = {
       )
     }
 
-    if (!osVersion) {
-      return false
-    }
-
     const config = FEATURE_CONFIG[feature]
     if (!config) {
       return false
     }
 
-    if (config.minVersion) {
-      const minTuple = parseVersion(config.minVersion)
-      if (compareVersions(osVersion, minTuple) < 0) {
-        return false
+    // Check BrowserOS version constraints
+    if (config.minBrowserOSVersion || config.maxBrowserOSVersion) {
+      if (!browserOSVersion) return false
+
+      if (config.minBrowserOSVersion) {
+        const minVer = parseVersion(config.minBrowserOSVersion)
+        if (compareVersions(browserOSVersion, minVer) < 0) return false
+      }
+
+      if (config.maxBrowserOSVersion) {
+        const maxVer = parseVersion(config.maxBrowserOSVersion)
+        if (compareVersions(browserOSVersion, maxVer) >= 0) return false
       }
     }
 
-    if (config.maxVersion) {
-      const maxTuple = parseVersion(config.maxVersion)
-      if (compareVersions(osVersion, maxTuple) >= 0) {
-        return false
+    // Check server version constraints
+    if (config.minServerVersion || config.maxServerVersion) {
+      if (!serverVersion) return false
+
+      if (config.minServerVersion) {
+        const minVer = parseVersion(config.minServerVersion)
+        if (compareVersions(serverVersion, minVer) < 0) return false
+      }
+
+      if (config.maxServerVersion) {
+        const maxVer = parseVersion(config.maxServerVersion)
+        if (compareVersions(serverVersion, maxVer) >= 0) return false
       }
     }
 
     return true
   },
 
-  getOsVersion(): string | null {
-    if (!osVersion) return null
-    return osVersion.join('.')
+  getBrowserOSVersion(): string | null {
+    if (!browserOSVersion) return null
+    return browserOSVersion.join('.')
+  },
+
+  getServerVersion(): string | null {
+    if (!serverVersion) return null
+    return serverVersion.join('.')
   },
 
   isInitialized(): boolean {
@@ -122,7 +160,8 @@ export const Capabilities = {
   },
 
   reset(): void {
-    osVersion = null
+    browserOSVersion = null
+    serverVersion = null
     initialized = false
   },
 }

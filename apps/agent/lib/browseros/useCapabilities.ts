@@ -4,7 +4,8 @@ import { Capabilities, type Feature } from './capabilities'
 interface UseCapabilitiesResult {
   supports: (feature: Feature) => boolean
   isLoading: boolean
-  osVersion: string | null
+  browserOSVersion: string | null
+  serverVersion: string | null
 }
 
 /**
@@ -21,14 +22,18 @@ interface UseCapabilitiesResult {
  */
 export function useCapabilities(): UseCapabilitiesResult {
   const [isLoading, setIsLoading] = useState(!Capabilities.isInitialized())
-  const [osVersion, setOsVersion] = useState<string | null>(
-    Capabilities.getOsVersion(),
+  const [browserOSVersion, setBrowserOSVersion] = useState<string | null>(
+    Capabilities.getBrowserOSVersion(),
+  )
+  const [serverVersion, setServerVersion] = useState<string | null>(
+    Capabilities.getServerVersion(),
   )
 
   useEffect(() => {
     if (Capabilities.isInitialized()) {
       setIsLoading(false)
-      setOsVersion(Capabilities.getOsVersion())
+      setBrowserOSVersion(Capabilities.getBrowserOSVersion())
+      setServerVersion(Capabilities.getServerVersion())
       return
     }
 
@@ -37,7 +42,8 @@ export function useCapabilities(): UseCapabilitiesResult {
     async function init() {
       await Capabilities.initialize()
       if (!cancelled) {
-        setOsVersion(Capabilities.getOsVersion())
+        setBrowserOSVersion(Capabilities.getBrowserOSVersion())
+        setServerVersion(Capabilities.getServerVersion())
         setIsLoading(false)
       }
     }
@@ -54,5 +60,5 @@ export function useCapabilities(): UseCapabilitiesResult {
     return Capabilities.supports(feature)
   }
 
-  return { supports, isLoading, osVersion }
+  return { supports, isLoading, browserOSVersion, serverVersion }
 }
