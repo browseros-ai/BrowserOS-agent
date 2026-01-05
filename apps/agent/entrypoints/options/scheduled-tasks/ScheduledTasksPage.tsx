@@ -10,6 +10,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  NEW_SCHEDULED_TASK_CREATED_EVENT,
+  SCHEDULED_TASK_DELETED_EVENT,
+  SCHEDULED_TASK_EDITED_EVENT,
+  SCHEDULED_TASK_TESTED_EVENT,
+  SCHEDULED_TASK_TOGGLED_EVENT,
+  SCHEDULED_TASK_VIEW_RESULTS_EVENT,
+} from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 import { useScheduledJobs } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
@@ -48,27 +57,41 @@ export const ScheduledTasksPage: FC = () => {
     if (deleteJobId) {
       await removeJob(deleteJobId)
       setDeleteJobId(null)
+      track(SCHEDULED_TASK_DELETED_EVENT)
     }
   }
 
   const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
     if (editingJob) {
       await editJob(editingJob.id, data)
+      track(SCHEDULED_TASK_EDITED_EVENT, {
+        scheduleType: data.scheduleType,
+        interval: data.scheduleInterval,
+        time: data.scheduleTime,
+      })
     } else {
       await addJob(data)
+      track(NEW_SCHEDULED_TASK_CREATED_EVENT, {
+        scheduleType: data.scheduleType,
+        interval: data.scheduleInterval,
+        time: data.scheduleTime,
+      })
     }
   }
 
   const handleToggle = async (jobId: string, enabled: boolean) => {
     await toggleJob(jobId, enabled)
+    track(SCHEDULED_TASK_TOGGLED_EVENT)
   }
 
   const handleRun = async (jobId: string) => {
     await runJob(jobId)
+    track(SCHEDULED_TASK_TESTED_EVENT)
   }
 
   const handleViewRun = (run: ScheduledJobRun) => {
     setViewingRun(run)
+    track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
   }
 
   const jobToDelete = deleteJobId

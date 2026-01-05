@@ -19,6 +19,11 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import {
+  SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT,
+  SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT,
+} from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
+import {
   useScheduledJobRuns,
   useScheduledJobs,
 } from '@/lib/schedules/scheduleStorage'
@@ -83,6 +88,11 @@ export const ScheduleResults: FC = () => {
     return [...runningJobs, ...completedOrFailed]
   }, [jobRuns, jobs])
 
+  const viewRun = (run: JobRunWithDetails) => {
+    track(SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT)
+    setViewingRun(run)
+  }
+
   return (
     <Collapsible
       open={isOpen}
@@ -116,7 +126,7 @@ export const ScheduleResults: FC = () => {
           <Button
             key={run.id}
             variant="ghost"
-            onClick={() => setViewingRun(run)}
+            onClick={() => viewRun(run)}
             className="h-auto w-full justify-start rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
           >
             <div className="flex w-full items-start gap-3">
@@ -140,6 +150,15 @@ export const ScheduleResults: FC = () => {
             </div>
           </Button>
         ))}
+        <Button variant="ghost" asChild className="w-full">
+          {/* biome-ignore lint/a11y/useValidAnchor: click handler is passive */}
+          <a
+            href="/options.html#/scheduled"
+            onClick={() => track(SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT)}
+          >
+            View more
+          </a>
+        </Button>
       </CollapsibleContent>
 
       <RunResultDialog
