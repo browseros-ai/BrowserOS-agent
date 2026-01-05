@@ -10,7 +10,8 @@
     "build:dev": "webpack --mode development",
     "watch": "webpack --mode development --watch",
     "test": "node tests/test-simple.js",
-    "test:auto": "node tests/test-auto.js"
+    "test:auto": "node tests/test-auto.js",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "browser-automation",
