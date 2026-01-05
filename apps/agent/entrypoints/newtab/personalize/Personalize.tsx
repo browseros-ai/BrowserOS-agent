@@ -9,28 +9,19 @@ import {
 } from '@/components/ui/collapsible'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 import { NewTabBranding } from '../index/NewTabBranding'
 import { templates } from './templates'
 
 export const Personalize = () => {
   const [mounted, setMounted] = useState(false)
-  const [personalInfo, setPersonalInfo] = useState('')
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [copiedSection, setCopiedSection] = useState<string | null>(null)
+  const { personalization, setPersonalization } = usePersonalization()
 
   useEffect(() => {
     setMounted(true)
-    const saved = localStorage.getItem('browserOS_personalization')
-    if (saved) {
-      setPersonalInfo(saved)
-    }
   }, [])
-
-  useEffect(() => {
-    if (personalInfo) {
-      localStorage.setItem('browserOS_personalization', personalInfo)
-    }
-  }, [personalInfo])
 
   const copyTemplate = (templateKey: keyof typeof templates) => {
     const template = templates[templateKey].template
@@ -70,7 +61,7 @@ export const Personalize = () => {
 
       <div className="relative flex min-h-screen items-center justify-center px-4 py-16 md:w-xl">
         <div
-          className={`w-full max-w-3xl space-y-8 transition-all duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
+          className={`w-full max-w-3xl space-y-8 transition-transform duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
         >
           <NewTabBranding />
 
@@ -78,10 +69,10 @@ export const Personalize = () => {
             <Label htmlFor="personalization">Your Information</Label>
             <Textarea
               id="personalization"
-              value={personalInfo}
-              onChange={(e) => setPersonalInfo(e.target.value)}
+              value={personalization}
+              onChange={(e) => setPersonalization(e.target.value)}
               placeholder="Tell BrowserOS about yourself... (Supports Markdown)"
-              className="styled-scrollbar h-96 resize-none rounded-2xl border-2 border-border/50 bg-card px-4 py-3 transition-all placeholder:text-muted-foreground focus:border-[var(--accent-orange)]/30 focus:ring-4 focus:ring-[var(--accent-orange)]/10"
+              className="styled-scrollbar h-96 resize-none rounded-2xl border-2 border-border/50 bg-card px-4 py-3 transition-transform placeholder:text-muted-foreground focus:border-[var(--accent-orange)]/30 focus:ring-4 focus:ring-[var(--accent-orange)]/10"
             />
             <p className="text-muted-foreground text-xs">
               Your information is saved locally and never leaves your device.
@@ -101,7 +92,7 @@ export const Personalize = () => {
                   onOpenChange={(open) =>
                     setExpandedSection(open ? section.key : null)
                   }
-                  className="w-full rounded-xl border border-border/50 bg-card transition-colors hover:border-border"
+                  className="w-full rounded-xl border border-border/50 bg-card hover:border-border"
                 >
                   <CollapsibleTrigger asChild>
                     <Button
