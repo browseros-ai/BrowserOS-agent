@@ -10,12 +10,33 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { usePersonalization } from '@/lib/personalization/personalizationStorage'
+import { cn } from '@/lib/utils'
 import { NewTabBranding } from '../index/NewTabBranding'
 import { templates } from './templates'
 
+const sections = [
+  {
+    key: 'aboutYou' as const,
+    title: 'Add more info about you',
+    description: 'Help BrowserOS understand who you are',
+  },
+  {
+    key: 'expectations' as const,
+    title: 'What you expect from the browser',
+    description: 'Share your preferences and needs',
+  },
+  {
+    key: 'commonActions' as const,
+    title: 'Your commonly performed actions',
+    description: 'Describe your daily workflows',
+  },
+]
+
 export const Personalize = () => {
   const [mounted, setMounted] = useState(false)
-  const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [expandedSection, setExpandedSection] = useState<string | null>(
+    sections[0].key,
+  )
   const [copiedSection, setCopiedSection] = useState<string | null>(null)
   const { personalization, setPersonalization } = usePersonalization()
 
@@ -30,24 +51,6 @@ export const Personalize = () => {
     setTimeout(() => setCopiedSection(null), 2000)
   }
 
-  const sections = [
-    {
-      key: 'aboutYou' as const,
-      title: 'Add more info about you',
-      description: 'Help BrowserOS understand who you are',
-    },
-    {
-      key: 'expectations' as const,
-      title: 'What you expect from the browser',
-      description: 'Share your preferences and needs',
-    },
-    {
-      key: 'commonActions' as const,
-      title: 'Your commonly performed actions',
-      description: 'Describe your daily workflows',
-    },
-  ]
-
   return (
     <div className="pt-[max(5vh,16px)]">
       <div className="absolute top-6 left-6 z-10">
@@ -60,16 +63,20 @@ export const Personalize = () => {
       </div>
 
       <div className="relative flex min-h-screen items-center justify-center px-4 py-16 md:w-xl">
-        <div
-          className={`w-full max-w-3xl space-y-8 transition-transform duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
-        >
+        <div className={`w-full max-w-3xl space-y-8 duration-700`}>
           <NewTabBranding />
 
-          <div className="space-y-3">
+          <div
+            className={cn(
+              'space-y-3 transition-transform',
+              mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            )}
+          >
             <Label htmlFor="personalization">Your Information</Label>
             <Textarea
               id="personalization"
               value={personalization}
+              autoFocus
               onChange={(e) => setPersonalization(e.target.value)}
               placeholder="Tell BrowserOS about yourself... (Supports Markdown)"
               className="styled-scrollbar h-96 resize-none rounded-2xl border-2 border-border/50 bg-card px-4 py-3 transition-transform placeholder:text-muted-foreground focus:border-[var(--accent-orange)]/30 focus:ring-4 focus:ring-[var(--accent-orange)]/10"
@@ -80,7 +87,12 @@ export const Personalize = () => {
             </p>
           </div>
 
-          <div className="space-y-3">
+          <div
+            className={cn(
+              'space-y-3 transition-transform',
+              mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+            )}
+          >
             <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">
               Need help getting started?
             </h2>

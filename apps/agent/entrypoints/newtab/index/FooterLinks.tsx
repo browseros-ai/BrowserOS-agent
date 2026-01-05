@@ -1,4 +1,4 @@
-import { Calendar } from 'lucide-react'
+import { Calendar, UserPen } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
@@ -19,10 +19,7 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
         className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
       >
         <Calendar className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
-        Scheduler{' '}
-        <span className="text-accent-orange group-hover:text-accent-orange-bright">
-          (new)
-        </span>
+        Scheduler
       </a>
       <span className="text-muted-foreground">•</span>
 
@@ -30,7 +27,7 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
         to="/personalize"
         className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
       >
-        <Calendar className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
+        <UserPen className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
         Personalize{' '}
         <span className="text-accent-orange group-hover:text-accent-orange-bright">
           (new)

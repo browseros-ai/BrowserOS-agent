@@ -1,3 +1,4 @@
+import { LayoutGroup } from 'motion/react'
 import type { FC } from 'react'
 import { Outlet } from 'react-router'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
@@ -13,7 +14,9 @@ export const NewTabLayout: FC = () => {
         <ThemeToggle />
       </div>
 
-      <Outlet />
+      <LayoutGroup>
+        <Outlet />
+      </LayoutGroup>
     </div>
   )
 }
