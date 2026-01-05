@@ -72,7 +72,13 @@ export class GeminiAgent {
       cwd: config.tempDir,
       debugMode: false,
       model: modelString,
-      excludeTools: ['run_shell_command', 'write_file', 'replace'],
+      excludeTools: [
+        'run_shell_command',
+        'write_file',
+        'replace',
+        'save_memory',
+        'google_web_search',
+      ],
       compressionThreshold,
       mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
     })

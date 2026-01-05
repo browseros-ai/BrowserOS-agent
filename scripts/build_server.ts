@@ -165,6 +165,7 @@ async function buildSourceMapBundle(
     '--env',
     'inline',
     '--external=*?binary',
+    '--external=node-pty',
   ]
 
   await runCommand('bun', args, buildEnv)
@@ -212,6 +213,7 @@ async function buildTarget(
     '--env',
     'inline',
     '--external=*?binary',
+    '--external=node-pty',
   ]
 
   try {
