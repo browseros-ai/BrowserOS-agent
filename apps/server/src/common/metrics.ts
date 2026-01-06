@@ -6,8 +6,6 @@ import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 import { PostHog } from 'posthog-node'
 
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY
-const POSTHOG_HOST =
-  process.env.POSTHOG_ENDPOINT || EXTERNAL_URLS.POSTHOG_DEFAULT
 const EVENT_PREFIX = 'browseros.server.'
 
 export interface MetricsConfig {
@@ -28,7 +26,7 @@ class MetricsService {
 
     if (!this.client && POSTHOG_API_KEY) {
       this.client = new PostHog(POSTHOG_API_KEY, {
-        host: POSTHOG_HOST,
+        host: EXTERNAL_URLS.POSTHOG_DEFAULT,
       })
     }
   }
