@@ -95,8 +95,9 @@ function rotateLogIfNeeded(logPath: string): void {
 
 /**
  * Create pino transport configuration for console output.
+ * Returns null for production (use sync stdout to avoid thread-stream issues with Bun compile).
  */
-function createConsoleTransport(): pino.TransportSingleOptions {
+function createConsoleTransport(): pino.TransportSingleOptions | null {
   if (isDev) {
     return {
       target: 'pino-pretty',
@@ -108,10 +109,9 @@ function createConsoleTransport(): pino.TransportSingleOptions {
     }
   }
 
-  return {
-    target: 'pino/file',
-    options: { destination: 1 }, // stdout
-  }
+  // Production: return null to use synchronous stdout logging.
+  // pino.transport() uses thread-stream which doesn't work with Bun compile.
+  return null
 }
 
 export class Logger implements LoggerInterface {
@@ -137,7 +137,15 @@ export class Logger implements LoggerInterface {
       }
     }
 
-    return pino(options, pino.transport(createConsoleTransport()))
+    const transport = createConsoleTransport()
+    if (transport) {
+      return pino(options, pino.transport(transport))
+    }
+
+    // Production: use pino.destination() for async writes without worker threads.
+    // pino.transport() uses thread-stream which fails with Bun compile.
+    // pino.destination() uses SonicBoom directly - no workers, bundling-safe.
+    return pino(options, pino.destination({ dest: 1, sync: false }))
   }
 
   /**
