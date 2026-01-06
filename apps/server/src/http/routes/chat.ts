@@ -51,6 +51,10 @@ export function createChatRoutes(deps: ChatRouteDeps) {
     async (c) => {
       const request = c.get('validatedBody') as ChatRequest
 
+      Sentry.getCurrentScope().setTag(
+        'request-type',
+        request.isScheduledTask ? 'schedule' : 'chat',
+      )
       Sentry.setContext('request', {
         provider: request.provider,
         model: request.model,
