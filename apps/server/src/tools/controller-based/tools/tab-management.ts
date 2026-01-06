@@ -4,10 +4,10 @@
  */
 import { z } from 'zod'
 
-import { ToolCategories } from '../../types/tool-categories.js'
-import { defineTool } from '../../types/tool-definition.js'
-import type { Context } from '../types/context.js'
-import type { Response } from '../types/response.js'
+import { ToolCategories } from '../../types/tool-categories'
+import { defineTool } from '../../types/tool-definition'
+import type { Context } from '../types/context'
+import type { Response } from '../types/response'
 
 export const getActiveTab = defineTool<z.ZodRawShape, Context, Response>({
   name: 'browser_get_active_tab',

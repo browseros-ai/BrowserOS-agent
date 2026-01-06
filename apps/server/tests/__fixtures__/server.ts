@@ -9,7 +9,7 @@ import http, {
 } from 'node:http'
 import { after, afterEach, before } from 'node:test'
 
-import { html } from '../__helpers__/utils.js'
+import { html } from '../__helpers__/utils'
 
 class TestServer {
   #port: number

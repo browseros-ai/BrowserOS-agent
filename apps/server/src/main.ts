@@ -12,8 +12,8 @@ import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { RateLimiter } from './agent/index.js'
-import { fetchDailyRateLimit } from './agent/rate-limiter/fetch-config.js'
+import { RateLimiter } from './agent/index'
+import { fetchDailyRateLimit } from './agent/rate-limiter/fetch-config'
 import {
   ensureBrowserConnected,
   identity,
@@ -22,16 +22,13 @@ import {
   McpContext,
   Mutex,
   metrics,
-} from './common/index.js'
-import { Sentry } from './common/sentry/instrument.js'
-import type { ServerConfig } from './config.js'
-import {
-  ControllerBridge,
-  ControllerContext,
-} from './controller-server/index.js'
-import { createHttpServer } from './http/index.js'
-import { createToolRegistry } from './tools/registry.js'
-import { VERSION } from './version.js'
+} from './common/index'
+import { Sentry } from './common/sentry/instrument'
+import type { ServerConfig } from './config'
+import { ControllerBridge, ControllerContext } from './controller-server/index'
+import { createHttpServer } from './http/index'
+import { createToolRegistry } from './tools/registry'
+import { VERSION } from './version'
 
 export class Application {
   private config: ServerConfig

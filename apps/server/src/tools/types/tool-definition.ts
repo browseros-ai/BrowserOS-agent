@@ -4,7 +4,7 @@
  */
 import { z } from 'zod'
 
-import type { ToolCategories } from './tool-categories.js'
+import type { ToolCategories } from './tool-categories'
 
 /**
  * Structure for defining a browser automation tool

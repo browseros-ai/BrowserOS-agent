@@ -5,13 +5,13 @@
  */
 
 import { Hono } from 'hono'
-import { testProviderConnection } from '../../agent/agent/gemini-vercel-sdk-adapter/test-provider.js'
+import { testProviderConnection } from '../../agent/agent/gemini-vercel-sdk-adapter/test-provider'
 import {
   type VercelAIConfig,
   VercelAIConfigSchema,
-} from '../../agent/agent/gemini-vercel-sdk-adapter/types.js'
-import { logger } from '../../common/index.js'
-import { validateRequest } from '../utils/validation.js'
+} from '../../agent/agent/gemini-vercel-sdk-adapter/types'
+import { logger } from '../../common/index'
+import { validateRequest } from '../utils/validation'
 
 export function createProviderRoutes() {
   return new Hono().post(

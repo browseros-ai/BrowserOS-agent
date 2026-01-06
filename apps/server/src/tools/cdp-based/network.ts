@@ -5,8 +5,8 @@
 import type { ResourceType } from 'puppeteer-core'
 import z from 'zod'
 
-import { ToolCategories } from '../types/tool-categories.js'
-import { defineTool } from '../types/tool-definition.js'
+import { ToolCategories } from '../types/tool-categories'
+import { defineTool } from '../types/tool-definition'
 
 const FILTERABLE_RESOURCE_TYPES: readonly [ResourceType, ...ResourceType[]] = [
   'document',

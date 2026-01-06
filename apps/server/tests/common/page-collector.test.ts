@@ -7,9 +7,9 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import type { Browser, Frame, Page, Target } from 'puppeteer-core'
 
-import { PageCollector } from '../../src/common/page-collector.js'
+import { PageCollector } from '../../src/common/page-collector'
 
-import { getMockRequest } from '../__helpers__/utils.js'
+import { getMockRequest } from '../__helpers__/utils'
 
 function mockListener() {
   const listeners: Record<string, Array<(data: unknown) => void>> = {}

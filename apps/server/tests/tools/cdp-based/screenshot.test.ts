@@ -9,10 +9,10 @@ import { chmod, mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { screenshot } from '../../../src/tools/cdp-based/screenshot.js'
+import { screenshot } from '../../../src/tools/cdp-based/screenshot'
 
-import { screenshots } from '../../__fixtures__/snapshot.js'
-import { withBrowser } from '../../__helpers__/utils.js'
+import { screenshots } from '../../__fixtures__/snapshot'
+import { withBrowser } from '../../__helpers__/utils'
 
 describe('screenshot', () => {
   it('browser_take_screenshot - with default options', async () => {

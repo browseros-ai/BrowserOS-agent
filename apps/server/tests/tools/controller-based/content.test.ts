@@ -7,7 +7,7 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 
-import { withMcpServer } from '../../__helpers__/utils.js'
+import { withMcpServer } from '../../__helpers__/utils'
 
 describe('MCP Controller Content Tools', () => {
   describe('browser_get_page_content - Success Cases', () => {

@@ -7,7 +7,7 @@
  */
 
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
-import { SdkError } from './types.js'
+import { SdkError } from './types'
 
 export interface ExecuteActionOptions {
   instruction: string

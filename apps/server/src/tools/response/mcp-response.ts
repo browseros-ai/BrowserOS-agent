@@ -8,19 +8,19 @@ import type {
   TextContent,
 } from '@modelcontextprotocol/sdk/types.js'
 import type { ResourceType } from 'puppeteer-core'
-import type { McpContext } from '../../common/index.js'
+import type { McpContext } from '../../common/index'
 
-import { formatConsoleEvent } from '../formatters/console-formatter.js'
+import { formatConsoleEvent } from '../formatters/console-formatter'
 import {
   getFormattedHeaderValue,
   getFormattedRequestBody,
   getFormattedResponseBody,
   getShortDescriptionForRequest,
   getStatusFromRequest,
-} from '../formatters/network-formatter.js'
-import { formatA11ySnapshot } from '../formatters/snapshot-formatter.js'
-import type { ImageContentData, Response } from '../types/response.js'
-import { type PaginationOptions, paginate } from '../utils/pagination.js'
+} from '../formatters/network-formatter'
+import { formatA11ySnapshot } from '../formatters/snapshot-formatter'
+import type { ImageContentData, Response } from '../types/response'
+import { type PaginationOptions, paginate } from '../utils/pagination'
 
 interface NetworkRequestData {
   networkRequestUrl: string

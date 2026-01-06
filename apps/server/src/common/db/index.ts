@@ -5,7 +5,7 @@
  */
 import { Database } from 'bun:sqlite'
 
-import { initSchema } from './schema.js'
+import { initSchema } from './schema'
 
 let db: Database | null = null
 

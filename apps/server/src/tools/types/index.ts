@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  */
 
-export type * from './context.js'
-export type * from './response.js'
-export * from './tool-categories.js'
-export * from './tool-definition.js'
+export type * from './context'
+export type * from './response'
+export * from './tool-categories'
+export * from './tool-definition'

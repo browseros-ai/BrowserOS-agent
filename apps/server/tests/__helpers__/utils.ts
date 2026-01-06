@@ -13,11 +13,11 @@ import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
 
-import { logger } from '../../src/common/logger.js'
-import { McpContext } from '../../src/common/mcp-context.js'
-import { McpResponse } from '../../src/tools/response/mcp-response.js'
+import { logger } from '../../src/common/logger'
+import { McpContext } from '../../src/common/mcp-context'
+import { McpResponse } from '../../src/tools/response/mcp-response'
 
-import { ensureBrowserOS } from './setup.js'
+import { ensureBrowserOS } from './setup'
 
 // =============================================================================
 // Port Management

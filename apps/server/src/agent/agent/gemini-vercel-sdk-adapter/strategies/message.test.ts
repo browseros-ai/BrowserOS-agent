@@ -30,14 +30,14 @@ import type {
   FunctionResponse,
 } from '@google/genai'
 
-import { BaseProviderAdapter } from '../adapters/base.js'
+import { BaseProviderAdapter } from '../adapters/base'
 import type {
   VercelContentPart,
   VercelToolCallPart,
   VercelToolResultPart,
-} from '../types.js'
+} from '../types'
 
-import { MessageConversionStrategy } from './message.js'
+import { MessageConversionStrategy } from './message'
 
 describe('MessageConversionStrategy', () => {
   let strategy: MessageConversionStrategy

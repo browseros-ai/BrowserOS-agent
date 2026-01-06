@@ -13,7 +13,7 @@ import { Agent } from '@browseros/agent-sdk'
 import {
   ensureBrowserOS,
   type TestEnvironmentConfig,
-} from '../__helpers__/setup.js'
+} from '../__helpers__/setup'
 
 let config: TestEnvironmentConfig
 

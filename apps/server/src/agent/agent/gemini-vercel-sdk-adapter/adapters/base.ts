@@ -8,7 +8,7 @@
  * Provides no-op defaults for all methods. Extend and override only what you need.
  */
 
-import type { FunctionCallWithMetadata, ProviderMetadata } from './types.js'
+import type { FunctionCallWithMetadata, ProviderMetadata } from './types'
 
 /**
  * Provider Adapter Interface

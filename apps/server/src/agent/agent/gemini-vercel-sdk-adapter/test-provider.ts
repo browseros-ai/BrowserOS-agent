@@ -11,8 +11,8 @@
 
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { Content } from '@google/genai'
-import { VercelAIContentGenerator } from './index.js'
-import type { VercelAIConfig } from './types.js'
+import { VercelAIContentGenerator } from './index'
+import type { VercelAIConfig } from './types'
 
 export interface ProviderTestResult {
   success: boolean

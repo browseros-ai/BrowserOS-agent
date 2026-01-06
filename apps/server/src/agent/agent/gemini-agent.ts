@@ -15,15 +15,15 @@ import {
   type ToolCallRequestInfo,
 } from '@google/gemini-cli-core'
 import type { Content, Part } from '@google/genai'
-import { logger } from '../../common/index.js'
-import { Sentry } from '../../common/sentry/instrument.js'
-import type { BrowserContext } from '../../http/types.js'
-import { AgentExecutionError } from '../errors.js'
-import { buildSystemPrompt } from './gemini-agent.prompt.js'
-import { VercelAIContentGenerator } from './gemini-vercel-sdk-adapter/index.js'
-import type { HonoSSEStream } from './gemini-vercel-sdk-adapter/types.js'
-import { UIMessageStreamWriter } from './gemini-vercel-sdk-adapter/ui-message-stream.js'
-import type { ResolvedAgentConfig } from './types.js'
+import { logger } from '../../common/index'
+import { Sentry } from '../../common/sentry/instrument'
+import type { BrowserContext } from '../../http/types'
+import { AgentExecutionError } from '../errors'
+import { buildSystemPrompt } from './gemini-agent.prompt'
+import { VercelAIContentGenerator } from './gemini-vercel-sdk-adapter/index'
+import type { HonoSSEStream } from './gemini-vercel-sdk-adapter/types'
+import { UIMessageStreamWriter } from './gemini-vercel-sdk-adapter/ui-message-stream'
+import type { ResolvedAgentConfig } from './types'
 
 export class GeminiAgent {
   private constructor(

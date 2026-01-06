@@ -8,4 +8,4 @@ export {
   type ConfigResult,
   type ServerConfig,
   ServerConfigSchema,
-} from './config.js'
+} from './config'

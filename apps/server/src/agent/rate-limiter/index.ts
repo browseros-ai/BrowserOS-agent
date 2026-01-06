@@ -7,9 +7,9 @@
 import type { Database } from 'bun:sqlite'
 import { RATE_LIMITS } from '@browseros/shared/constants/limits'
 
-import { logger, metrics } from '../../common/index.js'
+import { logger, metrics } from '../../common/index'
 
-import { RateLimitError } from './errors.js'
+import { RateLimitError } from './errors'
 
 export interface RecordParams {
   conversationId: string
@@ -70,4 +70,4 @@ export class RateLimiter {
   }
 }
 
-export { RateLimitError } from './errors.js'
+export { RateLimitError } from './errors'

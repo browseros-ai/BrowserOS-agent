@@ -26,18 +26,18 @@ import type {
 } from '@google/genai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
-import { logger } from '../../../common/index.js'
-import type { ProviderAdapter } from './adapters/index.js'
-import { createProviderAdapter } from './adapters/index.js'
+import { logger } from '../../../common/index'
+import type { ProviderAdapter } from './adapters/index'
+import { createProviderAdapter } from './adapters/index'
 import {
   MessageConversionStrategy,
   ResponseConversionStrategy,
   ToolConversionStrategy,
-} from './strategies/index.js'
-import type { VercelAIConfig } from './types.js'
-import { AIProvider } from './types.js'
-import type { UIMessageStreamWriter } from './ui-message-stream.js'
-import { createOpenRouterCompatibleFetch } from './utils/index.js'
+} from './strategies/index'
+import type { VercelAIConfig } from './types'
+import { AIProvider } from './types'
+import type { UIMessageStreamWriter } from './ui-message-stream'
+import { createOpenRouterCompatibleFetch } from './utils/index'
 
 /**
  * Vercel AI ContentGenerator
@@ -358,6 +358,6 @@ export class VercelAIContentGenerator implements ContentGenerator {
 
 // Re-export types for consumers
 export { AIProvider }
-export type { ProviderTestResult } from './test-provider.js'
-export { testProviderConnection } from './test-provider.js'
-export type { HonoSSEStream, VercelAIConfig } from './types.js'
+export type { ProviderTestResult } from './test-provider'
+export { testProviderConnection } from './test-provider'
+export type { HonoSSEStream, VercelAIConfig } from './types'

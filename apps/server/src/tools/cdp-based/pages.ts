@@ -4,10 +4,10 @@
  */
 
 import z from 'zod'
-import { logger } from '../../common/index.js'
+import { logger } from '../../common/index'
 
-import { ToolCategories } from '../types/tool-categories.js'
-import { commonSchemas, defineTool, ERRORS } from '../types/tool-definition.js'
+import { ToolCategories } from '../types/tool-categories'
+import { commonSchemas, defineTool, ERRORS } from '../types/tool-definition'
 
 export const listPages = defineTool({
   name: 'list_pages',

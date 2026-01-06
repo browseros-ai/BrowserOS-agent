@@ -4,39 +4,35 @@
  */
 
 // Response implementation
-export { ControllerResponse } from './response/controller-response.js'
+export { ControllerResponse } from './response/controller-response'
 // All controller tools (named exports)
-export * from './tools/index.js'
+export * from './tools/index'
 // Types
-export type { Context } from './types/context.js'
-export type { ImageContentData, Response } from './types/response.js'
+export type { Context } from './types/context'
+export type { ImageContentData, Response } from './types/response'
 // Utilities
-export { parseDataUrl } from './utils/parse-data-url.js'
+export { parseDataUrl } from './utils/parse-data-url'
 
 // Import all tools for the array export
 import {
   checkAvailability,
   executeJavaScript,
   sendKeys,
-} from './tools/advanced.js'
-import {
-  createBookmark,
-  getBookmarks,
-  removeBookmark,
-} from './tools/bookmarks.js'
-import { getPageContent } from './tools/content.js'
-import { clickCoordinates, typeAtCoordinates } from './tools/coordinates.js'
-import { getRecentHistory, searchHistory } from './tools/history.js'
+} from './tools/advanced'
+import { createBookmark, getBookmarks, removeBookmark } from './tools/bookmarks'
+import { getPageContent } from './tools/content'
+import { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
+import { getRecentHistory, searchHistory } from './tools/history'
 import {
   clearInput,
   clickElement,
   getInteractiveElements,
   scrollToElement,
   typeText,
-} from './tools/interaction.js'
-import { navigate } from './tools/navigation.js'
-import { getScreenshot, getScreenshotPointer } from './tools/screenshot.js'
-import { scrollDown, scrollUp } from './tools/scrolling.js'
+} from './tools/interaction'
+import { navigate } from './tools/navigation'
+import { getScreenshot, getScreenshotPointer } from './tools/screenshot'
+import { scrollDown, scrollUp } from './tools/scrolling'
 import {
   closeTab,
   getActiveTab,
@@ -44,7 +40,7 @@ import {
   listTabs,
   openTab,
   switchTab,
-} from './tools/tab-management.js'
+} from './tools/tab-management'
 
 // Array export for convenience (28 tools)
 export const allControllerTools = [

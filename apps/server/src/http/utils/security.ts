@@ -5,7 +5,7 @@
  */
 
 import type { Context } from 'hono'
-import type { Env } from '../types.js'
+import type { Env } from '../types'
 
 const LOCALHOST_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
 

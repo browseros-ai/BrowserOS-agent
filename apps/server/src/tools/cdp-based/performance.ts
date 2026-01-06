@@ -5,19 +5,19 @@
 
 import type { Page } from 'puppeteer-core'
 import z from 'zod'
-import type { McpContext } from '../../common/index.js'
-import { logger } from '../../common/index.js'
+import type { McpContext } from '../../common/index'
+import { logger } from '../../common/index'
 
-import type { InsightName } from '../trace-processing/parse.js'
+import type { InsightName } from '../trace-processing/parse'
 import {
   getInsightOutput,
   getTraceSummary,
   parseRawTraceBuffer,
   traceResultIsSuccess,
-} from '../trace-processing/parse.js'
-import type { Response } from '../types/response.js'
-import { ToolCategories } from '../types/tool-categories.js'
-import { defineTool } from '../types/tool-definition.js'
+} from '../trace-processing/parse'
+import type { Response } from '../types/response'
+import { ToolCategories } from '../types/tool-categories'
+import { defineTool } from '../types/tool-definition'
 
 // Type aliases for compatibility
 type Context = McpContext

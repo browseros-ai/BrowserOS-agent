@@ -12,9 +12,9 @@ import {
   getBrowserState,
   killBrowser,
   spawnBrowser,
-} from './browser.js'
-import { getServerState, killServer, spawnServer } from './server.js'
-import { killProcessOnPort } from './utils.js'
+} from './browser'
+import { getServerState, killServer, spawnServer } from './server'
+import { killProcessOnPort } from './utils'
 
 export interface TestEnvironmentConfig {
   cdpPort: number

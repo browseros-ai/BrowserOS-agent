@@ -6,7 +6,7 @@ import {
   ExtractionError,
   NavigationError,
   VerificationError,
-} from './errors.js'
+} from './errors'
 import type {
   ActOptions,
   ActResult,
@@ -19,7 +19,7 @@ import type {
   ProgressEvent,
   VerifyOptions,
   VerifyResult,
-} from './types.js'
+} from './types'
 
 export class Agent {
   private readonly baseUrl: string

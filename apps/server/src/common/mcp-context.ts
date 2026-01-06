@@ -17,11 +17,11 @@ import type {
   SerializedAXNode,
 } from 'puppeteer-core'
 
-import type { Logger } from './logger.js'
-import { NetworkCollector, PageCollector } from './page-collector.js'
+import type { Logger } from './logger'
+import { NetworkCollector, PageCollector } from './page-collector'
 // These will be injected from tools package
-import type { TraceResult } from './types.js'
-import { WaitForHelper } from './wait-for-helper.js'
+import type { TraceResult } from './types'
+import { WaitForHelper } from './wait-for-helper'
 
 export interface TextSnapshotNode extends SerializedAXNode {
   id: string

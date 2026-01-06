@@ -16,18 +16,18 @@ import type {
 import type { Content, ContentUnion } from '@google/genai'
 import type { CoreMessage } from 'ai'
 
-import type { ProviderAdapter } from '../adapters/index.js'
+import type { ProviderAdapter } from '../adapters/index'
 import type {
   FunctionCallWithMetadata,
   ProviderMetadata,
-} from '../adapters/types.js'
-import type { VercelContentPart } from '../types.js'
+} from '../adapters/types'
+import type { VercelContentPart } from '../types'
 import {
   isFunctionCallPart,
   isFunctionResponsePart,
   isInlineDataPart,
   isTextPart,
-} from '../utils/type-guards.js'
+} from '../utils/type-guards'
 
 export class MessageConversionStrategy {
   constructor(private adapter: ProviderAdapter) {}

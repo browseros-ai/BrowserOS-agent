@@ -7,7 +7,7 @@
  */
 
 import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
-import { SdkError } from './types.js'
+import { SdkError } from './types'
 
 export interface ExtractOptions {
   instruction: string

@@ -16,7 +16,7 @@ import {
   cleanupBrowserOS,
   ensureBrowserOS,
   type TestEnvironmentConfig,
-} from './__helpers__/index.js'
+} from './__helpers__/index'
 
 setDefaultTimeout(30000)
 

@@ -2,10 +2,10 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import type { ToolDefinition } from '../types/tool-definition.js'
+import type { ToolDefinition } from '../types/tool-definition'
 
-import * as consoleTools from './console.js'
-import * as networkTools from './network.js'
+import * as consoleTools from './console'
+import * as networkTools from './network'
 
 /**
  * All available CDP-based browser automation tools
@@ -26,12 +26,12 @@ export const allCdpTools: Array<ToolDefinition<any>> = [
 ]
 
 // Re-export individual tool modules for selective imports
-export * as console from './console.js'
-export * as emulation from './emulation.js'
-export * as input from './input.js'
-export * as network from './network.js'
-export * as pages from './pages.js'
-// export * as performance from './performance.js';
-export * as screenshot from './screenshot.js'
-export * as script from './script.js'
-export * as snapshot from './snapshot.js'
+export * as console from './console'
+export * as emulation from './emulation'
+export * as input from './input'
+export * as network from './network'
+export * as pages from './pages'
+// export * as performance from './performance';
+export * as screenshot from './screenshot'
+export * as script from './script'
+export * as snapshot from './snapshot'

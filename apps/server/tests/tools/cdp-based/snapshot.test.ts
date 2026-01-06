@@ -6,9 +6,9 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 
-import { takeSnapshot, waitFor } from '../../../src/tools/cdp-based/snapshot.js'
+import { takeSnapshot, waitFor } from '../../../src/tools/cdp-based/snapshot'
 
-import { html, withBrowser } from '../../__helpers__/utils.js'
+import { html, withBrowser } from '../../__helpers__/utils'
 
 describe('snapshot', () => {
   it('browser_snapshot - includes a snapshot', async () => {

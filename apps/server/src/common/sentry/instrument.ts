@@ -4,7 +4,7 @@
  */
 import * as Sentry from '@sentry/bun'
 
-import { VERSION } from '../../version.js'
+import { VERSION } from '../../version'
 
 const SENTRY_ENVIRONMENT = process.env.NODE_ENV || 'development'
 

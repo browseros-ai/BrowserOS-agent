@@ -2,5 +2,5 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-export { ControllerBridge } from './controller-bridge.js'
-export { ControllerContext } from './controller-context.js'
+export { ControllerBridge } from './controller-bridge'
+export { ControllerContext } from './controller-context'

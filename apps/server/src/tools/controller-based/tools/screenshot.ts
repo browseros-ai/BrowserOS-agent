@@ -4,11 +4,11 @@
  */
 import { z } from 'zod'
 
-import { ToolCategories } from '../../types/tool-categories.js'
-import { defineTool } from '../../types/tool-definition.js'
-import type { Context } from '../types/context.js'
-import type { Response } from '../types/response.js'
-import { parseDataUrl } from '../utils/parse-data-url.js'
+import { ToolCategories } from '../../types/tool-categories'
+import { defineTool } from '../../types/tool-definition'
+import type { Context } from '../types/context'
+import type { Response } from '../types/response'
+import { parseDataUrl } from '../utils/parse-data-url'
 
 export const getScreenshotPointer = defineTool<
   z.ZodRawShape,

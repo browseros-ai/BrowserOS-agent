@@ -6,8 +6,8 @@
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { WebSocket } from 'ws'
 import { WebSocketServer } from 'ws'
-import type { Logger } from '../common/index.js'
-import { Sentry } from '../common/sentry/instrument.js'
+import type { Logger } from '../common/index'
+import { Sentry } from '../common/sentry/instrument'
 
 interface ControllerRequest {
   id: string

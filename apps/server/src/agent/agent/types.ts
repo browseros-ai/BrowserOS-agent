@@ -6,9 +6,9 @@
 import type { LLMProvider } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 
-import { CustomMcpServerSchema } from '../../http/types.js'
+import { CustomMcpServerSchema } from '../../http/types'
 
-import { VercelAIConfigSchema } from './gemini-vercel-sdk-adapter/types.js'
+import { VercelAIConfigSchema } from './gemini-vercel-sdk-adapter/types'
 
 export interface ProviderConfig {
   provider: LLMProvider

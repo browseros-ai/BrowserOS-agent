@@ -7,9 +7,9 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import sinon from 'sinon'
 
-import type { TraceResult } from '../../src/common/types.js'
+import type { TraceResult } from '../../src/common/types'
 
-import { withBrowser } from '../__helpers__/utils.js'
+import { withBrowser } from '../__helpers__/utils'
 
 describe('McpContext', () => {
   it('list pages', async () => {

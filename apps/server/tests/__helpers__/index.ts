@@ -10,9 +10,9 @@ export {
   cleanupBrowserOS,
   ensureBrowserOS,
   type TestEnvironmentConfig,
-} from './setup.js'
+} from './setup'
 // Types
-export type { McpContentItem, TypedCallToolResult } from './utils.js'
+export type { McpContentItem, TypedCallToolResult } from './utils'
 // Test wrappers
 // Port management
 // Mocks
@@ -24,4 +24,4 @@ export {
   killProcessOnPort,
   withBrowser,
   withMcpServer,
-} from './utils.js'
+} from './utils'
