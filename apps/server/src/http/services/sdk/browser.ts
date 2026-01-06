@@ -10,9 +10,9 @@ import {
   callMcpTool,
   getImageContent,
   getTextContent,
-} from '../../utils/mcp-client.js'
-import type { ActiveTab, PageContent, Screenshot } from './types.js'
-import { SdkError } from './types.js'
+} from '../../utils/mcp-client'
+import type { ActiveTab, PageContent, Screenshot } from './types'
+import { SdkError } from './types'
 
 export class BrowserService {
   constructor(private mcpServerUrl: string) {}

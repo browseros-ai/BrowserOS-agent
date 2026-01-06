@@ -11,7 +11,7 @@ import {
   getMockResponse,
   html,
   withBrowser,
-} from '../__helpers__/utils.js'
+} from '../__helpers__/utils'
 
 describe('McpResponse', () => {
   it('list pages', async () => {

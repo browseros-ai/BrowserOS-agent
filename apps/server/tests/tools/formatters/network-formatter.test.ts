@@ -12,9 +12,9 @@ import {
   getFormattedRequestBody,
   getFormattedResponseBody,
   getShortDescriptionForRequest,
-} from '../../../src/tools/formatters/network-formatter.js'
+} from '../../../src/tools/formatters/network-formatter'
 
-import { getMockRequest, getMockResponse } from '../../__helpers__/utils.js'
+import { getMockRequest, getMockResponse } from '../../__helpers__/utils'
 
 describe('networkFormatter', () => {
   it('getShortDescriptionForRequest - works', async () => {

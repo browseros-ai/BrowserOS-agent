@@ -6,7 +6,7 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 
-import { withMcpServer } from '../../__helpers__/utils.js'
+import { withMcpServer } from '../../__helpers__/utils'
 
 describe('MCP Network Tools', () => {
   it('tests that list_network_requests returns network data', async () => {

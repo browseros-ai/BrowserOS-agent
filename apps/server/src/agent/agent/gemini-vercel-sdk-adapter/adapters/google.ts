@@ -9,8 +9,8 @@
  * @see https://ai.google.dev/gemini-api/docs/thought-signatures
  */
 
-import { BaseProviderAdapter } from './base.js'
-import type { FunctionCallWithMetadata, ProviderMetadata } from './types.js'
+import { BaseProviderAdapter } from './base'
+import type { FunctionCallWithMetadata, ProviderMetadata } from './types'
 
 type StreamChunk = {
   type?: string

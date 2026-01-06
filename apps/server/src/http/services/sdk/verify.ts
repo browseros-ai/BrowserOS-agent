@@ -8,8 +8,8 @@
 
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import type { ModelMessage } from 'ai'
-import { LLMClient } from '../../../agent/llm/client.js'
-import type { Screenshot } from './types.js'
+import { LLMClient } from '../../../agent/llm/client'
+import type { Screenshot } from './types'
 
 export interface VerifyOptions {
   expectation: string

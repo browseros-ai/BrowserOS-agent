@@ -9,10 +9,10 @@
  */
 
 import { LLM_PROVIDERS, type LLMProvider } from '@browseros/shared/schemas/llm'
-import type { ProviderAdapter } from './base.js'
-import { BaseProviderAdapter } from './base.js'
-import { GoogleAdapter } from './google.js'
-import { OpenRouterAdapter } from './openrouter.js'
+import type { ProviderAdapter } from './base'
+import { BaseProviderAdapter } from './base'
+import { GoogleAdapter } from './google'
+import { OpenRouterAdapter } from './openrouter'
 
 /**
  * Create the appropriate adapter for a provider.
@@ -30,8 +30,8 @@ export function createProviderAdapter(provider: LLMProvider): ProviderAdapter {
 }
 
 // Re-exports
-export type { ProviderAdapter } from './base.js'
-export { BaseProviderAdapter } from './base.js'
-export { GoogleAdapter } from './google.js'
-export { OpenRouterAdapter } from './openrouter.js'
-export type { FunctionCallWithMetadata, ProviderMetadata } from './types.js'
+export type { ProviderAdapter } from './base'
+export { BaseProviderAdapter } from './base'
+export { GoogleAdapter } from './google'
+export { OpenRouterAdapter } from './openrouter'
+export type { FunctionCallWithMetadata, ProviderMetadata } from './types'

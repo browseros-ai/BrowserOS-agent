@@ -4,6 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Coding guidelines
 
+- **Use extensionless imports.** Do not use `.js` extensions in TypeScript imports. Bun resolves `.ts` files automatically.
+  ```typescript
+  // ✅ Correct
+  import { foo } from './utils'
+  import type { Bar } from '../types'
+
+  // ❌ Wrong
+  import { foo } from './utils.js'
+  ```
 - Write minimal code comments. Only add comments for non-obvious logic, complex algorithms, or critical warnings. Skip comments for self-explanatory code, obvious function names, and simple operations.
 - Logger messages should not include `[prefix]` tags (e.g., `[Config]`, `[HTTP Server]`). Source tracking automatically adds file:line:function in development mode.
 - Avoid magic constants scattered in the codebase. Use `@browseros/shared` for all shared configuration:

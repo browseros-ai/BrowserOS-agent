@@ -9,7 +9,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { loadServerConfig } from '../src/config.js'
+import { loadServerConfig } from '../src/config'
 
 describe('loadServerConfig', () => {
   let tempDir: string

@@ -10,8 +10,8 @@
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import type { LanguageModel, ModelMessage } from 'ai'
 import { generateText } from 'ai'
-import { resolveLLMConfig } from './config.js'
-import { createLLMProvider } from './provider.js'
+import { resolveLLMConfig } from './config'
+import { createLLMProvider } from './provider'
 
 export class LLMClient {
   private constructor(private model: LanguageModel) {}

@@ -6,7 +6,7 @@ import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { Page, Protocol } from 'puppeteer-core'
 import type { CdpPage } from 'puppeteer-core/internal/cdp/Page.js'
 
-import { logger } from './logger.js'
+import { logger } from './logger'
 
 const POLL_INTERVAL = 100
 

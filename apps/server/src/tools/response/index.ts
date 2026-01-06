@@ -2,4 +2,4 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-export { McpResponse } from './mcp-response.js'
+export { McpResponse } from './mcp-response'

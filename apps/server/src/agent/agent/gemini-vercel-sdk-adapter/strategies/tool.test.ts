@@ -24,7 +24,7 @@ import { beforeEach, describe, expect, it as t } from 'bun:test'
 import type { FunctionDeclaration, Schema, Tool } from '@google/genai'
 import { Type } from '@google/genai'
 
-import { ToolConversionStrategy } from './tool.js'
+import { ToolConversionStrategy } from './tool'
 
 describe('ToolConversionStrategy', () => {
   let strategy: ToolConversionStrategy

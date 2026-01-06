@@ -4,15 +4,15 @@
  */
 
 // Advanced
-export { checkAvailability, executeJavaScript, sendKeys } from './advanced.js'
+export { checkAvailability, executeJavaScript, sendKeys } from './advanced'
 // Bookmark Management
-export { createBookmark, getBookmarks, removeBookmark } from './bookmarks.js'
+export { createBookmark, getBookmarks, removeBookmark } from './bookmarks'
 // Content Extraction
-export { getPageContent } from './content.js'
+export { getPageContent } from './content'
 // Coordinate-based
-export { clickCoordinates, typeAtCoordinates } from './coordinates.js'
+export { clickCoordinates, typeAtCoordinates } from './coordinates'
 // History Management
-export { getRecentHistory, searchHistory } from './history.js'
+export { getRecentHistory, searchHistory } from './history'
 // Element Interaction
 export {
   clearInput,
@@ -20,13 +20,13 @@ export {
   getInteractiveElements,
   scrollToElement,
   typeText,
-} from './interaction.js'
+} from './interaction'
 // Navigation
-export { navigate } from './navigation.js'
+export { navigate } from './navigation'
 // Screenshots
-export { getScreenshot, getScreenshotPointer } from './screenshot.js'
+export { getScreenshot, getScreenshotPointer } from './screenshot'
 // Scrolling
-export { scrollDown, scrollUp } from './scrolling.js'
+export { scrollDown, scrollUp } from './scrolling'
 // Tab Management
 export {
   closeTab,
@@ -35,4 +35,4 @@ export {
   listTabs,
   openTab,
   switchTab,
-} from './tab-management.js'
+} from './tab-management'

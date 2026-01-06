@@ -16,9 +16,9 @@ import type {
 } from '@google/genai'
 import { jsonSchema } from 'ai'
 
-import { ConversionError } from '../errors.js'
-import type { VercelTool } from '../types.js'
-import { VercelToolCallSchema } from '../types.js'
+import { ConversionError } from '../errors'
+import type { VercelTool } from '../types'
+import { VercelToolCallSchema } from '../types'
 
 export class ToolConversionStrategy {
   /**

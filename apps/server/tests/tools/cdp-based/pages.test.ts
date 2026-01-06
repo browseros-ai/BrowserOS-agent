@@ -16,9 +16,9 @@ import {
   newPage,
   resizePage,
   selectPage,
-} from '../../../src/tools/cdp-based/pages.js'
+} from '../../../src/tools/cdp-based/pages'
 
-import { withBrowser } from '../../__helpers__/utils.js'
+import { withBrowser } from '../../__helpers__/utils'
 
 describe('pages', () => {
   it('list_pages - list pages', async () => {

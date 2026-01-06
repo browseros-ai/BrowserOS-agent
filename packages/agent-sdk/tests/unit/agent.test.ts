@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { Agent } from '../../src/agent.js'
+import { Agent } from '../../src/agent'
 import {
   ActionError,
   ConnectionError,
   ExtractionError,
   NavigationError,
   VerificationError,
-} from '../../src/errors.js'
-import type { ProgressEvent } from '../../src/types.js'
+} from '../../src/errors'
+import type { ProgressEvent } from '../../src/types'
 
 const TEST_URL = 'http://localhost:9222'
 

@@ -6,8 +6,8 @@
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import type { Context, Next } from 'hono'
-import type { RateLimiter } from '../../agent/rate-limiter/index.js'
-import type { ChatRequest } from '../types.js'
+import type { RateLimiter } from '../../agent/rate-limiter/index'
+import type { ChatRequest } from '../types'
 
 interface RateLimitMiddlewareDeps {
   rateLimiter?: RateLimiter

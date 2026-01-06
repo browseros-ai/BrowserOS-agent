@@ -24,10 +24,10 @@ import { beforeEach, describe, expect, it as t } from 'bun:test'
 import type { GenerateContentResponse } from '@google/genai'
 import { FinishReason } from '@google/genai'
 
-import { BaseProviderAdapter } from '../adapters/base.js'
+import { BaseProviderAdapter } from '../adapters/base'
 
-import { ResponseConversionStrategy } from './response.js'
-import { ToolConversionStrategy } from './tool.js'
+import { ResponseConversionStrategy } from './response'
+import { ToolConversionStrategy } from './tool'
 
 describe('ResponseConversionStrategy', () => {
   let strategy: ResponseConversionStrategy

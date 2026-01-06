@@ -16,18 +16,18 @@ import {
   type GenerateContentResponse,
   type Part,
 } from '@google/genai'
-import { Sentry } from '../../../../common/sentry/instrument.js'
+import { Sentry } from '../../../../common/sentry/instrument'
 
-import type { ProviderAdapter } from '../adapters/index.js'
-import type { ProviderMetadata } from '../adapters/types.js'
-import type { VercelFinishReason, VercelUsage } from '../types.js'
+import type { ProviderAdapter } from '../adapters/index'
+import type { ProviderMetadata } from '../adapters/types'
+import type { VercelFinishReason, VercelUsage } from '../types'
 import {
   VercelGenerateTextResultSchema,
   VercelStreamChunkSchema,
-} from '../types.js'
-import type { UIMessageStreamWriter } from '../ui-message-stream.js'
+} from '../types'
+import type { UIMessageStreamWriter } from '../ui-message-stream'
 
-import type { ToolConversionStrategy } from './tool.js'
+import type { ToolConversionStrategy } from './tool'
 
 export class ResponseConversionStrategy {
   constructor(

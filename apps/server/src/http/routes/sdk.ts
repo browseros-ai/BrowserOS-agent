@@ -8,10 +8,10 @@
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { Hono } from 'hono'
-import { logger } from '../../common/index.js'
-import { BrowserService } from '../services/sdk/browser.js'
-import { ChatService } from '../services/sdk/chat.js'
-import { ExtractService } from '../services/sdk/extract.js'
+import { logger } from '../../common/index'
+import { BrowserService } from '../services/sdk/browser'
+import { ChatService } from '../services/sdk/chat'
+import { ExtractService } from '../services/sdk/extract'
 import {
   type ActRequest,
   ActRequestSchema,
@@ -23,10 +23,10 @@ import {
   SdkError,
   type VerifyRequest,
   VerifyRequestSchema,
-} from '../services/sdk/types.js'
-import { VerifyService } from '../services/sdk/verify.js'
-import type { Env } from '../types.js'
-import { validateRequest } from '../utils/validation.js'
+} from '../services/sdk/types'
+import { VerifyService } from '../services/sdk/verify'
+import type { Env } from '../types'
+import { validateRequest } from '../utils/validation'
 
 export function createSdkRoutes(deps: SdkDeps) {
   const { port, browserosId } = deps

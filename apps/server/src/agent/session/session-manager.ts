@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core'
-import { logger } from '../../common/index.js'
+import { logger } from '../../common/index'
 
-import { GeminiAgent } from '../agent/gemini-agent.js'
-import type { ResolvedAgentConfig } from '../agent/types.js'
+import { GeminiAgent } from '../agent/gemini-agent'
+import type { ResolvedAgentConfig } from '../agent/types'
 
 export class SessionManager {
   private sessions = new Map<string, GeminiAgent>()

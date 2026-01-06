@@ -11,8 +11,8 @@ import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
   logger,
-} from '../../common/index.js'
-import type { ResolvedLLMConfig } from './types.js'
+} from '../../common/index'
+import type { ResolvedLLMConfig } from './types'
 
 export async function resolveLLMConfig(
   config: LLMConfig,

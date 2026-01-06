@@ -6,9 +6,9 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 
-import { evaluateScript } from '../../../src/tools/cdp-based/script.js'
+import { evaluateScript } from '../../../src/tools/cdp-based/script'
 
-import { html, withBrowser } from '../../__helpers__/utils.js'
+import { html, withBrowser } from '../../__helpers__/utils'
 
 describe('script', () => {
   it('browser_evaluate_script - evaluates', async () => {

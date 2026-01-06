@@ -1,4 +1,4 @@
-export { Agent } from './agent.js'
+export { Agent } from './agent'
 export {
   ActionError,
   AgentSDKError,
@@ -6,7 +6,7 @@ export {
   ExtractionError,
   NavigationError,
   VerificationError,
-} from './errors.js'
+} from './errors'
 export type {
   ActOptions,
   ActResult,
@@ -23,4 +23,4 @@ export type {
   ToolCall,
   VerifyOptions,
   VerifyResult,
-} from './types.js'
+} from './types'

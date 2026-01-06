@@ -11,7 +11,7 @@ import path from 'node:path'
 import { Command, InvalidArgumentError } from 'commander'
 import { z } from 'zod'
 
-import { VERSION } from './version.js'
+import { VERSION } from './version'
 
 const portSchema = z.number().int()
 

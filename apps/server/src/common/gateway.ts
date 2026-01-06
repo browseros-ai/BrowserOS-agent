@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  */
 
-import { logger } from './logger.js'
+import { logger } from './logger'
 
 export interface Provider {
   name: string

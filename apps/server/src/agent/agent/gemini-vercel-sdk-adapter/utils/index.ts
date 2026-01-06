@@ -9,7 +9,7 @@
  * Single entry point for all utility functions
  */
 
-export { createOpenRouterCompatibleFetch } from './fetch.js'
+export { createOpenRouterCompatibleFetch } from './fetch'
 export {
   isFileDataPart,
   isFunctionCallPart,
@@ -17,4 +17,4 @@ export {
   isImageMimeType,
   isInlineDataPart,
   isTextPart,
-} from './type-guards.js'
+} from './type-guards'

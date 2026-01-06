@@ -4,9 +4,9 @@
  */
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 
-import type { Context } from '../tools/controller-based/index.js'
+import type { Context } from '../tools/controller-based/index'
 
-import type { ControllerBridge } from './controller-bridge.js'
+import type { ControllerBridge } from './controller-bridge'
 
 export class ControllerContext implements Context {
   constructor(private controllerBridge: ControllerBridge) {}

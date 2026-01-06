@@ -9,9 +9,9 @@ import assert from 'node:assert'
 import {
   emulateCpu,
   emulateNetwork,
-} from '../../../src/tools/cdp-based/emulation.js'
+} from '../../../src/tools/cdp-based/emulation'
 
-import { withBrowser } from '../../__helpers__/utils.js'
+import { withBrowser } from '../../__helpers__/utils'
 
 describe('emulation', () => {
   it('network - emulates network throttling when the throttling option is valid ', async () => {

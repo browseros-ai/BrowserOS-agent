@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { HttpAgentError } from '../errors.js'
+import { HttpAgentError } from '../errors'
 
 export class RateLimitError extends HttpAgentError {
   constructor(

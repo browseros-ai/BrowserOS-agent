@@ -16,11 +16,11 @@ if (typeof Bun === 'undefined') {
 }
 
 // Import polyfills first
-import './common/polyfill.js'
+import './common/polyfill'
 import { CommanderError } from 'commander'
-import { Sentry } from './common/sentry/instrument.js'
-import { loadServerConfig } from './config.js'
-import { Application } from './main.js'
+import { Sentry } from './common/sentry/instrument'
+import { loadServerConfig } from './config'
+import { Application } from './main'
 
 const configResult = loadServerConfig()
 

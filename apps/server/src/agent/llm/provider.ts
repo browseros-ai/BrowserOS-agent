@@ -15,9 +15,9 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
-import { logger } from '../../common/index.js'
-import { createOpenRouterCompatibleFetch } from '../agent/gemini-vercel-sdk-adapter/utils/fetch.js'
-import type { ResolvedLLMConfig } from './types.js'
+import { logger } from '../../common/index'
+import { createOpenRouterCompatibleFetch } from '../agent/gemini-vercel-sdk-adapter/utils/fetch'
+import type { ResolvedLLMConfig } from './types'
 
 export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
   const { provider, model, apiKey, baseUrl, upstreamProvider } = config

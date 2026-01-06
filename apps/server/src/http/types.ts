@@ -5,11 +5,11 @@
  */
 
 import { z } from 'zod'
-import { VercelAIConfigSchema } from '../agent/agent/gemini-vercel-sdk-adapter/types.js'
-import type { RateLimiter } from '../agent/rate-limiter/index.js'
-import type { McpContext, Mutex } from '../common/index.js'
-import type { ControllerContext } from '../controller-server/index.js'
-import type { ToolDefinition } from '../tools/index.js'
+import { VercelAIConfigSchema } from '../agent/agent/gemini-vercel-sdk-adapter/types'
+import type { RateLimiter } from '../agent/rate-limiter/index'
+import type { McpContext, Mutex } from '../common/index'
+import type { ControllerContext } from '../controller-server/index'
+import type { ToolDefinition } from '../tools/index'
 
 // Chat request schemas (moved from agent/http/types.ts)
 export const TabSchema = z.object({

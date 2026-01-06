@@ -15,10 +15,10 @@ import {
   fillForm,
   hover,
   uploadFile,
-} from '../../../src/tools/cdp-based/input.js'
+} from '../../../src/tools/cdp-based/input'
 
-import { serverHooks } from '../../__fixtures__/server.js'
-import { html, withBrowser } from '../../__helpers__/utils.js'
+import { serverHooks } from '../../__fixtures__/server'
+import { html, withBrowser } from '../../__helpers__/utils'
 
 describe('input', () => {
   const server = serverHooks()
