@@ -1,7 +1,14 @@
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import DOMPurify from 'dompurify'
-import { Check, CheckCircle2, Copy, Loader2, XCircle } from 'lucide-react'
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  XCircle,
+} from 'lucide-react'
 import { marked } from 'marked'
 import { type FC, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -79,7 +86,15 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
         </DialogHeader>
 
         <ScrollArea className="max-h-100">
-          {renderedContent ? (
+          {run.status === 'failed' && run.result ? (
+            <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                <span className="font-medium text-sm">Task failed</span>
+              </div>
+              <p className="text-destructive text-sm">{run.result}</p>
+            </div>
+          ) : renderedContent ? (
             <div
               className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-border bg-muted/50 p-4"
               // biome-ignore lint/security/noDangerouslySetInnerHtml: renderedContent is sanitized with DOMPurify
