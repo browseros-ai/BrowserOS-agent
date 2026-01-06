@@ -30,6 +30,7 @@ interface ChatServerResponse {
 interface StreamEvent {
   type: string
   delta?: string
+  errorText?: string
 }
 
 const getDefaultProvider = async (): Promise<LlmProviderConfig | null> => {
@@ -119,46 +120,59 @@ async function parseSSEStream(response: Response): Promise<string> {
   const decoder = new TextDecoder()
   let result = ''
   let buffer = ''
+  let streamError: string | null = null
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(value, { stream: true })
 
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
 
-      const data = line.slice(6)
-      if (data === '[DONE]') continue
+        const data = line.slice(6)
+        if (data === '[DONE]') continue
 
-      try {
-        const event: StreamEvent = JSON.parse(data)
-        if (event.type === 'text-delta' && event.delta) {
-          result += event.delta
+        try {
+          const event: StreamEvent = JSON.parse(data)
+          if (event.type === 'text-delta' && event.delta) {
+            result += event.delta
+          } else if (event.type === 'error' && event.errorText) {
+            streamError = event.errorText
+          }
+        } catch {
+          // Ignore JSON parse errors for malformed chunks
         }
-      } catch {
-        // Ignore parse errors
       }
     }
+
+    // Process remaining buffer
+    if (buffer.startsWith('data: ')) {
+      const data = buffer.slice(6)
+      if (data !== '[DONE]') {
+        try {
+          const event: StreamEvent = JSON.parse(data)
+          if (event.type === 'text-delta' && event.delta) {
+            result += event.delta
+          } else if (event.type === 'error' && event.errorText) {
+            streamError = event.errorText
+          }
+        } catch {
+          // Ignore JSON parse errors for malformed chunks
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
   }
 
-  // Process remaining buffer
-  if (buffer.startsWith('data: ')) {
-    const data = buffer.slice(6)
-    if (data !== '[DONE]') {
-      try {
-        const event: StreamEvent = JSON.parse(data)
-        if (event.type === 'text-delta' && event.delta) {
-          result += event.delta
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    }
+  if (streamError) {
+    throw new Error(streamError)
   }
 
   return result

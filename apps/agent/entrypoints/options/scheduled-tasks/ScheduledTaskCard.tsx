@@ -166,18 +166,25 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent-orange" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm">
-                      {formatRunDate(run.startedAt)}
-                    </span>
-                    <span className="ml-2 text-muted-foreground text-xs">
-                      {formatDuration(run.startedAt, run.completedAt)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">
+                        {formatRunDate(run.startedAt)}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {formatDuration(run.startedAt, run.completedAt)}
+                      </span>
+                    </div>
+                    {run.status === 'failed' && run.result && (
+                      <p className="mt-1 line-clamp-1 text-destructive text-xs">
+                        {run.result}
+                      </p>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => onViewRun(run)}
-                    className="text-muted-foreground hover:text-foreground"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
                   >
                     View
                   </Button>
