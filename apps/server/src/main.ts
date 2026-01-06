@@ -137,6 +137,7 @@ export class Application {
       install_id: this.config.instanceInstallId,
       browseros_version: this.config.instanceBrowserosVersion,
       chromium_version: this.config.instanceChromiumVersion,
+      server_version: VERSION,
     })
 
     Sentry.setContext('browseros', {
@@ -144,6 +145,7 @@ export class Application {
       install_id: this.config.instanceInstallId,
       browseros_version: this.config.instanceBrowserosVersion,
       chromium_version: this.config.instanceChromiumVersion,
+      server_version: VERSION,
     })
   }
 

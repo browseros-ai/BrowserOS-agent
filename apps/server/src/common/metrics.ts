@@ -15,6 +15,7 @@ export interface MetricsConfig {
   install_id?: string
   browseros_version?: string
   chromium_version?: string
+  server_version?: string
   [key: string]: string | undefined
 }
 
@@ -48,6 +49,7 @@ class MetricsService {
       install_id,
       browseros_version,
       chromium_version,
+      server_version,
       ...defaultProperties
     } = this.config
 
@@ -60,6 +62,7 @@ class MetricsService {
         ...(install_id && { install_id }),
         ...(browseros_version && { browseros_version }),
         ...(chromium_version && { chromium_version }),
+        ...(server_version && { server_version }),
         $process_person_profile: false,
       },
     })
