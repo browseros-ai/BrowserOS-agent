@@ -27,7 +27,9 @@ class MetricsService {
     this.config = { ...this.config, ...config }
 
     if (!this.client && POSTHOG_API_KEY) {
-      this.client = new PostHog(POSTHOG_API_KEY, { host: POSTHOG_HOST })
+      this.client = new PostHog(POSTHOG_API_KEY, {
+        host: POSTHOG_HOST,
+      })
     }
   }
 
