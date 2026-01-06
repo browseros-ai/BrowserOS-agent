@@ -44,6 +44,7 @@ export const ChatRequestSchema = VercelAIConfigSchema.extend({
   contextWindowSize: z.number().optional(),
   browserContext: BrowserContextSchema.optional(),
   userSystemPrompt: z.string().optional(),
+  isScheduledTask: z.boolean().optional().default(false),
 })
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
