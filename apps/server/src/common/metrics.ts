@@ -26,13 +26,13 @@ class MetricsService {
   initialize(config: MetricsConfig): void {
     this.config = { ...this.config, ...config }
 
-    if (!this.client && POSTHOG_API_KEY && this.config.client_id) {
+    if (!this.client && POSTHOG_API_KEY) {
       this.client = new PostHog(POSTHOG_API_KEY, { host: POSTHOG_HOST })
     }
   }
 
-  isInitialized(): boolean {
-    return this.config !== null
+  isEnabled(): boolean {
+    return this.client !== null
   }
 
   getClientId(): string | null {
@@ -40,7 +40,7 @@ class MetricsService {
   }
 
   log(eventName: string, properties: Record<string, unknown> = {}): void {
-    if (!this.client || !this.config?.client_id) {
+    if (!this.client || !this.config) {
       return
     }
 
@@ -53,12 +53,15 @@ class MetricsService {
       ...defaultProperties
     } = this.config
 
+    const distinctId = client_id || install_id || 'anonymous'
+
     this.client.capture({
-      distinctId: client_id,
+      distinctId,
       event: EVENT_PREFIX + eventName,
       properties: {
         ...defaultProperties,
         ...properties,
+        ...(client_id && { client_id }),
         ...(install_id && { install_id }),
         ...(browseros_version && { browseros_version }),
         ...(chromium_version && { chromium_version }),
