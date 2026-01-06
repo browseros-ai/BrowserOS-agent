@@ -200,7 +200,7 @@ export const NewTab = () => {
   return (
     <div className="pt-[max(25vh,16px)]">
       {/* Main content */}
-      <div className={'relative w-full max-w-3xl space-y-8'}>
+      <div className={'relative w-full space-y-8 md:w-3xl'}>
         {/* Logo and branding */}
         <NewTabBranding />
         {/* Search bar with context */}
