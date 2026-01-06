@@ -50,8 +50,5 @@
     "npm": "please-use-bun",
     "yarn": "please-use-bun",
     "pnpm": "please-use-bun"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.1"
   }
 }
