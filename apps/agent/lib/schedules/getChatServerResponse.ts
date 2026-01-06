@@ -7,6 +7,7 @@ import {
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { personalizationStorage } from '../personalization/personalizationStorage'
+import { scheduleSystemPrompt } from './scheduleSystemPrompt'
 
 interface ActiveTab {
   id?: number
@@ -96,7 +97,7 @@ export async function getChatServerResponse(
                 customMcpServers.length > 0 ? customMcpServers : undefined,
             }
           : undefined,
-      userSystemPrompt: personalization,
+      userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
     }),
   })
 
