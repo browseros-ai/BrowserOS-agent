@@ -97,7 +97,7 @@ export const ScheduleResults: FC = () => {
     <Collapsible
       open={isOpen}
       onOpenChange={setIsOpen}
-      className="mb-16 space-y-3"
+      className="mb-16 w-xl space-y-3 md:w-3xl"
     >
       <CollapsibleTrigger asChild>
         <Button
