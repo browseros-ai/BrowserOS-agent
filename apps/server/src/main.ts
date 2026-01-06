@@ -140,6 +140,14 @@ export class Application {
       server_version: VERSION,
     })
 
+    if (!metrics.isEnabled()) {
+      logger.warn('Metrics disabled: missing POSTHOG_API_KEY')
+    }
+
+    if (!process.env.SENTRY_DSN) {
+      logger.warn('Sentry disabled: missing SENTRY_DSN')
+    }
+
     Sentry.setContext('browseros', {
       client_id: this.config.instanceClientId,
       install_id: this.config.instanceInstallId,
