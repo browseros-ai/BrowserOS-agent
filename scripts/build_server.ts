@@ -62,6 +62,16 @@ const TARGETS: Record<string, BuildTarget> = {
 
 const MINIMAL_SYSTEM_VARS = ['PATH']
 
+const REQUIRED_PROD_VARS = [
+  'BROWSEROS_CONFIG_URL',
+  'POSTHOG_API_KEY',
+  'POSTHOG_ENDPOINT',
+  'SENTRY_DSN',
+  'SENTRY_AUTH_TOKEN',
+  'SENTRY_ORG',
+  'SENTRY_PROJECT',
+]
+
 function parseArgs(): { mode: 'prod' | 'dev'; targets: string[] } {
   const args = process.argv.slice(2)
   let mode: 'prod' | 'dev' = 'prod'
@@ -105,6 +115,27 @@ function loadEnvFile(path: string): Record<string, string> {
     return parsed
   } catch (error) {
     console.error(`Failed to load ${path}:`, error)
+    process.exit(1)
+  }
+}
+
+function validateProdEnv(envVars: Record<string, string>): void {
+  const missing: string[] = []
+
+  for (const varName of REQUIRED_PROD_VARS) {
+    if (!envVars[varName] || envVars[varName].trim() === '') {
+      missing.push(varName)
+    }
+  }
+
+  if (missing.length > 0) {
+    console.error(
+      `\n❌ Production build requires the following environment variables:`,
+    )
+    for (const varName of missing) {
+      console.error(`   - ${varName}`)
+    }
+    console.error(`\n   Please set these in .env.prod`)
     process.exit(1)
   }
 }
@@ -260,6 +291,7 @@ async function main() {
   console.log(`   Loaded ${Object.keys(envVars).length} variables`)
 
   if (mode === 'prod') {
+    validateProdEnv(envVars)
     console.log(
       `\n🔒 Production mode: Using CLEAN environment (only ${envFile} + minimal system vars)`,
     )
