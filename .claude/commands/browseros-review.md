@@ -32,52 +32,42 @@ git diff $MERGE_BASE HEAD
 git log $MERGE_BASE..HEAD --oneline
 ```
 
-### Step 2: Gather Context
+### Step 2: Initial Screening
 
-- Read root CLAUDE.md
-- Read CLAUDE.md files in directories containing modified files
-- Understand the intent from commit messages or PR description
+Launch a haiku agent to check if any of the following are true:
+- The pull request is closed
+- The pull request is a draft
+- The pull request does not need code review (e.g. automated PR, trivial change that is obviously correct)
+- Claude has already commented on this PR (check `gh pr view <PR> --comments` for comments left by claude)
 
-### Step 3: Review for Issues
+If any condition is true, stop and do not proceed.
 
-Scan the diff for:
+Note: Still review Claude generated PR's.
 
-**Logic Errors**
-- Off-by-one in loops, slices, array access
-- Incorrect boolean logic (missing negation, wrong operator)
-- Missing edge cases: empty arrays, null/undefined, zero, negative
-- Incorrect equality checks (== vs ===, reference vs value)
+### Step 3: Documentation Discovery
 
-**Async Errors**
-- Missing await on async calls
-- Unhandled promise rejections
-- Race conditions in shared state
-- Async in loops without proper batching
+Launch a haiku agent to return a list of file paths (not their contents) for all relevant CLAUDE.md files including:
+- The root CLAUDE.md file, if it exists
+- Any CLAUDE.md files in directories containing files modified by the pull request
 
-**Resource/Memory**
-- Unclosed connections, streams, handles
-- Event listeners not removed on cleanup
-- Missing finally/cleanup in error paths
+### Step 4: Change Summary
 
-**Type Safety (TypeScript)**
-- **Untyped functions**: Function parameters or return types using `any` instead of proper types
-- **Inline `any` casts**: Callbacks like `(x: any) => ...` that bypass type checking
-- **Missing interfaces for external data**: JSON parsing, API responses, or third-party data without defined types (create interfaces even for complex/nested structures)
-- Non-null assertions (!) without validation
-- Type narrowing lost across async boundaries
+Launch a sonnet agent to view the pull request and return a summary of the changes.
 
-**Security**
-- String concatenation in SQL/commands (injection)
-- User input in innerHTML/dangerouslySetInnerHTML (XSS)
-- Secrets in code or logs
-- Missing input validation at boundaries
+### Step 5: Parallel Multi-Agent Review
 
-**CLAUDE.md Compliance**
-- Violations of rules in CLAUDE.md files
-- Quote the exact rule being broken
+Launch 7 agents in parallel to independently review the changes. Each agent should return the list of issues, where each issue includes a description and the reason it was flagged (e.g. "CLAUDE.md adherence", "bug", "design principle", "readability"). The agents should do the following:
 
-### Step 4: Check Design Principles
+**Agents 1 + 2: CLAUDE.md compliance sonnet agents**
+Audit changes for CLAUDE.md compliance in parallel. Note: When evaluating CLAUDE.md compliance for a file, you should only consider CLAUDE.md files that share a file path with the file or parents.
 
+**Agent 3: Opus bug agent (parallel subagent with agent 4)**
+Scan for obvious bugs. Focus only on the diff itself without reading extra context. Flag only significant bugs; ignore nitpicks and likely false positives. Do not flag issues that you cannot validate without looking at context outside of the git diff.
+
+**Agent 4: Opus bug agent (parallel subagent with agent 3)**
+Look for problems that exist in the introduced code. This could be security issues, incorrect logic, etc. Only look for issues that fall within the changed code.
+
+**Agent 5: Design principles Opus agent**
 Flag clear violations of:
 - **SRP**: Class/module doing multiple unrelated things
 - **DRY**: Duplicated logic that should be extracted
@@ -85,19 +75,8 @@ Flag clear violations of:
 - **KISS**: Unnecessary complexity, over-abstraction
 - **YAGNI**: Unused features, speculative generalization
 
-### Step 5: Check Code Readability
-
-Flag these issues:
-- Functions over 100 lines
-- Nesting depth > 3 levels
-- Unclear names requiring mental mapping
-- Magic numbers/strings without named constants
-- God objects/files doing too many things
-
-### Step 6: Suggest Design Patterns (MEDIUM PRIORITY)
-
+**Agent 6: Design patterns Opus agent**
 When code would clearly benefit, suggest these patterns:
-
 - **Factory**: Scattered/duplicated object creation → centralize with factory
 - **Builder**: Constructor with 4+ params or complex setup → step-by-step builder
 - **Strategy**: Multiple if/else chains selecting behavior → interchangeable strategies
@@ -111,6 +90,42 @@ When code would clearly benefit, suggest these patterns:
 
 Only suggest when the pattern clearly solves an existing problem in the code. Don't suggest patterns speculatively.
 
+**Agent 7: Code readability & type safety sonnet agent**
+Flag these readability issues:
+- Functions over 100 lines
+- Nesting depth > 3 levels
+- Unclear names requiring mental mapping
+- Magic numbers/strings without named constants
+- God objects/files doing too many things
+
+Flag these type safety issues (TypeScript):
+- **Untyped functions**: Function parameters or return types using `any` instead of proper types
+- **Inline `any` casts**: Callbacks like `(x: any) => ...` that bypass type checking
+- **Missing interfaces for external data**: JSON parsing, API responses, or third-party data without defined types (create interfaces even for complex/nested structures)
+- Non-null assertions (!) without validation
+- Type narrowing lost across async boundaries
+
+**CRITICAL: We only want HIGH SIGNAL issues.** This means:
+- Objective bugs that will cause incorrect behavior at runtime
+- Clear, unambiguous CLAUDE.md violations where you can quote the exact rule being broken
+- Design issues that clearly harm maintainability (not speculative concerns)
+
+We do NOT want:
+- Subjective concerns or "suggestions"
+- Style preferences not explicitly required by CLAUDE.md
+- Potential issues that "might" be problems
+- Anything requiring interpretation or judgment calls
+
+If you are not certain an issue is real, do not flag it. False positives erode trust and waste reviewer time.
+
+In addition to the above, each subagent should be told the PR title and description. This will help provide context regarding the author's intent.
+
+### Step 6: Issue Validation
+
+For each issue found in the previous step by agents 3 and 4, launch parallel subagents to validate the issue. These subagents should get the PR title and description along with a description of the issue. The agent's job is to review the issue to validate that the stated issue is truly an issue with high confidence. For example, if an issue such as "variable is not defined" was flagged, the subagent's job would be to validate that is actually true in the code. Another example would be CLAUDE.md issues. The agent should validate that the CLAUDE.md rule that was violated is scoped for this file and is actually violated. Use Opus subagents for bugs and logic issues, and sonnet agents for CLAUDE.md violations.
+
+Filter out any issues that were not validated. This step will give us our list of high signal issues for our review.
+
 ## DO NOT Flag (False Positives)
 
 - Pre-existing issues not introduced in this diff
@@ -122,19 +137,22 @@ Only suggest when the pattern clearly solves an existing problem in the code. Do
 - Style preferences not explicitly in CLAUDE.md
 - General quality concerns unless explicitly in CLAUDE.md
 
-## Link Format
-
-When citing code, use full git SHA:
-```
-https://github.com/{owner}/{repo}/blob/{full_git_sha}/{path}#L{start}-L{end}
-```
-
 ## Comment Guidelines
 
 - One comment per unique issue
 - For fixes under 5 lines: include committable suggestion block
 - For fixes 6+ lines: provide high-level guidance + copyable prompt
 - Never include fixes that would break without additional changes
+
+**Suggestions must be COMPLETE.** If a fix requires additional changes elsewhere (e.g., renaming a variable requires updating all usages), do NOT use a suggestion block. The author should be able to click "Commit suggestion" and have a working fix - no followup work required.
+
+For larger fixes (6+ lines, structural changes, or changes spanning multiple locations), do NOT use suggestion blocks. Instead:
+1. Describe what the issue is
+2. Explain the suggested fix at a high level
+3. Include a copyable prompt for Claude Code:
+   ```
+   Fix [file:line]: [brief description of issue and suggested fix]
+   ```
 
 ## Output Format
 
@@ -146,12 +164,33 @@ After reviewing, output a concise summary:
 **Scope**: [PR #123 / Branch `feat/xyz` vs main]
 **Files reviewed**: [count]
 
-### Issues Found
+### Bugs & Logic Issues
 
 For each issue:
 - **[SEVERITY]** `file:line` - Brief description
   - Why it's a problem
   - Suggested fix (or copyable prompt: `Fix file:line: description`)
+
+### Type Safety Issues
+
+For each issue:
+- **[SEVERITY]** `file:line` - Brief description (e.g., "10 functions use `any` instead of typed interfaces")
+  - Why it's a problem
+  - Suggested fix
+
+### Readability Issues
+
+For each issue:
+- **[SEVERITY]** `file:line` - Brief description (e.g., "Function exceeds 100 lines", "Nesting depth > 3")
+  - Why it's a problem
+  - Suggested fix
+
+### Design Pattern Suggestions
+
+For each suggestion:
+- **[PATTERN]** `file:line` - Where and why to apply
+  - Current problem (e.g., "5 if/else branches selecting behavior")
+  - Suggested pattern and brief implementation guidance
 
 ### Concise Action Items
 
@@ -159,10 +198,10 @@ For each issue:
 □ [Critical bugs, security issues, data loss risks]
 
 🟡 MEDIUM PRIORITY:
-□ [Design improvements, testability issues]
+□ [Type safety issues, design principle violations, readability issues]
 
-🔵 LOW PRIORITY:
-□ [Refactoring suggestions, minor improvements]
+🟢 SUGGESTIONS:
+□ [Design pattern recommendations]
 ```
 
 If no issues found, output:
