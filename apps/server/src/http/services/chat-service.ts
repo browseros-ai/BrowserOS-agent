@@ -6,16 +6,19 @@
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { MCPServerConfig } from '@google/gemini-cli-core'
-import type { HonoSSEStream } from '../agent/agent/gemini-vercel-sdk-adapter/types'
-import type { ProviderConfig, ResolvedAgentConfig } from '../agent/agent/types'
-import type { KlavisClient } from '../agent/klavis/index'
-import type { SessionManager } from '../agent/session/session-manager'
+import type { HonoSSEStream } from '../../agent/agent/gemini-vercel-sdk-adapter/types'
+import type {
+  ProviderConfig,
+  ResolvedAgentConfig,
+} from '../../agent/agent/types'
+import type { KlavisClient } from '../../agent/klavis/index'
+import type { SessionManager } from '../../agent/session/session-manager'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
   logger,
-} from '../common/index'
-import type { BrowserContext, ChatRequest } from '../http/types'
+} from '../../common/index'
+import type { BrowserContext, ChatRequest } from '../types'
 
 interface McpHttpServerOptions {
   httpUrl: string
