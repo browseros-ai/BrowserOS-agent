@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * SDK Routes - REST API for @browseros/agent-sdk
+ * SDK Routes - REST API for @browseros-ai/agent-sdk
  */
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
