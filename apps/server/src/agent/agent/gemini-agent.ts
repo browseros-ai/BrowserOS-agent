@@ -49,16 +49,22 @@ export class GeminiAgent {
     // Calculate compression threshold based on context window size
     const contextWindow =
       config.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+
+    // Hybrid compression: ensure minimum headroom while capping ratio for large contexts
+    const headroomBasedRatio =
+      (contextWindow - AGENT_LIMITS.COMPRESSION_MIN_HEADROOM) / contextWindow
+    const compressionRatio = Math.min(
+      AGENT_LIMITS.COMPRESSION_MAX_RATIO,
+      Math.max(AGENT_LIMITS.COMPRESSION_MIN_RATIO, headroomBasedRatio),
+    )
     const compressionThreshold =
-      (AGENT_LIMITS.DEFAULT_COMPRESSION_RATIO * contextWindow) /
-      AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+      (compressionRatio * contextWindow) / AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
 
     logger.info('Compression config', {
       contextWindow,
+      compressionRatio,
       compressionThreshold,
-      compressesAtTokens: Math.floor(
-        AGENT_LIMITS.DEFAULT_COMPRESSION_RATIO * contextWindow,
-      ),
+      compressesAtTokens: Math.floor(compressionRatio * contextWindow),
     })
 
     logger.debug('MCP servers config', {
