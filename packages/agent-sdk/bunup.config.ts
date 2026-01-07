@@ -6,5 +6,4 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   clean: true,
-  noExternal: ['@browseros/shared'],
 })
