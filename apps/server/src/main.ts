@@ -32,8 +32,6 @@ import { VERSION } from './version'
 
 export class Application {
   private config: ServerConfig
-  private controllerBridge: ControllerBridge | null = null
-  private httpServer: ReturnType<typeof createHttpServer> | null = null
   private db: Database | null = null
 
   constructor(config: ServerConfig) {
@@ -47,8 +45,7 @@ export class Application {
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-    const { controllerBridge, controllerContext } = this.createController()
-    this.controllerBridge = controllerBridge
+    const { controllerContext } = this.createController()
 
     const cdpContext = await this.connectToCdp()
 
@@ -58,7 +55,7 @@ export class Application {
     const tools = createToolRegistry(cdpContext, controllerContext)
     const toolMutex = new Mutex()
 
-    this.httpServer = createHttpServer({
+    createHttpServer({
       port: this.config.serverPort,
       host: '0.0.0.0',
       version: VERSION,
@@ -86,27 +83,9 @@ export class Application {
 
   stop(): void {
     logger.info('Shutting down server...')
-
-    const forceExitTimeout = setTimeout(() => {
-      logger.warn('Graceful shutdown timed out, forcing exit')
-      process.exit(1)
-    }, 500)
-
-    Promise.all([
-      Promise.resolve(this.httpServer?.server.stop()),
-      this.controllerBridge?.close(),
-      metrics.shutdown(),
-    ])
-      .then(() => {
-        clearTimeout(forceExitTimeout)
-        logger.info('Server shutdown complete')
-        process.exit(0)
-      })
-      .catch((err) => {
-        clearTimeout(forceExitTimeout)
-        logger.error('Shutdown error:', err)
-        process.exit(1)
-      })
+    // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
+    // and we need to free the port instantly so the HTTP port doesn't keep switching.
+    process.exit(0)
   }
 
   private initCoreServices(): void {
@@ -172,10 +151,7 @@ export class Application {
     }
   }
 
-  private createController(): {
-    controllerBridge: ControllerBridge
-    controllerContext: ControllerContext
-  } {
+  private createController(): { controllerContext: ControllerContext } {
     logger.info(
       `Controller server starting on ws://127.0.0.1:${this.config.extensionPort}`,
     )
@@ -183,8 +159,7 @@ export class Application {
       this.config.extensionPort,
       logger,
     )
-    const controllerContext = new ControllerContext(controllerBridge)
-    return { controllerBridge, controllerContext }
+    return { controllerContext: new ControllerContext(controllerBridge) }
   }
 
   private async connectToCdp(): Promise<McpContext | null> {
