@@ -2,13 +2,13 @@
  * @license
  * Copyright 2025 BrowserOS
  *
- * Integration tests for @browseros/agent-sdk
+ * Integration tests for @browseros-ai/agent-sdk
  * Tests the SDK against a real BrowserOS server.
  */
 
 import { beforeAll, describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { Agent } from '@browseros/agent-sdk'
+import { Agent } from '@browseros-ai/agent-sdk'
 
 import {
   ensureBrowserOS,

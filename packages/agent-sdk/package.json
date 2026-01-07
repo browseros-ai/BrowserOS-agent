@@ -1,22 +1,53 @@
 {
-  "name": "@browseros/agent-sdk",
-  "version": "0.0.1",
+  "name": "@browseros-ai/agent-sdk",
+  "version": "0.0.3",
+  "description": "Browser automation SDK for BrowserOS - navigate, interact, extract data with natural language",
   "type": "module",
-  "scripts": {
-    "test": "bun test",
-    "typecheck": "tsc --noEmit"
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/browseros-ai/BrowserOS.git",
+    "directory": "packages/agent-sdk"
   },
+  "homepage": "https://github.com/browseros-ai/BrowserOS#readme",
+  "bugs": {
+    "url": "https://github.com/browseros-ai/BrowserOS/issues"
+  },
+  "keywords": [
+    "browseros",
+    "browser-automation",
+    "web-scraping",
+    "ai-agent",
+    "natural-language",
+    "sdk"
+  ],
+  "scripts": {
+    "build": "bunup && typedoc --json dist/api.json src/index.ts --excludePrivate",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./api.json": "./dist/api.json"
   },
   "dependencies": {
-    "@browseros/shared": "workspace:*",
     "zod-to-json-schema": "^3.24.1"
   },
   "peerDependencies": {
     "zod": "^3.x"
+  },
+  "devDependencies": {
+    "bunup": "^0.16.17",
+    "typedoc": "^0.28.15"
   }
 }
