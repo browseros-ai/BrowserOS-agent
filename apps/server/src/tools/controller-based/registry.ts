@@ -5,8 +5,43 @@
 
 // Response implementation
 export { ControllerResponse } from './response/controller-response'
-// All controller tools (named exports)
-export * from './tools/index'
+// Advanced
+export {
+  checkAvailability,
+  executeJavaScript,
+  sendKeys,
+} from './tools/advanced'
+// Bookmark Management
+export { createBookmark, getBookmarks, removeBookmark } from './tools/bookmarks'
+// Content Extraction
+export { getPageContent } from './tools/content'
+// Coordinate-based
+export { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
+// History Management
+export { getRecentHistory, searchHistory } from './tools/history'
+// Element Interaction
+export {
+  clearInput,
+  clickElement,
+  getInteractiveElements,
+  scrollToElement,
+  typeText,
+} from './tools/interaction'
+// Navigation
+export { navigate } from './tools/navigation'
+// Screenshots
+export { getScreenshot, getScreenshotPointer } from './tools/screenshot'
+// Scrolling
+export { scrollDown, scrollUp } from './tools/scrolling'
+// Tab Management
+export {
+  closeTab,
+  getActiveTab,
+  getLoadStatus,
+  listTabs,
+  openTab,
+  switchTab,
+} from './tools/tab-management'
 // Types
 export type { Context } from './types/context'
 export type { ImageContentData, Response } from './types/response'

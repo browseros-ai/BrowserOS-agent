@@ -18,7 +18,7 @@ import {
 } from '@google/genai'
 import { Sentry } from '../../../../common/sentry/instrument'
 
-import type { ProviderAdapter } from '../adapters/index'
+import type { ProviderAdapter } from '../adapters/base'
 import type { ProviderMetadata } from '../adapters/types'
 import type { VercelFinishReason, VercelUsage } from '../types'
 import {

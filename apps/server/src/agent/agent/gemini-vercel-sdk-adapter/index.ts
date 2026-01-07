@@ -26,18 +26,16 @@ import type {
 } from '@google/genai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
-import { logger } from '../../../common/index'
-import type { ProviderAdapter } from './adapters/index'
-import { createProviderAdapter } from './adapters/index'
-import {
-  MessageConversionStrategy,
-  ResponseConversionStrategy,
-  ToolConversionStrategy,
-} from './strategies/index'
+import { logger } from '../../../common/logger'
+import type { ProviderAdapter } from './adapters/base'
+import { createProviderAdapter } from './adapters/factory'
+import { MessageConversionStrategy } from './strategies/message'
+import { ResponseConversionStrategy } from './strategies/response'
+import { ToolConversionStrategy } from './strategies/tool'
 import type { VercelAIConfig } from './types'
 import { AIProvider } from './types'
 import type { UIMessageStreamWriter } from './ui-message-stream'
-import { createOpenRouterCompatibleFetch } from './utils/index'
+import { createOpenRouterCompatibleFetch } from './utils/fetch'
 
 /**
  * Vercel AI ContentGenerator

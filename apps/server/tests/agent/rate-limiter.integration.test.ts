@@ -10,7 +10,10 @@
 import { Database } from 'bun:sqlite'
 import { beforeEach, describe, expect, it } from 'bun:test'
 
-import { RateLimitError, RateLimiter } from '../../src/agent/rate-limiter/index'
+import {
+  RateLimitError,
+  RateLimiter,
+} from '../../src/agent/rate-limiter/rate-limiter'
 
 const DAILY_RATE_LIMIT_TEST = 3
 

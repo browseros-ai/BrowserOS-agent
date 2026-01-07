@@ -7,7 +7,7 @@
 import type { Context, Next } from 'hono'
 import type { z } from 'zod'
 import { ValidationError } from '../../agent/errors'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 
 interface ValidationVariables {
   validatedBody: unknown

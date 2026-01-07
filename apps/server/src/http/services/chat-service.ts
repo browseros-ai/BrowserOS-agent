@@ -11,13 +11,13 @@ import type {
   ProviderConfig,
   ResolvedAgentConfig,
 } from '../../agent/agent/types'
-import type { KlavisClient } from '../../agent/klavis/index'
+import type { KlavisClient } from '../../agent/klavis/klavis-client'
 import type { SessionManager } from '../../agent/session/session-manager'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
-  logger,
-} from '../../common/index'
+} from '../../common/gateway'
+import { logger } from '../../common/logger'
 import type { BrowserContext, ChatRequest } from '../types'
 
 interface McpHttpServerOptions {

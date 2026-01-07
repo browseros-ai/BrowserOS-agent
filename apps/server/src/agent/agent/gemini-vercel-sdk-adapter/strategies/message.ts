@@ -16,7 +16,7 @@ import type {
 import type { Content, ContentUnion } from '@google/genai'
 import type { CoreMessage } from 'ai'
 
-import type { ProviderAdapter } from '../adapters/index'
+import type { ProviderAdapter } from '../adapters/base'
 import type {
   FunctionCallWithMetadata,
   ProviderMetadata,

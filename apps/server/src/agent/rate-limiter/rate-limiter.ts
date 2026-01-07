@@ -7,7 +7,8 @@
 import type { Database } from 'bun:sqlite'
 import { RATE_LIMITS } from '@browseros/shared/constants/limits'
 
-import { logger, metrics } from '../../common/index'
+import { logger } from '../../common/logger'
+import { metrics } from '../../common/metrics'
 
 import { RateLimitError } from './errors'
 

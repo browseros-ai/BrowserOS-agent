@@ -4,7 +4,7 @@
  */
 
 import z from 'zod'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 
 import { ToolCategories } from '../types/tool-categories'
 import { commonSchemas, defineTool, ERRORS } from '../types/tool-definition'

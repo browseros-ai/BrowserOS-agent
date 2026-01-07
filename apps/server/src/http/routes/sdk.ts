@@ -8,7 +8,7 @@
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { Hono } from 'hono'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 import { BrowserService } from '../services/sdk/browser'
 import { ChatService } from '../services/sdk/chat'
 import { ExtractService } from '../services/sdk/extract'
