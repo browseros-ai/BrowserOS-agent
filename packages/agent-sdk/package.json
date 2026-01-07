@@ -1,6 +1,6 @@
 {
   "name": "@browseros-ai/agent-sdk",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Browser automation SDK for BrowserOS - navigate, interact, extract data with natural language",
   "type": "module",
   "license": "AGPL-3.0-or-later",
@@ -27,7 +27,7 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
@@ -36,7 +36,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./api.json": "./dist/api.json"
   },
