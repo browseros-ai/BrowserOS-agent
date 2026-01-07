@@ -18,7 +18,7 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
       onClick={() => onUseTemplate(template)}
       className="group flex w-full items-center justify-between rounded-lg border border-border bg-background p-4 text-left transition-all hover:border-[var(--accent-orange)] hover:shadow-md"
     >
-      <div className="flex items-center gap-3 text-muted-foreground group-hover:text-[var(--accent-orange)]">
+      <div className="flex items-center gap-3 text-accent-orange/70 transition-colors group-hover:text-accent-orange">
         <ProviderIcon type={template.id} size={28} />
         <span className="font-medium text-foreground">{template.name}</span>
       </div>

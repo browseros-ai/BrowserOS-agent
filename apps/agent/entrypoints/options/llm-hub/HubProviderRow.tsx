@@ -20,13 +20,13 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
   const iconUrl = useMemo(() => getFaviconUrl(provider.url), [provider.url])
 
   return (
-    <div className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4">
+    <div className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)] hover:shadow-md">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
         {iconUrl ? (
           <img
             src={iconUrl}
             alt={`${provider.name} icon`}
-            className="h-full w-full object-cover opacity-60 grayscale"
+            className="h-full w-full object-cover"
           />
         ) : (
           <Globe2 className="h-5 w-5 text-muted-foreground" />
