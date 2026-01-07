@@ -5,7 +5,7 @@
  */
 
 import { Hono } from 'hono'
-import type { ControllerContext } from '../../controller-server/index'
+import type { ControllerContext } from '../../controller-server/controller-context'
 
 interface ExtensionStatusDeps {
   controllerContext: ControllerContext

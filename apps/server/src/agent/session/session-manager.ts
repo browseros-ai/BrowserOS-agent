@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 
 import { GeminiAgent } from '../agent/gemini-agent'
 import type { ResolvedAgentConfig } from '../agent/types'

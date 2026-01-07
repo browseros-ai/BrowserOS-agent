@@ -15,7 +15,7 @@ import {
   type ToolCallRequestInfo,
 } from '@google/gemini-cli-core'
 import type { Content, Part } from '@google/genai'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 import { Sentry } from '../../common/sentry/instrument'
 import type { BrowserContext } from '../../http/types'
 import { AgentExecutionError } from '../errors'

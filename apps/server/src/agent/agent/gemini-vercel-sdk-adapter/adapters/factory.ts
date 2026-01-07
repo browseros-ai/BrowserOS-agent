@@ -3,11 +3,6 @@
  * Copyright 2025 BrowserOS
  */
 
-/**
- * Provider Adapters
- * Factory and exports for provider-specific adapters
- */
-
 import { LLM_PROVIDERS, type LLMProvider } from '@browseros/shared/schemas/llm'
 import type { ProviderAdapter } from './base'
 import { BaseProviderAdapter } from './base'
@@ -28,10 +23,3 @@ export function createProviderAdapter(provider: LLMProvider): ProviderAdapter {
       return new BaseProviderAdapter()
   }
 }
-
-// Re-exports
-export type { ProviderAdapter } from './base'
-export { BaseProviderAdapter } from './base'
-export { GoogleAdapter } from './google'
-export { OpenRouterAdapter } from './openrouter'
-export type { FunctionCallWithMetadata, ProviderMetadata } from './types'

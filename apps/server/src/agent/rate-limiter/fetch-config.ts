@@ -8,7 +8,8 @@
 
 import { RATE_LIMITS } from '@browseros/shared/constants/limits'
 
-import { fetchBrowserOSConfig, logger } from '../../common/index'
+import { fetchBrowserOSConfig } from '../../common/gateway'
+import { logger } from '../../common/logger'
 
 export async function fetchDailyRateLimit(
   browserosId: string,

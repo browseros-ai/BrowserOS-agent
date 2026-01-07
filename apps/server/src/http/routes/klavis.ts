@@ -7,7 +7,7 @@
 import { Hono } from 'hono'
 import { KlavisClient } from '../../agent/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../agent/klavis/oauth-mcp-servers'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 
 interface KlavisRouteDeps {
   browserosId: string

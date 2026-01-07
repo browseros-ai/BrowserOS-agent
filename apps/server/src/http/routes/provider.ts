@@ -10,7 +10,7 @@ import {
   type VercelAIConfig,
   VercelAIConfigSchema,
 } from '../../agent/agent/gemini-vercel-sdk-adapter/types'
-import { logger } from '../../common/index'
+import { logger } from '../../common/logger'
 import { validateRequest } from '../utils/validation'
 
 export function createProviderRoutes() {

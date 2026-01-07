@@ -10,8 +10,8 @@ import { LLM_PROVIDERS, type LLMConfig } from '@browseros/shared/schemas/llm'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
-  logger,
-} from '../../common/index'
+} from '../../common/gateway'
+import { logger } from '../../common/logger'
 import type { ResolvedLLMConfig } from './types'
 
 export async function resolveLLMConfig(

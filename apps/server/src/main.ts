@@ -11,22 +11,20 @@
 import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
-
-import { RateLimiter } from './agent/index'
 import { fetchDailyRateLimit } from './agent/rate-limiter/fetch-config'
-import {
-  ensureBrowserConnected,
-  identity,
-  initializeDb,
-  logger,
-  McpContext,
-  Mutex,
-  metrics,
-} from './common/index'
+import { RateLimiter } from './agent/rate-limiter/rate-limiter'
+import { ensureBrowserConnected } from './common/browser'
+import { initializeDb } from './common/db'
+import { identity } from './common/identity'
+import { logger } from './common/logger'
+import { McpContext } from './common/mcp-context'
+import { metrics } from './common/metrics'
+import { Mutex } from './common/mutex'
 import { Sentry } from './common/sentry/instrument'
 import type { ServerConfig } from './config'
-import { ControllerBridge, ControllerContext } from './controller-server/index'
-import { createHttpServer } from './http/index'
+import { ControllerBridge } from './controller-server/controller-bridge'
+import { ControllerContext } from './controller-server/controller-context'
+import { createHttpServer } from './http/server'
 import { createToolRegistry } from './tools/registry'
 import { VERSION } from './version'
 
@@ -50,7 +48,7 @@ export class Application {
     const cdpContext = await this.connectToCdp()
 
     logger.info(
-      `Loaded ${(await import('./tools/index.js')).allControllerTools.length} controller (extension) tools`,
+      `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
     )
     const tools = createToolRegistry(cdpContext, controllerContext)
     const toolMutex = new Mutex()
@@ -176,7 +174,7 @@ export class Application {
       )
       logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
       const context = await McpContext.from(browser, logger)
-      const { allCdpTools } = await import('./tools/index.js')
+      const { allCdpTools } = await import('./tools/cdp-based/registry')
       logger.info(`Loaded ${allCdpTools.length} CDP tools`)
       return context
     } catch (_error) {

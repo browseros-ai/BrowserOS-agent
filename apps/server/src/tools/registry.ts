@@ -6,11 +6,13 @@
  * Tool Registry - Combines CDP and controller tools into a unified registry.
  */
 
-import type { McpContext } from '../common/index'
-import { logger } from '../common/index'
-import type { ControllerContext } from '../controller-server/index'
+import { logger } from '../common/logger'
+import type { McpContext } from '../common/mcp-context'
+import type { ControllerContext } from '../controller-server/controller-context'
 
-import { allCdpTools, allControllerTools, type ToolDefinition } from './index'
+import { allCdpTools } from './cdp-based/registry'
+import { allControllerTools } from './controller-based/registry'
+import type { ToolDefinition } from './types/tool-definition'
 
 export function createToolRegistry(
   cdpContext: McpContext | null,

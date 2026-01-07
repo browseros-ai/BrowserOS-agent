@@ -4,7 +4,7 @@
  */
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 
-import type { Context } from '../tools/controller-based/index'
+import type { Context } from '../tools/controller-based/types/context'
 
 import type { ControllerBridge } from './controller-bridge'
 
