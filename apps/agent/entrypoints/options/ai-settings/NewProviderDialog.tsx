@@ -245,8 +245,10 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     setIsCustomModel(false)
   }
 
-  // Auto-fill context window when model changes
+  // Auto-fill context window when model changes (only for new providers)
   useEffect(() => {
+    if (initialValues?.id) return
+
     if (watchedModelId && watchedModelId !== 'custom') {
       const contextLength = getModelContextLength(
         watchedType as ProviderType,
@@ -256,7 +258,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
         form.setValue('contextWindow', contextLength)
       }
     }
-  }, [watchedModelId, watchedType, form])
+  }, [watchedModelId, watchedType, form, initialValues?.id])
 
   // Handle model selection (including custom option)
   const handleModelChange = (value: string) => {

@@ -15,7 +15,10 @@ export const RATE_LIMITS = {
 export const AGENT_LIMITS = {
   MAX_TURNS: 100,
   DEFAULT_CONTEXT_WINDOW: 1_000_000,
-  DEFAULT_COMPRESSION_RATIO: 0.75,
+  // Compression settings - hybrid approach with minimum headroom
+  COMPRESSION_MIN_HEADROOM: 10_000, // Always leave at least 10K tokens for tool responses
+  COMPRESSION_MAX_RATIO: 0.75, // Never wait longer than 75% for large models
+  COMPRESSION_MIN_RATIO: 0.4, // Never compress too early (before 40%)
 } as const
 
 export const PAGINATION = {

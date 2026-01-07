@@ -261,6 +261,8 @@ export const useChatSession = () => {
             conversationId: conversationIdRef.current,
             model: provider?.modelId ?? 'default',
             mode: currentMode,
+            contextWindowSize: provider?.contextWindow,
+            temperature: provider?.temperature,
             // Azure-specific
             resourceName: provider?.resourceName,
             // Bedrock-specific

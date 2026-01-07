@@ -78,6 +78,8 @@ export async function getChatServerResponse(
       conversationId,
       model: provider?.modelId ?? 'default',
       mode: request.mode ?? 'agent',
+      contextWindowSize: provider?.contextWindow,
+      temperature: provider?.temperature,
       resourceName: provider?.resourceName,
       accessKeyId: provider?.accessKeyId,
       secretAccessKey: provider?.secretAccessKey,
