@@ -18,7 +18,6 @@ const GetTabsInputSchema = z
     windowId: z
       .number()
       .int()
-      .positive()
       .optional()
       .describe('If specified, return tabs in this window only'),
     url: z

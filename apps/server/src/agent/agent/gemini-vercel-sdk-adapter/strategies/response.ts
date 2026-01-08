@@ -29,11 +29,126 @@ import type { UIMessageStreamWriter } from '../ui-message-stream'
 
 import type { ToolConversionStrategy } from './tool'
 
+interface StreamAccumulator {
+  textAccumulator: string
+  toolCallsMap: Map<
+    string,
+    { toolCallId: string; toolName: string; input: unknown }
+  >
+  finishReason?: VercelFinishReason
+}
+
 export class ResponseConversionStrategy {
   constructor(
     private toolStrategy: ToolConversionStrategy,
     private adapter: ProviderAdapter,
   ) {}
+
+  private async handleErrorChunk(
+    rawChunk: { error?: { message?: string } | string },
+    uiStream?: UIMessageStreamWriter,
+  ): Promise<never> {
+    const errorMessage =
+      typeof rawChunk.error === 'object'
+        ? rawChunk.error?.message
+        : rawChunk.error || 'Unknown error from LLM provider'
+    Sentry.captureException(new Error(errorMessage))
+    if (uiStream) {
+      await uiStream.writeError(errorMessage || 'Unknown error')
+      await uiStream.finish('error')
+    }
+    throw new Error(`LLM Provider Error: ${errorMessage}`)
+  }
+
+  private async handleTextDeltaChunk(
+    chunk: { text: string },
+    accumulator: StreamAccumulator,
+    uiStream?: UIMessageStreamWriter,
+  ): Promise<GenerateContentResponse> {
+    const delta = chunk.text
+    accumulator.textAccumulator += delta
+
+    if (uiStream) {
+      await uiStream.writeTextDelta(delta)
+    }
+
+    return {
+      candidates: [
+        {
+          content: { role: 'model', parts: [{ text: delta }] },
+          index: 0,
+        },
+      ],
+    } as GenerateContentResponse
+  }
+
+  private async handleToolCallChunk(
+    chunk: { toolCallId: string; toolName: string; input?: unknown },
+    accumulator: StreamAccumulator,
+    uiStream?: UIMessageStreamWriter,
+  ): Promise<void> {
+    if (uiStream) {
+      await uiStream.writeToolCall(
+        chunk.toolCallId,
+        chunk.toolName,
+        chunk.input,
+      )
+    }
+    accumulator.toolCallsMap.set(chunk.toolCallId, {
+      toolCallId: chunk.toolCallId,
+      toolName: chunk.toolName,
+      input: chunk.input,
+    })
+  }
+
+  private buildFinalStreamResponse(
+    accumulator: StreamAccumulator,
+    usage: VercelUsage | undefined,
+    providerMetadata: ProviderMetadata | undefined,
+  ): GenerateContentResponse | null {
+    if (
+      accumulator.toolCallsMap.size === 0 &&
+      !accumulator.finishReason &&
+      !usage
+    ) {
+      return null
+    }
+
+    const parts: Part[] = []
+    let functionCalls: FunctionCall[] | undefined
+
+    if (accumulator.toolCallsMap.size > 0) {
+      const toolCallsArray = Array.from(accumulator.toolCallsMap.values())
+      functionCalls = this.toolStrategy.vercelToGemini(toolCallsArray)
+
+      let isFirst = true
+      for (const fc of functionCalls) {
+        const part: Part & { providerMetadata?: ProviderMetadata } = {
+          functionCall: fc,
+        }
+        if (isFirst && providerMetadata) {
+          part.providerMetadata = providerMetadata
+          isFirst = false
+        }
+        parts.push(part)
+      }
+    }
+
+    return {
+      candidates: [
+        {
+          content: {
+            role: 'model',
+            parts: parts.length > 0 ? parts : [{ text: '' }],
+          },
+          finishReason: this.mapFinishReason(accumulator.finishReason),
+          index: 0,
+        },
+      ],
+      ...(functionCalls && functionCalls.length > 0 ? { functionCalls } : {}),
+      usageMetadata: this.convertUsage(usage),
+    } as GenerateContentResponse
+  }
 
   /**
    * Convert Vercel generateText result to Gemini format
@@ -93,157 +208,56 @@ export class ResponseConversionStrategy {
 
   /**
    * Convert Vercel stream to Gemini async generator
-   * DUAL OUTPUT: Emits UI Message Stream events + converts to Gemini format
-   *
-   * @param stream - AsyncIterable of Vercel stream chunks
-   * @param getUsage - Function to get usage metadata after stream completes
-   * @param uiStream - Optional shared UIMessageStreamWriter (lifecycle managed by caller)
-   * @returns AsyncGenerator yielding Gemini responses
    */
   async *streamToGemini(
     stream: AsyncIterable<unknown>,
     getUsage: () => Promise<VercelUsage | undefined>,
     uiStream?: UIMessageStreamWriter,
   ): AsyncGenerator<GenerateContentResponse> {
-    let textAccumulator = ''
-    const toolCallsMap = new Map<
-      string,
-      {
-        toolCallId: string
-        toolName: string
-        input: unknown
-      }
-    >()
+    const accumulator: StreamAccumulator = {
+      textAccumulator: '',
+      toolCallsMap: new Map(),
+      finishReason: undefined,
+    }
 
-    let finishReason: VercelFinishReason | undefined
-
-    // Process stream chunks
     for await (const rawChunk of stream) {
-      // Let adapter process chunk (accumulates provider-specific metadata)
       this.adapter.processStreamChunk(rawChunk)
 
       const chunkType = (rawChunk as { type?: string }).type
-
-      // Handle error chunks first
       if (chunkType === 'error') {
-        const errorChunk = rawChunk as { error?: { message?: string } | string }
-        const errorMessage =
-          typeof errorChunk.error === 'object'
-            ? errorChunk.error?.message
-            : errorChunk.error || 'Unknown error from LLM provider'
-        Sentry.captureException(new Error(errorMessage))
-        if (uiStream) {
-          await uiStream.writeError(errorMessage || 'Unknown error')
-          await uiStream.finish('error')
-        }
-        throw new Error(`LLM Provider Error: ${errorMessage}`)
+        await this.handleErrorChunk(
+          rawChunk as { error?: { message?: string } | string },
+          uiStream,
+        )
       }
 
-      // Try to parse as known chunk type
       const parsed = VercelStreamChunkSchema.safeParse(rawChunk)
-
-      if (!parsed.success) {
-        // Skip unknown chunk types (SDK emits many we don't process)
-        continue
-      }
+      if (!parsed.success) continue
 
       const chunk = parsed.data
 
       if (chunk.type === 'text-delta') {
-        const delta = chunk.text
-        textAccumulator += delta
-
-        // Emit UI Message Stream format
-        if (uiStream) {
-          await uiStream.writeTextDelta(delta)
-        }
-
-        yield {
-          candidates: [
-            {
-              content: {
-                role: 'model',
-                parts: [{ text: delta }],
-              },
-              index: 0,
-            },
-          ],
-        } as GenerateContentResponse
+        yield await this.handleTextDeltaChunk(chunk, accumulator, uiStream)
       } else if (chunk.type === 'tool-call') {
-        // Emit UI Message Stream format for tool calls
-        if (uiStream) {
-          await uiStream.writeToolCall(
-            chunk.toolCallId,
-            chunk.toolName,
-            chunk.input,
-          )
-        }
-
-        toolCallsMap.set(chunk.toolCallId, {
-          toolCallId: chunk.toolCallId,
-          toolName: chunk.toolName,
-          input: chunk.input,
-        })
+        await this.handleToolCallChunk(chunk, accumulator, uiStream)
       } else if (chunk.type === 'finish') {
-        finishReason = chunk.finishReason
+        accumulator.finishReason = chunk.finishReason
       }
-      // reasoning-delta and reasoning-start are handled by adapter.processStreamChunk()
     }
 
-    // Get usage metadata after stream completes
     let usage: VercelUsage | undefined
     try {
       usage = await getUsage()
     } catch {
-      // Fallback estimation
-      usage = this.estimateUsage(textAccumulator)
+      usage = this.estimateUsage(accumulator.textAccumulator)
     }
 
-    // Get provider metadata from adapter (if any was accumulated)
-    const providerMetadata = this.adapter.getResponseMetadata()
-
-    // Yield final response with tool calls and metadata
-    if (toolCallsMap.size > 0 || finishReason || usage) {
-      const parts: Part[] = []
-      let functionCalls: FunctionCall[] | undefined
-
-      if (toolCallsMap.size > 0) {
-        // Convert tool calls using ToolStrategy
-        const toolCallsArray = Array.from(toolCallsMap.values())
-        functionCalls = this.toolStrategy.vercelToGemini(toolCallsArray)
-
-        // Attach provider metadata to first functionCall part
-        let isFirst = true
-        for (const fc of functionCalls) {
-          const part: Part & { providerMetadata?: ProviderMetadata } = {
-            functionCall: fc,
-          }
-          if (isFirst && providerMetadata) {
-            part.providerMetadata = providerMetadata
-            isFirst = false
-          }
-          parts.push(part)
-        }
-      }
-
-      const usageMetadata = this.convertUsage(usage)
-
-      yield {
-        candidates: [
-          {
-            content: {
-              role: 'model',
-              parts: parts.length > 0 ? parts : [{ text: '' }],
-            },
-            finishReason: this.mapFinishReason(finishReason),
-            index: 0,
-          },
-        ],
-        // Top-level functionCalls
-        ...(functionCalls && functionCalls.length > 0 ? { functionCalls } : {}),
-        usageMetadata,
-      } as GenerateContentResponse
-    }
+    const finalResponse = this.buildFinalStreamResponse(
+      accumulator,
+      usage,
+      this.adapter.getResponseMetadata(),
+    )
+    if (finalResponse) yield finalResponse
   }
 
   /**

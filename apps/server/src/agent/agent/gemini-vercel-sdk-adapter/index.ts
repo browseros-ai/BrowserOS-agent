@@ -37,6 +37,142 @@ import { AIProvider } from './types'
 import type { UIMessageStreamWriter } from './ui-message-stream'
 import { createOpenRouterCompatibleFetch } from './utils/fetch'
 
+type ProviderFactory = (config: VercelAIConfig) => (modelId: string) => unknown
+
+function createAnthropicFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.apiKey) throw new Error('Anthropic provider requires apiKey')
+  return createAnthropic({ apiKey: config.apiKey })
+}
+
+function createOpenAIFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
+  return createOpenAI({ apiKey: config.apiKey })
+}
+
+function createGoogleFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.apiKey) throw new Error('Google provider requires apiKey')
+  return createGoogleGenerativeAI({ apiKey: config.apiKey })
+}
+
+function createOpenRouterFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.apiKey) throw new Error('OpenRouter provider requires apiKey')
+  return createOpenRouter({
+    apiKey: config.apiKey,
+    extraBody: { reasoning: {} },
+    fetch: createOpenRouterCompatibleFetch(),
+  })
+}
+
+function createAzureFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.apiKey || !config.resourceName) {
+    throw new Error('Azure provider requires apiKey and resourceName')
+  }
+  return createAzure({
+    resourceName: config.resourceName,
+    apiKey: config.apiKey,
+  })
+}
+
+function createLMStudioFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('LMStudio provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'lmstudio',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })
+}
+
+function createOllamaFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('Ollama provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'ollama',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })
+}
+
+function createBedrockFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.accessKeyId || !config.secretAccessKey || !config.region) {
+    throw new Error(
+      'Bedrock provider requires accessKeyId, secretAccessKey, and region',
+    )
+  }
+  return createAmazonBedrock({
+    region: config.region,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    sessionToken: config.sessionToken,
+  })
+}
+
+function createBrowserOSFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('BrowserOS provider requires baseUrl')
+  const { baseUrl, apiKey, upstreamProvider } = config
+
+  if (upstreamProvider === AIProvider.OPENROUTER) {
+    return createOpenRouter({
+      baseURL: baseUrl,
+      ...(apiKey && { apiKey }),
+      fetch: createOpenRouterCompatibleFetch(),
+    })
+  }
+  if (upstreamProvider === AIProvider.ANTHROPIC) {
+    return createAnthropic({ baseURL: baseUrl, ...(apiKey && { apiKey }) })
+  }
+  if (upstreamProvider === AIProvider.AZURE) {
+    return createAzure({ baseURL: baseUrl, ...(apiKey && { apiKey }) })
+  }
+  logger.info('creating openai-compatible')
+  return createOpenAICompatible({
+    name: 'browseros',
+    baseURL: baseUrl,
+    ...(apiKey && { apiKey }),
+  })
+}
+
+function createOpenAICompatibleFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl)
+    throw new Error('OpenAI-compatible provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'openai-compatible',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })
+}
+
+const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
+  [AIProvider.ANTHROPIC]: createAnthropicFactory,
+  [AIProvider.OPENAI]: createOpenAIFactory,
+  [AIProvider.GOOGLE]: createGoogleFactory,
+  [AIProvider.OPENROUTER]: createOpenRouterFactory,
+  [AIProvider.AZURE]: createAzureFactory,
+  [AIProvider.LMSTUDIO]: createLMStudioFactory,
+  [AIProvider.OLLAMA]: createOllamaFactory,
+  [AIProvider.BEDROCK]: createBedrockFactory,
+  [AIProvider.BROWSEROS]: createBrowserOSFactory,
+  [AIProvider.OPENAI_COMPATIBLE]: createOpenAICompatibleFactory,
+}
+
 /**
  * Vercel AI ContentGenerator
  * Implements ContentGenerator interface using strategy pattern for conversions
@@ -233,124 +369,9 @@ export class VercelAIContentGenerator implements ContentGenerator {
    * Create provider instance based on config
    */
   private createProvider(config: VercelAIConfig): (modelId: string) => unknown {
-    switch (config.provider) {
-      case AIProvider.ANTHROPIC:
-        if (!config.apiKey) {
-          throw new Error('Anthropic provider requires apiKey')
-        }
-        return createAnthropic({ apiKey: config.apiKey })
-
-      case AIProvider.OPENAI:
-        if (!config.apiKey) {
-          throw new Error('OpenAI provider requires apiKey')
-        }
-        return createOpenAI({ apiKey: config.apiKey })
-
-      case AIProvider.GOOGLE:
-        if (!config.apiKey) {
-          throw new Error('Google provider requires apiKey')
-        }
-        return createGoogleGenerativeAI({ apiKey: config.apiKey })
-
-      case AIProvider.OPENROUTER:
-        if (!config.apiKey) {
-          throw new Error('OpenRouter provider requires apiKey')
-        }
-        return createOpenRouter({
-          apiKey: config.apiKey,
-          extraBody: {
-            reasoning: {}, // Enable reasoning for Gemini 3 thought signatures
-          },
-          fetch: createOpenRouterCompatibleFetch(),
-        })
-
-      case AIProvider.AZURE:
-        if (!config.apiKey || !config.resourceName) {
-          throw new Error('Azure provider requires apiKey and resourceName')
-        }
-        return createAzure({
-          resourceName: config.resourceName,
-          apiKey: config.apiKey,
-        })
-
-      case AIProvider.LMSTUDIO:
-        if (!config.baseUrl) {
-          throw new Error('LMStudio provider requires baseUrl')
-        }
-        return createOpenAICompatible({
-          name: 'lmstudio',
-          baseURL: config.baseUrl,
-          ...(config.apiKey && { apiKey: config.apiKey }),
-        })
-
-      case AIProvider.OLLAMA:
-        if (!config.baseUrl) {
-          throw new Error('Ollama provider requires baseUrl')
-        }
-        return createOpenAICompatible({
-          name: 'ollama',
-          baseURL: config.baseUrl,
-          ...(config.apiKey && { apiKey: config.apiKey }),
-        })
-
-      case AIProvider.BEDROCK:
-        if (!config.accessKeyId || !config.secretAccessKey || !config.region) {
-          throw new Error(
-            'Bedrock provider requires accessKeyId, secretAccessKey, and region',
-          )
-        }
-        return createAmazonBedrock({
-          region: config.region,
-          accessKeyId: config.accessKeyId,
-          secretAccessKey: config.secretAccessKey,
-          sessionToken: config.sessionToken,
-        })
-
-      case AIProvider.BROWSEROS:
-        if (!config.baseUrl) {
-          throw new Error('BrowserOS provider requires baseUrl')
-        }
-        // Use native SDK based on upstream provider type from ai-gateway
-        switch (config.upstreamProvider) {
-          case AIProvider.OPENROUTER:
-            return createOpenRouter({
-              baseURL: config.baseUrl,
-              ...(config.apiKey && { apiKey: config.apiKey }),
-              fetch: createOpenRouterCompatibleFetch(),
-            })
-          case AIProvider.ANTHROPIC:
-            return createAnthropic({
-              baseURL: config.baseUrl,
-              ...(config.apiKey && { apiKey: config.apiKey }),
-            })
-          case AIProvider.AZURE:
-            return createAzure({
-              baseURL: config.baseUrl,
-              ...(config.apiKey && { apiKey: config.apiKey }),
-            })
-          default:
-            // Fallback to OpenAI-compatible SDK
-            logger.info('creating openai-compatible')
-            return createOpenAICompatible({
-              name: 'browseros',
-              baseURL: config.baseUrl,
-              ...(config.apiKey && { apiKey: config.apiKey }),
-            })
-        }
-
-      case AIProvider.OPENAI_COMPATIBLE:
-        if (!config.baseUrl) {
-          throw new Error('OpenAI-compatible provider requires baseUrl')
-        }
-        return createOpenAICompatible({
-          name: 'openai-compatible',
-          baseURL: config.baseUrl,
-          ...(config.apiKey && { apiKey: config.apiKey }),
-        })
-
-      default:
-        throw new Error(`Unknown provider: ${config.provider}`)
-    }
+    const factory = PROVIDER_FACTORIES[config.provider]
+    if (!factory) throw new Error(`Unknown provider: ${config.provider}`)
+    return factory(config)
   }
 }
 
