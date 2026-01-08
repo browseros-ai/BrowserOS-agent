@@ -7,7 +7,20 @@ interface ChatErrorProps {
   onRetry?: () => void
 }
 
-function parseErrorMessage(message: string): { text: string; url?: string } {
+function parseErrorMessage(message: string): {
+  text: string
+  url?: string
+  isRateLimit?: boolean
+} {
+  // Detect BrowserOS rate limit (unique pattern, no provider uses this)
+  if (message.includes('BrowserOS LLM daily limit reached')) {
+    return {
+      text: 'Add your own API key for unlimited usage.',
+      url: 'https://dub.sh/browseros-usage-limit',
+      isRateLimit: true,
+    }
+  }
+
   let text = message
   try {
     const parsed = JSON.parse(message)
@@ -25,13 +38,15 @@ function parseErrorMessage(message: string): { text: string; url?: string } {
 }
 
 export const ChatError: FC<ChatErrorProps> = ({ error, onRetry }) => {
-  const { text, url } = parseErrorMessage(error.message)
+  const { text, url, isRateLimit } = parseErrorMessage(error.message)
 
   return (
     <div className="mx-4 flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <AlertCircle className="h-5 w-5" />
-        <span className="font-medium text-sm">Something went wrong</span>
+        <span className="font-medium text-sm">
+          {isRateLimit ? 'Daily limit reached' : 'Something went wrong'}
+        </span>
       </div>
       <p className="text-center text-destructive text-xs">{text}</p>
       {url && (
