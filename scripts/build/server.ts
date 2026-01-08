@@ -9,8 +9,8 @@
  * Build script for BrowserOS server binaries
  *
  * Usage:
- *   bun scripts/build_server.ts --mode=prod [--target=darwin-arm64]
- *   bun scripts/build_server.ts --mode=dev [--target=all]
+ *   bun scripts/build/server.ts --mode=prod [--target=darwin-arm64]
+ *   bun scripts/build/server.ts --mode=dev [--target=all]
  *
  * Modes:
  *   prod - Clean environment build using only .env.prod
@@ -266,7 +266,7 @@ async function buildTarget(
 
 async function main() {
   const { mode, targets } = parseArgs()
-  const rootDir = resolve(import.meta.dir, '..')
+  const rootDir = resolve(import.meta.dir, '../..')
   process.chdir(rootDir)
 
   const serverPkg = JSON.parse(

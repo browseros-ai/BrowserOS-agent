@@ -1,16 +1,13 @@
 {
-  "name": "agent",
+  "name": "@browseros/agent",
   "description": "manifest.json description",
   "private": true,
   "version": "0.0.20",
   "type": "module",
   "scripts": {
-    "dev": "bun --env-file=.env.development wxt",
-    "dev:firefox": "wxt -b firefox",
+    "dev": "bun ../../scripts/build/controller-ext.ts && bun --env-file=.env.development wxt",
     "build": "wxt build",
-    "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
-    "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "lint": "bunx biome check",

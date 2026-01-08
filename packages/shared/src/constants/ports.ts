@@ -11,7 +11,7 @@
  */
 
 /**
- * Production/development ports (base 9000, offset 100)
+ * Production ports (base 9000, offset 100)
  * Matches Chromium defaults in browseros_server_prefs.h
  */
 export const DEFAULT_PORTS = {
@@ -28,6 +28,16 @@ export const TEST_PORTS = {
   cdp: 9005,
   server: 9105,
   extension: 9305,
+} as const
+
+/**
+ * Development ports (base 9010, offset 100)
+ * Offset by 10 from default to avoid conflicts with production
+ */
+export const DEV_PORTS = {
+  cdp: 9010,
+  server: 9110,
+  extension: 9310,
 } as const
 
 export type Ports = typeof DEFAULT_PORTS
