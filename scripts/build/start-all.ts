@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { mkdtempSync, rmSync } from 'node:fs'
 import { createServer as createNetServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,6 +7,8 @@ import { spawn, spawnSync } from 'bun'
 import { DEV_PORTS } from '../../packages/shared/src/constants/ports'
 
 type MutablePorts = { cdp: number; server: number; extension: number }
+
+const DEFAULT_USER_DATA_DIR = '/tmp/browseros-dev'
 
 const MONOREPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -21,9 +24,9 @@ function log(prefix: string, color: string, message: string): void {
   console.log(`${color}[${prefix}]${COLORS.reset} ${message}`)
 }
 
-function parseArgs(): { newMutablePorts: boolean } {
+function parseArgs(): { isNew: boolean } {
   return {
-    newMutablePorts: process.argv.includes('--new-ports'),
+    isNew: process.argv.includes('--new'),
   }
 }
 
@@ -74,13 +77,17 @@ function killAllMutablePorts(ports: MutablePorts): void {
   log('ports', COLORS.ports, 'MutablePorts cleared')
 }
 
-function createEnvWithMutablePorts(ports: MutablePorts): NodeJS.ProcessEnv {
+function createEnvWithMutablePorts(
+  ports: MutablePorts,
+  userDataDir: string,
+): NodeJS.ProcessEnv {
   return {
     ...process.env,
     BROWSEROS_CDP_PORT: String(ports.cdp),
     BROWSEROS_SERVER_PORT: String(ports.server),
     BROWSEROS_EXTENSION_PORT: String(ports.extension),
     VITE_BROWSEROS_SERVER_PORT: String(ports.server),
+    BROWSEROS_USER_DATA_DIR: userDataDir,
   }
 }
 
@@ -111,8 +118,10 @@ async function streamOutput(
 async function main() {
   const args = parseArgs()
   let ports = { ...DEV_PORTS }
+  let userDataDir = DEFAULT_USER_DATA_DIR
+  let tempDir: string | null = null
 
-  if (args.newMutablePorts) {
+  if (args.isNew) {
     log('ports', COLORS.ports, 'Finding available ports...')
     ports = await findAvailableMutablePorts(DEV_PORTS)
 
@@ -128,6 +137,10 @@ async function main() {
     } else {
       log('ports', COLORS.ports, 'Default ports are available')
     }
+
+    tempDir = mkdtempSync('/tmp/browseros-dev-')
+    userDataDir = tempDir
+    log('ports', COLORS.ports, `Using temp user data dir: ${tempDir}`)
   } else {
     killAllMutablePorts(ports)
   }
@@ -146,7 +159,7 @@ async function main() {
   }
   log('build', COLORS.build, 'Controller extension built\n')
 
-  const env = createEnvWithMutablePorts(ports)
+  const env = createEnvWithMutablePorts(ports, userDataDir)
 
   log('server', COLORS.server, 'Starting server...')
   log('agent', COLORS.agent, 'Starting agent...\n')
@@ -170,6 +183,10 @@ async function main() {
   const cleanup = () => {
     serverProc.kill()
     agentProc.kill()
+    if (tempDir) {
+      log('ports', COLORS.ports, `Cleaning up temp dir: ${tempDir}`)
+      rmSync(tempDir, { recursive: true, force: true })
+    }
   }
 
   process.on('SIGINT', cleanup)
