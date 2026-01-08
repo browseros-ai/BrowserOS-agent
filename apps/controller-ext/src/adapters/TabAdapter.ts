@@ -299,4 +299,124 @@ export class TabAdapter {
       )
     }
   }
+
+  /**
+   * Group tabs together
+   *
+   * @param tabIds - Array of tab IDs to group
+   * @param groupId - Optional existing group ID to add tabs to
+   * @returns Group ID of the created or updated group
+   */
+  async groupTabs(tabIds: number[], groupId?: number): Promise<number> {
+    if (tabIds.length === 0) {
+      throw new Error('At least one tab ID is required')
+    }
+
+    logger.debug(
+      `[TabAdapter] Grouping tabs ${tabIds.join(', ')}${groupId ? ` into group ${groupId}` : ''}`,
+    )
+
+    try {
+      // Chrome API expects [number, ...number[]] tuple type
+      const tabIdsTuple = tabIds as [number, ...number[]]
+      const options: chrome.tabs.GroupOptions = { tabIds: tabIdsTuple }
+      if (groupId !== undefined) {
+        options.groupId = groupId
+      }
+      const resultGroupId = await chrome.tabs.group(options)
+      logger.debug(`[TabAdapter] Grouped tabs into group ${resultGroupId}`)
+      return resultGroupId
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(`[TabAdapter] Failed to group tabs: ${errorMessage}`)
+      throw new Error(`Failed to group tabs: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Ungroup tabs (remove them from their groups)
+   *
+   * @param tabIds - Array of tab IDs to ungroup
+   */
+  async ungroupTabs(tabIds: number[]): Promise<void> {
+    if (tabIds.length === 0) {
+      throw new Error('At least one tab ID is required')
+    }
+
+    logger.debug(`[TabAdapter] Ungrouping tabs ${tabIds.join(', ')}`)
+
+    try {
+      // Chrome API expects [number, ...number[]] tuple type or single number
+      const tabIdsTuple = tabIds as [number, ...number[]]
+      await chrome.tabs.ungroup(tabIdsTuple)
+      logger.debug(`[TabAdapter] Ungrouped ${tabIds.length} tabs`)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(`[TabAdapter] Failed to ungroup tabs: ${errorMessage}`)
+      throw new Error(`Failed to ungroup tabs: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Get all tab groups in a window
+   *
+   * @param windowId - Optional window ID. If not provided, gets groups from all windows.
+   * @returns Array of tab groups
+   */
+  async getTabGroups(windowId?: number): Promise<chrome.tabGroups.TabGroup[]> {
+    logger.debug(
+      `[TabAdapter] Getting tab groups${windowId !== undefined ? ` in window ${windowId}` : ''}`,
+    )
+
+    try {
+      const query: chrome.tabGroups.QueryInfo = {}
+      if (windowId !== undefined) {
+        query.windowId = windowId
+      }
+      const groups = await chrome.tabGroups.query(query)
+      logger.debug(`[TabAdapter] Found ${groups.length} tab groups`)
+      return groups
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(`[TabAdapter] Failed to get tab groups: ${errorMessage}`)
+      throw new Error(`Failed to get tab groups: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Update a tab group's properties
+   *
+   * @param groupId - Group ID to update
+   * @param properties - Properties to update (title, color, collapsed)
+   * @returns Updated tab group
+   */
+  async updateTabGroup(
+    groupId: number,
+    properties: chrome.tabGroups.UpdateProperties,
+  ): Promise<chrome.tabGroups.TabGroup> {
+    logger.debug(
+      `[TabAdapter] Updating tab group ${groupId}: ${JSON.stringify(properties)}`,
+    )
+
+    try {
+      const group = await chrome.tabGroups.update(groupId, properties)
+      if (!group) {
+        throw new Error(`Tab group ${groupId} not found`)
+      }
+      logger.debug(
+        `[TabAdapter] Updated tab group ${groupId}: title="${group.title}", color="${group.color}"`,
+      )
+      return group
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(
+        `[TabAdapter] Failed to update tab group ${groupId}: ${errorMessage}`,
+      )
+      throw new Error(`Failed to update tab group ${groupId}: ${errorMessage}`)
+    }
+  }
 }

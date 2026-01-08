@@ -517,4 +517,302 @@ describe('MCP Controller Tab Management Tools', () => {
       })
     }, 30000)
   })
+
+  describe('browser_list_tab_groups - Success Cases', () => {
+    it('tests that tab groups are successfully listed', async () => {
+      await withMcpServer(async (client) => {
+        const result = await client.callTool({
+          name: 'browser_list_tab_groups',
+          arguments: {},
+        })
+
+        console.log('\n=== List Tab Groups Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(!result.isError, 'Should succeed')
+        assert.ok(Array.isArray(result.content), 'Content should be an array')
+
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(textContent, 'Should include text content')
+
+        assert.ok(result.structuredContent, 'Should have structuredContent')
+        assert.ok(
+          Array.isArray(result.structuredContent.groups),
+          'structuredContent.groups should be an array',
+        )
+        assert.ok(
+          typeof result.structuredContent.count === 'number',
+          'structuredContent.count should be a number',
+        )
+      })
+    }, 30000)
+  })
+
+  describe('browser_group_tabs - Success Cases', () => {
+    it('tests that tabs can be grouped together', async () => {
+      await withMcpServer(async (client) => {
+        // Open two tabs to group
+        const tab1Result = await client.callTool({
+          name: 'browser_open_tab',
+          arguments: { url: 'https://example.com/', active: false },
+        })
+        assert.ok(!tab1Result.isError, 'Open tab 1 should succeed')
+        const tab1Text = tab1Result.content.find((c) => c.type === 'text')
+        const tab1Match = tab1Text.text.match(/Tab ID: (\d+)/)
+        const tabId1 = parseInt(tab1Match[1], 10)
+
+        const tab2Result = await client.callTool({
+          name: 'browser_open_tab',
+          arguments: { url: 'https://example.org/', active: false },
+        })
+        assert.ok(!tab2Result.isError, 'Open tab 2 should succeed')
+        const tab2Text = tab2Result.content.find((c) => c.type === 'text')
+        const tab2Match = tab2Text.text.match(/Tab ID: (\d+)/)
+        const tabId2 = parseInt(tab2Match[1], 10)
+
+        // Group the tabs
+        const groupResult = await client.callTool({
+          name: 'browser_group_tabs',
+          arguments: {
+            tabIds: [tabId1, tabId2],
+            title: 'Test Group',
+            color: 'blue',
+          },
+        })
+
+        console.log('\n=== Group Tabs Response ===')
+        console.log(JSON.stringify(groupResult, null, 2))
+
+        assert.ok(!groupResult.isError, 'Group should succeed')
+        const groupText = groupResult.content.find((c) => c.type === 'text')
+        assert.ok(groupText, 'Should have text content')
+        assert.ok(groupText.text.includes('Grouped'), 'Should confirm grouping')
+        assert.ok(
+          groupText.text.includes('Test Group'),
+          'Should include group title',
+        )
+
+        assert.ok(
+          groupResult.structuredContent,
+          'Should have structuredContent',
+        )
+        assert.ok(
+          typeof groupResult.structuredContent.groupId === 'number',
+          'Should have groupId',
+        )
+
+        // Clean up - close the tabs
+        await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId: tabId1 },
+        })
+        await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId: tabId2 },
+        })
+      })
+    }, 30000)
+  })
+
+  describe('browser_update_tab_group - Success Cases', () => {
+    it('tests that a tab group can be updated', async () => {
+      await withMcpServer(async (client) => {
+        // Open a tab and group it
+        const tabResult = await client.callTool({
+          name: 'browser_open_tab',
+          arguments: { url: 'https://example.com/', active: false },
+        })
+        assert.ok(!tabResult.isError, 'Open tab should succeed')
+        const tabText = tabResult.content.find((c) => c.type === 'text')
+        const tabMatch = tabText.text.match(/Tab ID: (\d+)/)
+        const tabId = parseInt(tabMatch[1], 10)
+
+        // Group the tab
+        const groupResult = await client.callTool({
+          name: 'browser_group_tabs',
+          arguments: {
+            tabIds: [tabId],
+            title: 'Original Title',
+            color: 'grey',
+          },
+        })
+        assert.ok(!groupResult.isError, 'Group should succeed')
+        const groupId = groupResult.structuredContent.groupId
+
+        // Update the group
+        const updateResult = await client.callTool({
+          name: 'browser_update_tab_group',
+          arguments: {
+            groupId,
+            title: 'Updated Title',
+            color: 'green',
+          },
+        })
+
+        console.log('\n=== Update Tab Group Response ===')
+        console.log(JSON.stringify(updateResult, null, 2))
+
+        assert.ok(!updateResult.isError, 'Update should succeed')
+        const updateText = updateResult.content.find((c) => c.type === 'text')
+        assert.ok(updateText, 'Should have text content')
+        assert.ok(
+          updateText.text.includes('Updated group'),
+          'Should confirm update',
+        )
+        assert.ok(
+          updateText.text.includes('Updated Title'),
+          'Should include new title',
+        )
+        assert.ok(updateText.text.includes('green'), 'Should include new color')
+
+        // Clean up
+        await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId },
+        })
+      })
+    }, 30000)
+  })
+
+  describe('browser_ungroup_tabs - Success Cases', () => {
+    it('tests that tabs can be ungrouped', async () => {
+      await withMcpServer(async (client) => {
+        // Open a tab and group it
+        const tabResult = await client.callTool({
+          name: 'browser_open_tab',
+          arguments: { url: 'https://example.com/', active: false },
+        })
+        assert.ok(!tabResult.isError, 'Open tab should succeed')
+        const tabText = tabResult.content.find((c) => c.type === 'text')
+        const tabMatch = tabText.text.match(/Tab ID: (\d+)/)
+        const tabId = parseInt(tabMatch[1], 10)
+
+        // Group the tab
+        const groupResult = await client.callTool({
+          name: 'browser_group_tabs',
+          arguments: {
+            tabIds: [tabId],
+            title: 'Temp Group',
+          },
+        })
+        assert.ok(!groupResult.isError, 'Group should succeed')
+
+        // Ungroup the tab
+        const ungroupResult = await client.callTool({
+          name: 'browser_ungroup_tabs',
+          arguments: { tabIds: [tabId] },
+        })
+
+        console.log('\n=== Ungroup Tabs Response ===')
+        console.log(JSON.stringify(ungroupResult, null, 2))
+
+        assert.ok(!ungroupResult.isError, 'Ungroup should succeed')
+        const ungroupText = ungroupResult.content.find((c) => c.type === 'text')
+        assert.ok(ungroupText, 'Should have text content')
+        assert.ok(
+          ungroupText.text.includes('Ungrouped'),
+          'Should confirm ungrouping',
+        )
+
+        // Clean up
+        await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId },
+        })
+      })
+    }, 30000)
+  })
+
+  describe('Tab Group Workflow', () => {
+    it('tests complete tab group lifecycle: create, list, update, ungroup', async () => {
+      await withMcpServer(async (client) => {
+        // Step 1: Open multiple tabs
+        const tab1Result = await client.callTool({
+          name: 'browser_open_tab',
+          arguments: { url: 'https://example.com/', active: false },
+        })
+        const tab1Text = tab1Result.content.find((c) => c.type === 'text')
+        const tabId1 = parseInt(tab1Text.text.match(/Tab ID: (\d+)/)[1], 10)
+
+        const tab2Result = await client.callTool({
+          name: 'browser_open_tab',
+          arguments: { url: 'https://example.org/', active: false },
+        })
+        const tab2Text = tab2Result.content.find((c) => c.type === 'text')
+        const tabId2 = parseInt(tab2Text.text.match(/Tab ID: (\d+)/)[1], 10)
+
+        console.log('\n=== Workflow: Created tabs ===')
+        console.log(`Tab IDs: ${tabId1}, ${tabId2}`)
+
+        // Step 2: Group the tabs
+        const groupResult = await client.callTool({
+          name: 'browser_group_tabs',
+          arguments: {
+            tabIds: [tabId1, tabId2],
+            title: 'Workflow Group',
+            color: 'purple',
+          },
+        })
+        assert.ok(!groupResult.isError, 'Group should succeed')
+        const groupId = groupResult.structuredContent.groupId
+
+        console.log('\n=== Workflow: Grouped tabs ===')
+        console.log(`Group ID: ${groupId}`)
+
+        // Step 3: List groups to verify
+        const listResult = await client.callTool({
+          name: 'browser_list_tab_groups',
+          arguments: {},
+        })
+        assert.ok(!listResult.isError, 'List should succeed')
+        const groups = listResult.structuredContent.groups
+        const ourGroup = groups.find((g) => g.id === groupId)
+        assert.ok(ourGroup, 'Our group should be in the list')
+        assert.strictEqual(
+          ourGroup.title,
+          'Workflow Group',
+          'Title should match',
+        )
+        assert.strictEqual(ourGroup.color, 'purple', 'Color should match')
+
+        console.log('\n=== Workflow: Verified group in list ===')
+        console.log(JSON.stringify(ourGroup, null, 2))
+
+        // Step 4: Update the group
+        const updateResult = await client.callTool({
+          name: 'browser_update_tab_group',
+          arguments: {
+            groupId,
+            title: 'Renamed Group',
+            color: 'cyan',
+          },
+        })
+        assert.ok(!updateResult.isError, 'Update should succeed')
+
+        console.log('\n=== Workflow: Updated group ===')
+        console.log(JSON.stringify(updateResult.structuredContent, null, 2))
+
+        // Step 5: Ungroup tabs
+        const ungroupResult = await client.callTool({
+          name: 'browser_ungroup_tabs',
+          arguments: { tabIds: [tabId1, tabId2] },
+        })
+        assert.ok(!ungroupResult.isError, 'Ungroup should succeed')
+
+        console.log('\n=== Workflow: Ungrouped tabs ===')
+
+        // Step 6: Clean up
+        await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId: tabId1 },
+        })
+        await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId: tabId2 },
+        })
+
+        console.log('\n=== Workflow: Complete ===')
+      })
+    }, 60000)
+  })
 })
