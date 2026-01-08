@@ -24,9 +24,26 @@ function log(prefix: string, color: string, message: string): void {
   console.log(`${color}[${prefix}]${COLORS.reset} ${message}`)
 }
 
-function parseArgs(): { isNew: boolean } {
+function printHelp(): void {
+  console.log(`
+Usage: bun run start:dev [options]
+
+Starts the BrowserOS server and agent in parallel.
+
+Options:
+  --new     Use new available ports and a fresh temp data directory
+            (cleaned up on exit)
+  --help    Show this help message
+
+Default behavior kills processes on dev ports (${DEV_PORTS.cdp}, ${DEV_PORTS.server}, ${DEV_PORTS.extension})
+before starting.
+`)
+}
+
+function parseArgs(): { isNew: boolean; help: boolean } {
   return {
     isNew: process.argv.includes('--new'),
+    help: process.argv.includes('--help') || process.argv.includes('-h'),
   }
 }
 
@@ -117,6 +134,12 @@ async function streamOutput(
 
 async function main() {
   const args = parseArgs()
+
+  if (args.help) {
+    printHelp()
+    process.exit(0)
+  }
+
   let ports = { ...DEV_PORTS }
   let userDataDir = DEFAULT_USER_DATA_DIR
   let tempDir: string | null = null
