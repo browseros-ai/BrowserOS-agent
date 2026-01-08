@@ -5,7 +5,7 @@
   "version": "0.0.20",
   "type": "module",
   "scripts": {
-    "dev": "bun --env-file=.env.development wxt",
+    "dev": "bun ../../scripts/build/controller-ext.ts && bun --env-file=.env.development wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",

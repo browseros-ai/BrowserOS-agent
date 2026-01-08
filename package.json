@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "start:server": "bun run --filter @browseros/server start",
-    "start:agent": "bun run --filter agent dev",
+    "start:agent": "bun ./scripts/build/controller-ext.ts && bun run --filter agent dev",
     "build:server": "bun run --filter @browseros/server build",
     "build:agent": "bun run --filter agent build",
     "build:ext": "bun run --filter browseros-controller build",
