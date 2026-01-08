@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   Menu,
   MessageSquare,
+  Palette,
   PlugZap,
   RotateCcw,
   Search,
@@ -63,6 +64,12 @@ const navigationItems: NavItem[] = [
     name: 'BrowserOS MCP',
     to: '/mcp',
     icon: Server,
+    enabled: true,
+  },
+  {
+    name: 'Customization',
+    to: '/customization',
+    icon: Palette,
     enabled: true,
   },
   {

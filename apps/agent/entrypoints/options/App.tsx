@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import { AISettingsPage } from './ai-settings/AISettingsPage'
 import { ConnectMCP } from './connect-mcp/ConnectMCP'
+import { CustomizationPage } from './customization/CustomizationPage'
 import { DashboardLayout } from './layout/DashboardLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
@@ -18,6 +19,7 @@ export const App: FC = () => {
           <Route path="search" element={null} />
           <Route path="connect-mcp" element={<ConnectMCP />} />
           <Route path="mcp" element={<MCPSettingsPage />} />
+          <Route path="customization" element={<CustomizationPage />} />
           <Route
             path="onboarding"
             element={<AISettingsPage key="onboarding" />}
