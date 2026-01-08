@@ -26,7 +26,7 @@ import { UIMessageStreamWriter } from './gemini-vercel-sdk-adapter/ui-message-st
 import type { ResolvedAgentConfig } from './types'
 
 interface ToolExecutionResult {
-  part: Part
+  parts: Part[]
   isError: boolean
   errorMessage?: string
 }
@@ -128,13 +128,15 @@ export class GeminiAgent {
           error: toolResponse.error.message,
         })
         return {
-          part: {
-            functionResponse: {
-              id: requestInfo.callId,
-              name: requestInfo.name,
-              response: { error: toolResponse.error.message },
-            },
-          } as Part,
+          parts: [
+            {
+              functionResponse: {
+                id: requestInfo.callId,
+                name: requestInfo.name,
+                response: { error: toolResponse.error.message },
+              },
+            } as Part,
+          ],
           isError: true,
           errorMessage: toolResponse.error.message,
         }
@@ -142,7 +144,7 @@ export class GeminiAgent {
 
       if (toolResponse.responseParts && toolResponse.responseParts.length > 0) {
         return {
-          part: toolResponse.responseParts[0] as Part,
+          parts: toolResponse.responseParts as Part[],
           isError: false,
         }
       }
@@ -152,13 +154,15 @@ export class GeminiAgent {
         tool: requestInfo.name,
       })
       return {
-        part: {
-          functionResponse: {
-            id: requestInfo.callId,
-            name: requestInfo.name,
-            response: { output: 'Tool executed but returned no output.' },
-          },
-        } as Part,
+        parts: [
+          {
+            functionResponse: {
+              id: requestInfo.callId,
+              name: requestInfo.name,
+              response: { output: 'Tool executed but returned no output.' },
+            },
+          } as Part,
+        ],
         isError: true,
         errorMessage: 'Tool executed but returned no output.',
       }
@@ -171,13 +175,15 @@ export class GeminiAgent {
         error: errorMessage,
       })
       return {
-        part: {
-          functionResponse: {
-            id: requestInfo.callId,
-            name: requestInfo.name,
-            response: { error: errorMessage },
-          },
-        } as Part,
+        parts: [
+          {
+            functionResponse: {
+              id: requestInfo.callId,
+              name: requestInfo.name,
+              response: { error: errorMessage },
+            },
+          } as Part,
+        ],
         isError: true,
         errorMessage,
       }
@@ -200,7 +206,7 @@ export class GeminiAgent {
         abortSignal,
         browserContext,
       )
-      toolResponseParts.push(result.part)
+      toolResponseParts.push(...result.parts)
 
       if (uiStream) {
         if (result.isError) {
@@ -209,7 +215,7 @@ export class GeminiAgent {
             result.errorMessage || 'Unknown error',
           )
         } else {
-          await uiStream.writeToolResult(requestInfo.callId, [result.part])
+          await uiStream.writeToolResult(requestInfo.callId, result.parts)
         }
       }
     }
