@@ -30,6 +30,8 @@ export interface ModelsData {
  */
 export const MODELS_DATA: ModelsData = {
   anthropic: [
+    { modelId: 'claude-opus-4-5-20251101', contextLength: 200000 },
+    { modelId: 'claude-haiku-4-5-20251001', contextLength: 200000 },
     { modelId: 'claude-sonnet-4-5-20250929', contextLength: 200000 },
     { modelId: 'claude-sonnet-4-20250514', contextLength: 200000 },
     { modelId: 'claude-opus-4-20250514', contextLength: 200000 },
@@ -37,6 +39,8 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'claude-3-5-haiku-20241022', contextLength: 200000 },
   ],
   openai: [
+    { modelId: 'gpt-5.2', contextLength: 400000 },
+    { modelId: 'gpt-5.2-pro', contextLength: 400000 },
     { modelId: 'gpt-5', contextLength: 400000 },
     { modelId: 'gpt-5-mini', contextLength: 400000 },
     { modelId: 'gpt-5-nano', contextLength: 400000 },
@@ -49,15 +53,21 @@ export const MODELS_DATA: ModelsData = {
   ],
   'openai-compatible': [],
   google: [
+    { modelId: 'gemini-3-pro-preview', contextLength: 1048576 },
+    { modelId: 'gemini-3-flash-preview', contextLength: 1048576 },
     { modelId: 'gemini-2.5-flash', contextLength: 1048576 },
     { modelId: 'gemini-2.5-pro', contextLength: 1048576 },
   ],
   openrouter: [
+    { modelId: 'google/gemini-3-pro-preview', contextLength: 1048576 },
+    { modelId: 'google/gemini-3-flash-preview', contextLength: 1048576 },
     { modelId: 'google/gemini-2.5-flash', contextLength: 1048576 },
-    { modelId: 'openai/gpt-4o', contextLength: 128000 },
-    { modelId: 'anthropic/claude-sonnet-4.5', contextLength: 1000000 },
-    { modelId: 'anthropic/claude-sonnet-4', contextLength: 1000000 },
+    { modelId: 'anthropic/claude-opus-4.5', contextLength: 200000 },
+    { modelId: 'anthropic/claude-haiku-4.5', contextLength: 200000 },
+    { modelId: 'anthropic/claude-sonnet-4.5', contextLength: 200000 },
+    { modelId: 'anthropic/claude-sonnet-4', contextLength: 200000 },
     { modelId: 'anthropic/claude-3.7-sonnet', contextLength: 200000 },
+    { modelId: 'openai/gpt-4o', contextLength: 128000 },
     { modelId: 'openai/gpt-oss-120b', contextLength: 128000 },
     { modelId: 'openai/gpt-oss-20b', contextLength: 128000 },
     { modelId: 'qwen/qwen3-14b', contextLength: 131072 },
