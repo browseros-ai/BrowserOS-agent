@@ -39,6 +39,12 @@ const GroupTabsInputSchema = z
       .describe(
         'Existing group ID to add tabs to. If not specified, creates a new group.',
       ),
+    windowId: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Window ID for scoping the group lookup'),
   })
   .describe('Group tabs together with optional title and color')
 
@@ -99,7 +105,7 @@ export class GroupTabsAction extends ActionHandler<
     }
 
     // Get group info if no updates were made
-    const groups = await this.tabAdapter.getTabGroups()
+    const groups = await this.tabAdapter.getTabGroups(input.windowId)
     const group = groups.find((g) => g.id === groupId)
 
     return {
