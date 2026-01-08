@@ -25,6 +25,12 @@ import type { HonoSSEStream } from './gemini-vercel-sdk-adapter/types'
 import { UIMessageStreamWriter } from './gemini-vercel-sdk-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
 
+interface ToolExecutionResult {
+  part: Part
+  isError: boolean
+  errorMessage?: string
+}
+
 export class GeminiAgent {
   private constructor(
     private client: GeminiClient,
@@ -32,6 +38,184 @@ export class GeminiAgent {
     private contentGenerator: VercelAIContentGenerator,
     private conversationId: string,
   ) {}
+
+  private formatBrowserContext(browserContext?: BrowserContext): string {
+    if (!browserContext?.activeTab && !browserContext?.selectedTabs?.length) {
+      return ''
+    }
+
+    const formatTab = (tab: { id: number; url?: string; title?: string }) =>
+      `Tab ${tab.id}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
+
+    const contextLines: string[] = ['## Browser Context']
+
+    if (browserContext.activeTab) {
+      contextLines.push(
+        `**User's Active Tab:** ${formatTab(browserContext.activeTab)}`,
+      )
+    }
+
+    if (browserContext.selectedTabs?.length) {
+      contextLines.push(
+        `**User's Selected Tabs (${browserContext.selectedTabs.length}):**`,
+      )
+      browserContext.selectedTabs.forEach((tab, i) => {
+        contextLines.push(`  ${i + 1}. ${formatTab(tab)}`)
+      })
+    }
+
+    return `${contextLines.join('\n')}\n\n---\n\n`
+  }
+
+  private injectWindowIdIntoToolArgs(
+    requestInfo: ToolCallRequestInfo,
+    browserContext?: BrowserContext,
+  ): void {
+    if (browserContext?.windowId && requestInfo.name.startsWith('browser_')) {
+      logger.debug('Injecting windowId into tool args', {
+        tool: requestInfo.name,
+        windowId: browserContext.windowId,
+      })
+      requestInfo.args = {
+        ...requestInfo.args,
+        windowId: browserContext.windowId,
+      }
+    }
+  }
+
+  private async executeToolWithTimeout(
+    requestInfo: ToolCallRequestInfo,
+    abortSignal: AbortSignal,
+  ): Promise<{
+    response: { error?: { message: string }; responseParts?: unknown[] }
+  }> {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Tool "${requestInfo.name}" timed out after ${TIMEOUTS.TOOL_CALL / 1000}s`,
+            ),
+          ),
+        TIMEOUTS.TOOL_CALL,
+      )
+    })
+
+    return Promise.race([
+      executeToolCall(this.geminiConfig, requestInfo, abortSignal),
+      timeoutPromise,
+    ])
+  }
+
+  private async handleToolExecution(
+    requestInfo: ToolCallRequestInfo,
+    abortSignal: AbortSignal,
+    browserContext?: BrowserContext,
+  ): Promise<ToolExecutionResult> {
+    this.injectWindowIdIntoToolArgs(requestInfo, browserContext)
+
+    try {
+      const completedToolCall = await this.executeToolWithTimeout(
+        requestInfo,
+        abortSignal,
+      )
+      const toolResponse = completedToolCall.response
+
+      if (toolResponse.error) {
+        logger.warn('Tool execution error', {
+          conversationId: this.conversationId,
+          tool: requestInfo.name,
+          error: toolResponse.error.message,
+        })
+        return {
+          part: {
+            functionResponse: {
+              id: requestInfo.callId,
+              name: requestInfo.name,
+              response: { error: toolResponse.error.message },
+            },
+          } as Part,
+          isError: true,
+          errorMessage: toolResponse.error.message,
+        }
+      }
+
+      if (toolResponse.responseParts && toolResponse.responseParts.length > 0) {
+        return {
+          part: toolResponse.responseParts[0] as Part,
+          isError: false,
+        }
+      }
+
+      logger.warn('Tool returned empty response', {
+        conversationId: this.conversationId,
+        tool: requestInfo.name,
+      })
+      return {
+        part: {
+          functionResponse: {
+            id: requestInfo.callId,
+            name: requestInfo.name,
+            response: { output: 'Tool executed but returned no output.' },
+          },
+        } as Part,
+        isError: true,
+        errorMessage: 'Tool executed but returned no output.',
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error('Tool execution failed', {
+        conversationId: this.conversationId,
+        tool: requestInfo.name,
+        error: errorMessage,
+      })
+      return {
+        part: {
+          functionResponse: {
+            id: requestInfo.callId,
+            name: requestInfo.name,
+            response: { error: errorMessage },
+          },
+        } as Part,
+        isError: true,
+        errorMessage,
+      }
+    }
+  }
+
+  private async processToolRequests(
+    toolCallRequests: ToolCallRequestInfo[],
+    abortSignal: AbortSignal,
+    uiStream: UIMessageStreamWriter | null,
+    browserContext?: BrowserContext,
+  ): Promise<Part[]> {
+    const toolResponseParts: Part[] = []
+
+    for (const requestInfo of toolCallRequests) {
+      if (abortSignal.aborted) break
+
+      const result = await this.handleToolExecution(
+        requestInfo,
+        abortSignal,
+        browserContext,
+      )
+      toolResponseParts.push(result.part)
+
+      if (uiStream) {
+        if (result.isError) {
+          await uiStream.writeToolError(
+            requestInfo.callId,
+            result.errorMessage || 'Unknown error',
+          )
+        } else {
+          await uiStream.writeToolResult(requestInfo.callId, [result.part])
+        }
+      }
+    }
+
+    return toolResponseParts
+  }
 
   /**
    * Creates a GeminiAgent with pre-resolved config and MCP servers.
@@ -137,36 +321,10 @@ export class GeminiAgent {
     const abortSignal = signal || new AbortController().signal
     const promptId = `${this.conversationId}-${Date.now()}`
 
-    // Prepend browser context to the message if provided
-    let messageWithContext = message
-    if (browserContext?.activeTab || browserContext?.selectedTabs?.length) {
-      const formatTab = (tab: { id: number; url?: string; title?: string }) =>
-        `Tab ${tab.id}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
-
-      const contextLines: string[] = ['## Browser Context']
-
-      if (browserContext.activeTab) {
-        contextLines.push(
-          `**User's Active Tab:** ${formatTab(browserContext.activeTab)}`,
-        )
-      }
-
-      if (browserContext.selectedTabs?.length) {
-        contextLines.push(
-          `**User's Selected Tabs (${browserContext.selectedTabs.length}):**`,
-        )
-        browserContext.selectedTabs.forEach((tab, i) => {
-          contextLines.push(`  ${i + 1}. ${formatTab(tab)}`)
-        })
-      }
-
-      messageWithContext = `${contextLines.join('\n')}\n\n---\n\n${message}`
-    }
-
-    let currentParts: Part[] = [{ text: messageWithContext }]
+    const contextPrefix = this.formatBrowserContext(browserContext)
+    let currentParts: Part[] = [{ text: contextPrefix + message }]
     let turnCount = 0
 
-    // Create single UIMessageStreamWriter to manage entire stream lifecycle
     const uiStream = honoStream
       ? new UIMessageStreamWriter(async (data) => {
           try {
@@ -177,12 +335,8 @@ export class GeminiAgent {
         })
       : null
 
-    // Pass shared writer to content generator for LLM streaming
     this.contentGenerator.setUIStream(uiStream ?? undefined)
-
-    if (uiStream) {
-      await uiStream.start()
-    }
+    if (uiStream) await uiStream.start()
 
     logger.info('Starting agent execution', {
       conversationId: this.conversationId,
@@ -191,20 +345,10 @@ export class GeminiAgent {
       browserContextWindowId: browserContext?.windowId,
     })
 
-    while (true) {
-      turnCount++
+    while (turnCount++ < AGENT_LIMITS.MAX_TURNS) {
       logger.debug(`Turn ${turnCount}`, { conversationId: this.conversationId })
 
-      if (turnCount > AGENT_LIMITS.MAX_TURNS) {
-        logger.warn('Max turns exceeded', {
-          conversationId: this.conversationId,
-          turnCount,
-        })
-        break
-      }
-
       const toolCallRequests: ToolCallRequestInfo[] = []
-
       const responseStream = this.client.sendMessageStream(
         currentParts,
         abortSignal,
@@ -212,10 +356,7 @@ export class GeminiAgent {
       )
 
       for await (const event of responseStream) {
-        if (abortSignal.aborted) {
-          break
-        }
-
+        if (abortSignal.aborted) break
         if (event.type === GeminiEventType.ToolCallRequest) {
           toolCallRequests.push(event.value as ToolCallRequestInfo)
         } else if (event.type === GeminiEventType.Error) {
@@ -226,10 +367,8 @@ export class GeminiAgent {
             errorValue.error,
           )
         }
-        // Other events are handled by the content generator
       }
 
-      // Check abort after processing stream
       if (abortSignal.aborted) {
         logger.info('Agent execution aborted', {
           conversationId: this.conversationId,
@@ -238,150 +377,37 @@ export class GeminiAgent {
         break
       }
 
-      if (toolCallRequests.length > 0) {
-        logger.debug(`Executing ${toolCallRequests.length} tool(s)`, {
-          conversationId: this.conversationId,
-          tools: toolCallRequests.map((r) => r.name),
-        })
-
-        const toolResponseParts: Part[] = []
-
-        for (const requestInfo of toolCallRequests) {
-          // Check abort before each tool execution
-          if (abortSignal.aborted) {
-            break
-          }
-
-          // Inject windowId into ALL browser tools for multi-window/multi-profile routing
-          // The server uses windowId to route requests to the correct extension instance
-          if (
-            browserContext?.windowId &&
-            requestInfo.name.startsWith('browser_')
-          ) {
-            logger.debug('Injecting windowId into tool args', {
-              tool: requestInfo.name,
-              windowId: browserContext.windowId,
-            })
-            requestInfo.args = {
-              ...requestInfo.args,
-              windowId: browserContext.windowId,
-            }
-          }
-
-          try {
-            const timeoutPromise = new Promise<never>((_, reject) => {
-              setTimeout(
-                () =>
-                  reject(
-                    new Error(
-                      `Tool "${requestInfo.name}" timed out after ${TIMEOUTS.TOOL_CALL / 1000}s`,
-                    ),
-                  ),
-                TIMEOUTS.TOOL_CALL,
-              )
-            })
-
-            const completedToolCall = await Promise.race([
-              executeToolCall(this.geminiConfig, requestInfo, abortSignal),
-              timeoutPromise,
-            ])
-
-            const toolResponse = completedToolCall.response
-
-            if (toolResponse.error) {
-              logger.warn('Tool execution error', {
-                conversationId: this.conversationId,
-                tool: requestInfo.name,
-                error: toolResponse.error.message,
-              })
-              toolResponseParts.push({
-                functionResponse: {
-                  id: requestInfo.callId,
-                  name: requestInfo.name,
-                  response: { error: toolResponse.error.message },
-                },
-              } as Part)
-              if (uiStream) {
-                await uiStream.writeToolError(
-                  requestInfo.callId,
-                  toolResponse.error.message,
-                )
-              }
-            } else if (
-              toolResponse.responseParts &&
-              toolResponse.responseParts.length > 0
-            ) {
-              toolResponseParts.push(...(toolResponse.responseParts as Part[]))
-              if (uiStream) {
-                await uiStream.writeToolResult(
-                  requestInfo.callId,
-                  toolResponse.responseParts,
-                )
-              }
-            } else {
-              logger.warn('Tool returned empty response', {
-                conversationId: this.conversationId,
-                tool: requestInfo.name,
-              })
-              toolResponseParts.push({
-                functionResponse: {
-                  id: requestInfo.callId,
-                  name: requestInfo.name,
-                  response: { output: 'Tool executed but returned no output.' },
-                },
-              } as Part)
-              if (uiStream) {
-                await uiStream.writeToolError(
-                  requestInfo.callId,
-                  'Tool executed but returned no output.',
-                )
-              }
-            }
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error)
-            logger.error('Tool execution failed', {
-              conversationId: this.conversationId,
-              tool: requestInfo.name,
-              error: errorMessage,
-            })
-
-            toolResponseParts.push({
-              functionResponse: {
-                id: requestInfo.callId,
-                name: requestInfo.name,
-                response: { error: errorMessage },
-              },
-            } as Part)
-            if (uiStream) {
-              await uiStream.writeToolError(requestInfo.callId, errorMessage)
-            }
-          }
-        }
-
-        // Check if aborted during tool execution
-        if (abortSignal.aborted) {
-          break
-        }
-
-        // Finish the step after all tool outputs are written
-        if (uiStream) {
-          await uiStream.finishStep()
-        }
-
-        currentParts = toolResponseParts
-      } else {
+      if (toolCallRequests.length === 0) {
         logger.info('Agent execution complete', {
           conversationId: this.conversationId,
           totalTurns: turnCount,
         })
         break
       }
+
+      logger.debug(`Executing ${toolCallRequests.length} tool(s)`, {
+        conversationId: this.conversationId,
+        tools: toolCallRequests.map((r) => r.name),
+      })
+
+      currentParts = await this.processToolRequests(
+        toolCallRequests,
+        abortSignal,
+        uiStream,
+        browserContext,
+      )
+
+      if (abortSignal.aborted) break
+      if (uiStream) await uiStream.finishStep()
     }
 
-    // Finish the UI stream after all turns complete
-    if (uiStream) {
-      await uiStream.finish()
+    if (turnCount > AGENT_LIMITS.MAX_TURNS) {
+      logger.warn('Max turns exceeded', {
+        conversationId: this.conversationId,
+        turnCount,
+      })
     }
+
+    if (uiStream) await uiStream.finish()
   }
 }

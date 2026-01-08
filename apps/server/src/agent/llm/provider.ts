@@ -19,106 +19,126 @@ import { logger } from '../../common/logger'
 import { createOpenRouterCompatibleFetch } from '../agent/gemini-vercel-sdk-adapter/utils/fetch'
 import type { ResolvedLLMConfig } from './types'
 
-export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
-  const { provider, model, apiKey, baseUrl, upstreamProvider } = config
+type ProviderFactory = (config: ResolvedLLMConfig) => LanguageModel
 
-  switch (provider) {
-    case LLM_PROVIDERS.ANTHROPIC:
-      if (!apiKey) throw new Error('Anthropic provider requires apiKey')
-      return createAnthropic({ apiKey })(model)
+function createAnthropicModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.apiKey) throw new Error('Anthropic provider requires apiKey')
+  return createAnthropic({ apiKey: config.apiKey })(config.model)
+}
 
-    case LLM_PROVIDERS.OPENAI:
-      if (!apiKey) throw new Error('OpenAI provider requires apiKey')
-      return createOpenAI({ apiKey })(model)
+function createOpenAIModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
+  return createOpenAI({ apiKey: config.apiKey })(config.model)
+}
 
-    case LLM_PROVIDERS.GOOGLE:
-      if (!apiKey) throw new Error('Google provider requires apiKey')
-      return createGoogleGenerativeAI({ apiKey })(model)
+function createGoogleModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.apiKey) throw new Error('Google provider requires apiKey')
+  return createGoogleGenerativeAI({ apiKey: config.apiKey })(config.model)
+}
 
-    case LLM_PROVIDERS.OPENROUTER:
-      if (!apiKey) throw new Error('OpenRouter provider requires apiKey')
-      return createOpenRouter({
-        apiKey,
-        extraBody: { reasoning: {} },
-        fetch: createOpenRouterCompatibleFetch(),
-      })(model)
+function createOpenRouterModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.apiKey) throw new Error('OpenRouter provider requires apiKey')
+  return createOpenRouter({
+    apiKey: config.apiKey,
+    extraBody: { reasoning: {} },
+    fetch: createOpenRouterCompatibleFetch(),
+  })(config.model)
+}
 
-    case LLM_PROVIDERS.AZURE:
-      if (!apiKey || !config.resourceName) {
-        throw new Error('Azure provider requires apiKey and resourceName')
-      }
-      return createAzure({
-        resourceName: config.resourceName,
-        apiKey,
-      })(model)
-
-    case LLM_PROVIDERS.OLLAMA:
-      if (!baseUrl) throw new Error('Ollama provider requires baseUrl')
-      return createOpenAICompatible({
-        name: 'ollama',
-        baseURL: baseUrl,
-        ...(apiKey && { apiKey }),
-      })(model)
-
-    case LLM_PROVIDERS.LMSTUDIO:
-      if (!baseUrl) throw new Error('LMStudio provider requires baseUrl')
-      return createOpenAICompatible({
-        name: 'lmstudio',
-        baseURL: baseUrl,
-        ...(apiKey && { apiKey }),
-      })(model)
-
-    case LLM_PROVIDERS.BEDROCK:
-      if (!config.accessKeyId || !config.secretAccessKey || !config.region) {
-        throw new Error(
-          'Bedrock provider requires accessKeyId, secretAccessKey, and region',
-        )
-      }
-      return createAmazonBedrock({
-        region: config.region,
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-        sessionToken: config.sessionToken,
-      })(model)
-
-    case LLM_PROVIDERS.BROWSEROS:
-      if (!baseUrl) throw new Error('BrowserOS provider requires baseUrl')
-      switch (upstreamProvider) {
-        case LLM_PROVIDERS.OPENROUTER:
-          return createOpenRouter({
-            baseURL: baseUrl,
-            ...(apiKey && { apiKey }),
-            fetch: createOpenRouterCompatibleFetch(),
-          })(model)
-        case LLM_PROVIDERS.ANTHROPIC:
-          return createAnthropic({
-            baseURL: baseUrl,
-            ...(apiKey && { apiKey }),
-          })(model)
-        case LLM_PROVIDERS.AZURE:
-          return createAzure({
-            baseURL: baseUrl,
-            ...(apiKey && { apiKey }),
-          })(model)
-        default:
-          logger.debug('Creating OpenAI-compatible provider for BrowserOS')
-          return createOpenAICompatible({
-            name: 'browseros',
-            baseURL: baseUrl,
-            ...(apiKey && { apiKey }),
-          })(model)
-      }
-
-    case LLM_PROVIDERS.OPENAI_COMPATIBLE:
-      if (!baseUrl)
-        throw new Error('OpenAI-compatible provider requires baseUrl')
-      return createOpenAICompatible({
-        name: 'openai-compatible',
-        baseURL: baseUrl,
-        ...(apiKey && { apiKey }),
-      })(model)
-
-    default:
-      throw new Error(`Unknown provider: ${provider}`)
+function createAzureModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.apiKey || !config.resourceName) {
+    throw new Error('Azure provider requires apiKey and resourceName')
   }
+  return createAzure({
+    resourceName: config.resourceName,
+    apiKey: config.apiKey,
+  })(config.model)
+}
+
+function createOllamaModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl) throw new Error('Ollama provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'ollama',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })(config.model)
+}
+
+function createLMStudioModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl) throw new Error('LMStudio provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'lmstudio',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })(config.model)
+}
+
+function createBedrockModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.accessKeyId || !config.secretAccessKey || !config.region) {
+    throw new Error(
+      'Bedrock provider requires accessKeyId, secretAccessKey, and region',
+    )
+  }
+  return createAmazonBedrock({
+    region: config.region,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    sessionToken: config.sessionToken,
+  })(config.model)
+}
+
+function createBrowserOSModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl) throw new Error('BrowserOS provider requires baseUrl')
+  const { baseUrl, apiKey, model, upstreamProvider } = config
+
+  if (upstreamProvider === LLM_PROVIDERS.OPENROUTER) {
+    return createOpenRouter({
+      baseURL: baseUrl,
+      ...(apiKey && { apiKey }),
+      fetch: createOpenRouterCompatibleFetch(),
+    })(model)
+  }
+  if (upstreamProvider === LLM_PROVIDERS.ANTHROPIC) {
+    return createAnthropic({ baseURL: baseUrl, ...(apiKey && { apiKey }) })(
+      model,
+    )
+  }
+  if (upstreamProvider === LLM_PROVIDERS.AZURE) {
+    return createAzure({ baseURL: baseUrl, ...(apiKey && { apiKey }) })(model)
+  }
+  logger.debug('Creating OpenAI-compatible provider for BrowserOS')
+  return createOpenAICompatible({
+    name: 'browseros',
+    baseURL: baseUrl,
+    ...(apiKey && { apiKey }),
+  })(model)
+}
+
+function createOpenAICompatibleModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl)
+    throw new Error('OpenAI-compatible provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'openai-compatible',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })(config.model)
+}
+
+const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
+  [LLM_PROVIDERS.ANTHROPIC]: createAnthropicModel,
+  [LLM_PROVIDERS.OPENAI]: createOpenAIModel,
+  [LLM_PROVIDERS.GOOGLE]: createGoogleModel,
+  [LLM_PROVIDERS.OPENROUTER]: createOpenRouterModel,
+  [LLM_PROVIDERS.AZURE]: createAzureModel,
+  [LLM_PROVIDERS.OLLAMA]: createOllamaModel,
+  [LLM_PROVIDERS.LMSTUDIO]: createLMStudioModel,
+  [LLM_PROVIDERS.BEDROCK]: createBedrockModel,
+  [LLM_PROVIDERS.BROWSEROS]: createBrowserOSModel,
+  [LLM_PROVIDERS.OPENAI_COMPATIBLE]: createOpenAICompatibleModel,
+}
+
+export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
+  const factory = PROVIDER_FACTORIES[config.provider]
+  if (!factory) throw new Error(`Unknown provider: ${config.provider}`)
+  return factory(config)
 }

@@ -66,6 +66,25 @@ function compareVersions(a: number[], b: number[]): number {
   return 0
 }
 
+function checkVersionConstraints(
+  version: number[] | null,
+  minVersionStr?: string,
+  maxVersionStr?: string,
+): boolean {
+  if (!version) return false
+  if (
+    minVersionStr &&
+    compareVersions(version, parseVersion(minVersionStr)) < 0
+  )
+    return false
+  if (
+    maxVersionStr &&
+    compareVersions(version, parseVersion(maxVersionStr)) >= 0
+  )
+    return false
+  return true
+}
+
 let browserOSVersion: number[] | null = null
 let serverVersion: number[] | null = null
 let initialized = false
@@ -103,10 +122,7 @@ export const Capabilities = {
 
   // In development mode, all features are enabled to simplify testing
   supports(feature: Feature): boolean {
-    if (import.meta.env.DEV) {
-      return true
-    }
-
+    if (import.meta.env.DEV) return true
     if (!initialized) {
       throw new Error(
         'Capabilities.initialize() must be called before supports()',
@@ -114,38 +130,32 @@ export const Capabilities = {
     }
 
     const config = FEATURE_CONFIG[feature]
-    if (!config) {
+    if (!config) return false
+
+    const hasBrowserOSConstraints =
+      config.minBrowserOSVersion || config.maxBrowserOSVersion
+    if (
+      hasBrowserOSConstraints &&
+      !checkVersionConstraints(
+        browserOSVersion,
+        config.minBrowserOSVersion,
+        config.maxBrowserOSVersion,
+      )
+    ) {
       return false
     }
 
-    // Check BrowserOS version constraints
-    if (config.minBrowserOSVersion || config.maxBrowserOSVersion) {
-      if (!browserOSVersion) return false
-
-      if (config.minBrowserOSVersion) {
-        const minVer = parseVersion(config.minBrowserOSVersion)
-        if (compareVersions(browserOSVersion, minVer) < 0) return false
-      }
-
-      if (config.maxBrowserOSVersion) {
-        const maxVer = parseVersion(config.maxBrowserOSVersion)
-        if (compareVersions(browserOSVersion, maxVer) >= 0) return false
-      }
-    }
-
-    // Check server version constraints
-    if (config.minServerVersion || config.maxServerVersion) {
-      if (!serverVersion) return false
-
-      if (config.minServerVersion) {
-        const minVer = parseVersion(config.minServerVersion)
-        if (compareVersions(serverVersion, minVer) < 0) return false
-      }
-
-      if (config.maxServerVersion) {
-        const maxVer = parseVersion(config.maxServerVersion)
-        if (compareVersions(serverVersion, maxVer) >= 0) return false
-      }
+    const hasServerConstraints =
+      config.minServerVersion || config.maxServerVersion
+    if (
+      hasServerConstraints &&
+      !checkVersionConstraints(
+        serverVersion,
+        config.minServerVersion,
+        config.maxServerVersion,
+      )
+    ) {
+      return false
     }
 
     return true

@@ -92,6 +92,59 @@ function truncateOutput(obj: unknown, maxLen = 50): unknown {
   return obj
 }
 
+interface StreamEvent {
+  type: string
+  delta?: string
+  output?: unknown
+  [key: string]: unknown
+}
+
+function handleTextEvent(event: StreamEvent): boolean {
+  if (event.type === 'text-start') {
+    process.stdout.write('\n💬 ')
+    return true
+  }
+  if (event.type === 'text-delta') {
+    process.stdout.write(event.delta ?? '')
+    return true
+  }
+  if (event.type === 'text-end') {
+    process.stdout.write('\n\n')
+    return true
+  }
+  return false
+}
+
+function formatEventForOutput(
+  event: StreamEvent,
+  showFullOutput: boolean,
+): StreamEvent {
+  if (!showFullOutput && event.type === 'tool-output-available') {
+    return { ...event, output: truncateOutput(event.output) }
+  }
+  return event
+}
+
+function processSSELine(line: string, showFullOutput: boolean): void {
+  if (!line.trim() || !line.startsWith('data: ')) return
+
+  const data = line.slice(6)
+  if (data === '[DONE]') {
+    console.log('\n--- Done ---\n')
+    return
+  }
+
+  try {
+    const event: StreamEvent = JSON.parse(data)
+    if (handleTextEvent(event)) return
+    console.log(
+      JSON.stringify(formatEventForOutput(event, showFullOutput), null, 2),
+    )
+  } catch {
+    console.log(data)
+  }
+}
+
 async function chat(config: {
   message: string
   provider: string
@@ -140,50 +193,11 @@ async function chat(config: {
     if (done) break
 
     buffer += decoder.decode(value, { stream: true })
-
     const lines = buffer.split('\n\n')
     buffer = lines.pop() || ''
 
     for (const line of lines) {
-      if (!line.trim()) continue
-
-      if (line.startsWith('data: ')) {
-        const data = line.slice(6)
-
-        if (data === '[DONE]') {
-          console.log('\n--- Done ---\n')
-          continue
-        }
-
-        try {
-          const event = JSON.parse(data)
-
-          // Stream text deltas inline for readability
-          if (event.type === 'text-start') {
-            process.stdout.write('\n💬 ')
-            continue
-          }
-          if (event.type === 'text-delta') {
-            process.stdout.write(event.delta)
-            continue
-          }
-          if (event.type === 'text-end') {
-            process.stdout.write('\n\n')
-            continue
-          }
-
-          let displayEvent = event
-          if (
-            !config.showFullOutput &&
-            event.type === 'tool-output-available'
-          ) {
-            displayEvent = { ...event, output: truncateOutput(event.output) }
-          }
-          console.log(JSON.stringify(displayEvent, null, 2))
-        } catch {
-          console.log(data)
-        }
-      }
+      processSSELine(line, config.showFullOutput)
     }
   }
 }
