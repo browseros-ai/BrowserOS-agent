@@ -25,6 +25,8 @@ export enum Feature {
   PERSONALIZATION_SUPPORT = 'PERSONALIZATION_SUPPORT',
   // Unified port: agent uses MCP port instead of separate agent port
   UNIFIED_PORT_SUPPORT = 'UNIFIED_PORT_SUPPORT',
+  // Toolbar customization settings
+  CUSTOMIZATION_SUPPORT = 'CUSTOMIZATION_SUPPORT',
 }
 
 /**
@@ -42,6 +44,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.MANAGED_MCP_SUPPORT]: { minBrowserOSVersion: '0.34.0.0' },
   [Feature.PERSONALIZATION_SUPPORT]: { minServerVersion: '0.0.32' },
   [Feature.UNIFIED_PORT_SUPPORT]: { minServerVersion: '0.0.32' },
+  [Feature.CUSTOMIZATION_SUPPORT]: { minBrowserOSVersion: '0.36.1.0' },
 }
 
 function parseVersion(version: string): number[] {

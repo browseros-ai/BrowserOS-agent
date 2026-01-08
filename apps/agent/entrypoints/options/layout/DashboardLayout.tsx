@@ -71,6 +71,7 @@ const navigationItems: NavItem[] = [
     to: '/customization',
     icon: Palette,
     enabled: true,
+    feature: Feature.CUSTOMIZATION_SUPPORT,
   },
   {
     name: 'Revisit Onboarding',
