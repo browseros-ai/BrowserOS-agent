@@ -305,15 +305,20 @@ export class TabAdapter {
    *
    * @param tabIds - Array of tab IDs to group
    * @param groupId - Optional existing group ID to add tabs to
+   * @param windowId - Optional window ID to create the group in (prevents tabs moving to wrong window)
    * @returns Group ID of the created or updated group
    */
-  async groupTabs(tabIds: number[], groupId?: number): Promise<number> {
+  async groupTabs(
+    tabIds: number[],
+    groupId?: number,
+    windowId?: number,
+  ): Promise<number> {
     if (tabIds.length === 0) {
       throw new Error('At least one tab ID is required')
     }
 
     logger.debug(
-      `Grouping tabs ${tabIds.join(', ')}${groupId ? ` into group ${groupId}` : ''}`,
+      `Grouping tabs ${tabIds.join(', ')}${groupId ? ` into group ${groupId}` : ''}${windowId ? ` in window ${windowId}` : ''}`,
     )
 
     try {
@@ -322,6 +327,10 @@ export class TabAdapter {
       const options: chrome.tabs.GroupOptions = { tabIds: tabIdsTuple }
       if (groupId !== undefined) {
         options.groupId = groupId
+      }
+      // Specify windowId to prevent Chrome from moving tabs to the focused window
+      if (windowId !== undefined && groupId === undefined) {
+        options.createProperties = { windowId }
       }
       const resultGroupId = await chrome.tabs.group(options)
       logger.debug(`Grouped tabs into group ${resultGroupId}`)

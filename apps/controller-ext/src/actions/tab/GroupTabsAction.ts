@@ -82,8 +82,12 @@ export class GroupTabsAction extends ActionHandler<
   private tabAdapter = new TabAdapter()
 
   async execute(input: GroupTabsInput): Promise<GroupTabsOutput> {
-    // Group the tabs
-    const groupId = await this.tabAdapter.groupTabs(input.tabIds, input.groupId)
+    // Group the tabs (pass windowId to prevent tabs moving to wrong window)
+    const groupId = await this.tabAdapter.groupTabs(
+      input.tabIds,
+      input.groupId,
+      input.windowId,
+    )
 
     // Update group properties if title or color provided
     if (input.title !== undefined || input.color !== undefined) {
@@ -108,7 +112,7 @@ export class GroupTabsAction extends ActionHandler<
     // Determine which window to query - use windowId if provided, otherwise query all windows
     const groups = await this.tabAdapter.getTabGroups(input.windowId)
     const group = groups.find((g) => g.id === groupId)
-    
+
     if (!group) {
       throw new Error(`Tab group ${groupId} not found`)
     }
