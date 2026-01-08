@@ -205,6 +205,7 @@ export const useChatSession = () => {
         const action = getActionForMessage(message)
 
         const browserContext: {
+          windowId?: number
           activeTab?: {
             id?: number
             url?: string
@@ -223,6 +224,7 @@ export const useChatSession = () => {
         } = {}
 
         if (activeTab) {
+          browserContext.windowId = activeTab.windowId
           browserContext.activeTab = {
             id: activeTab.id,
             url: activeTab.url,

@@ -29,9 +29,13 @@ import { SearchHistoryAction } from '@/actions/history/SearchHistoryAction'
 import { CloseTabAction } from '@/actions/tab/CloseTabAction'
 import { GetActiveTabAction } from '@/actions/tab/GetActiveTabAction'
 import { GetTabsAction } from '@/actions/tab/GetTabsAction'
+import { GroupTabsAction } from '@/actions/tab/GroupTabsAction'
+import { ListTabGroupsAction } from '@/actions/tab/ListTabGroupsAction'
 import { NavigateAction } from '@/actions/tab/NavigateAction'
 import { OpenTabAction } from '@/actions/tab/OpenTabAction'
 import { SwitchTabAction } from '@/actions/tab/SwitchTabAction'
+import { UngroupTabsAction } from '@/actions/tab/UngroupTabsAction'
+import { UpdateTabGroupAction } from '@/actions/tab/UpdateTabGroupAction'
 import { CONCURRENCY_CONFIG } from '@/config/constants'
 import type { ProtocolRequest, ProtocolResponse } from '@/protocol/types'
 import { ConnectionStatus } from '@/protocol/types'
@@ -183,6 +187,10 @@ export class BrowserOSController {
     this.actionRegistry.register('closeTab', new CloseTabAction())
     this.actionRegistry.register('switchTab', new SwitchTabAction())
     this.actionRegistry.register('navigate', new NavigateAction())
+    this.actionRegistry.register('listTabGroups', new ListTabGroupsAction())
+    this.actionRegistry.register('groupTabs', new GroupTabsAction())
+    this.actionRegistry.register('updateTabGroup', new UpdateTabGroupAction())
+    this.actionRegistry.register('ungroupTabs', new UngroupTabsAction())
 
     this.actionRegistry.register('getBookmarks', new GetBookmarksAction())
     this.actionRegistry.register('createBookmark', new CreateBookmarkAction())
