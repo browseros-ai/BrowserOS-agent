@@ -12,7 +12,6 @@ const ListTabGroupsInputSchema = z
     windowId: z
       .number()
       .int()
-      .positive()
       .optional()
       .describe(
         'Window ID to get groups from. If not specified, gets all groups.',

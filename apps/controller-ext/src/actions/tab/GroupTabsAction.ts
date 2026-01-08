@@ -42,7 +42,6 @@ const GroupTabsInputSchema = z
     windowId: z
       .number()
       .int()
-      .positive()
       .optional()
       .describe('Window ID for scoping the group lookup'),
   })
