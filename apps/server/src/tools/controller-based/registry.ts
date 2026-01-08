@@ -38,9 +38,13 @@ export {
   closeTab,
   getActiveTab,
   getLoadStatus,
+  groupTabs,
+  listTabGroups,
   listTabs,
   openTab,
   switchTab,
+  ungroupTabs,
+  updateTabGroup,
 } from './tools/tab-management'
 // Types
 export type { Context } from './types/context'
@@ -72,12 +76,16 @@ import {
   closeTab,
   getActiveTab,
   getLoadStatus,
+  groupTabs,
+  listTabGroups,
   listTabs,
   openTab,
   switchTab,
+  ungroupTabs,
+  updateTabGroup,
 } from './tools/tab-management'
 
-// Array export for convenience (28 tools)
+// Array export for convenience (32 tools)
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -85,6 +93,10 @@ export const allControllerTools = [
   closeTab,
   switchTab,
   getLoadStatus,
+  listTabGroups,
+  groupTabs,
+  updateTabGroup,
+  ungroupTabs,
   navigate,
   getInteractiveElements,
   clickElement,
