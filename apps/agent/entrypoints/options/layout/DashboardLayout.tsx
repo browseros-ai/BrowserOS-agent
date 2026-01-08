@@ -61,6 +61,14 @@ const navigationItems: NavItem[] = [
     enabled: true,
   },
   {
+    name: 'Customization',
+    to: '/customization',
+    icon: Palette,
+    enabled: true,
+    feature: Feature.CUSTOMIZATION_SUPPORT,
+  },
+
+  {
     name: 'Revisit Onboarding',
     to: chrome.runtime.getURL('onboarding.html'),
     icon: RotateCcw,
@@ -72,13 +80,6 @@ const navigationItems: NavItem[] = [
     to: '/search',
     icon: Search,
     enabled: false,
-  },
-  {
-    name: 'Customization',
-    to: '/customization',
-    icon: Palette,
-    enabled: true,
-    feature: Feature.CUSTOMIZATION_SUPPORT,
   },
 ]
 
