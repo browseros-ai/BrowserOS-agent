@@ -105,13 +105,18 @@ export class GroupTabsAction extends ActionHandler<
     }
 
     // Get group info if no updates were made
+    // Determine which window to query - use windowId if provided, otherwise query all windows
     const groups = await this.tabAdapter.getTabGroups(input.windowId)
     const group = groups.find((g) => g.id === groupId)
+    
+    if (!group) {
+      throw new Error(`Tab group ${groupId} not found`)
+    }
 
     return {
       groupId,
-      title: group?.title || '',
-      color: group?.color || 'grey',
+      title: group.title || '',
+      color: group.color,
       tabCount: input.tabIds.length,
     }
   }
