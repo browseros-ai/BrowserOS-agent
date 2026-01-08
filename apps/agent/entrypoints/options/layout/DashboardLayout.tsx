@@ -42,28 +42,22 @@ const navigationItems: NavItem[] = [
     enabled: true,
   },
   {
-    name: 'Search Engines',
-    to: '/search',
-    icon: Search,
-    enabled: false,
-  },
-  {
-    name: 'Connect with MCP',
+    name: 'Connect to MCPs',
     to: '/connect-mcp',
     icon: PlugZap,
     enabled: true,
     feature: Feature.MANAGED_MCP_SUPPORT,
   },
   {
-    name: 'Scheduled Tasks',
-    to: '/scheduled',
-    icon: CalendarClock,
+    name: 'BrowserOS as MCP',
+    to: '/mcp',
+    icon: Server,
     enabled: true,
   },
   {
-    name: 'BrowserOS MCP',
-    to: '/mcp',
-    icon: Server,
+    name: 'Scheduled Tasks',
+    to: '/scheduled',
+    icon: CalendarClock,
     enabled: true,
   },
   {
@@ -73,12 +67,19 @@ const navigationItems: NavItem[] = [
     enabled: true,
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
+
   {
     name: 'Revisit Onboarding',
     to: chrome.runtime.getURL('onboarding.html'),
     icon: RotateCcw,
     target: '_blank',
     enabled: true,
+  },
+  {
+    name: 'Search Engines',
+    to: '/search',
+    icon: Search,
+    enabled: false,
   },
 ]
 
