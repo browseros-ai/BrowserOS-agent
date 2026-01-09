@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
+import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
 import { ChatFooter } from './ChatFooter'
@@ -95,6 +97,12 @@ export const Chat = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (messages.length === 0) {
+      track(SIDEPANEL_AI_TRIGGERED_EVENT, {
+        mode,
+        tabs_count: attachedTabs.length,
+      })
+    }
     executeMessage()
   }
 
