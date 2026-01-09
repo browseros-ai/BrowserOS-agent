@@ -55,6 +55,7 @@
         "downshift": "^9.0.10",
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
+        "eventsource-parser": "^3.0.6",
         "klavis": "^2.15.0",
         "lucide-react": "^0.554.0",
         "marked": "^17.0.1",

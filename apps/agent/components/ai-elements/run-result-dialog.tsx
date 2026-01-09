@@ -1,17 +1,21 @@
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
-import DOMPurify from 'dompurify'
 import {
   AlertCircle,
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
   Loader2,
   XCircle,
 } from 'lucide-react'
-import { marked } from 'marked'
 import { type FC, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
+import { MessageResponse } from './message'
 
 dayjs.extend(duration)
 
@@ -43,22 +48,44 @@ function formatDuration(startedAt: string, completedAt?: string): string {
   return `${mins}m ${secs}s`
 }
 
+function getDisplayContent(run: ScheduledJobRun): {
+  hasStructuredData: boolean
+  finalResult?: string
+  executionLog?: string
+  legacyContent?: string
+} {
+  if (run.finalResult || run.executionLog) {
+    return {
+      hasStructuredData: true,
+      finalResult: run.finalResult,
+      executionLog: run.executionLog,
+    }
+  }
+
+  return {
+    hasStructuredData: false,
+    legacyContent: run.result,
+  }
+}
+
 export const RunResultDialog: FC<RunResultDialogProps> = ({
   run,
   jobName,
   onOpenChange,
 }) => {
   const [copied, setCopied] = useState(false)
+  const [executionLogOpen, setExecutionLogOpen] = useState(false)
 
-  const renderedContent = useMemo(() => {
-    if (!run?.result) return null
-    const html = marked.parse(run.result, { async: false }) as string
-    return DOMPurify.sanitize(html)
-  }, [run?.result])
+  const content = useMemo(() => {
+    if (!run) return null
+    return getDisplayContent(run)
+  }, [run])
 
   const handleCopy = async () => {
-    if (!run?.result) return
-    await navigator.clipboard.writeText(run.result)
+    if (!run) return
+    const textToCopy = run.finalResult || run.result || ''
+    if (!textToCopy) return
+    await navigator.clipboard.writeText(textToCopy)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -67,7 +94,7 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
 
   return (
     <Dialog open={!!run} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {run.status === 'completed' ? (
@@ -85,30 +112,59 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-100">
-          {run.status === 'failed' && run.result ? (
-            <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                <span className="font-medium text-sm">Task failed</span>
+        <ScrollArea className="max-h-[70vh]">
+          <div className="flex flex-col gap-4 pr-4">
+            {run.status === 'failed' && run.result ? (
+              <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <AlertCircle className="h-5 w-5" />
+                  <span className="font-medium text-sm">Task failed</span>
+                </div>
+                <p className="text-destructive text-sm">{run.result}</p>
               </div>
-              <p className="text-destructive text-sm">{run.result}</p>
-            </div>
-          ) : renderedContent ? (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-border bg-muted/50 p-4"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: renderedContent is sanitized with DOMPurify
-              dangerouslySetInnerHTML={{ __html: renderedContent }}
-            />
-          ) : (
-            <div className="rounded-lg border border-border bg-muted/50 p-4 text-muted-foreground text-sm">
-              No result available
-            </div>
-          )}
+            ) : content?.hasStructuredData ? (
+              <>
+                {content.finalResult && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <MessageResponse>{content.finalResult}</MessageResponse>
+                  </div>
+                )}
+
+                {content.executionLog && (
+                  <Collapsible
+                    open={executionLogOpen}
+                    onOpenChange={setExecutionLogOpen}
+                  >
+                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3 transition-colors hover:bg-muted/50">
+                      <span className="font-medium text-sm">Execution Log</span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${executionLogOpen ? 'rotate-180' : ''}`}
+                      />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2">
+                      <div className="rounded-lg border border-border bg-muted/30 p-4">
+                        <MessageResponse>
+                          {content.executionLog}
+                        </MessageResponse>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </>
+            ) : content?.legacyContent ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <MessageResponse>{content.legacyContent}</MessageResponse>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/50 p-4 text-muted-foreground text-sm">
+                No result available
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
         <DialogFooter>
-          {run.result && (
+          {(run.finalResult || run.result) && (
             <Button
               variant="outline"
               onClick={handleCopy}
