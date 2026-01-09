@@ -14,11 +14,13 @@ import {
   X,
 } from 'lucide-react'
 import type { FC, HTMLAttributeAnchorTarget } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
+import { SETTINGS_PAGE_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 
 type NavItem = {
   name: string
@@ -97,6 +99,11 @@ export const DashboardLayout: FC = () => {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { supports } = useCapabilities()
+
+  useEffect(() => {
+    track(SETTINGS_PAGE_VIEWED_EVENT, { page: location.pathname })
+  }, [location.pathname])
+
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}

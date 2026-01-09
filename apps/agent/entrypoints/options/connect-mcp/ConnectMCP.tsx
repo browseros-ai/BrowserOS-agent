@@ -2,7 +2,12 @@ import { Check, Loader2, Plus, Server, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  CUSTOM_MCP_ADDED_EVENT,
+  MANAGED_MCP_ADDED_EVENT,
+} from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
@@ -82,6 +87,7 @@ export const ConnectMCP: FC = () => {
         managedServerName: name,
         managedServerDescription: description,
       })
+      track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
     } catch (e) {
       failedToAddMcp(name, e)
     }
@@ -125,6 +131,7 @@ export const ConnectMCP: FC = () => {
         description: config.description,
       },
     })
+    track(CUSTOM_MCP_ADDED_EVENT)
   }
 
   const availableServers = serversList?.servers.filter((eachServer) => {
