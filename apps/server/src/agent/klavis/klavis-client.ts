@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 
 export interface StrataCreateResponse {
@@ -25,22 +26,40 @@ export class KlavisClient {
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      TIMEOUTS.KLAVIS_FETCH,
+    )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(
-        `Klavis error: ${response.status} ${response.statusText} - ${errorText}`,
-      )
+    try {
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(
+          `Klavis error: ${response.status} ${response.statusText} - ${errorText}`,
+        )
+      }
+
+      return response.json()
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(
+          `Klavis request timed out after ${TIMEOUTS.KLAVIS_FETCH}ms`,
+        )
+      }
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
     }
-
-    return response.json()
   }
 
   /**

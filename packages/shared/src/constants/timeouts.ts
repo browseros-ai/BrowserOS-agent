@@ -18,6 +18,9 @@ export const TIMEOUTS = {
   // MCP operations
   MCP_DEFAULT: 5_000,
 
+  // External API calls
+  KLAVIS_FETCH: 30_000,
+
   // Navigation/DOM
   NAVIGATION: 10_000,
   STABLE_DOM: 3_000,
