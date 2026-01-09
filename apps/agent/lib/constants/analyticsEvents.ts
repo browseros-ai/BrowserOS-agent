@@ -66,3 +66,11 @@ export const NEWTAB_SEARCH_EXECUTED_EVENT = 'newtab.search.executed'
 
 /** @public */
 export const SIDEPANEL_AI_TRIGGERED_EVENT = 'sidepanel.ai.triggered'
+
+export const SETTINGS_PAGE_VIEWED_EVENT = 'settings.page.viewed'
+
+/** @public */
+export const MANAGED_MCP_ADDED_EVENT = 'settings.managed_mcp.added'
+
+/** @public */
+export const CUSTOM_MCP_ADDED_EVENT = 'settings.custom_mcp.added'
