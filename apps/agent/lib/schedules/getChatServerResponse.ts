@@ -158,7 +158,7 @@ function processEvent(event: UIMessageEvent, state: StreamParseState): void {
     const text = event.delta
     state.fullText += text
     state.currentStepText += text
-    state.lastTextBeforeToolCall = text
+    state.lastTextBeforeToolCall += text
   } else if (event.type === 'tool-input-available') {
     const toolCall: ToolCallExecution = {
       id: event.toolCallId,
