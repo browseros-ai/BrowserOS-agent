@@ -83,9 +83,13 @@ export function createSdkRoutes(deps: SdkDeps) {
         context,
         windowId,
         llmConfig,
+        signal: c.req.raw.signal,
       })
       return c.json({ success: true, steps: [] })
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return c.json({ error: { message: 'Request aborted' } }, 400)
+      }
       const err =
         error instanceof SdkError
           ? error

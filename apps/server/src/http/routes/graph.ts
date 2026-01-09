@@ -5,6 +5,7 @@
  */
 
 import { PATHS } from '@browseros/shared/constants/paths'
+import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { logger } from '../../common/logger'
@@ -19,7 +20,51 @@ import {
   RunGraphRequestSchema,
   UpdateGraphRequestSchema,
 } from '../types'
-import { validateRequest } from '../utils/validation'
+import { validateRequest, validateSessionId } from '../utils/validation'
+
+const SSE_DONE = 'data: [DONE]\n\n'
+
+interface SSEStreamOptions {
+  vercelAIStream?: boolean
+  logLabel: string
+}
+
+type SSEStreamCallback = (
+  stream: { write: (data: string) => Promise<unknown> },
+  signal: AbortSignal,
+) => Promise<void>
+
+function createSSEStream(
+  c: Context,
+  options: SSEStreamOptions,
+  callback: SSEStreamCallback,
+) {
+  c.header('Content-Type', 'text/event-stream')
+  c.header('Cache-Control', 'no-cache')
+  c.header('Connection', 'keep-alive')
+
+  if (options.vercelAIStream) {
+    c.header('x-vercel-ai-ui-message-stream', 'v1')
+  }
+
+  const abortController = new AbortController()
+
+  if (c.req.raw.signal) {
+    c.req.raw.signal.addEventListener('abort', () => abortController.abort(), {
+      once: true,
+    })
+  }
+
+  return stream(c, async (honoStream) => {
+    honoStream.onAbort(() => {
+      abortController.abort()
+      logger.debug(`${options.logLabel} stream aborted`)
+    })
+
+    await callback(honoStream, abortController.signal)
+    await honoStream.write(SSE_DONE)
+  })
+}
 
 interface GraphRouteDeps {
   port: number
@@ -41,89 +86,55 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
   const graph = new Hono()
 
-  // POST /graph - Create new graph
   graph.post('/', validateRequest(CreateGraphRequestSchema), async (c) => {
     const request = c.get('validatedBody') as CreateGraphRequest
-
     logger.info('Graph create request received', { query: request.query })
 
-    c.header('Content-Type', 'text/event-stream')
-    c.header('Cache-Control', 'no-cache')
-    c.header('Connection', 'keep-alive')
-
-    const abortController = new AbortController()
-
-    if (c.req.raw.signal) {
-      c.req.raw.signal.addEventListener(
-        'abort',
-        () => abortController.abort(),
-        { once: true },
-      )
-    }
-
-    return stream(c, async (honoStream) => {
-      honoStream.onAbort(() => {
-        abortController.abort()
-        logger.debug('Graph create stream aborted')
-      })
-
-      await graphService.createGraph(
-        request.query,
-        async (event) => {
-          await honoStream.write(`data: ${JSON.stringify(event)}\n\n`)
-        },
-        abortController.signal,
-      )
-
-      await honoStream.write('data: [DONE]\n\n')
-    })
+    return createSSEStream(
+      c,
+      { logLabel: 'Graph create' },
+      async (s, signal) => {
+        await graphService.createGraph(
+          request.query,
+          async (event) => {
+            await s.write(`data: ${JSON.stringify(event)}\n\n`)
+          },
+          signal,
+        )
+      },
+    )
   })
 
-  // PUT /graph/:id - Update existing graph
-  graph.put('/:id', validateRequest(UpdateGraphRequestSchema), async (c) => {
-    const sessionId = c.req.param('id')
-    const request = c.get('validatedBody') as UpdateGraphRequest
-
-    logger.info('Graph update request received', {
-      sessionId,
-      query: request.query,
-    })
-
-    c.header('Content-Type', 'text/event-stream')
-    c.header('Cache-Control', 'no-cache')
-    c.header('Connection', 'keep-alive')
-
-    const abortController = new AbortController()
-
-    if (c.req.raw.signal) {
-      c.req.raw.signal.addEventListener(
-        'abort',
-        () => abortController.abort(),
-        { once: true },
-      )
-    }
-
-    return stream(c, async (honoStream) => {
-      honoStream.onAbort(() => {
-        abortController.abort()
-        logger.debug('Graph update stream aborted')
-      })
-
-      await graphService.updateGraph(
+  graph.put(
+    '/:id',
+    validateSessionId(),
+    validateRequest(UpdateGraphRequestSchema),
+    async (c) => {
+      const sessionId = c.req.param('id')
+      const request = c.get('validatedBody') as UpdateGraphRequest
+      logger.info('Graph update request received', {
         sessionId,
-        request.query,
-        async (event) => {
-          await honoStream.write(`data: ${JSON.stringify(event)}\n\n`)
+        query: request.query,
+      })
+
+      return createSSEStream(
+        c,
+        { logLabel: 'Graph update' },
+        async (s, signal) => {
+          await graphService.updateGraph(
+            sessionId,
+            request.query,
+            async (event) => {
+              await s.write(`data: ${JSON.stringify(event)}\n\n`)
+            },
+            signal,
+          )
         },
-        abortController.signal,
       )
+    },
+  )
 
-      await honoStream.write('data: [DONE]\n\n')
-    })
-  })
-
-  // GET /graph/:id - Get graph code and visualization
-  graph.get('/:id', async (c) => {
+  graph.get('/:id', validateSessionId(), async (c) => {
     const sessionId = c.req.param('id')
 
     logger.debug('Graph get request received', { sessionId })
@@ -137,72 +148,53 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
     return c.json(session)
   })
 
-  // POST /graph/:id/run - Execute graph
-  graph.post('/:id/run', validateRequest(RunGraphRequestSchema), async (c) => {
-    const sessionId = c.req.param('id')
-    const request = c.get('validatedBody') as RunGraphRequest
-
-    logger.info('Graph run request received', {
-      sessionId,
-      provider: request.provider,
-      model: request.model,
-    })
-
-    c.header('Content-Type', 'text/event-stream')
-    c.header('x-vercel-ai-ui-message-stream', 'v1')
-    c.header('Cache-Control', 'no-cache')
-    c.header('Connection', 'keep-alive')
-
-    const abortController = new AbortController()
-
-    if (c.req.raw.signal) {
-      c.req.raw.signal.addEventListener(
-        'abort',
-        () => abortController.abort(),
-        { once: true },
-      )
-    }
-
-    return stream(c, async (honoStream) => {
-      honoStream.onAbort(() => {
-        abortController.abort()
-        logger.debug('Graph run stream aborted')
+  graph.post(
+    '/:id/run',
+    validateSessionId(),
+    validateRequest(RunGraphRequestSchema),
+    async (c) => {
+      const sessionId = c.req.param('id')
+      const request = c.get('validatedBody') as RunGraphRequest
+      logger.info('Graph run request received', {
+        sessionId,
+        provider: request.provider,
+        model: request.model,
       })
 
-      // Send start event
-      await honoStream.write(
-        `data: ${JSON.stringify({ type: 'start', messageId: sessionId })}\n\n`,
-      )
+      return createSSEStream(
+        c,
+        { logLabel: 'Graph run', vercelAIStream: true },
+        async (s, signal) => {
+          await s.write(
+            `data: ${JSON.stringify({ type: 'start', messageId: sessionId })}\n\n`,
+          )
 
-      await graphService.runGraph(
-        sessionId,
-        request,
-        async (event) => {
-          // Map progress events to UI stream format
-          if (event.type === 'error') {
-            await honoStream.write(
-              `data: ${JSON.stringify({ type: 'error', errorText: event.message })}\n\n`,
-            )
-          } else if (event.type === 'done') {
-            await honoStream.write(
-              `data: ${JSON.stringify({ type: 'finish', finishReason: 'stop' })}\n\n`,
-            )
-          } else {
-            // nav, act, extract, verify events -> text-delta
-            await honoStream.write(
-              `data: ${JSON.stringify({ type: 'text-delta', id: '0', delta: `${event.message}\n` })}\n\n`,
-            )
-          }
+          await graphService.runGraph(
+            sessionId,
+            request,
+            async (event) => {
+              if (event.type === 'error') {
+                await s.write(
+                  `data: ${JSON.stringify({ type: 'error', errorText: event.message })}\n\n`,
+                )
+              } else if (event.type === 'done') {
+                await s.write(
+                  `data: ${JSON.stringify({ type: 'finish', finishReason: 'stop' })}\n\n`,
+                )
+              } else {
+                await s.write(
+                  `data: ${JSON.stringify({ type: 'text-delta', id: '0', delta: `${event.message}\n` })}\n\n`,
+                )
+              }
+            },
+            signal,
+          )
         },
-        abortController.signal,
       )
+    },
+  )
 
-      await honoStream.write('data: [DONE]\n\n')
-    })
-  })
-
-  // DELETE /graph/:id - Cleanup execution files
-  graph.delete('/:id', async (c) => {
+  graph.delete('/:id', validateSessionId(), async (c) => {
     const sessionId = c.req.param('id')
 
     logger.debug('Graph delete request received', { sessionId })

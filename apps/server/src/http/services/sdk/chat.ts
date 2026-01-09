@@ -14,6 +14,7 @@ export interface ExecuteActionOptions {
   context?: Record<string, unknown>
   windowId?: number
   llmConfig: LLMConfig
+  signal?: AbortSignal
 }
 
 export class ChatService {
@@ -24,7 +25,11 @@ export class ChatService {
   }
 
   async executeAction(options: ExecuteActionOptions): Promise<void> {
-    const { instruction, context, windowId, llmConfig } = options
+    const { instruction, context, windowId, llmConfig, signal } = options
+
+    if (signal?.aborted) {
+      throw new SdkError('Operation aborted', 400)
+    }
 
     let message = instruction
     if (context) {
@@ -50,6 +55,7 @@ export class ChatService {
         sessionToken: llmConfig.sessionToken,
         browserContext: windowId ? { windowId } : undefined,
       }),
+      signal,
     })
 
     if (!response.ok) {
@@ -60,16 +66,25 @@ export class ChatService {
       )
     }
 
-    // Consume the SSE stream to completion
     const reader = response.body?.getReader()
     if (reader) {
-      while (true) {
-        const { done } = await reader.read()
-        if (done) break
+      try {
+        while (true) {
+          if (signal?.aborted) {
+            await reader.cancel()
+            throw new SdkError('Operation aborted', 400)
+          }
+          const { done } = await reader.read()
+          if (done) break
+        }
+      } finally {
+        reader.releaseLock()
       }
     }
 
     // Clean up the session
-    await fetch(`${this.chatUrl}/${conversationId}`, { method: 'DELETE' })
+    await fetch(`${this.chatUrl}/${conversationId}`, {
+      method: 'DELETE',
+    }).catch(() => {})
   }
 }

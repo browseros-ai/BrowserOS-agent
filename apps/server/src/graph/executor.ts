@@ -62,29 +62,34 @@ export async function executeGraph(
       url: options.serverUrl,
       llm: options.llmConfig,
       onProgress: options.onProgress,
+      signal: options.signal,
     })
 
-    // Dynamic import and execute
-    const module = await import(codePath)
+    // Dynamic import with cache-busting (Bun caches imports by path)
+    const module = await import(`${codePath}?t=${Date.now()}`)
 
     if (typeof module.run !== 'function') {
       throw new Error('Generated code must export a "run" function')
     }
 
-    // Execute with abort handling
-    const result = await Promise.race([
-      module.run(agent),
-      new Promise((_, reject) => {
-        options.signal?.addEventListener('abort', () => {
-          reject(new Error('Execution aborted'))
-        })
-      }),
-    ])
+    let abortHandler: (() => void) | undefined
+    try {
+      const result = await Promise.race([
+        module.run(agent),
+        new Promise((_, reject) => {
+          if (!options.signal) return
+          abortHandler = () => reject(new Error('Execution aborted'))
+          options.signal.addEventListener('abort', abortHandler, { once: true })
+        }),
+      ])
 
-    // Emit done event
-    options.onProgress({ type: 'done', message: 'Execution completed' })
-
-    return { success: true, result }
+      options.onProgress({ type: 'done', message: 'Execution completed' })
+      return { success: true, result }
+    } finally {
+      if (abortHandler && options.signal) {
+        options.signal.removeEventListener('abort', abortHandler)
+      }
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error(`Graph execution failed: ${errorMessage}`)

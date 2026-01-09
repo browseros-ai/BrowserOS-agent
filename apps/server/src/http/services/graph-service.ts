@@ -4,18 +4,16 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type {
-  LLMConfig,
-  LLMProvider,
-  ProgressEvent,
-} from '@browseros-ai/agent-sdk'
+import type { LLMConfig, ProgressEvent } from '@browseros-ai/agent-sdk'
 import { logger } from '../../common/logger'
 import { cleanupExecution, executeGraph } from '../../graph/executor'
-import type {
-  CodegenSSEEvent,
-  GraphSession,
-  RunGraphRequest,
-  WorkflowGraph,
+import {
+  CodegenGetResponseSchema,
+  type CodegenSSEEvent,
+  CodegenSSEEventSchema,
+  type GraphSession,
+  type RunGraphRequest,
+  type WorkflowGraph,
 } from '../types'
 
 export interface GraphServiceDeps {
@@ -81,13 +79,21 @@ export class GraphService {
         throw new Error(`Codegen service error: ${response.status}`)
       }
 
-      const data = await response.json()
+      const json = await response.json()
+      const result = CodegenGetResponseSchema.safeParse(json)
+
+      if (!result.success) {
+        logger.error('Invalid codegen response', {
+          issues: result.error.issues,
+        })
+        throw new Error('Invalid response from codegen service')
+      }
 
       return {
         id: sessionId,
-        code: data.code,
-        graph: data.graph,
-        createdAt: new Date(data.createdAt || Date.now()),
+        code: result.data.code,
+        graph: result.data.graph,
+        createdAt: new Date(result.data.createdAt || Date.now()),
       }
     } catch (error) {
       const errorMessage =
@@ -121,7 +127,7 @@ export class GraphService {
     // Build LLM config from request
     const llmConfig: LLMConfig | undefined = request.provider
       ? {
-          provider: request.provider as LLMProvider,
+          provider: request.provider,
           model: request.model,
           apiKey: request.apiKey,
           baseUrl: request.baseUrl,
@@ -263,9 +269,19 @@ export class GraphService {
     if (!data || data === '[DONE]') return
 
     try {
-      const event = JSON.parse(data) as CodegenSSEEvent
+      const json = JSON.parse(data)
+      const result = CodegenSSEEventSchema.safeParse(json)
 
-      // Capture data from events
+      if (!result.success) {
+        logger.warn('Invalid codegen SSE event', {
+          data,
+          issues: result.error.issues,
+        })
+        return
+      }
+
+      const event = result.data
+
       if (event.event === 'started') {
         state.codeId = event.data.codeId
       } else if (event.event === 'complete') {

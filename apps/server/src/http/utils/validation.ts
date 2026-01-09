@@ -5,9 +5,17 @@
  */
 
 import type { Context, Next } from 'hono'
-import type { z } from 'zod'
+import { z } from 'zod'
 import { ValidationError } from '../../agent/errors'
 import { logger } from '../../common/logger'
+
+const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]+$/
+
+export const SessionIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(SESSION_ID_PATTERN, 'Invalid session ID format')
 
 interface ValidationVariables {
   validatedBody: unknown
@@ -27,6 +35,26 @@ interface ValidationVariables {
  * })
  * ```
  */
+export function validateSessionId(paramName = 'id') {
+  return async (c: Context, next: Next) => {
+    const sessionId = c.req.param(paramName)
+    const result = SessionIdSchema.safeParse(sessionId)
+
+    if (!result.success) {
+      logger.warn('Invalid session ID', {
+        sessionId,
+        issues: result.error.issues,
+      })
+      throw new ValidationError(
+        'Invalid session ID format',
+        result.error.issues,
+      )
+    }
+
+    await next()
+  }
+}
+
 export function validateRequest<T>(schema: z.ZodType<T>) {
   return async (c: Context<{ Variables: ValidationVariables }>, next: Next) => {
     try {

@@ -114,35 +114,44 @@ export const RunGraphRequestSchema = VercelAIConfigSchema.extend({
 
 export type RunGraphRequest = z.infer<typeof RunGraphRequestSchema>
 
-// Workflow graph types (matching codegen-service)
-export type WorkflowNodeType =
-  | 'start'
-  | 'end'
-  | 'nav'
-  | 'act'
-  | 'extract'
-  | 'verify'
-  | 'decision'
-  | 'loop'
-  | 'fork'
-  | 'join'
+// Workflow graph schemas (matching codegen-service)
+export const WorkflowNodeTypeSchema = z.enum([
+  'start',
+  'end',
+  'nav',
+  'act',
+  'extract',
+  'verify',
+  'decision',
+  'loop',
+  'fork',
+  'join',
+])
 
-export interface WorkflowNode {
-  id: string
-  type: WorkflowNodeType
-  data: { label: string }
-}
+export type WorkflowNodeType = z.infer<typeof WorkflowNodeTypeSchema>
 
-export interface WorkflowEdge {
-  id: string
-  source: string
-  target: string
-}
+export const WorkflowNodeSchema = z.object({
+  id: z.string(),
+  type: WorkflowNodeTypeSchema,
+  data: z.object({ label: z.string() }),
+})
 
-export interface WorkflowGraph {
-  nodes: WorkflowNode[]
-  edges: WorkflowEdge[]
-}
+export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>
+
+export const WorkflowEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+})
+
+export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>
+
+export const WorkflowGraphSchema = z.object({
+  nodes: z.array(WorkflowNodeSchema),
+  edges: z.array(WorkflowEdgeSchema),
+})
+
+export type WorkflowGraph = z.infer<typeof WorkflowGraphSchema>
 
 export interface GraphSession {
   id: string
@@ -151,43 +160,63 @@ export interface GraphSession {
   createdAt: Date
 }
 
-// Codegen service SSE event types (matching codegen-service)
-export interface CodegenStartedEvent {
-  event: 'started'
-  data: {
-    codeId: string
-    instanceId: string
-  }
-}
+// Codegen service response schema for GET /api/code/:id
+export const CodegenGetResponseSchema = z.object({
+  code: z.string(),
+  graph: WorkflowGraphSchema.nullable(),
+  createdAt: z.string().optional(),
+})
 
-export interface CodegenProgressEvent {
-  event: 'progress'
-  data: {
-    message: string
-    turn: number
-  }
-}
+export type CodegenGetResponse = z.infer<typeof CodegenGetResponseSchema>
 
-export interface CodegenCompleteEvent {
-  event: 'complete'
-  data: {
-    codeId: string
-    code: string
-    graph: WorkflowGraph | null
-    instanceId: string
-  }
-}
+// Codegen service SSE event schemas
+export const CodegenStartedEventSchema = z.object({
+  event: z.literal('started'),
+  data: z.object({
+    codeId: z.string(),
+    instanceId: z.string(),
+  }),
+})
 
-export interface CodegenErrorEvent {
-  event: 'error'
-  data: {
-    error: string
-    details?: string
-  }
-}
+export type CodegenStartedEvent = z.infer<typeof CodegenStartedEventSchema>
 
-export type CodegenSSEEvent =
-  | CodegenStartedEvent
-  | CodegenProgressEvent
-  | CodegenCompleteEvent
-  | CodegenErrorEvent
+export const CodegenProgressEventSchema = z.object({
+  event: z.literal('progress'),
+  data: z.object({
+    message: z.string(),
+    turn: z.number(),
+  }),
+})
+
+export type CodegenProgressEvent = z.infer<typeof CodegenProgressEventSchema>
+
+export const CodegenCompleteEventSchema = z.object({
+  event: z.literal('complete'),
+  data: z.object({
+    codeId: z.string(),
+    code: z.string(),
+    graph: WorkflowGraphSchema.nullable(),
+    instanceId: z.string(),
+  }),
+})
+
+export type CodegenCompleteEvent = z.infer<typeof CodegenCompleteEventSchema>
+
+export const CodegenErrorEventSchema = z.object({
+  event: z.literal('error'),
+  data: z.object({
+    error: z.string(),
+    details: z.string().optional(),
+  }),
+})
+
+export type CodegenErrorEvent = z.infer<typeof CodegenErrorEventSchema>
+
+export const CodegenSSEEventSchema = z.discriminatedUnion('event', [
+  CodegenStartedEventSchema,
+  CodegenProgressEventSchema,
+  CodegenCompleteEventSchema,
+  CodegenErrorEventSchema,
+])
+
+export type CodegenSSEEvent = z.infer<typeof CodegenSSEEventSchema>

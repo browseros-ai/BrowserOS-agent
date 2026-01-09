@@ -38,6 +38,7 @@ export interface AgentOptions {
   url: string
   llm?: LLMConfig
   onProgress?: (event: ProgressEvent) => void
+  signal?: AbortSignal
 }
 
 /**

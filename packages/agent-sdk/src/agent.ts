@@ -47,12 +47,20 @@ import type {
 export class Agent {
   private readonly baseUrl: string
   private readonly llmConfig?: LLMConfig
+  private readonly signal?: AbortSignal
   private progressCallback?: (event: ProgressEvent) => void
 
   constructor(options: AgentOptions) {
     this.baseUrl = options.url.replace(/\/$/, '')
     this.llmConfig = options.llm
     this.progressCallback = options.onProgress
+    this.signal = options.signal
+  }
+
+  private throwIfAborted(): void {
+    if (this.signal?.aborted) {
+      throw new Error('Operation aborted')
+    }
   }
 
   onProgress(callback: (event: ProgressEvent) => void): void {
@@ -68,6 +76,8 @@ export class Agent {
     body: Record<string, unknown>,
     ErrorClass: new (message: string, statusCode?: number) => AgentSDKError,
   ): Promise<T> {
+    this.throwIfAborted()
+
     const url = `${this.baseUrl}${endpoint}`
 
     let response: Response
@@ -76,8 +86,12 @@ export class Agent {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: this.signal,
       })
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Operation aborted')
+      }
       throw new ConnectionError(
         `Failed to connect to server: ${error instanceof Error ? error.message : String(error)}`,
         url,
