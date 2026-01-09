@@ -1,6 +1,5 @@
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
-import DOMPurify from 'dompurify'
 import {
   AlertCircle,
   Check,
@@ -9,8 +8,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react'
-import { marked } from 'marked'
-import { type FC, useMemo, useState } from 'react'
+import { type FC, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -21,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
+import { MessageResponse } from './message'
 
 dayjs.extend(duration)
 
@@ -49,12 +48,6 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
   onOpenChange,
 }) => {
   const [copied, setCopied] = useState(false)
-
-  const renderedContent = useMemo(() => {
-    if (!run?.result) return null
-    const html = marked.parse(run.result, { async: false }) as string
-    return DOMPurify.sanitize(html)
-  }, [run?.result])
 
   const handleCopy = async () => {
     if (!run?.result) return
@@ -94,12 +87,10 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
               </div>
               <p className="text-destructive text-sm">{run.result}</p>
             </div>
-          ) : renderedContent ? (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-border bg-muted/50 p-4"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: renderedContent is sanitized with DOMPurify
-              dangerouslySetInnerHTML={{ __html: renderedContent }}
-            />
+          ) : run.result ? (
+            <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-border bg-muted/50 p-4">
+              <MessageResponse>{run.result}</MessageResponse>
+            </div>
           ) : (
             <div className="rounded-lg border border-border bg-muted/50 p-4 text-muted-foreground text-sm">
               No result available
