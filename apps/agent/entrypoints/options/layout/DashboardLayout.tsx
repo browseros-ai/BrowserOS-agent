@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   Menu,
   MessageSquare,
+  MessageSquareHeart,
   Palette,
   PlugZap,
   RotateCcw,
@@ -66,6 +67,12 @@ const navigationItems: NavItem[] = [
     icon: Palette,
     enabled: true,
     feature: Feature.CUSTOMIZATION_SUPPORT,
+  },
+  {
+    name: 'Product Survey',
+    to: '/jtbd-agent',
+    icon: MessageSquareHeart,
+    enabled: true,
   },
 
   {
