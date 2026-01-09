@@ -1,0 +1,204 @@
+import { useCallback, useRef, useState } from 'react'
+
+const JTBD_API_URL = 'https://jtbd-agent.fly.dev'
+const DOMAIN = 'browseros'
+
+export type Message = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type Phase = 'idle' | 'active' | 'completed' | 'error'
+
+async function* streamSSE(
+  response: Response,
+): AsyncGenerator<string, void, unknown> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('Response body is not readable')
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const data = line.slice(6)
+        if (data === '[DONE]') return
+
+        try {
+          const event = JSON.parse(data)
+          if (event.type === 'text-delta' && event.delta) {
+            yield event.delta
+          } else if (event.type === 'error' && event.errorText) {
+            throw new Error(event.errorText)
+          }
+        } catch (e) {
+          if (
+            e instanceof Error &&
+            e.message !== 'Unexpected end of JSON input'
+          ) {
+            throw e
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+export function useJTBDAgentChat() {
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [messages, setMessages] = useState<Message[]>([])
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const sessionIdRef = useRef<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const appendMessage = useCallback((msg: Message) => {
+    setMessages((prev) => [...prev, msg])
+  }, [])
+
+  const updateLastMessage = useCallback((content: string) => {
+    setMessages((prev) => {
+      if (prev.length === 0) return prev
+      const updated = [...prev]
+      updated[updated.length - 1] = {
+        ...updated[updated.length - 1],
+        content,
+      }
+      return updated
+    })
+  }, [])
+
+  const start = useCallback(async () => {
+    setPhase('active')
+    setError(null)
+    setIsStreaming(true)
+
+    const assistantMsgId = crypto.randomUUID()
+    appendMessage({ id: assistantMsgId, role: 'assistant', content: '' })
+
+    abortControllerRef.current = new AbortController()
+
+    try {
+      const response = await fetch(`${JTBD_API_URL}/api/interview/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: DOMAIN }),
+        signal: abortControllerRef.current.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to start interview: ${response.status}`)
+      }
+
+      const newSessionId = response.headers.get('x-interview-session-id')
+      if (newSessionId) {
+        sessionIdRef.current = newSessionId
+      }
+
+      let accumulated = ''
+      for await (const chunk of streamSSE(response)) {
+        accumulated += chunk
+        updateLastMessage(accumulated)
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return
+      const err = e instanceof Error ? e : new Error('Unknown error')
+      setError(err)
+      setPhase('error')
+    } finally {
+      setIsStreaming(false)
+      abortControllerRef.current = null
+    }
+  }, [appendMessage, updateLastMessage])
+
+  const respond = useCallback(
+    async (text: string) => {
+      if (!sessionIdRef.current) return
+
+      const userMsgId = crypto.randomUUID()
+      appendMessage({ id: userMsgId, role: 'user', content: text })
+
+      const assistantMsgId = crypto.randomUUID()
+      appendMessage({ id: assistantMsgId, role: 'assistant', content: '' })
+
+      setIsStreaming(true)
+      setError(null)
+
+      abortControllerRef.current = new AbortController()
+
+      try {
+        const response = await fetch(
+          `${JTBD_API_URL}/api/interview/${sessionIdRef.current}/respond`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ response: text }),
+            signal: abortControllerRef.current.signal,
+          },
+        )
+
+        if (!response.ok) {
+          throw new Error(`Failed to respond: ${response.status}`)
+        }
+
+        let accumulated = ''
+        for await (const chunk of streamSSE(response)) {
+          accumulated += chunk
+          updateLastMessage(accumulated)
+        }
+
+        if (
+          accumulated.toLowerCase().includes('thank you') &&
+          accumulated.toLowerCase().includes('valuable insights')
+        ) {
+          setPhase('completed')
+        }
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') return
+        const err = e instanceof Error ? e : new Error('Unknown error')
+        setError(err)
+        setPhase('error')
+      } finally {
+        setIsStreaming(false)
+        abortControllerRef.current = null
+      }
+    },
+    [appendMessage, updateLastMessage],
+  )
+
+  const stop = useCallback(() => {
+    abortControllerRef.current?.abort()
+    setIsStreaming(false)
+  }, [])
+
+  const reset = useCallback(() => {
+    stop()
+    setMessages([])
+    setError(null)
+    sessionIdRef.current = null
+    setPhase('idle')
+  }, [stop])
+
+  return {
+    phase,
+    messages,
+    isStreaming,
+    error,
+    start,
+    respond,
+    stop,
+    reset,
+  }
+}
