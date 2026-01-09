@@ -43,7 +43,18 @@ export class Application {
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-    const { controllerContext } = this.createController()
+    let controllerContext: ControllerContext
+    try {
+      const result = await this.createController()
+      controllerContext = result.controllerContext
+    } catch (error) {
+      logger.error('Failed to start WebSocket server', {
+        port: this.config.extensionPort,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      Sentry.captureException(error)
+      process.exit(1)
+    }
 
     const cdpContext = await this.connectToCdp()
 
@@ -53,19 +64,28 @@ export class Application {
     const tools = createToolRegistry(cdpContext, controllerContext)
     const toolMutex = new Mutex()
 
-    createHttpServer({
-      port: this.config.serverPort,
-      host: '0.0.0.0',
-      version: VERSION,
-      tools,
-      cdpContext,
-      controllerContext,
-      toolMutex,
-      allowRemote: this.config.mcpAllowRemote,
-      browserosId: identity.getBrowserOSId(),
-      tempDir: this.config.executionDir || this.config.resourcesDir,
-      rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
-    })
+    try {
+      createHttpServer({
+        port: this.config.serverPort,
+        host: '0.0.0.0',
+        version: VERSION,
+        tools,
+        cdpContext,
+        controllerContext,
+        toolMutex,
+        allowRemote: this.config.mcpAllowRemote,
+        browserosId: identity.getBrowserOSId(),
+        tempDir: this.config.executionDir || this.config.resourcesDir,
+        rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
+      })
+    } catch (error) {
+      logger.error('Failed to start HTTP server', {
+        port: this.config.serverPort,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      Sentry.captureException(error)
+      process.exit(1)
+    }
 
     logger.info(
       `HTTP server listening on http://127.0.0.1:${this.config.serverPort}`,
@@ -149,7 +169,9 @@ export class Application {
     }
   }
 
-  private createController(): { controllerContext: ControllerContext } {
+  private async createController(): Promise<{
+    controllerContext: ControllerContext
+  }> {
     logger.info(
       `Controller server starting on ws://127.0.0.1:${this.config.extensionPort}`,
     )
@@ -157,6 +179,7 @@ export class Application {
       this.config.extensionPort,
       logger,
     )
+    await controllerBridge.waitForReady()
     return { controllerContext: new ControllerContext(controllerBridge) }
   }
 

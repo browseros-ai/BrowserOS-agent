@@ -7,7 +7,6 @@ import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { WebSocket } from 'ws'
 import { WebSocketServer } from 'ws'
 import type { Logger } from '../common/logger'
-import { Sentry } from '../common/sentry/instrument'
 
 interface ControllerRequest {
   id: string
@@ -105,8 +104,22 @@ export class ControllerBridge {
     })
 
     this.wss.on('error', (error: Error) => {
-      Sentry.captureException(error)
       this.logger.error(`WebSocket server error: ${error.message}`)
+    })
+  }
+
+  waitForReady(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const onListening = () => {
+        this.wss.off('error', onError)
+        resolve()
+      }
+      const onError = (error: Error) => {
+        this.wss.off('listening', onListening)
+        reject(error)
+      }
+      this.wss.once('listening', onListening)
+      this.wss.once('error', onError)
     })
   }
 
