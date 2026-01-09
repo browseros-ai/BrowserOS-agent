@@ -1,5 +1,6 @@
 import { Loader2, Send, Square } from 'lucide-react'
 import { type FC, type FormEvent, useEffect, useRef, useState } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,9 @@ const MessageBubble: FC<{ message: Message }> = ({ message }) => {
             : 'bg-muted/50 text-foreground',
         )}
       >
-        {message.content || (
+        {message.content ? (
+          <MessageResponse>{message.content}</MessageResponse>
+        ) : (
           <span className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Thinking...
