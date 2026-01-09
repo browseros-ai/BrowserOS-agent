@@ -100,6 +100,7 @@ function createEnvWithMutablePorts(
 ): NodeJS.ProcessEnv {
   return {
     ...process.env,
+    NODE_ENV: 'development',
     BROWSEROS_CDP_PORT: String(ports.cdp),
     BROWSEROS_SERVER_PORT: String(ports.server),
     BROWSEROS_EXTENSION_PORT: String(ports.extension),
