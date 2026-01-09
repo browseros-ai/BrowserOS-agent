@@ -138,12 +138,17 @@ export const scheduledJobRuns = async () => {
         status: 'completed',
         completedAt: new Date().toISOString(),
         result: response.text,
+        finalResult: response.finalResult,
+        executionLog: response.executionLog,
+        toolCalls: response.toolCalls,
       })
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e)
       await updateJobRun(jobRun.id, {
         status: 'failed',
         completedAt: new Date().toISOString(),
-        result: e instanceof Error ? e.message : String(e),
+        result: errorMessage,
+        error: errorMessage,
       })
     } finally {
       await updateJobLastRunAt(jobId)

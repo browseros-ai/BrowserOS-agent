@@ -119,8 +119,11 @@ export class Logger implements LoggerInterface {
   private fileLogger: pino.Logger | null = null
   private level: LogLevel
 
-  constructor(level: LogLevel = 'info') {
-    this.level = level
+  constructor(level?: LogLevel) {
+    this.level =
+      level ||
+      (process.env.LOG_LEVEL as LogLevel | undefined) ||
+      (isDev ? 'debug' : 'info')
     this.consoleLogger = this.createConsoleLogger()
   }
 
