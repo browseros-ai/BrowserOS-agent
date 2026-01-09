@@ -21,7 +21,12 @@ import {
   createAITabAction,
   createBrowserOSAction,
 } from '@/lib/chat-actions/types'
+import {
+  NEWTAB_AI_TRIGGERED_EVENT,
+  NEWTAB_SEARCH_EXECUTED_EVENT,
+} from '@/lib/constants/analyticsEvents'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
+import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { FooterLinks } from './FooterLinks'
 import type { SuggestionItem } from './lib/suggestions/types'
@@ -121,12 +126,17 @@ export const NewTab = () => {
 
     switch (item.type) {
       case 'search':
+        track(NEWTAB_SEARCH_EXECUTED_EVENT, { search_engine: 'google' })
         window.open(
           `https://www.google.com/search?q=${encodeURIComponent(item.query)}`,
           '_self',
         )
         break
       case 'ai-tab': {
+        track(NEWTAB_AI_TRIGGERED_EVENT, {
+          mode: 'agent',
+          tabs_count: selectedTabs.length,
+        })
         const action = createAITabAction({
           name: item.name,
           description: item.description,
@@ -141,6 +151,10 @@ export const NewTab = () => {
         break
       }
       case 'browseros': {
+        track(NEWTAB_AI_TRIGGERED_EVENT, {
+          mode: item.mode,
+          tabs_count: selectedTabs.length,
+        })
         const action = createBrowserOSAction({
           mode: item.mode,
           message: item.message,
