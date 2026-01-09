@@ -173,8 +173,6 @@ function processEvent(event: UIMessageEvent, state: StreamParseState): void {
       state.executionSteps.push(state.currentStepText.trim())
       state.currentStepText = ''
     }
-
-    state.executionSteps.push(`🔧 Tool: ${event.toolName}`)
   } else if (event.type === 'tool-output-available') {
     const existingCall = state.toolCallsMap.get(event.toolCallId)
     if (existingCall) {
@@ -236,10 +234,15 @@ async function parseUIMessageStream(
       ? state.currentStepText.trim()
       : state.lastTextBeforeToolCall.trim()
 
+    const allSteps = [...state.executionSteps]
+    if (finalResult) {
+      allSteps.push(finalResult)
+    }
+
     return {
       fullText: state.fullText,
       finalResult,
-      executionLog: state.executionSteps.join('\n\n'),
+      executionLog: allSteps.join('\n\n'),
       toolCalls: Array.from(state.toolCallsMap.values()),
       error: state.error,
     }
