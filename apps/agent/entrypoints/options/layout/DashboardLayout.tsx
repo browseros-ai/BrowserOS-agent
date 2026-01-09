@@ -72,7 +72,7 @@ const navigationItems: NavItem[] = [
     name: 'Product Survey',
     to: '/jtbd-agent',
     icon: MessageSquareHeart,
-    enabled: true,
+    enabled: false,
   },
 
   {

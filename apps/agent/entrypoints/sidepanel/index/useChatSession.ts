@@ -1,5 +1,6 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
+// biome-ignore lint/correctness/noUnusedImports: temporarily disabled for Klavis latency diagnosis
 import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
@@ -195,6 +196,7 @@ export const useChatSession = () => {
         const message = getLastMessageText(messages)
         const provider = selectedLlmProviderRef.current
         const currentMode = modeRef.current
+        // biome-ignore lint/correctness/noUnusedVariables: temporarily disabled for Klavis latency diagnosis
         const enabledMcpServers = enabledMcpServersRef.current
         const customMcpServers = enabledCustomServersRef.current
 
@@ -240,9 +242,10 @@ export const useChatSession = () => {
           }))
         }
 
-        if (enabledMcpServers.length) {
-          browserContext.enabledMcpServers = compact(enabledMcpServers)
-        }
+        // TODO: Temporarily disabled to diagnose Klavis latency issues
+        // if (enabledMcpServers.length) {
+        //   browserContext.enabledMcpServers = compact(enabledMcpServers)
+        // }
 
         if (customMcpServers.length) {
           browserContext.customMcpServers = customMcpServers as {
