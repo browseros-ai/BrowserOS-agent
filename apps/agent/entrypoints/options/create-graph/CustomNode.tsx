@@ -86,7 +86,7 @@ const nodeConfig: Record<
   },
 }
 
-type NodeType =
+export type NodeType =
   | 'start'
   | 'end'
   | 'nav'
