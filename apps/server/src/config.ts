@@ -260,6 +260,7 @@ function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
 }
 
 function loadEnv(env: NodeJS.ProcessEnv): PartialConfig {
+  const cwd = process.cwd()
   return filterUndefined({
     cdpPort: env.BROWSEROS_CDP_PORT
       ? safeParseInt(env.BROWSEROS_CDP_PORT)
@@ -270,8 +271,12 @@ function loadEnv(env: NodeJS.ProcessEnv): PartialConfig {
     extensionPort: env.BROWSEROS_EXTENSION_PORT
       ? safeParseInt(env.BROWSEROS_EXTENSION_PORT)
       : undefined,
-    resourcesDir: env.BROWSEROS_RESOURCES_DIR,
-    executionDir: env.BROWSEROS_EXECUTION_DIR,
+    resourcesDir: env.BROWSEROS_RESOURCES_DIR
+      ? resolvePath(env.BROWSEROS_RESOURCES_DIR, cwd)
+      : undefined,
+    executionDir: env.BROWSEROS_EXECUTION_DIR
+      ? resolvePath(env.BROWSEROS_EXECUTION_DIR, cwd)
+      : undefined,
     instanceInstallId: env.BROWSEROS_INSTALL_ID,
     instanceClientId: env.BROWSEROS_CLIENT_ID,
   })
