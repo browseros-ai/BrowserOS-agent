@@ -1,0 +1,127 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+import { mkdir, rm } from 'node:fs/promises'
+import path from 'node:path'
+import type { LLMConfig, ProgressEvent } from '@browseros-ai/agent-sdk'
+import { Agent } from '@browseros-ai/agent-sdk'
+import { logger } from '../common/logger'
+
+export interface ExecutorOptions {
+  serverUrl: string
+  llmConfig?: LLMConfig
+  onProgress: (event: ProgressEvent) => void
+  signal?: AbortSignal
+}
+
+export interface ExecutorResult {
+  success: boolean
+  result?: unknown
+  error?: string
+}
+
+/**
+ * Executes generated graph code using the Agent SDK.
+ *
+ * @param code - Generated code from codegen service
+ * @param sessionId - Unique session ID for this execution
+ * @param tempDir - Base temp directory for execution files
+ * @param options - Execution options (serverUrl, llmConfig, onProgress, signal)
+ */
+export async function executeGraph(
+  code: string,
+  sessionId: string,
+  tempDir: string,
+  options: ExecutorOptions,
+): Promise<ExecutorResult> {
+  const execDir = path.join(tempDir, 'graph', sessionId)
+
+  try {
+    // Check if aborted before starting
+    if (options.signal?.aborted) {
+      return { success: false, error: 'Execution aborted' }
+    }
+
+    // Create execution directory
+    await mkdir(execDir, { recursive: true })
+
+    // Transform code: remove import statements (Agent is passed directly)
+    const transformedCode = transformCodeForExecution(code)
+
+    // Write code to file
+    const codePath = path.join(execDir, 'graph.ts')
+    await Bun.write(codePath, transformedCode)
+
+    logger.debug(`Wrote graph code to ${codePath}`)
+
+    // Create Agent instance with progress callback
+    const agent = new Agent({
+      url: options.serverUrl,
+      llm: options.llmConfig,
+      onProgress: options.onProgress,
+    })
+
+    // Dynamic import and execute
+    const module = await import(codePath)
+
+    if (typeof module.run !== 'function') {
+      throw new Error('Generated code must export a "run" function')
+    }
+
+    // Execute with abort handling
+    const result = await Promise.race([
+      module.run(agent),
+      new Promise((_, reject) => {
+        options.signal?.addEventListener('abort', () => {
+          reject(new Error('Execution aborted'))
+        })
+      }),
+    ])
+
+    // Emit done event
+    options.onProgress({ type: 'done', message: 'Execution completed' })
+
+    return { success: true, result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error(`Graph execution failed: ${errorMessage}`)
+
+    // Emit error event
+    options.onProgress({ type: 'error', message: errorMessage })
+
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * Transforms generated code for execution.
+ * Removes import statements since Agent is passed directly to the run function.
+ */
+function transformCodeForExecution(code: string): string {
+  // Remove import statements for @browseros-ai/agent-sdk
+  // Examples:
+  //   import type { Agent } from '@browseros-ai/agent-sdk'
+  //   import { Agent } from '@browseros-ai/agent-sdk'
+  return code.replace(/^import\s+.*['"]@browseros-ai\/agent-sdk['"].*$/gm, '')
+}
+
+/**
+ * Cleans up execution files for a session.
+ */
+export async function cleanupExecution(
+  sessionId: string,
+  tempDir: string,
+): Promise<void> {
+  const execDir = path.join(tempDir, 'graph', sessionId)
+
+  try {
+    await rm(execDir, { recursive: true, force: true })
+    logger.debug(`Cleaned up execution directory: ${execDir}`)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.warn(`Failed to cleanup execution directory: ${errorMessage}`)
+  }
+}

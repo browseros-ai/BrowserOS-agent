@@ -17,6 +17,7 @@ import { HttpAgentError } from '../agent/errors'
 import { logger } from '../common/logger'
 import { createChatRoutes } from './routes/chat'
 import { createExtensionStatusRoute } from './routes/extension-status'
+import { createGraphRoutes } from './routes/graph'
 import { health } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
@@ -81,6 +82,15 @@ export function createHttpServer(config: HttpServerConfig) {
       createSdkRoutes({
         port,
         browserosId,
+      }),
+    )
+    .route(
+      '/graph',
+      createGraphRoutes({
+        port,
+        tempDir,
+        codegenServiceUrl:
+          process.env.CODEGEN_SERVICE_URL || 'http://localhost:3100',
       }),
     )
 

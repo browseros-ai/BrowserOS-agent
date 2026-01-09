@@ -89,4 +89,105 @@ export interface HttpServerConfig {
   browserosId?: string
   tempDir?: string
   rateLimiter?: RateLimiter
+
+  // For Graph routes
+  codegenServiceUrl?: string
 }
+
+// Graph request schemas
+export const CreateGraphRequestSchema = z.object({
+  query: z.string().min(1, 'Query cannot be empty'),
+})
+
+export type CreateGraphRequest = z.infer<typeof CreateGraphRequestSchema>
+
+export const UpdateGraphRequestSchema = z.object({
+  query: z.string().min(1, 'Query cannot be empty'),
+})
+
+export type UpdateGraphRequest = z.infer<typeof UpdateGraphRequestSchema>
+
+// Run graph request - similar to ChatRequest, needs provider config for Agent SDK
+export const RunGraphRequestSchema = VercelAIConfigSchema.extend({
+  browserContext: BrowserContextSchema.optional(),
+})
+
+export type RunGraphRequest = z.infer<typeof RunGraphRequestSchema>
+
+// Workflow graph types (matching codegen-service)
+export type WorkflowNodeType =
+  | 'start'
+  | 'end'
+  | 'nav'
+  | 'act'
+  | 'extract'
+  | 'verify'
+  | 'decision'
+  | 'loop'
+  | 'fork'
+  | 'join'
+
+export interface WorkflowNode {
+  id: string
+  type: WorkflowNodeType
+  data: { label: string }
+}
+
+export interface WorkflowEdge {
+  id: string
+  source: string
+  target: string
+}
+
+export interface WorkflowGraph {
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
+}
+
+export interface GraphSession {
+  id: string
+  code: string
+  graph: WorkflowGraph | null
+  createdAt: Date
+}
+
+// Codegen service SSE event types (matching codegen-service)
+export interface CodegenStartedEvent {
+  event: 'started'
+  data: {
+    codeId: string
+    instanceId: string
+  }
+}
+
+export interface CodegenProgressEvent {
+  event: 'progress'
+  data: {
+    message: string
+    turn: number
+  }
+}
+
+export interface CodegenCompleteEvent {
+  event: 'complete'
+  data: {
+    codeId: string
+    code: string
+    graph: WorkflowGraph | null
+    instanceId: string
+  }
+}
+
+export interface CodegenErrorEvent {
+  event: 'error'
+  data: {
+    error: string
+    details?: string
+  }
+}
+
+export type CodegenSSEEvent =
+  | CodegenStartedEvent
+  | CodegenProgressEvent
+  | CodegenCompleteEvent
+  | CodegenErrorEvent
