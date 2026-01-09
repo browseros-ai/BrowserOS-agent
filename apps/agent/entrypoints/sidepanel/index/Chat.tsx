@@ -107,10 +107,6 @@ export const Chat = () => {
   }
 
   const handleSuggestionClick = (suggestion: string) => {
-    track(SIDEPANEL_AI_TRIGGERED_EVENT, {
-      mode,
-      tabs_count: attachedTabs.length,
-    })
     executeMessage(suggestion)
   }
 
