@@ -1,7 +1,22 @@
 import { useRef, useState } from 'react'
+import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
+import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
 const JTBD_API_URL = 'http://localhost:3001' // 'https://jtbd-agent.fly.dev'
-const DOMAIN = 'browseros'
+
+// Helper: Get install ID from BrowserOS prefs, returns empty if unavailable
+async function getInstallId(): Promise<string> {
+  try {
+    const adapter = getBrowserOSAdapter()
+    const pref = await adapter.getPref(BROWSEROS_PREFS.INSTALL_ID)
+    if (pref?.value) {
+      return String(pref.value)
+    }
+  } catch {
+    // BrowserOS API not available
+  }
+  return ''
+}
 
 export type Message = {
   id: string
@@ -96,10 +111,11 @@ export function useJTBDAgentChat() {
     abortControllerRef.current = new AbortController()
 
     try {
+      const installId = await getInstallId()
       const response = await fetch(`${JTBD_API_URL}/api/interview/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: DOMAIN }),
+        body: JSON.stringify({ installId }),
         signal: abortControllerRef.current.signal,
       })
 
