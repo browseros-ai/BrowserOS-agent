@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-const JTBD_API_URL = 'http://localhost:3001'
+const JTBD_API_URL = 'http://localhost:3001' // 'https://jtbd-agent.fly.dev'
 const DOMAIN = 'browseros'
 
 export type Message = {
