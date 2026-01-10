@@ -5,7 +5,6 @@ import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 const JTBD_API_URL = 'http://localhost:3001' // 'https://jtbd-agent.fly.dev'
 const EXPERIMENT_ID = 'jtbd_jan26'
 
-// Helper: Get install ID from BrowserOS prefs, returns empty if unavailable
 async function getInstallId(): Promise<string> {
   try {
     const adapter = getBrowserOSAdapter()
@@ -14,7 +13,6 @@ async function getInstallId(): Promise<string> {
       return String(pref.value)
     }
   } catch {
-    // BrowserOS API not available
   }
   return ''
 }
@@ -27,7 +25,6 @@ export type Message = {
 
 export type Phase = 'idle' | 'active' | 'completed' | 'error'
 
-// Special marker for interview completion
 const INTERVIEW_COMPLETE_MARKER = '__INTERVIEW_COMPLETE__'
 
 async function* streamSSE(
