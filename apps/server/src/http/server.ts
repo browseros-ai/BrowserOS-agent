@@ -15,6 +15,7 @@ import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { logger } from '../common/logger'
+import { bindPortWithRetry } from '../common/port-binding'
 import { createChatRoutes } from './routes/chat'
 import { createExtensionStatusRoute } from './routes/extension-status'
 import { health } from './routes/health'
@@ -26,12 +27,13 @@ import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
 /**
- * Creates the consolidated HTTP server.
+ * Creates the consolidated HTTP server with port binding retry logic.
+ * Retries binding every 5s for up to 30s to handle TIME_WAIT states.
  *
  * @param config - Server configuration
  * @returns Bun server instance
  */
-export function createHttpServer(config: HttpServerConfig) {
+export async function createHttpServer(config: HttpServerConfig) {
   const {
     port,
     host = '0.0.0.0',
@@ -116,13 +118,14 @@ export function createHttpServer(config: HttpServerConfig) {
     )
   })
 
-  // IMPORTANT: Pass Bun server to Hono env for isLocalhostRequest() security check.
-  // This allows routes to access server.requestIP() for real TCP connection IP.
-  const server = Bun.serve({
-    fetch: (request, server) => app.fetch(request, { server }),
-    port,
-    hostname: host,
-    idleTimeout: 0, // Disable idle timeout for long-running LLM streams
+  // Bind with retry logic to handle TIME_WAIT states
+  const server = await bindPortWithRetry(port, async () => {
+    return Bun.serve({
+      fetch: (request, server) => app.fetch(request, { server }),
+      port,
+      hostname: host,
+      idleTimeout: 0, // Disable idle timeout for long-running LLM streams
+    })
   })
 
   logger.info('Consolidated HTTP Server started', { port, host })
@@ -135,4 +138,4 @@ export function createHttpServer(config: HttpServerConfig) {
 }
 
 // Export type for client inference (e.g., hono/client)
-export type AppType = ReturnType<typeof createHttpServer>['app']
+export type AppType = Awaited<ReturnType<typeof createHttpServer>>['app']
