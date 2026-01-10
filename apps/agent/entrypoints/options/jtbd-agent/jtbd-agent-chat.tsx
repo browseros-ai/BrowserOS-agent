@@ -69,7 +69,7 @@ export const JTBDAgentChat: FC<Props> = ({
   }
 
   return (
-    <div className="flex h-[500px] flex-col rounded-xl border border-border bg-card shadow-sm">
+    <div className="flex h-[calc(100vh-250px)] flex-col rounded-xl border border-border bg-card shadow-sm">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
@@ -85,7 +85,7 @@ export const JTBDAgentChat: FC<Props> = ({
             onKeyDown={handleKeyDown}
             placeholder="Type your response..."
             disabled={isStreaming}
-            className="min-h-[44px] resize-none"
+            className="max-h-40 min-h-[44px] resize-none"
             rows={1}
           />
           {isStreaming ? (

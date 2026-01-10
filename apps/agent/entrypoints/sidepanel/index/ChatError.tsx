@@ -49,15 +49,26 @@ export const ChatError: FC<ChatErrorProps> = ({ error, onRetry }) => {
         </span>
       </div>
       <p className="text-center text-destructive text-xs">{text}</p>
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-muted-foreground text-xs underline hover:text-foreground"
-        >
-          Learn more
-        </a>
+      {isRateLimit && (
+        <p className="text-muted-foreground text-xs">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            Learn more
+          </a>
+          {' or '}
+          <a
+            href="/options.html?page=survey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            take a quick survey
+          </a>
+        </p>
       )}
       {onRetry && (
         <Button
