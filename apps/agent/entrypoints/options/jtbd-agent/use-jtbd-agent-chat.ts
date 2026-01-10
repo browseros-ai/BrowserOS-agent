@@ -2,9 +2,8 @@ import { useRef, useState } from 'react'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
-const JTBD_API_URL = import.meta.env.DEV
-  ? 'http://localhost:3001'
-  : 'https://jtbd-agent.fly.dev'
+const JTBD_API_URL = 'https://jtbd-agent.fly.dev'
+// const LOCAL_JTBD_API_URL = 'http://localhost:3001'
 const EXPERIMENT_ID = 'jtbd_jan26'
 
 async function getInstallId(): Promise<string> {
