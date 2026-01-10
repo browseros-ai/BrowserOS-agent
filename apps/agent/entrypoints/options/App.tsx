@@ -9,12 +9,22 @@ import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 
+// Check query params for direct page navigation
+function getInitialRoute(): string {
+  const params = new URLSearchParams(window.location.search)
+  const page = params.get('page')
+  if (page === 'survey') return '/jtbd-agent'
+  return '/ai'
+}
+
 export const App: FC = () => {
+  const initialRoute = getInitialRoute()
+
   return (
     <HashRouter>
       <Routes>
         <Route element={<DashboardLayout />}>
-          <Route index element={<Navigate to="/ai" replace />} />
+          <Route index element={<Navigate to={initialRoute} replace />} />
           <Route path="ai" element={<AISettingsPage key="ai" />} />
           <Route path="chat" element={<LlmHubPage />} />
           <Route path="search" element={null} />
