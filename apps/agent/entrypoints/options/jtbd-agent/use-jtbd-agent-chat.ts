@@ -13,6 +13,7 @@ async function getInstallId(): Promise<string> {
       return String(pref.value)
     }
   } catch {
+    // BrowserOS API not available
   }
   return ''
 }
