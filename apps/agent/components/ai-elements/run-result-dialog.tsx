@@ -60,7 +60,7 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
 
   return (
     <Dialog open={!!run} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {run.status === 'completed' ? (
@@ -78,7 +78,7 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-100">
+        <ScrollArea className="max-h-[70vh]">
           {run.status === 'failed' && run.result ? (
             <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
               <div className="flex items-center gap-2 text-muted-foreground">
