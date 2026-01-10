@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-const JTBD_API_URL = 'https://jtbd-agent.fly.dev'
+const JTBD_API_URL = 'http://localhost:3001'
 const DOMAIN = 'browseros'
 
 export type Message = {
@@ -10,6 +10,9 @@ export type Message = {
 }
 
 export type Phase = 'idle' | 'active' | 'completed' | 'error'
+
+// Special marker for interview completion
+const INTERVIEW_COMPLETE_MARKER = '__INTERVIEW_COMPLETE__'
 
 async function* streamSSE(
   response: Response,
@@ -38,6 +41,8 @@ async function* streamSSE(
           const event = JSON.parse(data)
           if (event.type === 'text-delta' && event.delta) {
             yield event.delta
+          } else if (event.type === 'interview_complete') {
+            yield INTERVIEW_COMPLETE_MARKER
           } else if (event.type === 'error' && event.errorText) {
             throw new Error(event.errorText)
           }
@@ -158,15 +163,18 @@ export function useJTBDAgentChat() {
       }
 
       let accumulated = ''
+      let isComplete = false
+
       for await (const chunk of streamSSE(response)) {
+        if (chunk === INTERVIEW_COMPLETE_MARKER) {
+          isComplete = true
+          continue
+        }
         accumulated += chunk
         updateLastMessage(accumulated)
       }
 
-      if (
-        accumulated.toLowerCase().includes('thank you') &&
-        accumulated.toLowerCase().includes('valuable insights')
-      ) {
+      if (isComplete) {
         setPhase('completed')
       }
     } catch (e) {
