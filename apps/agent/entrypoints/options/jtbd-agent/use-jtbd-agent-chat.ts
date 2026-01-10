@@ -1,7 +1,22 @@
 import { useRef, useState } from 'react'
+import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
+import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
-const JTBD_API_URL = 'https://jtbd-agent.fly.dev'
-const DOMAIN = 'browseros'
+const JTBD_API_URL = 'https://jtbd-agent.fly.dev' // 'http://localhost:3001'
+const EXPERIMENT_ID = 'jtbd_jan26'
+
+async function getInstallId(): Promise<string> {
+  try {
+    const adapter = getBrowserOSAdapter()
+    const pref = await adapter.getPref(BROWSEROS_PREFS.INSTALL_ID)
+    if (pref?.value) {
+      return String(pref.value)
+    }
+  } catch {
+    // BrowserOS API not available
+  }
+  return ''
+}
 
 export type Message = {
   id: string
@@ -10,6 +25,8 @@ export type Message = {
 }
 
 export type Phase = 'idle' | 'active' | 'completed' | 'error'
+
+const INTERVIEW_COMPLETE_MARKER = '__INTERVIEW_COMPLETE__'
 
 async function* streamSSE(
   response: Response,
@@ -38,6 +55,8 @@ async function* streamSSE(
           const event = JSON.parse(data)
           if (event.type === 'text-delta' && event.delta) {
             yield event.delta
+          } else if (event.type === 'interview_complete') {
+            yield INTERVIEW_COMPLETE_MARKER
           } else if (event.type === 'error' && event.errorText) {
             throw new Error(event.errorText)
           }
@@ -91,10 +110,11 @@ export function useJTBDAgentChat() {
     abortControllerRef.current = new AbortController()
 
     try {
+      const installId = await getInstallId()
       const response = await fetch(`${JTBD_API_URL}/api/interview/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: DOMAIN }),
+        body: JSON.stringify({ installId, experimentId: EXPERIMENT_ID }),
         signal: abortControllerRef.current.signal,
       })
 
@@ -158,15 +178,18 @@ export function useJTBDAgentChat() {
       }
 
       let accumulated = ''
+      let isComplete = false
+
       for await (const chunk of streamSSE(response)) {
+        if (chunk === INTERVIEW_COMPLETE_MARKER) {
+          isComplete = true
+          continue
+        }
         accumulated += chunk
         updateLastMessage(accumulated)
       }
 
-      if (
-        accumulated.toLowerCase().includes('thank you') &&
-        accumulated.toLowerCase().includes('valuable insights')
-      ) {
+      if (isComplete) {
         setPhase('completed')
       }
     } catch (e) {
