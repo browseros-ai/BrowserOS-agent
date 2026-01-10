@@ -49,10 +49,10 @@ export async function bindPortWithRetry<T>(
   const startTime = Date.now()
   const maxDuration = TIMEOUTS.PORT_BIND_MAX_DURATION
   const retryInterval = TIMEOUTS.PORT_BIND_RETRY_INTERVAL
-  let lastError: Error | null = null
+  let lastError = new Error('Port bind failed with no attempts')
   let attempt = 0
 
-  while (Date.now() - startTime < maxDuration) {
+  do {
     attempt++
     try {
       const result = await bindFn()
@@ -80,8 +80,8 @@ export async function bindPortWithRetry<T>(
 
       await sleep(Math.min(retryInterval, remaining))
     }
-  }
+  } while (Date.now() - startTime < maxDuration)
 
   const totalTime = Date.now() - startTime
-  throw new PortBindError(port, lastError!, totalTime)
+  throw new PortBindError(port, lastError, totalTime)
 }

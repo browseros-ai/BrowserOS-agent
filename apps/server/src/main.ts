@@ -50,7 +50,7 @@ export class Application {
       const result = await this.createController()
       controllerContext = result.controllerContext
     } catch (error) {
-      this.handleStartupError(
+      return this.handleStartupError(
         'WebSocket server',
         this.config.extensionPort,
         error,
@@ -62,7 +62,7 @@ export class Application {
     logger.info(
       `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
     )
-    const tools = createToolRegistry(cdpContext, controllerContext!)
+    const tools = createToolRegistry(cdpContext, controllerContext)
     const toolMutex = new Mutex()
 
     try {
@@ -72,7 +72,7 @@ export class Application {
         version: VERSION,
         tools,
         cdpContext,
-        controllerContext: controllerContext!,
+        controllerContext,
         toolMutex,
         allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
