@@ -74,14 +74,18 @@ export async function executeGraph(
 
     let abortHandler: (() => void) | undefined
     try {
-      const result = await Promise.race([
-        module.run(agent),
-        new Promise((_, reject) => {
-          if (!options.signal) return
-          abortHandler = () => reject(new Error('Execution aborted'))
-          options.signal.addEventListener('abort', abortHandler, { once: true })
-        }),
-      ])
+      // Only use Promise.race if we have a signal to listen to
+      const result = options.signal
+        ? await Promise.race([
+            module.run(agent),
+            new Promise<never>((_, reject) => {
+              abortHandler = () => reject(new Error('Execution aborted'))
+              options.signal?.addEventListener('abort', abortHandler, {
+                once: true,
+              })
+            }),
+          ])
+        : await module.run(agent)
 
       options.onProgress({ type: 'done', message: 'Execution completed' })
       return { success: true, result }

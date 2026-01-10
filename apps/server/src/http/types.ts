@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/agent/gemini-vercel-sdk-adapter/types'
 import type { RateLimiter } from '../agent/rate-limiter/rate-limiter'
@@ -110,7 +111,11 @@ export type UpdateGraphRequest = z.infer<typeof UpdateGraphRequestSchema>
 // Run graph request - similar to ChatRequest, needs provider config for Agent SDK
 export const RunGraphRequestSchema = VercelAIConfigSchema.extend({
   browserContext: BrowserContextSchema.optional(),
-})
+}).refine(
+  (data) =>
+    !data.provider || data.provider === LLM_PROVIDERS.BROWSEROS || !!data.model,
+  { message: 'model is required for non-browseros providers', path: ['model'] },
+)
 
 export type RunGraphRequest = z.infer<typeof RunGraphRequestSchema>
 
