@@ -3,6 +3,7 @@ import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
 const JTBD_API_URL = 'http://localhost:3001' // 'https://jtbd-agent.fly.dev'
+const EXPERIMENT_ID = 'jtbd_jan26'
 
 // Helper: Get install ID from BrowserOS prefs, returns empty if unavailable
 async function getInstallId(): Promise<string> {
@@ -115,7 +116,7 @@ export function useJTBDAgentChat() {
       const response = await fetch(`${JTBD_API_URL}/api/interview/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installId }),
+        body: JSON.stringify({ installId, experimentId: EXPERIMENT_ID }),
         signal: abortControllerRef.current.signal,
       })
 
