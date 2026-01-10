@@ -24,8 +24,8 @@ export class PortBindError extends Error {
 
 function isPortInUseError(error: unknown): boolean {
   if (error instanceof Error) {
-    const msg = error.message.toLowerCase()
-    return msg.includes('eaddrinuse') || msg.includes('address already in use')
+    const err = error as NodeJS.ErrnoException
+    return err.code === 'EADDRINUSE'
   }
   return false
 }
