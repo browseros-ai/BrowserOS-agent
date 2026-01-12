@@ -7,7 +7,7 @@ interface Props {
   isLoading?: boolean
 }
 
-export const JTBDAgentWelcome: FC<Props> = ({ onStart, isLoading }) => {
+export const Welcome: FC<Props> = ({ onStart, isLoading }) => {
   return (
     <div className="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
       <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent-orange)]/10">
