@@ -372,7 +372,6 @@ export class Agent {
         instruction,
         schema: jsonSchema,
         context: options.context,
-        llm: this.llmConfig,
       },
       ExtractionError,
     )
