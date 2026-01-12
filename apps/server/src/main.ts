@@ -65,6 +65,7 @@ export class Application {
       browserosId: identity.getBrowserOSId(),
       tempDir: this.config.executionDir || this.config.resourcesDir,
       rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
+      codegenServiceUrl: this.config.codegenServiceUrl,
     })
 
     logger.info(

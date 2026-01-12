@@ -71,24 +71,24 @@ function createSSEStream(
 interface GraphRouteDeps {
   port: number
   tempDir?: string
-  codegenServiceUrl: string
+  codegenServiceUrl?: string
 }
 
 export function createGraphRoutes(deps: GraphRouteDeps) {
   const { port, codegenServiceUrl } = deps
+  const graph = new Hono()
 
   const serverUrl = `http://127.0.0.1:${port}`
   const tempDir = deps.tempDir || PATHS.DEFAULT_TEMP_DIR
 
-  const graphService = new GraphService({
-    codegenServiceUrl,
-    serverUrl,
-    tempDir,
-  })
-
-  const graph = new Hono()
+  const graphService = codegenServiceUrl
+    ? new GraphService({ codegenServiceUrl, serverUrl, tempDir })
+    : null
 
   graph.post('/', validateRequest(CreateGraphRequestSchema), async (c) => {
+    if (!graphService) {
+      return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+    }
     const request = c.get('validatedBody') as CreateGraphRequest
     logger.info('Graph create request received', { query: request.query })
 
@@ -113,6 +113,9 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
     validateSessionId(),
     validateRequest(UpdateGraphRequestSchema),
     async (c) => {
+      if (!graphService) {
+        return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+      }
       const sessionId = c.req.param('id')
       const request = c.get('validatedBody') as UpdateGraphRequest
       logger.info('Graph update request received', {
@@ -139,6 +142,9 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
   )
 
   graph.get('/:id', validateSessionId(), async (c) => {
+    if (!graphService) {
+      return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+    }
     const sessionId = c.req.param('id')
 
     logger.debug('Graph get request received', { sessionId })
@@ -157,6 +163,9 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
     validateSessionId(),
     validateRequest(RunGraphRequestSchema),
     async (c) => {
+      if (!graphService) {
+        return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+      }
       const sessionId = c.req.param('id')
       const request = c.get('validatedBody') as RunGraphRequest
       logger.info('Graph run request received', {
@@ -200,6 +209,9 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
   )
 
   graph.delete('/:id', validateSessionId(), async (c) => {
+    if (!graphService) {
+      return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+    }
     const sessionId = c.req.param('id')
 
     logger.debug('Graph delete request received', { sessionId })

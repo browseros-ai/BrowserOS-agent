@@ -89,8 +89,7 @@ export function createHttpServer(config: HttpServerConfig) {
       createGraphRoutes({
         port,
         tempDir,
-        codegenServiceUrl:
-          process.env.CODEGEN_SERVICE_URL || 'http://localhost:3100',
+        codegenServiceUrl: config.codegenServiceUrl,
       }),
     )
 
