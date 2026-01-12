@@ -8,7 +8,7 @@ import type {
   TextContent,
 } from '@modelcontextprotocol/sdk/types.js'
 import type { ResourceType } from 'puppeteer-core'
-import type { McpContext } from '../../common/mcp-context'
+import type { McpContext } from '../../browser/cdp/context'
 
 import { formatConsoleEvent } from '../formatters/console-formatter'
 import {

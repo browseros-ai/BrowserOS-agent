@@ -7,7 +7,7 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import sinon from 'sinon'
 
-import type { TraceResult } from '../../src/common/types'
+import type { TraceResult } from '../../src/browser/cdp/types'
 
 import { withBrowser } from '../__helpers__/utils'
 

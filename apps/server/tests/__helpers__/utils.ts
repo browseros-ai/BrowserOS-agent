@@ -12,9 +12,8 @@ import { Mutex } from 'async-mutex'
 import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-
-import { logger } from '../../src/common/logger'
-import { McpContext } from '../../src/common/mcp-context'
+import { McpContext } from '../../src/browser/cdp/context'
+import { logger } from '../../src/lib/logger'
 import { McpResponse } from '../../src/tools/response/mcp-response'
 
 import { ensureBrowserOS } from './setup'

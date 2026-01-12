@@ -8,7 +8,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { Agent } from '@browseros-ai/agent-sdk'
-import { logger } from '../common/logger'
+import { logger } from '../lib/logger'
 
 export interface ExecutorOptions {
   serverUrl: string

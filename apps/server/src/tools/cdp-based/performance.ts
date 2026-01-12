@@ -5,8 +5,8 @@
 
 import type { Page } from 'puppeteer-core'
 import z from 'zod'
-import { logger } from '../../common/logger'
-import type { McpContext } from '../../common/mcp-context'
+import type { McpContext } from '../../browser/cdp/context'
+import { logger } from '../../lib/logger'
 
 import type { InsightName } from '../trace-processing/parse'
 import {
