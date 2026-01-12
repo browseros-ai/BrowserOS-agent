@@ -11,7 +11,7 @@ export const Header: FC = () => {
         <div className="flex-1">
           <h2 className="mb-1 font-semibold text-xl">Product Survey</h2>
           <p className="text-muted-foreground text-sm">
-            Share your experience with BrowserOS to help us improve
+            We'd love your honest feedback. All responses are anonymous.
           </p>
         </div>
       </div>
