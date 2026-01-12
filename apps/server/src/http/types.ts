@@ -59,14 +59,6 @@ export type Env = {
   Bindings: {
     server: ReturnType<typeof Bun.serve>
   }
-  Variables: AppVariables
-}
-
-/**
- * Request-scoped variables set by middleware.
- */
-export interface AppVariables {
-  validatedBody: unknown
 }
 
 /**
