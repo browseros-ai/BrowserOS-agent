@@ -76,7 +76,7 @@ async function* streamSSE(
   }
 }
 
-export function useJTBDAgentChat() {
+export function useChat() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [messages, setMessages] = useState<Message[]>([])
   const [isStreaming, setIsStreaming] = useState(false)

@@ -1,7 +1,7 @@
 import { MessageSquareHeart } from 'lucide-react'
 import type { FC } from 'react'
 
-export const JTBDAgentHeader: FC = () => {
+export const Header: FC = () => {
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
       <div className="flex items-start gap-4">

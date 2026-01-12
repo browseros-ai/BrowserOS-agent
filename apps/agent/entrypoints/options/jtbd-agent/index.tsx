@@ -1,10 +1,10 @@
 import { AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
-import { JTBDAgentChat } from './jtbd-agent-chat'
-import { JTBDAgentHeader } from './jtbd-agent-header'
-import { JTBDAgentWelcome } from './jtbd-agent-welcome'
-import { useJTBDAgentChat } from './use-jtbd-agent-chat'
+import { Chat } from './chat'
+import { Header } from './header'
+import { useChat } from './use-chat'
+import { Welcome } from './welcome'
 
 const ThankYouCard: FC<{ onReset: () => void }> = ({ onReset }) => (
   <div className="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
@@ -42,19 +42,19 @@ const ErrorCard: FC<{ error: Error; onRetry: () => void }> = ({
   </div>
 )
 
-export const JTBDAgentPage: FC = () => {
-  const chat = useJTBDAgentChat()
+export const SurveyPage: FC = () => {
+  const chat = useChat()
 
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
-      <JTBDAgentHeader />
+      <Header />
 
       {chat.phase === 'idle' && (
-        <JTBDAgentWelcome onStart={chat.start} isLoading={chat.isStreaming} />
+        <Welcome onStart={chat.start} isLoading={chat.isStreaming} />
       )}
 
       {chat.phase === 'active' && (
-        <JTBDAgentChat
+        <Chat
           messages={chat.messages}
           isStreaming={chat.isStreaming}
           onSendMessage={chat.respond}

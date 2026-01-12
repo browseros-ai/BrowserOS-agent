@@ -4,7 +4,7 @@ import { MessageResponse } from '@/components/ai-elements/message'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { Message } from './use-jtbd-agent-chat'
+import type { Message } from './use-chat'
 import { useVoiceInput } from './use-voice-input'
 import { VoiceInputButton } from './voice-input-button'
 
@@ -63,7 +63,7 @@ const WaveformIndicator: FC<{ level: number }> = ({ level }) => {
   )
 }
 
-export const JTBDAgentChat: FC<Props> = ({
+export const Chat: FC<Props> = ({
   messages,
   isStreaming,
   onSendMessage,
