@@ -1,3 +1,4 @@
+import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
@@ -8,6 +9,7 @@ import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
+import type { ToolCallExecution } from './scheduleTypes'
 
 interface ActiveTab {
   id?: number
@@ -26,36 +28,38 @@ interface ChatServerRequest {
 interface ChatServerResponse {
   text: string
   conversationId: string
+  finalResult: string
+  executionLog: string
+  toolCalls: ToolCallExecution[]
 }
 
-interface StreamEvent {
-  type: string
-  delta?: string
-  errorText?: string
+interface ParsedStreamResult {
+  fullText: string
+  finalResult: string
+  executionLog: string
+  toolCalls: ToolCallExecution[]
+  error: string | null
 }
 
-interface StreamState {
-  result: string
-  streamError: string | null
-}
+type UIMessageEvent =
+  | { type: 'text-delta'; id: string; delta: string }
+  | {
+      type: 'tool-input-available'
+      toolCallId: string
+      toolName: string
+      input: unknown
+    }
+  | { type: 'tool-output-available'; toolCallId: string; output: unknown }
+  | { type: 'tool-output-error'; toolCallId: string; errorText: string }
+  | { type: 'error'; errorText: string }
 
-function processStreamEvent(event: StreamEvent, state: StreamState): void {
-  if (event.type === 'text-delta' && event.delta) {
-    state.result += event.delta
-  } else if (event.type === 'error' && event.errorText) {
-    state.streamError = event.errorText
-  }
-}
-
-function tryParseStreamLine(line: string, state: StreamState): void {
-  if (!line.startsWith('data: ')) return
-  const data = line.slice(6)
-  if (data === '[DONE]') return
-  try {
-    processStreamEvent(JSON.parse(data), state)
-  } catch {
-    // Ignore JSON parse errors for malformed chunks
-  }
+interface StreamParseState {
+  fullText: string
+  currentStepText: string
+  lastTextBeforeToolCall: string
+  executionSteps: string[]
+  toolCallsMap: Map<string, ToolCallExecution>
+  error: string | null
 }
 
 const getDefaultProvider = async (): Promise<LlmProviderConfig | null> => {
@@ -134,37 +138,124 @@ export async function getChatServerResponse(
     )
   }
 
-  const text = await parseSSEStream(response)
+  const parsed = await parseUIMessageStream(response)
 
-  return { text, conversationId }
-}
-
-async function parseSSEStream(response: Response): Promise<string> {
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('Response body is not readable')
-
-  const decoder = new TextDecoder()
-  const state: StreamState = { result: '', streamError: null }
-  let buffer = ''
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        tryParseStreamLine(line, state)
-      }
-    }
-    tryParseStreamLine(buffer, state)
-  } finally {
-    reader.releaseLock()
+  if (parsed.error) {
+    throw new Error(parsed.error)
   }
 
-  if (state.streamError) throw new Error(state.streamError)
-  return state.result
+  return {
+    text: parsed.fullText,
+    conversationId,
+    finalResult: parsed.finalResult,
+    executionLog: parsed.executionLog,
+    toolCalls: parsed.toolCalls,
+  }
+}
+
+function processEvent(event: UIMessageEvent, state: StreamParseState): void {
+  if (event.type === 'text-delta') {
+    const text = event.delta
+    state.fullText += text
+    state.currentStepText += text
+    state.lastTextBeforeToolCall += text
+  } else if (event.type === 'tool-input-available') {
+    const toolCall: ToolCallExecution = {
+      id: event.toolCallId,
+      name: event.toolName,
+      input: event.input,
+      timestamp: new Date().toISOString(),
+    }
+
+    state.toolCallsMap.set(event.toolCallId, toolCall)
+
+    if (state.currentStepText.trim()) {
+      state.executionSteps.push(state.currentStepText.trim())
+      state.currentStepText = ''
+    }
+  } else if (event.type === 'tool-output-available') {
+    const existingCall = state.toolCallsMap.get(event.toolCallId)
+    if (existingCall) {
+      existingCall.output = event.output
+    }
+  } else if (event.type === 'tool-output-error') {
+    const existingCall = state.toolCallsMap.get(event.toolCallId)
+    if (existingCall) {
+      existingCall.error = event.errorText
+    }
+  } else if (event.type === 'error') {
+    state.error = event.errorText
+  }
+}
+
+async function parseUIMessageStream(
+  response: Response,
+): Promise<ParsedStreamResult> {
+  if (!response.body) {
+    throw new Error('Response body is not readable')
+  }
+
+  const state: StreamParseState = {
+    fullText: '',
+    currentStepText: '',
+    lastTextBeforeToolCall: '',
+    executionSteps: [],
+    toolCallsMap: new Map(),
+    error: null,
+  }
+
+  const parser = createParser({
+    onEvent(event: EventSourceMessage) {
+      if (event.data === '[DONE]') return
+
+      try {
+        const parsedEvent = JSON.parse(event.data) as UIMessageEvent
+        processEvent(parsedEvent, state)
+      } catch {
+        // Ignore invalid JSON events
+      }
+    },
+  })
+
+  try {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) break
+
+      const chunk = decoder.decode(value, { stream: true })
+      parser.feed(chunk)
+    }
+
+    const finalResult = state.currentStepText.trim()
+      ? state.currentStepText.trim()
+      : state.lastTextBeforeToolCall.trim()
+
+    const allSteps = [...state.executionSteps]
+    if (finalResult) {
+      allSteps.push(finalResult)
+    }
+
+    return {
+      fullText: state.fullText,
+      finalResult,
+      executionLog: allSteps.join('\n\n'),
+      toolCalls: Array.from(state.toolCallsMap.values()),
+      error: state.error,
+    }
+  } catch (error) {
+    return {
+      fullText: state.fullText,
+      finalResult: '',
+      executionLog: state.executionSteps.join('\n\n'),
+      toolCalls: Array.from(state.toolCallsMap.values()),
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error || 'Unknown error'),
+    }
+  }
 }

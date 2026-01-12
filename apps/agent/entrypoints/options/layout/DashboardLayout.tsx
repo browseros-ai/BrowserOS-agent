@@ -1,10 +1,12 @@
 import {
   Bot,
   CalendarClock,
+  GitGraph,
   Info,
   type LucideIcon,
   Menu,
   MessageSquare,
+  MessageSquareHeart,
   Palette,
   PlugZap,
   RotateCcw,
@@ -67,12 +69,24 @@ const navigationItems: NavItem[] = [
     enabled: true,
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
+  {
+    name: 'Product Survey',
+    to: '/jtbd-agent',
+    icon: MessageSquareHeart,
+    enabled: true,
+  },
 
   {
     name: 'Revisit Onboarding',
     to: chrome.runtime.getURL('onboarding.html'),
     icon: RotateCcw,
     target: '_blank',
+    enabled: true,
+  },
+  {
+    name: 'Create Graph',
+    to: '/create-graph',
+    icon: GitGraph,
     enabled: true,
   },
   {
