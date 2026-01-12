@@ -5,6 +5,7 @@
  */
 
 import { PATHS } from '@browseros/shared/constants/paths'
+import { zValidator } from '@hono/zod-validator'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
@@ -15,17 +16,12 @@ import {
 } from '../../agent/agent/gemini-vercel-sdk-adapter/ui-message-stream'
 import { logger } from '../../common/logger'
 import { GraphService } from '../services/graph-service'
-import type {
-  CreateGraphRequest,
-  RunGraphRequest,
-  UpdateGraphRequest,
-} from '../types'
 import {
   CreateGraphRequestSchema,
   RunGraphRequestSchema,
   UpdateGraphRequestSchema,
 } from '../types'
-import { validateRequest, validateSessionId } from '../utils/validation'
+import { SessionIdParamSchema } from '../utils/validation'
 
 interface SSEStreamOptions {
   vercelAIStream?: boolean
@@ -76,7 +72,6 @@ interface GraphRouteDeps {
 
 export function createGraphRoutes(deps: GraphRouteDeps) {
   const { port, codegenServiceUrl } = deps
-  const graph = new Hono()
 
   const serverUrl = `http://127.0.0.1:${port}`
   const tempDir = deps.tempDir || PATHS.DEFAULT_TEMP_DIR
@@ -85,50 +80,20 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
     ? new GraphService({ codegenServiceUrl, serverUrl, tempDir })
     : null
 
-  graph.post('/', validateRequest(CreateGraphRequestSchema), async (c) => {
-    if (!graphService) {
-      return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
-    }
-    const request = c.get('validatedBody') as CreateGraphRequest
-    logger.info('Graph create request received', { query: request.query })
-
-    return createSSEStream(
-      c,
-      { logLabel: 'Graph create' },
-      async (s, signal) => {
-        await graphService.createGraph(
-          request.query,
-          async (event) => {
-            await s.write(`data: ${JSON.stringify(event)}\n\n`)
-          },
-          signal,
-        )
-        await s.write(formatUIMessageStreamDone())
-      },
-    )
-  })
-
-  graph.put(
-    '/:id',
-    validateSessionId(),
-    validateRequest(UpdateGraphRequestSchema),
-    async (c) => {
+  // Chain route definitions for proper Hono RPC type inference
+  return new Hono()
+    .post('/', zValidator('json', CreateGraphRequestSchema), async (c) => {
       if (!graphService) {
         return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
       }
-      const sessionId = c.req.param('id')
-      const request = c.get('validatedBody') as UpdateGraphRequest
-      logger.info('Graph update request received', {
-        sessionId,
-        query: request.query,
-      })
+      const request = c.req.valid('json')
+      logger.info('Graph create request received', { query: request.query })
 
       return createSSEStream(
         c,
-        { logLabel: 'Graph update' },
+        { logLabel: 'Graph create' },
         async (s, signal) => {
-          await graphService.updateGraph(
-            sessionId,
+          await graphService.createGraph(
             request.query,
             async (event) => {
               await s.write(`data: ${JSON.stringify(event)}\n\n`)
@@ -138,88 +103,114 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
           await s.write(formatUIMessageStreamDone())
         },
       )
-    },
-  )
+    })
+    .put(
+      '/:id',
+      zValidator('param', SessionIdParamSchema),
+      zValidator('json', UpdateGraphRequestSchema),
+      async (c) => {
+        if (!graphService) {
+          return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+        }
+        const { id: sessionId } = c.req.valid('param')
+        const request = c.req.valid('json')
+        logger.info('Graph update request received', {
+          sessionId,
+          query: request.query,
+        })
 
-  graph.get('/:id', validateSessionId(), async (c) => {
-    if (!graphService) {
-      return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
-    }
-    const sessionId = c.req.param('id')
-
-    logger.debug('Graph get request received', { sessionId })
-
-    const session = await graphService.getGraph(sessionId)
-
-    if (!session) {
-      return c.json({ error: 'Graph not found' }, 404)
-    }
-
-    return c.json(session)
-  })
-
-  graph.post(
-    '/:id/run',
-    validateSessionId(),
-    validateRequest(RunGraphRequestSchema),
-    async (c) => {
-      if (!graphService) {
-        return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
-      }
-      const sessionId = c.req.param('id')
-      const request = c.get('validatedBody') as RunGraphRequest
-      logger.info('Graph run request received', {
-        sessionId,
-        provider: request.provider,
-        model: request.model,
-      })
-
-      return createSSEStream(
-        c,
-        { logLabel: 'Graph run', vercelAIStream: true },
-        async (s, signal) => {
-          const writer = new UIMessageStreamWriter(async (data) => {
-            await s.write(data)
-          })
-
-          try {
-            await writer.start(sessionId)
-
-            await graphService.runGraph(
+        return createSSEStream(
+          c,
+          { logLabel: 'Graph update' },
+          async (s, signal) => {
+            await graphService.updateGraph(
               sessionId,
-              request,
+              request.query,
               async (event) => {
-                // Forward events from agent SDK, skip outer start/finish (we manage those)
-                if (event.type === 'start' || event.type === 'finish') return
-                await s.write(formatUIMessageStreamEvent(event))
+                await s.write(`data: ${JSON.stringify(event)}\n\n`)
               },
               signal,
             )
+            await s.write(formatUIMessageStreamDone())
+          },
+        )
+      },
+    )
+    .get('/:id', zValidator('param', SessionIdParamSchema), async (c) => {
+      if (!graphService) {
+        return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+      }
+      const { id: sessionId } = c.req.valid('param')
 
-            await writer.finish()
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error)
-            await writer.writeError(errorMessage)
-            await writer.finish('error')
-          }
-        },
-      )
-    },
-  )
+      logger.debug('Graph get request received', { sessionId })
 
-  graph.delete('/:id', validateSessionId(), async (c) => {
-    if (!graphService) {
-      return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
-    }
-    const sessionId = c.req.param('id')
+      const session = await graphService.getGraph(sessionId)
 
-    logger.debug('Graph delete request received', { sessionId })
+      if (!session) {
+        return c.json({ error: 'Graph not found' }, 404)
+      }
 
-    await graphService.deleteGraph(sessionId)
+      return c.json(session)
+    })
+    .post(
+      '/:id/run',
+      zValidator('param', SessionIdParamSchema),
+      zValidator('json', RunGraphRequestSchema),
+      async (c) => {
+        if (!graphService) {
+          return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+        }
+        const { id: sessionId } = c.req.valid('param')
+        const request = c.req.valid('json')
+        logger.info('Graph run request received', {
+          sessionId,
+          provider: request.provider,
+          model: request.model,
+        })
 
-    return c.json({ success: true, message: `Graph ${sessionId} deleted` })
-  })
+        return createSSEStream(
+          c,
+          { logLabel: 'Graph run', vercelAIStream: true },
+          async (s, signal) => {
+            const writer = new UIMessageStreamWriter(async (data) => {
+              await s.write(data)
+            })
 
-  return graph
+            try {
+              await writer.start(sessionId)
+
+              await graphService.runGraph(
+                sessionId,
+                request,
+                async (event) => {
+                  // Forward events from agent SDK, skip outer start/finish (we manage those)
+                  if (event.type === 'start' || event.type === 'finish') return
+                  await s.write(formatUIMessageStreamEvent(event))
+                },
+                signal,
+              )
+
+              await writer.finish()
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : String(error)
+              await writer.writeError(errorMessage)
+              await writer.finish('error')
+            }
+          },
+        )
+      },
+    )
+    .delete('/:id', zValidator('param', SessionIdParamSchema), async (c) => {
+      if (!graphService) {
+        return c.json({ error: 'CODEGEN_SERVICE_URL not configured' }, 503)
+      }
+      const { id: sessionId } = c.req.valid('param')
+
+      logger.debug('Graph delete request received', { sessionId })
+
+      await graphService.deleteGraph(sessionId)
+
+      return c.json({ success: true, message: `Graph ${sessionId} deleted` })
+    })
 }
