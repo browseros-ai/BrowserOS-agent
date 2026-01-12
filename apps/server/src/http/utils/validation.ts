@@ -17,3 +17,7 @@ export const SessionIdSchema = z
 export const SessionIdParamSchema = z.object({
   id: SessionIdSchema,
 })
+
+export const ConversationIdParamSchema = z.object({
+  conversationId: z.string().uuid(),
+})

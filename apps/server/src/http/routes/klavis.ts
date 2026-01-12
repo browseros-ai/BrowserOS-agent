@@ -4,10 +4,16 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { KlavisClient } from '../../agent/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../agent/klavis/oauth-mcp-servers'
 import { logger } from '../../common/logger'
+
+const ServerNameSchema = z.object({
+  serverName: z.string().min(1),
+})
 
 interface KlavisRouteDeps {
   browserosId: string
@@ -74,17 +80,12 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         return c.json({ error: 'Failed to fetch user integrations' }, 500)
       }
     })
-    .post('/servers/add', async (c) => {
+    .post('/servers/add', zValidator('json', ServerNameSchema), async (c) => {
       if (!browserosId) {
         return c.json({ error: 'browserosId not configured' }, 500)
       }
 
-      const body = await c.req.json()
-      const serverName = body.serverName as string
-
-      if (!serverName) {
-        return c.json({ error: 'serverName is required' }, 400)
-      }
+      const { serverName } = c.req.valid('json')
 
       const validServer = OAUTH_MCP_SERVERS.find((s) => s.name === serverName)
       if (!validServer) {
@@ -103,30 +104,29 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         oauthUrl: result.oauthUrls?.[serverName],
       })
     })
-    .delete('/servers/remove', async (c) => {
-      if (!browserosId) {
-        return c.json({ error: 'browserosId not configured' }, 500)
-      }
+    .delete(
+      '/servers/remove',
+      zValidator('json', ServerNameSchema),
+      async (c) => {
+        if (!browserosId) {
+          return c.json({ error: 'browserosId not configured' }, 500)
+        }
 
-      const body = await c.req.json()
-      const serverName = body.serverName as string
+        const { serverName } = c.req.valid('json')
 
-      if (!serverName) {
-        return c.json({ error: 'serverName is required' }, 400)
-      }
+        const validServer = OAUTH_MCP_SERVERS.find((s) => s.name === serverName)
+        if (!validServer) {
+          return c.json({ error: `Invalid server: ${serverName}` }, 400)
+        }
 
-      const validServer = OAUTH_MCP_SERVERS.find((s) => s.name === serverName)
-      if (!validServer) {
-        return c.json({ error: `Invalid server: ${serverName}` }, 400)
-      }
+        logger.info('Removing server from strata', { serverName })
 
-      logger.info('Removing server from strata', { serverName })
+        await klavisClient.removeServer(browserosId, serverName)
 
-      await klavisClient.removeServer(browserosId, serverName)
-
-      return c.json({
-        success: true,
-        serverName,
-      })
-    })
+        return c.json({
+          success: true,
+          serverName,
+        })
+      },
+    )
 }

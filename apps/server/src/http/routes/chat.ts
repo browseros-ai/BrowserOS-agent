@@ -17,6 +17,7 @@ import { Sentry } from '../../common/sentry/instrument'
 import { createBrowserosRateLimitMiddleware } from '../middleware/browseros-rate-limit'
 import { ChatService } from '../services/chat-service'
 import { ChatRequestSchema } from '../types'
+import { ConversationIdParamSchema } from '../utils/validation'
 
 interface ChatRouteDeps {
   port: number
@@ -116,24 +117,28 @@ export function createChatRoutes(deps: ChatRouteDeps) {
         })
       },
     )
-    .delete('/:conversationId', (c) => {
-      const conversationId = c.req.param('conversationId')
-      const deleted = sessionManager.delete(conversationId)
+    .delete(
+      '/:conversationId',
+      zValidator('param', ConversationIdParamSchema),
+      (c) => {
+        const { conversationId } = c.req.valid('param')
+        const deleted = sessionManager.delete(conversationId)
 
-      if (deleted) {
-        return c.json({
-          success: true,
-          message: `Session ${conversationId} deleted`,
-          sessionCount: sessionManager.count(),
-        })
-      }
+        if (deleted) {
+          return c.json({
+            success: true,
+            message: `Session ${conversationId} deleted`,
+            sessionCount: sessionManager.count(),
+          })
+        }
 
-      return c.json(
-        {
-          success: false,
-          message: `Session ${conversationId} not found`,
-        },
-        404,
-      )
-    })
+        return c.json(
+          {
+            success: false,
+            message: `Session ${conversationId} not found`,
+          },
+          404,
+        )
+      },
+    )
 }
