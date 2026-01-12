@@ -18,6 +18,9 @@ export const TIMEOUTS = {
   // MCP operations
   MCP_DEFAULT: 5_000,
 
+  // External API calls
+  KLAVIS_FETCH: 30_000,
+
   // Navigation/DOM
   NAVIGATION: 10_000,
   STABLE_DOM: 3_000,
@@ -29,6 +32,10 @@ export const TIMEOUTS = {
   WS_HEARTBEAT_TIMEOUT: 5_000,
   WS_CONNECTION_TIMEOUT: 10_000,
   WS_REQUEST_TIMEOUT: 30_000,
+
+  // Port binding (server startup)
+  PORT_BIND_RETRY_INTERVAL: 5_000,
+  PORT_BIND_MAX_DURATION: 30_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS

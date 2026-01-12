@@ -9,4 +9,5 @@ export const BROWSEROS_PREFS = {
   SHOW_LLM_CHAT: 'browseros.show_llm_chat',
   SHOW_LLM_HUB: 'browseros.show_llm_hub',
   SHOW_TOOLBAR_LABELS: 'browseros.show_toolbar_labels',
+  INSTALL_ID: 'browseros.metrics_install_id',
 } as const

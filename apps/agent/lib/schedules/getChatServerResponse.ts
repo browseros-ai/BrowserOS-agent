@@ -52,6 +52,7 @@ type UIMessageEvent =
   | { type: 'tool-output-available'; toolCallId: string; output: unknown }
   | { type: 'tool-output-error'; toolCallId: string; errorText: string }
   | { type: 'error'; errorText: string }
+  | { type: 'finish'; finishReason: string }
 
 interface StreamParseState {
   fullText: string
@@ -60,6 +61,7 @@ interface StreamParseState {
   executionSteps: string[]
   toolCallsMap: Map<string, ToolCallExecution>
   error: string | null
+  receivedFinish: boolean
 }
 
 const getDefaultProvider = async (): Promise<LlmProviderConfig | null> => {
@@ -185,6 +187,8 @@ function processEvent(event: UIMessageEvent, state: StreamParseState): void {
     }
   } else if (event.type === 'error') {
     state.error = event.errorText
+  } else if (event.type === 'finish') {
+    state.receivedFinish = true
   }
 }
 
@@ -202,6 +206,7 @@ async function parseUIMessageStream(
     executionSteps: [],
     toolCallsMap: new Map(),
     error: null,
+    receivedFinish: false,
   }
 
   const parser = createParser({
@@ -228,6 +233,11 @@ async function parseUIMessageStream(
 
       const chunk = decoder.decode(value, { stream: true })
       parser.feed(chunk)
+    }
+
+    if (!state.receivedFinish && !state.error) {
+      state.error =
+        'Stream ended unexpectedly without completion. The task may have been interrupted.'
     }
 
     const finalResult = state.currentStepText.trim()
