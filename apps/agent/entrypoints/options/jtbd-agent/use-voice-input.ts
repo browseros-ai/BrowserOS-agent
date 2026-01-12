@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const GATEWAY_URL = 'https://llm.browseros.com'
 
@@ -60,6 +60,18 @@ export function useVoiceInput(): UseVoiceInputReturn {
     analyserRef.current = null
     setAudioLevel(0)
   }, [])
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => {
+        track.stop()
+      })
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop()
+      }
+      stopAudioLevelMonitoring()
+    }
+  }, [stopAudioLevelMonitoring])
 
   const startAudioLevelMonitoring = useCallback((stream: MediaStream) => {
     const audioContext = new AudioContext()
