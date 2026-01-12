@@ -100,16 +100,20 @@ export async function executeGraph(
   }
 }
 
-/**
- * Transforms generated code for execution.
- * Removes import statements since Agent is passed directly to the run function.
- */
 function transformCodeForExecution(code: string): string {
-  // Remove import statements for @browseros-ai/agent-sdk
-  // Examples:
-  //   import type { Agent } from '@browseros-ai/agent-sdk'
-  //   import { Agent } from '@browseros-ai/agent-sdk'
-  return code.replace(/^import\s+.*['"]@browseros-ai\/agent-sdk['"].*$/gm, '')
+  // Remove multi-line imports: import { ... } from '@browseros-ai/agent-sdk'
+  let result = code.replace(
+    /^\s*import\s+(?:type\s+)?\{[\s\S]*?\}\s*from\s*['"]@browseros-ai\/agent-sdk['"].*$/gm,
+    '',
+  )
+
+  // Remove single-line imports: import X from '...', import type X from '...'
+  result = result.replace(
+    /^\s*import\s+.*['"]@browseros-ai\/agent-sdk['"].*$/gm,
+    '',
+  )
+
+  return result
 }
 
 /**

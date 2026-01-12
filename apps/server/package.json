@@ -45,7 +45,8 @@
     "puppeteer-core": "24.23.0",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "pino": "^9.6.0"
+    "pino": "^9.6.0",
+    "eventsource-parser": "^3.0.0"
   },
   "devDependencies": {
     "@browseros-ai/agent-sdk": "workspace:*",

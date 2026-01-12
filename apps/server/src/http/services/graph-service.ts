@@ -140,17 +140,25 @@ export class GraphService {
         }
       : undefined
 
-    // Execute the graph
-    await executeGraph(graph.code, sessionId, this.deps.tempDir, {
-      serverUrl: this.deps.serverUrl,
-      llmConfig,
-      onProgress: (event) => {
-        onProgress(event).catch((err) => {
-          logger.warn('Failed to send progress event', { error: String(err) })
-        })
+    const result = await executeGraph(
+      graph.code,
+      sessionId,
+      this.deps.tempDir,
+      {
+        serverUrl: this.deps.serverUrl,
+        llmConfig,
+        onProgress: (event) => {
+          onProgress(event).catch((err) => {
+            logger.warn('Failed to send progress event', { error: String(err) })
+          })
+        },
+        signal,
       },
-      signal,
-    })
+    )
+
+    if (!result.success) {
+      throw new Error(result.error || 'Graph execution failed')
+    }
   }
 
   /**
