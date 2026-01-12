@@ -2,7 +2,7 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import type { TextSnapshotNode } from '../../common/mcp-context'
+import type { TextSnapshotNode } from '../../browser/cdp/context'
 
 export function formatA11ySnapshot(
   serializedAXNodeRoot: TextSnapshotNode,

@@ -7,7 +7,7 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import type { ElementHandle } from 'puppeteer-core'
 
-import type { TextSnapshotNode } from '../../../src/common/mcp-context'
+import type { TextSnapshotNode } from '../../../src/browser/cdp/context'
 import { formatA11ySnapshot } from '../../../src/tools/formatters/snapshot-formatter'
 
 describe('snapshotFormatter', () => {
