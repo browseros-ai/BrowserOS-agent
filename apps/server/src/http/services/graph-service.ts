@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { LLMConfig, ProgressEvent } from '@browseros-ai/agent-sdk'
+import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
+import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import { logger } from '../../common/logger'
 import { cleanupExecution, executeGraph } from '../../graph/executor'
 import {
@@ -109,7 +110,7 @@ export class GraphService {
   async runGraph(
     sessionId: string,
     request: RunGraphRequest,
-    onProgress: (event: ProgressEvent) => Promise<void>,
+    onProgress: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<void> {
     // Fetch code from codegen service
@@ -224,75 +225,85 @@ export class GraphService {
       code: null as string | null,
       graph: null as WorkflowGraph | null,
     }
-    let buffer = ''
+    const pendingEvents: CodegenSSEEvent[] = []
 
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    const parser = createParser({
+      onEvent: (msg: EventSourceMessage) => {
+        if (msg.data === '[DONE]') return
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+        try {
+          const json = JSON.parse(msg.data)
+          // Use the event type from SSE `event:` line
+          const eventType = msg.event || 'message'
 
-      for (const line of lines) {
-        await this.processSSELine(line, state, onEvent)
-      }
-    }
+          const event = { event: eventType, data: json } as CodegenSSEEvent
+          const result = CodegenSSEEventSchema.safeParse(event)
 
-    // Process remaining buffer
-    await this.processSSELine(buffer, state, onEvent)
+          if (!result.success) {
+            logger.warn('Invalid codegen SSE event', {
+              eventType,
+              data: msg.data,
+              issues: result.error.issues,
+            })
+            return
+          }
 
-    if (state.codeId && state.code) {
-      return {
-        id: state.codeId,
-        code: state.code,
-        graph: state.graph,
-        createdAt: new Date(),
-      }
-    }
-
-    return null
-  }
-
-  private async processSSELine(
-    line: string,
-    state: {
-      codeId: string | null
-      code: string | null
-      graph: WorkflowGraph | null
-    },
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
-  ): Promise<void> {
-    if (!line.startsWith('data: ')) return
-
-    const data = line.slice(6).trim()
-    if (!data || data === '[DONE]') return
+          pendingEvents.push(result.data)
+        } catch {
+          logger.warn('Failed to parse codegen event', { data: msg.data })
+        }
+      },
+    })
 
     try {
-      const json = JSON.parse(data)
-      const result = CodegenSSEEventSchema.safeParse(json)
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
 
-      if (!result.success) {
-        logger.warn('Invalid codegen SSE event', {
-          data,
-          issues: result.error.issues,
-        })
-        return
+        const text = decoder.decode(value, { stream: true })
+        parser.feed(text)
+
+        // Process any events that were parsed
+        let event = pendingEvents.shift()
+        while (event) {
+          if (event.event === 'started') {
+            state.codeId = event.data.codeId
+          } else if (event.event === 'complete') {
+            state.codeId = event.data.codeId
+            state.code = event.data.code
+            state.graph = event.data.graph
+          }
+          await onEvent(event)
+          event = pendingEvents.shift()
+        }
       }
 
-      const event = result.data
-
-      if (event.event === 'started') {
-        state.codeId = event.data.codeId
-      } else if (event.event === 'complete') {
-        state.codeId = event.data.codeId
-        state.code = event.data.code
-        state.graph = event.data.graph
+      // Process any remaining events
+      let remaining = pendingEvents.shift()
+      while (remaining) {
+        if (remaining.event === 'started') {
+          state.codeId = remaining.data.codeId
+        } else if (remaining.event === 'complete') {
+          state.codeId = remaining.data.codeId
+          state.code = remaining.data.code
+          state.graph = remaining.data.graph
+        }
+        await onEvent(remaining)
+        remaining = pendingEvents.shift()
       }
 
-      await onEvent(event)
-    } catch {
-      logger.warn('Failed to parse codegen event', { data })
+      if (state.codeId && state.code) {
+        return {
+          id: state.codeId,
+          code: state.code,
+          graph: state.graph,
+          createdAt: new Date(),
+        }
+      }
+
+      return null
+    } finally {
+      reader.releaseLock()
     }
   }
 }

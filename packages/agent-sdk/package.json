@@ -42,6 +42,7 @@
     "./api.json": "./dist/api.json"
   },
   "dependencies": {
+    "eventsource-parser": "^3.0.6",
     "zod-to-json-schema": "^3.24.1"
   },
   "peerDependencies": {

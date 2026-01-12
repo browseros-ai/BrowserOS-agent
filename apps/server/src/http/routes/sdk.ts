@@ -8,6 +8,12 @@
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { Hono } from 'hono'
+import { stream } from 'hono/streaming'
+import {
+  formatUIMessageStreamDone,
+  formatUIMessageStreamEvent,
+  UIMessageStreamWriter,
+} from '../../agent/agent/gemini-vercel-sdk-adapter/ui-message-stream'
 import { logger } from '../../common/logger'
 import { BrowserService } from '../services/sdk/browser'
 import { ChatService } from '../services/sdk/chat'
@@ -77,33 +83,52 @@ export function createSdkRoutes(deps: SdkDeps) {
       )
     }
 
-    try {
-      await chatService.executeAction({
-        instruction,
-        context,
-        windowId,
-        llmConfig,
-        signal: c.req.raw.signal,
+    // Set SSE headers for Vercel AI stream
+    c.header('Content-Type', 'text/event-stream')
+    c.header('Cache-Control', 'no-cache')
+    c.header('Connection', 'keep-alive')
+    c.header('x-vercel-ai-ui-message-stream', 'v1')
+
+    return stream(c, async (honoStream) => {
+      const writer = new UIMessageStreamWriter(async (data) => {
+        await honoStream.write(data)
       })
-      return c.json({ success: true, steps: [] })
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        return c.json({ error: { message: 'Request aborted' } }, 400)
+
+      try {
+        await writer.start()
+
+        await chatService.executeAction({
+          instruction,
+          context,
+          windowId,
+          llmConfig,
+          signal: c.req.raw.signal,
+          onSSEEvent: async (event) => {
+            // Forward events from /chat, skip start/finish (we manage those)
+            if (event.type === 'start' || event.type === 'finish') return
+            await honoStream.write(formatUIMessageStreamEvent(event))
+          },
+        })
+
+        await writer.finish()
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          await writer.abort()
+          return
+        }
+        const err =
+          error instanceof SdkError
+            ? error
+            : new SdkError(
+                error instanceof Error
+                  ? error.message
+                  : 'Action execution failed',
+              )
+        logger.error('SDK act error', { instruction, error: err.message })
+        await writer.writeError(err.message)
+        await honoStream.write(formatUIMessageStreamDone())
       }
-      const err =
-        error instanceof SdkError
-          ? error
-          : new SdkError(
-              error instanceof Error
-                ? error.message
-                : 'Action execution failed',
-            )
-      logger.error('SDK act error', { instruction, error: err.message })
-      return c.json(
-        { error: { message: err.message } },
-        err.statusCode as 400 | 500,
-      )
-    }
+    })
   })
 
   sdk.post('/extract', validateRequest(ExtractRequestSchema), async (c) => {

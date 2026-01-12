@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "browseros-server",
@@ -163,6 +162,7 @@
       "name": "@browseros-ai/agent-sdk",
       "version": "0.0.4",
       "dependencies": {
+        "eventsource-parser": "^3.0.6",
         "zod-to-json-schema": "^3.24.1",
       },
       "devDependencies": {

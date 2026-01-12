@@ -6,14 +6,14 @@
 
 import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
-import type { LLMConfig, ProgressEvent } from '@browseros-ai/agent-sdk'
+import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { Agent } from '@browseros-ai/agent-sdk'
 import { logger } from '../common/logger'
 
 export interface ExecutorOptions {
   serverUrl: string
   llmConfig?: LLMConfig
-  onProgress: (event: ProgressEvent) => void
+  onProgress: (event: UIMessageStreamEvent) => void
   signal?: AbortSignal
 }
 
@@ -87,7 +87,6 @@ export async function executeGraph(
           ])
         : await module.run(agent)
 
-      options.onProgress({ type: 'done', message: 'Execution completed' })
       return { success: true, result }
     } finally {
       if (abortHandler && options.signal) {
@@ -97,10 +96,6 @@ export async function executeGraph(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error(`Graph execution failed: ${errorMessage}`)
-
-    // Emit error event
-    options.onProgress({ type: 'error', message: errorMessage })
-
     return { success: false, error: errorMessage }
   }
 }

@@ -1,3 +1,4 @@
+import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import {
   ActionError,
@@ -10,13 +11,15 @@ import {
 import type {
   ActOptions,
   ActResult,
+  ActStep,
   AgentOptions,
   ExtractOptions,
   ExtractResult,
   LLMConfig,
   NavOptions,
   NavResult,
-  ProgressEvent,
+  ToolCall,
+  UIMessageStreamEvent,
   VerifyOptions,
   VerifyResult,
 } from './types'
@@ -48,7 +51,7 @@ export class Agent {
   private readonly baseUrl: string
   private readonly llmConfig?: LLMConfig
   private readonly signal?: AbortSignal
-  private progressCallback?: (event: ProgressEvent) => void
+  private progressCallback?: (event: UIMessageStreamEvent) => void
 
   constructor(options: AgentOptions) {
     this.baseUrl = options.url.replace(/\/$/, '')
@@ -63,11 +66,11 @@ export class Agent {
     }
   }
 
-  onProgress(callback: (event: ProgressEvent) => void): void {
+  onProgress(callback: (event: UIMessageStreamEvent) => void): void {
     this.progressCallback = callback
   }
 
-  private emit(event: ProgressEvent): void {
+  private emit(event: UIMessageStreamEvent): void {
     this.progressCallback?.(event)
   }
 
@@ -133,10 +136,11 @@ export class Agent {
    * ```
    */
   async nav(url: string, options?: NavOptions): Promise<NavResult> {
+    this.emit({ type: 'start-step' })
     this.emit({
-      type: 'nav',
-      message: `Navigating to ${url}`,
-      metadata: { url },
+      type: 'text-delta',
+      id: 'nav',
+      delta: `Navigating to ${url}...\n`,
     })
 
     const result = await this.request<NavResult>(
@@ -144,6 +148,13 @@ export class Agent {
       { url, ...options },
       NavigationError,
     )
+
+    this.emit({
+      type: 'text-delta',
+      id: 'nav',
+      delta: result.success ? `Navigation complete.\n` : `Navigation failed.\n`,
+    })
+    this.emit({ type: 'finish-step' })
 
     return result
   }
@@ -178,25 +189,138 @@ export class Agent {
    * ```
    */
   async act(instruction: string, options?: ActOptions): Promise<ActResult> {
-    this.emit({
-      type: 'act',
-      message: instruction,
-      metadata: { instruction },
-    })
+    this.throwIfAborted()
 
-    const result = await this.request<ActResult>(
-      '/sdk/act',
-      {
-        instruction,
-        context: options?.context,
-        maxSteps: options?.maxSteps,
-        windowId: options?.windowId,
-        llm: this.llmConfig,
-      },
-      ActionError,
-    )
+    const url = `${this.baseUrl}/sdk/act`
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instruction,
+          context: options?.context,
+          maxSteps: options?.maxSteps,
+          windowId: options?.windowId,
+          llm: this.llmConfig,
+        }),
+        signal: this.signal,
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Operation aborted')
+      }
+      throw new ConnectionError(
+        `Failed to connect to server: ${error instanceof Error ? error.message : String(error)}`,
+        url,
+      )
+    }
+
+    if (!response.ok) {
+      let errorMessage = `Request failed with status ${response.status}`
+      try {
+        const errorBody = await response.json()
+        if (errorBody.error?.message) {
+          errorMessage = errorBody.error.message
+        }
+      } catch {
+        // Use default error message
+      }
+      throw new ActionError(errorMessage, response.status)
+    }
+
+    // Parse SSE stream, forward events, and build result
+    const reader = response.body?.getReader()
+    const result: ActResult = { success: true, steps: [] }
+
+    if (reader) {
+      await this.parseSSEStream(reader, result)
+    }
 
     return result
+  }
+
+  private async parseSSEStream(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    result: ActResult,
+  ): Promise<void> {
+    const decoder = new TextDecoder()
+    const pendingEvents: UIMessageStreamEvent[] = []
+
+    // State for building steps
+    let currentText = ''
+    const currentToolCalls = new Map<string, ToolCall>()
+
+    const parser = createParser({
+      onEvent: (msg: EventSourceMessage) => {
+        if (msg.data === '[DONE]') return
+
+        try {
+          const event = JSON.parse(msg.data) as UIMessageStreamEvent
+          pendingEvents.push(event)
+        } catch {
+          // Invalid JSON, skip
+        }
+      },
+    })
+
+    const processEvent = (event: UIMessageStreamEvent) => {
+      this.emit(event)
+
+      // Build steps from events
+      if (event.type === 'start-step') {
+        currentText = ''
+        currentToolCalls.clear()
+      } else if (event.type === 'text-delta') {
+        currentText += event.delta
+      } else if (event.type === 'tool-input-available') {
+        currentToolCalls.set(event.toolCallId, {
+          name: event.toolName,
+          args: event.input as Record<string, unknown>,
+        })
+      } else if (event.type === 'tool-output-available') {
+        const tc = currentToolCalls.get(event.toolCallId)
+        if (tc) tc.result = event.output
+      } else if (event.type === 'finish-step') {
+        const step: ActStep = {}
+        if (currentText) step.thought = currentText
+        if (currentToolCalls.size > 0) {
+          step.toolCalls = Array.from(currentToolCalls.values())
+        }
+        result.steps.push(step)
+      } else if (event.type === 'error') {
+        result.success = false
+      }
+    }
+
+    try {
+      while (true) {
+        this.throwIfAborted()
+
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const text = decoder.decode(value, { stream: true })
+        parser.feed(text)
+
+        // Process any events that were parsed
+        let event = pendingEvents.shift()
+        while (event) {
+          processEvent(event)
+          event = pendingEvents.shift()
+        }
+      }
+
+      // Process any remaining events
+      let remaining = pendingEvents.shift()
+      while (remaining) {
+        processEvent(remaining)
+        remaining = pendingEvents.shift()
+      }
+    } finally {
+      reader.releaseLock()
+    }
   }
 
   /**
@@ -233,10 +357,11 @@ export class Agent {
     instruction: string,
     options: ExtractOptions<T>,
   ): Promise<ExtractResult<T>> {
+    this.emit({ type: 'start-step' })
     this.emit({
-      type: 'extract',
-      message: instruction,
-      metadata: { instruction },
+      type: 'text-delta',
+      id: 'extract',
+      delta: `Extracting: ${instruction}...\n`,
     })
 
     const jsonSchema = zodToJsonSchema(options.schema)
@@ -251,6 +376,13 @@ export class Agent {
       },
       ExtractionError,
     )
+
+    this.emit({
+      type: 'text-delta',
+      id: 'extract',
+      delta: `Extraction complete.\n`,
+    })
+    this.emit({ type: 'finish-step' })
 
     return result
   }
@@ -282,10 +414,11 @@ export class Agent {
     expectation: string,
     options?: VerifyOptions,
   ): Promise<VerifyResult> {
+    this.emit({ type: 'start-step' })
     this.emit({
-      type: 'verify',
-      message: expectation,
-      metadata: { expectation },
+      type: 'text-delta',
+      id: 'verify',
+      delta: `Verifying: ${expectation}...\n`,
     })
 
     const result = await this.request<VerifyResult>(
@@ -297,6 +430,15 @@ export class Agent {
       },
       VerificationError,
     )
+
+    this.emit({
+      type: 'text-delta',
+      id: 'verify',
+      delta: result.success
+        ? `Verification passed: ${result.reason}\n`
+        : `Verification failed: ${result.reason}\n`,
+    })
+    this.emit({ type: 'finish-step' })
 
     return result
   }

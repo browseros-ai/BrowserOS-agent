@@ -8,6 +8,11 @@ import { PATHS } from '@browseros/shared/constants/paths'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
+import {
+  formatUIMessageStreamDone,
+  formatUIMessageStreamEvent,
+  UIMessageStreamWriter,
+} from '../../agent/agent/gemini-vercel-sdk-adapter/ui-message-stream'
 import { logger } from '../../common/logger'
 import { GraphService } from '../services/graph-service'
 import type {
@@ -21,8 +26,6 @@ import {
   UpdateGraphRequestSchema,
 } from '../types'
 import { validateRequest, validateSessionId } from '../utils/validation'
-
-const SSE_DONE = 'data: [DONE]\n\n'
 
 interface SSEStreamOptions {
   vercelAIStream?: boolean
@@ -62,7 +65,6 @@ function createSSEStream(
     })
 
     await callback(honoStream, abortController.signal)
-    await honoStream.write(SSE_DONE)
   })
 }
 
@@ -101,6 +103,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
           },
           signal,
         )
+        await s.write(formatUIMessageStreamDone())
       },
     )
   })
@@ -129,6 +132,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
             },
             signal,
           )
+          await s.write(formatUIMessageStreamDone())
         },
       )
     },
@@ -165,30 +169,31 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
         c,
         { logLabel: 'Graph run', vercelAIStream: true },
         async (s, signal) => {
-          await s.write(
-            `data: ${JSON.stringify({ type: 'start', messageId: sessionId })}\n\n`,
-          )
+          const writer = new UIMessageStreamWriter(async (data) => {
+            await s.write(data)
+          })
 
-          await graphService.runGraph(
-            sessionId,
-            request,
-            async (event) => {
-              if (event.type === 'error') {
-                await s.write(
-                  `data: ${JSON.stringify({ type: 'error', errorText: event.message })}\n\n`,
-                )
-              } else if (event.type === 'done') {
-                await s.write(
-                  `data: ${JSON.stringify({ type: 'finish', finishReason: 'stop' })}\n\n`,
-                )
-              } else {
-                await s.write(
-                  `data: ${JSON.stringify({ type: 'text-delta', id: '0', delta: `${event.message}\n` })}\n\n`,
-                )
-              }
-            },
-            signal,
-          )
+          try {
+            await writer.start(sessionId)
+
+            await graphService.runGraph(
+              sessionId,
+              request,
+              async (event) => {
+                // Forward events from agent SDK, skip outer start/finish (we manage those)
+                if (event.type === 'start' || event.type === 'finish') return
+                await s.write(formatUIMessageStreamEvent(event))
+              },
+              signal,
+            )
+
+            await writer.finish()
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error)
+            await writer.writeError(errorMessage)
+            await writer.finish('error')
+          }
         },
       )
     },
