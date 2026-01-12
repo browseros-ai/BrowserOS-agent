@@ -46,13 +46,7 @@ export const VoiceInputButton: FC<Props> = ({
   }
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="icon"
-      onClick={onStart}
-      disabled={disabled}
-    >
+    <Button type="button" size="icon" onClick={onStart} disabled={disabled}>
       <Mic className="h-4 w-4" />
     </Button>
   )
