@@ -57,3 +57,20 @@ export const SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT =
 /** @public */
 export const SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT =
   'newtab.scheduled_task.view_more'
+
+/** @public */
+export const NEWTAB_AI_TRIGGERED_EVENT = 'newtab.ai.triggered'
+
+/** @public */
+export const NEWTAB_SEARCH_EXECUTED_EVENT = 'newtab.search.executed'
+
+/** @public */
+export const SIDEPANEL_AI_TRIGGERED_EVENT = 'sidepanel.ai.triggered'
+
+export const SETTINGS_PAGE_VIEWED_EVENT = 'settings.page.viewed'
+
+/** @public */
+export const MANAGED_MCP_ADDED_EVENT = 'settings.managed_mcp.added'
+
+/** @public */
+export const CUSTOM_MCP_ADDED_EVENT = 'settings.custom_mcp.added'

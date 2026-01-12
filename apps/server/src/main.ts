@@ -11,6 +11,7 @@
 import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
+import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { fetchDailyRateLimit } from './agent/rate-limiter/fetch-config'
 import { RateLimiter } from './agent/rate-limiter/rate-limiter'
 import { ensureBrowserConnected } from './common/browser'
@@ -20,6 +21,7 @@ import { logger } from './common/logger'
 import { McpContext } from './common/mcp-context'
 import { metrics } from './common/metrics'
 import { Mutex } from './common/mutex'
+import { bindPortWithRetry, PortBindError } from './common/port-binding'
 import { Sentry } from './common/sentry/instrument'
 import type { ServerConfig } from './config'
 import { ControllerBridge } from './controller-server/controller-bridge'
@@ -43,7 +45,17 @@ export class Application {
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-    const { controllerContext } = this.createController()
+    let controllerContext: ControllerContext
+    try {
+      const result = await this.createController()
+      controllerContext = result.controllerContext
+    } catch (error) {
+      return this.handleStartupError(
+        'WebSocket server',
+        this.config.extensionPort,
+        error,
+      )
+    }
 
     const cdpContext = await this.connectToCdp()
 
@@ -53,20 +65,24 @@ export class Application {
     const tools = createToolRegistry(cdpContext, controllerContext)
     const toolMutex = new Mutex()
 
-    createHttpServer({
-      port: this.config.serverPort,
-      host: '0.0.0.0',
-      version: VERSION,
-      tools,
-      cdpContext,
-      controllerContext,
-      toolMutex,
-      allowRemote: this.config.mcpAllowRemote,
-      browserosId: identity.getBrowserOSId(),
-      tempDir: this.config.executionDir || this.config.resourcesDir,
-      rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
-      codegenServiceUrl: this.config.codegenServiceUrl,
-    })
+    try {
+      await createHttpServer({
+        port: this.config.serverPort,
+        host: '0.0.0.0',
+        version: VERSION,
+        tools,
+        cdpContext,
+        controllerContext,
+        toolMutex,
+        allowRemote: this.config.mcpAllowRemote,
+        browserosId: identity.getBrowserOSId(),
+        tempDir: this.config.executionDir || this.config.resourcesDir,
+        rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
+        codegenServiceUrl: this.config.codegenServiceUrl,
+      })
+    } catch (error) {
+      this.handleStartupError('HTTP server', this.config.serverPort, error)
+    }
 
     logger.info(
       `HTTP server listening on http://127.0.0.1:${this.config.serverPort}`,
@@ -84,7 +100,7 @@ export class Application {
     logger.info('Shutting down server...')
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
-    process.exit(0)
+    process.exit(EXIT_CODES.SUCCESS)
   }
 
   private initCoreServices(): void {
@@ -150,15 +166,39 @@ export class Application {
     }
   }
 
-  private createController(): { controllerContext: ControllerContext } {
-    logger.info(
-      `Controller server starting on ws://127.0.0.1:${this.config.extensionPort}`,
-    )
-    const controllerBridge = new ControllerBridge(
-      this.config.extensionPort,
-      logger,
-    )
-    return { controllerContext: new ControllerContext(controllerBridge) }
+  private async createController(): Promise<{
+    controllerContext: ControllerContext
+  }> {
+    const port = this.config.extensionPort
+    logger.info(`Controller server starting on ws://127.0.0.1:${port}`)
+
+    return bindPortWithRetry(port, async () => {
+      const controllerBridge = new ControllerBridge(port, logger)
+      await controllerBridge.waitForReady()
+      return { controllerContext: new ControllerContext(controllerBridge) }
+    })
+  }
+
+  private handleStartupError(
+    serverName: string,
+    port: number,
+    error: unknown,
+  ): never {
+    logger.error(`Failed to start ${serverName}`, {
+      port,
+      error: error instanceof Error ? error.message : String(error),
+    })
+    Sentry.captureException(error)
+
+    if (error instanceof PortBindError) {
+      logger.error(
+        `Port ${port} is unavailable after ${error.retriedFor}ms of retries. ` +
+          `Chromium should try a different port.`,
+      )
+      process.exit(EXIT_CODES.PORT_CONFLICT)
+    }
+
+    process.exit(EXIT_CODES.GENERAL_ERROR)
   }
 
   private async connectToCdp(): Promise<McpContext | null> {

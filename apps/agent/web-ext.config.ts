@@ -42,5 +42,6 @@ export default defineWebExtConfig({
     },
   }),
   chromiumArgs,
+  startUrls: ['chrome://newtab'],
   disabled: !useBrowserOS,
 })

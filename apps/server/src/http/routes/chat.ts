@@ -43,6 +43,11 @@ export function createChatRoutes(deps: ChatRouteDeps) {
     browserosId,
   })
 
+  logger.debug('Chat routes initialized', {
+    browserosId,
+    mcpServerUrl,
+  })
+
   const chat = new Hono()
 
   chat.post(
