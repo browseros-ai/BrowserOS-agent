@@ -26,27 +26,6 @@ export class HttpAgentError extends Error {
   }
 }
 
-export class ValidationError extends HttpAgentError {
-  constructor(
-    message: string,
-    public details?: unknown,
-  ) {
-    super(message, 400, 'VALIDATION_ERROR')
-  }
-
-  override toJSON() {
-    return {
-      error: {
-        name: this.name,
-        message: this.message,
-        code: this.code,
-        statusCode: this.statusCode,
-        details: this.details,
-      },
-    }
-  }
-}
-
 export class SessionNotFoundError extends HttpAgentError {
   constructor(public conversationId: string) {
     super(`Session "${conversationId}" not found.`, 404, 'SESSION_NOT_FOUND')

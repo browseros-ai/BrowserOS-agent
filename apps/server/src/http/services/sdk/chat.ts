@@ -7,6 +7,8 @@
  */
 
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
+import { createParser, type EventSourceMessage } from 'eventsource-parser'
+import type { UIMessageStreamEvent } from '../../../agent/agent/gemini-vercel-sdk-adapter/ui-message-stream'
 import { SdkError } from './types'
 
 export interface ExecuteActionOptions {
@@ -14,6 +16,8 @@ export interface ExecuteActionOptions {
   context?: Record<string, unknown>
   windowId?: number
   llmConfig: LLMConfig
+  signal?: AbortSignal
+  onSSEEvent?: (event: UIMessageStreamEvent) => Promise<void>
 }
 
 export class ChatService {
@@ -24,7 +28,12 @@ export class ChatService {
   }
 
   async executeAction(options: ExecuteActionOptions): Promise<void> {
-    const { instruction, context, windowId, llmConfig } = options
+    const { instruction, context, windowId, llmConfig, signal, onSSEEvent } =
+      options
+
+    if (signal?.aborted) {
+      throw new SdkError('Operation aborted', 400)
+    }
 
     let message = instruction
     if (context) {
@@ -50,6 +59,7 @@ export class ChatService {
         sessionToken: llmConfig.sessionToken,
         browserContext: windowId ? { windowId } : undefined,
       }),
+      signal,
     })
 
     if (!response.ok) {
@@ -60,16 +70,85 @@ export class ChatService {
       )
     }
 
-    // Consume the SSE stream to completion
     const reader = response.body?.getReader()
     if (reader) {
-      while (true) {
-        const { done } = await reader.read()
-        if (done) break
+      try {
+        if (onSSEEvent) {
+          await this.parseAndForwardSSE(reader, signal, onSSEEvent)
+        } else {
+          await this.drainStream(reader, signal)
+        }
+      } finally {
+        reader.releaseLock()
       }
     }
 
     // Clean up the session
-    await fetch(`${this.chatUrl}/${conversationId}`, { method: 'DELETE' })
+    await fetch(`${this.chatUrl}/${conversationId}`, {
+      method: 'DELETE',
+    }).catch(() => {})
+  }
+
+  private async parseAndForwardSSE(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    signal: AbortSignal | undefined,
+    onSSEEvent: (event: UIMessageStreamEvent) => Promise<void>,
+  ): Promise<void> {
+    const decoder = new TextDecoder()
+    const pendingEvents: UIMessageStreamEvent[] = []
+
+    const parser = createParser({
+      onEvent: (msg: EventSourceMessage) => {
+        if (msg.data === '[DONE]') return
+
+        try {
+          const event = JSON.parse(msg.data) as UIMessageStreamEvent
+          pendingEvents.push(event)
+        } catch {
+          // Invalid JSON, skip
+        }
+      },
+    })
+
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel()
+        throw new SdkError('Operation aborted', 400)
+      }
+
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const text = decoder.decode(value, { stream: true })
+      parser.feed(text)
+
+      // Process any events that were parsed
+      let event = pendingEvents.shift()
+      while (event) {
+        await onSSEEvent(event)
+        event = pendingEvents.shift()
+      }
+    }
+
+    // Process any remaining events
+    let remaining = pendingEvents.shift()
+    while (remaining) {
+      await onSSEEvent(remaining)
+      remaining = pendingEvents.shift()
+    }
+  }
+
+  private async drainStream(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    signal: AbortSignal | undefined,
+  ): Promise<void> {
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel()
+        throw new SdkError('Operation aborted', 400)
+      }
+      const { done } = await reader.read()
+      if (done) break
+    }
   }
 }

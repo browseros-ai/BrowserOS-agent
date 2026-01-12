@@ -37,7 +37,9 @@ export interface LLMConfig {
 export interface AgentOptions {
   url: string
   llm?: LLMConfig
-  onProgress?: (event: ProgressEvent) => void
+  /** Callback for streaming UI events (Vercel AI SDK format) */
+  onProgress?: (event: UIMessageStreamEvent) => void
+  signal?: AbortSignal
 }
 
 /**
@@ -102,6 +104,37 @@ export interface ProgressEvent {
   /** Additional metadata about the operation */
   metadata?: Record<string, unknown>
 }
+
+/**
+ * UI Message Stream events (Vercel AI SDK format).
+ * These events are forwarded from the /chat endpoint during act() calls.
+ */
+export type UIMessageStreamEvent =
+  | { type: 'start'; messageId?: string }
+  | { type: 'start-step' }
+  | { type: 'text-start'; id: string }
+  | { type: 'text-delta'; id: string; delta: string }
+  | { type: 'text-end'; id: string }
+  | { type: 'reasoning-start'; id: string }
+  | { type: 'reasoning-delta'; id: string; delta: string }
+  | { type: 'reasoning-end'; id: string }
+  | { type: 'tool-input-start'; toolCallId: string; toolName: string }
+  | { type: 'tool-input-delta'; toolCallId: string; inputTextDelta: string }
+  | {
+      type: 'tool-input-available'
+      toolCallId: string
+      toolName: string
+      input: unknown
+    }
+  | { type: 'tool-output-available'; toolCallId: string; output: unknown }
+  | { type: 'tool-input-error'; toolCallId: string; errorText: string }
+  | { type: 'tool-output-error'; toolCallId: string; errorText: string }
+  | { type: 'source-url'; sourceId: string; url: string; title?: string }
+  | { type: 'file'; url: string; mediaType: string }
+  | { type: 'error'; errorText: string }
+  | { type: 'finish-step' }
+  | { type: 'finish'; finishReason: string; messageMetadata?: unknown }
+  | { type: 'abort' }
 
 /**
  * Result returned by `nav()`.

@@ -78,6 +78,7 @@ export class Application {
         browserosId: identity.getBrowserOSId(),
         tempDir: this.config.executionDir || this.config.resourcesDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
+        codegenServiceUrl: this.config.codegenServiceUrl,
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)

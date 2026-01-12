@@ -21,6 +21,7 @@ export type {
   ProgressEvent,
   ProgressEventType,
   ToolCall,
+  UIMessageStreamEvent,
   VerifyOptions,
   VerifyResult,
 } from './types'

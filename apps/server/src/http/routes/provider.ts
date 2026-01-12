@@ -4,21 +4,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { testProviderConnection } from '../../agent/agent/gemini-vercel-sdk-adapter/test-provider'
-import {
-  type VercelAIConfig,
-  VercelAIConfigSchema,
-} from '../../agent/agent/gemini-vercel-sdk-adapter/types'
+import { VercelAIConfigSchema } from '../../agent/agent/gemini-vercel-sdk-adapter/types'
 import { logger } from '../../common/logger'
-import { validateRequest } from '../utils/validation'
 
 export function createProviderRoutes() {
   return new Hono().post(
     '/',
-    validateRequest(VercelAIConfigSchema),
+    zValidator('json', VercelAIConfigSchema),
     async (c) => {
-      const config = c.get('validatedBody') as VercelAIConfig
+      const config = c.req.valid('json')
 
       logger.info('Testing provider connection', {
         provider: config.provider,

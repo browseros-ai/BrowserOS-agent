@@ -41,11 +41,13 @@
     "debug": "4.4.3",
     "hono": "^4.6.0",
     "@hono/mcp": "^0.2.3",
+    "@hono/zod-validator": "^0.4.3",
     "posthog-node": "^4.17.0",
     "puppeteer-core": "24.23.0",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "pino": "^9.6.0"
+    "pino": "^9.6.0",
+    "eventsource-parser": "^3.0.0"
   },
   "devDependencies": {
     "@browseros-ai/agent-sdk": "workspace:*",

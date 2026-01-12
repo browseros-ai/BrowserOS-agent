@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/agent/gemini-vercel-sdk-adapter/types'
 import type { RateLimiter } from '../agent/rate-limiter/rate-limiter'
@@ -58,14 +59,6 @@ export type Env = {
   Bindings: {
     server: ReturnType<typeof Bun.serve>
   }
-  Variables: AppVariables
-}
-
-/**
- * Request-scoped variables set by middleware.
- */
-export interface AppVariables {
-  validatedBody: unknown
 }
 
 /**
@@ -89,4 +82,138 @@ export interface HttpServerConfig {
   browserosId?: string
   tempDir?: string
   rateLimiter?: RateLimiter
+
+  // For Graph routes
+  codegenServiceUrl?: string
 }
+
+// Graph request schemas
+export const CreateGraphRequestSchema = z.object({
+  query: z.string().min(1, 'Query cannot be empty'),
+})
+
+export type CreateGraphRequest = z.infer<typeof CreateGraphRequestSchema>
+
+export const UpdateGraphRequestSchema = z.object({
+  query: z.string().min(1, 'Query cannot be empty'),
+})
+
+export type UpdateGraphRequest = z.infer<typeof UpdateGraphRequestSchema>
+
+// Run graph request - similar to ChatRequest, needs provider config for Agent SDK
+export const RunGraphRequestSchema = VercelAIConfigSchema.extend({
+  browserContext: BrowserContextSchema.optional(),
+}).refine(
+  (data) =>
+    !data.provider || data.provider === LLM_PROVIDERS.BROWSEROS || !!data.model,
+  { message: 'model is required for non-browseros providers', path: ['model'] },
+)
+
+export type RunGraphRequest = z.infer<typeof RunGraphRequestSchema>
+
+// Workflow graph schemas (matching codegen-service)
+export const WorkflowNodeTypeSchema = z.enum([
+  'start',
+  'end',
+  'nav',
+  'act',
+  'extract',
+  'verify',
+  'decision',
+  'loop',
+  'fork',
+  'join',
+])
+
+export type WorkflowNodeType = z.infer<typeof WorkflowNodeTypeSchema>
+
+export const WorkflowNodeSchema = z.object({
+  id: z.string(),
+  type: WorkflowNodeTypeSchema,
+  data: z.object({ label: z.string() }),
+})
+
+export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>
+
+export const WorkflowEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+})
+
+export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>
+
+export const WorkflowGraphSchema = z.object({
+  nodes: z.array(WorkflowNodeSchema),
+  edges: z.array(WorkflowEdgeSchema),
+})
+
+export type WorkflowGraph = z.infer<typeof WorkflowGraphSchema>
+
+export interface GraphSession {
+  id: string
+  code: string
+  graph: WorkflowGraph | null
+  createdAt: Date
+}
+
+// Codegen service response schema for GET /api/code/:id
+export const CodegenGetResponseSchema = z.object({
+  code: z.string(),
+  graph: WorkflowGraphSchema.nullable(),
+  createdAt: z.string().optional(),
+})
+
+export type CodegenGetResponse = z.infer<typeof CodegenGetResponseSchema>
+
+// Codegen service SSE event schemas
+export const CodegenStartedEventSchema = z.object({
+  event: z.literal('started'),
+  data: z.object({
+    codeId: z.string(),
+    instanceId: z.string(),
+  }),
+})
+
+export type CodegenStartedEvent = z.infer<typeof CodegenStartedEventSchema>
+
+export const CodegenProgressEventSchema = z.object({
+  event: z.literal('progress'),
+  data: z.object({
+    message: z.string(),
+    turn: z.number(),
+  }),
+})
+
+export type CodegenProgressEvent = z.infer<typeof CodegenProgressEventSchema>
+
+export const CodegenCompleteEventSchema = z.object({
+  event: z.literal('complete'),
+  data: z.object({
+    codeId: z.string(),
+    code: z.string(),
+    graph: WorkflowGraphSchema.nullable(),
+    instanceId: z.string(),
+  }),
+})
+
+export type CodegenCompleteEvent = z.infer<typeof CodegenCompleteEventSchema>
+
+export const CodegenErrorEventSchema = z.object({
+  event: z.literal('error'),
+  data: z.object({
+    error: z.string(),
+    details: z.string().optional(),
+  }),
+})
+
+export type CodegenErrorEvent = z.infer<typeof CodegenErrorEventSchema>
+
+export const CodegenSSEEventSchema = z.discriminatedUnion('event', [
+  CodegenStartedEventSchema,
+  CodegenProgressEventSchema,
+  CodegenCompleteEventSchema,
+  CodegenErrorEventSchema,
+])
+
+export type CodegenSSEEvent = z.infer<typeof CodegenSSEEventSchema>
