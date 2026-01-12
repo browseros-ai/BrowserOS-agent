@@ -5,7 +5,7 @@
  */
 
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
-import type { Context, Next } from 'hono'
+import { createMiddleware } from 'hono/factory'
 import type { RateLimiter } from '../../agent/rate-limiter/rate-limiter'
 import type { ChatRequest } from '../types'
 
@@ -14,17 +14,22 @@ interface RateLimitMiddlewareDeps {
   browserosId?: string
 }
 
+type ChatValidationInput = {
+  in: { json: ChatRequest }
+  out: { json: ChatRequest }
+}
+
 export function createBrowserosRateLimitMiddleware(
   deps: RateLimitMiddlewareDeps,
 ) {
-  return async (c: Context, next: Next) => {
+  return createMiddleware<object, '*', ChatValidationInput>(async (c, next) => {
     const { rateLimiter, browserosId } = deps
 
     if (!rateLimiter || !browserosId) {
       return next()
     }
 
-    const request = c.get('validatedBody') as ChatRequest
+    const request = c.req.valid('json')
 
     if (request.provider === LLM_PROVIDERS.BROWSEROS) {
       rateLimiter.check(browserosId)
@@ -36,5 +41,5 @@ export function createBrowserosRateLimitMiddleware(
     }
 
     return next()
-  }
+  })
 }
