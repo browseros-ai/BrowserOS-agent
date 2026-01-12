@@ -19,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import {
+  SCHEDULED_TASK_TESTED_EVENT,
   SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT,
   SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT,
 } from '@/lib/constants/analyticsEvents'
@@ -58,7 +59,7 @@ export const ScheduleResults: FC = () => {
   const [viewingRun, setViewingRun] = useState<JobRunWithDetails | null>(null)
 
   const { jobRuns } = useScheduledJobRuns()
-  const { jobs } = useScheduledJobs()
+  const { jobs, runJob } = useScheduledJobs()
 
   const runningCount = jobRuns.filter((r) => r.status === 'running').length
 
@@ -91,6 +92,11 @@ export const ScheduleResults: FC = () => {
   const viewRun = (run: JobRunWithDetails) => {
     track(SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT)
     setViewingRun(run)
+  }
+
+  const handleRetry = async (jobId: string) => {
+    await runJob(jobId)
+    track(SCHEDULED_TASK_TESTED_EVENT)
   }
 
   return (
@@ -165,6 +171,7 @@ export const ScheduleResults: FC = () => {
         run={viewingRun}
         jobName={viewingRun?.job?.name}
         onOpenChange={(open) => !open && setViewingRun(null)}
+        onRetry={viewingRun ? () => handleRetry(viewingRun.jobId) : undefined}
       />
     </Collapsible>
   )
