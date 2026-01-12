@@ -9,6 +9,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "bun run build:agent-sdk",
     "start:dev": "bun ./scripts/build/start-all.ts",
     "start:server": "bun run --filter @browseros/server start",
     "start:agent": "bun ./scripts/build/controller-ext.ts && bun run --filter @browseros/agent dev",
