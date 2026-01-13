@@ -9,6 +9,7 @@ import { DashboardLayout } from './layout/DashboardLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
+import { WorkflowsPage } from './workflows/WorkflowsPage'
 
 // Check query params for direct page navigation
 function getInitialRoute(): string {
@@ -37,6 +38,7 @@ export const App: FC = () => {
             element={<AISettingsPage key="onboarding" />}
           />
           <Route path="scheduled" element={<ScheduledTasksPage />} />
+          <Route path="workflows" element={<WorkflowsPage />} />
           <Route path="jtbd-agent" element={<SurveyPage />} />
         </Route>
         <Route path="create-graph" element={<CreateGraph />} />

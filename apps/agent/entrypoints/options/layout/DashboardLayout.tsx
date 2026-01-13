@@ -86,8 +86,8 @@ const navigationItems: NavItem[] = [
     enabled: true,
   },
   {
-    name: 'Create Graph',
-    to: '/create-graph',
+    name: 'Workflows',
+    to: '/workflows',
     icon: GitGraph,
     enabled: true,
   },
