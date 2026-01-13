@@ -84,6 +84,15 @@ export const TabSelector: FC<PropsWithChildren<TabSelectorProps>> = ({
               ))}
             </CommandGroup>
           </CommandList>
+          <div className="border-border/50 border-t px-3 py-2">
+            <span className="text-[10px] text-muted-foreground">
+              Tip: Type{' '}
+              <kbd className="rounded border border-border bg-muted px-1 py-0.5">
+                @
+              </kbd>{' '}
+              in chat to mention tabs
+            </span>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>

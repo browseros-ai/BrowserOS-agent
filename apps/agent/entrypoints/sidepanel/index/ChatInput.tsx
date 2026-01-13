@@ -171,9 +171,7 @@ export const ChatInput: FC<ChatInputProps> = ({
         onChange={(e) => handleInputChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={
-          mode === 'chat'
-            ? 'Ask about this page... (@ to mention tabs)'
-            : 'What should I do? (@ to mention tabs)'
+          mode === 'chat' ? 'Ask about this page...' : 'What should I do?'
         }
         rows={1}
       />
