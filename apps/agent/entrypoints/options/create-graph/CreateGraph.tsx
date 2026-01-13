@@ -42,6 +42,9 @@ export const CreateGraph: FC = () => {
   const [graphName, setGraphName] = useState('')
   const [codeId, setCodeId] = useState<string | undefined>(undefined)
   const [graphData, setGraphData] = useState<GraphData | undefined>(undefined)
+  const [backgroundWindow, setBackgroundWindow] = useState<
+    chrome.windows.Window | undefined
+  >(undefined)
 
   const [query, setQuery] = useState('')
 
@@ -106,12 +109,42 @@ export const CreateGraph: FC = () => {
               query: lastMessageText,
             },
           }
+        } else if (
+          lastMessage.metadata?.messageType === 'run-graph' &&
+          codeIdRef.current
+        ) {
+          return {
+            api: `${agentUrlRef.current}/graph/${codeIdRef.current}/run`,
+            body: {
+              windowId: lastMessage.metadata?.window?.id,
+              activeTab: lastMessage.metadata?.window?.tabs?.[0],
+            },
+          }
         }
       },
     }),
   })
 
   const lastAssistantMessage = messages.findLast((m) => m.role === 'assistant')
+
+  const onClickTest = async () => {
+    const backgroundWindow = await chrome.windows.create({
+      url: 'chrome://newtab',
+      focused: true,
+      type: 'normal',
+    })
+
+    setBackgroundWindow(backgroundWindow)
+
+    sendMessage({
+      text: 'Run a test of the graph you just created.',
+      metadata: {
+        messageType: 'run-graph' as MessageType,
+        codeId,
+        window: backgroundWindow,
+      },
+    })
+  }
 
   useDeepCompareEffect(() => {
     if (status === 'ready' && lastAssistantMessage) {
@@ -130,6 +163,7 @@ export const CreateGraph: FC = () => {
             graphName={graphName}
             onGraphNameChange={(val) => setGraphName(val)}
             graphData={graphData}
+            onClickTest={onClickTest}
           />
         </ResizablePanel>
 

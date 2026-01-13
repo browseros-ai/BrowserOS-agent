@@ -69,12 +69,14 @@ type GraphCanvasProps = {
   graphName: string
   onGraphNameChange: (name: string) => void
   graphData?: GraphData
+  onClickTest: () => unknown
 }
 
 export const GraphCanvas: FC<GraphCanvasProps> = ({
   graphName,
   onGraphNameChange,
   graphData = initialData,
+  onClickTest,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
 
@@ -111,10 +113,6 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   useDeepCompareEffect(() => {
     handleGraphUpdate(graphData)
   }, [graphData])
-
-  const handleTest = () => {
-    alert('Workflow test initiated! Check console for details.')
-  }
 
   const handleSave = () => {
     alert('Workflow saved successfully!')
@@ -153,7 +151,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
         {/* Control Buttons */}
         <div className="flex items-center gap-2">
           <button
-            onClick={handleTest}
+            onClick={onClickTest}
             className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 font-medium text-sm transition-colors hover:bg-muted/80"
           >
             <Play className="h-4 w-4" />
