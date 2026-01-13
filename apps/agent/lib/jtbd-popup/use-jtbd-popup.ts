@@ -11,6 +11,8 @@ import { type JtbdPopupState, jtbdPopupStorage } from './storage'
 const isEligible = (state: JtbdPopupState): boolean => {
   if (state.surveyTaken) return false
   if (state.messageCount < JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD) return false
+  if (state.messageCount % JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD !== 0)
+    return false
   if (state.samplingId % JTBD_POPUP_CONSTANTS.SAMPLING_DIVISOR !== 0)
     return false
   return true
