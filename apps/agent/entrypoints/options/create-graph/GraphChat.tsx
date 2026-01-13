@@ -1,7 +1,8 @@
 import type { UIMessage } from 'ai'
 import { Send, SquareStop } from 'lucide-react'
-import type { FC, KeyboardEvent } from 'react'
+import type { FC, FormEventHandler, KeyboardEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { ChatError } from '@/entrypoints/sidepanel/index/ChatError'
 import { ChatMessages } from '@/entrypoints/sidepanel/index/ChatMessages'
 import { getResponseAndQueryFromMessageId } from '@/entrypoints/sidepanel/index/useChatSession'
 import {
@@ -13,12 +14,14 @@ import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 
 interface GraphChatProps {
-  onSubmit: () => unknown
+  onSubmit: FormEventHandler<HTMLFormElement>
   onInputChange: (value: string) => void
   onStop: () => void
   input: string
   status: 'streaming' | 'submitted' | 'ready' | 'error'
   messages: UIMessage[]
+  chatError?: Error
+  agentUrlError?: Error | null
 }
 
 export const GraphChat: FC<GraphChatProps> = ({
@@ -28,6 +31,8 @@ export const GraphChat: FC<GraphChatProps> = ({
   input,
   status,
   messages,
+  chatError,
+  agentUrlError,
 }) => {
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
@@ -105,7 +110,7 @@ export const GraphChat: FC<GraphChatProps> = ({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-full w-full flex-1 flex-col">
+      <div className="flex h-full w-full flex-1 flex-col pb-2">
         <ChatMessages
           liked={liked}
           disliked={disliked}
@@ -119,40 +124,46 @@ export const GraphChat: FC<GraphChatProps> = ({
           onDismissJtbdPopup={onDismissJtbdPopup}
         />
       </div>
-      <form
-        onSubmit={onSubmit}
-        className="relative mt-2 flex w-full items-end gap-2"
-      >
-        <textarea
-          className={cn(
-            'field-sizing-content max-h-60 min-h-[42px] flex-1 resize-none overflow-hidden rounded-2xl border border-border/50 bg-muted/50 px-4 py-2.5 pr-11 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-border focus:border-[var(--accent-orange)]',
+      {agentUrlError && <ChatError error={agentUrlError} />}
+      {chatError && <ChatError error={chatError} />}
+      <div className="border-border/40 border-t bg-background/80 p-2 backdrop-blur-md">
+        <form
+          onSubmit={onSubmit}
+          className="relative flex w-full items-end gap-2"
+        >
+          <textarea
+            className={cn(
+              'field-sizing-content max-h-60 min-h-[42px] flex-1 resize-none overflow-hidden rounded-2xl border border-border/50 bg-muted/50 px-4 py-2.5 pr-11 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-border focus:border-[var(--accent-orange)]',
+            )}
+            value={input}
+            onChange={(e) => onInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              'Visit Amazon and add sensodyne toothpaste to the cart.'
+            }
+            rows={1}
+          />
+          {status === 'streaming' ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="absolute right-1.5 bottom-1.5 cursor-pointer rounded-full bg-red-600 p-2 text-white shadow-sm transition-all duration-200 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <SquareStop className="h-3.5 w-3.5" />
+              <span className="sr-only">Stop</span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="absolute right-1.5 bottom-1.5 cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-white shadow-sm transition-all duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span className="sr-only">Send</span>
+            </button>
           )}
-          value={input}
-          onChange={(e) => onInputChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={'Visit Amazon and add sensodyne toothpaste to the cart.'}
-          rows={1}
-        />
-        {status === 'streaming' ? (
-          <button
-            type="button"
-            onClick={onStop}
-            className="absolute right-1.5 bottom-1.5 cursor-pointer rounded-full bg-red-600 p-2 text-white shadow-sm transition-all duration-200 hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <SquareStop className="h-3.5 w-3.5" />
-            <span className="sr-only">Stop</span>
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!input.trim()}
-            className="absolute right-1.5 bottom-1.5 cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-white shadow-sm transition-all duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Send className="h-3.5 w-3.5" />
-            <span className="sr-only">Send</span>
-          </button>
-        )}
-      </form>
+        </form>
+      </div>
     </div>
   )
 }

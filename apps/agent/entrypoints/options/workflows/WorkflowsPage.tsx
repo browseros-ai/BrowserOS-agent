@@ -29,10 +29,7 @@ export const WorkflowsPage: FC = () => {
     }
   }
 
-  const handleRun = async (workflowId: string) => {
-    // TODO: Implement workflow run logic
-    console.log('Run workflow:', workflowId)
-  }
+  const handleRun = async (_workflowId: string) => {}
 
   const workflowToDelete = deleteWorkflowId
     ? workflows.find((w) => w.id === deleteWorkflowId)

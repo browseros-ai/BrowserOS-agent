@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
-import type { FC } from 'react'
+import type { FC, FormEvent } from 'react'
 import { useEffect } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import {
@@ -51,7 +51,8 @@ export const CreateGraph: FC = () => {
     setQuery(newQuery)
   }
 
-  const onSubmit = () => {
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
     if (codeId) {
       sendMessage({
         text: query,
@@ -74,7 +75,7 @@ export const CreateGraph: FC = () => {
   const {
     baseUrl: agentServerUrl,
     isLoading: _isLoadingAgentUrl,
-    error: _agentUrlError,
+    error: agentUrlError,
   } = useAgentServerUrl()
 
   const {
@@ -151,8 +152,6 @@ export const CreateGraph: FC = () => {
     }),
   })
 
-  console.log(error)
-
   const lastAssistantMessage = messages.findLast((m) => m.role === 'assistant')
 
   const onClickTest = async () => {
@@ -204,6 +203,8 @@ export const CreateGraph: FC = () => {
             onStop={stop}
             input={query}
             status={status}
+            agentUrlError={agentUrlError}
+            chatError={error}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
