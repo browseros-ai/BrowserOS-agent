@@ -91,16 +91,28 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
       return createSSEStream(
         c,
-        { logLabel: 'Graph create' },
+        { logLabel: 'Graph create', vercelAIStream: true },
         async (s, signal) => {
-          await graphService.createGraph(
-            request.query,
-            async (event) => {
-              await s.write(`data: ${JSON.stringify(event)}\n\n`)
-            },
-            signal,
-          )
-          await s.write(formatUIMessageStreamDone())
+          try {
+            await graphService.createGraph(
+              request.query,
+              async (event) => {
+                await s.write(formatUIMessageStreamEvent(event))
+              },
+              signal,
+            )
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error)
+            await s.write(
+              formatUIMessageStreamEvent({
+                type: 'error',
+                errorText: errorMessage,
+              }),
+            )
+          } finally {
+            await s.write(formatUIMessageStreamDone())
+          }
         },
       )
     })
@@ -121,17 +133,29 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
         return createSSEStream(
           c,
-          { logLabel: 'Graph update' },
+          { logLabel: 'Graph update', vercelAIStream: true },
           async (s, signal) => {
-            await graphService.updateGraph(
-              sessionId,
-              request.query,
-              async (event) => {
-                await s.write(`data: ${JSON.stringify(event)}\n\n`)
-              },
-              signal,
-            )
-            await s.write(formatUIMessageStreamDone())
+            try {
+              await graphService.updateGraph(
+                sessionId,
+                request.query,
+                async (event) => {
+                  await s.write(formatUIMessageStreamEvent(event))
+                },
+                signal,
+              )
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : String(error)
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'error',
+                  errorText: errorMessage,
+                }),
+              )
+            } finally {
+              await s.write(formatUIMessageStreamDone())
+            }
           },
         )
       },
