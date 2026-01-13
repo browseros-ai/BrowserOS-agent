@@ -207,9 +207,57 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 sessionId,
                 request,
                 async (event) => {
-                  // Forward events from agent SDK, skip outer start/finish (we manage those)
-                  if (event.type === 'start' || event.type === 'finish') return
-                  await s.write(formatUIMessageStreamEvent(event))
+                  // Route events through writer for proper AI SDK formatting
+                  switch (event.type) {
+                    case 'start':
+                    case 'finish':
+                      // Skip - we manage these at the route level
+                      break
+                    case 'start-step':
+                      await writer.startStep()
+                      break
+                    case 'finish-step':
+                      await writer.finishStep()
+                      break
+                    case 'text-delta':
+                      await writer.writeTextDelta(event.delta)
+                      break
+                    case 'reasoning-delta':
+                      await writer.writeReasoningDelta(event.delta)
+                      break
+                    case 'tool-input-available':
+                      await writer.writeToolCall(
+                        event.toolCallId,
+                        event.toolName,
+                        event.input,
+                      )
+                      break
+                    case 'tool-output-available':
+                      await writer.writeToolResult(
+                        event.toolCallId,
+                        event.output,
+                      )
+                      break
+                    case 'tool-input-error':
+                      await writer.writeToolError(
+                        event.toolCallId,
+                        event.errorText,
+                        true,
+                      )
+                      break
+                    case 'tool-output-error':
+                      await writer.writeToolError(
+                        event.toolCallId,
+                        event.errorText,
+                      )
+                      break
+                    case 'error':
+                      await writer.writeError(event.errorText)
+                      break
+                    default:
+                      // Forward other events directly (source-url, file, etc.)
+                      await s.write(formatUIMessageStreamEvent(event))
+                  }
                 },
                 signal,
               )
