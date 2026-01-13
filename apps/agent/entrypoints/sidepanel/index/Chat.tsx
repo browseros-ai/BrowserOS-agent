@@ -73,18 +73,19 @@ export const Chat = () => {
     scrollToBottom()
   }, [messages])
 
-  const prevStatusRef = useRef(status)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only trigger when status changes
+  // Trigger JTBD popup when AI finishes responding
+  const previousChatStatus = useRef(status)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only trigger on status change
   useEffect(() => {
-    const wasStreaming =
-      prevStatusRef.current === 'streaming' ||
-      prevStatusRef.current === 'submitted'
-    const isNowReady = status === 'ready'
+    const aiWasProcessing =
+      previousChatStatus.current === 'streaming' ||
+      previousChatStatus.current === 'submitted'
+    const aiJustFinished = aiWasProcessing && status === 'ready'
 
-    if (wasStreaming && isNowReady && messages.length > 0) {
+    if (aiJustFinished && messages.length > 0) {
       triggerIfEligible()
     }
-    prevStatusRef.current = status
+    previousChatStatus.current = status
   }, [status])
 
   const toggleTabSelection = (tab: chrome.tabs.Tab) => {
