@@ -1,5 +1,5 @@
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { DefaultChatTransport, type UIMessage } from 'ai'
 import type { FC } from 'react'
 import {
   ResizableHandle,
@@ -10,10 +10,21 @@ import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
 
+type MessageType = 'create-graph' | 'update-graph' | 'run-graph'
+
+const getLastMessageText = (messages: UIMessage[]) => {
+  const lastMessage = messages[messages.length - 1]
+  if (!lastMessage) return ''
+  return lastMessage.parts
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+    .join('')
+}
+
 export const CreateGraph: FC = () => {
   const [graphName, setGraphName] = useState('')
   const [graphId, _setGraphId] = useState<string | undefined>(
-    'code_2-DxNueis4AP',
+    'code_jwsShssYSyue',
   )
 
   const [query, setQuery] = useState('')
@@ -22,9 +33,15 @@ export const CreateGraph: FC = () => {
     setQuery(newQuery)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {}
-
-  const onSubmit = () => {}
+  const onSubmit = () => {
+    sendMessage({
+      text: query,
+      metadata: {
+        messageType: 'create-graph' as MessageType,
+      },
+    })
+    setQuery('')
+  }
 
   const {
     baseUrl: agentServerUrl,
@@ -41,6 +58,17 @@ export const CreateGraph: FC = () => {
   const { sendMessage, stop, status } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
+        const lastMessage = messages[messages.length - 1]
+        const lastMessageText = getLastMessageText(messages)
+        if (lastMessage.metadata?.messageType === 'create-graph') {
+          return {
+            api: `${agentUrlRef.current}/graph`,
+            body: {
+              query: lastMessageText,
+            },
+            keepAlive: true,
+          }
+        }
         if (messages.length === 0) {
           return {
             api: `${agentUrlRef.current}/graph`,
@@ -62,15 +90,6 @@ export const CreateGraph: FC = () => {
     }),
   })
 
-  useEffect(() => {
-    if (agentServerUrl) {
-      sendMessage({
-        text: 'Create a new graph to open gmail and visit the updates tab',
-        metadata: {},
-      })
-    }
-  }, [agentServerUrl])
-
   return (
     <div className="h-dvh w-dvw bg-background text-foreground">
       <ResizablePanelGroup orientation="horizontal">
@@ -91,7 +110,6 @@ export const CreateGraph: FC = () => {
             onStop={stop}
             input={query}
             status={status}
-            handleKeyDown={handleKeyDown}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
