@@ -47,7 +47,6 @@ export function useJtbdPopup() {
   const onTakeSurvey = useCallback(async () => {
     const current = await jtbdPopupStorage.getValue()
     track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
-    await jtbdPopupStorage.setValue({ ...current, surveyTaken: true })
     setPopupVisible(false)
     window.open('/options.html?page=survey', '_blank')
   }, [])
