@@ -13,6 +13,8 @@ import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 import { Bot, Play, Save } from 'lucide-react'
 import type { FC } from 'react'
+import useDeepCompareEffect from 'use-deep-compare-effect'
+import type { GraphData } from './CreateGraph'
 import { CustomNode, type NodeType } from './CustomNode'
 
 const nodeTypes: Record<NodeType, typeof CustomNode> = {
@@ -28,20 +30,9 @@ const nodeTypes: Record<NodeType, typeof CustomNode> = {
   join: CustomNode,
 }
 
-const sampleData = {
-  nodes: [
-    { id: 'start', type: 'start', data: { label: 'Start' } },
-    { id: 'nav_1', type: 'nav', data: { label: 'Go to google.com' } },
-    { id: 'act_1', type: 'act', data: { label: 'Search for cats' } },
-    { id: 'extract_1', type: 'extract', data: { label: 'Get search results' } },
-    { id: 'end', type: 'end', data: { label: 'End' } },
-  ],
-  edges: [
-    { id: 'e1', source: 'start', target: 'nav_1' },
-    { id: 'e2', source: 'nav_1', target: 'act_1' },
-    { id: 'e3', source: 'act_1', target: 'extract_1' },
-    { id: 'e4', source: 'extract_1', target: 'end' },
-  ],
+const initialData: GraphData = {
+  nodes: [{ id: 'start', type: 'start', data: { label: 'Start' } }],
+  edges: [],
 }
 
 const dagreGraph = new dagre.graphlib.Graph()
@@ -77,29 +68,31 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 type GraphCanvasProps = {
   graphName: string
   onGraphNameChange: (name: string) => void
+  graphData?: GraphData
 }
 
 export const GraphCanvas: FC<GraphCanvasProps> = ({
   graphName,
   onGraphNameChange,
+  graphData = initialData,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
 
   // Initialize nodes and edges with layout
   const initialLayout = getLayoutedElements(
-    sampleData.nodes.map((n) => ({
+    graphData.nodes.map((n) => ({
       ...n,
       data: { ...n.data, type: n.type },
       position: { x: 0, y: 0 },
     })),
-    sampleData.edges,
+    graphData.edges,
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialLayout.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialLayout.edges)
 
   // Handle graph updates from chat
-  const _handleGraphUpdate = useCallback(
+  const handleGraphUpdate = useCallback(
     (newGraphData: { nodes: any[]; edges: any[] }) => {
       const layouted = getLayoutedElements(
         newGraphData.nodes.map((n) => ({
@@ -114,6 +107,10 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
     },
     [setNodes, setEdges],
   )
+
+  useDeepCompareEffect(() => {
+    handleGraphUpdate(graphData)
+  }, [graphData])
 
   const handleTest = () => {
     alert('Workflow test initiated! Check console for details.')
