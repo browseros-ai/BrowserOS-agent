@@ -1,6 +1,6 @@
 import type * as React from 'react'
 import type { FC } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Command,
   CommandEmpty,
@@ -43,10 +43,10 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
     setFocusedIndex(0)
   }, [filterText])
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isOpen) return
+  useEffect(() => {
+    if (!isOpen) return
 
+    const handleKeyDown = (e: KeyboardEvent) => {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
@@ -70,16 +70,11 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
           onClose()
           break
       }
-    },
-    [isOpen, tabs, focusedIndex, onToggleTab, onClose],
-  )
-
-  useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, handleKeyDown])
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, tabs, focusedIndex, onToggleTab, onClose])
 
   useEffect(() => {
     if (listRef.current && focusedIndex >= 0) {

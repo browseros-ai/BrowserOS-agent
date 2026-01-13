@@ -28,9 +28,9 @@ export function useAvailableTabs({
       .query({ currentWindow: true })
       .then((currentWindowTabs) => {
         if (cancelled) return
-        const httpTabs = currentWindowTabs.filter((tab) =>
-          tab.url?.startsWith('http'),
-        )
+        const httpTabs = currentWindowTabs
+          .filter((tab) => tab.url?.startsWith('http'))
+          .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))
         setAllTabs(httpTabs)
         setIsLoading(false)
       })
