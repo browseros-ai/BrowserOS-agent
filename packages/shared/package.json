@@ -40,6 +40,10 @@
     "./schemas/llm": {
       "types": "./src/schemas/llm.ts",
       "default": "./src/schemas/llm.ts"
+    },
+    "./types/ui-stream": {
+      "types": "./src/types/ui-stream.ts",
+      "default": "./src/types/ui-stream.ts"
     }
   }
 }
