@@ -74,3 +74,12 @@ export const MANAGED_MCP_ADDED_EVENT = 'settings.managed_mcp.added'
 
 /** @public */
 export const CUSTOM_MCP_ADDED_EVENT = 'settings.custom_mcp.added'
+
+/** @public */
+export const JTBD_POPUP_SHOWN_EVENT = 'ui.jtbd_popup.shown'
+
+/** @public */
+export const JTBD_POPUP_CLICKED_EVENT = 'ui.jtbd_popup.clicked'
+
+/** @public */
+export const JTBD_POPUP_DISMISSED_EVENT = 'ui.jtbd_popup.dismissed'

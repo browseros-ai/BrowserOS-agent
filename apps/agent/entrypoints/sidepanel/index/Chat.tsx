@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
+import { useJtbdPopup } from '@/lib/jtbd-popup/use-jtbd-popup'
 import { track } from '@/lib/metrics/track'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
@@ -34,6 +35,14 @@ export const Chat = () => {
     onClickDislike,
   } = useChatSession()
 
+  const {
+    popupVisible,
+    recordMessageSent,
+    triggerIfEligible,
+    onTakeSurvey,
+    onDismiss: onDismissJtbdPopup,
+  } = useJtbdPopup()
+
   const [input, setInput] = useState('')
   const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -64,6 +73,21 @@ export const Chat = () => {
     scrollToBottom()
   }, [messages])
 
+  // Trigger JTBD popup when AI finishes responding
+  const previousChatStatus = useRef(status)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only trigger on status change
+  useEffect(() => {
+    const aiWasProcessing =
+      previousChatStatus.current === 'streaming' ||
+      previousChatStatus.current === 'submitted'
+    const aiJustFinished = aiWasProcessing && status === 'ready'
+
+    if (aiJustFinished && messages.length > 0) {
+      triggerIfEligible()
+    }
+    previousChatStatus.current = status
+  }, [status])
+
   const toggleTabSelection = (tab: chrome.tabs.Tab) => {
     setAttachedTabs((prev) => {
       const isSelected = prev.some((t) => t.id === tab.id)
@@ -81,6 +105,9 @@ export const Chat = () => {
   const executeMessage = (customMessageText?: string) => {
     const messageText = customMessageText ? customMessageText : input.trim()
     if (!messageText) return
+
+    recordMessageSent()
+
     if (attachedTabs.length) {
       const action = createBrowserOSAction({
         mode,
@@ -145,6 +172,9 @@ export const Chat = () => {
             onClickLike={onClickLike}
             disliked={disliked}
             onClickDislike={onClickDislike}
+            showJtbdPopup={popupVisible}
+            onTakeSurvey={onTakeSurvey}
+            onDismissJtbdPopup={onDismissJtbdPopup}
           />
         )}
         {agentUrlError && <ChatError error={agentUrlError} />}

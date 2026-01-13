@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
+import { jtbdPopupStorage } from '@/lib/jtbd-popup/storage'
 import { Chat } from './chat'
 import { Header } from './header'
 import { useChat } from './use-chat'
@@ -45,12 +46,18 @@ const ErrorCard: FC<{ error: Error; onRetry: () => void }> = ({
 export const SurveyPage: FC = () => {
   const chat = useChat()
 
+  const handleStart = async () => {
+    const current = await jtbdPopupStorage.getValue()
+    await jtbdPopupStorage.setValue({ ...current, surveyTaken: true })
+    chat.start()
+  }
+
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
       <Header />
 
       {chat.phase === 'idle' && (
-        <Welcome onStart={chat.start} isLoading={chat.isStreaming} />
+        <Welcome onStart={handleStart} isLoading={chat.isStreaming} />
       )}
 
       {chat.phase === 'active' && (

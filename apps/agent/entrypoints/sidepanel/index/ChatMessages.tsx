@@ -19,6 +19,7 @@ import {
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { ChatMessageActions } from './ChatMessageActions'
 import { getMessageSegments } from './getMessageSegments'
+import { JtbdPopup } from './JtbdPopup'
 import { ToolBatch } from './ToolBatch'
 import { UserActionMessage } from './UserActionMessage'
 
@@ -31,6 +32,9 @@ interface ChatMessagesProps {
   onClickLike: (messageId: string) => void
   disliked: Record<string, boolean>
   onClickDislike: (messageId: string, comment?: string) => void
+  showJtbdPopup: boolean
+  onTakeSurvey: () => void
+  onDismissJtbdPopup: () => void
 }
 
 export const ChatMessages: FC<ChatMessagesProps> = ({
@@ -42,6 +46,9 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   disliked,
   onClickLike,
   onClickDislike,
+  showJtbdPopup,
+  onTakeSurvey,
+  onDismissJtbdPopup,
 }) => {
   const isStreaming = status === 'streaming' || status === 'submitted'
 
@@ -128,6 +135,12 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               </Fragment>
             )
           })}
+          {showJtbdPopup && (
+            <JtbdPopup
+              onTakeSurvey={onTakeSurvey}
+              onDismiss={onDismissJtbdPopup}
+            />
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
