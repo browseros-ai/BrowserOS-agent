@@ -1,6 +1,7 @@
 import {
   Bot,
   CalendarClock,
+  GitGraph,
   Info,
   type LucideIcon,
   Menu,
@@ -82,6 +83,12 @@ const navigationItems: NavItem[] = [
     to: chrome.runtime.getURL('onboarding.html'),
     icon: RotateCcw,
     target: '_blank',
+    enabled: true,
+  },
+  {
+    name: 'Create Graph',
+    to: '/create-graph',
+    icon: GitGraph,
     enabled: true,
   },
   {

@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import { AISettingsPage } from './ai-settings/AISettingsPage'
 import { ConnectMCP } from './connect-mcp/ConnectMCP'
+import { CreateGraph } from './create-graph/CreateGraph'
 import { CustomizationPage } from './customization/CustomizationPage'
 import { SurveyPage } from './jtbd-agent'
 import { DashboardLayout } from './layout/DashboardLayout'
@@ -38,6 +39,7 @@ export const App: FC = () => {
           <Route path="scheduled" element={<ScheduledTasksPage />} />
           <Route path="jtbd-agent" element={<SurveyPage />} />
         </Route>
+        <Route path="create-graph" element={<CreateGraph />} />
       </Routes>
     </HashRouter>
   )
