@@ -109,6 +109,12 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 errorText: errorMessage,
               }),
             )
+            await s.write(
+              formatUIMessageStreamEvent({
+                type: 'finish',
+                finishReason: 'error',
+              }),
+            )
           } finally {
             await s.write(formatUIMessageStreamDone())
           }
@@ -150,6 +156,12 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 formatUIMessageStreamEvent({
                   type: 'error',
                   errorText: errorMessage,
+                }),
+              )
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'error',
                 }),
               )
             } finally {
