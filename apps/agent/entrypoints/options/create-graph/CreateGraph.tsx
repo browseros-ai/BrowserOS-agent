@@ -16,6 +16,16 @@ export const CreateGraph: FC = () => {
     'code_2-DxNueis4AP',
   )
 
+  const [query, setQuery] = useState('')
+
+  const updateQuery = (newQuery: string) => {
+    setQuery(newQuery)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {}
+
+  const onSubmit = () => {}
+
   const {
     baseUrl: agentServerUrl,
     isLoading: _isLoadingAgentUrl,
@@ -28,7 +38,7 @@ export const CreateGraph: FC = () => {
     agentUrlRef.current = agentServerUrl
   }, [agentServerUrl])
 
-  const { sendMessage } = useChat({
+  const { sendMessage, stop, status } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         if (messages.length === 0) {
@@ -75,7 +85,14 @@ export const CreateGraph: FC = () => {
         <ResizableHandle withHandle />
 
         <ResizablePanel>
-          <GraphChat />
+          <GraphChat
+            onSubmit={onSubmit}
+            onInputChange={updateQuery}
+            onStop={stop}
+            input={query}
+            status={status}
+            handleKeyDown={handleKeyDown}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
