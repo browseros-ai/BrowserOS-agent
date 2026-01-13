@@ -1,5 +1,6 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
+import { compact } from 'es-toolkit/array'
 import type { FC } from 'react'
 import { useEffect } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
@@ -8,6 +9,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
+import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
@@ -78,6 +80,12 @@ export const CreateGraph: FC = () => {
     error: _agentUrlError,
   } = useAgentServerUrl()
 
+  const {
+    selectedLlmProviderRef,
+    enabledMcpServersRef,
+    enabledCustomServersRef,
+  } = useChatRefs()
+
   const agentUrlRef = useRef(agentServerUrl)
   const codeIdRef = useRef(codeId)
 
@@ -113,11 +121,32 @@ export const CreateGraph: FC = () => {
           lastMessage.metadata?.messageType === 'run-graph' &&
           codeIdRef.current
         ) {
+          const provider = selectedLlmProviderRef.current
+          const enabledMcpServers = enabledMcpServersRef.current
+          const customMcpServers = enabledCustomServersRef.current
+
           return {
             api: `${agentUrlRef.current}/graph/${codeIdRef.current}/run`,
             body: {
-              windowId: lastMessage.metadata?.window?.id,
-              activeTab: lastMessage.metadata?.window?.tabs?.[0],
+              provider: provider?.type,
+              providerType: provider?.type,
+              providerName: provider?.name,
+              model: provider?.modelId ?? 'browseros',
+              contextWindowSize: provider?.contextWindow,
+              temperature: provider?.temperature,
+              // Azure-specific
+              resourceName: provider?.resourceName,
+              // Bedrock-specific
+              accessKeyId: provider?.accessKeyId,
+              secretAccessKey: provider?.secretAccessKey,
+              region: provider?.region,
+              sessionToken: provider?.sessionToken,
+              browserContext: {
+                windowId: lastMessage.metadata?.window?.id,
+                activeTab: lastMessage.metadata?.window?.tabs?.[0],
+                enabledMcpServers: compact(enabledMcpServers),
+                customMcpServers,
+              },
             },
           }
         }

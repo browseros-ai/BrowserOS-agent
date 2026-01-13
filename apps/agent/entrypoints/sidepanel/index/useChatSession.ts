@@ -12,13 +12,12 @@ import {
   MESSAGE_SENT_EVENT,
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
-import { type McpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { track } from '@/lib/metrics/track'
 import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import type { ChatMode, Provider } from './chatTypes'
+import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
 
 const getLastMessageText = (messages: UIMessage[]) => {
@@ -52,38 +51,16 @@ export const getResponseAndQueryFromMessageId = (
   }
 }
 
-const constructMcpServers = (servers: McpServer[]) => {
-  return servers
-    .filter((eachServer) => eachServer.type === 'managed')
-    .map((each) => each.managedServerName)
-}
-
-const constructCustomServers = (servers: McpServer[]) => {
-  return servers
-    .filter((eachServer) => eachServer.type === 'custom')
-    .map((each) => ({
-      name: each.displayName,
-      url: each.config?.url,
-    }))
-}
-
 export const useChatSession = () => {
-  const { servers: mcpServers } = useMcpServers()
-
-  const enabledMcpServersRef = useRef(constructMcpServers(mcpServers))
-  const enabledCustomServersRef = useRef(constructCustomServers(mcpServers))
-
-  useDeepCompareEffect(() => {
-    enabledMcpServersRef.current = constructMcpServers(mcpServers)
-    enabledCustomServersRef.current = constructCustomServers(mcpServers)
-  }, [mcpServers])
-
   const {
-    providers: llmProviders,
-    selectedProvider: selectedLlmProvider,
-    isLoading: isLoadingProviders,
-    setDefaultProvider,
-  } = useLlmProviders()
+    selectedLlmProviderRef,
+    enabledMcpServersRef,
+    enabledCustomServersRef,
+    selectedLlmProvider,
+    isLoadingProviders,
+  } = useChatRefs()
+
+  const { providers: llmProviders, setDefaultProvider } = useLlmProviders()
 
   const { personalization } = usePersonalization()
   const personalizationRef = useRef(personalization)
@@ -151,19 +128,13 @@ export const useChatSession = () => {
     }))
   }
 
-  // Refs to avoid stale closures in prepareSendMessagesRequest callback
-  const selectedLlmProviderRef = useRef<LlmProviderConfig | null>(
-    selectedLlmProvider,
-  )
   const modeRef = useRef<ChatMode>(mode)
-
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
 
   useDeepCompareEffect(() => {
-    selectedLlmProviderRef.current = selectedLlmProvider
     modeRef.current = mode
     textToActionRef.current = textToAction
-  }, [selectedLlmProvider, mode, textToAction])
+  }, [mode, textToAction])
 
   const selectedProvider = selectedLlmProvider
     ? {
