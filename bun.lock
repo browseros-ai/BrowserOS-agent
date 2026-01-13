@@ -21,6 +21,7 @@
       "version": "0.0.20",
       "dependencies": {
         "@ai-sdk/react": "^2.0.95",
+        "@browseros/server": "workspace:*",
         "@hookform/resolvers": "^5.2.2",
         "@lobehub/icons": "^2.44.0",
         "@modelcontextprotocol/sdk": "^1.25.2",
@@ -56,6 +57,7 @@
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
         "eventsource-parser": "^3.0.6",
+        "hono": "^4.6.0",
         "klavis": "^2.15.0",
         "lucide-react": "^0.554.0",
         "motion": "^12.23.24",
@@ -2053,7 +2055,7 @@
 
     "hoist-non-react-statics": ["hoist-non-react-statics@3.3.2", "", { "dependencies": { "react-is": "^16.7.0" } }, "sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw=="],
 
-    "hono": ["hono@4.10.6", "", {}, "sha512-BIdolzGpDO9MQ4nu3AUuDwHZZ+KViNm+EZ75Ae55eMXMqLVhDFqEMXxtUe9Qh8hjL+pIna/frs2j6Y2yD5Ua/g=="],
+    "hono": ["hono@4.11.4", "", {}, "sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA=="],
 
     "hono-rate-limiter": ["hono-rate-limiter@0.4.2", "", { "peerDependencies": { "hono": "^4.1.1" } }, "sha512-AAtFqgADyrmbDijcRTT/HJfwqfvhalya2Zo+MgfdrMPas3zSMD8SU03cv+ZsYwRU1swv7zgVt0shwN059yzhjw=="],
 

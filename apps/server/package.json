@@ -19,6 +19,12 @@
     "test:cleanup": "./tests/__helpers__/cleanup.sh",
     "typecheck": "tsc --noEmit"
   },
+  "exports": {
+    ".": {
+      "types": "./src/rpc.ts",
+      "import": "./src/rpc.ts"
+    }
+  },
   "dependencies": {
     "@browseros/shared": "workspace:*",
     "@browseros-ai/agent-sdk": "workspace:*",
