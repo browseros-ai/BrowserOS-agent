@@ -5,21 +5,18 @@ import { cn } from '@/lib/utils'
 interface TabListItemProps {
   tab: chrome.tabs.Tab
   isSelected: boolean
-  isFocused?: boolean
   className?: string
 }
 
 export const TabListItem: FC<TabListItemProps> = ({
   tab,
   isSelected,
-  isFocused = false,
   className,
 }) => {
   return (
     <div
       className={cn(
         'flex w-full cursor-pointer items-center gap-3 rounded-lg p-2.5 transition-colors',
-        isFocused && 'bg-accent',
         className,
       )}
     >

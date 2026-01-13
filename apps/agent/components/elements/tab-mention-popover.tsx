@@ -149,12 +149,12 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
                   value={`${tab.id}`}
                   onSelect={() => onToggleTab(tab)}
                   onMouseEnter={() => setFocusedIndex(index)}
-                  className="p-0"
+                  className="p-0 data-[selected=true]:bg-transparent"
                 >
                   <TabListItem
                     tab={tab}
                     isSelected={selectedTabIds.has(tab.id)}
-                    isFocused={index === focusedIndex}
+                    className={index === focusedIndex ? 'bg-accent' : undefined}
                   />
                 </CommandItem>
               ))}
