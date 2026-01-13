@@ -102,7 +102,6 @@ export const CreateGraph: FC = () => {
         ) {
           return {
             api: `${agentUrlRef.current}/graph/${codeIdRef.current}`,
-            method: 'PUT',
             body: {
               query: lastMessageText,
             },

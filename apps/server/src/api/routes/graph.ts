@@ -116,7 +116,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
         },
       )
     })
-    .put(
+    .post(
       '/:id',
       zValidator('param', SessionIdParamSchema),
       zValidator('json', UpdateGraphRequestSchema),
