@@ -9,6 +9,7 @@ import {
   useEdgesState,
   useNodesState,
 } from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 import { Bot, Play, Save } from 'lucide-react'
 import type { FC } from 'react'
