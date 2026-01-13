@@ -137,6 +137,7 @@ export class Agent {
    */
   async nav(url: string, options?: NavOptions): Promise<NavResult> {
     this.emit({ type: 'start-step' })
+    this.emit({ type: 'text-start', id: 'nav' })
     this.emit({
       type: 'text-delta',
       id: 'nav',
@@ -154,6 +155,7 @@ export class Agent {
       id: 'nav',
       delta: result.success ? `Navigation complete.\n` : `Navigation failed.\n`,
     })
+    this.emit({ type: 'text-end', id: 'nav' })
     this.emit({ type: 'finish-step' })
 
     return result
@@ -358,6 +360,7 @@ export class Agent {
     options: ExtractOptions<T>,
   ): Promise<ExtractResult<T>> {
     this.emit({ type: 'start-step' })
+    this.emit({ type: 'text-start', id: 'extract' })
     this.emit({
       type: 'text-delta',
       id: 'extract',
@@ -381,6 +384,7 @@ export class Agent {
       id: 'extract',
       delta: `Extraction complete.\n`,
     })
+    this.emit({ type: 'text-end', id: 'extract' })
     this.emit({ type: 'finish-step' })
 
     return result
@@ -414,6 +418,7 @@ export class Agent {
     options?: VerifyOptions,
   ): Promise<VerifyResult> {
     this.emit({ type: 'start-step' })
+    this.emit({ type: 'text-start', id: 'verify' })
     this.emit({
       type: 'text-delta',
       id: 'verify',
@@ -437,6 +442,7 @@ export class Agent {
         ? `Verification passed: ${result.reason}\n`
         : `Verification failed: ${result.reason}\n`,
     })
+    this.emit({ type: 'text-end', id: 'verify' })
     this.emit({ type: 'finish-step' })
 
     return result

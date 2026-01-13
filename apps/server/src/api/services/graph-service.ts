@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { UIMessageStreamEventSchema } from '@browseros/shared/schemas/ui-stream'
 import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import { cleanupExecution, executeGraph } from '../../graph/executor'
 import { logger } from '../../lib/logger'
 import {
+  CodegenFinishMetadataSchema,
   CodegenGetResponseSchema,
-  type CodegenSSEEvent,
-  CodegenSSEEventSchema,
   type GraphSession,
   type RunGraphRequest,
   type WorkflowGraph,
@@ -23,16 +23,22 @@ export interface GraphServiceDeps {
   tempDir: string
 }
 
+interface SessionState {
+  codeId: string | null
+  code: string | null
+  graph: WorkflowGraph | null
+}
+
 export class GraphService {
   constructor(private deps: GraphServiceDeps) {}
 
   /**
    * Create a new graph by proxying to codegen service.
-   * Streams SSE events back to caller.
+   * Streams UIMessageStreamEvent events back to caller.
    */
   async createGraph(
     query: string,
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<GraphSession | null> {
     const url = `${this.deps.codegenServiceUrl}/api/code`
@@ -48,7 +54,7 @@ export class GraphService {
   async updateGraph(
     sessionId: string,
     query: string,
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<GraphSession | null> {
     const url = `${this.deps.codegenServiceUrl}/api/code/${sessionId}`
@@ -169,24 +175,22 @@ export class GraphService {
   }
 
   /**
-   * Proxy a request to codegen service and stream SSE events.
+   * Proxy a request to codegen service and stream UIMessageStreamEvent events.
    */
   private async proxyCodegenRequest(
     url: string,
     method: 'POST' | 'PUT',
     body: { query: string },
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<GraphSession | null> {
     try {
       const response = await this.fetchCodegenService(url, method, body, signal)
-      return await this.parseCodegenSSEStream(response, onEvent)
+      return await this.parseUIMessageStream(response, onEvent)
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       logger.error('Codegen proxy request failed', { url, error: errorMessage })
-
-      await onEvent({ event: 'error', data: { error: errorMessage } })
       throw error
     }
   }
@@ -218,9 +222,13 @@ export class GraphService {
     return response
   }
 
-  private async parseCodegenSSEStream(
+  /**
+   * Parse UIMessageStreamEvent SSE stream from codegen service.
+   * Extracts codeId, code, graph from the finish event's messageMetadata.
+   */
+  private async parseUIMessageStream(
     response: Response,
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
   ): Promise<GraphSession | null> {
     if (!response.body) {
       throw new Error('No response body')
@@ -228,12 +236,8 @@ export class GraphService {
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
-    const state = {
-      codeId: null as string | null,
-      code: null as string | null,
-      graph: null as WorkflowGraph | null,
-    }
-    const pendingEvents: CodegenSSEEvent[] = []
+    const state: SessionState = { codeId: null, code: null, graph: null }
+    const pendingEvents: UIMessageStreamEvent[] = []
 
     const parser = createParser({
       onEvent: (msg: EventSourceMessage) => {
@@ -241,24 +245,21 @@ export class GraphService {
 
         try {
           const json = JSON.parse(msg.data)
-          // Use the event type from SSE `event:` line
-          const eventType = msg.event || 'message'
-
-          const event = { event: eventType, data: json } as CodegenSSEEvent
-          const result = CodegenSSEEventSchema.safeParse(event)
+          const result = UIMessageStreamEventSchema.safeParse(json)
 
           if (!result.success) {
-            logger.warn('Invalid codegen SSE event', {
-              eventType,
+            logger.warn('Invalid UIMessageStream event', {
               data: msg.data,
               issues: result.error.issues,
             })
             return
           }
 
-          pendingEvents.push(result.data)
+          pendingEvents.push(result.data as UIMessageStreamEvent)
         } catch {
-          logger.warn('Failed to parse codegen event', { data: msg.data })
+          logger.warn('Failed to parse UIMessageStream event', {
+            data: msg.data,
+          })
         }
       },
     })
@@ -274,13 +275,7 @@ export class GraphService {
         // Process any events that were parsed
         let event = pendingEvents.shift()
         while (event) {
-          if (event.event === 'started') {
-            state.codeId = event.data.codeId
-          } else if (event.event === 'complete') {
-            state.codeId = event.data.codeId
-            state.code = event.data.code
-            state.graph = event.data.graph
-          }
+          this.extractSessionData(event, state)
           await onEvent(event)
           event = pendingEvents.shift()
         }
@@ -289,13 +284,7 @@ export class GraphService {
       // Process any remaining events
       let remaining = pendingEvents.shift()
       while (remaining) {
-        if (remaining.event === 'started') {
-          state.codeId = remaining.data.codeId
-        } else if (remaining.event === 'complete') {
-          state.codeId = remaining.data.codeId
-          state.code = remaining.data.code
-          state.graph = remaining.data.graph
-        }
+        this.extractSessionData(remaining, state)
         await onEvent(remaining)
         remaining = pendingEvents.shift()
       }
@@ -312,6 +301,27 @@ export class GraphService {
       return null
     } finally {
       reader.releaseLock()
+    }
+  }
+
+  /**
+   * Extract session data (codeId, code, graph) from UIMessageStreamEvent.
+   */
+  private extractSessionData(
+    event: UIMessageStreamEvent,
+    state: SessionState,
+  ): void {
+    if (event.type === 'start' && event.messageId) {
+      state.codeId = event.messageId
+    } else if (event.type === 'finish' && event.messageMetadata) {
+      const result = CodegenFinishMetadataSchema.safeParse(
+        event.messageMetadata,
+      )
+      if (result.success) {
+        if (result.data.codeId) state.codeId = result.data.codeId
+        if (result.data.code) state.code = result.data.code
+        if (result.data.graph !== undefined) state.graph = result.data.graph
+      }
     }
   }
 }
