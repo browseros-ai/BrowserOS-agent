@@ -191,8 +191,6 @@ export class GraphService {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       logger.error('Codegen proxy request failed', { url, error: errorMessage })
-
-      await onEvent({ type: 'error', errorText: errorMessage })
       throw error
     }
   }
