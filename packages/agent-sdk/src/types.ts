@@ -1,5 +1,5 @@
 import type { LLMConfig, LLMProvider } from '@browseros/shared/schemas/llm'
-import type { UIMessageStreamEvent } from '@browseros/shared/types/ui-stream'
+import type { UIMessageStreamEvent } from '@browseros/shared/schemas/ui-stream'
 import type { ZodSchema } from 'zod'
 
 // Re-export shared types for consumers (bundled at build time)

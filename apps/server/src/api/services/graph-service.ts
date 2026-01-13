@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { UIMessageStreamEventSchema } from '@browseros/shared/schemas/ui-stream'
 import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import { cleanupExecution, executeGraph } from '../../graph/executor'
@@ -13,7 +14,6 @@ import {
   CodegenGetResponseSchema,
   type GraphSession,
   type RunGraphRequest,
-  UIMessageStreamEventSchema,
   type WorkflowGraph,
 } from '../types'
 
