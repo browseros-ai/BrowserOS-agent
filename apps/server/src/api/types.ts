@@ -165,3 +165,39 @@ export const CodegenGetResponseSchema = z.object({
 })
 
 export type CodegenGetResponse = z.infer<typeof CodegenGetResponseSchema>
+
+// UIMessageStreamEvent schema for validating incoming SSE events from codegen service
+export const UIMessageStreamEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('start'), messageId: z.string().optional() }),
+  z.object({
+    type: z.literal('text-delta'),
+    id: z.string(),
+    delta: z.string(),
+  }),
+  z.object({
+    type: z.literal('finish'),
+    finishReason: z.string(),
+    messageMetadata: z.unknown().optional(),
+  }),
+  z.object({ type: z.literal('error'), errorText: z.string() }),
+  z.object({
+    type: z.literal('tool-call'),
+    id: z.string(),
+    name: z.string(),
+    args: z.unknown(),
+  }),
+  z.object({
+    type: z.literal('tool-result'),
+    id: z.string(),
+    result: z.unknown(),
+  }),
+])
+
+// Metadata schema for finish events from codegen service
+export const CodegenFinishMetadataSchema = z.object({
+  codeId: z.string().optional(),
+  code: z.string().optional(),
+  graph: WorkflowGraphSchema.nullable().optional(),
+})
+
+export type CodegenFinishMetadata = z.infer<typeof CodegenFinishMetadataSchema>
