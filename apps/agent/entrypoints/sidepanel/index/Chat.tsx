@@ -37,7 +37,7 @@ export const Chat = () => {
 
   const {
     popupVisible,
-    recordConversationStart,
+    recordMessageSent,
     triggerIfEligible,
     onTakeSurvey,
     onDismiss: onDismissJtbdPopup,
@@ -104,6 +104,9 @@ export const Chat = () => {
   const executeMessage = (customMessageText?: string) => {
     const messageText = customMessageText ? customMessageText : input.trim()
     if (!messageText) return
+
+    recordMessageSent()
+
     if (attachedTabs.length) {
       const action = createBrowserOSAction({
         mode,
@@ -125,7 +128,6 @@ export const Chat = () => {
         mode,
         tabs_count: attachedTabs.length,
       })
-      recordConversationStart()
     }
     executeMessage()
   }
