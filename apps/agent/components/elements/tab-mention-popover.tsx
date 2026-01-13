@@ -1,6 +1,6 @@
-import { Check, Globe } from 'lucide-react'
-import type { FC, RefObject } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import type * as React from 'react'
+import type { FC } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Command,
   CommandEmpty,
@@ -9,7 +9,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
+import { TabListItem } from './tab-list-item'
+import { useAvailableTabs } from './use-available-tabs'
 
 interface TabMentionPopoverProps {
   isOpen: boolean
@@ -17,7 +18,7 @@ interface TabMentionPopoverProps {
   selectedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
   onClose: () => void
-  anchorRef: RefObject<HTMLTextAreaElement | null>
+  anchorRef: React.RefObject<HTMLTextAreaElement | null>
 }
 
 export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
@@ -28,40 +29,19 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
   onClose,
   anchorRef,
 }) => {
-  const [availableTabs, setAvailableTabs] = useState<chrome.tabs.Tab[]>([])
+  const { tabs, allTabs } = useAvailableTabs({ enabled: isOpen, filterText })
   const [focusedIndex, setFocusedIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!isOpen) return
-
-    const fetchTabs = async () => {
-      const currentWindowTabs = await chrome.tabs.query({ currentWindow: true })
-      const tabs = currentWindowTabs.filter((tab) =>
-        tab.url?.startsWith('http'),
-      )
-      setAvailableTabs(tabs)
-    }
-
-    fetchTabs()
-  }, [isOpen])
-
-  const filteredTabs = availableTabs.filter((tab) => {
-    if (!filterText) return true
-    const searchText = filterText.toLowerCase()
-    return (
-      tab.title?.toLowerCase().includes(searchText) ||
-      tab.url?.toLowerCase().includes(searchText)
-    )
-  })
+  const selectedTabIds = useMemo(
+    () => new Set(selectedTabs.map((t) => t.id)),
+    [selectedTabs],
+  )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset focus when filter changes
   useEffect(() => {
     setFocusedIndex(0)
   }, [filterText])
-
-  const isTabSelected = (tabId?: number) =>
-    tabId !== undefined && selectedTabs.some((t) => t.id === tabId)
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -70,9 +50,7 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
-          setFocusedIndex((prev) =>
-            prev < filteredTabs.length - 1 ? prev + 1 : prev,
-          )
+          setFocusedIndex((prev) => (prev < tabs.length - 1 ? prev + 1 : prev))
           break
         case 'ArrowUp':
           e.preventDefault()
@@ -80,8 +58,8 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
           break
         case 'Enter':
           e.preventDefault()
-          if (filteredTabs[focusedIndex]) {
-            onToggleTab(filteredTabs[focusedIndex])
+          if (tabs[focusedIndex]) {
+            onToggleTab(tabs[focusedIndex])
           }
           break
         case 'Escape':
@@ -93,7 +71,7 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
           break
       }
     },
-    [isOpen, filteredTabs, focusedIndex, onToggleTab, onClose],
+    [isOpen, tabs, focusedIndex, onToggleTab, onClose],
   )
 
   useEffect(() => {
@@ -114,7 +92,9 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
 
   return (
     <Popover open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <PopoverAnchor virtualRef={anchorRef} />
+      <PopoverAnchor
+        virtualRef={anchorRef as React.RefObject<HTMLTextAreaElement>}
+      />
       <PopoverContent
         side="top"
         align="start"
@@ -122,6 +102,8 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
         className="w-[calc(100vw-24px)] max-w-[400px] p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
+        role="dialog"
+        aria-label="Select tabs to attach"
       >
         <Command
           className="[&_svg:not([class*='text-'])]:text-muted-foreground"
@@ -145,69 +127,42 @@ export const TabMentionPopover: FC<TabMentionPopoverProps> = ({
               </span>
             )}
           </div>
-          <CommandList ref={listRef} className="max-h-64 overflow-auto">
+          <CommandList
+            ref={listRef}
+            className="max-h-64 overflow-auto"
+            role="listbox"
+            aria-label="Available tabs"
+            aria-multiselectable="true"
+          >
             <CommandEmpty className="py-6 text-center">
               <div className="text-muted-foreground text-sm">
-                {filterText
-                  ? `No tabs matching "${filterText}"`
-                  : 'No active tabs'}
+                {allTabs.length === 0
+                  ? 'No active tabs'
+                  : `No tabs matching "${filterText}"`}
               </div>
               <div className="mt-1 text-muted-foreground/70 text-xs">
-                {filterText
-                  ? 'Try a different search term'
-                  : 'Open some web pages to attach them'}
+                {allTabs.length === 0
+                  ? 'Open some web pages to attach them'
+                  : 'Try a different search term'}
               </div>
             </CommandEmpty>
             <CommandGroup>
-              {filteredTabs.map((tab, index) => {
-                const isSelected = isTabSelected(tab.id)
-                const isFocused = index === focusedIndex
-                return (
-                  <CommandItem
-                    key={tab.id}
-                    data-tab-item
-                    value={`${tab.id}`}
-                    onSelect={() => onToggleTab(tab)}
-                    className={cn(
-                      'flex w-full cursor-pointer items-center gap-3 rounded-lg p-2.5 transition-colors',
-                      isFocused && 'bg-accent',
-                    )}
-                    onMouseEnter={() => setFocusedIndex(index)}
-                  >
-                    <div
-                      className={cn(
-                        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors',
-                        isSelected
-                          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]'
-                          : 'border-border bg-background',
-                      )}
-                    >
-                      {isSelected ? (
-                        <Check className="h-3 w-3 text-white" />
-                      ) : null}
-                    </div>
-                    <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border border-border bg-background">
-                      {tab.favIconUrl ? (
-                        <img
-                          src={tab.favIconUrl}
-                          alt=""
-                          className="h-3.5 w-3.5"
-                        />
-                      ) : (
-                        <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium text-foreground text-xs">
-                        {tab.title}
-                      </div>
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {tab.url}
-                      </div>
-                    </div>
-                  </CommandItem>
-                )
-              })}
+              {tabs.map((tab, index) => (
+                <CommandItem
+                  key={tab.id}
+                  data-tab-item
+                  value={`${tab.id}`}
+                  onSelect={() => onToggleTab(tab)}
+                  onMouseEnter={() => setFocusedIndex(index)}
+                  className="p-0"
+                >
+                  <TabListItem
+                    tab={tab}
+                    isSelected={selectedTabIds.has(tab.id)}
+                    isFocused={index === focusedIndex}
+                  />
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
           <div className="border-border/50 border-t px-3 py-2">

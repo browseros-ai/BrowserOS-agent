@@ -39,11 +39,21 @@ export const ChatInput: FC<ChatInputProps> = ({
     startPosition: 0,
   })
 
+  const inputRef = useRef(input)
+  const mentionStateRef = useRef(mentionState)
+
+  useEffect(() => {
+    inputRef.current = input
+    mentionStateRef.current = mentionState
+  })
+
   const closeMention = useCallback(() => {
-    if (mentionState.isOpen) {
-      const beforeMention = input.slice(0, mentionState.startPosition)
-      const afterMention = input.slice(
-        mentionState.startPosition + 1 + mentionState.filterText.length,
+    const state = mentionStateRef.current
+    if (state.isOpen) {
+      const currentInput = inputRef.current
+      const beforeMention = currentInput.slice(0, state.startPosition)
+      const afterMention = currentInput.slice(
+        state.startPosition + 1 + state.filterText.length,
       )
       onInputChange(beforeMention + afterMention)
       setMentionState({ isOpen: false, filterText: '', startPosition: 0 })
@@ -54,7 +64,7 @@ export const ChatInput: FC<ChatInputProps> = ({
         textareaRef.current?.setSelectionRange(newPosition, newPosition)
       })
     }
-  }, [mentionState, input, onInputChange])
+  }, [onInputChange])
 
   const handleInputChange = (value: string) => {
     const textarea = textareaRef.current
@@ -76,22 +86,15 @@ export const ChatInput: FC<ChatInputProps> = ({
       }
     } else {
       const charBeforeCursor = value[cursorPosition - 1]
-      const charTwoBeforeCursor = value[cursorPosition - 2]
+      const textBeforeAt = value.slice(0, cursorPosition - 1)
+      const isAtWordBoundary = /(?:^|[\s\n])$/.test(textBeforeAt)
 
-      if (charBeforeCursor === '@' && charTwoBeforeCursor !== '@') {
-        const charBeforeAt = value[cursorPosition - 2]
-        if (
-          cursorPosition === 1 ||
-          charBeforeAt === ' ' ||
-          charBeforeAt === '\n' ||
-          charBeforeAt === undefined
-        ) {
-          setMentionState({
-            isOpen: true,
-            filterText: '',
-            startPosition: cursorPosition - 1,
-          })
-        }
+      if (charBeforeCursor === '@' && isAtWordBoundary) {
+        setMentionState({
+          isOpen: true,
+          filterText: '',
+          startPosition: cursorPosition - 1,
+        })
       }
     }
 
