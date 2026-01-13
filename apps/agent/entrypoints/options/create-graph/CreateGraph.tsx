@@ -44,9 +44,6 @@ export const CreateGraph: FC = () => {
   const [graphName, setGraphName] = useState('')
   const [codeId, setCodeId] = useState<string | undefined>(undefined)
   const [graphData, setGraphData] = useState<GraphData | undefined>(undefined)
-  const [backgroundWindow, setBackgroundWindow] = useState<
-    chrome.windows.Window | undefined
-  >(undefined)
 
   const [query, setQuery] = useState('')
 
@@ -162,8 +159,6 @@ export const CreateGraph: FC = () => {
       focused: true,
       type: 'normal',
     })
-
-    setBackgroundWindow(backgroundWindow)
 
     sendMessage({
       text: 'Run a test of the graph you just created.',
