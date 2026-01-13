@@ -1,235 +1,31 @@
-import {
-  Background,
-  BackgroundVariant,
-  Controls,
-  type Edge,
-  MiniMap,
-  type Node,
-  ReactFlow,
-  useEdgesState,
-  useNodesState,
-} from '@xyflow/react'
-import dagre from 'dagre'
-import { Bot, Play, Save } from 'lucide-react'
 import type { FC } from 'react'
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
-import { CustomNode, type NodeType } from './CustomNode'
 import '@xyflow/react/dist/style.css'
-
-const nodeTypes: Record<NodeType, typeof CustomNode> = {
-  start: CustomNode,
-  end: CustomNode,
-  nav: CustomNode,
-  act: CustomNode,
-  extract: CustomNode,
-  verify: CustomNode,
-  decision: CustomNode,
-  loop: CustomNode,
-  fork: CustomNode,
-  join: CustomNode,
-}
-
-const sampleData = {
-  nodes: [
-    { id: 'start', type: 'start', data: { label: 'Start' } },
-    { id: 'nav_1', type: 'nav', data: { label: 'Go to google.com' } },
-    { id: 'act_1', type: 'act', data: { label: 'Search for cats' } },
-    { id: 'extract_1', type: 'extract', data: { label: 'Get search results' } },
-    { id: 'end', type: 'end', data: { label: 'End' } },
-  ],
-  edges: [
-    { id: 'e1', source: 'start', target: 'nav_1' },
-    { id: 'e2', source: 'nav_1', target: 'act_1' },
-    { id: 'e3', source: 'act_1', target: 'extract_1' },
-    { id: 'e4', source: 'extract_1', target: 'end' },
-  ],
-}
-
-const dagreGraph = new dagre.graphlib.Graph()
-dagreGraph.setDefaultEdgeLabel(() => ({}))
-
-const nodeWidth = 180
-const nodeHeight = 60
-
-const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 100 })
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight })
-  })
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target)
-  })
-
-  dagre.layout(dagreGraph)
-
-  nodes.forEach((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id)
-    node.position = {
-      x: nodeWithPosition.x - nodeWidth / 2,
-      y: nodeWithPosition.y - nodeHeight / 2,
-    }
-  })
-
-  return { nodes, edges }
-}
+import { GraphCanvas } from './GraphCanvas'
+import { GraphChat } from './GraphChat'
 
 export const CreateGraph: FC = () => {
   const [graphName, setGraphName] = useState('Search Google for Cats')
-  const [isEditingName, setIsEditingName] = useState(false)
-
-  // Initialize nodes and edges with layout
-  const initialLayout = getLayoutedElements(
-    sampleData.nodes.map((n) => ({
-      ...n,
-      data: { ...n.data, type: n.type },
-      position: { x: 0, y: 0 },
-    })),
-    sampleData.edges,
-  )
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialLayout.nodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialLayout.edges)
-
-  // Handle graph updates from chat
-  const _handleGraphUpdate = useCallback(
-    (newGraphData: { nodes: any[]; edges: any[] }) => {
-      const layouted = getLayoutedElements(
-        newGraphData.nodes.map((n) => ({
-          ...n,
-          data: { ...n.data, type: n.type },
-          position: { x: 0, y: 0 },
-        })),
-        newGraphData.edges,
-      )
-      setNodes(layouted.nodes)
-      setEdges(layouted.edges)
-    },
-    [setNodes, setEdges],
-  )
-
-  const handleTest = () => {
-    alert('Workflow test initiated! Check console for details.')
-  }
-
-  const handleSave = () => {
-    alert('Workflow saved successfully!')
-  }
 
   return (
     <div className="h-dvh w-dvw bg-background text-foreground">
       <ResizablePanelGroup orientation="horizontal">
         <ResizablePanel>
-          <div className="flex h-full flex-col">
-            {/* Graph Header */}
-            <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-4 py-3 backdrop-blur-md">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--accent-orange)] to-[var(--accent-orange-bright)] text-white shadow-lg shadow-orange-500/20">
-                  <Bot className="h-5 w-5" />
-                </div>
-                {isEditingName ? (
-                  <input
-                    type="text"
-                    value={graphName}
-                    onChange={(e) => setGraphName(e.target.value)}
-                    onBlur={() => setIsEditingName(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') setIsEditingName(false)
-                    }}
-                    className="min-w-0 flex-1 border-[var(--accent-orange)] border-b bg-transparent font-semibold text-sm outline-none"
-                  />
-                ) : (
-                  <h1
-                    onClick={() => setIsEditingName(true)}
-                    className="cursor-pointer truncate font-semibold text-sm transition-colors hover:text-[var(--accent-orange)]"
-                    title="Click to edit"
-                  >
-                    {graphName}
-                  </h1>
-                )}
-              </div>
-
-              {/* Control Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleTest}
-                  className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 font-medium text-sm transition-colors hover:bg-muted/80"
-                >
-                  <Play className="h-4 w-4" />
-                  Test
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-2 rounded-lg bg-[var(--accent-orange)] px-3 py-1.5 font-medium text-sm text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-[var(--accent-orange-bright)]"
-                >
-                  <Save className="h-4 w-4" />
-                  Save
-                </button>
-              </div>
-            </header>
-
-            {/* Graph Canvas */}
-            <div className="relative flex-1">
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                nodeTypes={nodeTypes}
-                fitView
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={false}
-                edgesFocusable={false}
-                nodesFocusable={false}
-                proOptions={{ hideAttribution: true }}
-                defaultEdgeOptions={{
-                  style: { stroke: 'var(--accent-orange)', strokeWidth: 2 },
-                  type: 'smoothstep',
-                }}
-              >
-                <Background
-                  variant={BackgroundVariant.Dots}
-                  gap={16}
-                  size={1}
-                />
-                <Controls />
-                <MiniMap
-                  nodeColor={(node) => {
-                    const colors: Record<string, string> = {
-                      start: '#22c55e',
-                      end: '#ef4444',
-                      nav: '#3b82f6',
-                      act: '#8b5cf6',
-                      extract: '#f59e0b',
-                      verify: '#10b981',
-                      decision: '#ec4899',
-                      loop: '#06b6d4',
-                      fork: '#6366f1',
-                      join: '#84cc16',
-                    }
-                    return colors[node.type || 'default'] || '#gray'
-                  }}
-                  style={{
-                    backgroundColor: 'var(--card)',
-                    border: '1px solid var(--border)',
-                  }}
-                />
-              </ReactFlow>
-            </div>
-          </div>
+          <GraphCanvas
+            graphName={graphName}
+            onGraphNameChange={(val) => setGraphName(val)}
+          />
         </ResizablePanel>
 
         {/* Resizable Handle */}
         <ResizableHandle withHandle />
 
         <ResizablePanel>
-          <div className="flex h-full w-[50vw] flex-1"></div>
+          <GraphChat />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
