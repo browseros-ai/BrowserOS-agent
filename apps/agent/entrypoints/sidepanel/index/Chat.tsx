@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
+import { useJtbdPopup } from '@/lib/jtbd-popup/use-jtbd-popup'
 import { track } from '@/lib/metrics/track'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
@@ -34,6 +35,14 @@ export const Chat = () => {
     onClickDislike,
   } = useChatSession()
 
+  const {
+    popupVisible,
+    recordConversationStart,
+    triggerIfEligible,
+    onTakeSurvey,
+    onDismiss: onDismissJtbdPopup,
+  } = useJtbdPopup()
+
   const [input, setInput] = useState('')
   const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -63,6 +72,20 @@ export const Chat = () => {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  const prevStatusRef = useRef(status)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only trigger when status changes
+  useEffect(() => {
+    const wasStreaming =
+      prevStatusRef.current === 'streaming' ||
+      prevStatusRef.current === 'submitted'
+    const isNowReady = status === 'ready'
+
+    if (wasStreaming && isNowReady && messages.length > 0) {
+      triggerIfEligible()
+    }
+    prevStatusRef.current = status
+  }, [status])
 
   const toggleTabSelection = (tab: chrome.tabs.Tab) => {
     setAttachedTabs((prev) => {
@@ -102,6 +125,7 @@ export const Chat = () => {
         mode,
         tabs_count: attachedTabs.length,
       })
+      recordConversationStart()
     }
     executeMessage()
   }
@@ -145,6 +169,9 @@ export const Chat = () => {
             onClickLike={onClickLike}
             disliked={disliked}
             onClickDislike={onClickDislike}
+            showJtbdPopup={popupVisible}
+            onTakeSurvey={onTakeSurvey}
+            onDismissJtbdPopup={onDismissJtbdPopup}
           />
         )}
         {agentUrlError && <ChatError error={agentUrlError} />}
