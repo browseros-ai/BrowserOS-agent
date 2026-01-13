@@ -92,7 +92,7 @@ export const CreateGraph: FC = () => {
     codeIdRef.current = codeId
   }, [agentServerUrl, codeId])
 
-  const { sendMessage, stop, status, messages } = useChat({
+  const { sendMessage, stop, status, messages, error } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
@@ -150,6 +150,8 @@ export const CreateGraph: FC = () => {
       },
     }),
   })
+
+  console.log(error)
 
   const lastAssistantMessage = messages.findLast((m) => m.role === 'assistant')
 
