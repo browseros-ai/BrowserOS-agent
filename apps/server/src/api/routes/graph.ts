@@ -91,12 +91,12 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
       return createSSEStream(
         c,
-        { logLabel: 'Graph create' },
+        { logLabel: 'Graph create', vercelAIStream: true },
         async (s, signal) => {
           await graphService.createGraph(
             request.query,
             async (event) => {
-              await s.write(`data: ${JSON.stringify(event)}\n\n`)
+              await s.write(formatUIMessageStreamEvent(event))
             },
             signal,
           )
@@ -121,13 +121,13 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
         return createSSEStream(
           c,
-          { logLabel: 'Graph update' },
+          { logLabel: 'Graph update', vercelAIStream: true },
           async (s, signal) => {
             await graphService.updateGraph(
               sessionId,
               request.query,
               async (event) => {
-                await s.write(`data: ${JSON.stringify(event)}\n\n`)
+                await s.write(formatUIMessageStreamEvent(event))
               },
               signal,
             )

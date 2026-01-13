@@ -10,8 +10,6 @@ import { cleanupExecution, executeGraph } from '../../graph/executor'
 import { logger } from '../../lib/logger'
 import {
   CodegenGetResponseSchema,
-  type CodegenSSEEvent,
-  CodegenSSEEventSchema,
   type GraphSession,
   type RunGraphRequest,
   type WorkflowGraph,
@@ -28,11 +26,11 @@ export class GraphService {
 
   /**
    * Create a new graph by proxying to codegen service.
-   * Streams SSE events back to caller.
+   * Streams UIMessageStreamEvent events back to caller.
    */
   async createGraph(
     query: string,
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<GraphSession | null> {
     const url = `${this.deps.codegenServiceUrl}/api/code`
@@ -48,7 +46,7 @@ export class GraphService {
   async updateGraph(
     sessionId: string,
     query: string,
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<GraphSession | null> {
     const url = `${this.deps.codegenServiceUrl}/api/code/${sessionId}`
@@ -169,24 +167,24 @@ export class GraphService {
   }
 
   /**
-   * Proxy a request to codegen service and stream SSE events.
+   * Proxy a request to codegen service and stream UIMessageStreamEvent events.
    */
   private async proxyCodegenRequest(
     url: string,
     method: 'POST' | 'PUT',
     body: { query: string },
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
     signal?: AbortSignal,
   ): Promise<GraphSession | null> {
     try {
       const response = await this.fetchCodegenService(url, method, body, signal)
-      return await this.parseCodegenSSEStream(response, onEvent)
+      return await this.parseUIMessageStream(response, onEvent)
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       logger.error('Codegen proxy request failed', { url, error: errorMessage })
 
-      await onEvent({ event: 'error', data: { error: errorMessage } })
+      await onEvent({ type: 'error', errorText: errorMessage })
       throw error
     }
   }
@@ -218,9 +216,13 @@ export class GraphService {
     return response
   }
 
-  private async parseCodegenSSEStream(
+  /**
+   * Parse UIMessageStreamEvent SSE stream from codegen service.
+   * Extracts codeId, code, graph from the finish event's messageMetadata.
+   */
+  private async parseUIMessageStream(
     response: Response,
-    onEvent: (event: CodegenSSEEvent) => Promise<void>,
+    onEvent: (event: UIMessageStreamEvent) => Promise<void>,
   ): Promise<GraphSession | null> {
     if (!response.body) {
       throw new Error('No response body')
@@ -233,32 +235,19 @@ export class GraphService {
       code: null as string | null,
       graph: null as WorkflowGraph | null,
     }
-    const pendingEvents: CodegenSSEEvent[] = []
+    const pendingEvents: UIMessageStreamEvent[] = []
 
     const parser = createParser({
       onEvent: (msg: EventSourceMessage) => {
         if (msg.data === '[DONE]') return
 
         try {
-          const json = JSON.parse(msg.data)
-          // Use the event type from SSE `event:` line
-          const eventType = msg.event || 'message'
-
-          const event = { event: eventType, data: json } as CodegenSSEEvent
-          const result = CodegenSSEEventSchema.safeParse(event)
-
-          if (!result.success) {
-            logger.warn('Invalid codegen SSE event', {
-              eventType,
-              data: msg.data,
-              issues: result.error.issues,
-            })
-            return
-          }
-
-          pendingEvents.push(result.data)
+          const event = JSON.parse(msg.data) as UIMessageStreamEvent
+          pendingEvents.push(event)
         } catch {
-          logger.warn('Failed to parse codegen event', { data: msg.data })
+          logger.warn('Failed to parse UIMessageStream event', {
+            data: msg.data,
+          })
         }
       },
     })
@@ -274,12 +263,18 @@ export class GraphService {
         // Process any events that were parsed
         let event = pendingEvents.shift()
         while (event) {
-          if (event.event === 'started') {
-            state.codeId = event.data.codeId
-          } else if (event.event === 'complete') {
-            state.codeId = event.data.codeId
-            state.code = event.data.code
-            state.graph = event.data.graph
+          // Extract session data from events
+          if (event.type === 'start' && event.messageId) {
+            state.codeId = event.messageId
+          } else if (event.type === 'finish' && event.messageMetadata) {
+            const metadata = event.messageMetadata as {
+              codeId?: string
+              code?: string
+              graph?: WorkflowGraph | null
+            }
+            if (metadata.codeId) state.codeId = metadata.codeId
+            if (metadata.code) state.code = metadata.code
+            if (metadata.graph !== undefined) state.graph = metadata.graph
           }
           await onEvent(event)
           event = pendingEvents.shift()
@@ -289,12 +284,17 @@ export class GraphService {
       // Process any remaining events
       let remaining = pendingEvents.shift()
       while (remaining) {
-        if (remaining.event === 'started') {
-          state.codeId = remaining.data.codeId
-        } else if (remaining.event === 'complete') {
-          state.codeId = remaining.data.codeId
-          state.code = remaining.data.code
-          state.graph = remaining.data.graph
+        if (remaining.type === 'start' && remaining.messageId) {
+          state.codeId = remaining.messageId
+        } else if (remaining.type === 'finish' && remaining.messageMetadata) {
+          const metadata = remaining.messageMetadata as {
+            codeId?: string
+            code?: string
+            graph?: WorkflowGraph | null
+          }
+          if (metadata.codeId) state.codeId = metadata.codeId
+          if (metadata.code) state.code = metadata.code
+          if (metadata.graph !== undefined) state.graph = metadata.graph
         }
         await onEvent(remaining)
         remaining = pendingEvents.shift()
