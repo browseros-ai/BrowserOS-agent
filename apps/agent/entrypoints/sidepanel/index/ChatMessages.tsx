@@ -27,7 +27,7 @@ interface ChatMessagesProps {
   messages: UIMessage[]
   status: 'streaming' | 'submitted' | 'ready' | 'error'
   messagesEndRef: RefObject<HTMLDivElement | null>
-  getActionForMessage: (message: UIMessage) => ChatAction | undefined
+  getActionForMessage?: (message: UIMessage) => ChatAction | undefined
   liked: Record<string, boolean>
   onClickLike: (messageId: string) => void
   disliked: Record<string, boolean>
@@ -57,7 +57,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
       <Conversation className="ph-mask">
         <ConversationContent>
           {messages.map((message, messageIndex) => {
-            const action = getActionForMessage(message)
+            const action = getActionForMessage?.(message)
             const isLastMessage = messageIndex === messages.length - 1
             const segments = getMessageSegments(
               message,
