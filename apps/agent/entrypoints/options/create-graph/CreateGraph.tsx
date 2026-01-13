@@ -5,11 +5,14 @@ import {
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
 import '@xyflow/react/dist/style.css'
+import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
 
 export const CreateGraph: FC = () => {
-  const [graphName, setGraphName] = useState('Search Google for Cats')
+  const [graphName, setGraphName] = useState('')
+
+  const client = useRpcClient()
 
   return (
     <div className="h-dvh w-dvw bg-background text-foreground">
