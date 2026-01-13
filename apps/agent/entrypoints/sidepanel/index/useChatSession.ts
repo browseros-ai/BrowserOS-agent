@@ -30,7 +30,7 @@ const getLastMessageText = (messages: UIMessage[]) => {
     .join('')
 }
 
-const getResponseAndQueryFromMessageId = (
+export const getResponseAndQueryFromMessageId = (
   messages: UIMessage[],
   messageId: string,
 ) => {

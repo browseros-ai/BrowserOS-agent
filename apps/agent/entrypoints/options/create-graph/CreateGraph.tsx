@@ -1,6 +1,7 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import type { FC } from 'react'
+import { useEffect } from 'react'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -23,7 +24,7 @@ const getLastMessageText = (messages: UIMessage[]) => {
 
 export const CreateGraph: FC = () => {
   const [graphName, setGraphName] = useState('')
-  const [graphId, _setGraphId] = useState<string | undefined>(
+  const [_graphId, _setGraphId] = useState<string | undefined>(
     'code_jwsShssYSyue',
   )
 
@@ -53,9 +54,9 @@ export const CreateGraph: FC = () => {
 
   useEffect(() => {
     agentUrlRef.current = agentServerUrl
-  }, [agentServerUrl])
+  }, [agentServerUrl, agentUrlRef])
 
-  const { sendMessage, stop, status } = useChat({
+  const { sendMessage, stop, status, messages } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
@@ -105,6 +106,7 @@ export const CreateGraph: FC = () => {
 
         <ResizablePanel>
           <GraphChat
+            messages={messages}
             onSubmit={onSubmit}
             onInputChange={updateQuery}
             onStop={stop}
