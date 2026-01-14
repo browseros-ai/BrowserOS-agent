@@ -171,6 +171,8 @@ export const CreateGraph: FC = () => {
     })
   }
 
+  const onClickSave = () => {}
+
   useDeepCompareEffect(() => {
     if (status === 'ready' && lastAssistantMessage) {
       const codeId = lastAssistantMessage?.metadata?.codeId
@@ -188,7 +190,9 @@ export const CreateGraph: FC = () => {
             graphName={graphName}
             onGraphNameChange={(val) => setGraphName(val)}
             graphData={graphData}
+            codeId={codeId}
             onClickTest={onClickTest}
+            onClickSave={onClickSave}
           />
         </ResizablePanel>
 

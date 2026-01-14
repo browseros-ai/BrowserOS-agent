@@ -15,6 +15,11 @@ import { Bot, Pencil, Play, Save } from 'lucide-react'
 import type { FC } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { GraphData } from './CreateGraph'
 import { CustomNode, type NodeType } from './CustomNode'
 
@@ -70,16 +75,34 @@ type GraphCanvasProps = {
   graphName: string
   onGraphNameChange: (name: string) => void
   graphData?: GraphData
+  codeId?: string
   onClickTest: () => unknown
+  onClickSave: () => unknown
 }
 
 export const GraphCanvas: FC<GraphCanvasProps> = ({
   graphName,
   onGraphNameChange,
   graphData = initialData,
+  codeId,
   onClickTest,
+  onClickSave,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
+
+  const canTest = !!codeId
+  const canSave = !!graphName && !!codeId
+
+  const getTestTooltip = () => {
+    if (!codeId) return 'Create a workflow using the chat first'
+    return 'Run a test of this workflow'
+  }
+
+  const getSaveTooltip = () => {
+    if (!codeId) return 'Create a workflow using the chat first'
+    if (!graphName) return 'Provide a name for the workflow'
+    return 'Save this workflow'
+  }
 
   // Initialize nodes and edges with layout
   const initialLayout = getLayoutedElements(
@@ -114,10 +137,6 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   useDeepCompareEffect(() => {
     handleGraphUpdate(graphData)
   }, [graphData])
-
-  const handleSave = () => {
-    alert('Workflow saved successfully!')
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -162,18 +181,38 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
 
         {/* Control Buttons */}
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={onClickTest}>
-            <Play className="mr-1.5 h-4 w-4" />
-            Test
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            className="bg-[var(--accent-orange)] shadow-lg shadow-orange-500/20 hover:bg-[var(--accent-orange-bright)]"
-          >
-            <Save className="mr-1.5 h-4 w-4" />
-            Save
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onClickTest}
+                  disabled={!canTest}
+                >
+                  <Play className="mr-1.5 h-4 w-4" />
+                  Test Workflow
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{getTestTooltip()}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  onClick={onClickSave}
+                  disabled={!canSave}
+                  className="bg-[var(--accent-orange)] shadow-lg shadow-orange-500/20 hover:bg-[var(--accent-orange-bright)] disabled:bg-[var(--accent-orange)]/50"
+                >
+                  <Save className="mr-1.5 h-4 w-4" />
+                  Save Workflow
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{getSaveTooltip()}</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
