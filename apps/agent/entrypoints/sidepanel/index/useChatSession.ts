@@ -3,6 +3,7 @@ import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import type { Provider } from '@/components/chat/chatComponentTypes'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import {
@@ -15,7 +16,7 @@ import {
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
-import type { ChatMode, Provider } from './chatTypes'
+import type { ChatMode } from './chatTypes'
 import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
 
