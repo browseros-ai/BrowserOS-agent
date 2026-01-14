@@ -168,6 +168,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
 
   // Handle graph updates from chat
   const handleGraphUpdate = useCallback(
+    // biome-ignore lint/suspicious/noExplicitAny: graph data from external source
     (newGraphData: { nodes: any[]; edges: any[] }) => {
       const layouted = getLayoutedElements(
         newGraphData.nodes.map((n) => ({
