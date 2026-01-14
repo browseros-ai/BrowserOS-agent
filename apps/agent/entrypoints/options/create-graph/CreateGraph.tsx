@@ -13,6 +13,7 @@ import {
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
+import { sentry } from '@/lib/sentry/sentry'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
@@ -86,7 +87,12 @@ export const CreateGraph: FC = () => {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch graph data:', error)
+        sentry.captureException(error, {
+          extra: {
+            message: 'Failed to fetch graph data from the server',
+            codeId: workflow.codeId,
+          },
+        })
       }
 
       setIsInitialized(true)
