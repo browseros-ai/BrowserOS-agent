@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
-import { useJtbdPopup } from '@/lib/jtbd-popup/use-jtbd-popup'
+import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'

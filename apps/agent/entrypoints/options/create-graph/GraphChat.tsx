@@ -9,7 +9,7 @@ import {
   GRAPH_MESSAGE_DISLIKE_EVENT,
   GRAPH_MESSAGE_LIKE_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useJtbdPopup } from '@/lib/jtbd-popup/use-jtbd-popup'
+import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 
