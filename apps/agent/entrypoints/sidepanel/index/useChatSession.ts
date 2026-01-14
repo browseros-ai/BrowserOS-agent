@@ -14,7 +14,6 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
-import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import type { ChatMode, Provider } from './chatTypes'
 import { useChatRefs } from './useChatRefs'
@@ -56,18 +55,12 @@ export const useChatSession = () => {
     selectedLlmProviderRef,
     enabledMcpServersRef,
     enabledCustomServersRef,
+    personalizationRef,
     selectedLlmProvider,
     isLoadingProviders,
   } = useChatRefs()
 
   const { providers: llmProviders, setDefaultProvider } = useLlmProviders()
-
-  const { personalization } = usePersonalization()
-  const personalizationRef = useRef(personalization)
-
-  useEffect(() => {
-    personalizationRef.current = personalization
-  }, [personalization])
 
   const {
     baseUrl: agentServerUrl,

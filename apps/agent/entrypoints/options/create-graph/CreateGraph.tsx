@@ -136,6 +136,7 @@ export const CreateGraph: FC = () => {
     selectedLlmProviderRef,
     enabledMcpServersRef,
     enabledCustomServersRef,
+    personalizationRef,
   } = useChatRefs()
 
   const agentUrlRef = useRef(agentServerUrl)
@@ -199,6 +200,7 @@ export const CreateGraph: FC = () => {
                 enabledMcpServers: compact(enabledMcpServers),
                 customMcpServers,
               },
+              userSystemPrompt: personalizationRef.current,
             },
           }
         }

@@ -17,6 +17,7 @@ export const useRunWorkflow = () => {
     selectedLlmProviderRef,
     enabledMcpServersRef,
     enabledCustomServersRef,
+    personalizationRef,
   } = useChatRefs()
 
   const agentUrlRef = useRef(agentServerUrl)
@@ -53,6 +54,7 @@ export const useRunWorkflow = () => {
               enabledMcpServers: compact(enabledMcpServers),
               customMcpServers,
             },
+            userSystemPrompt: personalizationRef.current,
           },
         }
       },
