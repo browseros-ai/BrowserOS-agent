@@ -88,7 +88,7 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
               <p className="text-destructive text-sm">{run.result}</p>
             </div>
           ) : run.result ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-border bg-muted/50 p-4">
+            <div className="prose prose-sm dark:prose-invert [&_[data-streamdown='code-block']]:!w-full [&_[data-streamdown='table-wrapper']]:!w-full max-w-none break-words rounded-lg border border-border bg-muted/50 p-4">
               <MessageResponse>{run.result}</MessageResponse>
             </div>
           ) : (
