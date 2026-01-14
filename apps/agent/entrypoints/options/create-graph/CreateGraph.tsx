@@ -56,6 +56,9 @@ export const CreateGraph: FC = () => {
   )
   const [savedCodeId, setSavedCodeId] = useState<string | undefined>(undefined)
   const [isInitialized, setIsInitialized] = useState(!workflowIdParam)
+  const [canvasPanelSize, setCanvasPanelSize] = useState<number | undefined>(
+    undefined,
+  )
 
   const [query, setQuery] = useState('')
 
@@ -286,6 +289,7 @@ export const CreateGraph: FC = () => {
           defaultSize={'70%'}
           minSize={'30%'}
           maxSize={'70%'}
+          onResize={setCanvasPanelSize}
         >
           <GraphCanvas
             graphName={graphName}
@@ -297,6 +301,7 @@ export const CreateGraph: FC = () => {
             isSaved={!!savedWorkflowId}
             hasUnsavedChanges={hasUnsavedChanges}
             shouldBlockNavigation={shouldBlockNavigation}
+            panelSize={canvasPanelSize}
           />
         </ResizablePanel>
 

@@ -24,7 +24,7 @@ import {
   Save,
 } from 'lucide-react'
 import type { FC } from 'react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import ProductLogo from '@/assets/product_logo.svg'
@@ -105,6 +105,7 @@ type GraphCanvasProps = {
   isSaved: boolean
   hasUnsavedChanges: boolean
   shouldBlockNavigation: boolean
+  panelSize?: number
 }
 
 const GraphCanvasInner: FC<GraphCanvasProps> = ({
@@ -117,6 +118,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
   isSaved,
   hasUnsavedChanges,
   shouldBlockNavigation,
+  panelSize,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
   const { fitView, zoomIn, zoomOut } = useReactFlow()
@@ -185,6 +187,13 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
     handleGraphUpdate(graphData)
     setTimeout(() => fitView({ duration: 300 }), 50)
   }, [graphData])
+
+  // Auto fitView when panel is resized
+  useEffect(() => {
+    if (panelSize !== undefined) {
+      fitView({ duration: 200 })
+    }
+  }, [panelSize, fitView])
 
   return (
     <div className="flex h-full flex-col">
