@@ -73,13 +73,7 @@ export class ChatService {
       servers: Object.keys(mcpServers),
     })
 
-    const sessionExecutionDir = path.join(
-      this.deps.executionDir,
-      'sessions',
-      request.conversationId,
-    )
-    await mkdir(sessionExecutionDir, { recursive: true })
-    logger.info('Session execution directory created', { sessionExecutionDir })
+    const sessionExecutionDir = await this.resolveSessionDir(request)
 
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
@@ -211,5 +205,28 @@ export class ChatService {
     }
 
     return servers
+  }
+
+  private async resolveSessionDir(request: ChatRequest): Promise<string> {
+    let dir: string
+    let userProvided: boolean
+
+    if (request.userWorkingDir) {
+      dir = request.userWorkingDir
+      userProvided = true
+    } else {
+      // create new session dir for this conversationId
+      dir = path.join(
+        this.deps.executionDir,
+        'sessions',
+        request.conversationId,
+      )
+      userProvided = false
+    }
+
+    await mkdir(dir, { recursive: true })
+    logger.info('Session directory resolved', { dir, userProvided })
+
+    return dir
   }
 }
