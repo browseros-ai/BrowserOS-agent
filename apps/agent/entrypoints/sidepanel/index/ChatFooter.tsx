@@ -33,9 +33,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
 }) => {
   return (
     <footer className="border-border/40 border-t bg-background/80 backdrop-blur-md">
-      {mode === 'chat' && (
-        <ChatAttachedTabs tabs={attachedTabs} onRemoveTab={onRemoveTab} />
-      )}
+      <ChatAttachedTabs tabs={attachedTabs} onRemoveTab={onRemoveTab} />
 
       <div className="p-3">
         <div className="flex items-center gap-2">
@@ -71,6 +69,8 @@ export const ChatFooter: FC<ChatFooterProps> = ({
           onInputChange={onInputChange}
           onSubmit={onSubmit}
           onStop={onStop}
+          selectedTabs={attachedTabs}
+          onToggleTab={onToggleTab}
         />
       </div>
     </footer>

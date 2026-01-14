@@ -12,7 +12,6 @@ import { stream } from 'hono/streaming'
 import {
   formatUIMessageStreamDone,
   formatUIMessageStreamEvent,
-  UIMessageStreamWriter,
 } from '../../agent/provider-adapter/ui-message-stream'
 import { logger } from '../../lib/logger'
 import { GraphService } from '../services/graph-service'
@@ -110,6 +109,12 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 errorText: errorMessage,
               }),
             )
+            await s.write(
+              formatUIMessageStreamEvent({
+                type: 'finish',
+                finishReason: 'error',
+              }),
+            )
           } finally {
             await s.write(formatUIMessageStreamDone())
           }
@@ -151,6 +156,12 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 formatUIMessageStreamEvent({
                   type: 'error',
                   errorText: errorMessage,
+                }),
+              )
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'error',
                 }),
               )
             } finally {
@@ -196,78 +207,53 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
           c,
           { logLabel: 'Graph run', vercelAIStream: true },
           async (s, signal) => {
-            const writer = new UIMessageStreamWriter(async (data) => {
-              await s.write(data)
-            })
-
             try {
-              await writer.start(sessionId)
+              // Emit start event at route level
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'start',
+                  messageId: sessionId,
+                }),
+              )
 
               await graphService.runGraph(
                 sessionId,
                 request,
                 async (event) => {
-                  // Route events through writer for proper AI SDK formatting
-                  switch (event.type) {
-                    case 'start':
-                    case 'finish':
-                      // Skip - we manage these at the route level
-                      break
-                    case 'start-step':
-                      await writer.startStep()
-                      break
-                    case 'finish-step':
-                      await writer.finishStep()
-                      break
-                    case 'text-delta':
-                      await writer.writeTextDelta(event.delta)
-                      break
-                    case 'reasoning-delta':
-                      await writer.writeReasoningDelta(event.delta)
-                      break
-                    case 'tool-input-available':
-                      await writer.writeToolCall(
-                        event.toolCallId,
-                        event.toolName,
-                        event.input,
-                      )
-                      break
-                    case 'tool-output-available':
-                      await writer.writeToolResult(
-                        event.toolCallId,
-                        event.output,
-                      )
-                      break
-                    case 'tool-input-error':
-                      await writer.writeToolError(
-                        event.toolCallId,
-                        event.errorText,
-                        true,
-                      )
-                      break
-                    case 'tool-output-error':
-                      await writer.writeToolError(
-                        event.toolCallId,
-                        event.errorText,
-                      )
-                      break
-                    case 'error':
-                      await writer.writeError(event.errorText)
-                      break
-                    default:
-                      // Forward other events directly (source-url, file, etc.)
-                      await s.write(formatUIMessageStreamEvent(event))
+                  // Agent SDK handles proper event formatting
+                  // Skip start/finish (managed at route level), forward everything else
+                  if (event.type === 'start' || event.type === 'finish') {
+                    return
                   }
+                  await s.write(formatUIMessageStreamEvent(event))
                 },
                 signal,
               )
 
-              await writer.finish()
+              // Emit finish at route level
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'stop',
+                }),
+              )
             } catch (error) {
               const errorMessage =
                 error instanceof Error ? error.message : String(error)
-              await writer.writeError(errorMessage)
-              await writer.finish('error')
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'error',
+                  errorText: errorMessage,
+                }),
+              )
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'error',
+                }),
+              )
+            } finally {
+              await s.write(formatUIMessageStreamDone())
             }
           },
         )

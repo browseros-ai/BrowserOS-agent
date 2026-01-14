@@ -8,7 +8,7 @@ interface MCPServerHeaderProps {
   error: string | null
 }
 
-const DOCS_URL = 'https://docs.browseros.com/browseros-mcp/how-to-guide'
+const DOCS_URL = 'https://docs.browseros.com/features/use-with-claude-code'
 
 export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
   serverUrl,

@@ -28,7 +28,20 @@ export const LLM_PROVIDERS = {
 /**
  * Supported LLM providers
  */
-export const LLMProviderSchema = z.enum([
+export const LLMProviderSchema: z.ZodEnum<
+  [
+    'anthropic',
+    'openai',
+    'google',
+    'openrouter',
+    'azure',
+    'ollama',
+    'lmstudio',
+    'bedrock',
+    'browseros',
+    'openai-compatible',
+  ]
+> = z.enum([
   LLM_PROVIDERS.ANTHROPIC,
   LLM_PROVIDERS.OPENAI,
   LLM_PROVIDERS.GOOGLE,
@@ -47,7 +60,17 @@ export type LLMProvider = z.infer<typeof LLMProviderSchema>
  * LLM configuration schema
  * Used by SDK endpoints and agent configuration
  */
-export const LLMConfigSchema = z.object({
+export const LLMConfigSchema: z.ZodObject<{
+  provider: typeof LLMProviderSchema
+  model: z.ZodOptional<z.ZodString>
+  apiKey: z.ZodOptional<z.ZodString>
+  baseUrl: z.ZodOptional<z.ZodString>
+  resourceName: z.ZodOptional<z.ZodString>
+  region: z.ZodOptional<z.ZodString>
+  accessKeyId: z.ZodOptional<z.ZodString>
+  secretAccessKey: z.ZodOptional<z.ZodString>
+  sessionToken: z.ZodOptional<z.ZodString>
+}> = z.object({
   provider: LLMProviderSchema,
   model: z.string().optional(),
   apiKey: z.string().optional(),

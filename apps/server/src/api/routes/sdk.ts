@@ -13,7 +13,6 @@ import { stream } from 'hono/streaming'
 import {
   formatUIMessageStreamDone,
   formatUIMessageStreamEvent,
-  UIMessageStreamWriter,
 } from '../../agent/provider-adapter/ui-message-stream'
 import { logger } from '../../lib/logger'
 import { BrowserService } from '../services/sdk/browser'
@@ -85,12 +84,9 @@ export function createSdkRoutes(deps: SdkDeps) {
       c.header('x-vercel-ai-ui-message-stream', 'v1')
 
       return stream(c, async (honoStream) => {
-        const writer = new UIMessageStreamWriter(async (data) => {
-          await honoStream.write(data)
-        })
-
         try {
-          await writer.start()
+          // Emit start event at route level
+          await honoStream.write(formatUIMessageStreamEvent({ type: 'start' }))
 
           await chatService.executeAction({
             instruction,
@@ -99,58 +95,28 @@ export function createSdkRoutes(deps: SdkDeps) {
             llmConfig,
             signal: c.req.raw.signal,
             onSSEEvent: async (event) => {
-              // Route events through writer for proper AI SDK formatting
-              switch (event.type) {
-                case 'start':
-                case 'finish':
-                  // Skip - we manage these at the route level
-                  break
-                case 'start-step':
-                  await writer.startStep()
-                  break
-                case 'finish-step':
-                  await writer.finishStep()
-                  break
-                case 'text-delta':
-                  await writer.writeTextDelta(event.delta)
-                  break
-                case 'reasoning-delta':
-                  await writer.writeReasoningDelta(event.delta)
-                  break
-                case 'tool-input-available':
-                  await writer.writeToolCall(
-                    event.toolCallId,
-                    event.toolName,
-                    event.input,
-                  )
-                  break
-                case 'tool-output-available':
-                  await writer.writeToolResult(event.toolCallId, event.output)
-                  break
-                case 'tool-input-error':
-                  await writer.writeToolError(
-                    event.toolCallId,
-                    event.errorText,
-                    true,
-                  )
-                  break
-                case 'tool-output-error':
-                  await writer.writeToolError(event.toolCallId, event.errorText)
-                  break
-                case 'error':
-                  await writer.writeError(event.errorText)
-                  break
-                default:
-                  // Forward other events directly (source-url, file, etc.)
-                  await honoStream.write(formatUIMessageStreamEvent(event))
+              // Events from AI agent are already properly formatted
+              // Skip start/finish (managed at route level), forward everything else
+              if (event.type === 'start' || event.type === 'finish') {
+                return
               }
+              await honoStream.write(formatUIMessageStreamEvent(event))
             },
           })
 
-          await writer.finish()
+          // Emit finish at route level
+          await honoStream.write(
+            formatUIMessageStreamEvent({
+              type: 'finish',
+              finishReason: 'stop',
+            }),
+          )
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') {
-            await writer.abort()
+            await honoStream.write(
+              formatUIMessageStreamEvent({ type: 'abort' }),
+            )
+            await honoStream.write(formatUIMessageStreamDone())
             return
           }
           const err =
@@ -162,7 +128,19 @@ export function createSdkRoutes(deps: SdkDeps) {
                     : 'Action execution failed',
                 )
           logger.error('SDK act error', { instruction, error: err.message })
-          await writer.writeError(err.message)
+          await honoStream.write(
+            formatUIMessageStreamEvent({
+              type: 'error',
+              errorText: err.message,
+            }),
+          )
+          await honoStream.write(
+            formatUIMessageStreamEvent({
+              type: 'finish',
+              finishReason: 'error',
+            }),
+          )
+        } finally {
           await honoStream.write(formatUIMessageStreamDone())
         }
       })
