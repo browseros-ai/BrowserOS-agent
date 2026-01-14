@@ -1,6 +1,7 @@
 import {
   Bot,
   CalendarClock,
+  GitBranch,
   Info,
   type LucideIcon,
   Menu,
@@ -45,6 +46,18 @@ const navigationItems: NavItem[] = [
     enabled: true,
   },
   {
+    name: 'Workflows',
+    to: '/workflows',
+    icon: GitBranch,
+    enabled: true,
+  },
+  {
+    name: 'Scheduled Tasks',
+    to: '/scheduled',
+    icon: CalendarClock,
+    enabled: true,
+  },
+  {
     name: 'Connect to MCPs',
     to: '/connect-mcp',
     icon: PlugZap,
@@ -55,12 +68,6 @@ const navigationItems: NavItem[] = [
     name: 'BrowserOS as MCP',
     to: '/mcp',
     icon: Server,
-    enabled: true,
-  },
-  {
-    name: 'Scheduled Tasks',
-    to: '/scheduled',
-    icon: CalendarClock,
     enabled: true,
   },
   {

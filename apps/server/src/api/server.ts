@@ -145,6 +145,3 @@ export async function createHttpServer(config: HttpServerConfig) {
     config,
   }
 }
-
-// Export type for client inference (e.g., hono/client)
-export type AppType = Awaited<ReturnType<typeof createHttpServer>>['app']

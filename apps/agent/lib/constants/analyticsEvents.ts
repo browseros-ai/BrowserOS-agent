@@ -1,6 +1,10 @@
 /** @public */
 export const MESSAGE_LIKE_EVENT = 'ui.message.like'
 
+export const GRAPH_MESSAGE_LIKE_EVENT = 'settings.graph.message.like'
+
+export const GRAPH_MESSAGE_DISLIKE_EVENT = 'settings.graph.message.dislike'
+
 /** @public */
 export const MESSAGE_DISLIKE_EVENT = 'ui.message.dislike'
 

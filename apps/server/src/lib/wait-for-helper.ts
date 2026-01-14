@@ -156,7 +156,9 @@ export class WaitForHelper {
       // the correct context
       await this.waitForStableDom()
     } catch (error) {
-      logger.error(error)
+      logger.error('Navigation waiting failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
     } finally {
       this.#abortController.abort()
     }
