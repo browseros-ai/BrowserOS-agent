@@ -266,7 +266,12 @@ export const CreateGraph: FC = () => {
   return (
     <div className="h-dvh w-dvw bg-background text-foreground">
       <ResizablePanelGroup orientation="horizontal">
-        <ResizablePanel>
+        <ResizablePanel
+          id="graph-canvas"
+          defaultSize={'70%'}
+          minSize={'30%'}
+          maxSize={'70%'}
+        >
           <GraphCanvas
             graphName={graphName}
             onGraphNameChange={(val) => setGraphName(val)}
@@ -279,10 +284,14 @@ export const CreateGraph: FC = () => {
           />
         </ResizablePanel>
 
-        {/* Resizable Handle */}
         <ResizableHandle withHandle />
 
-        <ResizablePanel>
+        <ResizablePanel
+          id="graph-chat"
+          defaultSize={'30%'}
+          maxSize={'70%'}
+          minSize={'30%'}
+        >
           <GraphChat
             messages={messages}
             onSubmit={onSubmit}
