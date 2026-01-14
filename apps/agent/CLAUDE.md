@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Write minimal code comments. Only add comments for non-obvious logic, complex algorithms, or critical warnings. Skip comments for self-explanatory code, obvious function names, and simple operations.
 
+## File Naming Convention
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Folders | kebab-case | `ai-settings/`, `jtbd-popup/`, `llm-hub/` |
+| React components (.tsx) | PascalCase | `AISettingsPage.tsx`, `SurveyHeader.tsx` |
+| Hooks (.ts) | camelCase with `use` prefix | `useRunWorkflow.ts`, `useVoiceInput.ts` |
+| Non-component files (.ts) | lowercase | `types.ts`, `models.ts`, `storage.ts` |
+
 ## Project Overview
 
 **BrowserOS Agent Chrome Extension** - This project contains the official chrome extension for BrowserOS Agent, enabling users to interact with the core functionalities of BrowserOS.
