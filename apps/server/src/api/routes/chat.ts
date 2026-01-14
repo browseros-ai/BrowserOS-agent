@@ -122,22 +122,22 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       zValidator('param', ConversationIdParamSchema),
       async (c) => {
         const { conversationId } = c.req.valid('param')
-        sessionManager.delete(conversationId)
+        const deleted = sessionManager.delete(conversationId)
 
         // TODO: nikhil - figure out  better clean-up strategy for sessionDir
         // rather than deleting on session delete
         // at end of session as might have useful reports/other artifacts
-
+        //
         // const sessionDir = path.join(executionDir, 'agent', conversationId)
         // await rm(sessionDir, { recursive: true, force: true }).catch(() => {})
 
-        // if (deleted) {
-        //   return c.json({
-        //     success: true,
-        //     message: `Session ${conversationId} deleted`,
-        //     sessionCount: sessionManager.count(),
-        //   })
-        // }
+        if (deleted) {
+          return c.json({
+            success: true,
+            message: `Session ${conversationId} deleted`,
+            sessionCount: sessionManager.count(),
+          })
+        }
 
         return c.json(
           {
