@@ -6,8 +6,10 @@ import {
   MiniMap,
   type Node,
   ReactFlow,
+  ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
@@ -82,7 +84,7 @@ type GraphCanvasProps = {
   hasUnsavedChanges: boolean
 }
 
-export const GraphCanvas: FC<GraphCanvasProps> = ({
+const GraphCanvasInner: FC<GraphCanvasProps> = ({
   graphName,
   onGraphNameChange,
   graphData = initialData,
@@ -93,6 +95,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   hasUnsavedChanges,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
+  const { fitView } = useReactFlow()
 
   const canTest = !!codeId
   const canSave = !!graphName && !!codeId && hasUnsavedChanges
@@ -145,6 +148,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
 
   useDeepCompareEffect(() => {
     handleGraphUpdate(graphData)
+    setTimeout(() => fitView(), 50)
   }, [graphData])
 
   return (
@@ -273,5 +277,13 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
         </ReactFlow>
       </div>
     </div>
+  )
+}
+
+export const GraphCanvas: FC<GraphCanvasProps> = (props) => {
+  return (
+    <ReactFlowProvider>
+      <GraphCanvasInner {...props} />
+    </ReactFlowProvider>
   )
 }
