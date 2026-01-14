@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { rm } from 'node:fs/promises'
-import path from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -124,18 +122,22 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       zValidator('param', ConversationIdParamSchema),
       async (c) => {
         const { conversationId } = c.req.valid('param')
-        const deleted = sessionManager.delete(conversationId)
+        sessionManager.delete(conversationId)
 
-        const sessionDir = path.join(executionDir, 'agent', conversationId)
-        await rm(sessionDir, { recursive: true, force: true }).catch(() => {})
+        // TODO: nikhil - figure out  better clean-up strategy for sessionDir
+        // rather than deleting on session delete
+        // at end of session as might have useful reports/other artifacts
 
-        if (deleted) {
-          return c.json({
-            success: true,
-            message: `Session ${conversationId} deleted`,
-            sessionCount: sessionManager.count(),
-          })
-        }
+        // const sessionDir = path.join(executionDir, 'agent', conversationId)
+        // await rm(sessionDir, { recursive: true, force: true }).catch(() => {})
+
+        // if (deleted) {
+        //   return c.json({
+        //     success: true,
+        //     message: `Session ${conversationId} deleted`,
+        //     sessionCount: sessionManager.count(),
+        //   })
+        // }
 
         return c.json(
           {

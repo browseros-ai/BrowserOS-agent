@@ -75,7 +75,7 @@ export class ChatService {
 
     const sessionExecutionDir = path.join(
       this.deps.executionDir,
-      'agent',
+      'sessions',
       request.conversationId,
     )
     await mkdir(sessionExecutionDir, { recursive: true })

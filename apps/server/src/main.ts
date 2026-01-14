@@ -40,6 +40,10 @@ export class Application {
 
   async start(): Promise<void> {
     logger.info(`Starting BrowserOS Server v${VERSION}`)
+    logger.debug('Directory config', {
+      executionDir: path.resolve(this.config.executionDir),
+      resourcesDir: path.resolve(this.config.resourcesDir),
+    })
 
     this.initCoreServices()
 

@@ -7,6 +7,7 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import {
+  ApprovalMode,
   executeToolCall,
   type GeminiClient,
   Config as GeminiConfig,
@@ -84,15 +85,14 @@ export class GeminiAgent {
       cwd: config.sessionExecutionDir,
       debugMode: false,
       model: modelString,
-      excludeTools: [
-        'run_shell_command',
-        'write_file',
-        'replace',
-        'save_memory',
-        'google_web_search',
-      ],
+      excludeTools: ['save_memory', 'google_web_search'],
       compressionThreshold,
       mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+      // Server/headless mode: auto-approve tools, no IDE integration
+      ideMode: false,
+      approvalMode: ApprovalMode.YOLO,
+      trustedFolder: true,
+      interactive: false,
     })
 
     await geminiConfig.initialize()
