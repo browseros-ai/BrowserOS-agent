@@ -228,6 +228,19 @@ export const CreateGraph: FC = () => {
   }
 
   const hasUnsavedChanges = savedWorkflowId ? codeId !== savedCodeId : true
+  const shouldBlockNavigation = !!codeId && hasUnsavedChanges
+
+  // Handle browser refresh/close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (shouldBlockNavigation) {
+        e.preventDefault()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [shouldBlockNavigation])
 
   const onClickSave = async () => {
     if (!graphName || !codeId) return
@@ -283,6 +296,7 @@ export const CreateGraph: FC = () => {
             onClickSave={onClickSave}
             isSaved={!!savedWorkflowId}
             hasUnsavedChanges={hasUnsavedChanges}
+            shouldBlockNavigation={shouldBlockNavigation}
           />
         </ResizablePanel>
 

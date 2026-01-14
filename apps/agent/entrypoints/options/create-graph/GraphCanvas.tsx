@@ -51,7 +51,13 @@ const nodeTypes: Record<NodeType, typeof CustomNode> = {
 }
 
 const initialData: GraphData = {
-  nodes: [{ id: 'start', type: 'start', data: { label: 'Start' } }],
+  nodes: [
+    {
+      id: 'start',
+      type: 'start',
+      data: { label: 'Use the Chat to build your workflow!' },
+    },
+  ],
   edges: [],
 }
 
@@ -94,6 +100,7 @@ type GraphCanvasProps = {
   onClickSave: () => unknown
   isSaved: boolean
   hasUnsavedChanges: boolean
+  shouldBlockNavigation: boolean
 }
 
 const GraphCanvasInner: FC<GraphCanvasProps> = ({
@@ -105,10 +112,21 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
   onClickSave,
   isSaved,
   hasUnsavedChanges,
+  shouldBlockNavigation,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
   const { fitView, zoomIn, zoomOut } = useReactFlow()
   const navigate = useNavigate()
+
+  const handleBack = () => {
+    if (shouldBlockNavigation) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Are you sure you want to leave?',
+      )
+      if (!confirmed) return
+    }
+    navigate(-1)
+  }
 
   const canTest = !!codeId
   const canSave = !!graphName && !!codeId && hasUnsavedChanges
@@ -173,7 +191,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
             variant="ghost"
             size="icon"
             className="h-8 w-8 shrink-0"
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
