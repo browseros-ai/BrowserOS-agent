@@ -14,6 +14,7 @@ import dagre from 'dagre'
 import { Bot, Pencil, Play, Save } from 'lucide-react'
 import type { FC } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import { Button } from '@/components/ui/button'
 import type { GraphData } from './CreateGraph'
 import { CustomNode, type NodeType } from './CustomNode'
 
@@ -139,10 +140,11 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
               className="max-w-64 border-[var(--accent-orange)] border-b bg-transparent font-semibold text-sm outline-none placeholder:font-normal placeholder:text-muted-foreground/60"
             />
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setIsEditingName(true)}
-              className="group flex min-w-0 items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted"
+              className="group min-w-0 gap-2 px-2 py-1"
             >
               {graphName ? (
                 <span className="truncate font-semibold text-sm">
@@ -154,26 +156,24 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
                 </span>
               )}
               <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-            </button>
+            </Button>
           )}
         </div>
 
         {/* Control Buttons */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={onClickTest}
-            className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5 font-medium text-sm transition-colors hover:bg-muted/80"
-          >
-            <Play className="h-4 w-4" />
+          <Button variant="secondary" size="sm" onClick={onClickTest}>
+            <Play className="mr-1.5 h-4 w-4" />
             Test
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
             onClick={handleSave}
-            className="flex items-center gap-2 rounded-lg bg-[var(--accent-orange)] px-3 py-1.5 font-medium text-sm text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-[var(--accent-orange-bright)]"
+            className="bg-[var(--accent-orange)] shadow-lg shadow-orange-500/20 hover:bg-[var(--accent-orange-bright)]"
           >
-            <Save className="h-4 w-4" />
+            <Save className="mr-1.5 h-4 w-4" />
             Save
-          </button>
+          </Button>
         </div>
       </header>
 
