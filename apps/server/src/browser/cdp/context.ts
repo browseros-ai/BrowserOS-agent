@@ -361,7 +361,9 @@ export class McpContext {
       await fs.writeFile(filename, data)
       return { filename }
     } catch (err) {
-      this.logger.error(err)
+      this.logger.error('Failed to save screenshot', {
+        error: err instanceof Error ? err.message : String(err),
+      })
       throw new Error('Could not save a screenshot to a file', { cause: err })
     }
   }
@@ -374,7 +376,9 @@ export class McpContext {
       await fs.writeFile(filePath, data)
       return { filename }
     } catch (err) {
-      this.logger.error(err)
+      this.logger.error('Failed to save file', {
+        error: err instanceof Error ? err.message : String(err),
+      })
       throw new Error('Could not save a screenshot to a file', { cause: err })
     }
   }

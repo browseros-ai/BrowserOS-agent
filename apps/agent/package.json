@@ -80,6 +80,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.17",
+    "@types/bun": "^1.3.5",
     "@types/chrome": "^0.1.28",
     "@types/dagre": "^0.7.53",
     "@types/react": "^19.1.12",
