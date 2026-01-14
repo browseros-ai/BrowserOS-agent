@@ -110,7 +110,7 @@ export const GraphChat: FC<GraphChatProps> = ({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
         <ChatMessages
           liked={liked}
           disliked={disliked}
