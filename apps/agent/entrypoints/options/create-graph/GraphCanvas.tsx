@@ -105,7 +105,7 @@ type GraphCanvasProps = {
   isSaved: boolean
   hasUnsavedChanges: boolean
   shouldBlockNavigation: boolean
-  panelSize?: number
+  panelSize?: { asPercentage: number; inPixels: number }
 }
 
 const GraphCanvasInner: FC<GraphCanvasProps> = ({
@@ -190,10 +190,10 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
 
   // Auto fitView when panel is resized
   useEffect(() => {
-    if (panelSize !== undefined) {
+    if (panelSize?.inPixels !== undefined) {
       fitView({ duration: 200 })
     }
-  }, [panelSize, fitView])
+  }, [panelSize?.inPixels, fitView])
 
   return (
     <div className="flex h-full flex-col">

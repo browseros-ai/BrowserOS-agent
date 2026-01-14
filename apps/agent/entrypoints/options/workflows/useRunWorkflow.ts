@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 
+type WorkflowMessageMetadata = {
+  window?: chrome.windows.Window
+}
+
 export const useRunWorkflow = () => {
   const [isRunning, setIsRunning] = useState(false)
   const [runningWorkflowName, setRunningWorkflowName] = useState<string>('')
@@ -30,6 +34,9 @@ export const useRunWorkflow = () => {
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
+        const metadata = lastMessage.metadata as
+          | WorkflowMessageMetadata
+          | undefined
         const provider = selectedLlmProviderRef.current
         const enabledMcpServers = enabledMcpServersRef.current
         const customMcpServers = enabledCustomServersRef.current
@@ -49,8 +56,8 @@ export const useRunWorkflow = () => {
             region: provider?.region,
             sessionToken: provider?.sessionToken,
             browserContext: {
-              windowId: lastMessage.metadata?.window?.id,
-              activeTab: lastMessage.metadata?.window?.tabs?.[0],
+              windowId: metadata?.window?.id,
+              activeTab: metadata?.window?.tabs?.[0],
               enabledMcpServers: compact(enabledMcpServers),
               customMcpServers,
             },

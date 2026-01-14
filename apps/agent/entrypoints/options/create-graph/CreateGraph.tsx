@@ -20,6 +20,13 @@ import { GraphChat } from './GraphChat'
 
 type MessageType = 'create-graph' | 'update-graph' | 'run-graph'
 
+type GraphMessageMetadata = {
+  messageType?: MessageType
+  codeId?: string
+  graph?: GraphData
+  window?: chrome.windows.Window
+}
+
 export type GraphData = {
   nodes: {
     id: string
@@ -56,9 +63,9 @@ export const CreateGraph: FC = () => {
   )
   const [savedCodeId, setSavedCodeId] = useState<string | undefined>(undefined)
   const [isInitialized, setIsInitialized] = useState(!workflowIdParam)
-  const [canvasPanelSize, setCanvasPanelSize] = useState<number | undefined>(
-    undefined,
-  )
+  const [canvasPanelSize, setCanvasPanelSize] = useState<
+    { asPercentage: number; inPixels: number } | undefined
+  >(undefined)
 
   const [query, setQuery] = useState('')
 
@@ -156,27 +163,29 @@ export const CreateGraph: FC = () => {
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
         const lastMessageText = getLastMessageText(messages)
-        if (lastMessage.metadata?.messageType === 'create-graph') {
+        const metadata = lastMessage.metadata as
+          | GraphMessageMetadata
+          | undefined
+
+        if (metadata?.messageType === 'create-graph') {
           return {
             api: `${agentUrlRef.current}/graph`,
             body: {
               query: lastMessageText,
             },
           }
-        } else if (
-          lastMessage.metadata?.messageType === 'update-graph' &&
-          codeIdRef.current
-        ) {
+        }
+
+        if (metadata?.messageType === 'update-graph' && codeIdRef.current) {
           return {
             api: `${agentUrlRef.current}/graph/${codeIdRef.current}`,
             body: {
               query: lastMessageText,
             },
           }
-        } else if (
-          lastMessage.metadata?.messageType === 'run-graph' &&
-          codeIdRef.current
-        ) {
+        }
+
+        if (metadata?.messageType === 'run-graph' && codeIdRef.current) {
           const provider = selectedLlmProviderRef.current
           const enabledMcpServers = enabledMcpServersRef.current
           const customMcpServers = enabledCustomServersRef.current
@@ -190,7 +199,6 @@ export const CreateGraph: FC = () => {
               model: provider?.modelId ?? 'browseros',
               contextWindowSize: provider?.contextWindow,
               temperature: provider?.temperature,
-              // Azure-specific
               resourceName: provider?.resourceName,
               // Bedrock-specific
               accessKeyId: provider?.accessKeyId,
@@ -198,14 +206,21 @@ export const CreateGraph: FC = () => {
               region: provider?.region,
               sessionToken: provider?.sessionToken,
               browserContext: {
-                windowId: lastMessage.metadata?.window?.id,
-                activeTab: lastMessage.metadata?.window?.tabs?.[0],
+                windowId: metadata?.window?.id,
+                activeTab: metadata?.window?.tabs?.[0],
                 enabledMcpServers: compact(enabledMcpServers),
                 customMcpServers,
               },
               userSystemPrompt: personalizationRef.current,
             },
           }
+        }
+
+        return {
+          api: `${agentUrlRef.current}/graph`,
+          body: {
+            query: lastMessageText,
+          },
         }
       },
     }),
@@ -266,10 +281,11 @@ export const CreateGraph: FC = () => {
 
   useDeepCompareEffect(() => {
     if (status === 'ready' && lastAssistantMessage) {
-      const codeId = lastAssistantMessage?.metadata?.codeId
-      setCodeId(codeId)
-      const graph = lastAssistantMessage?.metadata?.graph
-      setGraphData(graph)
+      const metadata = lastAssistantMessage.metadata as
+        | GraphMessageMetadata
+        | undefined
+      setCodeId(metadata?.codeId)
+      setGraphData(metadata?.graph)
     }
   }, [status, lastAssistantMessage ?? {}])
 
@@ -289,7 +305,7 @@ export const CreateGraph: FC = () => {
           defaultSize={'70%'}
           minSize={'30%'}
           maxSize={'70%'}
-          onResize={setCanvasPanelSize}
+          onResize={(size) => setCanvasPanelSize(size)}
         >
           <GraphCanvas
             graphName={graphName}
