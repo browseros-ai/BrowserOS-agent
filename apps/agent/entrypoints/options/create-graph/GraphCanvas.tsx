@@ -185,13 +185,13 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
 
   useDeepCompareEffect(() => {
     handleGraphUpdate(graphData)
-    setTimeout(() => fitView({ duration: 300 }), 50)
+    setTimeout(() => fitView({ duration: 300, maxZoom: 0.75 }), 50)
   }, [graphData])
 
   // Auto fitView when panel is resized
   useEffect(() => {
     if (panelSize?.inPixels !== undefined) {
-      fitView({ duration: 200 })
+      fitView({ duration: 200, maxZoom: 0.75 })
     }
   }, [panelSize?.inPixels, fitView])
 
@@ -290,6 +290,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={{ maxZoom: 0.75 }}
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
@@ -328,7 +329,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
               <Minus className="h-4 w-4" />
             </ControlButton>
             <ControlButton
-              onClick={() => fitView({ duration: 300 })}
+              onClick={() => fitView({ duration: 300, maxZoom: 0.75 })}
               title="Fit view"
               className="bg-card! fill-foreground! hover:bg-muted!"
             >
