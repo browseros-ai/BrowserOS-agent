@@ -254,6 +254,8 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
           <Controls />
           <MiniMap
+            pannable
+            zoomable
             nodeColor={(node) => {
               const colors: Record<string, string> = {
                 start: '#22c55e',
