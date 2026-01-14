@@ -55,6 +55,8 @@ export const useRunWorkflow = () => {
             secretAccessKey: provider?.secretAccessKey,
             region: provider?.region,
             sessionToken: provider?.sessionToken,
+            apiKey: provider?.apiKey,
+            baseUrl: provider?.baseUrl,
             browserContext: {
               windowId: metadata?.window?.id,
               activeTab: metadata?.window?.tabs?.[0],
