@@ -86,6 +86,10 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
       x: nodeWithPosition.x - nodeWidth / 2,
       y: nodeWithPosition.y - nodeHeight / 2,
     }
+    node.style = {
+      ...node.style,
+      transition: 'transform 0.3s ease-in-out',
+    }
   })
 
   return { nodes, edges }
@@ -179,7 +183,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
 
   useDeepCompareEffect(() => {
     handleGraphUpdate(graphData)
-    setTimeout(() => fitView(), 50)
+    setTimeout(() => fitView({ duration: 300 }), 50)
   }, [graphData])
 
   return (
@@ -315,7 +319,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
               <Minus className="h-4 w-4" />
             </ControlButton>
             <ControlButton
-              onClick={() => fitView()}
+              onClick={() => fitView({ duration: 300 })}
               title="Fit view"
               className="bg-card! fill-foreground! hover:bg-muted!"
             >
