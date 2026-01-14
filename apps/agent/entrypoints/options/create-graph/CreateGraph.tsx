@@ -226,7 +226,11 @@ export const CreateGraph: FC = () => {
     }),
   })
 
-  const lastAssistantMessage = messages.findLast((m) => m.role === 'assistant')
+  const lastAssistantMessageWithGraph = messages.findLast((m) => {
+    if (m.role !== 'assistant') return false
+    const metadata = m.metadata as GraphMessageMetadata | undefined
+    return metadata?.graph !== undefined
+  })
 
   const onClickTest = async () => {
     const backgroundWindow = await chrome.windows.create({
@@ -280,14 +284,14 @@ export const CreateGraph: FC = () => {
   }
 
   useDeepCompareEffect(() => {
-    if (status === 'ready' && lastAssistantMessage) {
-      const metadata = lastAssistantMessage.metadata as
+    if (status === 'ready' && lastAssistantMessageWithGraph) {
+      const metadata = lastAssistantMessageWithGraph.metadata as
         | GraphMessageMetadata
         | undefined
       setCodeId(metadata?.codeId)
       setGraphData(metadata?.graph)
     }
-  }, [status, lastAssistantMessage ?? {}])
+  }, [status, lastAssistantMessageWithGraph ?? {}])
 
   if (!isInitialized) {
     return (
