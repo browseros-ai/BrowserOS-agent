@@ -9,6 +9,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
+import { sentry } from '@/lib/sentry/sentry'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
 import { RunWorkflowDialog } from './RunWorkflowDialog'
 import { useRunWorkflow } from './useRunWorkflow'
@@ -17,6 +19,7 @@ import { WorkflowsList } from './WorkflowsList'
 
 export const WorkflowsPage: FC = () => {
   const { workflows, removeWorkflow } = useWorkflows()
+  const rpcClient = useRpcClient()
 
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null)
 
@@ -38,10 +41,25 @@ export const WorkflowsPage: FC = () => {
   }
 
   const confirmDelete = async () => {
-    if (deleteWorkflowId) {
-      await removeWorkflow(deleteWorkflowId)
-      setDeleteWorkflowId(null)
+    if (!deleteWorkflowId) return
+
+    const workflow = workflows.find((w) => w.id === deleteWorkflowId)
+    if (!workflow) return
+
+    try {
+      await rpcClient.graph[':id'].$delete({ param: { id: workflow.codeId } })
+    } catch (error) {
+      sentry.captureException(error, {
+        extra: {
+          message: 'Failed to delete graph from server',
+          codeId: workflow.codeId,
+          workflowId: deleteWorkflowId,
+        },
+      })
     }
+
+    await removeWorkflow(deleteWorkflowId)
+    setDeleteWorkflowId(null)
   }
 
   const handleRun = (workflowId: string) => {
