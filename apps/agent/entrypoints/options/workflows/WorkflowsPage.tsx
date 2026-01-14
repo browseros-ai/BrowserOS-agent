@@ -25,8 +25,11 @@ export const WorkflowsPage: FC = () => {
     runningWorkflowName,
     messages,
     status,
+    wasCancelled,
+    error,
     runWorkflow,
     stopRun,
+    retry,
     closeDialog,
   } = useRunWorkflow()
 
@@ -88,7 +91,10 @@ export const WorkflowsPage: FC = () => {
         workflowName={runningWorkflowName}
         messages={messages}
         status={status}
+        wasCancelled={wasCancelled}
+        error={error}
         onStop={stopRun}
+        onRetry={retry}
         onClose={closeDialog}
       />
     </div>

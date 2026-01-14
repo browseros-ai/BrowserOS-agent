@@ -8,6 +8,7 @@ import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 export const useRunWorkflow = () => {
   const [isRunning, setIsRunning] = useState(false)
   const [runningWorkflowName, setRunningWorkflowName] = useState<string>('')
+  const [wasCancelled, setWasCancelled] = useState(false)
   const codeIdRef = useRef<string | undefined>(undefined)
 
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
@@ -24,7 +25,7 @@ export const useRunWorkflow = () => {
     agentUrlRef.current = agentServerUrl
   }, [agentServerUrl])
 
-  const { sendMessage, stop, status, messages, setMessages } = useChat({
+  const { sendMessage, stop, status, messages, setMessages, error } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
@@ -58,11 +59,9 @@ export const useRunWorkflow = () => {
     }),
   })
 
-  const runWorkflow = async (codeId: string, workflowName: string) => {
-    codeIdRef.current = codeId
-    setRunningWorkflowName(workflowName)
-    setIsRunning(true)
+  const startWorkflowRun = async () => {
     setMessages([])
+    setWasCancelled(false)
 
     const backgroundWindow = await chrome.windows.create({
       url: 'chrome://newtab',
@@ -78,13 +77,26 @@ export const useRunWorkflow = () => {
     })
   }
 
+  const runWorkflow = async (codeId: string, workflowName: string) => {
+    codeIdRef.current = codeId
+    setRunningWorkflowName(workflowName)
+    setIsRunning(true)
+    await startWorkflowRun()
+  }
+
   const stopRun = () => {
+    setWasCancelled(true)
     stop()
+  }
+
+  const retry = async () => {
+    await startWorkflowRun()
   }
 
   const closeDialog = () => {
     setIsRunning(false)
     setRunningWorkflowName('')
+    setWasCancelled(false)
     setMessages([])
   }
 
@@ -93,8 +105,11 @@ export const useRunWorkflow = () => {
     runningWorkflowName,
     messages,
     status,
+    wasCancelled,
+    error,
     runWorkflow,
     stopRun,
+    retry,
     closeDialog,
   }
 }
