@@ -3,6 +3,7 @@ import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
 import type { FC, FormEvent } from 'react'
 import { useEffect } from 'react'
+import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import {
   ResizableHandle,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/resizable'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
+import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
@@ -42,6 +44,9 @@ const getLastMessageText = (messages: UIMessage[]) => {
 }
 
 export const CreateGraph: FC = () => {
+  const [searchParams] = useSearchParams()
+  const workflowIdParam = searchParams.get('workflowId')
+
   const [graphName, setGraphName] = useState('')
   const [codeId, setCodeId] = useState<string | undefined>(undefined)
   const [graphData, setGraphData] = useState<GraphData | undefined>(undefined)
@@ -49,10 +54,46 @@ export const CreateGraph: FC = () => {
     undefined,
   )
   const [savedCodeId, setSavedCodeId] = useState<string | undefined>(undefined)
+  const [isInitialized, setIsInitialized] = useState(!workflowIdParam)
 
   const [query, setQuery] = useState('')
 
-  const { addWorkflow, editWorkflow } = useWorkflows()
+  const { workflows, addWorkflow, editWorkflow } = useWorkflows()
+  const rpcClient = useRpcClient()
+
+  // Initialize edit mode when workflowId is provided
+  useDeepCompareEffect(() => {
+    if (!workflowIdParam || isInitialized) return
+
+    const workflow = workflows.find((w) => w.id === workflowIdParam)
+    if (!workflow) return
+
+    const initializeEditMode = async () => {
+      setGraphName(workflow.workflowName)
+      setCodeId(workflow.codeId)
+      setSavedWorkflowId(workflow.id)
+      setSavedCodeId(workflow.codeId)
+
+      try {
+        const response = await rpcClient.graph[':id'].$get({
+          param: { id: workflow.codeId },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if ('graph' in data && data.graph) {
+            setGraphData(data.graph as GraphData)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch graph data:', error)
+      }
+
+      setIsInitialized(true)
+    }
+
+    initializeEditMode()
+  }, [workflowIdParam, workflows, isInitialized, rpcClient])
 
   const updateQuery = (newQuery: string) => {
     setQuery(newQuery)
@@ -207,6 +248,14 @@ export const CreateGraph: FC = () => {
       setGraphData(graph)
     }
   }, [status, lastAssistantMessage ?? {}])
+
+  if (!isInitialized) {
+    return (
+      <div className="flex h-dvh w-dvw items-center justify-center bg-background text-foreground">
+        <div className="text-muted-foreground">Loading workflow...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-dvh w-dvw bg-background text-foreground">
