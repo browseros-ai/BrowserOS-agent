@@ -73,7 +73,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
   const { port, codegenServiceUrl } = deps
 
   const serverUrl = `http://127.0.0.1:${port}`
-  const tempDir = deps.tempDir || PATHS.DEFAULT_TEMP_DIR
+  const tempDir = deps.tempDir || PATHS.DEFAULT_EXECUTION_DIR
 
   const graphService = codegenServiceUrl
     ? new GraphService({ codegenServiceUrl, serverUrl, tempDir })

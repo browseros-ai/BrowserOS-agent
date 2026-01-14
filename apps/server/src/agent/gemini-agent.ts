@@ -264,8 +264,8 @@ export class GeminiAgent {
 
     const geminiConfig = new GeminiConfig({
       sessionId: config.conversationId,
-      targetDir: config.tempDir,
-      cwd: config.tempDir,
+      targetDir: config.sessionExecutionDir,
+      cwd: config.sessionExecutionDir,
       debugMode: false,
       model: modelString,
       excludeTools: [

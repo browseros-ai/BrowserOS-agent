@@ -80,7 +80,7 @@ export interface HttpServerConfig {
 
   // For Chat/Klavis routes
   browserosId?: string
-  tempDir?: string
+  executionDir?: string
   rateLimiter?: RateLimiter
 
   // For Graph routes

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { rm } from 'node:fs/promises'
+import path from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -21,7 +23,7 @@ import { ConversationIdParamSchema } from '../utils/validation'
 
 interface ChatRouteDeps {
   port: number
-  tempDir?: string
+  executionDir?: string
   browserosId?: string
   rateLimiter?: RateLimiter
 }
@@ -30,7 +32,7 @@ export function createChatRoutes(deps: ChatRouteDeps) {
   const { port, browserosId, rateLimiter } = deps
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
-  const tempDir = deps.tempDir || PATHS.DEFAULT_TEMP_DIR
+  const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
 
   const sessionManager = new SessionManager()
   const klavisClient = new KlavisClient()
@@ -38,7 +40,7 @@ export function createChatRoutes(deps: ChatRouteDeps) {
   const chatService = new ChatService({
     sessionManager,
     klavisClient,
-    tempDir,
+    executionDir,
     mcpServerUrl,
     browserosId,
   })
@@ -120,9 +122,12 @@ export function createChatRoutes(deps: ChatRouteDeps) {
     .delete(
       '/:conversationId',
       zValidator('param', ConversationIdParamSchema),
-      (c) => {
+      async (c) => {
         const { conversationId } = c.req.valid('param')
         const deleted = sessionManager.delete(conversationId)
+
+        const sessionDir = path.join(executionDir, 'agent', conversationId)
+        await rm(sessionDir, { recursive: true, force: true }).catch(() => {})
 
         if (deleted) {
           return c.json({

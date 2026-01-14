@@ -37,7 +37,7 @@ export interface ResolvedAgentConfig {
   sessionToken?: string
   contextWindowSize?: number
   userSystemPrompt?: string
-  tempDir: string
+  sessionExecutionDir: string
 }
 
 export const AgentConfigSchema = VercelAIConfigSchema.extend({

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { MCPServerConfig } from '@google/gemini-cli-core'
 import type { HonoSSEStream } from '../../agent/provider-adapter/types'
@@ -43,7 +45,7 @@ function createHttpMcpServerConfig(
 export interface ChatServiceDeps {
   sessionManager: SessionManager
   klavisClient: KlavisClient
-  tempDir: string
+  executionDir: string
   mcpServerUrl: string
   browserosId?: string
 }
@@ -71,6 +73,14 @@ export class ChatService {
       servers: Object.keys(mcpServers),
     })
 
+    const sessionExecutionDir = path.join(
+      this.deps.executionDir,
+      'agent',
+      request.conversationId,
+    )
+    await mkdir(sessionExecutionDir, { recursive: true })
+    logger.info('Session execution directory created', { sessionExecutionDir })
+
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
       provider: providerConfig.provider,
@@ -85,7 +95,7 @@ export class ChatService {
       sessionToken: providerConfig.sessionToken,
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
-      tempDir: this.deps.tempDir,
+      sessionExecutionDir,
     }
 
     const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)

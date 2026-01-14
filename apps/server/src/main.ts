@@ -76,7 +76,7 @@ export class Application {
         toolMutex,
         allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
-        tempDir: this.config.executionDir || this.config.resourcesDir,
+        executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
       })

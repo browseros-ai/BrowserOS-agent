@@ -39,7 +39,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     port,
     host = '0.0.0.0',
     browserosId,
-    tempDir,
+    executionDir,
     rateLimiter,
     version,
     tools,
@@ -74,7 +74,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       '/chat',
       createChatRoutes({
         port,
-        tempDir,
+        executionDir,
         browserosId,
         rateLimiter,
       }),
@@ -90,7 +90,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       '/graph',
       createGraphRoutes({
         port,
-        tempDir,
+        tempDir: executionDir,
         codegenServiceUrl: config.codegenServiceUrl,
       }),
     )
