@@ -1,4 +1,4 @@
-import type { FC } from 'react'
+import { type FC, Suspense } from 'react'
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import { AISettingsPage } from './ai-settings/AISettingsPage'
 import { ConnectMCP } from './connect-mcp/ConnectMCP'
@@ -24,25 +24,27 @@ export const App: FC = () => {
 
   return (
     <HashRouter>
-      <Routes>
-        <Route element={<DashboardLayout />}>
-          <Route index element={<Navigate to={initialRoute} replace />} />
-          <Route path="ai" element={<AISettingsPage key="ai" />} />
-          <Route path="chat" element={<LlmHubPage />} />
-          <Route path="search" element={null} />
-          <Route path="connect-mcp" element={<ConnectMCP />} />
-          <Route path="mcp" element={<MCPSettingsPage />} />
-          <Route path="customization" element={<CustomizationPage />} />
-          <Route
-            path="onboarding"
-            element={<AISettingsPage key="onboarding" />}
-          />
-          <Route path="scheduled" element={<ScheduledTasksPage />} />
-          <Route path="workflows" element={<WorkflowsPage />} />
-          <Route path="jtbd-agent" element={<SurveyPage />} />
-        </Route>
-        <Route path="create-graph" element={<CreateGraph />} />
-      </Routes>
+      <Suspense fallback={<div className="h-dvh w-dvw bg-background" />}>
+        <Routes>
+          <Route element={<DashboardLayout />}>
+            <Route index element={<Navigate to={initialRoute} replace />} />
+            <Route path="ai" element={<AISettingsPage key="ai" />} />
+            <Route path="chat" element={<LlmHubPage />} />
+            <Route path="search" element={null} />
+            <Route path="connect-mcp" element={<ConnectMCP />} />
+            <Route path="mcp" element={<MCPSettingsPage />} />
+            <Route path="customization" element={<CustomizationPage />} />
+            <Route
+              path="onboarding"
+              element={<AISettingsPage key="onboarding" />}
+            />
+            <Route path="scheduled" element={<ScheduledTasksPage />} />
+            <Route path="workflows" element={<WorkflowsPage />} />
+            <Route path="jtbd-agent" element={<SurveyPage />} />
+          </Route>
+          <Route path="create-graph" element={<CreateGraph />} />
+        </Routes>
+      </Suspense>
     </HashRouter>
   )
 }
