@@ -7,5 +7,5 @@
  */
 
 export const PATHS = {
-  DEFAULT_TEMP_DIR: '/tmp',
+  DEFAULT_EXECUTION_DIR: process.cwd(),
 } as const

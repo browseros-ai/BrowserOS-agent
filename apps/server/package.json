@@ -1,6 +1,6 @@
 {
   "name": "@browseros/server",
-  "version": "0.0.40",
+  "version": "0.0.41",
   "description": "BrowserOS server",
   "type": "module",
   "main": "./src/index.ts",

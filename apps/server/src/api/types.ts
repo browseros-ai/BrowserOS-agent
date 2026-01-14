@@ -47,6 +47,7 @@ export const ChatRequestSchema = VercelAIConfigSchema.extend({
   browserContext: BrowserContextSchema.optional(),
   userSystemPrompt: z.string().optional(),
   isScheduledTask: z.boolean().optional().default(false),
+  userWorkingDir: z.string().min(1).optional(),
 })
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
@@ -80,7 +81,7 @@ export interface HttpServerConfig {
 
   // For Chat/Klavis routes
   browserosId?: string
-  tempDir?: string
+  executionDir?: string
   rateLimiter?: RateLimiter
 
   // For Graph routes

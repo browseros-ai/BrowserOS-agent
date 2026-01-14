@@ -7,6 +7,7 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import {
+  ApprovalMode,
   executeToolCall,
   type GeminiClient,
   Config as GeminiConfig,
@@ -38,6 +39,96 @@ export class GeminiAgent {
     private contentGenerator: VercelAIContentGenerator,
     private conversationId: string,
   ) {}
+
+  /**
+   * Creates a GeminiAgent with pre-resolved config and MCP servers.
+   * Config resolution and MCP building happens in ChatService (visible there).
+   */
+  static async create(
+    config: ResolvedAgentConfig,
+    mcpServers: Record<string, MCPServerConfig>,
+  ): Promise<GeminiAgent> {
+    // Build model string with upstream provider if available
+    const modelString = config.upstreamProvider
+      ? `${config.upstreamProvider}/${config.model}`
+      : `${config.provider}/${config.model}`
+
+    // Calculate compression threshold based on context window size
+    const contextWindow =
+      config.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+
+    // Hybrid compression: ensure minimum headroom while capping ratio for large contexts
+    const headroomBasedRatio =
+      (contextWindow - AGENT_LIMITS.COMPRESSION_MIN_HEADROOM) / contextWindow
+    const compressionRatio = Math.min(
+      AGENT_LIMITS.COMPRESSION_MAX_RATIO,
+      Math.max(AGENT_LIMITS.COMPRESSION_MIN_RATIO, headroomBasedRatio),
+    )
+    const compressionThreshold =
+      (compressionRatio * contextWindow) / AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+
+    logger.info('Compression config', {
+      contextWindow,
+      compressionRatio,
+      compressionThreshold,
+      compressesAtTokens: Math.floor(compressionRatio * contextWindow),
+    })
+
+    logger.debug('MCP servers config', {
+      serverCount: Object.keys(mcpServers).length,
+      servers: Object.keys(mcpServers),
+    })
+
+    const geminiConfig = new GeminiConfig({
+      sessionId: config.conversationId,
+      targetDir: config.sessionExecutionDir,
+      cwd: config.sessionExecutionDir,
+      debugMode: false,
+      model: modelString,
+      excludeTools: ['save_memory', 'google_web_search'],
+      compressionThreshold,
+      mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
+      // Server/headless mode: auto-approve tools, no IDE integration
+      ideMode: false,
+      approvalMode: ApprovalMode.YOLO,
+      trustedFolder: true,
+      interactive: false,
+    })
+
+    await geminiConfig.initialize()
+    const contentGenerator = new VercelAIContentGenerator(config)
+
+    ;(
+      geminiConfig as unknown as { contentGenerator: VercelAIContentGenerator }
+    ).contentGenerator = contentGenerator
+
+    const client = geminiConfig.getGeminiClient()
+    client
+      .getChat()
+      .setSystemInstruction(buildSystemPrompt(config.userSystemPrompt))
+    await client.setTools()
+
+    // Disable chat recording to prevent disk writes
+    const recordingService = client.getChatRecordingService()
+    if (recordingService) {
+      ;(
+        recordingService as unknown as { conversationFile: string | null }
+      ).conversationFile = null
+    }
+
+    logger.info('GeminiAgent created', {
+      conversationId: config.conversationId,
+      provider: config.provider,
+      model: config.model,
+    })
+
+    return new GeminiAgent(
+      client,
+      geminiConfig,
+      contentGenerator,
+      config.conversationId,
+    )
+  }
 
   private formatBrowserContext(browserContext?: BrowserContext): string {
     if (!browserContext?.activeTab && !browserContext?.selectedTabs?.length) {
@@ -223,97 +314,6 @@ export class GeminiAgent {
     return toolResponseParts
   }
 
-  /**
-   * Creates a GeminiAgent with pre-resolved config and MCP servers.
-   * Config resolution and MCP building happens in ChatService (visible there).
-   */
-  static async create(
-    config: ResolvedAgentConfig,
-    mcpServers: Record<string, MCPServerConfig>,
-  ): Promise<GeminiAgent> {
-    // Build model string with upstream provider if available
-    const modelString = config.upstreamProvider
-      ? `${config.upstreamProvider}/${config.model}`
-      : `${config.provider}/${config.model}`
-
-    // Calculate compression threshold based on context window size
-    const contextWindow =
-      config.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
-
-    // Hybrid compression: ensure minimum headroom while capping ratio for large contexts
-    const headroomBasedRatio =
-      (contextWindow - AGENT_LIMITS.COMPRESSION_MIN_HEADROOM) / contextWindow
-    const compressionRatio = Math.min(
-      AGENT_LIMITS.COMPRESSION_MAX_RATIO,
-      Math.max(AGENT_LIMITS.COMPRESSION_MIN_RATIO, headroomBasedRatio),
-    )
-    const compressionThreshold =
-      (compressionRatio * contextWindow) / AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
-
-    logger.info('Compression config', {
-      contextWindow,
-      compressionRatio,
-      compressionThreshold,
-      compressesAtTokens: Math.floor(compressionRatio * contextWindow),
-    })
-
-    logger.debug('MCP servers config', {
-      serverCount: Object.keys(mcpServers).length,
-      servers: Object.keys(mcpServers),
-    })
-
-    const geminiConfig = new GeminiConfig({
-      sessionId: config.conversationId,
-      targetDir: config.tempDir,
-      cwd: config.tempDir,
-      debugMode: false,
-      model: modelString,
-      excludeTools: [
-        'run_shell_command',
-        'write_file',
-        'replace',
-        'save_memory',
-        'google_web_search',
-      ],
-      compressionThreshold,
-      mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
-    })
-
-    await geminiConfig.initialize()
-    const contentGenerator = new VercelAIContentGenerator(config)
-
-    ;(
-      geminiConfig as unknown as { contentGenerator: VercelAIContentGenerator }
-    ).contentGenerator = contentGenerator
-
-    const client = geminiConfig.getGeminiClient()
-    client
-      .getChat()
-      .setSystemInstruction(buildSystemPrompt(config.userSystemPrompt))
-    await client.setTools()
-
-    // Disable chat recording to prevent disk writes
-    const recordingService = client.getChatRecordingService()
-    if (recordingService) {
-      ;(
-        recordingService as unknown as { conversationFile: string | null }
-      ).conversationFile = null
-    }
-
-    logger.info('GeminiAgent created', {
-      conversationId: config.conversationId,
-      provider: config.provider,
-      model: config.model,
-    })
-
-    return new GeminiAgent(
-      client,
-      geminiConfig,
-      contentGenerator,
-      config.conversationId,
-    )
-  }
-
   getHistory(): Content[] {
     return this.client.getHistory()
   }
@@ -352,7 +352,9 @@ export class GeminiAgent {
     })
 
     while (turnCount++ < AGENT_LIMITS.MAX_TURNS) {
-      logger.debug(`Turn ${turnCount}`, { conversationId: this.conversationId })
+      logger.debug(`Turn ${turnCount}`, {
+        conversationId: this.conversationId,
+      })
 
       const toolCallRequests: ToolCallRequestInfo[] = []
       const responseStream = this.client.sendMessageStream(

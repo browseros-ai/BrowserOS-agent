@@ -169,7 +169,6 @@ export const CreateGraph: FC = () => {
   const agentUrlRef = useRef(agentServerUrl)
   const codeIdRef = useRef(codeId)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only trigger on corresponding value changes
   useEffect(() => {
     agentUrlRef.current = agentServerUrl
     codeIdRef.current = codeId

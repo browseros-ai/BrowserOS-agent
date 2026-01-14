@@ -29,6 +29,7 @@ export type Phase = 'idle' | 'active' | 'completed' | 'error'
 
 const INTERVIEW_COMPLETE_MARKER = '__INTERVIEW_COMPLETE__'
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: JTBD agent is temporary
 async function* streamSSE(
   response: Response,
 ): AsyncGenerator<string, void, unknown> {

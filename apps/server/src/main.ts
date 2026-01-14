@@ -40,6 +40,10 @@ export class Application {
 
   async start(): Promise<void> {
     logger.info(`Starting BrowserOS Server v${VERSION}`)
+    logger.debug('Directory config', {
+      executionDir: path.resolve(this.config.executionDir),
+      resourcesDir: path.resolve(this.config.resourcesDir),
+    })
 
     this.initCoreServices()
 
@@ -76,7 +80,7 @@ export class Application {
         toolMutex,
         allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
-        tempDir: this.config.executionDir || this.config.resourcesDir,
+        executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
       })

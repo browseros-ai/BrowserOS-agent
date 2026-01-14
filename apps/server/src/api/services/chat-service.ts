@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { mkdir } from 'node:fs/promises'
+import path from 'node:path'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { MCPServerConfig } from '@google/gemini-cli-core'
 import type { HonoSSEStream } from '../../agent/provider-adapter/types'
@@ -43,7 +45,7 @@ function createHttpMcpServerConfig(
 export interface ChatServiceDeps {
   sessionManager: SessionManager
   klavisClient: KlavisClient
-  tempDir: string
+  executionDir: string
   mcpServerUrl: string
   browserosId?: string
 }
@@ -71,6 +73,8 @@ export class ChatService {
       servers: Object.keys(mcpServers),
     })
 
+    const sessionExecutionDir = await this.resolveSessionDir(request)
+
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
       provider: providerConfig.provider,
@@ -85,7 +89,7 @@ export class ChatService {
       sessionToken: providerConfig.sessionToken,
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
-      tempDir: this.deps.tempDir,
+      sessionExecutionDir,
     }
 
     const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)
@@ -201,5 +205,28 @@ export class ChatService {
     }
 
     return servers
+  }
+
+  private async resolveSessionDir(request: ChatRequest): Promise<string> {
+    let dir: string
+    let userProvided: boolean
+
+    if (request.userWorkingDir) {
+      dir = request.userWorkingDir
+      userProvided = true
+    } else {
+      // create new session dir for this conversationId
+      dir = path.join(
+        this.deps.executionDir,
+        'sessions',
+        request.conversationId,
+      )
+      userProvided = false
+    }
+
+    await mkdir(dir, { recursive: true })
+    logger.info('Session directory resolved', { dir, userProvided })
+
+    return dir
   }
 }
