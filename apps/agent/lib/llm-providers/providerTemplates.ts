@@ -28,7 +28,8 @@ export const providerTemplates: ProviderTemplate[] = [
     supportsImages: true,
     contextWindow: 128000,
     apiKeyUrl: 'https://platform.openai.com/api-keys',
-    setupGuideUrl: 'https://docs.browseros.com/features/bring-your-own-llm',
+    setupGuideUrl:
+      'https://docs.browseros.com/features/bring-your-own-llm#openai',
   },
   {
     id: 'openai-compatible',
@@ -46,7 +47,8 @@ export const providerTemplates: ProviderTemplate[] = [
     supportsImages: true,
     contextWindow: 200000,
     apiKeyUrl: 'https://console.anthropic.com/settings/keys',
-    setupGuideUrl: 'https://docs.browseros.com/features/bring-your-own-llm',
+    setupGuideUrl:
+      'https://docs.browseros.com/features/bring-your-own-llm#claude',
   },
   {
     id: 'google',
@@ -56,7 +58,8 @@ export const providerTemplates: ProviderTemplate[] = [
     supportsImages: true,
     contextWindow: 1000000,
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
-    setupGuideUrl: 'https://docs.browseros.com/features/bring-your-own-llm',
+    setupGuideUrl:
+      'https://docs.browseros.com/features/bring-your-own-llm#gemini',
   },
   {
     id: 'ollama',
@@ -65,7 +68,8 @@ export const providerTemplates: ProviderTemplate[] = [
     defaultModelId: 'llama3.2',
     supportsImages: false,
     contextWindow: 128000,
-    setupGuideUrl: 'https://docs.browseros.com/features/bring-your-own-llm',
+    setupGuideUrl:
+      'https://docs.browseros.com/features/bring-your-own-llm#ollama',
   },
   {
     id: 'openrouter',
@@ -75,7 +79,8 @@ export const providerTemplates: ProviderTemplate[] = [
     supportsImages: true,
     contextWindow: 128000,
     apiKeyUrl: 'https://openrouter.ai/keys',
-    setupGuideUrl: 'https://docs.browseros.com/features/bring-your-own-llm',
+    setupGuideUrl:
+      'https://docs.browseros.com/features/bring-your-own-llm#openrouter',
   },
   {
     id: 'lmstudio',
@@ -84,7 +89,8 @@ export const providerTemplates: ProviderTemplate[] = [
     defaultModelId: 'local-model',
     supportsImages: false,
     contextWindow: 32000,
-    setupGuideUrl: 'https://docs.browseros.com/features/bring-your-own-llm',
+    setupGuideUrl:
+      'https://docs.browseros.com/features/bring-your-own-llm#lmstudio',
   },
   {
     id: 'azure',
