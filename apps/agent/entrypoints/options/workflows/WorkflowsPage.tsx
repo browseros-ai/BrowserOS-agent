@@ -10,6 +10,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
+import { RunWorkflowDialog } from './RunWorkflowDialog'
+import { useRunWorkflow } from './useRunWorkflow'
 import { WorkflowsHeader } from './WorkflowsHeader'
 import { WorkflowsList } from './WorkflowsList'
 
@@ -17,6 +19,16 @@ export const WorkflowsPage: FC = () => {
   const { workflows, removeWorkflow } = useWorkflows()
 
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null)
+
+  const {
+    isRunning,
+    runningWorkflowName,
+    messages,
+    status,
+    runWorkflow,
+    stopRun,
+    closeDialog,
+  } = useRunWorkflow()
 
   const handleDelete = (workflowId: string) => {
     setDeleteWorkflowId(workflowId)
@@ -29,7 +41,12 @@ export const WorkflowsPage: FC = () => {
     }
   }
 
-  const handleRun = async (_workflowId: string) => {}
+  const handleRun = (workflowId: string) => {
+    const workflow = workflows.find((w) => w.id === workflowId)
+    if (workflow) {
+      runWorkflow(workflow.codeId, workflow.workflowName)
+    }
+  }
 
   const workflowToDelete = deleteWorkflowId
     ? workflows.find((w) => w.id === deleteWorkflowId)
@@ -65,6 +82,15 @@ export const WorkflowsPage: FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RunWorkflowDialog
+        open={isRunning}
+        workflowName={runningWorkflowName}
+        messages={messages}
+        status={status}
+        onStop={stopRun}
+        onClose={closeDialog}
+      />
     </div>
   )
 }
