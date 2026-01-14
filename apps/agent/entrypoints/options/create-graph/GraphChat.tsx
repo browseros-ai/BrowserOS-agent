@@ -109,8 +109,8 @@ export const GraphChat: FC<GraphChatProps> = ({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-full w-full flex-1 flex-col pb-2">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
         <ChatMessages
           liked={liked}
           disliked={disliked}
@@ -126,7 +126,7 @@ export const GraphChat: FC<GraphChatProps> = ({
       </div>
       {agentUrlError && <ChatError error={agentUrlError} />}
       {chatError && <ChatError error={chatError} />}
-      <div className="border-border/40 border-t bg-background/80 p-2 backdrop-blur-md">
+      <div className="shrink-0 border-border/40 border-t bg-background/80 p-2 backdrop-blur-md">
         <form
           onSubmit={onSubmit}
           className="relative flex w-full items-end gap-2"
