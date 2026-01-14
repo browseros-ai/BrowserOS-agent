@@ -78,6 +78,8 @@ type GraphCanvasProps = {
   codeId?: string
   onClickTest: () => unknown
   onClickSave: () => unknown
+  isSaved: boolean
+  hasUnsavedChanges: boolean
 }
 
 export const GraphCanvas: FC<GraphCanvasProps> = ({
@@ -87,11 +89,13 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   codeId,
   onClickTest,
   onClickSave,
+  isSaved,
+  hasUnsavedChanges,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
 
   const canTest = !!codeId
-  const canSave = !!graphName && !!codeId
+  const canSave = !!graphName && !!codeId && hasUnsavedChanges
 
   const getTestTooltip = () => {
     if (!codeId) return 'Create a workflow using the chat first'
@@ -101,7 +105,12 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   const getSaveTooltip = () => {
     if (!codeId) return 'Create a workflow using the chat first'
     if (!graphName) return 'Provide a name for the workflow'
-    return 'Save this workflow'
+    if (isSaved && !hasUnsavedChanges) return 'Workflow already saved'
+    return isSaved ? 'Save changes to this workflow' : 'Save this workflow'
+  }
+
+  const getSaveButtonLabel = () => {
+    return isSaved ? 'Save Changes' : 'Save Workflow'
   }
 
   // Initialize nodes and edges with layout
@@ -209,7 +218,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
                   className="bg-[var(--accent-orange)] shadow-lg shadow-orange-500/20 hover:bg-[var(--accent-orange-bright)] disabled:bg-[var(--accent-orange)]/50"
                 >
                   <Save className="mr-1.5 h-4 w-4" />
-                  Save Workflow
+                  {getSaveButtonLabel()}
                 </Button>
               </span>
             </TooltipTrigger>

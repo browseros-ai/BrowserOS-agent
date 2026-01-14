@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/resizable'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
+import { useWorkflows } from '@/lib/workflows/workflowStorage'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
 
@@ -44,8 +45,14 @@ export const CreateGraph: FC = () => {
   const [graphName, setGraphName] = useState('')
   const [codeId, setCodeId] = useState<string | undefined>(undefined)
   const [graphData, setGraphData] = useState<GraphData | undefined>(undefined)
+  const [savedWorkflowId, setSavedWorkflowId] = useState<string | undefined>(
+    undefined,
+  )
+  const [savedCodeId, setSavedCodeId] = useState<string | undefined>(undefined)
 
   const [query, setQuery] = useState('')
+
+  const { addWorkflow, editWorkflow } = useWorkflows()
 
   const updateQuery = (newQuery: string) => {
     setQuery(newQuery)
@@ -171,7 +178,26 @@ export const CreateGraph: FC = () => {
     })
   }
 
-  const onClickSave = () => {}
+  const hasUnsavedChanges = savedWorkflowId ? codeId !== savedCodeId : true
+
+  const onClickSave = async () => {
+    if (!graphName || !codeId) return
+
+    if (savedWorkflowId) {
+      await editWorkflow(savedWorkflowId, {
+        workflowName: graphName,
+        codeId,
+      })
+      setSavedCodeId(codeId)
+    } else {
+      const newWorkflow = await addWorkflow({
+        workflowName: graphName,
+        codeId,
+      })
+      setSavedWorkflowId(newWorkflow.id)
+      setSavedCodeId(codeId)
+    }
+  }
 
   useDeepCompareEffect(() => {
     if (status === 'ready' && lastAssistantMessage) {
@@ -193,6 +219,8 @@ export const CreateGraph: FC = () => {
             codeId={codeId}
             onClickTest={onClickTest}
             onClickSave={onClickSave}
+            isSaved={!!savedWorkflowId}
+            hasUnsavedChanges={hasUnsavedChanges}
           />
         </ResizablePanel>
 

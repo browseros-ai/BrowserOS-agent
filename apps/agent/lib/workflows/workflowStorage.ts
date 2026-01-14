@@ -32,6 +32,7 @@ export function useWorkflows() {
     }
     const current = (await workflowStorage.getValue()) ?? []
     await workflowStorage.setValue([...current, newWorkflow])
+    return newWorkflow
   }
 
   const removeWorkflow = async (id: string) => {
