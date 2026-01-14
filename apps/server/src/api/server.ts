@@ -84,6 +84,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       createSdkRoutes({
         port,
         browserosId,
+        hmacSecret: config.codegenHmacSecret,
       }),
     )
     .route(
@@ -92,6 +93,8 @@ export async function createHttpServer(config: HttpServerConfig) {
         port,
         tempDir,
         codegenServiceUrl: config.codegenServiceUrl,
+        browserosId,
+        hmacSecret: config.codegenHmacSecret,
       }),
     )
 

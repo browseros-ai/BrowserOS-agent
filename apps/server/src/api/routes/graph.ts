@@ -67,16 +67,24 @@ interface GraphRouteDeps {
   port: number
   tempDir?: string
   codegenServiceUrl?: string
+  browserosId?: string
+  hmacSecret?: string
 }
 
 export function createGraphRoutes(deps: GraphRouteDeps) {
-  const { port, codegenServiceUrl } = deps
+  const { port, codegenServiceUrl, browserosId, hmacSecret } = deps
 
   const serverUrl = `http://127.0.0.1:${port}`
   const tempDir = deps.tempDir || PATHS.DEFAULT_TEMP_DIR
 
   const graphService = codegenServiceUrl
-    ? new GraphService({ codegenServiceUrl, serverUrl, tempDir })
+    ? new GraphService({
+        codegenServiceUrl,
+        serverUrl,
+        tempDir,
+        browserosId,
+        hmacSecret,
+      })
     : null
 
   // Chain route definitions for proper Hono RPC type inference

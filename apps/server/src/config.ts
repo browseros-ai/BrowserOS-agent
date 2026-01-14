@@ -24,6 +24,7 @@ export const ServerConfigSchema = z.object({
   executionDir: z.string(),
   mcpAllowRemote: z.boolean(),
   codegenServiceUrl: z.string().optional(),
+  codegenHmacSecret: z.string().optional(),
   instanceClientId: z.string().optional(),
   instanceInstallId: z.string().optional(),
   instanceBrowserosVersion: z.string().optional(),
@@ -41,6 +42,7 @@ type PartialConfig = {
   executionDir?: string
   mcpAllowRemote?: boolean
   codegenServiceUrl?: string
+  codegenHmacSecret?: string
   instanceClientId?: string
   instanceInstallId?: string
   instanceBrowserosVersion?: string
@@ -280,6 +282,7 @@ function loadEnv(env: NodeJS.ProcessEnv): PartialConfig {
       ? resolvePath(env.BROWSEROS_EXECUTION_DIR, cwd)
       : undefined,
     codegenServiceUrl: env.CODEGEN_SERVICE_URL,
+    codegenHmacSecret: env.CODEGEN_HMAC_SECRET,
     instanceInstallId: env.BROWSEROS_INSTALL_ID,
     instanceClientId: env.BROWSEROS_CLIENT_ID,
   })

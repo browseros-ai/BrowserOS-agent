@@ -47,6 +47,7 @@ export type VerifyRequest = z.infer<typeof VerifyRequestSchema>
 export interface SdkDeps {
   port: number
   browserosId?: string
+  hmacSecret?: string
 }
 
 export interface ActiveTab {
