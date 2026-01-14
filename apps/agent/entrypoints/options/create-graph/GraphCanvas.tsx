@@ -14,10 +14,20 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import { Bot, Maximize, Minus, Pencil, Play, Plus, Save } from 'lucide-react'
+import {
+  ArrowLeft,
+  Maximize,
+  Minus,
+  Pencil,
+  Play,
+  Plus,
+  Save,
+} from 'lucide-react'
 import type { FC } from 'react'
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import ProductLogo from '@/assets/product_logo.svg'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -98,6 +108,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
   const { fitView, zoomIn, zoomOut } = useReactFlow()
+  const navigate = useNavigate()
 
   const canTest = !!codeId
   const canSave = !!graphName && !!codeId && hasUnsavedChanges
@@ -158,9 +169,15 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
       {/* Graph Header */}
       <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-4 py-3 backdrop-blur-md">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--accent-orange)] to-[var(--accent-orange-bright)] text-white shadow-lg shadow-orange-500/20">
-            <Bot className="h-5 w-5" />
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <img src={ProductLogo} alt="BrowserOS" className="h-8 w-8 shrink-0" />
           {isEditingName ? (
             <input
               type="text"
