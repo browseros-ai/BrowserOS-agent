@@ -12,7 +12,6 @@ import { stream } from 'hono/streaming'
 import {
   formatUIMessageStreamDone,
   formatUIMessageStreamEvent,
-  UIMessageStreamWriter,
 } from '../../agent/provider-adapter/ui-message-stream'
 import { logger } from '../../lib/logger'
 import { GraphService } from '../services/graph-service'
@@ -91,16 +90,34 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
       return createSSEStream(
         c,
-        { logLabel: 'Graph create' },
+        { logLabel: 'Graph create', vercelAIStream: true },
         async (s, signal) => {
-          await graphService.createGraph(
-            request.query,
-            async (event) => {
-              await s.write(`data: ${JSON.stringify(event)}\n\n`)
-            },
-            signal,
-          )
-          await s.write(formatUIMessageStreamDone())
+          try {
+            await graphService.createGraph(
+              request.query,
+              async (event) => {
+                await s.write(formatUIMessageStreamEvent(event))
+              },
+              signal,
+            )
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error)
+            await s.write(
+              formatUIMessageStreamEvent({
+                type: 'error',
+                errorText: errorMessage,
+              }),
+            )
+            await s.write(
+              formatUIMessageStreamEvent({
+                type: 'finish',
+                finishReason: 'error',
+              }),
+            )
+          } finally {
+            await s.write(formatUIMessageStreamDone())
+          }
         },
       )
     })
@@ -121,17 +138,35 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
 
         return createSSEStream(
           c,
-          { logLabel: 'Graph update' },
+          { logLabel: 'Graph update', vercelAIStream: true },
           async (s, signal) => {
-            await graphService.updateGraph(
-              sessionId,
-              request.query,
-              async (event) => {
-                await s.write(`data: ${JSON.stringify(event)}\n\n`)
-              },
-              signal,
-            )
-            await s.write(formatUIMessageStreamDone())
+            try {
+              await graphService.updateGraph(
+                sessionId,
+                request.query,
+                async (event) => {
+                  await s.write(formatUIMessageStreamEvent(event))
+                },
+                signal,
+              )
+            } catch (error) {
+              const errorMessage =
+                error instanceof Error ? error.message : String(error)
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'error',
+                  errorText: errorMessage,
+                }),
+              )
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'error',
+                }),
+              )
+            } finally {
+              await s.write(formatUIMessageStreamDone())
+            }
           },
         )
       },
@@ -172,30 +207,53 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
           c,
           { logLabel: 'Graph run', vercelAIStream: true },
           async (s, signal) => {
-            const writer = new UIMessageStreamWriter(async (data) => {
-              await s.write(data)
-            })
-
             try {
-              await writer.start(sessionId)
+              // Emit start event at route level
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'start',
+                  messageId: sessionId,
+                }),
+              )
 
               await graphService.runGraph(
                 sessionId,
                 request,
                 async (event) => {
-                  // Forward events from agent SDK, skip outer start/finish (we manage those)
-                  if (event.type === 'start' || event.type === 'finish') return
+                  // Agent SDK handles proper event formatting
+                  // Skip start/finish (managed at route level), forward everything else
+                  if (event.type === 'start' || event.type === 'finish') {
+                    return
+                  }
                   await s.write(formatUIMessageStreamEvent(event))
                 },
                 signal,
               )
 
-              await writer.finish()
+              // Emit finish at route level
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'stop',
+                }),
+              )
             } catch (error) {
               const errorMessage =
                 error instanceof Error ? error.message : String(error)
-              await writer.writeError(errorMessage)
-              await writer.finish('error')
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'error',
+                  errorText: errorMessage,
+                }),
+              )
+              await s.write(
+                formatUIMessageStreamEvent({
+                  type: 'finish',
+                  finishReason: 'error',
+                }),
+              )
+            } finally {
+              await s.write(formatUIMessageStreamDone())
             }
           },
         )

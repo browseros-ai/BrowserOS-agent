@@ -13,7 +13,6 @@ import { stream } from 'hono/streaming'
 import {
   formatUIMessageStreamDone,
   formatUIMessageStreamEvent,
-  UIMessageStreamWriter,
 } from '../../agent/provider-adapter/ui-message-stream'
 import { logger } from '../../lib/logger'
 import { BrowserService } from '../services/sdk/browser'
@@ -85,12 +84,9 @@ export function createSdkRoutes(deps: SdkDeps) {
       c.header('x-vercel-ai-ui-message-stream', 'v1')
 
       return stream(c, async (honoStream) => {
-        const writer = new UIMessageStreamWriter(async (data) => {
-          await honoStream.write(data)
-        })
-
         try {
-          await writer.start()
+          // Emit start event at route level
+          await honoStream.write(formatUIMessageStreamEvent({ type: 'start' }))
 
           await chatService.executeAction({
             instruction,
@@ -99,16 +95,28 @@ export function createSdkRoutes(deps: SdkDeps) {
             llmConfig,
             signal: c.req.raw.signal,
             onSSEEvent: async (event) => {
-              // Forward events from /chat, skip start/finish (we manage those)
-              if (event.type === 'start' || event.type === 'finish') return
+              // Events from AI agent are already properly formatted
+              // Skip start/finish (managed at route level), forward everything else
+              if (event.type === 'start' || event.type === 'finish') {
+                return
+              }
               await honoStream.write(formatUIMessageStreamEvent(event))
             },
           })
 
-          await writer.finish()
+          // Emit finish at route level
+          await honoStream.write(
+            formatUIMessageStreamEvent({
+              type: 'finish',
+              finishReason: 'stop',
+            }),
+          )
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') {
-            await writer.abort()
+            await honoStream.write(
+              formatUIMessageStreamEvent({ type: 'abort' }),
+            )
+            await honoStream.write(formatUIMessageStreamDone())
             return
           }
           const err =
@@ -120,7 +128,19 @@ export function createSdkRoutes(deps: SdkDeps) {
                     : 'Action execution failed',
                 )
           logger.error('SDK act error', { instruction, error: err.message })
-          await writer.writeError(err.message)
+          await honoStream.write(
+            formatUIMessageStreamEvent({
+              type: 'error',
+              errorText: err.message,
+            }),
+          )
+          await honoStream.write(
+            formatUIMessageStreamEvent({
+              type: 'finish',
+              finishReason: 'error',
+            }),
+          )
+        } finally {
           await honoStream.write(formatUIMessageStreamDone())
         }
       })

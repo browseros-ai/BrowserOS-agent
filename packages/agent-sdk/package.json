@@ -49,6 +49,7 @@
     "zod": "^3.x"
   },
   "devDependencies": {
+    "@browseros/shared": "workspace:*",
     "bunup": "^0.16.17",
     "typedoc": "^0.28.15"
   }

@@ -166,54 +166,11 @@ export const CodegenGetResponseSchema = z.object({
 
 export type CodegenGetResponse = z.infer<typeof CodegenGetResponseSchema>
 
-// Codegen service SSE event schemas
-export const CodegenStartedEventSchema = z.object({
-  event: z.literal('started'),
-  data: z.object({
-    codeId: z.string(),
-    instanceId: z.string(),
-  }),
+// Metadata schema for finish events from codegen service
+export const CodegenFinishMetadataSchema = z.object({
+  codeId: z.string().optional(),
+  code: z.string().optional(),
+  graph: WorkflowGraphSchema.nullable().optional(),
 })
 
-export type CodegenStartedEvent = z.infer<typeof CodegenStartedEventSchema>
-
-export const CodegenProgressEventSchema = z.object({
-  event: z.literal('progress'),
-  data: z.object({
-    message: z.string(),
-    turn: z.number(),
-  }),
-})
-
-export type CodegenProgressEvent = z.infer<typeof CodegenProgressEventSchema>
-
-export const CodegenCompleteEventSchema = z.object({
-  event: z.literal('complete'),
-  data: z.object({
-    codeId: z.string(),
-    code: z.string(),
-    graph: WorkflowGraphSchema.nullable(),
-    instanceId: z.string(),
-  }),
-})
-
-export type CodegenCompleteEvent = z.infer<typeof CodegenCompleteEventSchema>
-
-export const CodegenErrorEventSchema = z.object({
-  event: z.literal('error'),
-  data: z.object({
-    error: z.string(),
-    details: z.string().optional(),
-  }),
-})
-
-export type CodegenErrorEvent = z.infer<typeof CodegenErrorEventSchema>
-
-export const CodegenSSEEventSchema = z.discriminatedUnion('event', [
-  CodegenStartedEventSchema,
-  CodegenProgressEventSchema,
-  CodegenCompleteEventSchema,
-  CodegenErrorEventSchema,
-])
-
-export type CodegenSSEEvent = z.infer<typeof CodegenSSEEventSchema>
+export type CodegenFinishMetadata = z.infer<typeof CodegenFinishMetadataSchema>

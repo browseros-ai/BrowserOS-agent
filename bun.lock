@@ -168,6 +168,7 @@
         "zod-to-json-schema": "^3.24.1",
       },
       "devDependencies": {
+        "@browseros/shared": "workspace:*",
         "bunup": "^0.16.17",
         "typedoc": "^0.28.15",
       },
