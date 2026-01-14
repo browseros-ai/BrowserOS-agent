@@ -155,6 +155,8 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') setIsEditingName(false)
               }}
+              // biome-ignore lint/a11y/noAutofocus: needed to autofocus field when edit mode is toggled
+              autoFocus
               placeholder="Enter workflow name..."
               className="max-w-64 border-[var(--accent-orange)] border-b bg-transparent font-semibold text-sm outline-none placeholder:font-normal placeholder:text-muted-foreground/60"
             />
