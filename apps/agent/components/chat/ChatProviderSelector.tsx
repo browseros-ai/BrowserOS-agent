@@ -17,7 +17,7 @@ import {
 import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { cn } from '@/lib/utils'
-import type { Provider } from './chatTypes'
+import type { Provider } from './types'
 
 interface ChatProviderSelectorProps {
   providers: Provider[]

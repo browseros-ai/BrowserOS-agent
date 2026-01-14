@@ -1,12 +1,4 @@
-import type { ProviderType } from '@/lib/llm-providers/types'
-
 export type ChatMode = 'chat' | 'agent'
-
-export interface Provider {
-  id: string
-  name: string
-  type: ProviderType
-}
 
 export interface Suggestion {
   display: string

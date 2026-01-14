@@ -7,25 +7,24 @@ import { productRepositoryUrl } from '@/lib/constants/productUrls'
 import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
 
-interface ChatHeaderProps {
+interface WorkflowsChatHeaderProps {
   selectedProvider: Provider
   providers: Provider[]
   onSelectProvider: (provider: Provider) => void
-  onNewConversation: () => void
+  onNewWorkflow: () => void
   hasMessages: boolean
 }
 
-export const ChatHeader: FC<ChatHeaderProps> = ({
+export const WorkflowsChatHeader: FC<WorkflowsChatHeaderProps> = ({
   selectedProvider,
   providers,
   onSelectProvider,
-  onNewConversation,
+  onNewWorkflow,
   hasMessages,
 }) => {
   return (
-    <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-3 py-2.5 backdrop-blur-md">
+    <header className="flex shrink-0 items-center justify-between border-border/40 border-b bg-background/80 px-3 py-2.5 backdrop-blur-md">
       <div className="flex items-center gap-2">
-        {/* Provider Selector */}
         <ChatProviderSelector
           providers={providers}
           selectedProvider={selectedProvider}
@@ -55,9 +54,9 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
         {hasMessages && (
           <button
             type="button"
-            onClick={onNewConversation}
+            onClick={onNewWorkflow}
             className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            title="New conversation"
+            title="New workflow"
           >
             <Plus className="h-4 w-4" />
           </button>

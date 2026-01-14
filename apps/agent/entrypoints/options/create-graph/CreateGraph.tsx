@@ -5,6 +5,17 @@ import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
+import type { Provider } from '@/components/chat/chatComponentTypes'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   ResizableHandle,
   ResizablePanel,
@@ -12,11 +23,13 @@ import {
 } from '@/components/ui/resizable'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
+import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 import { sentry } from '@/lib/sentry/sentry'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
 import { GraphCanvas } from './GraphCanvas'
 import { GraphChat } from './GraphChat'
+import { WorkflowsChatHeader } from './WorkflowsChatHeader'
 
 type MessageType = 'create-graph' | 'update-graph' | 'run-graph'
 
@@ -68,8 +81,10 @@ export const CreateGraph: FC = () => {
   >(undefined)
 
   const [query, setQuery] = useState('')
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
 
   const { workflows, addWorkflow, editWorkflow } = useWorkflows()
+  const { providers: llmProviders, setDefaultProvider } = useLlmProviders()
   const rpcClient = useRpcClient()
 
   // Initialize edit mode when workflowId is provided
@@ -147,6 +162,8 @@ export const CreateGraph: FC = () => {
     enabledMcpServersRef,
     enabledCustomServersRef,
     personalizationRef,
+    selectedLlmProvider,
+    isLoadingProviders,
   } = useChatRefs()
 
   const agentUrlRef = useRef(agentServerUrl)
@@ -158,7 +175,7 @@ export const CreateGraph: FC = () => {
     codeIdRef.current = codeId
   }, [agentServerUrl, codeId])
 
-  const { sendMessage, stop, status, messages, error } = useChat({
+  const { sendMessage, stop, status, messages, error, setMessages } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
@@ -283,6 +300,60 @@ export const CreateGraph: FC = () => {
     }
   }
 
+  // Provider data for header
+  const providers: Provider[] = llmProviders.map((p) => ({
+    id: p.id,
+    name: p.name,
+    type: p.type,
+  }))
+
+  const selectedProviderForHeader: Provider | undefined = selectedLlmProvider
+    ? {
+        id: selectedLlmProvider.id,
+        name: selectedLlmProvider.name,
+        type: selectedLlmProvider.type,
+      }
+    : providers[0]
+
+  // Has generated code but can't auto-save (no name)
+  const hasUnsavedWork = codeId && !graphName
+
+  const resetToNewWorkflow = () => {
+    setCodeId(undefined)
+    setGraphData(undefined)
+    setGraphName('')
+    setSavedWorkflowId(undefined)
+    setSavedCodeId(undefined)
+    setMessages([])
+  }
+
+  const handleSelectProvider = (provider: Provider) => {
+    setDefaultProvider(provider.id)
+  }
+
+  const handleNewWorkflow = async () => {
+    // Can auto-save: has name AND code
+    if (graphName && codeId) {
+      await onClickSave()
+      resetToNewWorkflow()
+      return
+    }
+
+    // Has unsaved work that can't be auto-saved: show confirmation
+    if (hasUnsavedWork) {
+      setShowDiscardDialog(true)
+      return
+    }
+
+    // Nothing to save, just reset
+    resetToNewWorkflow()
+  }
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardDialog(false)
+    resetToNewWorkflow()
+  }
+
   useDeepCompareEffect(() => {
     if (status === 'ready' && lastAssistantMessageWithGraph) {
       const metadata = lastAssistantMessageWithGraph.metadata as
@@ -293,10 +364,10 @@ export const CreateGraph: FC = () => {
     }
   }, [status, lastAssistantMessageWithGraph ?? {}])
 
-  if (!isInitialized) {
+  if (!isInitialized || isLoadingProviders || !selectedProviderForHeader) {
     return (
       <div className="flex h-dvh w-dvw items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">Loading workflow...</div>
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     )
   }
@@ -333,18 +404,47 @@ export const CreateGraph: FC = () => {
           maxSize={'70%'}
           minSize={'30%'}
         >
-          <GraphChat
-            messages={messages}
-            onSubmit={onSubmit}
-            onInputChange={updateQuery}
-            onStop={stop}
-            input={query}
-            status={status}
-            agentUrlError={agentUrlError}
-            chatError={error}
-          />
+          <div className="flex h-full flex-col">
+            <WorkflowsChatHeader
+              selectedProvider={selectedProviderForHeader}
+              providers={providers}
+              onSelectProvider={handleSelectProvider}
+              onNewWorkflow={handleNewWorkflow}
+              hasMessages={messages.length > 0}
+            />
+            <div className="min-h-0 flex-1">
+              <GraphChat
+                messages={messages}
+                onSubmit={onSubmit}
+                onInputChange={updateQuery}
+                onStop={stop}
+                input={query}
+                status={status}
+                agentUrlError={agentUrlError}
+                chatError={error}
+              />
+            </div>
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unsaved workflow. Creating a new one will discard your
+              current changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDiscard}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
