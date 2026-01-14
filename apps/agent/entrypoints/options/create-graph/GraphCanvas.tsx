@@ -1,6 +1,7 @@
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   type Edge,
   MiniMap,
@@ -13,7 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import { Bot, Pencil, Play, Save } from 'lucide-react'
+import { Bot, Maximize, Minus, Pencil, Play, Plus, Save } from 'lucide-react'
 import type { FC } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import { Button } from '@/components/ui/button'
@@ -95,7 +96,7 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
   hasUnsavedChanges,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
-  const { fitView } = useReactFlow()
+  const { fitView, zoomIn, zoomOut } = useReactFlow()
 
   const canTest = !!codeId
   const canSave = !!graphName && !!codeId && hasUnsavedChanges
@@ -252,7 +253,39 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
           }}
         >
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls />
+          <Controls
+            showZoom={false}
+            showFitView={false}
+            showInteractive={false}
+            style={{
+              backgroundColor: 'var(--card)',
+              border: '2px solid var(--border)',
+              borderRadius: '8px',
+              overflow: 'clip',
+            }}
+          >
+            <ControlButton
+              onClick={() => zoomIn()}
+              title="Zoom in"
+              className="bg-card! fill-foreground! hover:bg-muted!"
+            >
+              <Plus className="h-4 w-4" />
+            </ControlButton>
+            <ControlButton
+              onClick={() => zoomOut()}
+              title="Zoom out"
+              className="bg-card! fill-foreground! hover:bg-muted!"
+            >
+              <Minus className="h-4 w-4" />
+            </ControlButton>
+            <ControlButton
+              onClick={() => fitView()}
+              title="Fit view"
+              className="bg-card! fill-foreground! hover:bg-muted!"
+            >
+              <Maximize className="h-4 w-4" />
+            </ControlButton>
+          </Controls>
           <MiniMap
             pannable
             zoomable
