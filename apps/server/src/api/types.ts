@@ -39,6 +39,7 @@ export const ChatRequestSchema = VercelAIConfigSchema.extend({
   userSystemPrompt: z.string().optional(),
   isScheduledTask: z.boolean().optional().default(false),
   userWorkingDir: z.string().min(1).optional(),
+  supportsImages: z.boolean().optional().default(true),
 })
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
