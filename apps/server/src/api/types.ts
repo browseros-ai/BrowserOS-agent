@@ -4,6 +4,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import {
+  type BrowserContext,
+  BrowserContextSchema,
+  type CustomMcpServer,
+  CustomMcpServerSchema,
+  type Tab,
+  TabSchema,
+} from '@browseros/shared/schemas/browser-context'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
@@ -13,32 +21,15 @@ import type { Mutex } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { ToolDefinition } from '../tools/types/tool-definition'
 
-// Chat request schemas (moved from agent/http/types.ts)
-export const TabSchema = z.object({
-  id: z.number(),
-  url: z.string().optional(),
-  title: z.string().optional(),
-})
-
-export type Tab = z.infer<typeof TabSchema>
-
-export const CustomMcpServerSchema = z.object({
-  name: z.string(),
-  url: z.string().url(),
-})
-
-export type CustomMcpServer = z.infer<typeof CustomMcpServerSchema>
-
-export const BrowserContextSchema = z.object({
-  windowId: z.number().optional(),
-  activeTab: TabSchema.optional(),
-  selectedTabs: z.array(TabSchema).optional(),
-  tabs: z.array(TabSchema).optional(),
-  enabledMcpServers: z.array(z.string()).optional(),
-  customMcpServers: z.array(CustomMcpServerSchema).optional(),
-})
-
-export type BrowserContext = z.infer<typeof BrowserContextSchema>
+// Re-export browser context types for consumers
+export {
+  BrowserContextSchema,
+  CustomMcpServerSchema,
+  TabSchema,
+  type BrowserContext,
+  type CustomMcpServer,
+  type Tab,
+}
 
 export const ChatRequestSchema = VercelAIConfigSchema.extend({
   conversationId: z.string().uuid(),
