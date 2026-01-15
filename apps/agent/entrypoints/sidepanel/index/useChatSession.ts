@@ -2,6 +2,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
@@ -13,6 +14,10 @@ import {
   MESSAGE_SENT_EVENT,
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
+import {
+  conversationStorage,
+  useConversations,
+} from '@/lib/conversations/conversationStorage'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
@@ -69,6 +74,10 @@ export const useChatSession = () => {
     error: agentUrlError,
   } = useAgentServerUrl()
 
+  const { saveConversation } = useConversations()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const conversationIdParam = searchParams.get('conversationId')
+
   const agentUrlRef = useRef(agentServerUrl)
 
   useEffect(() => {
@@ -87,7 +96,12 @@ export const useChatSession = () => {
   )
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
-  const conversationIdRef = useRef(crypto.randomUUID())
+  const [conversationId, setConversationId] = useState(crypto.randomUUID())
+  const conversationIdRef = useRef(conversationId)
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId
+  }, [conversationId])
 
   const onClickLike = (messageId: string) => {
     const { responseText, queryText } = getResponseAndQueryFromMessageId(
@@ -251,6 +265,35 @@ export const useChatSession = () => {
     conversationId: conversationIdRef.current,
   })
 
+  useEffect(() => {
+    if (!conversationIdParam) return
+
+    const restoreConversation = async () => {
+      const conversations = await conversationStorage.getValue()
+      const conversation = conversations?.find(
+        (c) => c.id === conversationIdParam,
+      )
+
+      if (conversation) {
+        setConversationId(
+          conversation.id as ReturnType<typeof crypto.randomUUID>,
+        )
+        setMessages(conversation.messages)
+      }
+
+      setSearchParams({}, { replace: true })
+    }
+
+    restoreConversation()
+  }, [conversationIdParam, setMessages, setSearchParams])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveConversation(conversationIdRef.current, messages)
+    }
+  }, [messages])
+
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
       mode,
@@ -300,7 +343,7 @@ export const useChatSession = () => {
     track(CONVERSATION_RESET_EVENT, { message_count: messages.length })
     stop()
     const oldConversationId = conversationIdRef.current
-    conversationIdRef.current = crypto.randomUUID()
+    setConversationId(crypto.randomUUID())
     setMessages([])
     setTextToAction(new Map())
     setLiked({})
@@ -332,5 +375,6 @@ export const useChatSession = () => {
     onClickLike,
     disliked,
     onClickDislike,
+    conversationId,
   }
 }
