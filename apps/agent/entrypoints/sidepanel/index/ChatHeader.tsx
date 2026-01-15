@@ -1,5 +1,6 @@
-import { Github, Plus, SettingsIcon } from 'lucide-react'
+import { Github, History, Plus, SettingsIcon } from 'lucide-react'
 import type { FC } from 'react'
+import { Link } from 'react-router'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
@@ -62,6 +63,14 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
             <Plus className="h-4 w-4" />
           </button>
         )}
+
+        <Link
+          to="/history"
+          className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          title="Chat history"
+        >
+          <History className="h-4 w-4" />
+        </Link>
 
         <a
           href={productRepositoryUrl}
