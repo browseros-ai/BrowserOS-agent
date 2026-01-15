@@ -388,6 +388,25 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
     updateGraph(graphData)
   }, [graphData])
 
+  // Listen for theme changes and re-render nodes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName === 'class') {
+          updateGraph(graphData)
+          break
+        }
+      }
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+
+    return () => observer.disconnect()
+  }, [graphData, updateGraph])
+
   useEffect(() => {
     if (panelSize?.inPixels !== undefined) {
       cyRef.current?.resize()
