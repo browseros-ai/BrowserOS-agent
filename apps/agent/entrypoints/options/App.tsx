@@ -19,8 +19,18 @@ function getInitialRoute(): string {
   return '/ai'
 }
 
+// Get survey params from query string
+function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
+  const params = new URLSearchParams(window.location.search)
+  const maxTurnsStr = params.get('maxTurns')
+  const experimentId = params.get('experimentId') ?? 'default'
+  const maxTurns = maxTurnsStr ? Number.parseInt(maxTurnsStr, 10) : 7
+  return { maxTurns, experimentId }
+}
+
 export const App: FC = () => {
   const initialRoute = getInitialRoute()
+  const surveyParams = getSurveyParams()
 
   return (
     <HashRouter>
@@ -40,7 +50,10 @@ export const App: FC = () => {
             />
             <Route path="scheduled" element={<ScheduledTasksPage />} />
             <Route path="workflows" element={<WorkflowsPage />} />
-            <Route path="jtbd-agent" element={<SurveyPage />} />
+            <Route
+              path="jtbd-agent"
+              element={<SurveyPage {...surveyParams} />}
+            />
           </Route>
           <Route path="create-graph" element={<CreateGraph />} />
         </Routes>

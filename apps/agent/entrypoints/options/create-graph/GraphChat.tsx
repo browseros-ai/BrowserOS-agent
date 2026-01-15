@@ -40,10 +40,13 @@ export const GraphChat: FC<GraphChatProps> = ({
 
   const {
     popupVisible,
+    recordMessageSent,
     triggerIfEligible,
-    onTakeSurvey,
+    onTakeSurvey: onTakeSurveyBase,
     onDismiss: onDismissJtbdPopup,
   } = useJtbdPopup()
+
+  const onTakeSurvey = () => onTakeSurveyBase(5, 'workflow_survey')
 
   // Trigger JTBD popup when AI finishes responding
   const previousChatStatus = useRef(status)
@@ -93,6 +96,11 @@ export const GraphChat: FC<GraphChatProps> = ({
     }))
   }
 
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (e) => {
+    recordMessageSent()
+    onSubmit(e)
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (
       e.key === 'Enter' &&
@@ -128,7 +136,7 @@ export const GraphChat: FC<GraphChatProps> = ({
       {chatError && <ChatError error={chatError} />}
       <div className="shrink-0 border-border/40 border-t bg-background/80 p-2 backdrop-blur-md">
         <form
-          onSubmit={onSubmit}
+          onSubmit={handleSubmit}
           className="relative flex w-full items-end gap-2"
         >
           <textarea
