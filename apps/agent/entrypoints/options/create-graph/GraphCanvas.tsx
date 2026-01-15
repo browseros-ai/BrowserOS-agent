@@ -383,7 +383,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   return (
     <div className="flex h-full flex-col [--graph-node-bg:rgba(255,255,255,1)] [--graph-node-border:rgba(228,228,231,1)] [--graph-node-text:rgba(24,24,27,1)] dark:[--graph-node-bg:rgba(24,24,27,1)] dark:[--graph-node-border:rgba(63,63,70,1)] dark:[--graph-node-text:rgba(250,250,250,1)]">
       {/* Graph Header */}
-      <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-4 py-3 backdrop-blur-md">
+      <header className="flex h-14 shrink-0 items-center justify-between border-border/40 border-b bg-background/80 px-3 backdrop-blur-md">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Button
             variant="ghost"
@@ -467,19 +467,19 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
       </header>
 
       {/* Graph Canvas */}
-      <div className="relative flex-1 bg-[hsl(var(--background))]">
+      <div className="relative min-h-0 flex-1 overflow-hidden [--dot-color:rgba(0,0,0,0.2)] dark:[--dot-color:rgba(255,255,255,0.15)]">
         <div
           ref={containerRef}
-          className="h-full w-full"
+          className="h-full w-full bg-zinc-50 dark:bg-zinc-900"
           style={{
             backgroundImage:
-              'radial-gradient(circle, hsl(var(--muted-foreground) / 0.2) 1px, transparent 1px)',
-            backgroundSize: '16px 16px',
+              'radial-gradient(circle, var(--dot-color) 1.5px, transparent 1.5px)',
+            backgroundSize: '20px 20px',
           }}
         />
 
         {/* Zoom Controls */}
-        <div className="absolute bottom-4 left-4 flex flex-col gap-1 rounded-lg border-2 border-border bg-card p-1">
+        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg border-2 border-border bg-card p-1">
           <Button
             variant="ghost"
             size="icon"
