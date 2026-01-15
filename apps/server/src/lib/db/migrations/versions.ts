@@ -12,61 +12,46 @@ export interface Migration {
 
 export const migrations: Migration[] = [
   {
-    version: 1736864400,
-    name: 'initial_schema',
+    version: 1768440691,
+    name: '0000_living_deathbird',
     up: `
-      -- Identity table (single row for this installation)
-      CREATE TABLE IF NOT EXISTS identity (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        browseros_id TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Rate limiter table (conversation_id as PK for deduplication)
-      CREATE TABLE IF NOT EXISTS rate_limiter (
-        id TEXT PRIMARY KEY,
-        browseros_id TEXT NOT NULL,
-        provider TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Migrations tracking table
-      CREATE TABLE IF NOT EXISTS _migrations (
-        version INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-    `,
-  },
-  {
-    version: 1736950800,
-    name: 'conversations',
-    up: `
-      -- Conversations table
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY,
-        browseros_id TEXT NOT NULL,
-        provider TEXT NOT NULL,
-        model TEXT,
-        title TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Messages table
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-        role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
-        content TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Indexes for common queries
-      CREATE INDEX IF NOT EXISTS idx_conversations_browseros_id ON conversations(browseros_id);
-      CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
-      CREATE INDEX IF NOT EXISTS idx_rate_limiter_browseros_id_date
-        ON rate_limiter(browseros_id, created_at);
+CREATE TABLE \`conversations\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`browseros_id\` text NOT NULL,
+	\`provider\` text NOT NULL,
+	\`model\` text,
+	\`title\` text,
+	\`created_at\` text DEFAULT (datetime('now')) NOT NULL,
+	\`updated_at\` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX \`idx_conversations_browseros_id\` ON \`conversations\` (\`browseros_id\`);--> statement-breakpoint
+CREATE TABLE \`messages\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`conversation_id\` text NOT NULL,
+	\`role\` text NOT NULL,
+	\`content\` text NOT NULL,
+	\`created_at\` text DEFAULT (datetime('now')) NOT NULL,
+	FOREIGN KEY (\`conversation_id\`) REFERENCES \`conversations\`(\`id\`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "role_check" CHECK("messages"."role" IN ('user', 'assistant', 'system'))
+);
+--> statement-breakpoint
+CREATE INDEX \`idx_messages_conversation_id\` ON \`messages\` (\`conversation_id\`);--> statement-breakpoint
+CREATE TABLE \`identity\` (
+	\`id\` integer PRIMARY KEY NOT NULL,
+	\`browseros_id\` text NOT NULL,
+	\`created_at\` text DEFAULT (datetime('now')) NOT NULL,
+	CONSTRAINT "singleton_check" CHECK("identity"."id" = 1)
+);
+--> statement-breakpoint
+CREATE TABLE \`rate_limiter\` (
+	\`id\` text PRIMARY KEY NOT NULL,
+	\`browseros_id\` text NOT NULL,
+	\`provider\` text NOT NULL,
+	\`created_at\` text DEFAULT (datetime('now')) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX \`idx_rate_limiter_browseros_id_date\` ON \`rate_limiter\` (\`browseros_id\`,\`created_at\`);
     `,
   },
 ]
