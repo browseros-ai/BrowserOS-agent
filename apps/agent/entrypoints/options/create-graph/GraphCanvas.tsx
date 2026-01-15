@@ -383,7 +383,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   return (
     <div className="flex h-full flex-col [--graph-node-bg:rgba(255,255,255,1)] [--graph-node-border:rgba(228,228,231,1)] [--graph-node-text:rgba(24,24,27,1)] dark:[--graph-node-bg:rgba(24,24,27,1)] dark:[--graph-node-border:rgba(63,63,70,1)] dark:[--graph-node-text:rgba(250,250,250,1)]">
       {/* Graph Header */}
-      <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-4 py-3 backdrop-blur-md">
+      <header className="flex h-14 shrink-0 items-center justify-between border-border/40 border-b bg-background/80 px-3 backdrop-blur-md">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Button
             variant="ghost"
