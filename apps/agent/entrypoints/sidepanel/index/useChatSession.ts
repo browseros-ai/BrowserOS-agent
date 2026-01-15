@@ -99,6 +99,10 @@ export const useChatSession = () => {
   const [conversationId, setConversationId] = useState(crypto.randomUUID())
   const conversationIdRef = useRef(conversationId)
 
+  useEffect(() => {
+    conversationIdRef.current = conversationId
+  }, [conversationId])
+
   const onClickLike = (messageId: string) => {
     const { responseText, queryText } = getResponseAndQueryFromMessageId(
       messages,
@@ -271,11 +275,9 @@ export const useChatSession = () => {
       )
 
       if (conversation) {
-        const restoredId = conversation.id as ReturnType<
-          typeof crypto.randomUUID
-        >
-        conversationIdRef.current = restoredId
-        setConversationId(restoredId)
+        setConversationId(
+          conversation.id as ReturnType<typeof crypto.randomUUID>,
+        )
         setMessages(conversation.messages)
       }
 
@@ -341,9 +343,7 @@ export const useChatSession = () => {
     track(CONVERSATION_RESET_EVENT, { message_count: messages.length })
     stop()
     const oldConversationId = conversationIdRef.current
-    const newConversationId = crypto.randomUUID()
-    conversationIdRef.current = newConversationId
-    setConversationId(newConversationId)
+    setConversationId(crypto.randomUUID())
     setMessages([])
     setTextToAction(new Map())
     setLiked({})
