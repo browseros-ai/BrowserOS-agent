@@ -2,6 +2,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
@@ -13,7 +14,10 @@ import {
   MESSAGE_SENT_EVENT,
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useConversations } from '@/lib/conversations/conversationStorage'
+import {
+  conversationStorage,
+  useConversations,
+} from '@/lib/conversations/conversationStorage'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
@@ -71,6 +75,8 @@ export const useChatSession = () => {
   } = useAgentServerUrl()
 
   const { saveConversation } = useConversations()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const conversationIdParam = searchParams.get('conversationId')
 
   const agentUrlRef = useRef(agentServerUrl)
 
@@ -254,7 +260,31 @@ export const useChatSession = () => {
     conversationId: conversationIdRef.current,
   })
 
-  useDeepCompareEffect(() => {
+  useEffect(() => {
+    if (!conversationIdParam) return
+
+    const restoreConversation = async () => {
+      const conversations = await conversationStorage.getValue()
+      const conversation = conversations?.find(
+        (c) => c.id === conversationIdParam,
+      )
+
+      if (conversation) {
+        conversationIdRef.current = conversation.id as ReturnType<
+          typeof crypto.randomUUID
+        >
+
+        setMessages(conversation.messages)
+      }
+
+      setSearchParams({}, { replace: true })
+    }
+
+    restoreConversation()
+  }, [conversationIdParam, setMessages, setSearchParams])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
+  useEffect(() => {
     if (messages.length > 0) {
       saveConversation(conversationIdRef.current, messages)
     }
