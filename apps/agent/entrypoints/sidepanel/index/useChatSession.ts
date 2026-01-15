@@ -96,7 +96,8 @@ export const useChatSession = () => {
   )
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
-  const conversationIdRef = useRef(crypto.randomUUID())
+  const [conversationId, setConversationId] = useState(crypto.randomUUID())
+  const conversationIdRef = useRef(conversationId)
 
   const onClickLike = (messageId: string) => {
     const { responseText, queryText } = getResponseAndQueryFromMessageId(
@@ -270,10 +271,11 @@ export const useChatSession = () => {
       )
 
       if (conversation) {
-        conversationIdRef.current = conversation.id as ReturnType<
+        const restoredId = conversation.id as ReturnType<
           typeof crypto.randomUUID
         >
-
+        conversationIdRef.current = restoredId
+        setConversationId(restoredId)
         setMessages(conversation.messages)
       }
 
@@ -339,7 +341,9 @@ export const useChatSession = () => {
     track(CONVERSATION_RESET_EVENT, { message_count: messages.length })
     stop()
     const oldConversationId = conversationIdRef.current
-    conversationIdRef.current = crypto.randomUUID()
+    const newConversationId = crypto.randomUUID()
+    conversationIdRef.current = newConversationId
+    setConversationId(newConversationId)
     setMessages([])
     setTextToAction(new Map())
     setLiked({})
@@ -371,5 +375,6 @@ export const useChatSession = () => {
     onClickLike,
     disliked,
     onClickDislike,
+    conversationId,
   }
 }

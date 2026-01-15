@@ -7,6 +7,7 @@ import {
   type Conversation,
   useConversations,
 } from '@/lib/conversations/conversationStorage'
+import { useChatSessionContext } from '../layout/ChatSessionContext'
 
 dayjs.extend(relativeTime)
 
@@ -51,16 +52,21 @@ const getLastUserMessage = (conversation: Conversation): string => {
 const ConversationItem: FC<{
   conversation: Conversation
   onDelete: (id: string) => void
-}> = ({ conversation, onDelete }) => {
+  isActive: boolean
+}> = ({ conversation, onDelete, isActive }) => {
   const label = getLastUserMessage(conversation)
   const relativeTimeAgo = dayjs(conversation.lastMessagedAt).fromNow()
 
   return (
     <Link
       to={`/?conversationId=${conversation.id}`}
-      className="group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50"
+      className={`group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 ${
+        isActive ? 'bg-muted/70' : ''
+      }`}
     >
-      <div className="mt-0.5 shrink-0 text-muted-foreground">
+      <div
+        className={`mt-0.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+      >
         <MessageSquare className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
@@ -87,7 +93,8 @@ const ConversationGroup: FC<{
   label: string
   conversations: Conversation[]
   onDelete: (id: string) => void
-}> = ({ label, conversations, onDelete }) => {
+  activeConversationId: string
+}> = ({ label, conversations, onDelete, activeConversationId }) => {
   if (conversations.length === 0) return null
 
   return (
@@ -101,6 +108,7 @@ const ConversationGroup: FC<{
             key={conversation.id}
             conversation={conversation}
             onDelete={onDelete}
+            isActive={conversation.id === activeConversationId}
           />
         ))}
       </div>
@@ -110,6 +118,7 @@ const ConversationGroup: FC<{
 
 export const ChatHistory: FC = () => {
   const { conversations, removeConversation } = useConversations()
+  const { conversationId: activeConversationId } = useChatSessionContext()
 
   const groupedConversations = useMemo<GroupedConversations>(() => {
     const groups: GroupedConversations = {
@@ -148,21 +157,25 @@ export const ChatHistory: FC = () => {
               label={TIME_GROUP_LABELS.today}
               conversations={groupedConversations.today}
               onDelete={removeConversation}
+              activeConversationId={activeConversationId}
             />
             <ConversationGroup
               label={TIME_GROUP_LABELS.thisWeek}
               conversations={groupedConversations.thisWeek}
               onDelete={removeConversation}
+              activeConversationId={activeConversationId}
             />
             <ConversationGroup
               label={TIME_GROUP_LABELS.thisMonth}
               conversations={groupedConversations.thisMonth}
               onDelete={removeConversation}
+              activeConversationId={activeConversationId}
             />
             <ConversationGroup
               label={TIME_GROUP_LABELS.older}
               conversations={groupedConversations.older}
               onDelete={removeConversation}
+              activeConversationId={activeConversationId}
             />
           </>
         )}
