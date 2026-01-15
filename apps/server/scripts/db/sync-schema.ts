@@ -10,6 +10,7 @@
  * 1. Runs drizzle-kit generate to detect schema changes
  * 2. Reads any new migration SQL files
  * 3. Appends them to src/lib/db/migrations/versions.ts with Unix timestamps
+ * 4. Tracks synced drizzle tags in .synced.json to avoid duplicates
  */
 
 import { execSync } from 'node:child_process'
@@ -19,6 +20,7 @@ import { join } from 'node:path'
 const DRIZZLE_DIR = './drizzle'
 const VERSIONS_FILE = './src/lib/db/migrations/versions.ts'
 const JOURNAL_FILE = join(DRIZZLE_DIR, 'meta/_journal.json')
+const SYNCED_FILE = join(DRIZZLE_DIR, '.synced.json')
 
 interface JournalEntry {
   idx: number
@@ -34,14 +36,16 @@ interface Journal {
   entries: JournalEntry[]
 }
 
-function getExistingMigrationNames(): Set<string> {
-  if (!existsSync(VERSIONS_FILE)) {
+function getSyncedTags(): Set<string> {
+  if (!existsSync(SYNCED_FILE)) {
     return new Set()
   }
+  const data = JSON.parse(readFileSync(SYNCED_FILE, 'utf-8'))
+  return new Set(data.tags || [])
+}
 
-  const content = readFileSync(VERSIONS_FILE, 'utf-8')
-  const nameMatches = content.matchAll(/name:\s*['"]([^'"]+)['"]/g)
-  return new Set([...nameMatches].map((m) => m[1]))
+function saveSyncedTags(tags: Set<string>): void {
+  writeFileSync(SYNCED_FILE, JSON.stringify({ tags: [...tags] }, null, 2))
 }
 
 function generateMigrationEntry(name: string, sql: string): string {
@@ -92,10 +96,10 @@ async function main() {
   }
 
   const journal: Journal = JSON.parse(readFileSync(JOURNAL_FILE, 'utf-8'))
-  const existingNames = getExistingMigrationNames()
+  const syncedTags = getSyncedTags()
 
   const newMigrations = journal.entries.filter(
-    (entry) => !existingNames.has(entry.tag),
+    (entry) => !syncedTags.has(entry.tag),
   )
 
   if (newMigrations.length === 0) {
@@ -117,9 +121,11 @@ async function main() {
     const entry = generateMigrationEntry(migration.tag, sql)
 
     appendMigration(entry)
+    syncedTags.add(migration.tag)
     console.log(`  ✅ Added migration: ${migration.tag}`)
   }
 
+  saveSyncedTags(syncedTags)
   console.log('✨ Schema sync complete')
 }
 
