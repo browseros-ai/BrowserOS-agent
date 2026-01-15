@@ -1,19 +1,5 @@
-import {
-  Background,
-  BackgroundVariant,
-  ControlButton,
-  Controls,
-  type Edge,
-  MiniMap,
-  type Node,
-  ReactFlow,
-  ReactFlowProvider,
-  useEdgesState,
-  useNodesState,
-  useReactFlow,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
-import dagre from 'dagre'
+import cytoscape from 'cytoscape'
+import dagre from 'cytoscape-dagre'
 import {
   ArrowLeft,
   Maximize,
@@ -24,7 +10,7 @@ import {
   Save,
 } from 'lucide-react'
 import type { FC } from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import ProductLogo from '@/assets/product_logo.svg'
@@ -35,19 +21,21 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { GraphData } from './CreateGraph'
-import { CustomNode, type NodeType } from './CustomNode'
+import type { NodeType } from './CustomNode'
 
-const nodeTypes: Record<NodeType, typeof CustomNode> = {
-  start: CustomNode,
-  end: CustomNode,
-  nav: CustomNode,
-  act: CustomNode,
-  extract: CustomNode,
-  verify: CustomNode,
-  decision: CustomNode,
-  loop: CustomNode,
-  fork: CustomNode,
-  join: CustomNode,
+cytoscape.use(dagre)
+
+const NODE_COLORS: Record<NodeType, string> = {
+  start: '#22c55e',
+  end: '#ef4444',
+  nav: '#3b82f6',
+  act: '#8b5cf6',
+  extract: '#f59e0b',
+  verify: '#10b981',
+  decision: '#ec4899',
+  loop: '#06b6d4',
+  fork: '#6366f1',
+  join: '#84cc16',
 }
 
 const initialData: GraphData = {
@@ -59,97 +47,6 @@ const initialData: GraphData = {
     },
   ],
   edges: [],
-}
-
-const MIN_NODE_WIDTH = 180
-const MAX_NODE_WIDTH = 350
-const NODE_HEIGHT = 60
-const CHAR_WIDTH = 7.5
-const NODE_PADDING = 60
-
-const calculateNodeWidth = (label: string): number => {
-  const textWidth = label.length * CHAR_WIDTH + NODE_PADDING
-  return Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, textWidth))
-}
-
-const getLayoutedElements = <T extends Node>(
-  nodes: T[],
-  edges: Edge[],
-): { nodes: T[]; edges: Edge[] } => {
-  const dagreGraph = new dagre.graphlib.Graph()
-  dagreGraph.setDefaultEdgeLabel(() => ({}))
-  dagreGraph.setGraph({
-    rankdir: 'TB',
-    align: 'UL',
-    nodesep: 50,
-    ranksep: 60,
-    marginx: 20,
-    marginy: 20,
-  })
-
-  const nodeWidths: Record<string, number> = {}
-
-  nodes.forEach((node) => {
-    const label = (node.data as { label?: string })?.label || ''
-    const width = calculateNodeWidth(label)
-    nodeWidths[node.id] = width
-    dagreGraph.setNode(node.id, { width, height: NODE_HEIGHT })
-  })
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target)
-  })
-
-  dagre.layout(dagreGraph)
-
-  const nodePositions: Record<string, { x: number; y: number }> = {}
-
-  const layoutedNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id)
-    const width = nodeWidths[node.id]
-    const position = {
-      x: nodeWithPosition.x - width / 2,
-      y: nodeWithPosition.y - NODE_HEIGHT / 2,
-    }
-    nodePositions[node.id] = position
-    return {
-      ...node,
-      position,
-      style: {
-        ...node.style,
-        transition: 'transform 0.3s ease-in-out',
-      },
-    } as T
-  })
-
-  const layoutedEdges = edges.map((edge) => {
-    const sourcePos = nodePositions[edge.source]
-    const targetPos = nodePositions[edge.target]
-    const isBackEdge = sourcePos && targetPos && sourcePos.y > targetPos.y
-
-    if (isBackEdge) {
-      const verticalDistance = Math.abs(sourcePos.y - targetPos.y)
-      const dynamicOffset = Math.max(100, verticalDistance * 0.5)
-
-      return {
-        ...edge,
-        type: 'smoothstep',
-        animated: true,
-        style: {
-          stroke: 'var(--accent-orange)',
-          strokeWidth: 2,
-          strokeDasharray: '5,5',
-        },
-        pathOptions: {
-          offset: dynamicOffset,
-          borderRadius: 20,
-        },
-      }
-    }
-    return edge
-  })
-
-  return { nodes: layoutedNodes, edges: layoutedEdges }
 }
 
 type GraphCanvasProps = {
@@ -165,7 +62,7 @@ type GraphCanvasProps = {
   panelSize?: { asPercentage: number; inPixels: number }
 }
 
-const GraphCanvasInner: FC<GraphCanvasProps> = ({
+export const GraphCanvas: FC<GraphCanvasProps> = ({
   graphName,
   onGraphNameChange,
   graphData = initialData,
@@ -178,8 +75,9 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
   panelSize,
 }) => {
   const [isEditingName, setIsEditingName] = useState(false)
-  const { fitView, zoomIn, zoomOut } = useReactFlow()
   const navigate = useNavigate()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cyRef = useRef<cytoscape.Core | null>(null)
 
   const handleBack = () => {
     if (shouldBlockNavigation) {
@@ -210,39 +108,149 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
     return isSaved ? 'Save Changes' : 'Save Workflow'
   }
 
-  const initialNodes = graphData.nodes.map((n) => ({
-    ...n,
-    data: { ...n.data, type: n.type },
-    position: { x: 0, y: 0 },
-  }))
+  const zoomIn = useCallback(() => {
+    cyRef.current?.zoom(cyRef.current.zoom() * 1.2)
+    cyRef.current?.center()
+  }, [])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(graphData.edges)
+  const zoomOut = useCallback(() => {
+    cyRef.current?.zoom(cyRef.current.zoom() / 1.2)
+    cyRef.current?.center()
+  }, [])
 
-  const handleGraphUpdate = useCallback(
-    // biome-ignore lint/suspicious/noExplicitAny: graph data from external source
-    (newGraphData: { nodes: any[]; edges: any[] }) => {
-      const preparedNodes = newGraphData.nodes.map((n) => ({
-        ...n,
-        data: { ...n.data, type: n.type },
-        position: { x: 0, y: 0 },
-      }))
-      const layouted = getLayoutedElements(preparedNodes, newGraphData.edges)
-      setNodes(layouted.nodes)
-      setEdges(layouted.edges)
-    },
-    [setNodes, setEdges],
-  )
+  const fitView = useCallback(() => {
+    cyRef.current?.fit(undefined, 50)
+    cyRef.current?.center()
+  }, [])
+
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    const cy = cytoscape({
+      container: containerRef.current,
+      elements: [],
+      style: [
+        {
+          selector: 'node',
+          style: {
+            label: 'data(label)',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'text-wrap': 'wrap',
+            'text-max-width': '140px',
+            'font-size': '12px',
+            'font-family': 'system-ui, sans-serif',
+            color: '#ffffff',
+            'background-color': 'data(color)',
+            shape: 'round-rectangle',
+            width: 'label',
+            height: 50,
+            padding: '20px',
+            'border-width': 2,
+            'border-color': 'data(borderColor)',
+          },
+        },
+        {
+          selector: 'edge',
+          style: {
+            width: 2,
+            'line-color': '#f97316',
+            'target-arrow-color': '#f97316',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'arrow-scale': 1.2,
+          },
+        },
+        {
+          selector: 'edge.back-edge',
+          style: {
+            'line-style': 'dashed',
+            'line-dash-pattern': [6, 3],
+            'curve-style': 'unbundled-bezier',
+            'control-point-distances': [80],
+            'control-point-weights': [0.5],
+          },
+        },
+      ],
+      layout: { name: 'preset' },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      boxSelectionEnabled: false,
+      selectionType: 'single',
+      autoungrabify: true,
+      autounselectify: true,
+    })
+
+    cyRef.current = cy
+
+    return () => {
+      cy.destroy()
+    }
+  }, [])
+
+  const updateGraph = useCallback((data: GraphData) => {
+    const cy = cyRef.current
+    if (!cy) return
+
+    cy.elements().remove()
+
+    const nodes = data.nodes.map((node) => {
+      const nodeType = node.type as NodeType
+      const baseColor = NODE_COLORS[nodeType] || '#6b7280'
+      return {
+        data: {
+          id: node.id,
+          label: node.data.label,
+          type: node.type,
+          color: baseColor,
+          borderColor: baseColor,
+        },
+      }
+    })
+
+    const edges = data.edges.map((edge) => ({
+      data: {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+      },
+    }))
+
+    cy.add([...nodes, ...edges])
+
+    cy.layout({
+      name: 'dagre',
+      rankDir: 'TB',
+      nodeSep: 60,
+      rankSep: 80,
+      padding: 30,
+      animate: true,
+      animationDuration: 300,
+      fit: true,
+    } as cytoscape.LayoutOptions).run()
+
+    setTimeout(() => {
+      cy.edges().forEach((edge) => {
+        const sourceNode = edge.source()
+        const targetNode = edge.target()
+        const sourceY = sourceNode.position('y')
+        const targetY = targetNode.position('y')
+
+        if (sourceY > targetY) {
+          edge.addClass('back-edge')
+        }
+      })
+    }, 350)
+  }, [])
 
   useDeepCompareEffect(() => {
-    handleGraphUpdate(graphData)
-    setTimeout(() => fitView({ duration: 300, maxZoom: 0.75 }), 50)
+    updateGraph(graphData)
   }, [graphData])
 
-  // Auto fitView when panel is resized
   useEffect(() => {
     if (panelSize?.inPixels !== undefined) {
-      fitView({ duration: 200, maxZoom: 0.75 })
+      cyRef.current?.resize()
+      setTimeout(() => fitView(), 100)
     }
   }, [panelSize?.inPixels, fitView])
 
@@ -333,93 +341,48 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
       </header>
 
       {/* Graph Canvas */}
-      <div className="relative flex-1">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ maxZoom: 0.75 }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          edgesFocusable={false}
-          nodesFocusable={false}
-          proOptions={{ hideAttribution: true }}
-          defaultEdgeOptions={{
-            style: { stroke: 'var(--accent-orange)', strokeWidth: 2 },
-            type: 'smoothstep',
+      <div className="relative flex-1 bg-[hsl(var(--background))]">
+        <div
+          ref={containerRef}
+          className="h-full w-full"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle, hsl(var(--muted-foreground) / 0.2) 1px, transparent 1px)',
+            backgroundSize: '16px 16px',
           }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls
-            showZoom={false}
-            showFitView={false}
-            showInteractive={false}
-            style={{
-              backgroundColor: 'var(--card)',
-              border: '2px solid var(--border)',
-              borderRadius: '8px',
-              overflow: 'clip',
-            }}
+        />
+
+        {/* Zoom Controls */}
+        <div className="absolute bottom-4 left-4 flex flex-col gap-1 rounded-lg border-2 border-border bg-card p-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={zoomIn}
+            title="Zoom in"
           >
-            <ControlButton
-              onClick={() => zoomIn()}
-              title="Zoom in"
-              className="bg-card! fill-foreground! hover:bg-muted!"
-            >
-              <Plus className="h-4 w-4" />
-            </ControlButton>
-            <ControlButton
-              onClick={() => zoomOut()}
-              title="Zoom out"
-              className="bg-card! fill-foreground! hover:bg-muted!"
-            >
-              <Minus className="h-4 w-4" />
-            </ControlButton>
-            <ControlButton
-              onClick={() => fitView({ duration: 300, maxZoom: 0.75 })}
-              title="Fit view"
-              className="bg-card! fill-foreground! hover:bg-muted!"
-            >
-              <Maximize className="h-4 w-4" />
-            </ControlButton>
-          </Controls>
-          <MiniMap
-            pannable
-            zoomable
-            nodeColor={(node) => {
-              const colors: Record<string, string> = {
-                start: '#22c55e',
-                end: '#ef4444',
-                nav: '#3b82f6',
-                act: '#8b5cf6',
-                extract: '#f59e0b',
-                verify: '#10b981',
-                decision: '#ec4899',
-                loop: '#06b6d4',
-                fork: '#6366f1',
-                join: '#84cc16',
-              }
-              return colors[node.type || 'default'] || '#gray'
-            }}
-            style={{
-              backgroundColor: 'var(--card)',
-              border: '1px solid var(--border)',
-            }}
-          />
-        </ReactFlow>
+            <Plus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={zoomOut}
+            title="Zoom out"
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={fitView}
+            title="Fit view"
+          >
+            <Maximize className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
-  )
-}
-
-export const GraphCanvas: FC<GraphCanvasProps> = (props) => {
-  return (
-    <ReactFlowProvider>
-      <GraphCanvasInner {...props} />
-    </ReactFlowProvider>
   )
 }
