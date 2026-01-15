@@ -110,6 +110,7 @@ const MAX_NODE_WIDTH = 240
 const BASE_NODE_HEIGHT = 70
 const CHAR_WIDTH = 7
 const ICON_AND_PADDING = 62
+const MAX_ZOOM = 1.2
 
 const calculateNodeDimensions = (
   label: string,
@@ -287,6 +288,8 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
       selectionType: 'single',
       autoungrabify: true,
       autounselectify: true,
+      maxZoom: MAX_ZOOM,
+      minZoom: 0.2,
     })
 
     // @ts-expect-error nodeHtmlLabel extension
