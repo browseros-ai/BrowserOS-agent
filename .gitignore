@@ -19,6 +19,9 @@ lerna-debug.log*
 browseros.db
 browseros.db-*
 
+# drizzle-kit generated files (only needed during dev)
+**/drizzle/
+
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 

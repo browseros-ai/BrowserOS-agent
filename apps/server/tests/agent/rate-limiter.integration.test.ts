@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import {
   RateLimitError,
   RateLimiter,
-} from '../../src/agent/rate-limiter/rate-limiter'
+} from '../../src/lib/rate-limiter/rate-limiter'
 
 const DAILY_RATE_LIMIT_TEST = 3
 
