@@ -139,9 +139,9 @@ export const ChatHistory: FC = () => {
             <p className="text-muted-foreground text-sm">
               No conversations yet
             </p>
-            <p className="mt-1 text-muted-foreground/70 text-xs">
-              Start chatting to see your history here
-            </p>
+            <Link to="/" className="mt-2 text-primary text-sm hover:underline">
+              Start a new chat
+            </Link>
           </div>
         ) : (
           <>
