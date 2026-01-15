@@ -105,6 +105,26 @@ const initialData: GraphData = {
   edges: [],
 }
 
+const MIN_NODE_WIDTH = 180
+const MAX_NODE_WIDTH = 240
+const BASE_NODE_HEIGHT = 70
+const CHAR_WIDTH = 7
+const ICON_AND_PADDING = 62
+
+const calculateNodeDimensions = (
+  label: string,
+): { width: number; height: number } => {
+  const textWidth = label.length * CHAR_WIDTH + ICON_AND_PADDING
+  const width = Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, textWidth))
+
+  const maxCharsPerLine = Math.floor((width - ICON_AND_PADDING) / CHAR_WIDTH)
+  const lines = Math.ceil(label.length / maxCharsPerLine)
+  const extraHeight = Math.max(0, lines - 1) * 18
+  const height = BASE_NODE_HEIGHT + extraHeight
+
+  return { width, height }
+}
+
 const createNodeHtml = (type: NodeType, label: string): string => {
   const config = NODE_CONFIG[type] || NODE_CONFIG.start
   return `
@@ -232,8 +252,8 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
         {
           selector: 'node',
           style: {
-            width: 1,
-            height: 1,
+            width: 'data(nodeWidth)',
+            height: 'data(nodeHeight)',
             'background-opacity': 0,
             'border-width': 0,
           },
@@ -296,13 +316,18 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
 
     cy.elements().remove()
 
-    const nodes = data.nodes.map((node) => ({
-      data: {
-        id: node.id,
-        label: node.data.label,
-        type: node.type as NodeType,
-      },
-    }))
+    const nodes = data.nodes.map((node) => {
+      const dimensions = calculateNodeDimensions(node.data.label)
+      return {
+        data: {
+          id: node.id,
+          label: node.data.label,
+          type: node.type as NodeType,
+          nodeWidth: dimensions.width,
+          nodeHeight: dimensions.height,
+        },
+      }
+    })
 
     const edges = data.edges.map((edge) => ({
       data: {
