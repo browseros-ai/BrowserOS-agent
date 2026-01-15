@@ -55,10 +55,8 @@
         "cytoscape": "^3.33.1",
         "cytoscape-dagre": "^2.5.0",
         "cytoscape-node-html-label": "^1.2.2",
-        "dagre": "^0.8.5",
         "dayjs": "^1.11.19",
         "downshift": "^9.0.10",
-        "elkjs": "^0.11.0",
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
         "eventsource-parser": "^3.0.6",
@@ -1768,8 +1766,6 @@
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.237", "", {}, "sha512-icUt1NvfhGLar5lSWH3tHNzablaA5js3HVHacQimfP8ViEBOQv+L7DKEuHdbTZ0SKCO1ogTJTIL1Gwk9S6Qvcg=="],
-
-    "elkjs": ["elkjs@0.11.0", "", {}, "sha512-u4J8h9mwEDaYMqo0RYJpqNMFDoMK7f+pu4GjcV+N8jIC7TRdORgzkfSjTJemhqONFfH6fBI3wpysgWbhgVWIXw=="],
 
     "embla-carousel": ["embla-carousel@8.6.0", "", {}, "sha512-SjWyZBHJPbqxHOzckOfo8lHisEaJWmwd23XppYFYVh10bU66/Pn5tkVkbkCMZVdbUE5eTCI2nD8OyIP4Z+uwkA=="],
 
