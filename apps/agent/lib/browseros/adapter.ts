@@ -15,6 +15,9 @@ export type Snapshot = chrome.browserOS.Snapshot
 export type SnapshotOptions = chrome.browserOS.SnapshotOptions
 export type SnapshotContext = chrome.browserOS.SnapshotContext
 export type PrefObject = chrome.browserOS.PrefObject
+export type SelectionType = chrome.browserOS.SelectionType
+export type ChoosePathOptions = chrome.browserOS.ChoosePathOptions
+export type SelectedPath = chrome.browserOS.SelectedPath
 
 export const SCREENSHOT_SIZES = {
   small: 512,
@@ -373,6 +376,28 @@ export class BrowserOSAdapter {
           resolve(prefs)
         }
       })
+    })
+  }
+
+  async choosePath(options?: ChoosePathOptions): Promise<SelectedPath | null> {
+    if (typeof chrome.browserOS?.choosePath !== 'function') {
+      throw new Error('choosePath API not available')
+    }
+
+    return new Promise<SelectedPath | null>((resolve, reject) => {
+      const callback = (result: SelectedPath | null) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || 'Unknown error'))
+        } else {
+          resolve(result)
+        }
+      }
+
+      if (options) {
+        chrome.browserOS.choosePath(options, callback)
+      } else {
+        chrome.browserOS.choosePath(callback)
+      }
     })
   }
 

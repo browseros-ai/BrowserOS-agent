@@ -7,6 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 import type { WorkspaceFolder } from '@/lib/workspace/workspace-storage'
@@ -30,20 +31,24 @@ export const WorkspaceSelector: FC<
 
   const handleChooseFolder = async () => {
     try {
-      // @ts-expect-error - showDirectoryPicker is not in all TypeScript lib definitions
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' })
+      const adapter = getBrowserOSAdapter()
+      const result = await adapter.choosePath({ type: 'folder' })
+
+      if (!result) {
+        return
+      }
 
       const folder: WorkspaceFolder = {
         id: crypto.randomUUID(),
-        name: handle.name,
-        path: handle.name,
+        name: result.name,
+        path: result.path,
         addedAt: Date.now(),
       }
 
       await addFolder(folder)
       setOpen(false)
     } catch {
-      // User cancelled or permission denied - silently ignore
+      // User cancelled or API not available - silently ignore
     }
   }
 
