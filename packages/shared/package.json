@@ -44,6 +44,10 @@
     "./schemas/ui-stream": {
       "types": "./src/schemas/ui-stream.ts",
       "default": "./src/schemas/ui-stream.ts"
+    },
+    "./schemas/browser-context": {
+      "types": "./src/schemas/browser-context.ts",
+      "default": "./src/schemas/browser-context.ts"
     }
   }
 }

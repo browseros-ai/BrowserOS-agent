@@ -17,11 +17,11 @@ import { SdkError } from './types'
 export class BrowserService {
   constructor(private mcpServerUrl: string) {}
 
-  async getActiveTab(): Promise<ActiveTab> {
+  async getActiveTab(windowId?: number): Promise<ActiveTab> {
     const result = await callMcpTool<ActiveTab>(
       this.mcpServerUrl,
       'browser_get_active_tab',
-      {},
+      windowId ? { windowId } : {},
     )
 
     if (result.isError || !result.structuredContent?.tabId) {

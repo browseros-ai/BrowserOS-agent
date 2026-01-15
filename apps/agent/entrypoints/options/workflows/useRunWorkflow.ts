@@ -64,6 +64,7 @@ export const useRunWorkflow = () => {
               customMcpServers,
             },
             userSystemPrompt: personalizationRef.current,
+            supportsImages: provider?.supportsImages,
           },
         }
       },

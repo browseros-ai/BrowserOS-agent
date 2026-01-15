@@ -253,6 +253,7 @@ export const useChatSession = () => {
             sessionToken: provider?.sessionToken,
             browserContext,
             userSystemPrompt: personalizationRef.current,
+            supportsImages: provider?.supportsImages,
           },
         }
       },

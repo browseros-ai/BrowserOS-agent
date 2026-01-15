@@ -6,6 +6,7 @@
  * Chat Service - Executes actions via /chat endpoint
  */
 
+import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import type { UIMessageStreamEvent } from '../../../agent/provider-adapter/ui-message-stream'
@@ -14,7 +15,7 @@ import { SdkError } from './types'
 export interface ExecuteActionOptions {
   instruction: string
   context?: Record<string, unknown>
-  windowId?: number
+  browserContext?: BrowserContext
   llmConfig: LLMConfig
   signal?: AbortSignal
   onSSEEvent?: (event: UIMessageStreamEvent) => Promise<void>
@@ -28,8 +29,14 @@ export class ChatService {
   }
 
   async executeAction(options: ExecuteActionOptions): Promise<void> {
-    const { instruction, context, windowId, llmConfig, signal, onSSEEvent } =
-      options
+    const {
+      instruction,
+      context,
+      browserContext,
+      llmConfig,
+      signal,
+      onSSEEvent,
+    } = options
 
     if (signal?.aborted) {
       throw new SdkError('Operation aborted', 400)
@@ -57,7 +64,7 @@ export class ChatService {
         accessKeyId: llmConfig.accessKeyId,
         secretAccessKey: llmConfig.secretAccessKey,
         sessionToken: llmConfig.sessionToken,
-        browserContext: windowId ? { windowId } : undefined,
+        browserContext,
       }),
       signal,
     })
