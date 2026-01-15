@@ -44,6 +44,8 @@
         "@radix-ui/react-use-controllable-state": "^1.2.2",
         "@sentry/react": "^10.31.0",
         "@sentry/vite-plugin": "^4.6.1",
+        "@types/cytoscape": "^3.31.0",
+        "@types/dompurify": "^3.2.0",
         "@webext-core/messaging": "^2.3.0",
         "@wxt-dev/storage": "^1.2.6",
         "@xyflow/react": "^12.9.3",
@@ -51,8 +53,11 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
-        "dagre": "^0.8.5",
+        "cytoscape": "^3.33.1",
+        "cytoscape-dagre": "^2.5.0",
+        "cytoscape-node-html-label": "^1.2.2",
         "dayjs": "^1.11.19",
+        "dompurify": "^3.3.1",
         "downshift": "^9.0.10",
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
@@ -86,6 +91,7 @@
         "@tailwindcss/vite": "^4.1.17",
         "@types/bun": "^1.3.5",
         "@types/chrome": "^0.1.28",
+        "@types/cytoscape-dagre": "^2.3.4",
         "@types/dagre": "^0.7.53",
         "@types/react": "^19.1.12",
         "@types/react-dom": "^19.1.9",
@@ -117,7 +123,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.40",
+      "version": "0.0.41",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
@@ -1115,6 +1121,10 @@
 
     "@types/connect": ["@types/connect@3.4.38", "", { "dependencies": { "@types/node": "*" } }, "sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug=="],
 
+    "@types/cytoscape": ["@types/cytoscape@3.31.0", "", { "dependencies": { "cytoscape": "*" } }, "sha512-EXHOHxqQjGxLDEh5cP4te6J0bi7LbCzmZkzsR6f703igUac8UGMdEohMyU3GHAayCTZrLQOMnaE/lqB2Ekh8Ww=="],
+
+    "@types/cytoscape-dagre": ["@types/cytoscape-dagre@2.3.4", "", { "dependencies": { "cytoscape": "^3.31" } }, "sha512-uOGXuPfPLFoKZaegjHl9oj4tqONNJuhUl180FiJgRZ35rVijBs6J4UP1Ah6mA6S46h+7pv4ICqpgfdC3EADZlw=="],
+
     "@types/d3": ["@types/d3@7.4.3", "", { "dependencies": { "@types/d3-array": "*", "@types/d3-axis": "*", "@types/d3-brush": "*", "@types/d3-chord": "*", "@types/d3-color": "*", "@types/d3-contour": "*", "@types/d3-delaunay": "*", "@types/d3-dispatch": "*", "@types/d3-drag": "*", "@types/d3-dsv": "*", "@types/d3-ease": "*", "@types/d3-fetch": "*", "@types/d3-force": "*", "@types/d3-format": "*", "@types/d3-geo": "*", "@types/d3-hierarchy": "*", "@types/d3-interpolate": "*", "@types/d3-path": "*", "@types/d3-polygon": "*", "@types/d3-quadtree": "*", "@types/d3-random": "*", "@types/d3-scale": "*", "@types/d3-scale-chromatic": "*", "@types/d3-selection": "*", "@types/d3-shape": "*", "@types/d3-time": "*", "@types/d3-time-format": "*", "@types/d3-timer": "*", "@types/d3-transition": "*", "@types/d3-zoom": "*" } }, "sha512-lZXZ9ckh5R8uiFVt8ogUNf+pIrK4EsWrx2Np75WvF/eTpJ0FMHNhjXk8CKEx/+gpHbNQyJWehbFaTvqmHWB3ww=="],
 
     "@types/d3-array": ["@types/d3-array@3.2.2", "", {}, "sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw=="],
@@ -1180,6 +1190,8 @@
     "@types/dagre": ["@types/dagre@0.7.53", "", {}, "sha512-f4gkWqzPZvYmKhOsDnhq/R8mO4UMcKdxZo+i5SCkOU1wvGeHJeUXGIHeE9pnwGyPMDof1Vx5ZQo4nxpeg2TTVQ=="],
 
     "@types/debug": ["@types/debug@4.1.12", "", { "dependencies": { "@types/ms": "*" } }, "sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ=="],
+
+    "@types/dompurify": ["@types/dompurify@3.2.0", "", { "dependencies": { "dompurify": "*" } }, "sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg=="],
 
     "@types/eslint": ["@types/eslint@9.6.1", "", { "dependencies": { "@types/estree": "*", "@types/json-schema": "*" } }, "sha512-FXx2pKgId/WyYo2jXw63kk7/+TY7u7AziEJxJAnSFzHlqTAS3Ync6SvgYAN/k4/PQpnnVuzoMuVnByKK2qp0ag=="],
 
@@ -1497,7 +1509,7 @@
 
     "chroma-js": ["chroma-js@3.2.0", "", {}, "sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw=="],
 
-    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.12.1", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-QREfGxJVVlBrjKdyis9px6UHyXix+Rre9nCkqX7CY7GsU8c6azOwwV8inQB8E3h2/QGqi4sCSF8fmjfAvmE07Q=="],
+    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.13.0", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-CgotJczVYe6wG2b5cqwNFq7n4VXIM8qfvfutdzVlABPKf0b99b0TDPuRsWrviCthigSHzhpMyFQW03P5Utt1Fg=="],
 
     "chrome-launcher": ["chrome-launcher@1.2.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^2.0.1" }, "bin": { "print-chrome-path": "bin/print-chrome-path.cjs" } }, "sha512-JbuGuBNss258bvGil7FT4HKdC3SC2K7UAEUqiPy3ACS3Yxo3hAW6bvFpCu2HsIJLgTqxgEX6BkujvzZfLpUD0Q=="],
 
@@ -1605,7 +1617,11 @@
 
     "cytoscape-cose-bilkent": ["cytoscape-cose-bilkent@4.1.0", "", { "dependencies": { "cose-base": "^1.0.0" }, "peerDependencies": { "cytoscape": "^3.2.0" } }, "sha512-wgQlVIUJF13Quxiv5e1gstZ08rnZj2XaLHGoFMYXz7SkNfCDOOteKBE6SYRfA9WxxI/iBc3ajfDoc6hb/MRAHQ=="],
 
+    "cytoscape-dagre": ["cytoscape-dagre@2.5.0", "", { "dependencies": { "dagre": "^0.8.5" }, "peerDependencies": { "cytoscape": "^3.2.22" } }, "sha512-VG2Knemmshop4kh5fpLO27rYcyUaaDkRw+6PiX4bstpB+QFt0p2oauMrsjVbUamGWQ6YNavh7x2em2uZlzV44g=="],
+
     "cytoscape-fcose": ["cytoscape-fcose@2.2.0", "", { "dependencies": { "cose-base": "^2.2.0" }, "peerDependencies": { "cytoscape": "^3.2.0" } }, "sha512-ki1/VuRIHFCzxWNrsshHYPs6L7TvLu3DL+TyIGEsRcvVERmxokbf5Gdk7mFxZnTdiGtnA4cfSmjZJMviqSuZrQ=="],
+
+    "cytoscape-node-html-label": ["cytoscape-node-html-label@1.2.2", "", { "peerDependencies": { "@types/cytoscape": "^3.1.0", "cytoscape": "^3.0.0" }, "optionalPeers": ["@types/cytoscape"] }, "sha512-oUVwrlsIlaJJ8QrQFSMdv3uXVXPg6tMH/Tfofr8JuZIovqI4fPqBi6sQgCMcVpS6k9Td0TTjowBsNRw32CESWg=="],
 
     "d3": ["d3@7.9.0", "", { "dependencies": { "d3-array": "3", "d3-axis": "3", "d3-brush": "3", "d3-chord": "3", "d3-color": "3", "d3-contour": "4", "d3-delaunay": "6", "d3-dispatch": "3", "d3-drag": "3", "d3-dsv": "3", "d3-ease": "3", "d3-fetch": "3", "d3-force": "3", "d3-format": "3", "d3-geo": "3", "d3-hierarchy": "3", "d3-interpolate": "3", "d3-path": "3", "d3-polygon": "3", "d3-quadtree": "3", "d3-random": "3", "d3-scale": "4", "d3-scale-chromatic": "3", "d3-selection": "3", "d3-shape": "3", "d3-time": "3", "d3-time-format": "4", "d3-timer": "3", "d3-transition": "3", "d3-zoom": "3" } }, "sha512-e1U46jVP+w7Iut8Jt8ri1YsPOvFpg46k+K8TpCb0P+zjCkjkPnV7WzfDJzMHy1LnA+wj5pLT1wjO901gLXeEhA=="],
 
