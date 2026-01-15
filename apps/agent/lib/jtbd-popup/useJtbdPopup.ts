@@ -48,7 +48,10 @@ export function useJtbdPopup() {
     const current = await jtbdPopupStorage.getValue()
     track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
     setPopupVisible(false)
-    window.open('/options.html?page=survey', '_blank')
+    window.open(
+      '/options.html?page=survey&maxTurns=15&experimentId=popup_survey',
+      '_blank',
+    )
   }, [])
 
   const onDismiss = useCallback(async () => {
