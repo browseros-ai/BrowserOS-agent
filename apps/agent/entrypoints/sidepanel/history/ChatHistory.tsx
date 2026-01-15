@@ -1,11 +1,15 @@
 import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
 import { MessageSquare, Trash2 } from 'lucide-react'
 import { type FC, useMemo } from 'react'
+import { Link } from 'react-router'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   type Conversation,
   useConversations,
 } from '@/lib/conversations/conversationStorage'
+
+dayjs.extend(relativeTime)
 
 type TimeGroup = 'today' | 'thisWeek' | 'thisMonth' | 'older'
 
@@ -50,29 +54,33 @@ const ConversationItem: FC<{
   onDelete: (id: string) => void
 }> = ({ conversation, onDelete }) => {
   const label = getLastUserMessage(conversation)
-  const time = dayjs(conversation.lastMessagedAt).format('h:mm A')
+  const relativeTimeAgo = dayjs(conversation.lastMessagedAt).fromNow()
 
   return (
-    <div className="group flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50">
-      <div className="mt-0.5 flex-shrink-0 text-muted-foreground">
+    <Link
+      to={`/?conversationId=${conversation.id}`}
+      className="group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50"
+    >
+      <div className="mt-0.5 shrink-0 text-muted-foreground">
         <MessageSquare className="h-4 w-4" />
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <p className="truncate font-medium text-foreground text-sm">{label}</p>
-        <p className="text-muted-foreground text-xs">{time}</p>
+        <p className="text-muted-foreground text-xs">{relativeTimeAgo}</p>
       </div>
       <button
         type="button"
         onClick={(e) => {
+          e.preventDefault()
           e.stopPropagation()
           onDelete(conversation.id)
         }}
-        className="flex-shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
         title="Delete conversation"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
-    </div>
+    </Link>
   )
 }
 
@@ -123,8 +131,8 @@ export const ChatHistory: FC = () => {
   const hasConversations = conversations.length > 0
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="p-3">
+    <ScrollArea className="h-full w-full overflow-hidden">
+      <div className="w-full p-3">
         {!hasConversations ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <MessageSquare className="mb-3 h-10 w-10 text-muted-foreground/50" />
