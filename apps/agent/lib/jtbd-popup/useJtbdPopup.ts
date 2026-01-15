@@ -44,15 +44,18 @@ export function useJtbdPopup() {
     }
   }, [])
 
-  const onTakeSurvey = useCallback(async () => {
-    const current = await jtbdPopupStorage.getValue()
-    track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
-    setPopupVisible(false)
-    window.open(
-      '/options.html?page=survey&maxTurns=15&experimentId=popup_survey',
-      '_blank',
-    )
-  }, [])
+  const onTakeSurvey = useCallback(
+    async (maxTurns = 15, experimentId = 'popup_survey') => {
+      const current = await jtbdPopupStorage.getValue()
+      track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
+      setPopupVisible(false)
+      window.open(
+        `/options.html?page=survey&maxTurns=${maxTurns}&experimentId=${experimentId}`,
+        '_blank',
+      )
+    },
+    [],
+  )
 
   const onDismiss = useCallback(async () => {
     const current = await jtbdPopupStorage.getValue()
