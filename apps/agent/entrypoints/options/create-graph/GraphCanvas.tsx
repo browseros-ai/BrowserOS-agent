@@ -126,25 +126,8 @@ const calculateNodeDimensions = (
   return { width, height }
 }
 
-const getThemeColors = (): { bg: string; border: string; text: string } => {
-  const isDark = document.documentElement.classList.contains('dark')
-  if (isDark) {
-    return {
-      bg: 'rgba(24, 24, 27, 1)',
-      border: 'rgba(63, 63, 70, 1)',
-      text: 'rgba(250, 250, 250, 1)',
-    }
-  }
-  return {
-    bg: 'rgba(255, 255, 255, 1)',
-    border: 'rgba(228, 228, 231, 1)',
-    text: 'rgba(24, 24, 27, 1)',
-  }
-}
-
 const createNodeHtml = (type: NodeType, label: string): string => {
   const config = NODE_CONFIG[type] || NODE_CONFIG.start
-  const theme = getThemeColors()
   return `
     <div class="graph-node" style="
       display: flex;
@@ -153,8 +136,8 @@ const createNodeHtml = (type: NodeType, label: string): string => {
       min-width: 160px;
       max-width: 220px;
       padding: 12px 16px;
-      background-color: ${theme.bg};
-      border: 1px solid ${theme.border};
+      background-color: var(--graph-node-bg);
+      border: 1px solid var(--graph-node-border);
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       font-family: system-ui, -apple-system, sans-serif;
@@ -177,7 +160,7 @@ const createNodeHtml = (type: NodeType, label: string): string => {
         <div style="
           font-size: 13px;
           font-weight: 500;
-          color: ${theme.text};
+          color: var(--graph-node-text);
           line-height: 1.4;
           word-wrap: break-word;
         ">${label}</div>
@@ -388,25 +371,6 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
     updateGraph(graphData)
   }, [graphData])
 
-  // Listen for theme changes and re-render nodes
-  useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.attributeName === 'class') {
-          updateGraph(graphData)
-          break
-        }
-      }
-    })
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    })
-
-    return () => observer.disconnect()
-  }, [graphData, updateGraph])
-
   useEffect(() => {
     if (panelSize?.inPixels !== undefined) {
       cyRef.current?.resize()
@@ -415,7 +379,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
   }, [panelSize?.inPixels, fitView])
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col [--graph-node-bg:rgba(255,255,255,1)] [--graph-node-border:rgba(228,228,231,1)] [--graph-node-text:rgba(24,24,27,1)] dark:[--graph-node-bg:rgba(24,24,27,1)] dark:[--graph-node-border:rgba(63,63,70,1)] dark:[--graph-node-text:rgba(250,250,250,1)]">
       {/* Graph Header */}
       <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-4 py-3 backdrop-blur-md">
         <div className="flex min-w-0 flex-1 items-center gap-3">
