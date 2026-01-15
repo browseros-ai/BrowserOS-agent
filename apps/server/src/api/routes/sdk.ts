@@ -30,13 +30,13 @@ import { VerifyService } from '../services/sdk/verify'
 import type { Env } from '../types'
 
 export function createSdkRoutes(deps: SdkDeps) {
-  const { port, browserosId } = deps
+  const { port, browserosId, hmacSecret } = deps
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
 
   const browserService = new BrowserService(mcpServerUrl)
   const chatService = new ChatService(port)
-  const extractService = new ExtractService()
+  const extractService = new ExtractService({ browserosId, hmacSecret })
   const verifyService = new VerifyService()
 
   // Chain route definitions for proper Hono RPC type inference

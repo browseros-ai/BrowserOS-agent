@@ -16,11 +16,17 @@ import {
   type RunGraphRequest,
   type WorkflowGraph,
 } from '../types'
+import {
+  createCodegenAuthHeaders,
+  extractPathFromUrl,
+} from '../utils/codegen-auth'
 
 export interface GraphServiceDeps {
   codegenServiceUrl: string
   serverUrl: string
   tempDir: string
+  browserosId?: string
+  hmacSecret?: string
 }
 
 interface SessionState {
@@ -77,7 +83,20 @@ export class GraphService {
     logger.debug('Fetching graph from codegen service', { url, sessionId })
 
     try {
-      const response = await fetch(url)
+      const headers: Record<string, string> = {}
+
+      if (this.deps.hmacSecret && this.deps.browserosId) {
+        const path = extractPathFromUrl(url)
+        const authHeaders = createCodegenAuthHeaders(
+          { hmacSecret: this.deps.hmacSecret, userId: this.deps.browserosId },
+          'GET',
+          path,
+          '',
+        )
+        Object.assign(headers, authHeaders)
+      }
+
+      const response = await fetch(url, { headers })
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -201,13 +220,27 @@ export class GraphService {
     body: { query: string },
     signal?: AbortSignal,
   ): Promise<Response> {
+    const bodyStr = JSON.stringify(body)
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+    }
+
+    if (this.deps.hmacSecret && this.deps.browserosId) {
+      const path = extractPathFromUrl(url)
+      const authHeaders = createCodegenAuthHeaders(
+        { hmacSecret: this.deps.hmacSecret, userId: this.deps.browserosId },
+        method,
+        path,
+        bodyStr,
+      )
+      Object.assign(headers, authHeaders)
+    }
+
     const response = await fetch(url, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream',
-      },
-      body: JSON.stringify(body),
+      headers,
+      body: bodyStr,
       signal,
     })
 

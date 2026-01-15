@@ -83,6 +83,7 @@ export class Application {
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
+        codegenHmacSecret: this.config.codegenHmacSecret,
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)

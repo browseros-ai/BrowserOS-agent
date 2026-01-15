@@ -84,8 +84,9 @@ export interface HttpServerConfig {
   executionDir?: string
   rateLimiter?: RateLimiter
 
-  // For Graph routes
+  // For Graph/SDK routes (codegen service)
   codegenServiceUrl?: string
+  codegenHmacSecret?: string
 }
 
 // Graph request schemas
