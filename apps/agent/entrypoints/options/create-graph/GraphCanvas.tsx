@@ -126,20 +126,37 @@ const calculateNodeDimensions = (
   return { width, height }
 }
 
+const getThemeColors = (): { bg: string; border: string; text: string } => {
+  const isDark = document.documentElement.classList.contains('dark')
+  if (isDark) {
+    return {
+      bg: 'rgba(24, 24, 27, 1)',
+      border: 'rgba(63, 63, 70, 1)',
+      text: 'rgba(250, 250, 250, 1)',
+    }
+  }
+  return {
+    bg: 'rgba(255, 255, 255, 1)',
+    border: 'rgba(228, 228, 231, 1)',
+    text: 'rgba(24, 24, 27, 1)',
+  }
+}
+
 const createNodeHtml = (type: NodeType, label: string): string => {
   const config = NODE_CONFIG[type] || NODE_CONFIG.start
+  const theme = getThemeColors()
   return `
-    <div style="
+    <div class="graph-node" style="
       display: flex;
       align-items: flex-start;
       gap: 10px;
       min-width: 160px;
       max-width: 220px;
       padding: 12px 16px;
-      background: hsl(240 10% 10%);
-      border: 1px solid hsl(240 5% 20%);
+      background-color: ${theme.bg};
+      border: 1px solid ${theme.border};
       border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       font-family: system-ui, -apple-system, sans-serif;
     ">
       <div style="
@@ -160,7 +177,7 @@ const createNodeHtml = (type: NodeType, label: string): string => {
         <div style="
           font-size: 13px;
           font-weight: 500;
-          color: hsl(0 0% 95%);
+          color: ${theme.text};
           line-height: 1.4;
           word-wrap: break-word;
         ">${label}</div>
