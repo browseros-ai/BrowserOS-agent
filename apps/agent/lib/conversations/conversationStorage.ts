@@ -38,8 +38,15 @@ export function useConversations() {
     const existingIndex = current.findIndex((c) => c.id === id)
 
     if (existingIndex >= 0) {
+      const existing = current[existingIndex]
+      const hasContentChanged =
+        existing.messages.length !== messages.length ||
+        JSON.stringify(existing.messages) !== JSON.stringify(messages)
+
+      if (!hasContentChanged) return
+
       current[existingIndex] = {
-        ...current[existingIndex],
+        ...existing,
         messages,
         lastMessagedAt: Date.now(),
       }
