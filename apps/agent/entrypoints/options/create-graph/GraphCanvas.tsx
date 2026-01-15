@@ -61,17 +61,29 @@ const initialData: GraphData = {
   edges: [],
 }
 
-const dagreGraph = new dagre.graphlib.Graph()
-dagreGraph.setDefaultEdgeLabel(() => ({}))
+const MIN_NODE_WIDTH = 180
+const MAX_NODE_WIDTH = 350
+const NODE_HEIGHT = 60
+const CHAR_WIDTH = 7.5
+const NODE_PADDING = 60
 
-const nodeWidth = 180
-const nodeHeight = 60
+const calculateNodeWidth = (label: string): number => {
+  const textWidth = label.length * CHAR_WIDTH + NODE_PADDING
+  return Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, textWidth))
+}
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
+  const dagreGraph = new dagre.graphlib.Graph()
+  dagreGraph.setDefaultEdgeLabel(() => ({}))
   dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 100 })
 
+  const nodeWidths: Record<string, number> = {}
+
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight })
+    const label = (node.data as { label?: string })?.label || ''
+    const width = calculateNodeWidth(label)
+    nodeWidths[node.id] = width
+    dagreGraph.setNode(node.id, { width, height: NODE_HEIGHT })
   })
 
   edges.forEach((edge) => {
@@ -82,9 +94,10 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   nodes.forEach((node) => {
     const nodeWithPosition = dagreGraph.node(node.id)
+    const width = nodeWidths[node.id]
     node.position = {
-      x: nodeWithPosition.x - nodeWidth / 2,
-      y: nodeWithPosition.y - nodeHeight / 2,
+      x: nodeWithPosition.x - width / 2,
+      y: nodeWithPosition.y - NODE_HEIGHT / 2,
     }
     node.style = {
       ...node.style,
