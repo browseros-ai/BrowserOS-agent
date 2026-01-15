@@ -102,15 +102,19 @@ const getLayoutedElements = <T extends Node>(
 
   dagre.layout(dagreGraph)
 
+  const nodePositions: Record<string, { x: number; y: number }> = {}
+
   const layoutedNodes = nodes.map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id)
     const width = nodeWidths[node.id]
+    const position = {
+      x: nodeWithPosition.x - width / 2,
+      y: nodeWithPosition.y - NODE_HEIGHT / 2,
+    }
+    nodePositions[node.id] = position
     return {
       ...node,
-      position: {
-        x: nodeWithPosition.x - width / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
-      },
+      position,
       style: {
         ...node.style,
         transition: 'transform 0.3s ease-in-out',
@@ -118,7 +122,34 @@ const getLayoutedElements = <T extends Node>(
     } as T
   })
 
-  return { nodes: layoutedNodes, edges }
+  const layoutedEdges = edges.map((edge) => {
+    const sourcePos = nodePositions[edge.source]
+    const targetPos = nodePositions[edge.target]
+    const isBackEdge = sourcePos && targetPos && sourcePos.y > targetPos.y
+
+    if (isBackEdge) {
+      const verticalDistance = Math.abs(sourcePos.y - targetPos.y)
+      const dynamicOffset = Math.max(100, verticalDistance * 0.5)
+
+      return {
+        ...edge,
+        type: 'smoothstep',
+        animated: true,
+        style: {
+          stroke: 'var(--accent-orange)',
+          strokeWidth: 2,
+          strokeDasharray: '5,5',
+        },
+        pathOptions: {
+          offset: dynamicOffset,
+          borderRadius: 20,
+        },
+      }
+    }
+    return edge
+  })
+
+  return { nodes: layoutedNodes, edges: layoutedEdges }
 }
 
 type GraphCanvasProps = {
