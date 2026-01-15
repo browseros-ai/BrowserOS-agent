@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Folder, FolderOpen, X } from 'lucide-react'
+import { Check, ChevronDown, Folder, FolderOpen, Home, X } from 'lucide-react'
 import type { FC, PropsWithChildren } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -66,6 +66,11 @@ export const WorkspaceSelector: FC<
     await removeFolder(folderId)
   }
 
+  const handleUseDefault = async () => {
+    await clearSelection()
+    setOpen(false)
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -94,8 +99,31 @@ export const WorkspaceSelector: FC<
         role="dialog"
         aria-label="Select workspace folder"
       >
+        <div
+          onClick={handleUseDefault}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              handleUseDefault()
+            }
+          }}
+          role="option"
+          aria-selected={!selectedFolder}
+          tabIndex={0}
+          className={cn(
+            'flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted',
+            !selectedFolder && 'bg-muted',
+          )}
+        >
+          <Home className="h-4 w-4 text-muted-foreground" />
+          <span className="flex-1 text-sm">Use default</span>
+          {!selectedFolder && (
+            <Check className="h-4 w-4 text-[var(--accent-orange)]" />
+          )}
+        </div>
+
         {recentFolders.length > 0 && (
           <>
+            <div className="border-t" />
             <div className="px-3 py-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
               Recent
             </div>
