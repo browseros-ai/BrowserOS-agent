@@ -12,6 +12,7 @@ import {
 import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
+import { GraphEmptyState } from './GraphEmptyState'
 
 interface GraphChatProps {
   onSubmit: FormEventHandler<HTMLFormElement>
@@ -22,6 +23,7 @@ interface GraphChatProps {
   messages: UIMessage[]
   chatError?: Error
   agentUrlError?: Error | null
+  onSuggestionClick: (prompt: string) => void
 }
 
 export const GraphChat: FC<GraphChatProps> = ({
@@ -33,10 +35,16 @@ export const GraphChat: FC<GraphChatProps> = ({
   messages,
   chatError,
   agentUrlError,
+  onSuggestionClick,
 }) => {
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
+  const [mounted, setMounted] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const {
     popupVisible,
@@ -119,18 +127,25 @@ export const GraphChat: FC<GraphChatProps> = ({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
-        <ChatMessages
-          liked={liked}
-          disliked={disliked}
-          onClickDislike={onClickDislike}
-          onClickLike={onClickLike}
-          messages={messages}
-          status={status}
-          messagesEndRef={messagesEndRef}
-          showJtbdPopup={popupVisible}
-          onTakeSurvey={onTakeSurvey}
-          onDismissJtbdPopup={onDismissJtbdPopup}
-        />
+        {messages.length === 0 ? (
+          <GraphEmptyState
+            mounted={mounted}
+            onSuggestionClick={onSuggestionClick}
+          />
+        ) : (
+          <ChatMessages
+            liked={liked}
+            disliked={disliked}
+            onClickDislike={onClickDislike}
+            onClickLike={onClickLike}
+            messages={messages}
+            status={status}
+            messagesEndRef={messagesEndRef}
+            showJtbdPopup={popupVisible}
+            onTakeSurvey={onTakeSurvey}
+            onDismissJtbdPopup={onDismissJtbdPopup}
+          />
+        )}
       </div>
       {agentUrlError && <ChatError error={agentUrlError} />}
       {chatError && <ChatError error={chatError} />}
