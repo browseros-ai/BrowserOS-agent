@@ -467,7 +467,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
       </header>
 
       {/* Graph Canvas */}
-      <div className="relative flex-1 [--dot-color:rgba(0,0,0,0.2)] dark:[--dot-color:rgba(255,255,255,0.15)]">
+      <div className="relative min-h-0 flex-1 overflow-hidden [--dot-color:rgba(0,0,0,0.2)] dark:[--dot-color:rgba(255,255,255,0.15)]">
         <div
           ref={containerRef}
           className="h-full w-full bg-zinc-50 dark:bg-zinc-900"
@@ -479,7 +479,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
         />
 
         {/* Zoom Controls */}
-        <div className="absolute bottom-4 left-4 flex flex-col gap-1 rounded-lg border-2 border-border bg-card p-1">
+        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 rounded-lg border-2 border-border bg-card p-1">
           <Button
             variant="ghost"
             size="icon"
