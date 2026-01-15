@@ -2,6 +2,7 @@ import cytoscape from 'cytoscape'
 import dagre from 'cytoscape-dagre'
 // @ts-expect-error no types available
 import nodeHtmlLabel from 'cytoscape-node-html-label'
+import DOMPurify from 'dompurify'
 import {
   ArrowLeft,
   Maximize,
@@ -128,6 +129,7 @@ const calculateNodeDimensions = (
 
 const createNodeHtml = (type: NodeType, label: string): string => {
   const config = NODE_CONFIG[type] || NODE_CONFIG.start
+  const sanitizedLabel = DOMPurify.sanitize(label, { ALLOWED_TAGS: [] })
   return `
     <div class="graph-node" style="
       display: flex;
@@ -163,7 +165,7 @@ const createNodeHtml = (type: NodeType, label: string): string => {
           color: var(--graph-node-text);
           line-height: 1.4;
           word-wrap: break-word;
-        ">${label}</div>
+        ">${sanitizedLabel}</div>
       </div>
     </div>
   `

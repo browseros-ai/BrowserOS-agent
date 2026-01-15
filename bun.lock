@@ -45,6 +45,7 @@
         "@sentry/react": "^10.31.0",
         "@sentry/vite-plugin": "^4.6.1",
         "@types/cytoscape": "^3.31.0",
+        "@types/dompurify": "^3.2.0",
         "@webext-core/messaging": "^2.3.0",
         "@wxt-dev/storage": "^1.2.6",
         "@xyflow/react": "^12.9.3",
@@ -56,6 +57,7 @@
         "cytoscape-dagre": "^2.5.0",
         "cytoscape-node-html-label": "^1.2.2",
         "dayjs": "^1.11.19",
+        "dompurify": "^3.3.1",
         "downshift": "^9.0.10",
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
@@ -1188,6 +1190,8 @@
     "@types/dagre": ["@types/dagre@0.7.53", "", {}, "sha512-f4gkWqzPZvYmKhOsDnhq/R8mO4UMcKdxZo+i5SCkOU1wvGeHJeUXGIHeE9pnwGyPMDof1Vx5ZQo4nxpeg2TTVQ=="],
 
     "@types/debug": ["@types/debug@4.1.12", "", { "dependencies": { "@types/ms": "*" } }, "sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ=="],
+
+    "@types/dompurify": ["@types/dompurify@3.2.0", "", { "dependencies": { "dompurify": "*" } }, "sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg=="],
 
     "@types/eslint": ["@types/eslint@9.6.1", "", { "dependencies": { "@types/estree": "*", "@types/json-schema": "*" } }, "sha512-FXx2pKgId/WyYo2jXw63kk7/+TY7u7AziEJxJAnSFzHlqTAS3Ync6SvgYAN/k4/PQpnnVuzoMuVnByKK2qp0ag=="],
 
