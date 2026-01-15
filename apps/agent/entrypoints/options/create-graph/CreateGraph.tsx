@@ -355,6 +355,15 @@ export const CreateGraph: FC = () => {
     resetToNewWorkflow()
   }
 
+  const handleSuggestionClick = (prompt: string) => {
+    sendMessage({
+      text: prompt,
+      metadata: {
+        messageType: 'create-graph' as MessageType,
+      },
+    })
+  }
+
   useDeepCompareEffect(() => {
     if (status === 'ready' && lastAssistantMessageWithGraph) {
       const metadata = lastAssistantMessageWithGraph.metadata as
@@ -423,6 +432,7 @@ export const CreateGraph: FC = () => {
                 status={status}
                 agentUrlError={agentUrlError}
                 chatError={error}
+                onSuggestionClick={handleSuggestionClick}
               />
             </div>
           </div>
