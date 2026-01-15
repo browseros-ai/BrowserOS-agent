@@ -38,13 +38,6 @@ export function getDb(): DrizzleDb {
   return drizzleDb
 }
 
-export function getRawDb(): Database {
-  if (!db) {
-    throw new Error('Database not initialized. Call initializeDb() first.')
-  }
-  return db
-}
-
 export function closeDb(): void {
   if (db) {
     db.close()

@@ -4,9 +4,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Database } from 'bun:sqlite'
 import { RATE_LIMITS } from '@browseros/shared/constants/limits'
+import { count, sql } from 'drizzle-orm'
 
+import type { DrizzleDb } from '../db'
+import { rateLimiter } from '../db/schema'
 import { logger } from '../logger'
 import { metrics } from '../metrics'
 
@@ -19,55 +21,53 @@ export interface RecordParams {
 }
 
 export class RateLimiter {
-  private countStmt: ReturnType<Database['prepare']>
-  private insertStmt: ReturnType<Database['prepare']>
+  private db: DrizzleDb
   private dailyRateLimit: number
 
   constructor(
-    db: Database,
+    db: DrizzleDb,
     dailyRateLimit: number = RATE_LIMITS.DEFAULT_DAILY,
   ) {
+    this.db = db
     this.dailyRateLimit = dailyRateLimit
-    this.countStmt = db.prepare(`
-      SELECT COUNT(*) as count
-      FROM rate_limiter
-      WHERE browseros_id = ?
-        AND date(created_at) = date('now')
-    `)
-
-    // INSERT OR IGNORE: duplicate conversation_ids are silently ignored
-    // This ensures the same conversation is only counted once for rate limiting
-    this.insertStmt = db.prepare(`
-      INSERT OR IGNORE INTO rate_limiter
-        (id, browseros_id, provider)
-      VALUES (?, ?, ?)
-    `)
   }
 
   check(browserosId: string): void {
-    const count = this.getTodayCount(browserosId)
-    if (count >= this.dailyRateLimit) {
+    const todayCount = this.getTodayCount(browserosId)
+    if (todayCount >= this.dailyRateLimit) {
       logger.warn('Rate limit exceeded', {
         browserosId,
-        count,
+        count: todayCount,
         dailyRateLimit: this.dailyRateLimit,
       })
       metrics.log('rate_limit.triggered', {
-        count,
+        count: todayCount,
         daily_limit: this.dailyRateLimit,
       })
-      throw new RateLimitError(count, this.dailyRateLimit)
+      throw new RateLimitError(todayCount, this.dailyRateLimit)
     }
   }
 
   record(params: RecordParams): void {
     const { conversationId, browserosId, provider } = params
-    this.insertStmt.run(conversationId, browserosId, provider)
+    // INSERT OR IGNORE: duplicate conversation_ids are silently ignored
+    // This ensures the same conversation is only counted once for rate limiting
+    this.db
+      .insert(rateLimiter)
+      .values({ id: conversationId, browserosId, provider })
+      .onConflictDoNothing()
+      .run()
   }
 
   private getTodayCount(browserosId: string): number {
-    const row = this.countStmt.get(browserosId) as { count: number } | null
-    return row?.count ?? 0
+    const result = this.db
+      .select({ count: count() })
+      .from(rateLimiter)
+      .where(
+        sql`${rateLimiter.browserosId} = ${browserosId} AND date(${rateLimiter.createdAt}) = date('now')`,
+      )
+      .get()
+    return result?.count ?? 0
   }
 }
 

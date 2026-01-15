@@ -69,7 +69,7 @@ function appendMigration(entry: string): void {
   const after = content.slice(lastBracketIndex)
 
   const needsNewline = !before.trim().endsWith(',')
-  const newContent = before + (needsNewline ? '\n' : '') + entry + '\n' + after
+  const newContent = `${before}${needsNewline ? '\n' : ''}${entry}\n${after}`
 
   writeFileSync(VERSIONS_FILE, newContent)
 }

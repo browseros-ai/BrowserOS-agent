@@ -2,6 +2,19 @@
  * @license
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Embedded SQL migrations for Bun compile compatibility.
+ *
+ * Migrations are stored as strings in versions.ts rather than separate .sql files
+ * so they can be bundled into the compiled binary. This removes filesystem
+ * dependencies at runtime, making the server fully self-contained.
+ *
+ * To add new migrations:
+ * 1. Update schema files in src/lib/db/schema/
+ * 2. Run `bun run db:sync` to detect changes and append to versions.ts
+ * 3. Review the generated SQL in versions.ts
+ *
+ * The drizzle/ folder contains drizzle-kit output for reference (not packaged).
  */
 import type { Database } from 'bun:sqlite'
 

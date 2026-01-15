@@ -3,15 +3,18 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import type { Database } from 'bun:sqlite'
+import { eq } from 'drizzle-orm'
+
+import type { DrizzleDb } from './db'
+import { identity as identityTable } from './db/schema'
 
 export interface IdentityConfig {
   installId?: string
-  db: Database
+  db: DrizzleDb
 }
 
 class IdentityService {
-  private browserOSId: string | null = null // Unique identifier for the BrowserOS instance
+  private browserOSId: string | null = null
 
   initialize(config: IdentityConfig): void {
     const { installId, db } = config
@@ -34,18 +37,24 @@ class IdentityService {
     return this.browserOSId !== null
   }
 
-  private loadFromDb(db: Database): string | null {
-    const stmt = db.prepare('SELECT browseros_id FROM identity WHERE id = 1')
-    const row = stmt.get() as { browseros_id: string } | null
-    return row?.browseros_id ?? null
+  private loadFromDb(db: DrizzleDb): string | null {
+    const row = db
+      .select({ browserosId: identityTable.browserosId })
+      .from(identityTable)
+      .where(eq(identityTable.id, 1))
+      .get()
+    return row?.browserosId ?? null
   }
 
-  private generateAndSave(db: Database): string {
+  private generateAndSave(db: DrizzleDb): string {
     const browserosId = crypto.randomUUID()
-    const stmt = db.prepare(
-      'INSERT OR REPLACE INTO identity (id, browseros_id) VALUES (1, ?)',
-    )
-    stmt.run(browserosId)
+    db.insert(identityTable)
+      .values({ id: 1, browserosId })
+      .onConflictDoUpdate({
+        target: identityTable.id,
+        set: { browserosId },
+      })
+      .run()
     return browserosId
   }
 }
