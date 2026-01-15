@@ -8,6 +8,7 @@ export interface SearchActionStorage {
   query: string
   mode: 'chat' | 'agent'
   action?: ChatAction
+  workingDir?: string
 }
 
 /**
