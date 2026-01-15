@@ -1,5 +1,7 @@
 import cytoscape from 'cytoscape'
 import dagre from 'cytoscape-dagre'
+// @ts-expect-error no types available
+import nodeHtmlLabel from 'cytoscape-node-html-label'
 import {
   ArrowLeft,
   Maximize,
@@ -24,18 +26,72 @@ import type { GraphData } from './CreateGraph'
 import type { NodeType } from './CustomNode'
 
 cytoscape.use(dagre)
+nodeHtmlLabel(cytoscape)
 
-const NODE_COLORS: Record<NodeType, string> = {
-  start: '#22c55e',
-  end: '#ef4444',
-  nav: '#3b82f6',
-  act: '#8b5cf6',
-  extract: '#f59e0b',
-  verify: '#10b981',
-  decision: '#ec4899',
-  loop: '#06b6d4',
-  fork: '#6366f1',
-  join: '#84cc16',
+const NODE_CONFIG: Record<
+  NodeType,
+  { color: string; bgColor: string; icon: string; label: string }
+> = {
+  start: {
+    color: '#22c55e',
+    bgColor: 'rgba(34, 197, 94, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>`,
+    label: 'START',
+  },
+  end: {
+    color: '#ef4444',
+    bgColor: 'rgba(239, 68, 68, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect></svg>`,
+    label: 'END',
+  },
+  nav: {
+    color: '#3b82f6',
+    bgColor: 'rgba(59, 130, 246, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>`,
+    label: 'NAVIGATE',
+  },
+  act: {
+    color: '#8b5cf6',
+    bgColor: 'rgba(139, 92, 246, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 4 7.07 17 2.51-7.39L21 11.07z"></path></svg>`,
+    label: 'ACTION',
+  },
+  extract: {
+    color: '#f59e0b',
+    bgColor: 'rgba(245, 158, 11, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>`,
+    label: 'EXTRACT',
+  },
+  verify: {
+    color: '#10b981',
+    bgColor: 'rgba(16, 185, 129, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`,
+    label: 'VERIFY',
+  },
+  decision: {
+    color: '#ec4899',
+    bgColor: 'rgba(236, 72, 153, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>`,
+    label: 'DECISION',
+  },
+  loop: {
+    color: '#06b6d4',
+    bgColor: 'rgba(6, 182, 212, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>`,
+    label: 'LOOP',
+  },
+  fork: {
+    color: '#6366f1',
+    bgColor: 'rgba(99, 102, 241, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"></path><path d="M8 3H3v5"></path><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"></path><path d="m15 9 6-6"></path></svg>`,
+    label: 'FORK',
+  },
+  join: {
+    color: '#84cc16',
+    bgColor: 'rgba(132, 204, 22, 0.1)',
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>`,
+    label: 'JOIN',
+  },
 }
 
 const initialData: GraphData = {
@@ -47,6 +103,49 @@ const initialData: GraphData = {
     },
   ],
   edges: [],
+}
+
+const createNodeHtml = (type: NodeType, label: string): string => {
+  const config = NODE_CONFIG[type] || NODE_CONFIG.start
+  return `
+    <div style="
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 160px;
+      max-width: 220px;
+      padding: 12px 16px;
+      background: hsl(240 10% 10%);
+      border: 1px solid hsl(240 5% 20%);
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-family: system-ui, -apple-system, sans-serif;
+    ">
+      <div style="
+        flex-shrink: 0;
+        color: ${config.color};
+        margin-top: 2px;
+      ">
+        ${config.icon}
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          color: ${config.color};
+          margin-bottom: 4px;
+        ">${config.label}</div>
+        <div style="
+          font-size: 13px;
+          font-weight: 500;
+          color: hsl(0 0% 95%);
+          line-height: 1.4;
+          word-wrap: break-word;
+        ">${label}</div>
+      </div>
+    </div>
+  `
 }
 
 type GraphCanvasProps = {
@@ -133,21 +232,10 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
         {
           selector: 'node',
           style: {
-            label: 'data(label)',
-            'text-valign': 'center',
-            'text-halign': 'center',
-            'text-wrap': 'wrap',
-            'text-max-width': '140px',
-            'font-size': '12px',
-            'font-family': 'system-ui, sans-serif',
-            color: '#ffffff',
-            'background-color': 'data(color)',
-            shape: 'round-rectangle',
-            width: 'label',
-            height: 50,
-            padding: '20px',
-            'border-width': 2,
-            'border-color': 'data(borderColor)',
+            width: 1,
+            height: 1,
+            'background-opacity': 0,
+            'border-width': 0,
           },
         },
         {
@@ -167,7 +255,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
             'line-style': 'dashed',
             'line-dash-pattern': [6, 3],
             'curve-style': 'unbundled-bezier',
-            'control-point-distances': [80],
+            'control-point-distances': [100],
             'control-point-weights': [0.5],
           },
         },
@@ -180,6 +268,20 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
       autoungrabify: true,
       autounselectify: true,
     })
+
+    // @ts-expect-error nodeHtmlLabel extension
+    cy.nodeHtmlLabel([
+      {
+        query: 'node',
+        halign: 'center',
+        valign: 'center',
+        halignBox: 'center',
+        valignBox: 'center',
+        tpl: (data: { type: NodeType; label: string }) => {
+          return createNodeHtml(data.type, data.label)
+        },
+      },
+    ])
 
     cyRef.current = cy
 
@@ -194,19 +296,13 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
 
     cy.elements().remove()
 
-    const nodes = data.nodes.map((node) => {
-      const nodeType = node.type as NodeType
-      const baseColor = NODE_COLORS[nodeType] || '#6b7280'
-      return {
-        data: {
-          id: node.id,
-          label: node.data.label,
-          type: node.type,
-          color: baseColor,
-          borderColor: baseColor,
-        },
-      }
-    })
+    const nodes = data.nodes.map((node) => ({
+      data: {
+        id: node.id,
+        label: node.data.label,
+        type: node.type as NodeType,
+      },
+    }))
 
     const edges = data.edges.map((edge) => ({
       data: {
@@ -221,9 +317,9 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
     cy.layout({
       name: 'dagre',
       rankDir: 'TB',
-      nodeSep: 60,
-      rankSep: 80,
-      padding: 30,
+      nodeSep: 80,
+      rankSep: 100,
+      padding: 50,
       animate: true,
       animationDuration: 300,
       fit: true,
