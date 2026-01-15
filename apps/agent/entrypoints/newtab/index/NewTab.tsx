@@ -1,7 +1,9 @@
 import { useCombobox } from 'downshift'
 import {
   ArrowRight,
+  ChevronDown,
   File,
+  Folder,
   Globe,
   ImageIcon,
   Layers,
@@ -16,6 +18,7 @@ import {
   GlowingElement,
 } from '@/components/elements/glowing-border'
 import { TabSelector } from '@/components/elements/tab-selector'
+import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
 import {
   createAITabAction,
@@ -28,6 +31,7 @@ import {
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { FooterLinks } from './FooterLinks'
 import type { SuggestionItem } from './lib/suggestions/types'
 import {
@@ -59,6 +63,7 @@ export const NewTab = () => {
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+  const { selectedFolder } = useWorkspace()
 
   const toggleTab = (tab: chrome.tabs.Tab) => {
     setSelectedTabs((prev) => {
@@ -147,6 +152,7 @@ export const NewTab = () => {
           query: searchQuery,
           mode: 'agent',
           action,
+          workingDir: selectedFolder?.path,
         })
         break
       }
@@ -164,6 +170,7 @@ export const NewTab = () => {
           query: item.message,
           mode: item.mode,
           action,
+          workingDir: selectedFolder?.path,
         })
         break
       }
@@ -382,6 +389,21 @@ export const NewTab = () => {
             {mounted && (
               <div className="flex items-center justify-between border-border/50 border-t px-5 py-3">
                 <div className="flex items-center gap-1">
+                  <WorkspaceSelector>
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                        'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                        'data-[state=open]:bg-accent',
+                      )}
+                    >
+                      <Folder className="h-4 w-4" />
+                      <span>{selectedFolder?.name || 'Work in a folder'}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </WorkspaceSelector>
+
                   <div className="relative" ref={tabsDropdownRef}>
                     <TabSelector
                       selectedTabs={selectedTabs}
@@ -401,19 +423,6 @@ export const NewTab = () => {
                       </Button>
                     </TabSelector>
                   </div>
-
-                  {/*<button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all ${
-                      selectedFiles.length > 0
-                        ? 'bg-[var(--accent-orange)] text-white shadow-sm'
-                        : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                  >
-                    <Upload className="h-4 w-4" />
-                    <span>Files</span>
-                  </button>*/}
                 </div>
               </div>
             )}
