@@ -20,6 +20,8 @@ import {
 import { TabSelector } from '@/components/elements/tab-selector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
+import { Feature } from '@/lib/browseros/capabilities'
+import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
   createAITabAction,
   createBrowserOSAction,
@@ -64,6 +66,7 @@ export const NewTab = () => {
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const { selectedFolder } = useWorkspace()
+  const { supports } = useCapabilities()
 
   const toggleTab = (tab: chrome.tabs.Tab) => {
     setSelectedTabs((prev) => {
@@ -389,20 +392,24 @@ export const NewTab = () => {
             {mounted && (
               <div className="flex items-center justify-between border-border/50 border-t px-5 py-3">
                 <div className="flex items-center gap-1">
-                  <WorkspaceSelector>
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
-                        'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                        'data-[state=open]:bg-accent',
-                      )}
-                    >
-                      <Folder className="h-4 w-4" />
-                      <span>{selectedFolder?.name || 'Work in a folder'}</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </WorkspaceSelector>
+                  {supports(Feature.WORKSPACE_FOLDER_SUPPORT) && (
+                    <WorkspaceSelector>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                          'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                          'data-[state=open]:bg-accent',
+                        )}
+                      >
+                        <Folder className="h-4 w-4" />
+                        <span>
+                          {selectedFolder?.name || 'Work in a folder'}
+                        </span>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </WorkspaceSelector>
+                  )}
 
                   <div className="relative" ref={tabsDropdownRef}>
                     <TabSelector

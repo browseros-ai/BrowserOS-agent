@@ -27,6 +27,8 @@ export enum Feature {
   UNIFIED_PORT_SUPPORT = 'UNIFIED_PORT_SUPPORT',
   // Toolbar customization settings
   CUSTOMIZATION_SUPPORT = 'CUSTOMIZATION_SUPPORT',
+  // Workspace folder selection with full path support requires new browserOS.choosePath API
+  WORKSPACE_FOLDER_SUPPORT = 'WORKSPACE_FOLDER_SUPPORT',
 }
 
 /**
@@ -45,6 +47,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.PERSONALIZATION_SUPPORT]: { minBrowserOSVersion: '0.36.1.0' },
   [Feature.UNIFIED_PORT_SUPPORT]: { minBrowserOSVersion: '0.36.1.0' },
   [Feature.CUSTOMIZATION_SUPPORT]: { minBrowserOSVersion: '0.36.1.0' },
+  [Feature.WORKSPACE_FOLDER_SUPPORT]: { minBrowserOSVersion: '0.36.4.0' },
 }
 
 function parseVersion(version: string): number[] {
