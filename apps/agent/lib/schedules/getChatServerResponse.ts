@@ -131,6 +131,7 @@ export async function getChatServerResponse(
           : undefined,
       userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
       isScheduledTask: true,
+      supportsImages: provider?.supportsImages,
     }),
   })
 
