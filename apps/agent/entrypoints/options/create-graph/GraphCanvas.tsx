@@ -467,14 +467,14 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
       </header>
 
       {/* Graph Canvas */}
-      <div className="relative flex-1 bg-[hsl(var(--background))]">
+      <div className="relative flex-1 [--dot-color:rgba(0,0,0,0.2)] dark:[--dot-color:rgba(255,255,255,0.15)]">
         <div
           ref={containerRef}
-          className="h-full w-full"
+          className="h-full w-full bg-zinc-50 dark:bg-zinc-900"
           style={{
             backgroundImage:
-              'radial-gradient(circle, hsl(var(--muted-foreground) / 0.2) 1px, transparent 1px)',
-            backgroundSize: '16px 16px',
+              'radial-gradient(circle, var(--dot-color) 1.5px, transparent 1.5px)',
+            backgroundSize: '20px 20px',
           }}
         />
 
