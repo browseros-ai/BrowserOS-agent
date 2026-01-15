@@ -6,6 +6,7 @@
  * SDK Types - Type definitions and request schemas for SDK services
  */
 
+import { BrowserContextSchema } from '@browseros/shared/schemas/browser-context'
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 
@@ -21,7 +22,7 @@ export const ActRequestSchema = z.object({
   instruction: z.string().min(1),
   context: z.record(z.unknown()).optional(),
   maxSteps: z.number().optional(),
-  windowId: z.number().optional(),
+  browserContext: BrowserContextSchema.optional(),
   llm: LLMConfigSchema.optional(),
 })
 
@@ -29,11 +30,15 @@ export const ExtractRequestSchema = z.object({
   instruction: z.string().min(1),
   schema: z.record(z.unknown()),
   context: z.record(z.unknown()).optional(),
+  windowId: z.number().optional(),
+  tabId: z.number().optional(),
 })
 
 export const VerifyRequestSchema = z.object({
   expectation: z.string().min(1),
   context: z.record(z.unknown()).optional(),
+  windowId: z.number().optional(),
+  tabId: z.number().optional(),
   llm: LLMConfigSchema.optional(),
 })
 

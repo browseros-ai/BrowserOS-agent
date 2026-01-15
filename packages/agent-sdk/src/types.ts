@@ -1,9 +1,10 @@
+import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { LLMConfig, LLMProvider } from '@browseros/shared/schemas/llm'
 import type { UIMessageStreamEvent } from '@browseros/shared/schemas/ui-stream'
 import type { ZodSchema } from 'zod'
 
 // Re-export shared types for consumers (bundled at build time)
-export type { LLMConfig, LLMProvider, UIMessageStreamEvent }
+export type { BrowserContext, LLMConfig, LLMProvider, UIMessageStreamEvent }
 
 /**
  * Configuration options for creating an Agent instance.
@@ -12,6 +13,8 @@ export type { LLMConfig, LLMProvider, UIMessageStreamEvent }
 export interface AgentOptions {
   url: string
   llm?: LLMConfig
+  /** Browser context for targeting specific windows/tabs and MCP servers */
+  browserContext?: BrowserContext
   /** Callback for streaming UI events (Vercel AI SDK format) */
   onProgress?: (event: UIMessageStreamEvent) => void
   signal?: AbortSignal

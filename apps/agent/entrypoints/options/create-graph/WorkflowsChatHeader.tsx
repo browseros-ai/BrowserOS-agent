@@ -23,7 +23,7 @@ export const WorkflowsChatHeader: FC<WorkflowsChatHeaderProps> = ({
   hasMessages,
 }) => {
   return (
-    <header className="flex shrink-0 items-center justify-between border-border/40 border-b bg-background/80 px-3 py-2.5 backdrop-blur-md">
+    <header className="flex h-14 shrink-0 items-center justify-between border-border/40 border-b bg-background/80 px-3 backdrop-blur-md">
       <div className="flex items-center gap-2">
         <ChatProviderSelector
           providers={providers}

@@ -9,9 +9,10 @@ import {
   GRAPH_MESSAGE_DISLIKE_EVENT,
   GRAPH_MESSAGE_LIKE_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useJtbdPopup } from '@/lib/jtbd-popup/use-jtbd-popup'
+import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
+import { GraphEmptyState } from './GraphEmptyState'
 
 interface GraphChatProps {
   onSubmit: FormEventHandler<HTMLFormElement>
@@ -22,6 +23,7 @@ interface GraphChatProps {
   messages: UIMessage[]
   chatError?: Error
   agentUrlError?: Error | null
+  onSuggestionClick: (prompt: string) => void
 }
 
 export const GraphChat: FC<GraphChatProps> = ({
@@ -33,17 +35,26 @@ export const GraphChat: FC<GraphChatProps> = ({
   messages,
   chatError,
   agentUrlError,
+  onSuggestionClick,
 }) => {
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
+  const [mounted, setMounted] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const {
     popupVisible,
+    recordMessageSent,
     triggerIfEligible,
-    onTakeSurvey,
+    onTakeSurvey: onTakeSurveyBase,
     onDismiss: onDismissJtbdPopup,
   } = useJtbdPopup()
+
+  const onTakeSurvey = () => onTakeSurveyBase(5, 'workflow_survey')
 
   // Trigger JTBD popup when AI finishes responding
   const previousChatStatus = useRef(status)
@@ -93,6 +104,11 @@ export const GraphChat: FC<GraphChatProps> = ({
     }))
   }
 
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (e) => {
+    recordMessageSent()
+    onSubmit(e)
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (
       e.key === 'Enter' &&
@@ -111,24 +127,31 @@ export const GraphChat: FC<GraphChatProps> = ({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
-        <ChatMessages
-          liked={liked}
-          disliked={disliked}
-          onClickDislike={onClickDislike}
-          onClickLike={onClickLike}
-          messages={messages}
-          status={status}
-          messagesEndRef={messagesEndRef}
-          showJtbdPopup={popupVisible}
-          onTakeSurvey={onTakeSurvey}
-          onDismissJtbdPopup={onDismissJtbdPopup}
-        />
+        {messages.length === 0 ? (
+          <GraphEmptyState
+            mounted={mounted}
+            onSuggestionClick={onSuggestionClick}
+          />
+        ) : (
+          <ChatMessages
+            liked={liked}
+            disliked={disliked}
+            onClickDislike={onClickDislike}
+            onClickLike={onClickLike}
+            messages={messages}
+            status={status}
+            messagesEndRef={messagesEndRef}
+            showJtbdPopup={popupVisible}
+            onTakeSurvey={onTakeSurvey}
+            onDismissJtbdPopup={onDismissJtbdPopup}
+          />
+        )}
       </div>
       {agentUrlError && <ChatError error={agentUrlError} />}
       {chatError && <ChatError error={chatError} />}
       <div className="shrink-0 border-border/40 border-t bg-background/80 p-2 backdrop-blur-md">
         <form
-          onSubmit={onSubmit}
+          onSubmit={handleSubmit}
           className="relative flex w-full items-end gap-2"
         >
           <textarea

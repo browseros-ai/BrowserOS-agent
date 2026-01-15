@@ -153,6 +153,7 @@ export class GraphService {
       {
         serverUrl: this.deps.serverUrl,
         llmConfig,
+        browserContext: request.browserContext,
         onProgress: (event) => {
           onProgress(event).catch((err) => {
             logger.warn('Failed to send progress event', { error: String(err) })

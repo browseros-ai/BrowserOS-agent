@@ -6,6 +6,7 @@
 
 import { mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
+import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { Agent } from '@browseros-ai/agent-sdk'
 import { logger } from '../lib/logger'
@@ -13,6 +14,7 @@ import { logger } from '../lib/logger'
 export interface ExecutorOptions {
   serverUrl: string
   llmConfig?: LLMConfig
+  browserContext?: BrowserContext
   onProgress: (event: UIMessageStreamEvent) => void
   signal?: AbortSignal
 }
@@ -63,6 +65,7 @@ export async function executeGraph(
       llm: options.llmConfig,
       onProgress: options.onProgress,
       signal: options.signal,
+      browserContext: options.browserContext,
     })
 
     // Dynamic import with cache-busting (Bun caches imports by path)
