@@ -1,22 +1,24 @@
 import { useCombobox } from 'downshift'
 import {
   ArrowRight,
-  File,
+  ChevronDown,
+  Folder,
   Globe,
-  ImageIcon,
   Layers,
   Search,
   X,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import {
   GlowingBorder,
   GlowingElement,
 } from '@/components/elements/glowing-border'
 import { TabSelector } from '@/components/elements/tab-selector'
+import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
+import { Feature } from '@/lib/browseros/capabilities'
+import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
   createAITabAction,
   createBrowserOSAction,
@@ -28,6 +30,7 @@ import {
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { FooterLinks } from './FooterLinks'
 import type { SuggestionItem } from './lib/suggestions/types'
 import {
@@ -40,25 +43,18 @@ import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { TopSites } from './TopSites'
 
-interface SelectedFile {
-  name: string
-  size: number
-  type: string
-  preview?: string
-}
-
 /**
  * @public
  */
 export const NewTab = () => {
   const [inputValue, setInputValue] = useState('')
   const [mounted, setMounted] = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
-  // const fileInputRef = useRef<HTMLInputElement>(null)
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+  const { selectedFolder } = useWorkspace()
+  const { supports } = useCapabilities()
 
   const toggleTab = (tab: chrome.tabs.Tab) => {
     setSelectedTabs((prev) => {
@@ -147,6 +143,7 @@ export const NewTab = () => {
           query: searchQuery,
           mode: 'agent',
           action,
+          workingDir: selectedFolder?.path,
         })
         break
       }
@@ -164,6 +161,7 @@ export const NewTab = () => {
           query: item.message,
           mode: item.mode,
           action,
+          workingDir: selectedFolder?.path,
         })
         break
       }
@@ -184,33 +182,6 @@ export const NewTab = () => {
     setMounted(true)
   }, [])
 
-  const _handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 2) // Limit to 2 files
-    const fileData = files.map((file) => ({
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      preview: file.type.startsWith('image/')
-        ? URL.createObjectURL(file)
-        : undefined,
-    }))
-    setSelectedFiles(fileData)
-  }
-
-  useEffect(() => {
-    return () => {
-      selectedFiles.forEach((file) => {
-        if (file.preview) {
-          URL.revokeObjectURL(file.preview)
-        }
-      })
-    }
-  }, [selectedFiles])
-
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
-  }
-
   return (
     <div className="pt-[max(25vh,16px)]">
       {/* Main content */}
@@ -221,9 +192,7 @@ export const NewTab = () => {
         <div
           className={cn(
             'relative overflow-hidden bg-border/50 p-[2px]',
-            isSuggestionsVisible ||
-              selectedTabs.length > 0 ||
-              selectedFiles.length > 0
+            isSuggestionsVisible || selectedTabs.length > 0
               ? 'bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
               : 'bg-border/50 hover:border-border',
           )}
@@ -242,9 +211,7 @@ export const NewTab = () => {
           <div
             className={cn(
               'relative bg-card shadow-lg',
-              isSuggestionsVisible ||
-                selectedTabs.length > 0 ||
-                selectedFiles.length > 0
+              isSuggestionsVisible || selectedTabs.length > 0
                 ? 'border-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
                 : 'border-border/50 hover:border-border',
             )}
@@ -272,7 +239,7 @@ export const NewTab = () => {
             </div>
 
             <AnimatePresence>
-              {(selectedTabs.length > 0 || selectedFiles.length > 0) && (
+              {selectedTabs.length > 0 && (
                 <motion.div
                   className="overflow-clip px-5 pb-4"
                   transition={{ duration: 0.2 }}
@@ -324,44 +291,6 @@ export const NewTab = () => {
                           </motion.div>
                         )
                       })}
-
-                      {selectedFiles.map((file, index) => (
-                        <div
-                          key={index.toString()}
-                          className="group w-48 flex-shrink-0 rounded-lg border border-border bg-accent/50 p-3 transition-colors hover:bg-accent"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background">
-                              {file.preview ? (
-                                <img
-                                  src={file.preview || '/placeholder.svg'}
-                                  alt={file.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : file.type.startsWith('image/') ? (
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                              ) : (
-                                <File className="h-5 w-5 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-1 truncate font-medium text-foreground text-sm">
-                                {file.name}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                {(file.size / 1024).toFixed(1)} KB
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeFile(index)}
-                              className="cursor-pointer rounded p-1 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
                     </AnimatePresence>
                   </div>
                 </motion.div>
@@ -382,6 +311,25 @@ export const NewTab = () => {
             {mounted && (
               <div className="flex items-center justify-between border-border/50 border-t px-5 py-3">
                 <div className="flex items-center gap-1">
+                  {supports(Feature.WORKSPACE_FOLDER_SUPPORT) && (
+                    <WorkspaceSelector>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                          'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                          'data-[state=open]:bg-accent',
+                        )}
+                      >
+                        <Folder className="h-4 w-4" />
+                        <span>
+                          {selectedFolder?.name || 'Work in a folder'}
+                        </span>
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </WorkspaceSelector>
+                  )}
+
                   <div className="relative" ref={tabsDropdownRef}>
                     <TabSelector
                       selectedTabs={selectedTabs}
@@ -401,19 +349,6 @@ export const NewTab = () => {
                       </Button>
                     </TabSelector>
                   </div>
-
-                  {/*<button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all ${
-                      selectedFiles.length > 0
-                        ? 'bg-[var(--accent-orange)] text-white shadow-sm'
-                        : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
-                  >
-                    <Upload className="h-4 w-4" />
-                    <span>Files</span>
-                  </button>*/}
                 </div>
               </div>
             )}

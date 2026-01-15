@@ -253,4 +253,24 @@ declare namespace chrome.browserOS {
   ): void
 
   function getAllPrefs(callback: (prefs: PrefObject[]) => void): void
+
+  // choosePath types
+  type SelectionType = 'file' | 'folder'
+
+  interface ChoosePathOptions {
+    type?: SelectionType
+    title?: string
+    startingDirectory?: string
+  }
+
+  interface SelectedPath {
+    path: string
+    name: string
+  }
+
+  function choosePath(
+    options: ChoosePathOptions,
+    callback: (result: SelectedPath | null) => void,
+  ): void
+  function choosePath(callback: (result: SelectedPath | null) => void): void
 }

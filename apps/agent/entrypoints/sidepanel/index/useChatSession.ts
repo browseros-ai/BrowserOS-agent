@@ -138,6 +138,7 @@ export const useChatSession = () => {
 
   const modeRef = useRef<ChatMode>(mode)
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
+  const workingDirRef = useRef<string | undefined>(undefined)
 
   useDeepCompareEffect(() => {
     modeRef.current = mode
@@ -253,6 +254,7 @@ export const useChatSession = () => {
             sessionToken: provider?.sessionToken,
             browserContext,
             userSystemPrompt: personalizationRef.current,
+            userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
           },
         }
@@ -317,6 +319,7 @@ export const useChatSession = () => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
         setMode(storageAction.mode)
+        workingDirRef.current = storageAction.workingDir
         sendMessage({ text: storageAction.query, action: storageAction.action })
       }
     })
