@@ -3,7 +3,6 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import { MessageSquare, Trash2 } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import { Link } from 'react-router'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   type Conversation,
   useConversations,
@@ -131,7 +130,7 @@ export const ChatHistory: FC = () => {
   const hasConversations = conversations.length > 0
 
   return (
-    <ScrollArea className="h-full w-full overflow-hidden">
+    <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
       <div className="w-full p-3">
         {!hasConversations ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -168,6 +167,6 @@ export const ChatHistory: FC = () => {
           </>
         )}
       </div>
-    </ScrollArea>
+    </main>
   )
 }
