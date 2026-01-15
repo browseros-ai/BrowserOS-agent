@@ -12,6 +12,7 @@ export type {
   ActResult,
   ActStep,
   AgentOptions,
+  BrowserContext,
   ExtractOptions,
   ExtractResult,
   LLMConfig,

@@ -4,7 +4,13 @@ import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
 const JTBD_API_URL = 'https://jtbd-agent.fly.dev'
 // const LOCAL_JTBD_API_URL = 'http://localhost:3001'
-const EXPERIMENT_ID = 'jtbd_jan26'
+const DEFAULT_MAX_TURNS = 7
+const DEFAULT_EXPERIMENT_ID = 'default'
+
+export interface SurveyChatOptions {
+  maxTurns?: number
+  experimentId?: string
+}
 
 async function getInstallId(): Promise<string> {
   try {
@@ -77,7 +83,10 @@ async function* streamSSE(
   }
 }
 
-export function useChat() {
+export function useChat(options: SurveyChatOptions = {}) {
+  const maxTurns = options.maxTurns ?? DEFAULT_MAX_TURNS
+  const experimentId = options.experimentId ?? DEFAULT_EXPERIMENT_ID
+
   const [phase, setPhase] = useState<Phase>('idle')
   const [messages, setMessages] = useState<Message[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -116,7 +125,7 @@ export function useChat() {
       const response = await fetch(`${JTBD_API_URL}/api/interview/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installId, experimentId: EXPERIMENT_ID }),
+        body: JSON.stringify({ installId, experimentId, maxTurns }),
         signal: abortControllerRef.current.signal,
       })
 
@@ -170,7 +179,7 @@ export function useChat() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ response: text }),
+          body: JSON.stringify({ response: text, maxTurns }),
           signal: abortControllerRef.current.signal,
         },
       )

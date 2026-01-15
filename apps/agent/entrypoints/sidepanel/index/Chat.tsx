@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
-import { useJtbdPopup } from '@/lib/jtbd-popup/use-jtbd-popup'
+import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
+import { useChatSessionContext } from '../layout/ChatSessionContext'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
 import { ChatFooter } from './ChatFooter'
-import { ChatHeader } from './ChatHeader'
 import { ChatMessages } from './ChatMessages'
-import { useChatSession } from './useChatSession'
 
 /**
  * @public
@@ -21,19 +20,14 @@ export const Chat = () => {
     sendMessage,
     status,
     stop,
-    providers,
-    selectedProvider,
-    isLoading,
     agentUrlError,
     chatError,
-    handleSelectProvider,
     getActionForMessage,
-    resetConversation,
     liked,
     onClickLike,
     disliked,
     onClickDislike,
-  } = useChatSession()
+  } = useChatSessionContext()
 
   const {
     popupVisible,
@@ -137,24 +131,8 @@ export const Chat = () => {
     executeMessage(suggestion)
   }
 
-  if (isLoading || !selectedProvider) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-      </div>
-    )
-  }
-
   return (
-    <div className="mx-auto flex h-screen w-screen flex-col bg-background text-foreground">
-      <ChatHeader
-        selectedProvider={selectedProvider}
-        onSelectProvider={handleSelectProvider}
-        providers={providers}
-        onNewConversation={resetConversation}
-        hasMessages={messages.length > 0}
-      />
-
+    <>
       <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
         {messages.length === 0 ? (
           <ChatEmptyState
@@ -193,6 +171,6 @@ export const Chat = () => {
         onToggleTab={toggleTabSelection}
         onRemoveTab={removeTab}
       />
-    </div>
+    </>
   )
 }

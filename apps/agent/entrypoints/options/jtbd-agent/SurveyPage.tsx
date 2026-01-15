@@ -2,10 +2,15 @@ import { AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { jtbdPopupStorage } from '@/lib/jtbd-popup/storage'
-import { Chat } from './chat'
-import { Header } from './header'
-import { useChat } from './use-chat'
-import { Welcome } from './welcome'
+import { Chat } from './SurveyChat'
+import { Header } from './SurveyHeader'
+import { Welcome } from './SurveyWelcome'
+import { useChat } from './useSurveyChat'
+
+interface SurveyPageProps {
+  maxTurns?: number
+  experimentId?: string
+}
 
 const ThankYouCard: FC<{ onReset: () => void }> = ({ onReset }) => (
   <div className="rounded-xl border border-border bg-card p-8 text-center shadow-sm">
@@ -43,8 +48,8 @@ const ErrorCard: FC<{ error: Error; onRetry: () => void }> = ({
   </div>
 )
 
-export const SurveyPage: FC = () => {
-  const chat = useChat()
+export const SurveyPage: FC<SurveyPageProps> = ({ maxTurns, experimentId }) => {
+  const chat = useChat({ maxTurns, experimentId })
 
   const handleStart = async () => {
     const current = await jtbdPopupStorage.getValue()

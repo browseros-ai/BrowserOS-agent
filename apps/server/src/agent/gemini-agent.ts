@@ -79,13 +79,24 @@ export class GeminiAgent {
       servers: Object.keys(mcpServers),
     })
 
+    // Build excluded tools list - always exclude save_memory and google_web_search
+    // Conditionally exclude screenshot tools if model doesn't support images
+    const excludedTools = ['save_memory', 'google_web_search']
+    if (config.supportsImages === false) {
+      excludedTools.push(
+        'browser_get_screenshot',
+        'browser_get_screenshot_pointer',
+      )
+      logger.info('Model does not support images, excluding screenshot tools')
+    }
+
     const geminiConfig = new GeminiConfig({
       sessionId: config.conversationId,
       targetDir: config.sessionExecutionDir,
       cwd: config.sessionExecutionDir,
       debugMode: false,
       model: modelString,
-      excludeTools: ['save_memory', 'google_web_search'],
+      excludeTools: excludedTools,
       compressionThreshold,
       mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
       // Server/headless mode: auto-approve tools, no IDE integration

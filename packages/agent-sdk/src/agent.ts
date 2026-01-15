@@ -13,6 +13,7 @@ import type {
   ActResult,
   ActStep,
   AgentOptions,
+  BrowserContext,
   ExtractOptions,
   ExtractResult,
   LLMConfig,
@@ -51,6 +52,7 @@ export class Agent {
   private readonly baseUrl: string
   private readonly llmConfig?: LLMConfig
   private readonly signal?: AbortSignal
+  private readonly browserContext?: BrowserContext
   private progressCallback?: (event: UIMessageStreamEvent) => void
 
   constructor(options: AgentOptions) {
@@ -58,6 +60,7 @@ export class Agent {
     this.llmConfig = options.llm
     this.progressCallback = options.onProgress
     this.signal = options.signal
+    this.browserContext = options.browserContext
   }
 
   private throwIfAborted(): void {
@@ -144,9 +147,12 @@ export class Agent {
       delta: `Navigating to ${url}...\n`,
     })
 
+    // Use browserContext.windowId as default, let server get fresh active tab
+    const windowId = options?.windowId ?? this.browserContext?.windowId
+
     const result = await this.request<NavResult>(
       '/sdk/nav',
-      { url, ...options },
+      { url, windowId, tabId: options?.tabId },
       NavigationError,
     )
 
@@ -195,6 +201,15 @@ export class Agent {
 
     const url = `${this.baseUrl}/sdk/act`
 
+    // Only pass what's needed: windowId and MCP servers (activeTab may be stale)
+    const browserContextForAct = this.browserContext
+      ? {
+          windowId: this.browserContext.windowId,
+          enabledMcpServers: this.browserContext.enabledMcpServers,
+          customMcpServers: this.browserContext.customMcpServers,
+        }
+      : undefined
+
     let response: Response
     try {
       response = await fetch(url, {
@@ -204,7 +219,7 @@ export class Agent {
           instruction,
           context: options?.context,
           maxSteps: options?.maxSteps,
-          windowId: options?.windowId,
+          browserContext: browserContextForAct,
           llm: this.llmConfig,
         }),
         signal: this.signal,
@@ -375,6 +390,7 @@ export class Agent {
         instruction,
         schema: jsonSchema,
         context: options.context,
+        windowId: this.browserContext?.windowId,
       },
       ExtractionError,
     )
@@ -430,6 +446,7 @@ export class Agent {
       {
         expectation,
         context: options?.context,
+        windowId: this.browserContext?.windowId,
         llm: this.llmConfig,
       },
       VerificationError,

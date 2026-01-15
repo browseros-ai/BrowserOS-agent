@@ -90,6 +90,7 @@ export class ChatService {
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
       sessionExecutionDir,
+      supportsImages: request.supportsImages,
     }
 
     const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)

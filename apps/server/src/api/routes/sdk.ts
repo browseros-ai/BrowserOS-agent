@@ -63,8 +63,11 @@ export function createSdkRoutes(deps: SdkDeps) {
       }
     })
     .post('/act', zValidator('json', ActRequestSchema), async (c) => {
-      const { instruction, context, windowId, llm } = c.req.valid('json')
-      logger.info('SDK act request', { instruction, windowId })
+      const { instruction, context, browserContext, llm } = c.req.valid('json')
+      logger.info('SDK act request', {
+        instruction,
+        windowId: browserContext?.windowId,
+      })
 
       const llmConfig = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
 
@@ -91,7 +94,7 @@ export function createSdkRoutes(deps: SdkDeps) {
           await chatService.executeAction({
             instruction,
             context,
-            windowId,
+            browserContext,
             llmConfig,
             signal: c.req.raw.signal,
             onSSEEvent: async (event) => {
@@ -146,11 +149,23 @@ export function createSdkRoutes(deps: SdkDeps) {
       })
     })
     .post('/extract', zValidator('json', ExtractRequestSchema), async (c) => {
-      const { instruction, schema, context } = c.req.valid('json')
-      logger.info('SDK extract request', { instruction })
+      const {
+        instruction,
+        schema,
+        context,
+        windowId,
+        tabId: requestTabId,
+      } = c.req.valid('json')
+      logger.info('SDK extract request', {
+        instruction,
+        windowId,
+        tabId: requestTabId,
+      })
 
       try {
-        const { tabId } = await browserService.getActiveTab()
+        // Use provided tabId, or get active tab (from window if specified)
+        const tabId =
+          requestTabId ?? (await browserService.getActiveTab(windowId)).tabId
         const content = await browserService.getPageContent(tabId)
         const data = await extractService.extract({
           instruction,
@@ -174,13 +189,25 @@ export function createSdkRoutes(deps: SdkDeps) {
       }
     })
     .post('/verify', zValidator('json', VerifyRequestSchema), async (c) => {
-      const { expectation, context, llm } = c.req.valid('json')
-      logger.info('SDK verify request', { expectation })
+      const {
+        expectation,
+        context,
+        windowId,
+        tabId: requestTabId,
+        llm,
+      } = c.req.valid('json')
+      logger.info('SDK verify request', {
+        expectation,
+        windowId,
+        tabId: requestTabId,
+      })
 
       const llmConfig = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
 
       try {
-        const { tabId } = await browserService.getActiveTab()
+        // Use provided tabId, or get active tab (from window if specified)
+        const tabId =
+          requestTabId ?? (await browserService.getActiveTab(windowId)).tabId
         const [screenshot, pageContent] = await Promise.all([
           browserService.getScreenshot(tabId),
           browserService.getPageContent(tabId),
