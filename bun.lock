@@ -54,6 +54,7 @@
         "dagre": "^0.8.5",
         "dayjs": "^1.11.19",
         "downshift": "^9.0.10",
+        "elkjs": "^0.11.0",
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
         "eventsource-parser": "^3.0.6",
@@ -117,7 +118,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.40",
+      "version": "0.0.41",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
@@ -1497,7 +1498,7 @@
 
     "chroma-js": ["chroma-js@3.2.0", "", {}, "sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw=="],
 
-    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.12.1", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-QREfGxJVVlBrjKdyis9px6UHyXix+Rre9nCkqX7CY7GsU8c6azOwwV8inQB8E3h2/QGqi4sCSF8fmjfAvmE07Q=="],
+    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.13.0", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-CgotJczVYe6wG2b5cqwNFq7n4VXIM8qfvfutdzVlABPKf0b99b0TDPuRsWrviCthigSHzhpMyFQW03P5Utt1Fg=="],
 
     "chrome-launcher": ["chrome-launcher@1.2.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^2.0.1" }, "bin": { "print-chrome-path": "bin/print-chrome-path.cjs" } }, "sha512-JbuGuBNss258bvGil7FT4HKdC3SC2K7UAEUqiPy3ACS3Yxo3hAW6bvFpCu2HsIJLgTqxgEX6BkujvzZfLpUD0Q=="],
 
@@ -1754,6 +1755,8 @@
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.237", "", {}, "sha512-icUt1NvfhGLar5lSWH3tHNzablaA5js3HVHacQimfP8ViEBOQv+L7DKEuHdbTZ0SKCO1ogTJTIL1Gwk9S6Qvcg=="],
+
+    "elkjs": ["elkjs@0.11.0", "", {}, "sha512-u4J8h9mwEDaYMqo0RYJpqNMFDoMK7f+pu4GjcV+N8jIC7TRdORgzkfSjTJemhqONFfH6fBI3wpysgWbhgVWIXw=="],
 
     "embla-carousel": ["embla-carousel@8.6.0", "", {}, "sha512-SjWyZBHJPbqxHOzckOfo8lHisEaJWmwd23XppYFYVh10bU66/Pn5tkVkbkCMZVdbUE5eTCI2nD8OyIP4Z+uwkA=="],
 

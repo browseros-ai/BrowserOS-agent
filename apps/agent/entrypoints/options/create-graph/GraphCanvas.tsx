@@ -72,10 +72,20 @@ const calculateNodeWidth = (label: string): number => {
   return Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, textWidth))
 }
 
-const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
+const getLayoutedElements = <T extends Node>(
+  nodes: T[],
+  edges: Edge[],
+): { nodes: T[]; edges: Edge[] } => {
   const dagreGraph = new dagre.graphlib.Graph()
   dagreGraph.setDefaultEdgeLabel(() => ({}))
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 100 })
+  dagreGraph.setGraph({
+    rankdir: 'TB',
+    align: 'UL',
+    nodesep: 50,
+    ranksep: 60,
+    marginx: 20,
+    marginy: 20,
+  })
 
   const nodeWidths: Record<string, number> = {}
 
@@ -92,20 +102,23 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
 
   dagre.layout(dagreGraph)
 
-  nodes.forEach((node) => {
+  const layoutedNodes = nodes.map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id)
     const width = nodeWidths[node.id]
-    node.position = {
-      x: nodeWithPosition.x - width / 2,
-      y: nodeWithPosition.y - NODE_HEIGHT / 2,
-    }
-    node.style = {
-      ...node.style,
-      transition: 'transform 0.3s ease-in-out',
-    }
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - width / 2,
+        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      },
+      style: {
+        ...node.style,
+        transition: 'transform 0.3s ease-in-out',
+      },
+    } as T
   })
 
-  return { nodes, edges }
+  return { nodes: layoutedNodes, edges }
 }
 
 type GraphCanvasProps = {
@@ -166,31 +179,24 @@ const GraphCanvasInner: FC<GraphCanvasProps> = ({
     return isSaved ? 'Save Changes' : 'Save Workflow'
   }
 
-  // Initialize nodes and edges with layout
-  const initialLayout = getLayoutedElements(
-    graphData.nodes.map((n) => ({
-      ...n,
-      data: { ...n.data, type: n.type },
-      position: { x: 0, y: 0 },
-    })),
-    graphData.edges,
-  )
+  const initialNodes = graphData.nodes.map((n) => ({
+    ...n,
+    data: { ...n.data, type: n.type },
+    position: { x: 0, y: 0 },
+  }))
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialLayout.nodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialLayout.edges)
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graphData.edges)
 
-  // Handle graph updates from chat
   const handleGraphUpdate = useCallback(
     // biome-ignore lint/suspicious/noExplicitAny: graph data from external source
     (newGraphData: { nodes: any[]; edges: any[] }) => {
-      const layouted = getLayoutedElements(
-        newGraphData.nodes.map((n) => ({
-          ...n,
-          data: { ...n.data, type: n.type },
-          position: { x: 0, y: 0 },
-        })),
-        newGraphData.edges,
-      )
+      const preparedNodes = newGraphData.nodes.map((n) => ({
+        ...n,
+        data: { ...n.data, type: n.type },
+        position: { x: 0, y: 0 },
+      }))
+      const layouted = getLayoutedElements(preparedNodes, newGraphData.edges)
       setNodes(layouted.nodes)
       setEdges(layouted.edges)
     },
