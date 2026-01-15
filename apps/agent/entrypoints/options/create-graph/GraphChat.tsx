@@ -1,5 +1,5 @@
 import type { UIMessage } from 'ai'
-import { Lightbulb, Send, SquareStop } from 'lucide-react'
+import { Send, SquareStop } from 'lucide-react'
 import type { FC, FormEventHandler, KeyboardEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { ChatError } from '@/entrypoints/sidepanel/index/ChatError'
@@ -12,41 +12,6 @@ import {
 import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
-
-const EXAMPLE_WORKFLOWS = [
-  'Go to Amazon, search for toothpaste, select 1 pack filter and add the first result to cart',
-  'Open LinkedIn and go to my connection requests, accept one by one in a loop for 25 times',
-  'Go to Gmail, navigate to manage subscriptions and unsubscribe from all',
-]
-
-const WelcomePanel: FC = () => (
-  <div className="shrink-0 border-border/40 border-b bg-muted/30 p-4">
-    <div className="flex items-start gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
-        <Lightbulb className="h-4 w-4 text-[var(--accent-orange)]" />
-      </div>
-      <div className="space-y-2">
-        <p className="text-foreground text-sm">
-          Describe the workflow you want to automate. I'll generate a visual
-          graph you can refine and run.
-        </p>
-        <div className="space-y-1">
-          <p className="font-medium text-muted-foreground text-xs">Examples:</p>
-          <ul className="space-y-1">
-            {EXAMPLE_WORKFLOWS.map((example) => (
-              <li
-                key={example}
-                className="text-muted-foreground/80 text-xs before:mr-2 before:content-['•']"
-              >
-                {example}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-)
 
 interface GraphChatProps {
   onSubmit: FormEventHandler<HTMLFormElement>
@@ -145,7 +110,6 @@ export const GraphChat: FC<GraphChatProps> = ({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <WelcomePanel />
       <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
         <ChatMessages
           liked={liked}
