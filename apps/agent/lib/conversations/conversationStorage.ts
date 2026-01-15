@@ -28,42 +28,34 @@ export function useConversations() {
     return unwatch
   }, [])
 
-  const addConversation = async (
-    conversation: Omit<Conversation, 'id' | 'lastMessagedAt'>,
-  ) => {
-    const newConversation: Conversation = {
-      id: crypto.randomUUID(),
-      lastMessagedAt: Date.now(),
-      ...conversation,
-    }
-    const current = (await conversationStorage.getValue()) ?? []
-    const updated = [newConversation, ...current].slice(0, MAX_CONVERSATIONS)
-    await conversationStorage.setValue(updated)
-    return newConversation
-  }
-
   const removeConversation = async (id: string) => {
     const current = (await conversationStorage.getValue()) ?? []
     await conversationStorage.setValue(current.filter((c) => c.id !== id))
   }
 
-  const editConversation = async (
-    id: string,
-    updates: Partial<Omit<Conversation, 'id'>>,
-  ) => {
+  const saveConversation = async (id: string, messages: UIMessage[]) => {
     const current = (await conversationStorage.getValue()) ?? []
-    await conversationStorage.setValue(
-      current.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-    )
-  }
+    const existingIndex = current.findIndex((c) => c.id === id)
 
-  const updateMessages = async (id: string, messages: UIMessage[]) => {
-    const current = (await conversationStorage.getValue()) ?? []
-    await conversationStorage.setValue(
-      current.map((c) =>
-        c.id === id ? { ...c, messages, lastMessagedAt: Date.now() } : c,
-      ),
-    )
+    if (existingIndex >= 0) {
+      current[existingIndex] = {
+        ...current[existingIndex],
+        messages,
+        lastMessagedAt: Date.now(),
+      }
+      await conversationStorage.setValue(current)
+    } else {
+      const newConversation: Conversation = {
+        id,
+        messages,
+        lastMessagedAt: Date.now(),
+      }
+      let updated = [newConversation, ...current]
+      if (updated.length > MAX_CONVERSATIONS) {
+        updated = updated.slice(0, MAX_CONVERSATIONS)
+      }
+      await conversationStorage.setValue(updated)
+    }
   }
 
   const getConversation = (id: string) => {
@@ -72,10 +64,8 @@ export function useConversations() {
 
   return {
     conversations,
-    addConversation,
     removeConversation,
-    editConversation,
-    updateMessages,
+    saveConversation,
     getConversation,
   }
 }

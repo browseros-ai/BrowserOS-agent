@@ -13,6 +13,7 @@ import {
   MESSAGE_SENT_EVENT,
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
+import { useConversations } from '@/lib/conversations/conversationStorage'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
@@ -68,6 +69,8 @@ export const useChatSession = () => {
     isLoading: isLoadingAgentUrl,
     error: agentUrlError,
   } = useAgentServerUrl()
+
+  const { saveConversation } = useConversations()
 
   const agentUrlRef = useRef(agentServerUrl)
 
@@ -250,6 +253,12 @@ export const useChatSession = () => {
     status,
     conversationId: conversationIdRef.current,
   })
+
+  useDeepCompareEffect(() => {
+    if (messages.length > 0) {
+      saveConversation(conversationIdRef.current, messages)
+    }
+  }, [messages])
 
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
