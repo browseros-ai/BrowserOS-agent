@@ -50,6 +50,7 @@ const navigationItems: NavItem[] = [
     to: '/workflows',
     icon: GitBranch,
     enabled: true,
+    feature: Feature.WORKFLOW_SUPPORT,
   },
   {
     name: 'Scheduled Tasks',

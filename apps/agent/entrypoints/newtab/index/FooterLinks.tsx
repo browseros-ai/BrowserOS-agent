@@ -14,17 +14,21 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
 
   return (
     <div className="flex items-center justify-center gap-4 pt-4">
-      <a
-        href="/options.html#/workflows"
-        className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
-      >
-        <GitBranch className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
-        Workflows{' '}
-        <span className="text-accent-orange group-hover:text-accent-orange-bright">
-          (new)
-        </span>
-      </a>
-      <span className="text-muted-foreground">•</span>
+      {supports(Feature.WORKFLOW_SUPPORT) && (
+        <>
+          <a
+            href="/options.html#/workflows"
+            className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
+          >
+            <GitBranch className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
+            Workflows{' '}
+            <span className="text-accent-orange group-hover:text-accent-orange-bright">
+              (new)
+            </span>
+          </a>
+          <span className="text-muted-foreground">•</span>
+        </>
+      )}
       <a
         href="/options.html#/scheduled"
         className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
