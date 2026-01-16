@@ -1,7 +1,5 @@
 import {
   Bot,
-  CalendarClock,
-  GitBranch,
   Info,
   type LucideIcon,
   Menu,
@@ -43,18 +41,6 @@ const navigationItems: NavItem[] = [
     name: 'LLM Chat & Hub',
     to: '/chat',
     icon: MessageSquare,
-    enabled: true,
-  },
-  {
-    name: 'Workflows',
-    to: '/workflows',
-    icon: GitBranch,
-    enabled: true,
-  },
-  {
-    name: 'Scheduled Tasks',
-    to: '/scheduled',
-    icon: CalendarClock,
     enabled: true,
   },
   {

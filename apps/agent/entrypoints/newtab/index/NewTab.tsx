@@ -31,7 +31,6 @@ import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanel
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
-import { FooterLinks } from './FooterLinks'
 import type { SuggestionItem } from './lib/suggestions/types'
 import {
   getSuggestionLabel,
@@ -40,7 +39,6 @@ import {
 import { NewTabBranding } from './NewTabBranding'
 import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
-import { ShortcutsDialog } from './ShortcutsDialog'
 import { TopSites } from './TopSites'
 
 /**
@@ -52,7 +50,6 @@ export const NewTab = () => {
   const inputRef = useRef<HTMLInputElement>(null)
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
-  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
 
@@ -358,18 +355,8 @@ export const NewTab = () => {
         {/* Top sites */}
         {!isSuggestionsVisible && <TopSites />}
 
-        {!isSuggestionsVisible && (
-          <FooterLinks onOpenShortcuts={() => setShortcutsDialogOpen(true)} />
-        )}
-
         {mounted && !isSuggestionsVisible && <ScheduleResults />}
       </div>
-      {mounted && (
-        <ShortcutsDialog
-          open={shortcutsDialogOpen}
-          onOpenChange={setShortcutsDialogOpen}
-        />
-      )}
     </div>
   )
 }
