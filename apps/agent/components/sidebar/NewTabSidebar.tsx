@@ -144,30 +144,31 @@ export const NewTabSidebar: FC<NewTabSidebarProps> = ({ onOpenShortcuts }) => {
           {navItems
             .filter((item) => !item.feature || supports(item.feature))
             .map(renderNavItem)}
-
-          {/* Theme toggle */}
-          <li>
-            <div
-              className={cn(
-                'relative flex h-10 w-full items-center gap-3 rounded-lg px-3',
-                'text-muted-foreground hover:bg-accent hover:text-foreground',
-                'transition-colors duration-150',
-              )}
-            >
-              <ThemeToggle
-                className="size-5 shrink-0 p-0 hover:bg-transparent"
-                iconClassName="size-5"
-              />
-              <span className="truncate font-medium text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                Theme
-              </span>
-            </div>
-          </li>
         </ul>
       </nav>
 
-      {/* Footer - Settings */}
-      <div className="mt-auto px-2 pb-4">
+      {/* Footer - Theme & Settings */}
+      <div className="mt-auto flex flex-col gap-1 px-2 pb-4">
+        {/* Theme toggle */}
+        <div
+          className={cn(
+            'relative flex h-10 w-full items-center gap-3 rounded-lg px-3',
+            'text-muted-foreground hover:bg-accent hover:text-foreground',
+            'transition-colors duration-150',
+          )}
+        >
+          <ThemeToggle
+            className="size-5 shrink-0 p-0 hover:bg-transparent"
+            iconClassName="size-5"
+            dropdownSide="right"
+            dropdownAlign="end"
+          />
+          <span className="truncate font-medium text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            Theme
+          </span>
+        </div>
+
+        {/* Settings */}
         <a
           href="/options.html"
           className={cn(

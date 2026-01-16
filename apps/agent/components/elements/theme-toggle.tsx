@@ -23,6 +23,8 @@ interface ThemeToggleProps {
   hideLabel?: boolean
   iconClassName?: ClassNameValue
   className?: ClassNameValue
+  dropdownSide?: 'top' | 'right' | 'bottom' | 'left'
+  dropdownAlign?: 'start' | 'center' | 'end'
 }
 
 /**
@@ -32,6 +34,8 @@ export const ThemeToggle: FC<ThemeToggleProps> = ({
   hideLabel = true,
   iconClassName,
   className,
+  dropdownSide,
+  dropdownAlign = 'end',
 }) => {
   const { theme, setTheme } = useTheme()
 
@@ -51,7 +55,7 @@ export const ThemeToggle: FC<ThemeToggleProps> = ({
           {!hideLabel && <span>{currentTheme?.label || 'Theme'}</span>}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent side={dropdownSide} align={dropdownAlign}>
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(value) => setTheme(value as Theme)}
