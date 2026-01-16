@@ -1,7 +1,6 @@
 import {
   CalendarClock,
   GitBranch,
-  Keyboard,
   type LucideIcon,
   Settings,
   UserPen,
@@ -20,7 +19,6 @@ interface NavItem {
   href?: string
   to?: string
   feature?: Feature
-  action?: 'openShortcuts'
 }
 
 const navItems: NavItem[] = [
@@ -40,18 +38,9 @@ const navItems: NavItem[] = [
     to: '/personalize',
     feature: Feature.PERSONALIZATION_SUPPORT,
   },
-  {
-    name: 'Shortcuts',
-    icon: Keyboard,
-    action: 'openShortcuts',
-  },
 ]
 
-interface NewTabSidebarProps {
-  onOpenShortcuts?: () => void
-}
-
-export const NewTabSidebar: FC<NewTabSidebarProps> = ({ onOpenShortcuts }) => {
+export const NewTabSidebar: FC = () => {
   const location = useLocation()
   const { supports } = useCapabilities()
 
@@ -82,20 +71,6 @@ export const NewTabSidebar: FC<NewTabSidebarProps> = ({ onOpenShortcuts }) => {
         </span>
       </>
     )
-
-    if (item.action === 'openShortcuts') {
-      return (
-        <li key={item.name}>
-          <button
-            type="button"
-            onClick={onOpenShortcuts}
-            className={buttonClasses}
-          >
-            {content}
-          </button>
-        </li>
-      )
-    }
 
     if (item.href) {
       return (
