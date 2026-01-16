@@ -61,7 +61,7 @@ export const ChatError: FC<ChatErrorProps> = ({ error, onRetry }) => {
           </a>
           {' or '}
           <a
-            href="/options.html?page=survey&maxTurns=5&experimentId=daily_limit"
+            href="/options.html?page=survey&maxTurns=20&experimentId=daily_limit"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-foreground"

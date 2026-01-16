@@ -45,7 +45,7 @@ export function useJtbdPopup() {
   }, [])
 
   const onTakeSurvey = useCallback(
-    async (maxTurns = 15, experimentId = 'popup_survey') => {
+    async ({ maxTurns = 20, experimentId = 'popup_survey' } = {}) => {
       const current = await jtbdPopupStorage.getValue()
       track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
       setPopupVisible(false)

@@ -4,7 +4,7 @@ import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
 const JTBD_API_URL = 'https://jtbd-agent.fly.dev'
 // const LOCAL_JTBD_API_URL = 'http://localhost:3001'
-const DEFAULT_MAX_TURNS = 7
+const DEFAULT_MAX_TURNS = 20
 const DEFAULT_EXPERIMENT_ID = 'default'
 
 export interface SurveyChatOptions {

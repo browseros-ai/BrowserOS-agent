@@ -54,7 +54,8 @@ export const GraphChat: FC<GraphChatProps> = ({
     onDismiss: onDismissJtbdPopup,
   } = useJtbdPopup()
 
-  const onTakeSurvey = () => onTakeSurveyBase(5, 'workflow_survey')
+  const onTakeSurvey = () =>
+    onTakeSurveyBase({ experimentId: 'workflow_survey' })
 
   // Trigger JTBD popup when AI finishes responding
   const previousChatStatus = useRef(status)

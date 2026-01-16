@@ -26,7 +26,7 @@ export const JtbdPopup: FC<JtbdPopupProps> = ({ onTakeSurvey, onDismiss }) => {
             <div>
               <p className="font-medium text-sm">Help us improve BrowserOS!</p>
               <p className="mt-1 text-muted-foreground text-xs">
-                Take a quick 2-minute survey.
+                Take a quick 3-minute survey.
               </p>
             </div>
           </div>
