@@ -1,6 +1,7 @@
 import { Capabilities } from '@/lib/browseros/capabilities'
 import { getHealthCheckUrl, getMcpServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanel, toggleSidePanel } from '@/lib/browseros/toggleSidePanel'
+import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
 import { setupLlmProvidersBackupToBrowserOS } from '@/lib/llm-providers/storage'
 import { fetchMcpTools } from '@/lib/mcp/client'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
@@ -44,6 +45,10 @@ export default defineBackground(() => {
       chrome.tabs.create({
         url: chrome.runtime.getURL('onboarding.html'),
       })
+    }
+
+    if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
+      checkAndShowChangelog().catch(() => null)
     }
   })
 
