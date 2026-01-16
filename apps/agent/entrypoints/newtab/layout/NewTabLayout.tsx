@@ -2,7 +2,6 @@ import { LayoutGroup } from 'motion/react'
 import type { FC } from 'react'
 import { Outlet } from 'react-router'
 import { NewTabSidebar } from '@/components/sidebar/NewTabSidebar'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { NewTabFocusGrid } from './NewTabFocusGrid'
 import { ShortcutsProvider, useShortcuts } from './ShortcutsContext'
 
@@ -10,25 +9,18 @@ const NewTabLayoutContent: FC = () => {
   const { openShortcuts } = useShortcuts()
 
   return (
-    <SidebarProvider
-      defaultOpen={false}
-      style={
-        {
-          '--sidebar-width': '76px',
-          '--sidebar-width-icon': '76px',
-        } as React.CSSProperties
-      }
-    >
+    <div className="flex min-h-screen bg-background">
       <NewTabSidebar onOpenShortcuts={openShortcuts} />
 
-      <SidebarInset className="flex min-h-screen flex-1 flex-col items-center overflow-hidden bg-background px-6">
+      {/* Main content with left margin to account for fixed sidebar */}
+      <main className="ml-14 flex flex-1 flex-col items-center overflow-hidden px-6">
         <NewTabFocusGrid />
 
         <LayoutGroup>
           <Outlet />
         </LayoutGroup>
-      </SidebarInset>
-    </SidebarProvider>
+      </main>
+    </div>
   )
 }
 

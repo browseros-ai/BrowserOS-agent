@@ -10,15 +10,6 @@ import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import ProductLogoSvg from '@/assets/product_logo.svg'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from '@/components/ui/sidebar'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { cn } from '@/lib/utils'
@@ -74,15 +65,19 @@ export const NewTabSidebar: FC<NewTabSidebarProps> = ({ onOpenShortcuts }) => {
     const active = isActive(item)
 
     const buttonClasses = cn(
-      'flex h-auto w-full flex-col items-center gap-1 rounded-lg px-2 py-2.5',
+      'relative flex h-10 w-full items-center gap-3 rounded-lg px-3',
       'text-muted-foreground hover:bg-accent hover:text-foreground',
-      active && 'bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]',
+      'transition-colors duration-150',
+      active && 'text-[var(--accent-orange)]',
     )
 
     const content = (
       <>
+        {active && (
+          <span className="absolute left-0 h-6 w-1 rounded-r-full bg-[var(--accent-orange)]" />
+        )}
         <Icon className="size-5 shrink-0" />
-        <span className="font-medium text-[11px] leading-tight">
+        <span className="truncate font-medium text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           {item.name}
         </span>
       </>
@@ -90,43 +85,50 @@ export const NewTabSidebar: FC<NewTabSidebarProps> = ({ onOpenShortcuts }) => {
 
     if (item.action === 'openShortcuts') {
       return (
-        <SidebarMenuItem key={item.name}>
-          <SidebarMenuButton asChild className={buttonClasses}>
-            <button type="button" onClick={onOpenShortcuts}>
-              {content}
-            </button>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+        <li key={item.name}>
+          <button
+            type="button"
+            onClick={onOpenShortcuts}
+            className={buttonClasses}
+          >
+            {content}
+          </button>
+        </li>
       )
     }
 
     if (item.href) {
       return (
-        <SidebarMenuItem key={item.name}>
-          <SidebarMenuButton asChild className={buttonClasses}>
-            <a href={item.href}>{content}</a>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+        <li key={item.name}>
+          <a href={item.href} className={buttonClasses}>
+            {content}
+          </a>
+        </li>
       )
     }
 
     if (!item.to) return null
 
     return (
-      <SidebarMenuItem key={item.name}>
-        <SidebarMenuButton asChild className={buttonClasses}>
-          <NavLink to={item.to}>{content}</NavLink>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      <li key={item.name}>
+        <NavLink to={item.to} className={buttonClasses}>
+          {content}
+        </NavLink>
+      </li>
     )
   }
 
   return (
-    <Sidebar
-      collapsible="none"
-      className="h-screen shrink-0 border-border border-r"
+    <aside
+      className={cn(
+        'group fixed inset-y-0 left-0 z-40 flex h-screen flex-col',
+        'w-14 hover:w-40',
+        'border-border border-r bg-background',
+        'transition-[width] duration-200 ease-out',
+      )}
     >
-      <SidebarHeader className="flex items-center justify-center px-2 pt-3 pb-1">
+      {/* Logo */}
+      <div className="flex items-center px-2 pt-3 pb-2">
         <a
           href="/newtab.html"
           className="flex size-10 items-center justify-center rounded-xl transition-transform hover:scale-105"
@@ -134,50 +136,53 @@ export const NewTabSidebar: FC<NewTabSidebarProps> = ({ onOpenShortcuts }) => {
         >
           <img src={ProductLogoSvg} alt="BrowserOS" className="size-8" />
         </a>
-      </SidebarHeader>
+      </div>
 
-      <SidebarContent className="px-2 pt-2">
-        <SidebarMenu className="gap-1">
+      {/* Navigation */}
+      <nav className="flex-1 px-2 pt-2">
+        <ul className="flex flex-col gap-1">
           {navItems
             .filter((item) => !item.feature || supports(item.feature))
             .map(renderNavItem)}
 
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="flex h-auto w-full flex-col items-center gap-1 rounded-lg px-2 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          {/* Theme toggle */}
+          <li>
+            <div
+              className={cn(
+                'relative flex h-10 w-full items-center gap-3 rounded-lg px-3',
+                'text-muted-foreground hover:bg-accent hover:text-foreground',
+                'transition-colors duration-150',
+              )}
             >
-              <div>
-                <ThemeToggle
-                  className="size-5 p-0 hover:bg-transparent"
-                  iconClassName="size-5"
-                />
-                <span className="font-medium text-[11px] leading-tight">
-                  Theme
-                </span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarContent>
+              <ThemeToggle
+                className="size-5 shrink-0 p-0 hover:bg-transparent"
+                iconClassName="size-5"
+              />
+              <span className="truncate font-medium text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                Theme
+              </span>
+            </div>
+          </li>
+        </ul>
+      </nav>
 
-      <SidebarFooter className="mt-auto px-2 pb-4">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="flex h-auto w-full flex-col items-center gap-1 rounded-lg px-2 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <a href="/options.html" aria-label="Open settings">
-                <Settings className="size-5 shrink-0" />
-                <span className="font-medium text-[11px] leading-tight">
-                  Settings
-                </span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
+      {/* Footer - Settings */}
+      <div className="mt-auto px-2 pb-4">
+        <a
+          href="/options.html"
+          className={cn(
+            'relative flex h-10 w-full items-center gap-3 rounded-lg px-3',
+            'text-muted-foreground hover:bg-accent hover:text-foreground',
+            'transition-colors duration-150',
+          )}
+          aria-label="Open settings"
+        >
+          <Settings className="size-5 shrink-0" />
+          <span className="truncate font-medium text-sm opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            Settings
+          </span>
+        </a>
+      </div>
+    </aside>
   )
 }
