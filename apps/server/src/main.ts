@@ -8,7 +8,6 @@
  * Manages server lifecycle: initialization, startup, and shutdown.
  */
 
-import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
@@ -18,7 +17,7 @@ import { McpContext } from './browser/cdp/context'
 import { ControllerBridge } from './browser/extension/bridge'
 import { ControllerContext } from './browser/extension/context'
 import type { ServerConfig } from './config'
-import { initializeDb } from './lib/db'
+import { getDb, initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
@@ -32,7 +31,6 @@ import { VERSION } from './version'
 
 export class Application {
   private config: ServerConfig
-  private db: Database | null = null
 
   constructor(config: ServerConfig) {
     this.config = config
@@ -81,7 +79,7 @@ export class Application {
         allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
-        rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
+        rateLimiter: new RateLimiter(getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
       })
     } catch (error) {
@@ -114,11 +112,11 @@ export class Application {
       this.config.executionDir || this.config.resourcesDir,
       'browseros.db',
     )
-    this.db = initializeDb(dbPath)
+    initializeDb(dbPath)
 
     identity.initialize({
       installId: this.config.instanceInstallId,
-      db: this.db,
+      db: getDb(),
     })
 
     const browserosId = identity.getBrowserOSId()
@@ -241,14 +239,5 @@ export class Application {
     )
     logger.info(`  HTTP Server: http://127.0.0.1:${this.config.serverPort}`)
     logger.info('')
-  }
-
-  private getDb(): Database {
-    if (!this.db) {
-      throw new Error(
-        'Database not initialized. Call initCoreServices() first.',
-      )
-    }
-    return this.db
   }
 }

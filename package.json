@@ -23,6 +23,10 @@
     "test:controller": "bun run --filter @browseros/server test:controller",
     "test:integration": "bun run --filter @browseros/server test:integration",
     "typecheck": "bun run --filter '*' typecheck",
+    "db:sync": "bun run --filter @browseros/server db:sync",
+    "db:generate": "bun run --filter @browseros/server db:generate",
+    "db:studio": "bun run --filter @browseros/server db:studio",
+    "db:push": "bun run --filter @browseros/server db:push",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write --unsafe",
     "clean": "rimraf dist"
