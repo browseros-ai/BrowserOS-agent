@@ -17,6 +17,7 @@ if (typeof Bun === 'undefined') {
 
 // Import polyfills first
 import './lib/polyfill'
+import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { CommanderError } from 'commander'
 import { loadServerConfig } from './config'
 import { Sentry } from './lib/sentry'
@@ -27,7 +28,7 @@ const configResult = loadServerConfig()
 if (!configResult.ok) {
   Sentry.captureException(new Error(configResult.error))
   console.error(configResult.error)
-  process.exit(1)
+  process.exit(EXIT_CODES.GENERAL_ERROR)
 }
 
 const app = new Application(configResult.value)
@@ -40,7 +41,7 @@ try {
   }
   Sentry.captureException(error)
   console.error('Failed to start server:', error)
-  process.exit(1)
+  process.exit(EXIT_CODES.GENERAL_ERROR)
 }
 
 process.on('SIGINT', () => app.stop())

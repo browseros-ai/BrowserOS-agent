@@ -18,6 +18,7 @@ import { McpContext } from './browser/cdp/context'
 import { ControllerBridge } from './browser/extension/bridge'
 import { ControllerContext } from './browser/extension/context'
 import type { ServerConfig } from './config'
+import { INLINED_ENV } from './env'
 import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
@@ -139,7 +140,7 @@ export class Application {
       logger.warn('Metrics disabled: missing POSTHOG_API_KEY')
     }
 
-    if (!process.env.SENTRY_DSN) {
+    if (!INLINED_ENV.SENTRY_DSN) {
       logger.warn('Sentry disabled: missing SENTRY_DSN')
     }
 

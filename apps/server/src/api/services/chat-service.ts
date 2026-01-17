@@ -11,6 +11,7 @@ import { MCPServerConfig } from '@google/gemini-cli-core'
 import type { HonoSSEStream } from '../../agent/provider-adapter/types'
 import type { SessionManager } from '../../agent/session'
 import type { ProviderConfig, ResolvedAgentConfig } from '../../agent/types'
+import { INLINED_ENV } from '../../env'
 import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
@@ -106,7 +107,7 @@ export class ChatService {
     request: ChatRequest,
   ): Promise<ProviderConfig> {
     if (request.provider === LLM_PROVIDERS.BROWSEROS) {
-      const configUrl = process.env.BROWSEROS_CONFIG_URL
+      const configUrl = INLINED_ENV.BROWSEROS_CONFIG_URL
       if (!configUrl) {
         throw new Error(
           'BROWSEROS_CONFIG_URL environment variable is required for BrowserOS provider',

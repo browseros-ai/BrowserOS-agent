@@ -11,6 +11,7 @@ import path from 'node:path'
 import { Command, InvalidArgumentError } from 'commander'
 import { z } from 'zod'
 
+import { INLINED_ENV, REQUIRED_FOR_PRODUCTION } from './env'
 import { VERSION } from './version'
 
 const portSchema = z.number().int()
@@ -53,7 +54,6 @@ export type ConfigResult<T> =
 
 export function loadServerConfig(
   argv: string[] = process.argv,
-  env: NodeJS.ProcessEnv = process.env,
 ): ConfigResult<ServerConfig> {
   // 1. Parse CLI (commander with exitOverride - throws instead of exit)
   const cli = parseCli(argv)
@@ -64,7 +64,7 @@ export function loadServerConfig(
   if (!file.ok) return file
 
   // 3. Load from environment
-  const envConfig = loadEnv(env)
+  const envConfig = loadEnv()
 
   // 4. Merge: Defaults < Env < File < CLI
   const merged = merge(
@@ -89,7 +89,33 @@ export function loadServerConfig(
     }
   }
 
+  // 7. Validate required production environment variables
+  const prodValidation = validateProductionEnv()
+  if (!prodValidation.ok) return prodValidation
+
   return { ok: true, value: result.data }
+}
+
+function validateProductionEnv(): ConfigResult<void> {
+  if (process.env.NODE_ENV !== 'production') {
+    return { ok: true, value: undefined }
+  }
+
+  const missing: string[] = []
+  for (const varName of REQUIRED_FOR_PRODUCTION) {
+    if (!INLINED_ENV[varName]) {
+      missing.push(varName)
+    }
+  }
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `Missing required environment variables for production:\n${missing.map((v) => `  - ${v}`).join('\n')}`,
+    }
+  }
+
+  return { ok: true, value: undefined }
 }
 
 interface CliResult {
@@ -261,27 +287,27 @@ function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
   }
 }
 
-function loadEnv(env: NodeJS.ProcessEnv): PartialConfig {
+function loadEnv(): PartialConfig {
   const cwd = process.cwd()
   return filterUndefined({
-    cdpPort: env.BROWSEROS_CDP_PORT
-      ? safeParseInt(env.BROWSEROS_CDP_PORT)
+    cdpPort: process.env.BROWSEROS_CDP_PORT
+      ? safeParseInt(process.env.BROWSEROS_CDP_PORT)
       : undefined,
-    serverPort: env.BROWSEROS_SERVER_PORT
-      ? safeParseInt(env.BROWSEROS_SERVER_PORT)
+    serverPort: process.env.BROWSEROS_SERVER_PORT
+      ? safeParseInt(process.env.BROWSEROS_SERVER_PORT)
       : undefined,
-    extensionPort: env.BROWSEROS_EXTENSION_PORT
-      ? safeParseInt(env.BROWSEROS_EXTENSION_PORT)
+    extensionPort: process.env.BROWSEROS_EXTENSION_PORT
+      ? safeParseInt(process.env.BROWSEROS_EXTENSION_PORT)
       : undefined,
-    resourcesDir: env.BROWSEROS_RESOURCES_DIR
-      ? resolvePath(env.BROWSEROS_RESOURCES_DIR, cwd)
+    resourcesDir: process.env.BROWSEROS_RESOURCES_DIR
+      ? resolvePath(process.env.BROWSEROS_RESOURCES_DIR, cwd)
       : undefined,
-    executionDir: env.BROWSEROS_EXECUTION_DIR
-      ? resolvePath(env.BROWSEROS_EXECUTION_DIR, cwd)
+    executionDir: process.env.BROWSEROS_EXECUTION_DIR
+      ? resolvePath(process.env.BROWSEROS_EXECUTION_DIR, cwd)
       : undefined,
-    codegenServiceUrl: env.CODEGEN_SERVICE_URL,
-    instanceInstallId: env.BROWSEROS_INSTALL_ID,
-    instanceClientId: env.BROWSEROS_CLIENT_ID,
+    codegenServiceUrl: INLINED_ENV.CODEGEN_SERVICE_URL,
+    instanceInstallId: process.env.BROWSEROS_INSTALL_ID,
+    instanceClientId: process.env.BROWSEROS_CLIENT_ID,
   })
 }
 
