@@ -7,6 +7,7 @@
  */
 
 import { LLM_PROVIDERS, type LLMConfig } from '@browseros/shared/schemas/llm'
+import { INLINED_ENV } from '../../../env'
 import { logger } from '../../logger'
 import { fetchBrowserOSConfig, getLLMConfigFromProvider } from '../gateway'
 import type { ResolvedLLMConfig } from './types'
@@ -22,7 +23,7 @@ export async function resolveLLMConfig(
     return config as ResolvedLLMConfig
   }
 
-  const configUrl = process.env.BROWSEROS_CONFIG_URL
+  const configUrl = INLINED_ENV.BROWSEROS_CONFIG_URL
   if (!configUrl) {
     throw new Error(
       'BROWSEROS_CONFIG_URL environment variable is required for BrowserOS provider',

@@ -11,6 +11,7 @@ import path from 'node:path'
 import { Command, InvalidArgumentError } from 'commander'
 import { z } from 'zod'
 
+import { INLINED_ENV, REQUIRED_FOR_PRODUCTION } from './env'
 import { VERSION } from './version'
 
 const portSchema = z.number().int()
@@ -32,52 +33,47 @@ export const ServerConfigSchema = z.object({
 
 export type ServerConfig = z.infer<typeof ServerConfigSchema>
 
-type PartialConfig = {
-  cdpPort?: number | null
-  serverPort?: number
-  agentPort?: number
-  extensionPort?: number
-  resourcesDir?: string
-  executionDir?: string
-  mcpAllowRemote?: boolean
-  codegenServiceUrl?: string
-  instanceClientId?: string
-  instanceInstallId?: string
-  instanceBrowserosVersion?: string
-  instanceChromiumVersion?: string
-}
+type PartialConfig = Partial<z.input<typeof ServerConfigSchema>>
 
 export type ConfigResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: string }
 
+interface ParsedCliArgs {
+  configPath?: string
+  cwd: string
+  overrides: PartialConfig
+}
+
 export function loadServerConfig(
   argv: string[] = process.argv,
-  env: NodeJS.ProcessEnv = process.env,
 ): ConfigResult<ServerConfig> {
-  // 1. Parse CLI (commander with exitOverride - throws instead of exit)
-  const cli = parseCli(argv)
+  // 1. Parse CLI args
+  const cli = parseCliArgs(argv)
   if (!cli.ok) return cli
 
-  // 2. Load config file (only if --config provided)
-  const file = loadConfigFile(cli.value.configPath)
+  // 2. Parse config file (only if --config provided)
+  const file = parseConfigFile(cli.value.configPath)
   if (!file.ok) return file
 
-  // 3. Load from environment
-  const envConfig = loadEnv(env)
+  // 3. Parse runtime environment variables
+  const runtimeEnv = parseRuntimeEnv()
 
   // 4. Merge: Defaults < Env < File < CLI
-  const merged = merge(
-    defaults(cli.value.cwd),
-    envConfig,
+  const merged = mergeConfigs(
+    getDefaults(cli.value.cwd),
+    runtimeEnv,
     file.value,
     cli.value.overrides,
   )
 
-  // 5. agentPort is deprecated - always use serverPort
+  // 5. Add build-time inlined values
+  merged.codegenServiceUrl = INLINED_ENV.CODEGEN_SERVICE_URL
+
+  // 6. agentPort is deprecated - always equals serverPort
   merged.agentPort = merged.serverPort
 
-  // 6. Validate with Zod (single source of truth)
+  // 7. Validate with Zod
   const result = ServerConfigSchema.safeParse(merged)
   if (!result.success) {
     const errors = result.error.issues
@@ -89,16 +85,14 @@ export function loadServerConfig(
     }
   }
 
+  // 8. Validate required inlined env vars for production
+  const inlinedValidation = validateInlinedEnv()
+  if (!inlinedValidation.ok) return inlinedValidation
+
   return { ok: true, value: result.data }
 }
 
-interface CliResult {
-  configPath?: string
-  cwd: string
-  overrides: PartialConfig
-}
-
-function parseCli(argv: string[]): ConfigResult<CliResult> {
+function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
   const program = new Command()
 
   try {
@@ -179,15 +173,15 @@ function parseCli(argv: string[]): ConfigResult<CliResult> {
     value: {
       configPath: opts.config,
       cwd,
-      overrides: filterUndefined({
+      overrides: omitUndefined({
         cdpPort: opts.cdpPort,
         serverPort: opts.serverPort ?? opts.httpMcpPort,
         extensionPort: opts.extensionPort,
         resourcesDir: opts.resourcesDir
-          ? resolvePath(opts.resourcesDir, cwd)
+          ? toAbsolutePath(opts.resourcesDir, cwd)
           : undefined,
         executionDir: opts.executionDir
-          ? resolvePath(opts.executionDir, cwd)
+          ? toAbsolutePath(opts.executionDir, cwd)
           : undefined,
         mcpAllowRemote: opts.allowRemoteInMcp || undefined,
       }),
@@ -203,14 +197,14 @@ function parsePortArg(value: string): number {
   return port
 }
 
-function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
-  if (!explicitPath) {
+function parseConfigFile(filePath?: string): ConfigResult<PartialConfig> {
+  if (!filePath) {
     return { ok: true, value: {} }
   }
 
-  const absPath = path.isAbsolute(explicitPath)
-    ? explicitPath
-    : path.resolve(process.cwd(), explicitPath)
+  const absPath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(process.cwd(), filePath)
 
   if (!fs.existsSync(absPath)) {
     return { ok: false, error: `Config file not found: ${absPath}` }
@@ -223,18 +217,12 @@ function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
 
     return {
       ok: true,
-      value: filterUndefined({
+      value: omitUndefined({
         cdpPort: cfg.ports?.cdp,
         serverPort: cfg.ports?.server ?? cfg.ports?.http_mcp,
         extensionPort: cfg.ports?.extension,
-        resourcesDir: resolvePathIfString(
-          cfg.directories?.resources,
-          configDir,
-        ),
-        executionDir: resolvePathIfString(
-          cfg.directories?.execution,
-          configDir,
-        ),
+        resourcesDir: parseAbsolutePath(cfg.directories?.resources, configDir),
+        executionDir: parseAbsolutePath(cfg.directories?.execution, configDir),
         mcpAllowRemote:
           cfg.flags?.allow_remote_in_mcp === true ? true : undefined,
         instanceClientId:
@@ -261,36 +249,52 @@ function loadConfigFile(explicitPath?: string): ConfigResult<PartialConfig> {
   }
 }
 
-function loadEnv(env: NodeJS.ProcessEnv): PartialConfig {
+function parseRuntimeEnv(): PartialConfig {
   const cwd = process.cwd()
-  return filterUndefined({
-    cdpPort: env.BROWSEROS_CDP_PORT
-      ? safeParseInt(env.BROWSEROS_CDP_PORT)
+  return omitUndefined({
+    cdpPort: process.env.BROWSEROS_CDP_PORT
+      ? safeParseInt(process.env.BROWSEROS_CDP_PORT)
       : undefined,
-    serverPort: env.BROWSEROS_SERVER_PORT
-      ? safeParseInt(env.BROWSEROS_SERVER_PORT)
+    serverPort: process.env.BROWSEROS_SERVER_PORT
+      ? safeParseInt(process.env.BROWSEROS_SERVER_PORT)
       : undefined,
-    extensionPort: env.BROWSEROS_EXTENSION_PORT
-      ? safeParseInt(env.BROWSEROS_EXTENSION_PORT)
+    extensionPort: process.env.BROWSEROS_EXTENSION_PORT
+      ? safeParseInt(process.env.BROWSEROS_EXTENSION_PORT)
       : undefined,
-    resourcesDir: env.BROWSEROS_RESOURCES_DIR
-      ? resolvePath(env.BROWSEROS_RESOURCES_DIR, cwd)
+    resourcesDir: process.env.BROWSEROS_RESOURCES_DIR
+      ? toAbsolutePath(process.env.BROWSEROS_RESOURCES_DIR, cwd)
       : undefined,
-    executionDir: env.BROWSEROS_EXECUTION_DIR
-      ? resolvePath(env.BROWSEROS_EXECUTION_DIR, cwd)
+    executionDir: process.env.BROWSEROS_EXECUTION_DIR
+      ? toAbsolutePath(process.env.BROWSEROS_EXECUTION_DIR, cwd)
       : undefined,
-    codegenServiceUrl: env.CODEGEN_SERVICE_URL,
-    instanceInstallId: env.BROWSEROS_INSTALL_ID,
-    instanceClientId: env.BROWSEROS_CLIENT_ID,
+    instanceInstallId: process.env.BROWSEROS_INSTALL_ID,
+    instanceClientId: process.env.BROWSEROS_CLIENT_ID,
   })
 }
 
-function safeParseInt(value: string): number | undefined {
-  const num = parseInt(value, 10)
-  return Number.isNaN(num) ? undefined : num
+function validateInlinedEnv(): ConfigResult<void> {
+  if (process.env.NODE_ENV !== 'production') {
+    return { ok: true, value: undefined }
+  }
+
+  const missing: string[] = []
+  for (const varName of REQUIRED_FOR_PRODUCTION) {
+    if (!INLINED_ENV[varName]) {
+      missing.push(varName)
+    }
+  }
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `Missing required environment variables for production:\n${missing.map((v) => `  - ${v}`).join('\n')}`,
+    }
+  }
+
+  return { ok: true, value: undefined }
 }
 
-function defaults(cwd: string): PartialConfig {
+function getDefaults(cwd: string): PartialConfig {
   return {
     cdpPort: null,
     resourcesDir: cwd,
@@ -299,7 +303,7 @@ function defaults(cwd: string): PartialConfig {
   }
 }
 
-function merge(...configs: PartialConfig[]): PartialConfig {
+function mergeConfigs(...configs: PartialConfig[]): PartialConfig {
   const result: PartialConfig = {}
   for (const config of configs) {
     for (const [key, value] of Object.entries(config)) {
@@ -311,22 +315,22 @@ function merge(...configs: PartialConfig[]): PartialConfig {
   return result
 }
 
-function filterUndefined<T extends Record<string, unknown>>(
-  obj: T,
-): Partial<T> {
+function safeParseInt(value: string): number | undefined {
+  const num = parseInt(value, 10)
+  return Number.isNaN(num) ? undefined : num
+}
+
+function omitUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(obj).filter(([_, v]) => v !== undefined),
   ) as Partial<T>
 }
 
-function resolvePath(target: string, baseDir: string): string {
+function toAbsolutePath(target: string, baseDir: string): string {
   return path.isAbsolute(target) ? target : path.resolve(baseDir, target)
 }
 
-function resolvePathIfString(
-  val: unknown,
-  baseDir: string,
-): string | undefined {
+function parseAbsolutePath(val: unknown, baseDir: string): string | undefined {
   if (typeof val !== 'string') return undefined
-  return resolvePath(val, baseDir)
+  return toAbsolutePath(val, baseDir)
 }

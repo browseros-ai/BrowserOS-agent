@@ -5,7 +5,9 @@
 import { EXTERNAL_URLS } from '@browseros/shared/constants/urls'
 import { PostHog } from 'posthog-node'
 
-const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY
+import { INLINED_ENV } from '../env'
+
+const POSTHOG_API_KEY = INLINED_ENV.POSTHOG_API_KEY
 const EVENT_PREFIX = 'browseros.server.'
 
 export interface MetricsConfig {

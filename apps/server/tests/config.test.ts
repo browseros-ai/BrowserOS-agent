@@ -84,11 +84,11 @@ describe('loadServerConfig', () => {
 
   describe('environment variables', () => {
     it('reads from env when CLI not provided', () => {
-      const result = loadServerConfig(['bun', 'src/index.ts'], {
-        BROWSEROS_CDP_PORT: '9222',
-        BROWSEROS_SERVER_PORT: '9223',
-        BROWSEROS_EXTENSION_PORT: '9224',
-      })
+      process.env.BROWSEROS_CDP_PORT = '9222'
+      process.env.BROWSEROS_SERVER_PORT = '9223'
+      process.env.BROWSEROS_EXTENSION_PORT = '9224'
+
+      const result = loadServerConfig(['bun', 'src/index.ts'])
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
@@ -100,13 +100,15 @@ describe('loadServerConfig', () => {
     })
 
     it('CLI takes precedence over env', () => {
-      const result = loadServerConfig(
-        ['bun', 'src/index.ts', '--server-port=1111', '--extension-port=3333'],
-        {
-          BROWSEROS_SERVER_PORT: '9999',
-          BROWSEROS_EXTENSION_PORT: '9999',
-        },
-      )
+      process.env.BROWSEROS_SERVER_PORT = '9999'
+      process.env.BROWSEROS_EXTENSION_PORT = '9999'
+
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        '--server-port=1111',
+        '--extension-port=3333',
+      ])
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
@@ -188,10 +190,13 @@ describe('loadServerConfig', () => {
         }),
       )
 
-      const result = loadServerConfig(
-        ['bun', 'src/index.ts', `--config=${configPath}`],
-        { BROWSEROS_SERVER_PORT: '9999' },
-      )
+      process.env.BROWSEROS_SERVER_PORT = '9999'
+
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        `--config=${configPath}`,
+      ])
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return

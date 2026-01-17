@@ -8,6 +8,7 @@
 
 import { RATE_LIMITS } from '@browseros/shared/constants/limits'
 
+import { INLINED_ENV } from '../../env'
 import { fetchBrowserOSConfig } from '../clients/gateway'
 import { logger } from '../logger'
 
@@ -26,7 +27,7 @@ export async function fetchDailyRateLimit(
     return RATE_LIMITS.DEV_DAILY
   }
 
-  const configUrl = process.env.BROWSEROS_CONFIG_URL
+  const configUrl = INLINED_ENV.BROWSEROS_CONFIG_URL
   if (!configUrl) {
     logger.info('No BROWSEROS_CONFIG_URL, using default rate limit', {
       dailyRateLimit: RATE_LIMITS.DEFAULT_DAILY,
