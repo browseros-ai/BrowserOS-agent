@@ -126,6 +126,7 @@ export const ScheduledTasksPage: FC = () => {
             : undefined
         }
         onOpenChange={(open) => !open && setViewingRun(null)}
+        onRetry={viewingRun ? () => handleRun(viewingRun.jobId) : undefined}
       />
 
       <AlertDialog

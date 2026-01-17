@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Copy,
   Loader2,
+  Play,
   XCircle,
 } from 'lucide-react'
 import { type FC, useState } from 'react'
@@ -27,6 +28,7 @@ interface RunResultDialogProps {
   run: ScheduledJobRun | null
   jobName?: string
   onOpenChange: (open: boolean) => void
+  onRetry?: () => void
 }
 
 const formatDateTime = (dateStr: string) =>
@@ -46,6 +48,7 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
   run,
   jobName,
   onOpenChange,
+  onRetry,
 }) => {
   const [copied, setCopied] = useState(false)
 
@@ -54,6 +57,11 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
     await navigator.clipboard.writeText(run.result)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleRetry = () => {
+    onRetry?.()
+    onOpenChange(false)
   }
 
   if (!run) return null
@@ -116,6 +124,12 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
                   Copy
                 </>
               )}
+            </Button>
+          )}
+          {run.status === 'failed' && onRetry && (
+            <Button variant="outline" onClick={handleRetry}>
+              <Play className="h-4 w-4" />
+              Retry
             </Button>
           )}
           <Button onClick={() => onOpenChange(false)}>Close</Button>
