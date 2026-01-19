@@ -68,10 +68,6 @@ const settingsNavItems: NavItem[] = [
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
-const navItemClasses =
-  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-const activeNavItemClasses = 'bg-sidebar-accent text-sidebar-accent-foreground'
-
 export const SidebarNavigation: FC<SidebarNavigationProps> = ({
   expanded = true,
 }) => {
@@ -88,26 +84,6 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
     (item) => !item.feature || supports(item.feature),
   )
 
-  const NavItemWrapper = ({
-    item,
-    isActive,
-    children,
-  }: {
-    item: NavItem
-    isActive: boolean
-    children: React.ReactNode
-  }) => {
-    if (!expanded) {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>{children}</TooltipTrigger>
-          <TooltipContent side="right">{item.name}</TooltipContent>
-        </Tooltip>
-      )
-    }
-    return <>{children}</>
-  }
-
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
@@ -118,37 +94,53 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
               location.pathname === item.to ||
               location.pathname.startsWith(`${item.to}/`)
 
-            return (
-              <NavItemWrapper key={item.to} item={item} isActive={isActive}>
-                <NavLink
-                  to={item.to}
+            const navItem = (
+              <NavLink
+                to={item.to}
+                className={cn(
+                  'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  isActive &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground',
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span
                   className={cn(
-                    navItemClasses,
-                    isActive && activeNavItemClasses,
-                    !expanded && 'justify-center px-2',
+                    'truncate transition-opacity duration-200',
+                    expanded ? 'opacity-100' : 'opacity-0',
                   )}
                 >
-                  <Icon className="size-4 shrink-0" />
-                  {expanded && <span className="truncate">{item.name}</span>}
-                </NavLink>
-              </NavItemWrapper>
+                  {item.name}
+                </span>
+              </NavLink>
             )
+
+            if (!expanded) {
+              return (
+                <Tooltip key={item.to}>
+                  <TooltipTrigger asChild>{navItem}</TooltipTrigger>
+                  <TooltipContent side="right">{item.name}</TooltipContent>
+                </Tooltip>
+              )
+            }
+
+            return <div key={item.to}>{navItem}</div>
           })}
 
           {expanded ? (
             <Collapsible defaultOpen={isSettingsActive} className="space-y-1">
               <CollapsibleTrigger
                 className={cn(
-                  navItemClasses,
-                  'w-full justify-between',
-                  isSettingsActive && activeNavItemClasses,
+                  'flex h-9 w-full items-center justify-between gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  isSettingsActive &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground',
                 )}
               >
                 <div className="flex items-center gap-2">
                   <Bot className="size-4 shrink-0" />
-                  <span>Settings</span>
+                  <span className="truncate">Settings</span>
                 </div>
-                <ChevronRight className="size-4 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                <ChevronRight className="size-4 shrink-0 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
               </CollapsibleTrigger>
               <CollapsibleContent className="ml-4 space-y-1 border-l pl-2">
                 {filteredSettingsItems.map((item) => {
@@ -159,8 +151,9 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
                       key={item.to}
                       to={item.to}
                       className={cn(
-                        'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                        isActive && activeNavItemClasses,
+                        'flex h-8 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        isActive &&
+                          'bg-sidebar-accent text-sidebar-accent-foreground',
                       )}
                     >
                       <span className="truncate">{item.name}</span>
@@ -175,12 +168,15 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
                 <NavLink
                   to="/settings/ai"
                   className={cn(
-                    navItemClasses,
-                    'justify-center px-2',
-                    isSettingsActive && activeNavItemClasses,
+                    'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    isSettingsActive &&
+                      'bg-sidebar-accent text-sidebar-accent-foreground',
                   )}
                 >
                   <Bot className="size-4 shrink-0" />
+                  <span className="truncate opacity-0 transition-opacity duration-200">
+                    Settings
+                  </span>
                 </NavLink>
               </TooltipTrigger>
               <TooltipContent side="right">Settings</TooltipContent>

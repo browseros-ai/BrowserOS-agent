@@ -13,57 +13,63 @@ interface SidebarUserFooterProps {
   expanded?: boolean
 }
 
-const linkClasses =
-  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-
 export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
   expanded = true,
 }) => {
+  const signInButton = (
+    <Button
+      variant="outline"
+      className="h-9 w-full justify-start gap-2 overflow-hidden whitespace-nowrap px-3"
+      disabled
+    >
+      <LogIn className="size-4 shrink-0" />
+      <span
+        className={cn(
+          'truncate transition-opacity duration-200',
+          expanded ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        Sign in to BrowserOS
+      </span>
+    </Button>
+  )
+
+  const aboutLink = (
+    <a
+      href="https://docs.browseros.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    >
+      <Info className="size-4 shrink-0" />
+      <span
+        className={cn(
+          'truncate transition-opacity duration-200',
+          expanded ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        About BrowserOS
+      </span>
+    </a>
+  )
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="mt-auto space-y-1 border-t p-2">
         {expanded ? (
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-2"
-            disabled
-          >
-            <LogIn className="size-4 shrink-0" />
-            <span className="truncate">Sign in to BrowserOS</span>
-          </Button>
+          signInButton
         ) : (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" className="w-full" disabled>
-                <LogIn className="size-4" />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger asChild>{signInButton}</TooltipTrigger>
             <TooltipContent side="right">Sign in to BrowserOS</TooltipContent>
           </Tooltip>
         )}
 
         {expanded ? (
-          <a
-            href="https://docs.browseros.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={linkClasses}
-          >
-            <Info className="size-4 shrink-0" />
-            <span className="truncate">About BrowserOS</span>
-          </a>
+          aboutLink
         ) : (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <a
-                href="https://docs.browseros.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(linkClasses, 'justify-center px-2')}
-              >
-                <Info className="size-4 shrink-0" />
-              </a>
-            </TooltipTrigger>
+            <TooltipTrigger asChild>{aboutLink}</TooltipTrigger>
             <TooltipContent side="right">About BrowserOS</TooltipContent>
           </Tooltip>
         )}
