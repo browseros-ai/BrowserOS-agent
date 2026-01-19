@@ -53,11 +53,21 @@ export async function executeGraph(
     // Transform code: remove import statements (Agent is passed directly)
     const transformedCode = transformCodeForExecution(code)
 
+    // DEBUG: Write to /tmp for inspection
+    await Bun.write('/tmp/current_code.ts', transformedCode)
+
     // Write code to file
     const codePath = path.join(execDir, 'graph.ts')
     await Bun.write(codePath, transformedCode)
 
     logger.debug(`Wrote graph code to ${codePath}`)
+
+    logger.debug('executeGraph creating Agent with browserContext', {
+      sessionId,
+      windowId: options.browserContext?.windowId,
+      hasActiveTab: !!options.browserContext?.activeTab,
+      hasMcpServers: !!options.browserContext?.enabledMcpServers?.length,
+    })
 
     // Create Agent instance with progress callback
     const agent = new Agent({
