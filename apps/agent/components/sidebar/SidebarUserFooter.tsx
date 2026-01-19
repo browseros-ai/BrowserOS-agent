@@ -1,6 +1,9 @@
-import { Info, LogIn } from 'lucide-react'
+import {
+  Info,
+  // LogIn
+} from 'lucide-react'
 import type { FC } from 'react'
-import { Button } from '@/components/ui/button'
+// import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -16,23 +19,23 @@ interface SidebarUserFooterProps {
 export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
   expanded = true,
 }) => {
-  const signInButton = (
-    <Button
-      variant="outline"
-      className="h-9 w-full justify-start gap-2 overflow-hidden whitespace-nowrap px-3"
-      disabled
-    >
-      <LogIn className="size-4 shrink-0" />
-      <span
-        className={cn(
-          'truncate transition-opacity duration-200',
-          expanded ? 'opacity-100' : 'opacity-0',
-        )}
-      >
-        Sign in to BrowserOS
-      </span>
-    </Button>
-  )
+  // const signInButton = (
+  //   <Button
+  //     variant="outline"
+  //     className="h-9 w-full justify-start gap-2 overflow-hidden whitespace-nowrap px-3"
+  //     disabled
+  //   >
+  //     <LogIn className="size-4 shrink-0" />
+  //     <span
+  //       className={cn(
+  //         'truncate transition-opacity duration-200',
+  //         expanded ? 'opacity-100' : 'opacity-0',
+  //       )}
+  //     >
+  //       Sign in to BrowserOS
+  //     </span>
+  //   </Button>
+  // )
 
   const aboutLink = (
     <a
@@ -56,14 +59,14 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
   return (
     <TooltipProvider delayDuration={0}>
       <div className="mt-auto space-y-1 border-t p-2">
-        {expanded ? (
+        {/*{expanded ? (
           signInButton
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>{signInButton}</TooltipTrigger>
             <TooltipContent side="right">Sign in to BrowserOS</TooltipContent>
           </Tooltip>
-        )}
+        )}*/}
 
         {expanded ? (
           aboutLink
