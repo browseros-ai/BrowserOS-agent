@@ -231,6 +231,8 @@ async function compileTarget(
     )
   }
 }
+rmSync(SOURCEMAPS_DIR, { recursive: true, force: true })
+mkdirSync(SOURCEMAPS_DIR, { recursive: true })
 
 async function buildSourceMaps(buildEnv: NodeJS.ProcessEnv): Promise<void> {
   const args = [
