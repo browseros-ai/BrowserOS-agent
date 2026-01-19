@@ -55,7 +55,7 @@ export const Personalize = () => {
     <div className="pt-[max(5vh,16px)]">
       <div className="absolute top-6 left-6 z-10">
         <Button variant="outline" asChild className="rounded-xl">
-          <NavLink to="/" className="gap-2">
+          <NavLink to="/home" className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Back
           </NavLink>

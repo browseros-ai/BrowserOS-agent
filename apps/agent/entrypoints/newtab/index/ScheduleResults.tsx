@@ -153,7 +153,7 @@ export const ScheduleResults: FC = () => {
         <Button variant="ghost" asChild className="w-full">
           {/* biome-ignore lint/a11y/useValidAnchor: click handler is passive */}
           <a
-            href="/options.html#/scheduled"
+            href="/app.html#/scheduled"
             onClick={() => track(SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT)}
           >
             View more

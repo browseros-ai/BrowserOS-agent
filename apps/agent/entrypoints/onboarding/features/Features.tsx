@@ -214,7 +214,7 @@ export const FeaturesPage: FC = () => {
   }, [])
 
   const handleStart = async () => {
-    const newtabUrl = chrome.runtime.getURL('newtab.html')
+    const newtabUrl = chrome.runtime.getURL('app.html')
     const [currentTab] = await chrome.tabs.query({
       active: true,
       currentWindow: true,
