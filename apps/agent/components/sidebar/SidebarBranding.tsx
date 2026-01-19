@@ -14,30 +14,24 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
   const { selectedFolder } = useWorkspace()
 
   return (
-    <div className="flex h-14 items-center justify-between overflow-hidden border-b px-3">
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <img src={ProductLogo} alt="BrowserOS" className="size-5" />
-        </div>
-        <div
-          className={cn(
-            'flex min-w-0 flex-col gap-0.5 leading-none transition-opacity duration-200',
-            expanded ? 'opacity-100' : 'opacity-0',
-          )}
-        >
+    <div className="flex h-14 items-center border-b">
+      <div className="flex w-14 shrink-0 items-center justify-center">
+        <img src={ProductLogo} alt="BrowserOS" className="size-8" />
+      </div>
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 items-center justify-between pr-3 transition-opacity duration-200',
+          expanded ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        <div className="flex min-w-0 flex-col gap-0.5 leading-none">
           <span className="truncate font-semibold">
             {selectedFolder?.name || 'BrowserOS'}
           </span>
           <span className="text-muted-foreground text-xs">Personal</span>
         </div>
+        <ThemeToggle className="h-8 w-8 shrink-0" iconClassName="h-4 w-4" />
       </div>
-      <ThemeToggle
-        className={cn(
-          'h-8 w-8 shrink-0 transition-opacity duration-200',
-          expanded ? 'opacity-100' : 'opacity-0',
-        )}
-        iconClassName="h-4 w-4"
-      />
     </div>
   )
 }
