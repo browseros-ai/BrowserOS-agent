@@ -39,7 +39,7 @@ export const ThemeToggle: FC<ThemeToggleProps> = ({
   const CurrentIcon = currentTheme?.icon || Monitor
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"

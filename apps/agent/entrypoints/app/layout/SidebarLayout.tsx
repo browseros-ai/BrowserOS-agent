@@ -1,6 +1,6 @@
 import { Menu } from 'lucide-react'
 import type { FC } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { AppSidebar } from '@/components/sidebar/AppSidebar'
 import { Button } from '@/components/ui/button'
@@ -10,11 +10,14 @@ import { SETTINGS_PAGE_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { RpcClientProvider } from '@/lib/rpc/RpcClientProvider'
 
+const COLLAPSE_DELAY = 150
+
 export const SidebarLayout: FC = () => {
   const location = useLocation()
   const isMobile = useIsMobile()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     track(SETTINGS_PAGE_VIEWED_EVENT, { page: location.pathname })
@@ -22,6 +25,28 @@ export const SidebarLayout: FC = () => {
 
   useEffect(() => {
     setMobileOpen(false)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimeoutRef.current) {
+        clearTimeout(collapseTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleMouseEnter = useCallback(() => {
+    if (collapseTimeoutRef.current) {
+      clearTimeout(collapseTimeoutRef.current)
+      collapseTimeoutRef.current = null
+    }
+    setSidebarOpen(true)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    collapseTimeoutRef.current = setTimeout(() => {
+      setSidebarOpen(false)
+    }, COLLAPSE_DELAY)
   }, [])
 
   if (isMobile) {
@@ -58,12 +83,11 @@ export const SidebarLayout: FC = () => {
     <RpcClientProvider>
       <div className="relative min-h-screen bg-background">
         {/* Sidebar - fixed overlay */}
-
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: needed here*/}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: hover interactions needed */}
         <div
           className="fixed inset-y-0 left-0 z-40"
-          onMouseEnter={() => setSidebarOpen(true)}
-          onMouseLeave={() => setSidebarOpen(false)}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         >
           <AppSidebar expanded={sidebarOpen} />
         </div>
