@@ -29,12 +29,23 @@ import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { parse } from 'dotenv'
+
+import { log } from './log'
 import { wasmBinaryPlugin } from './plugins/wasm-binary'
 
 interface BuildTarget {
   name: string
   bunTarget: string
   outfile: string
+}
+
+interface BuildConfig {
+  mode: 'prod' | 'dev'
+  targets: string[]
+  version: string
+  envVars: Record<string, string>
+  buildEnv: NodeJS.ProcessEnv
+  rootDir: string
 }
 
 const TARGETS: Record<string, BuildTarget> = {
@@ -65,6 +76,9 @@ const TARGETS: Record<string, BuildTarget> = {
   },
 }
 
+const BUNDLE_DIR = 'dist/server/bundle'
+const BUNDLE_ENTRY = join(BUNDLE_DIR, 'index.js')
+const SOURCEMAPS_DIR = 'dist/server/sourcemaps'
 const MINIMAL_SYSTEM_VARS = ['PATH']
 
 const REQUIRED_PROD_VARS = [
@@ -86,8 +100,7 @@ function parseArgs(): { mode: 'prod' | 'dev'; targets: string[] } {
     if (arg.startsWith('--mode=')) {
       const modeValue = arg.split('=')[1]
       if (modeValue !== 'prod' && modeValue !== 'dev') {
-        console.error(`Invalid mode: ${modeValue}. Must be 'prod' or 'dev'`)
-        process.exit(1)
+        throw new Error(`Invalid mode: ${modeValue}. Must be 'prod' or 'dev'`)
       }
       mode = modeValue
     } else if (arg.startsWith('--target=')) {
@@ -102,11 +115,9 @@ function parseArgs(): { mode: 'prod' | 'dev'; targets: string[] } {
 
   for (const target of targets) {
     if (!TARGETS[target]) {
-      console.error(`Invalid target: ${target}`)
-      console.error(
-        `Available targets: ${Object.keys(TARGETS).join(', ')}, all`,
+      throw new Error(
+        `Invalid target: ${target}. Available: ${Object.keys(TARGETS).join(', ')}, all`,
       )
-      process.exit(1)
     }
   }
 
@@ -114,52 +125,42 @@ function parseArgs(): { mode: 'prod' | 'dev'; targets: string[] } {
 }
 
 function loadEnvFile(path: string): Record<string, string> {
-  try {
-    const content = readFileSync(path, 'utf-8')
-    const parsed = parse(content)
-    return parsed
-  } catch (error) {
-    console.error(`Failed to load ${path}:`, error)
-    process.exit(1)
-  }
+  const content = readFileSync(path, 'utf-8')
+  return parse(content)
 }
 
 function validateProdEnv(envVars: Record<string, string>): void {
-  const missing: string[] = []
-
-  for (const varName of REQUIRED_PROD_VARS) {
-    if (!envVars[varName] || envVars[varName].trim() === '') {
-      missing.push(varName)
-    }
-  }
+  const missing = REQUIRED_PROD_VARS.filter(
+    (v) => !envVars[v] || envVars[v].trim() === '',
+  )
 
   if (missing.length > 0) {
-    console.error(
-      `\n❌ Production build requires the following environment variables:`,
+    throw new Error(
+      `Production build requires: ${missing.join(', ')}. Set these in .env.production`,
     )
-    for (const varName of missing) {
-      console.error(`   - ${varName}`)
-    }
-    console.error(`\n   Please set these in .env.production`)
-    process.exit(1)
   }
 }
 
-function createCleanEnv(
+function createBuildEnv(
+  mode: 'prod' | 'dev',
   envVars: Record<string, string>,
-): Record<string, string> {
-  const cleanEnv: Record<string, string> = {}
-
-  for (const varName of MINIMAL_SYSTEM_VARS) {
-    const value = process.env[varName]
-    if (value) {
-      cleanEnv[varName] = value
-    }
+): NodeJS.ProcessEnv {
+  if (mode === 'dev') {
+    return { ...process.env, ...envVars }
   }
 
-  Object.assign(cleanEnv, envVars)
+  const cleanEnv: Record<string, string> = {}
+  for (const varName of MINIMAL_SYSTEM_VARS) {
+    const value = process.env[varName]
+    if (value) cleanEnv[varName] = value
+  }
+  return { ...cleanEnv, ...envVars }
+}
 
-  return cleanEnv
+function getServerVersion(rootDir: string): string {
+  const pkgPath = join(rootDir, 'apps/server/package.json')
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+  return pkg.version
 }
 
 function runCommand(
@@ -168,33 +169,19 @@ function runCommand(
   env: NodeJS.ProcessEnv,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      env,
-      stdio: 'inherit',
-    })
-
-    child.on('close', (code) => {
-      if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`Command exited with code ${code}`))
-      }
-    })
-
-    child.on('error', (error) => {
-      reject(error)
-    })
+    const child = spawn(command, args, { env, stdio: 'inherit' })
+    child.on('close', (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(`Command exited with code ${code}`)),
+    )
+    child.on('error', reject)
   })
 }
-
-const BUNDLE_DIR = 'dist/server/bundle'
-const BUNDLE_ENTRY = join(BUNDLE_DIR, 'index.js')
 
 async function bundleWithPlugins(
   envVars: Record<string, string>,
 ): Promise<void> {
-  console.log('\n📦 Bundling with WASM plugin...')
-
   rmSync(BUNDLE_DIR, { recursive: true, force: true })
   mkdirSync(BUNDLE_DIR, { recursive: true })
 
@@ -215,24 +202,42 @@ async function bundleWithPlugins(
   })
 
   if (!result.success) {
-    console.error('Bundle failed:')
-    for (const log of result.logs) {
-      console.error(log)
-    }
+    for (const entry of result.logs) log.error(String(entry))
     throw new Error('Bundle with plugins failed')
   }
-
-  console.log('✅ Bundle created with embedded WASM')
 }
 
-async function buildSourceMapBundle(
+async function compileTarget(
+  target: BuildTarget,
   buildEnv: NodeJS.ProcessEnv,
 ): Promise<void> {
   const args = [
     'build',
+    '--compile',
+    BUNDLE_ENTRY,
+    '--outfile',
+    target.outfile,
+    `--target=${target.bunTarget}`,
+    '--external=node-pty',
+  ]
+
+  await runCommand('bun', args, buildEnv)
+
+  if (target.outfile.endsWith('.exe')) {
+    await runCommand(
+      'bun',
+      ['scripts/patch-windows-exe.ts', target.outfile],
+      process.env,
+    )
+  }
+}
+
+async function buildSourceMaps(buildEnv: NodeJS.ProcessEnv): Promise<void> {
+  const args = [
+    'build',
     'apps/server/src/index.ts',
     '--outdir',
-    'dist/server/sourcemaps',
+    SOURCEMAPS_DIR,
     '--target=bun',
     '--minify',
     '--sourcemap=external',
@@ -258,127 +263,89 @@ async function uploadSourceMaps(
 
   await runCommand(
     'sentry-cli',
-    ['sourcemaps', 'inject', 'dist/server/sourcemaps'],
+    ['sourcemaps', 'inject', SOURCEMAPS_DIR],
     uploadEnv,
   )
-
   await runCommand(
     'sentry-cli',
-    ['sourcemaps', 'upload', '--release', version, 'dist/server/sourcemaps'],
+    ['sourcemaps', 'upload', '--release', version, SOURCEMAPS_DIR],
     uploadEnv,
   )
 }
 
-async function buildTarget(
-  target: BuildTarget,
-  buildEnv: NodeJS.ProcessEnv,
-): Promise<void> {
-  console.log(`\n📦 Compiling ${target.name}...`)
+async function build(config: BuildConfig): Promise<void> {
+  const { mode, targets, version, envVars, buildEnv } = config
+  const shouldUploadSourceMaps = mode === 'prod' && envVars.SENTRY_AUTH_TOKEN
 
-  const args = [
-    'build',
-    '--compile',
-    BUNDLE_ENTRY,
-    '--outfile',
-    target.outfile,
-    `--target=${target.bunTarget}`,
-    '--external=node-pty',
-  ]
-
-  try {
-    await runCommand('bun', args, buildEnv)
-    console.log(`✅ ${target.name} built successfully`)
-
-    if (target.outfile.endsWith('.exe')) {
-      console.log(`🔧 Patching Windows executable...`)
-      await runCommand(
-        'bun',
-        ['scripts/patch-windows-exe.ts', target.outfile],
-        process.env,
-      )
-    }
-  } catch (error) {
-    console.error(`❌ Failed to build ${target.name}:`, error)
-    throw error
-  }
-}
-
-async function main() {
-  const { mode, targets } = parseArgs()
-  const rootDir = resolve(import.meta.dir, '../..')
-  process.chdir(rootDir)
-
-  const serverPkg = JSON.parse(
-    readFileSync(join(rootDir, 'apps/server/package.json'), 'utf-8'),
-  )
-  const version = serverPkg.version
-
-  console.log(`🚀 Building BrowserOS server binaries`)
-  console.log(`   Version: ${version}`)
-  console.log(`   Mode: ${mode}`)
-  console.log(`   Targets: ${targets.join(', ')}`)
-  console.log(
-    `\n   Tip: bun run version:server [patch|minor|major] to bump version`,
-  )
-
-  const envFile =
-    mode === 'prod' ? '.env.production' : 'apps/server/.env.development'
-  const envPath = join(rootDir, envFile)
-
-  console.log(`\n📄 Loading environment from ${envFile}...`)
-  const envVars = loadEnvFile(envPath)
-  console.log(`   Loaded ${Object.keys(envVars).length} variables`)
+  log.header(`Building BrowserOS server v${version}`)
+  log.info(`Mode: ${mode}`)
+  log.info(`Targets: ${targets.join(', ')}`)
 
   if (mode === 'prod') {
-    validateProdEnv(envVars)
-    console.log(
-      `\n🔒 Production mode: Using CLEAN environment (only ${envFile} + minimal system vars)`,
+    log.info(
+      `Environment: clean (only .env.production + ${MINIMAL_SYSTEM_VARS.join(', ')})`,
     )
-    console.log(`   System vars: ${MINIMAL_SYSTEM_VARS.join(', ')}`)
   } else {
-    console.log(`\n🔓 Development mode: Using shell environment + ${envFile}`)
+    log.info('Environment: shell + .env.development')
   }
 
   mkdirSync('dist/server', { recursive: true })
 
-  const buildEnv =
-    mode === 'prod' ? createCleanEnv(envVars) : { ...process.env, ...envVars }
-
-  const shouldUploadSourceMaps = mode === 'prod' && envVars.SENTRY_AUTH_TOKEN
-
   if (shouldUploadSourceMaps) {
-    console.log(`\n🗺️  Building source map bundle...`)
-    await buildSourceMapBundle(buildEnv)
-    console.log(`✅ Source map bundle created`)
+    log.step('Building source maps...')
+    await buildSourceMaps(buildEnv)
+    log.success('Source maps built')
   }
 
+  log.step('Bundling with WASM plugin...')
   await bundleWithPlugins(envVars)
+  log.success('Bundle created with embedded WASM')
 
   for (const targetKey of targets) {
     const target = TARGETS[targetKey]
-    await buildTarget(target, buildEnv)
+    log.step(`Compiling ${target.name}...`)
+    await compileTarget(target, buildEnv)
+    log.success(`${target.name} compiled`)
   }
 
   rmSync(BUNDLE_DIR, { recursive: true, force: true })
 
   if (shouldUploadSourceMaps) {
-    console.log(
-      `\n📤 Injecting debug IDs and uploading source maps to Sentry...`,
-    )
+    log.step('Uploading source maps to Sentry...')
     await uploadSourceMaps(version, envVars)
-    console.log(`✅ Source maps injected and uploaded`)
-
-    rmSync('dist/server/sourcemaps', { recursive: true, force: true })
+    log.success('Source maps uploaded')
+    rmSync(SOURCEMAPS_DIR, { recursive: true, force: true })
   }
 
-  console.log(`\n✨ All builds completed successfully!`)
-  console.log(`\n📦 Output files:`)
+  log.done('Build completed')
   for (const targetKey of targets) {
-    console.log(`   ${TARGETS[targetKey].outfile}`)
+    log.info(TARGETS[targetKey].outfile)
   }
 }
 
+async function main(): Promise<void> {
+  const rootDir = resolve(import.meta.dir, '../..')
+  process.chdir(rootDir)
+
+  const { mode, targets } = parseArgs()
+  const version = getServerVersion(rootDir)
+
+  const envFile =
+    mode === 'prod'
+      ? 'apps/server/.env.production'
+      : 'apps/server/.env.development'
+  const envVars = loadEnvFile(join(rootDir, envFile))
+
+  if (mode === 'prod') {
+    validateProdEnv(envVars)
+  }
+
+  const buildEnv = createBuildEnv(mode, envVars)
+
+  await build({ mode, targets, version, envVars, buildEnv, rootDir })
+}
+
 main().catch((error) => {
-  console.error('\n💥 Build failed:', error)
+  log.fail(error.message)
   process.exit(1)
 })
