@@ -9,6 +9,7 @@ import {
   PlugZap,
   RotateCcw,
   Server,
+  UserPen,
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -47,6 +48,11 @@ const primaryNavItems: NavItem[] = [
     feature: Feature.WORKFLOW_SUPPORT,
   },
   { name: 'Scheduled', to: '/scheduled', icon: CalendarClock },
+  {
+    name: 'Personalize',
+    to: '/home/personalize',
+    icon: UserPen,
+  },
 ]
 
 const settingsNavItems: NavItem[] = [

@@ -1,6 +1,5 @@
-import { ArrowLeft, Check, ChevronDown, Copy } from 'lucide-react'
+import { Check, ChevronDown, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -53,15 +52,6 @@ export const Personalize = () => {
 
   return (
     <div className="pt-[max(5vh,16px)]">
-      <div className="absolute top-6 left-6 z-10">
-        <Button variant="outline" asChild className="rounded-xl">
-          <NavLink to="/home" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </NavLink>
-        </Button>
-      </div>
-
       <div className="relative flex min-h-screen items-center justify-center px-4 py-16 md:w-xl">
         <div className={`w-full max-w-3xl space-y-8 duration-700`}>
           <NewTabBranding />
