@@ -111,11 +111,6 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
-        {expanded && (
-          <div className="mb-2 px-3 font-medium text-sidebar-foreground/70 text-xs">
-            Navigation
-          </div>
-        )}
         <nav className="space-y-1">
           {filteredPrimaryItems.map((item) => {
             const Icon = item.icon
