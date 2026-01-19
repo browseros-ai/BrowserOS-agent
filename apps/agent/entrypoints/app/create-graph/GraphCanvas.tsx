@@ -211,7 +211,7 @@ export const GraphCanvas: FC<GraphCanvasProps> = ({
     navigate(-1)
   }
 
-  const canTest = !!codeId
+  const canTest = true // Always enabled for testing iteration
   const canSave = !!graphName && !!codeId && hasUnsavedChanges
 
   const getTestTooltip = () => {
