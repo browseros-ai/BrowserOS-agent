@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Palette,
   PlugZap,
+  RotateCcw,
   Server,
 } from 'lucide-react'
 import type { FC } from 'react'
@@ -65,6 +66,7 @@ const settingsNavItems: NavItem[] = [
     icon: Palette,
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
+  { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
 export const SidebarNavigation: FC = () => {
