@@ -10,7 +10,7 @@ import {
   RotateCcw,
   Server,
 } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import {
   Collapsible,
@@ -68,6 +68,8 @@ const settingsNavItems: NavItem[] = [
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
+const SETTINGS_COLLAPSED_KEY = 'sidebar-settings-collapsed'
+
 export const SidebarNavigation: FC<SidebarNavigationProps> = ({
   expanded = true,
 }) => {
@@ -75,6 +77,23 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
   const { supports } = useCapabilities()
 
   const isSettingsActive = location.pathname.startsWith('/settings')
+
+  const [settingsOpen, setSettingsOpen] = useState(() => {
+    if (typeof window === 'undefined') return true
+    const stored = localStorage.getItem(SETTINGS_COLLAPSED_KEY)
+    return stored === null ? true : stored !== 'true'
+  })
+
+  useEffect(() => {
+    if (isSettingsActive && !settingsOpen) {
+      setSettingsOpen(true)
+    }
+  }, [isSettingsActive, settingsOpen])
+
+  const handleSettingsOpenChange = (open: boolean) => {
+    setSettingsOpen(open)
+    localStorage.setItem(SETTINGS_COLLAPSED_KEY, (!open).toString())
+  }
 
   const filteredPrimaryItems = primaryNavItems.filter(
     (item) => !item.feature || supports(item.feature),
@@ -128,7 +147,11 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
           })}
 
           {expanded ? (
-            <Collapsible defaultOpen={isSettingsActive} className="space-y-1">
+            <Collapsible
+              open={settingsOpen}
+              onOpenChange={handleSettingsOpenChange}
+              className="space-y-1"
+            >
               <CollapsibleTrigger
                 className={cn(
                   'flex h-9 w-full items-center justify-between gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
