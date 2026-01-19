@@ -106,7 +106,11 @@ export const StepsLayout = () => {
             >
               <NavLink
                 onClick={onClickPrevious}
-                to={canGoPrevious ? `/steps/${currentStep - 1}` : '/'}
+                to={
+                  canGoPrevious
+                    ? `/onboarding/steps/${currentStep - 1}`
+                    : '/onboarding'
+                }
               >
                 <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
                 Previous
@@ -118,7 +122,10 @@ export const StepsLayout = () => {
                 asChild
                 className="group bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
               >
-                <NavLink onClick={onClickNext} to={`/steps/${currentStep + 1}`}>
+                <NavLink
+                  onClick={onClickNext}
+                  to={`/onboarding/steps/${currentStep + 1}`}
+                >
                   Next
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </NavLink>

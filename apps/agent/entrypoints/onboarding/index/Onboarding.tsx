@@ -72,7 +72,7 @@ export const Onboarding: FC = () => {
                 asChild
                 className="group bg-primary font-medium text-primary-foreground transition-transform duration-200 hover:scale-105 hover:bg-primary/90"
               >
-                <NavLink to="/steps/1">
+                <NavLink to="/onboarding/steps/1">
                   Get Started
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </NavLink>

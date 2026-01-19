@@ -158,7 +158,7 @@ export const StepThree: FC<StepThreeProps> = ({ direction }) => {
             asChild
             className="h-11 bg-[var(--accent-orange)] px-8 text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
           >
-            <NavLink to="/features">
+            <NavLink to="/onboarding/features">
               Explore Features
               <ArrowRight className="ml-2 h-4 w-4" />
             </NavLink>

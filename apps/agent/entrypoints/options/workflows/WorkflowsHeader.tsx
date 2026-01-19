@@ -21,7 +21,7 @@ export const WorkflowsHeader: FC = () => {
           className="border-[var(--accent-orange)] bg-[var(--accent-orange)]/10 text-[var(--accent-orange)] hover:bg-[var(--accent-orange)]/20 hover:text-[var(--accent-orange)]"
           variant="outline"
         >
-          <NavLink to="/create-graph">
+          <NavLink to="/options/create-graph">
             <Plus className="mr-1.5 h-4 w-4" />
             New Workflow
           </NavLink>
