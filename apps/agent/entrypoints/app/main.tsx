@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider.tsx'
 import { Toaster } from '@/components/ui/sonner'
 import { AnalyticsProvider } from '@/lib/analytics/AnalyticsProvider.tsx'
 import { sentryRootErrorHandler } from '@/lib/sentry/sentryRootErrorHandler.ts'
-import { UnifiedApp } from '../shared/UnifiedApp'
+import { App } from './App'
 
 const $root = document.getElementById('root')
 
@@ -14,7 +14,7 @@ if ($root) {
     <React.StrictMode>
       <AnalyticsProvider>
         <ThemeProvider>
-          <UnifiedApp initialRoute="/onboarding" />
+          <App />
           <Toaster />
         </ThemeProvider>
       </AnalyticsProvider>

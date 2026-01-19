@@ -1,5 +1,5 @@
-import { type FC, Suspense, useEffect } from 'react'
-import { HashRouter, Navigate, Route, Routes, useNavigate } from 'react-router'
+import { type FC, Suspense } from 'react'
+import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import { RpcClientProvider } from '@/lib/rpc/RpcClientProvider'
 
 import { NewTab } from '../newtab/index/NewTab'
@@ -10,20 +10,16 @@ import { FeaturesPage } from '../onboarding/features/Features'
 import { Onboarding } from '../onboarding/index/Onboarding'
 import { StepsLayout } from '../onboarding/steps/StepsLayout'
 
-import { AISettingsPage } from '../options/ai-settings/AISettingsPage'
-import { ConnectMCP } from '../options/connect-mcp/ConnectMCP'
-import { CreateGraph } from '../options/create-graph/CreateGraph'
-import { CustomizationPage } from '../options/customization/CustomizationPage'
-import { SurveyPage } from '../options/jtbd-agent/SurveyPage'
-import { DashboardLayout } from '../options/layout/DashboardLayout'
-import { LlmHubPage } from '../options/llm-hub/LlmHubPage'
-import { MCPSettingsPage } from '../options/mcp-settings/MCPSettingsPage'
-import { ScheduledTasksPage } from '../options/scheduled-tasks/ScheduledTasksPage'
-import { WorkflowsPage } from '../options/workflows/WorkflowsPage'
-
-type UnifiedAppProps = {
-  initialRoute: string
-}
+import { AISettingsPage } from './ai-settings/AISettingsPage'
+import { ConnectMCP } from './connect-mcp/ConnectMCP'
+import { CreateGraph } from './create-graph/CreateGraph'
+import { CustomizationPage } from './customization/CustomizationPage'
+import { SurveyPage } from './jtbd-agent/SurveyPage'
+import { DashboardLayout } from './layout/DashboardLayout'
+import { LlmHubPage } from './llm-hub/LlmHubPage'
+import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
+import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
+import { WorkflowsPage } from './workflows/WorkflowsPage'
 
 function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
   const params = new URLSearchParams(window.location.search)
@@ -38,19 +34,6 @@ function getOptionsInitialRoute(): string {
   const page = params.get('page')
   if (page === 'survey') return '/options/jtbd-agent'
   return '/options/ai'
-}
-
-const InitialNavigator: FC<{ initialRoute: string }> = ({ initialRoute }) => {
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    const currentHash = window.location.hash
-    if (!currentHash || currentHash === '#' || currentHash === '#/') {
-      navigate(initialRoute, { replace: true })
-    }
-  }, [initialRoute, navigate])
-
-  return null
 }
 
 const OptionsRouteWrapper: FC = () => {
@@ -84,13 +67,12 @@ const OptionsRouteWrapper: FC = () => {
   )
 }
 
-export const UnifiedApp: FC<UnifiedAppProps> = ({ initialRoute }) => {
+export const App: FC = () => {
   return (
     <HashRouter>
       <Suspense fallback={<div className="h-dvh w-dvw bg-background" />}>
-        <InitialNavigator initialRoute={initialRoute} />
         <Routes>
-          {/* Newtab routes */}
+          {/* Newtab routes (root) */}
           <Route element={<NewTabLayout />}>
             <Route index element={<NewTab />} />
             <Route path="personalize" element={<Personalize />} />
@@ -106,8 +88,8 @@ export const UnifiedApp: FC<UnifiedAppProps> = ({ initialRoute }) => {
           {/* Options routes - wrapped with RpcClientProvider */}
           <Route path="options/*" element={<OptionsRouteWrapper />} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to={initialRoute} replace />} />
+          {/* Fallback to newtab */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </HashRouter>

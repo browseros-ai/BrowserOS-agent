@@ -19,7 +19,7 @@ export default defineConfig({
     // update_url: 'https://cdn.browseros.com/extensions/update-manifest.alpha.xml',
     web_accessible_resources: [
       {
-        resources: ['onboarding.html', 'options.html'],
+        resources: ['app.html'],
         matches: [
           `https://${PRODUCT_WEB_HOST}/*`,
           `https://*.${PRODUCT_WEB_HOST}/*`,
@@ -28,7 +28,11 @@ export default defineConfig({
       },
     ],
     chrome_url_overrides: {
-      newtab: 'newtab.html',
+      newtab: 'app.html',
+    },
+    options_ui: {
+      page: 'app.html#/options',
+      open_in_tab: true,
     },
     action: {
       default_icon: {

@@ -87,9 +87,8 @@ const navigationItems: NavItem[] = [
 
   {
     name: 'Revisit Onboarding',
-    to: chrome.runtime.getURL('onboarding.html#/onboarding'),
+    to: '/onboarding',
     icon: RotateCcw,
-    target: '_blank',
     enabled: true,
   },
   {
