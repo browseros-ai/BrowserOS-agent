@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Folder, FolderOpen, Home, X } from 'lucide-react'
+import { Check, ChevronDown, Folder, FolderOpen, Globe, X } from 'lucide-react'
 import type { FC, PropsWithChildren } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -85,7 +85,7 @@ export const WorkspaceSelector: FC<
           >
             <Folder className="h-4 w-4" />
             <span>
-              {selectedFolder ? selectedFolder.name : 'Work in a folder'}
+              {selectedFolder ? selectedFolder.name : 'Add workspace'}
             </span>
             <ChevronDown className="h-3 w-3" />
           </Button>
@@ -114,8 +114,13 @@ export const WorkspaceSelector: FC<
             !selectedFolder && 'bg-muted',
           )}
         >
-          <Home className="h-4 w-4 text-muted-foreground" />
-          <span className="flex-1 text-sm">Use default</span>
+          <Globe className="h-4 w-4 text-muted-foreground" />
+          <div className="flex-1">
+            <div className="text-sm">No workspace</div>
+            <div className="text-muted-foreground text-xs">
+              AI works with tabs only
+            </div>
+          </div>
           {!selectedFolder && (
             <Check className="h-4 w-4 text-[var(--accent-orange)]" />
           )}
