@@ -111,8 +111,7 @@ export class BrowserService {
       )
     }
 
-    const content =
-      result.structuredContent?.content || getTextContent(result)
+    const content = result.structuredContent?.content || getTextContent(result)
 
     return { content }
   }

@@ -226,15 +226,15 @@ export function createSdkRoutes(deps: SdkDeps) {
         // Use provided tabId, or get active tab (from window if specified)
         const tabId =
           requestTabId ?? (await browserService.getActiveTab(windowId)).tabId
-        const [screenshot, pageContent] = await Promise.all([
+        const [screenshot, interactiveElements] = await Promise.all([
           browserService.getScreenshot(tabId),
-          browserService.getPageContent(tabId),
+          browserService.getInteractiveElements(tabId),
         ])
 
         const result = await verifyService.verify({
           expectation,
           screenshot,
-          pageContent,
+          interactiveElements: interactiveElements.content,
           context,
           llmConfig,
           browserosId,
