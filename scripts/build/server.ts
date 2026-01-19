@@ -8,6 +8,10 @@
 /**
  * Build script for BrowserOS server binaries
  *
+ * Uses a two-step build process:
+ * 1. Bundle with Bun.build() + plugins to embed WASM files inline
+ * 2. Compile the bundle to a standalone executable
+ *
  * Usage:
  *   bun scripts/build/server.ts --mode=prod [--target=darwin-arm64]
  *   bun scripts/build/server.ts --mode=dev [--target=all]
@@ -25,6 +29,7 @@ import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { parse } from 'dotenv'
+import { wasmBinaryPlugin } from './plugins/wasm-binary'
 
 interface BuildTarget {
   name: string
@@ -182,6 +187,44 @@ function runCommand(
   })
 }
 
+const BUNDLE_DIR = 'dist/server/bundle'
+const BUNDLE_ENTRY = join(BUNDLE_DIR, 'index.js')
+
+async function bundleWithPlugins(
+  envVars: Record<string, string>,
+): Promise<void> {
+  console.log('\n📦 Bundling with WASM plugin...')
+
+  rmSync(BUNDLE_DIR, { recursive: true, force: true })
+  mkdirSync(BUNDLE_DIR, { recursive: true })
+
+  const result = await Bun.build({
+    entrypoints: ['apps/server/src/index.ts'],
+    outdir: BUNDLE_DIR,
+    target: 'bun',
+    minify: true,
+    sourcemap: 'linked',
+    define: Object.fromEntries(
+      Object.entries(envVars).map(([k, v]) => [
+        `process.env.${k}`,
+        JSON.stringify(v),
+      ]),
+    ),
+    external: ['node-pty'],
+    plugins: [wasmBinaryPlugin()],
+  })
+
+  if (!result.success) {
+    console.error('Bundle failed:')
+    for (const log of result.logs) {
+      console.error(log)
+    }
+    throw new Error('Bundle with plugins failed')
+  }
+
+  console.log('✅ Bundle created with embedded WASM')
+}
+
 async function buildSourceMapBundle(
   buildEnv: NodeJS.ProcessEnv,
 ): Promise<void> {
@@ -230,20 +273,15 @@ async function buildTarget(
   target: BuildTarget,
   buildEnv: NodeJS.ProcessEnv,
 ): Promise<void> {
-  console.log(`\n📦 Building ${target.name}...`)
+  console.log(`\n📦 Compiling ${target.name}...`)
 
   const args = [
     'build',
     '--compile',
-    'apps/server/src/index.ts',
+    BUNDLE_ENTRY,
     '--outfile',
     target.outfile,
-    '--minify',
-    '--sourcemap',
     `--target=${target.bunTarget}`,
-    '--env',
-    'inline',
-    '--external=*?binary',
     '--external=node-pty',
   ]
 
@@ -283,7 +321,8 @@ async function main() {
     `\n   Tip: bun run version:server [patch|minor|major] to bump version`,
   )
 
-  const envFile = mode === 'prod' ? '.env.production' : '.env.development'
+  const envFile =
+    mode === 'prod' ? '.env.production' : 'apps/server/.env.development'
   const envPath = join(rootDir, envFile)
 
   console.log(`\n📄 Loading environment from ${envFile}...`)
@@ -313,10 +352,14 @@ async function main() {
     console.log(`✅ Source map bundle created`)
   }
 
+  await bundleWithPlugins(envVars)
+
   for (const targetKey of targets) {
     const target = TARGETS[targetKey]
     await buildTarget(target, buildEnv)
   }
+
+  rmSync(BUNDLE_DIR, { recursive: true, force: true })
 
   if (shouldUploadSourceMaps) {
     console.log(
