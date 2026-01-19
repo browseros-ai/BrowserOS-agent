@@ -69,13 +69,14 @@ export async function executeGraph(
       hasMcpServers: !!options.browserContext?.enabledMcpServers?.length,
     })
 
-    // Create Agent instance with progress callback
-    const agent = new Agent({
+    // Create Agent instance with progress callback (auto-disposed on scope exit)
+    await using agent = new Agent({
       url: options.serverUrl,
       llm: options.llmConfig,
       onProgress: options.onProgress,
       signal: options.signal,
       browserContext: options.browserContext,
+      stateful: true,
     })
 
     // Dynamic import with cache-busting (Bun caches imports by path)

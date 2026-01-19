@@ -64,15 +64,18 @@ export function createSdkRoutes(deps: SdkDeps) {
       }
     })
     .post('/act', zValidator('json', ActRequestSchema), async (c) => {
-      const { instruction, context, browserContext, llm } = c.req.valid('json')
+      const { instruction, context, browserContext, llm, sessionId } =
+        c.req.valid('json')
       logger.info('SDK act request', {
         instruction,
         windowId: browserContext?.windowId,
+        hasSessionId: !!sessionId,
       })
       logger.debug('SDK act browserContext trace', {
         windowId: browserContext?.windowId,
         hasActiveTab: !!browserContext?.activeTab,
         mcpServersCount: browserContext?.enabledMcpServers?.length ?? 0,
+        sessionId,
       })
 
       const llmConfig = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
@@ -103,6 +106,7 @@ export function createSdkRoutes(deps: SdkDeps) {
             browserContext,
             llmConfig,
             signal: c.req.raw.signal,
+            sessionId,
             onSSEEvent: async (event) => {
               // Events from AI agent are already properly formatted
               // Skip start/finish (managed at route level), forward everything else

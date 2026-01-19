@@ -24,6 +24,8 @@ export const ActRequestSchema = z.object({
   maxSteps: z.number().optional(),
   browserContext: BrowserContextSchema.optional(),
   llm: LLMConfigSchema.optional(),
+  /** Session ID for state persistence. If provided, reuses existing session. */
+  sessionId: z.string().uuid().optional(),
 })
 
 export const ExtractRequestSchema = z.object({

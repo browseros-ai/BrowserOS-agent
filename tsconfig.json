@@ -6,7 +6,8 @@
       "DOM",
       "ES2024.Promise",
       "ESNext.Iterator",
-      "ESNext.Collection"
+      "ESNext.Collection",
+      "ESNext.Disposable"
     ],
     "module": "esnext",
     "moduleResolution": "bundler",

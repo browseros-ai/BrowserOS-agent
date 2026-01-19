@@ -48,12 +48,15 @@ import type {
  * }
  * ```
  */
-export class Agent {
+export class Agent implements AsyncDisposable {
   private readonly baseUrl: string
   private readonly llmConfig?: LLMConfig
   private readonly signal?: AbortSignal
   private readonly browserContext?: BrowserContext
   private progressCallback?: (event: UIMessageStreamEvent) => void
+  private readonly stateful: boolean
+  private _sessionId: string | null = null
+  private _disposed = false
 
   constructor(options: AgentOptions) {
     this.baseUrl = options.url.replace(/\/$/, '')
@@ -61,6 +64,40 @@ export class Agent {
     this.progressCallback = options.onProgress
     this.signal = options.signal
     this.browserContext = options.browserContext
+    this.stateful = options.stateful ?? true
+
+    if (this.stateful) {
+      this._sessionId = crypto.randomUUID()
+    }
+  }
+
+  /**
+   * The current session ID, or null if stateful mode is disabled.
+   */
+  get sessionId(): string | null {
+    return this._sessionId
+  }
+
+  /**
+   * Clean up server-side conversation session.
+   * Call this when done with the agent to free resources.
+   */
+  async dispose(): Promise<void> {
+    if (this._disposed) return
+    this._disposed = true
+
+    if (this._sessionId) {
+      await fetch(`${this.baseUrl}/chat/${this._sessionId}`, {
+        method: 'DELETE',
+      }).catch(() => {})
+    }
+  }
+
+  /**
+   * Async disposal support for `await using agent = new Agent(...)` syntax.
+   */
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.dispose()
   }
 
   private throwIfAborted(): void {
@@ -201,6 +238,11 @@ export class Agent {
 
     const url = `${this.baseUrl}/sdk/act`
 
+    // Handle resetState: generate a new ID for this and future calls
+    if (options?.resetState && this.stateful) {
+      this._sessionId = crypto.randomUUID()
+    }
+
     // Only pass what's needed: windowId and MCP servers (activeTab may be stale)
     const browserContextForAct = this.browserContext
       ? {
@@ -221,6 +263,7 @@ export class Agent {
           maxSteps: options?.maxSteps,
           browserContext: browserContextForAct,
           llm: this.llmConfig,
+          sessionId: this._sessionId,
         }),
         signal: this.signal,
       })
