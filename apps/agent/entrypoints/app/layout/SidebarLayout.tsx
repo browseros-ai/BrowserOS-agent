@@ -1,39 +1,80 @@
+import { Menu } from 'lucide-react'
 import type { FC } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { AppSidebar } from '@/components/sidebar/AppSidebar'
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { SETTINGS_PAGE_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { RpcClientProvider } from '@/lib/rpc/RpcClientProvider'
 
 export const SidebarLayout: FC = () => {
   const location = useLocation()
+  const isMobile = useIsMobile()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
     track(SETTINGS_PAGE_VIEWED_EVENT, { page: location.pathname })
   }, [location.pathname])
 
-  return (
-    <RpcClientProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 md:hidden">
-            <SidebarTrigger className="-ml-1" />
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [])
+
+  if (isMobile) {
+    return (
+      <RpcClientProvider>
+        <div className="flex min-h-screen flex-col bg-background">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-ml-1 size-7"
+              onClick={() => setMobileOpen(true)}
+            >
+              <Menu className="size-4" />
+            </Button>
             <span className="font-semibold">BrowserOS</span>
           </header>
           <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-5xl overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
               <Outlet />
             </div>
           </main>
-        </SidebarInset>
-      </SidebarProvider>
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetContent side="left" className="w-72 p-0">
+              <AppSidebar expanded />
+            </SheetContent>
+          </Sheet>
+        </div>
+      </RpcClientProvider>
+    )
+  }
+
+  return (
+    <RpcClientProvider>
+      <div className="relative min-h-screen bg-background">
+        {/* Sidebar - fixed overlay */}
+
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: needed here*/}
+        <div
+          className="fixed inset-y-0 left-0 z-40"
+          onMouseEnter={() => setSidebarOpen(true)}
+          onMouseLeave={() => setSidebarOpen(false)}
+        >
+          <AppSidebar expanded={sidebarOpen} />
+        </div>
+
+        {/* Main content - full width, centered */}
+        <main className="min-h-screen overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </RpcClientProvider>
   )
 }

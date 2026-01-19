@@ -1,15 +1,24 @@
 import type { FC } from 'react'
-import { Sidebar } from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNavigation } from './SidebarNavigation'
 import { SidebarUserFooter } from './SidebarUserFooter'
 
-export const AppSidebar: FC = () => {
+interface AppSidebarProps {
+  expanded?: boolean
+}
+
+export const AppSidebar: FC<AppSidebarProps> = ({ expanded = false }) => {
   return (
-    <Sidebar>
-      <SidebarBranding />
-      <SidebarNavigation />
-      <SidebarUserFooter />
-    </Sidebar>
+    <div
+      className={cn(
+        'flex h-full flex-col border-r bg-sidebar text-sidebar-foreground transition-all duration-200 ease-in-out',
+        expanded ? 'w-64' : 'w-14',
+      )}
+    >
+      <SidebarBranding expanded={expanded} />
+      <SidebarNavigation expanded={expanded} />
+      <SidebarUserFooter expanded={expanded} />
+    </div>
   )
 }

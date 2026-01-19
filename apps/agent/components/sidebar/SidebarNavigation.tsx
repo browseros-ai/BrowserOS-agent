@@ -18,19 +18,18 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import {
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-} from '@/components/ui/sidebar'
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
+import { cn } from '@/lib/utils'
+
+interface SidebarNavigationProps {
+  expanded?: boolean
+}
 
 type NavItem = {
   name: string
@@ -69,7 +68,13 @@ const settingsNavItems: NavItem[] = [
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
-export const SidebarNavigation: FC = () => {
+const navItemClasses =
+  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+const activeNavItemClasses = 'bg-sidebar-accent text-sidebar-accent-foreground'
+
+export const SidebarNavigation: FC<SidebarNavigationProps> = ({
+  expanded = true,
+}) => {
   const location = useLocation()
   const { supports } = useCapabilities()
 
@@ -83,64 +88,111 @@ export const SidebarNavigation: FC = () => {
     (item) => !item.feature || supports(item.feature),
   )
 
+  const NavItemWrapper = ({
+    item,
+    isActive,
+    children,
+  }: {
+    item: NavItem
+    isActive: boolean
+    children: React.ReactNode
+  }) => {
+    if (!expanded) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>{children}</TooltipTrigger>
+          <TooltipContent side="right">{item.name}</TooltipContent>
+        </Tooltip>
+      )
+    }
+    return <>{children}</>
+  }
+
   return (
-    <SidebarContent>
-      <SidebarGroup>
-        <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {filteredPrimaryItems.map((item) => {
-              const Icon = item.icon
-              const isActive =
-                location.pathname === item.to ||
-                location.pathname.startsWith(`${item.to}/`)
+    <TooltipProvider delayDuration={0}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+        {expanded && (
+          <div className="mb-2 px-3 font-medium text-sidebar-foreground/70 text-xs">
+            Navigation
+          </div>
+        )}
+        <nav className="space-y-1">
+          {filteredPrimaryItems.map((item) => {
+            const Icon = item.icon
+            const isActive =
+              location.pathname === item.to ||
+              location.pathname.startsWith(`${item.to}/`)
 
-              return (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton asChild isActive={isActive}>
-                    <NavLink to={item.to}>
-                      <Icon className="size-4" />
-                      <span>{item.name}</span>
+            return (
+              <NavItemWrapper key={item.to} item={item} isActive={isActive}>
+                <NavLink
+                  to={item.to}
+                  className={cn(
+                    navItemClasses,
+                    isActive && activeNavItemClasses,
+                    !expanded && 'justify-center px-2',
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  {expanded && <span className="truncate">{item.name}</span>}
+                </NavLink>
+              </NavItemWrapper>
+            )
+          })}
+
+          {expanded ? (
+            <Collapsible defaultOpen={isSettingsActive} className="space-y-1">
+              <CollapsibleTrigger
+                className={cn(
+                  navItemClasses,
+                  'w-full justify-between',
+                  isSettingsActive && activeNavItemClasses,
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Bot className="size-4 shrink-0" />
+                  <span>Settings</span>
+                </div>
+                <ChevronRight className="size-4 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="ml-4 space-y-1 border-l pl-2">
+                {filteredSettingsItems.map((item) => {
+                  const isActive = location.pathname === item.to
+
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={cn(
+                        'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        isActive && activeNavItemClasses,
+                      )}
+                    >
+                      <span className="truncate">{item.name}</span>
                     </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
-
-            <Collapsible
-              defaultOpen={isSettingsActive}
-              className="group/collapsible"
-            >
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton isActive={isSettingsActive}>
-                    <Bot className="size-4" />
-                    <span>Settings</span>
-                    <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {filteredSettingsItems.map((item) => {
-                      const isActive = location.pathname === item.to
-
-                      return (
-                        <SidebarMenuSubItem key={item.to}>
-                          <SidebarMenuSubButton asChild isActive={isActive}>
-                            <NavLink to={item.to}>
-                              <span>{item.name}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      )
-                    })}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
+                  )
+                })}
+              </CollapsibleContent>
             </Collapsible>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    </SidebarContent>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NavLink
+                  to="/settings/ai"
+                  className={cn(
+                    navItemClasses,
+                    'justify-center px-2',
+                    isSettingsActive && activeNavItemClasses,
+                  )}
+                >
+                  <Bot className="size-4 shrink-0" />
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right">Settings</TooltipContent>
+            </Tooltip>
+          )}
+        </nav>
+      </div>
+    </TooltipProvider>
   )
 }
