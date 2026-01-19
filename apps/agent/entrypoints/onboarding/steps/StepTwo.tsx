@@ -12,7 +12,7 @@ const configurationURL = 'chrome://settings/browseros'
 
 export const StepTwo: FC<StepTwoProps> = ({ direction }) => {
   const openConfigurationSettings = () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('options.html#/ai') })
+    chrome.tabs.create({ url: chrome.runtime.getURL('app.html#/options/ai') })
   }
 
   const copyToClipboard = () => {

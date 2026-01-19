@@ -103,7 +103,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
         </a>
 
         <a
-          href="/options.html"
+          href="/app.html#/options"
           target="_blank"
           rel="noopener noreferrer"
           className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"

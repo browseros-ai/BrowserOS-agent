@@ -17,7 +17,7 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
       {supports(Feature.WORKFLOW_SUPPORT) && (
         <>
           <a
-            href="/options.html#/workflows"
+            href="/app.html#/options/workflows"
             className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
           >
             <GitBranch className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
@@ -30,7 +30,7 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
         </>
       )}
       <a
-        href="/options.html#/scheduled"
+        href="/app.html#/options/scheduled"
         className="group inline-flex flex-row gap-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
       >
         <Calendar className="h-4 w-4 transition-colors group-hover:text-accent-orange" />
@@ -54,7 +54,7 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
       {supports(Feature.MANAGED_MCP_SUPPORT) && (
         <>
           <a
-            href="/options.html#/connect-mcp"
+            href="/app.html#/options/connect-mcp"
             className="text-muted-foreground text-xs transition-colors hover:text-foreground"
           >
             Connect MCP servers{' '}
@@ -63,7 +63,7 @@ export const FooterLinks: FC<FooterLinksProps> = ({ onOpenShortcuts }) => {
         </>
       )}
       <a
-        href="/options.html"
+        href="/app.html#/options"
         className="text-muted-foreground text-xs transition-colors hover:text-foreground"
       >
         Settings
