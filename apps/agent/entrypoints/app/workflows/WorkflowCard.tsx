@@ -30,7 +30,7 @@ export const WorkflowCard: FC<WorkflowCardProps> = ({
             Run
           </Button>
           <Button asChild variant="outline" size="sm">
-            <NavLink to={`/options/create-graph?workflowId=${workflow.id}`}>
+            <NavLink to={`/workflows/create-graph?workflowId=${workflow.id}`}>
               <Pencil className="mr-1.5 h-3 w-3" />
               Edit
             </NavLink>

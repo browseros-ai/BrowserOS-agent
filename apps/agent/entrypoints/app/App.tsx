@@ -1,9 +1,7 @@
 import { type FC, Suspense } from 'react'
-import { HashRouter, Navigate, Route, Routes } from 'react-router'
-import { RpcClientProvider } from '@/lib/rpc/RpcClientProvider'
+import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 
 import { NewTab } from '../newtab/index/NewTab'
-import { NewTabLayout } from '../newtab/layout/NewTabLayout'
 import { Personalize } from '../newtab/personalize/Personalize'
 
 import { FeaturesPage } from '../onboarding/features/Features'
@@ -12,10 +10,10 @@ import { StepsLayout } from '../onboarding/steps/StepsLayout'
 
 import { AISettingsPage } from './ai-settings/AISettingsPage'
 import { ConnectMCP } from './connect-mcp/ConnectMCP'
-import { CreateGraph } from './create-graph/CreateGraph'
+import { CreateGraphWrapper } from './create-graph/CreateGraphWrapper'
 import { CustomizationPage } from './customization/CustomizationPage'
 import { SurveyPage } from './jtbd-agent/SurveyPage'
-import { DashboardLayout } from './layout/DashboardLayout'
+import { SidebarLayout } from './layout/SidebarLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
@@ -29,67 +27,80 @@ function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
   return { maxTurns, experimentId }
 }
 
-function getOptionsInitialRoute(): string {
-  const params = new URLSearchParams(window.location.search)
-  const page = params.get('page')
-  if (page === 'survey') return '/options/jtbd-agent'
-  return '/options/ai'
-}
+const OptionsRedirect: FC = () => {
+  const params = useParams()
+  const path = params['*'] || ''
 
-const OptionsRouteWrapper: FC = () => {
-  const surveyParams = getSurveyParams()
+  const routeMap: Record<string, string> = {
+    ai: '/settings/ai',
+    chat: '/settings/chat',
+    'connect-mcp': '/settings/connect-mcp',
+    mcp: '/settings/mcp',
+    customization: '/settings/customization',
+    'jtbd-agent': '/settings/survey',
+    workflows: '/workflows',
+    scheduled: '/scheduled',
+    'create-graph': '/workflows/create-graph',
+  }
 
-  return (
-    <RpcClientProvider>
-      <Routes>
-        <Route element={<DashboardLayout />}>
-          <Route
-            index
-            element={<Navigate to={getOptionsInitialRoute()} replace />}
-          />
-          <Route path="ai" element={<AISettingsPage key="ai" />} />
-          <Route path="chat" element={<LlmHubPage />} />
-          <Route path="search" element={null} />
-          <Route path="connect-mcp" element={<ConnectMCP />} />
-          <Route path="mcp" element={<MCPSettingsPage />} />
-          <Route path="customization" element={<CustomizationPage />} />
-          <Route
-            path="onboarding"
-            element={<AISettingsPage key="onboarding" />}
-          />
-          <Route path="scheduled" element={<ScheduledTasksPage />} />
-          <Route path="workflows" element={<WorkflowsPage />} />
-          <Route path="jtbd-agent" element={<SurveyPage {...surveyParams} />} />
-        </Route>
-        <Route path="create-graph" element={<CreateGraph />} />
-      </Routes>
-    </RpcClientProvider>
-  )
+  const newPath = routeMap[path] || '/settings/ai'
+  return <Navigate to={newPath} replace />
 }
 
 export const App: FC = () => {
+  const surveyParams = getSurveyParams()
+
   return (
     <HashRouter>
       <Suspense fallback={<div className="h-dvh w-dvw bg-background" />}>
         <Routes>
-          {/* Newtab routes (root) */}
-          <Route element={<NewTabLayout />}>
-            <Route index element={<NewTab />} />
-            <Route path="personalize" element={<Personalize />} />
+          {/* Main app with sidebar */}
+          <Route element={<SidebarLayout />}>
+            {/* Home routes */}
+            <Route path="home">
+              <Route index element={<NewTab />} />
+              <Route path="personalize" element={<Personalize />} />
+            </Route>
+
+            {/* Primary nav routes */}
+            <Route path="workflows" element={<WorkflowsPage />} />
+            <Route path="scheduled" element={<ScheduledTasksPage />} />
+
+            {/* Settings routes */}
+            <Route path="settings">
+              <Route index element={<Navigate to="/settings/ai" replace />} />
+              <Route path="ai" element={<AISettingsPage key="ai" />} />
+              <Route path="chat" element={<LlmHubPage />} />
+              <Route path="connect-mcp" element={<ConnectMCP />} />
+              <Route path="mcp" element={<MCPSettingsPage />} />
+              <Route path="customization" element={<CustomizationPage />} />
+              <Route path="survey" element={<SurveyPage {...surveyParams} />} />
+            </Route>
           </Route>
 
-          {/* Onboarding routes */}
+          {/* Full-screen without sidebar */}
+          <Route
+            path="workflows/create-graph"
+            element={<CreateGraphWrapper />}
+          />
+
+          {/* Onboarding routes - no sidebar */}
           <Route path="onboarding">
             <Route index element={<Onboarding />} />
             <Route path="steps/:stepId" element={<StepsLayout />} />
             <Route path="features" element={<FeaturesPage />} />
           </Route>
 
-          {/* Options routes - wrapped with RpcClientProvider */}
-          <Route path="options/*" element={<OptionsRouteWrapper />} />
+          {/* Backward compatibility redirects */}
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route
+            path="/personalize"
+            element={<Navigate to="/home/personalize" replace />}
+          />
+          <Route path="/options/*" element={<OptionsRedirect />} />
 
-          {/* Fallback to newtab */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Fallback to home */}
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </Suspense>
     </HashRouter>

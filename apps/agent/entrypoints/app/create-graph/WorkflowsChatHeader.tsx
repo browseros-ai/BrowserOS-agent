@@ -73,7 +73,7 @@ export const WorkflowsChatHeader: FC<WorkflowsChatHeaderProps> = ({
         </a>
 
         <a
-          href="/app.html#/options"
+          href="/app.html#/settings"
           target="_blank"
           rel="noopener noreferrer"
           className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"

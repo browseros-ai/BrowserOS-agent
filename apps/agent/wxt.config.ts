@@ -31,7 +31,7 @@ export default defineConfig({
       newtab: 'app.html',
     },
     options_ui: {
-      page: 'app.html#/options',
+      page: 'app.html#/settings',
       open_in_tab: true,
     },
     action: {
