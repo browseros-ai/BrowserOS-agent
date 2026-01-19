@@ -51,7 +51,7 @@ export async function executeGraph(
     await mkdir(execDir, { recursive: true })
 
     // Always load from fixed path for testing iteration
-    const codePath = '/tmp/current_code.ts'
+    const codePath = path.join(import.meta.dir, '../../../../tmp/current_code.ts')
     logger.debug(`Loading graph code from ${codePath}`)
 
     logger.debug('executeGraph creating Agent with browserContext', {

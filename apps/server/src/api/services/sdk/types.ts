@@ -72,6 +72,10 @@ export interface Screenshot {
   mimeType: string
 }
 
+export interface InteractiveElements {
+  content: string
+}
+
 export class SdkError extends Error {
   constructor(
     message: string,
