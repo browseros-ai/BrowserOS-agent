@@ -14,7 +14,9 @@ import {
 import type {
   ActiveTab,
   InteractiveElements,
+  NavigateResult,
   PageContent,
+  PageLoadStatus,
   Screenshot,
 } from './types'
 import { SdkError } from './types'
@@ -78,16 +80,38 @@ export class BrowserService {
     url: string,
     tabId?: number,
     windowId?: number,
-  ): Promise<void> {
-    const result = await callMcpTool(this.mcpServerUrl, 'browser_navigate', {
-      url,
-      ...(tabId && { tabId }),
-      ...(windowId && { windowId }),
-    })
+  ): Promise<NavigateResult> {
+    const result = await callMcpTool<NavigateResult>(
+      this.mcpServerUrl,
+      'browser_navigate',
+      {
+        url,
+        ...(tabId && { tabId }),
+        ...(windowId && { windowId }),
+      },
+    )
 
-    if (result.isError) {
+    if (result.isError || !result.structuredContent?.tabId) {
       throw new SdkError(getTextContent(result) || 'Navigation failed')
     }
+
+    return result.structuredContent
+  }
+
+  async getPageLoadStatus(tabId: number): Promise<PageLoadStatus> {
+    const result = await callMcpTool<PageLoadStatus>(
+      this.mcpServerUrl,
+      'browser_get_load_status',
+      { tabId },
+    )
+
+    if (result.isError || result.structuredContent?.tabId === undefined) {
+      throw new SdkError(
+        getTextContent(result) || 'Failed to get page load status',
+      )
+    }
+
+    return result.structuredContent
   }
 
   async getInteractiveElements(

@@ -35,9 +35,19 @@ export const navigate = defineTool<z.ZodRawShape, Context, Response>({
     }
 
     const result = await context.executeAction('navigate', params)
-    const data = result as { tabId: number; url: string; message: string }
+    const data = result as {
+      tabId: number
+      windowId: number
+      url: string
+      message: string
+    }
 
     response.appendResponseLine(data.message)
     response.appendResponseLine(`Tab ID: ${data.tabId}`)
+    response.appendResponseLine(`Window ID: ${data.windowId}`)
+
+    response.addStructuredContent('tabId', data.tabId)
+    response.addStructuredContent('windowId', data.windowId)
+    response.addStructuredContent('url', data.url)
   },
 })

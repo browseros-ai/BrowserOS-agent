@@ -76,6 +76,18 @@ export interface InteractiveElements {
   content: string
 }
 
+export interface NavigateResult {
+  tabId: number
+  windowId: number
+}
+
+export interface PageLoadStatus {
+  tabId: number
+  isDOMContentLoaded: boolean
+  isResourcesLoading: boolean
+  isPageComplete: boolean
+}
+
 export class SdkError extends Error {
   constructor(
     message: string,
