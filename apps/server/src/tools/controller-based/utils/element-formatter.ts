@@ -221,7 +221,7 @@ export class ElementFormatter {
 
     if (opts.showViewportStatus) {
       const isInViewport = node.attributes?.in_viewport !== 'false'
-      parts.push(isInViewport ? '(visible)' : '(hidden)')
+      parts.push(isInViewport ? '' : '(hidden)')
     }
 
     return parts.join(' ')
@@ -242,7 +242,6 @@ export class ElementFormatter {
       legend.push('<T> - Typeable/input element')
     }
     if (opts.showViewportStatus) {
-      legend.push('(visible) - Element is in viewport')
       legend.push('(hidden) - Element is out of viewport, may need scrolling')
     }
     if (opts.showIndentation) {
