@@ -98,7 +98,7 @@ export class ElementFormatter {
     const SHOW_TYPE = true
     const SHOW_TAG = true
     const SHOW_NAME = true
-    let SHOW_CONTEXT = true
+    let SHOW_CONTEXT = false
     let SHOW_PATH = false
     let SHOW_ATTRIBUTES = true
     const SHOW_VALUE_FOR_TYPEABLE = true

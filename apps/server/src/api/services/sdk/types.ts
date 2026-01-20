@@ -24,6 +24,8 @@ export const ActRequestSchema = z.object({
   maxSteps: z.number().optional(),
   browserContext: BrowserContextSchema.optional(),
   llm: LLMConfigSchema.optional(),
+  /** Session ID for state persistence. If provided, reuses existing session. */
+  sessionId: z.string().uuid().optional(),
 })
 
 export const ExtractRequestSchema = z.object({
@@ -68,6 +70,22 @@ export interface PageContent {
 export interface Screenshot {
   data: string
   mimeType: string
+}
+
+export interface InteractiveElements {
+  content: string
+}
+
+export interface NavigateResult {
+  tabId: number
+  windowId: number
+}
+
+export interface PageLoadStatus {
+  tabId: number
+  isDOMContentLoaded: boolean
+  isResourcesLoading: boolean
+  isPageComplete: boolean
 }
 
 export class SdkError extends Error {

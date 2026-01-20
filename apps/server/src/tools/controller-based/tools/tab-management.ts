@@ -203,6 +203,11 @@ export const getLoadStatus = defineTool<z.ZodRawShape, Context, Response>({
     response.appendResponseLine(
       `Page Complete: ${data.isPageComplete ? 'Yes' : 'No'}`,
     )
+
+    response.addStructuredContent('tabId', data.tabId)
+    response.addStructuredContent('isDOMContentLoaded', data.isDOMContentLoaded)
+    response.addStructuredContent('isResourcesLoading', data.isResourcesLoading)
+    response.addStructuredContent('isPageComplete', data.isPageComplete)
   },
 })
 

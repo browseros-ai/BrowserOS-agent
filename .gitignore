@@ -178,3 +178,6 @@ browseros-server-*
 log.txt
 
 .DS_Store
+
+# Testing iteration temp files
+tmp/

@@ -19,6 +19,8 @@ export interface ExecuteActionOptions {
   llmConfig: LLMConfig
   signal?: AbortSignal
   onSSEEvent?: (event: UIMessageStreamEvent) => Promise<void>
+  /** If provided, reuses existing session. Caller is responsible for cleanup. */
+  sessionId?: string
 }
 
 export class ChatService {
@@ -36,6 +38,7 @@ export class ChatService {
       llmConfig,
       signal,
       onSSEEvent,
+      sessionId: providedSessionId,
     } = options
 
     if (signal?.aborted) {
@@ -47,7 +50,9 @@ export class ChatService {
       message = `${instruction}\n\nContext:\n${JSON.stringify(context, null, 2)}`
     }
 
-    const conversationId = crypto.randomUUID()
+    // Use provided sessionId or generate ephemeral one
+    const isEphemeral = !providedSessionId
+    const conversationId = providedSessionId ?? crypto.randomUUID()
 
     const response = await fetch(this.chatUrl, {
       method: 'POST',
@@ -90,10 +95,12 @@ export class ChatService {
       }
     }
 
-    // Clean up the session
-    await fetch(`${this.chatUrl}/${conversationId}`, {
-      method: 'DELETE',
-    }).catch(() => {})
+    // Clean up ephemeral sessions only (persistent sessions are managed by caller)
+    if (isEphemeral) {
+      await fetch(`${this.chatUrl}/${conversationId}`, {
+        method: 'DELETE',
+      }).catch(() => {})
+    }
   }
 
   private async parseAndForwardSSE(

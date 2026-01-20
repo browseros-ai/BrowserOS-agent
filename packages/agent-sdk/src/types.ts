@@ -18,6 +18,12 @@ export interface AgentOptions {
   /** Callback for streaming UI events (Vercel AI SDK format) */
   onProgress?: (event: UIMessageStreamEvent) => void
   signal?: AbortSignal
+  /**
+   * Enable stateful mode where conversation history persists across act() calls.
+   * When true, the agent "remembers" previous interactions.
+   * @default true
+   */
+  stateful?: boolean
 }
 
 /**
@@ -40,6 +46,24 @@ export interface ActOptions {
   maxSteps?: number
   /** Target a specific window by ID */
   windowId?: number
+  /**
+   * Reset conversation state for this act() call.
+   * Starts fresh and continues with the new state for subsequent calls.
+   * @default false
+   */
+  resetState?: boolean
+  /**
+   * Condition to verify after action succeeds.
+   * If verification fails, the action is retried up to `maxRetries` times.
+   * @example 'Cart shows 1 item'
+   */
+  verify?: string
+  /**
+   * Maximum retry attempts when verification fails.
+   * Only used when `verify` is set.
+   * @default 1
+   */
+  maxRetries?: number
 }
 
 /**

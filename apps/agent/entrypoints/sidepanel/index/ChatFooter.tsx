@@ -1,6 +1,11 @@
-import { ChevronDown, Layers } from 'lucide-react'
+import { ChevronDown, Folder, Layers } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
 import { TabSelector } from '@/components/elements/tab-selector'
+import { WorkspaceSelector } from '@/components/elements/workspace-selector'
+import { Feature } from '@/lib/browseros/capabilities'
+import { useCapabilities } from '@/lib/browseros/useCapabilities'
+import { cn } from '@/lib/utils'
+import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { ChatAttachedTabs } from './ChatAttachedTabs'
 import { ChatInput } from './ChatInput'
 import { ChatModeToggle } from './ChatModeToggle'
@@ -31,6 +36,9 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   onToggleTab,
   onRemoveTab,
 }) => {
+  const { selectedFolder } = useWorkspace()
+  const { supports } = useCapabilities()
+
   return (
     <footer className="border-border/40 border-t bg-background/80 backdrop-blur-md">
       <ChatAttachedTabs tabs={attachedTabs} onRemoveTab={onRemoveTab} />
@@ -39,7 +47,9 @@ export const ChatFooter: FC<ChatFooterProps> = ({
         <div className="flex items-center gap-2">
           <ChatModeToggle mode={mode} onModeChange={onModeChange} />
 
-          {mode === 'chat' && (
+          <div className="h-4 w-px bg-border/50" />
+
+          <div className="flex items-center gap-1">
             <TabSelector
               selectedTabs={attachedTabs}
               onToggleTab={onToggleTab}
@@ -47,7 +57,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
             >
               <button
                 type="button"
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
+                className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
                 title="Select tabs"
               >
                 <Layers className="h-4 w-4" />
@@ -59,7 +69,34 @@ export const ChatFooter: FC<ChatFooterProps> = ({
                 <ChevronDown className="h-3 w-3" />
               </button>
             </TabSelector>
-          )}
+
+            {supports(Feature.WORKSPACE_FOLDER_SUPPORT) && (
+              <WorkspaceSelector side="top">
+                <button
+                  type="button"
+                  className={cn(
+                    'flex cursor-pointer items-center gap-1 rounded-lg p-1.5 transition-colors hover:bg-muted/50 data-[state=open]:bg-accent',
+                    selectedFolder
+                      ? 'text-foreground'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                  title={
+                    selectedFolder
+                      ? selectedFolder.name
+                      : 'Select workspace folder'
+                  }
+                >
+                  <div className="relative">
+                    <Folder className="h-4 w-4" />
+                    {selectedFolder && (
+                      <div className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-[var(--accent-orange)]" />
+                    )}
+                  </div>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </WorkspaceSelector>
+            )}
+          </div>
         </div>
 
         <ChatInput

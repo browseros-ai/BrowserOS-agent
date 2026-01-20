@@ -60,7 +60,7 @@ export class ControllerBridge {
 
           // Handle ping/pong for heartbeat
           if (parsed.type === 'ping') {
-            this.logger.debug('Received ping, sending pong', { clientId })
+            // this.logger.debug('Received ping, sending pong', { clientId })
             ws.send(JSON.stringify({ type: 'pong' }))
             return
           }

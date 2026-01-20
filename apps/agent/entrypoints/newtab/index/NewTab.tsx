@@ -321,9 +321,7 @@ export const NewTab = () => {
                         )}
                       >
                         <Folder className="h-4 w-4" />
-                        <span>
-                          {selectedFolder?.name || 'Work in a folder'}
-                        </span>
+                        <span>{selectedFolder?.name || 'Add workspace'}</span>
                         <ChevronDown className="h-3 w-3" />
                       </Button>
                     </WorkspaceSelector>

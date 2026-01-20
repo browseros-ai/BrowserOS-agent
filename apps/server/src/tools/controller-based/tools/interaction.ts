@@ -33,13 +33,13 @@ export const getInteractiveElements = defineTool<
     simplified: z
       .boolean()
       .optional()
-      .describe('Use simplified format (default: true)'),
+      .describe('Use simplified format (default: false)'),
     windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
     const {
       tabId,
-      simplified = true,
+      simplified = false,
       windowId,
     } = request.params as {
       tabId: number
@@ -73,49 +73,49 @@ export const getInteractiveElements = defineTool<
     const clickableString = formatter.formatElements(clickableElements, false)
     const typeableString = formatter.formatElements(typeableElements, false)
 
-    // Build browserStateString-style output
-    response.appendResponseLine(
-      `INTERACTIVE ELEMENTS (Snapshot ID: ${snapshot.snapshotId}):`,
-    )
-    response.appendResponseLine(
-      `Processing time: ${snapshot.processingTimeMs}ms`,
-    )
-    response.appendResponseLine('')
+    // Build content string for both text response and structured content
+    const lines: string[] = []
+    lines.push(`INTERACTIVE ELEMENTS (Snapshot ID: ${snapshot.snapshotId}):`)
+    lines.push(`Processing time: ${snapshot.processingTimeMs}ms`)
+    lines.push('')
 
     if (clickableString) {
-      response.appendResponseLine('Clickable elements:')
-      response.appendResponseLine(clickableString)
-      response.appendResponseLine('')
+      lines.push('Clickable elements:')
+      lines.push(clickableString)
+      lines.push('')
     }
 
     if (typeableString) {
-      response.appendResponseLine('Input fields:')
-      response.appendResponseLine(typeableString)
-      response.appendResponseLine('')
+      lines.push('Input fields:')
+      lines.push(typeableString)
+      lines.push('')
     }
 
     if (!clickableString && !typeableString) {
-      response.appendResponseLine('No interactive elements found on this page.')
-      response.appendResponseLine('')
+      lines.push('No interactive elements found on this page.')
+      lines.push('')
     }
 
-    // Optionally include hierarchical structure (if not simplified)
     if (!simplified && snapshot.hierarchicalStructure) {
-      response.appendResponseLine('Page Structure:')
-      response.appendResponseLine(snapshot.hierarchicalStructure)
-      response.appendResponseLine('')
+      lines.push('Page Structure:')
+      lines.push(snapshot.hierarchicalStructure)
+      lines.push('')
     }
 
-    response.appendResponseLine('Legend:')
-    response.appendResponseLine(
-      '  [nodeId] - Use this number to interact with the element',
-    )
-    response.appendResponseLine('  <C> - Clickable element')
-    response.appendResponseLine('  <T> - Typeable/input element')
-    response.appendResponseLine('  (visible) - Element is in viewport')
-    response.appendResponseLine(
-      '  (hidden) - Element is out of viewport, may need scrolling',
-    )
+    lines.push('Legend:')
+    lines.push('  [nodeId] - Use this number to interact with the element')
+    lines.push('  <C> - Clickable element')
+    lines.push('  <T> - Typeable/input element')
+    lines.push('  (visible) - Element is in viewport')
+    lines.push('  (hidden) - Element is out of viewport, may need scrolling')
+
+    // Output text response
+    for (const line of lines) {
+      response.appendResponseLine(line)
+    }
+
+    // Add structured content for programmatic access
+    response.addStructuredContent('content', lines.join('\n'))
   },
 })
 
