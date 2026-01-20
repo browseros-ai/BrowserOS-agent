@@ -228,7 +228,7 @@ export function createSdkRoutes(deps: SdkDeps) {
           requestTabId ?? (await browserService.getActiveTab(windowId)).tabId
         const [screenshot, interactiveElements] = await Promise.all([
           browserService.getScreenshot(tabId),
-          browserService.getInteractiveElements(tabId),
+          browserService.getInteractiveElements(tabId, true),
         ])
 
         const result = await verifyService.verify({
