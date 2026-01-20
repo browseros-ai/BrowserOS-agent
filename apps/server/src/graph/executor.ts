@@ -9,7 +9,15 @@ import path from 'node:path'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { Agent } from '@browseros-ai/agent-sdk'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
+
+// Expose zod globally for generated graph code. The codegen service generates code
+// that uses `z` for schema validation, but transformCodeForExecution strips all imports
+// since dependencies can't be resolved in dynamically imported files (especially in
+// compiled binaries where modules are bundled). By exposing `z` as a global, the
+// generated code can reference it without an import statement.
+;(globalThis as unknown as Record<string, unknown>).z = z
 
 export interface ExecutorOptions {
   serverUrl: string
