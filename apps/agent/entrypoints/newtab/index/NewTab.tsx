@@ -83,16 +83,20 @@ export const NewTab = () => {
     reset,
   } = useCombobox<SuggestionItem>({
     items: flatItems,
-    inputValue,
     itemToString: (item) => (item ? getSuggestionLabel(item) : ''),
     onSelectedItemChange({ selectedItem }) {
       if (selectedItem) {
         runSelectedAction(selectedItem)
       }
     },
-    onStateChange: ({ type, inputValue, highlightedIndex, selectedItem }) => {
+    onStateChange: ({
+      type,
+      inputValue: stateInputValue,
+      highlightedIndex,
+      selectedItem,
+    }) => {
       if (type === useCombobox.stateChangeTypes.InputKeyDownEnter) {
-        if (!selectedItem && !highlightedIndex && !inputValue) {
+        if (!selectedItem && !highlightedIndex && !stateInputValue) {
           executeDefaultAction()
         }
       }
