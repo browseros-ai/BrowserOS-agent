@@ -202,13 +202,6 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
           provider: request.provider,
           model: request.model,
         })
-        logger.debug('Graph run browserContext', {
-          sessionId,
-          windowId: request.browserContext?.windowId,
-          hasActiveTab: !!request.browserContext?.activeTab,
-          mcpServersCount:
-            request.browserContext?.enabledMcpServers?.length ?? 0,
-        })
 
         return createSSEStream(
           c,

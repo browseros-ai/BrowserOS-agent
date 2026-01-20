@@ -130,11 +130,6 @@ export class GraphService {
       sessionId,
       codeLength: graph.code.length,
     })
-    logger.debug('GraphService.runGraph browserContext', {
-      sessionId,
-      windowId: request.browserContext?.windowId,
-      hasActiveTab: !!request.browserContext?.activeTab,
-    })
 
     // Build LLM config from request
     const llmConfig: LLMConfig | undefined = request.provider

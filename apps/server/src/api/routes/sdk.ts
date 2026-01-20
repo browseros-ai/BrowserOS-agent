@@ -44,7 +44,6 @@ export function createSdkRoutes(deps: SdkDeps) {
     .post('/nav', zValidator('json', NavRequestSchema), async (c) => {
       const { url, tabId, windowId } = c.req.valid('json')
       logger.info('SDK nav request', { url, tabId, windowId })
-      logger.debug('SDK nav windowId trace', { windowId, tabId, url })
 
       try {
         await browserService.navigate(url, tabId, windowId)
@@ -70,12 +69,6 @@ export function createSdkRoutes(deps: SdkDeps) {
         instruction,
         windowId: browserContext?.windowId,
         hasSessionId: !!sessionId,
-      })
-      logger.debug('SDK act browserContext trace', {
-        windowId: browserContext?.windowId,
-        hasActiveTab: !!browserContext?.activeTab,
-        mcpServersCount: browserContext?.enabledMcpServers?.length ?? 0,
-        sessionId,
       })
 
       const llmConfig = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
@@ -171,10 +164,6 @@ export function createSdkRoutes(deps: SdkDeps) {
         windowId,
         tabId: requestTabId,
       })
-      logger.debug('SDK extract windowId trace', {
-        windowId,
-        tabId: requestTabId,
-      })
 
       try {
         // Use provided tabId, or get active tab (from window if specified)
@@ -212,10 +201,6 @@ export function createSdkRoutes(deps: SdkDeps) {
       } = c.req.valid('json')
       logger.info('SDK verify request', {
         expectation,
-        windowId,
-        tabId: requestTabId,
-      })
-      logger.debug('SDK verify windowId trace', {
         windowId,
         tabId: requestTabId,
       })

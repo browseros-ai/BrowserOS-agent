@@ -59,13 +59,6 @@ export async function executeGraph(
 
     logger.debug(`Wrote graph code to ${codePath}`)
 
-    logger.debug('executeGraph creating Agent with browserContext', {
-      sessionId,
-      windowId: options.browserContext?.windowId,
-      hasActiveTab: !!options.browserContext?.activeTab,
-      hasMcpServers: !!options.browserContext?.enabledMcpServers?.length,
-    })
-
     // Create Agent instance with progress callback (auto-disposed on scope exit)
     await using agent = new Agent({
       url: options.serverUrl,
