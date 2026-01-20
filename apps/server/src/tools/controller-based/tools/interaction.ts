@@ -117,6 +117,104 @@ export const getInteractiveElements = defineTool<
   },
 })
 
+export const grepInteractiveElements = defineTool<
+  z.ZodRawShape,
+  Context,
+  Response
+>({
+  name: 'browser_grep_interactive_elements',
+  description:
+    'Search interactive elements using regex patterns (case insensitive). Returns elements ' +
+    'matching the pattern against their full formatted representation (nodeId, type, tag, ' +
+    'name, attributes, viewport status). Use pipe (|) for OR patterns.',
+  annotations: {
+    category: ToolCategories.ELEMENT_INTERACTION,
+    readOnlyHint: true,
+  },
+  schema: {
+    tabId: z.coerce.number().describe('Tab ID to search elements in'),
+    pattern: z
+      .string()
+      .describe(
+        'Regex pattern to match (case insensitive). Supports standard regex including ' +
+          'pipe for OR (e.g., "submit|cancel", "button.*primary", "[0-9]+")',
+      ),
+    windowId: z.number().optional().describe('Window ID for routing'),
+  },
+  handler: async (request, response, context) => {
+    const { tabId, pattern, windowId } = request.params as {
+      tabId: number
+      pattern: string
+      windowId?: number
+    }
+
+    const result = await context.executeAction('getInteractiveSnapshot', {
+      tabId,
+      windowId,
+    })
+    const snapshot = result as {
+      snapshotId: number
+      timestamp: number
+      elements: InteractiveNode[]
+      processingTimeMs: number
+    }
+
+    const formatter = FULL_FORMATTER
+    let regex: RegExp
+    try {
+      regex = new RegExp(pattern, 'i')
+    } catch {
+      response.appendResponseLine(`Invalid regex pattern: ${pattern}`)
+      return
+    }
+
+    const allElements = snapshot.elements
+    const matchingElements: Array<{
+      node: InteractiveNode
+      formatted: string
+    }> = []
+
+    for (const node of allElements) {
+      const formatted = formatter.formatElement(node)
+      if (regex.test(formatted)) {
+        matchingElements.push({ node, formatted })
+      }
+    }
+
+    const lines: string[] = []
+    lines.push(`GREP RESULTS (Pattern: "${pattern}")`)
+    lines.push(
+      `Snapshot ID: ${snapshot.snapshotId} | Processing: ${snapshot.processingTimeMs}ms`,
+    )
+    lines.push('')
+
+    if (matchingElements.length > 0) {
+      lines.push(
+        `Matches (${matchingElements.length} of ${allElements.length} elements):`,
+      )
+      lines.push('')
+      for (const { formatted } of matchingElements) {
+        lines.push(formatted)
+      }
+    } else {
+      lines.push(`No elements matched pattern "${pattern}"`)
+      lines.push(`Total elements searched: ${allElements.length}`)
+    }
+
+    lines.push('')
+    lines.push('Legend:')
+    for (const entry of formatter.getLegend()) {
+      lines.push(`  ${entry}`)
+    }
+
+    for (const line of lines) {
+      response.appendResponseLine(line)
+    }
+
+    response.addStructuredContent('content', lines.join('\n'))
+  },
+})
+
 export const clickElement = defineTool<z.ZodRawShape, Context, Response>({
   name: 'browser_click_element',
   description:
