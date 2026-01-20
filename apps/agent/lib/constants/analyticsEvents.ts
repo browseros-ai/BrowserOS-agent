@@ -6,6 +6,15 @@ export const GRAPH_MESSAGE_LIKE_EVENT = 'settings.graph.message.like'
 export const GRAPH_MESSAGE_DISLIKE_EVENT = 'settings.graph.message.dislike'
 
 /** @public */
+export const NEW_GRAPH_CREATED_EVENT = 'settings.graph.created'
+
+/** @public */
+export const GRAPH_SAVED_EVENT = 'settings.graph.saved'
+
+/** @public */
+export const GRAPH_UPDATED_EVENT = 'settings.graph.updated'
+
+/** @public */
 export const MESSAGE_DISLIKE_EVENT = 'ui.message.dislike'
 
 /** @public */

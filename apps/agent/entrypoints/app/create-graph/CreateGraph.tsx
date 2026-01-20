@@ -23,7 +23,13 @@ import {
 } from '@/components/ui/resizable'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
+import {
+  GRAPH_SAVED_EVENT,
+  GRAPH_UPDATED_EVENT,
+  NEW_GRAPH_CREATED_EVENT,
+} from '@/lib/constants/analyticsEvents'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
+import { track } from '@/lib/metrics/track'
 import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 import { sentry } from '@/lib/sentry/sentry'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
@@ -140,6 +146,7 @@ export const CreateGraph: FC = () => {
           codeId,
         },
       })
+      track(GRAPH_UPDATED_EVENT)
     } else {
       sendMessage({
         text: query,
@@ -147,6 +154,7 @@ export const CreateGraph: FC = () => {
           messageType: 'create-graph' as MessageType,
         },
       })
+      track(NEW_GRAPH_CREATED_EVENT)
     }
     setQuery('')
   }
@@ -299,6 +307,7 @@ export const CreateGraph: FC = () => {
       setSavedWorkflowId(newWorkflow.id)
       setSavedCodeId(codeId)
     }
+    track(GRAPH_SAVED_EVENT)
   }
 
   // Provider data for header
