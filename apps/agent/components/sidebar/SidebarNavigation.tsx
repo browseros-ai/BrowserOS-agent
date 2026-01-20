@@ -59,8 +59,7 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
             const isActive =
               item.to === '/settings/ai'
                 ? location.pathname.startsWith('/settings')
-                : location.pathname === item.to ||
-                  location.pathname.startsWith(`${item.to}/`)
+                : location.pathname === item.to
 
             const navItem = (
               <NavLink
