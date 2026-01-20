@@ -38,7 +38,8 @@ async function waitForPageLoad(
 
   while (Date.now() - startTime < TIMEOUTS.PAGE_LOAD_WAIT) {
     const status = await browserService.getPageLoadStatus(tabId)
-    if (status.isDOMContentLoaded) {
+    if (status.isPageComplete && status.isDOMContentLoaded) {
+      logger.debug('Page load complete', { tabId })
       return
     }
     await new Promise((resolve) =>

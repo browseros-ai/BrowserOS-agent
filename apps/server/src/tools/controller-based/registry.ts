@@ -24,6 +24,7 @@ export {
   clearInput,
   clickElement,
   getInteractiveElements,
+  grepInteractiveElements,
   scrollToElement,
   typeText,
 } from './tools/interaction'
@@ -66,6 +67,7 @@ import {
   clearInput,
   clickElement,
   getInteractiveElements,
+  grepInteractiveElements,
   scrollToElement,
   typeText,
 } from './tools/interaction'
@@ -99,6 +101,7 @@ export const allControllerTools = [
   ungroupTabs,
   navigate,
   getInteractiveElements,
+  grepInteractiveElements,
   clickElement,
   typeText,
   clearInput,

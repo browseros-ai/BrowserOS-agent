@@ -13,8 +13,9 @@ import {
   type InteractiveNode,
 } from '../utils/element-formatter'
 
-const FULL_FORMATTER = new ElementFormatter(false)
-const SIMPLIFIED_FORMATTER = new ElementFormatter(true)
+const FULL_FORMATTER = new ElementFormatter('full')
+const DETAILED_FORMATTER = new ElementFormatter('detailed')
+const SIMPLIFIED_FORMATTER = new ElementFormatter('simplified')
 
 export const getInteractiveElements = defineTool<
   z.ZodRawShape,
@@ -59,7 +60,7 @@ export const getInteractiveElements = defineTool<
       processingTimeMs: number
     }
 
-    const formatter = simplified ? SIMPLIFIED_FORMATTER : FULL_FORMATTER
+    const formatter = simplified ? SIMPLIFIED_FORMATTER : DETAILED_FORMATTER
 
     // Separate clickable and typeable elements
     const clickableElements = snapshot.elements.filter(
@@ -103,11 +104,9 @@ export const getInteractiveElements = defineTool<
     }
 
     lines.push('Legend:')
-    lines.push('  [nodeId] - Use this number to interact with the element')
-    lines.push('  <C> - Clickable element')
-    lines.push('  <T> - Typeable/input element')
-    lines.push('  (visible) - Element is in viewport')
-    lines.push('  (hidden) - Element is out of viewport, may need scrolling')
+    for (const entry of formatter.getLegend()) {
+      lines.push(`  ${entry}`)
+    }
 
     // Output text response
     for (const line of lines) {
@@ -115,6 +114,137 @@ export const getInteractiveElements = defineTool<
     }
 
     // Add structured content for programmatic access
+    response.addStructuredContent('content', lines.join('\n'))
+  },
+})
+
+export const grepInteractiveElements = defineTool<
+  z.ZodRawShape,
+  Context,
+  Response
+>({
+  name: 'browser_grep_interactive_elements',
+  description:
+    'Search interactive elements using regex patterns (case insensitive). Returns elements ' +
+    'matching the pattern against their full formatted representation (nodeId, type, tag, ' +
+    'name, attributes, viewport status). Use pipe (|) for OR patterns.',
+  annotations: {
+    category: ToolCategories.ELEMENT_INTERACTION,
+    readOnlyHint: true,
+  },
+  schema: {
+    tabId: z.coerce.number().describe('Tab ID to search elements in'),
+    pattern: z
+      .string()
+      .describe(
+        'Regex pattern to match (case insensitive). Supports standard regex including ' +
+          'pipe for OR (e.g., "submit|cancel", "button.*primary", "[0-9]+")',
+      ),
+    context: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Number of elements to show before and after each match (default: 2). Set to 0 to show only matches.',
+      ),
+    windowId: z.number().optional().describe('Window ID for routing'),
+  },
+  handler: async (request, response, ctx) => {
+    const {
+      tabId,
+      pattern,
+      context: contextLines = 2,
+      windowId,
+    } = request.params as {
+      tabId: number
+      pattern: string
+      context?: number
+      windowId?: number
+    }
+
+    const result = await ctx.executeAction('getInteractiveSnapshot', {
+      tabId,
+      windowId,
+    })
+    const snapshot = result as {
+      snapshotId: number
+      timestamp: number
+      elements: InteractiveNode[]
+      processingTimeMs: number
+    }
+
+    const formatter = FULL_FORMATTER
+    let regex: RegExp
+    try {
+      regex = new RegExp(pattern, 'i')
+    } catch {
+      response.appendResponseLine(`Invalid regex pattern: ${pattern}`)
+      return
+    }
+
+    const allElements = snapshot.elements
+    const formattedElements = allElements.map((node) => ({
+      node,
+      formatted: formatter.formatElement(node),
+    }))
+
+    const matchingIndices: number[] = []
+    for (let i = 0; i < formattedElements.length; i++) {
+      if (regex.test(formattedElements[i].formatted)) {
+        matchingIndices.push(i)
+      }
+    }
+
+    const lines: string[] = []
+    lines.push(`GREP RESULTS (Pattern: "${pattern}", Context: ${contextLines})`)
+    lines.push(
+      `Snapshot ID: ${snapshot.snapshotId} | Processing: ${snapshot.processingTimeMs}ms`,
+    )
+    lines.push('')
+
+    if (matchingIndices.length > 0) {
+      lines.push(
+        `Matches (${matchingIndices.length} of ${allElements.length} elements):`,
+      )
+      lines.push('')
+
+      const includedIndices = new Set<number>()
+      for (const idx of matchingIndices) {
+        const start = Math.max(0, idx - contextLines)
+        const end = Math.min(formattedElements.length - 1, idx + contextLines)
+        for (let i = start; i <= end; i++) {
+          includedIndices.add(i)
+        }
+      }
+
+      const sortedIndices = Array.from(includedIndices).sort((a, b) => a - b)
+      let lastIdx = -2
+      for (const idx of sortedIndices) {
+        if (lastIdx >= 0 && idx - lastIdx > 1) {
+          lines.push('  ---')
+        }
+        const isMatch = matchingIndices.includes(idx)
+        const prefix = isMatch ? '> ' : '  '
+        lines.push(`${prefix}${formattedElements[idx].formatted}`)
+        lastIdx = idx
+      }
+    } else {
+      lines.push(`No elements matched pattern "${pattern}"`)
+      lines.push(`Total elements searched: ${allElements.length}`)
+    }
+
+    lines.push('')
+    lines.push('Legend:')
+    for (const entry of formatter.getLegend()) {
+      lines.push(`  ${entry}`)
+    }
+    lines.push('  > - Matching element')
+
+    for (const line of lines) {
+      response.appendResponseLine(line)
+    }
+
     response.addStructuredContent('content', lines.join('\n'))
   },
 })
@@ -168,6 +298,7 @@ export const typeText = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
+    await context.executeAction('click', { tabId, nodeId, windowId })
     await context.executeAction('inputText', { tabId, nodeId, text, windowId })
 
     response.appendResponseLine(
@@ -195,6 +326,7 @@ export const clearInput = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
+    await context.executeAction('click', { tabId, nodeId, windowId })
     await context.executeAction('clear', { tabId, nodeId, windowId })
 
     response.appendResponseLine(`Cleared element ${nodeId} in tab ${tabId}`)
