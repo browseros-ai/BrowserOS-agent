@@ -115,3 +115,182 @@ export const removeBookmark = defineTool<z.ZodRawShape, Context, Response>({
     response.appendResponseLine(`Removed bookmark ${bookmarkId}`)
   },
 })
+
+export const createBookmarkFolder = defineTool<
+  z.ZodRawShape,
+  Context,
+  Response
+>({
+  name: 'browser_create_bookmark_folder',
+  description: 'Create a new bookmark folder',
+  annotations: {
+    category: ToolCategories.BOOKMARKS,
+    readOnlyHint: false,
+  },
+  schema: {
+    title: z.string().describe('Folder name'),
+    parentId: z
+      .string()
+      .optional()
+      .describe('Parent folder ID (defaults to Bookmarks Bar)'),
+    windowId: z.number().optional().describe('Window ID for routing'),
+  },
+  handler: async (request, response, context) => {
+    const { title, parentId, windowId } = request.params as {
+      title: string
+      parentId?: string
+      windowId?: number
+    }
+
+    const result = await context.executeAction('createBookmarkFolder', {
+      title,
+      parentId,
+      windowId,
+    })
+    const data = result as {
+      id: string
+      title: string
+      parentId?: string
+    }
+
+    response.appendResponseLine(`Created folder: ${data.title}`)
+    response.appendResponseLine(`ID: ${data.id}`)
+    if (data.parentId) {
+      response.appendResponseLine(`Parent: ${data.parentId}`)
+    }
+  },
+})
+
+export const getBookmarkChildren = defineTool<z.ZodRawShape, Context, Response>(
+  {
+    name: 'browser_get_bookmark_children',
+    description: 'Get direct children of a bookmark folder',
+    annotations: {
+      category: ToolCategories.BOOKMARKS,
+      readOnlyHint: true,
+    },
+    schema: {
+      folderId: z.string().describe('Folder ID to get children from'),
+      windowId: z.number().optional().describe('Window ID for routing'),
+    },
+    handler: async (request, response, context) => {
+      const { folderId, windowId } = request.params as {
+        folderId: string
+        windowId?: number
+      }
+
+      const result = await context.executeAction('getBookmarkChildren', {
+        folderId,
+        windowId,
+      })
+      const data = result as {
+        children: Array<{
+          id: string
+          title: string
+          url?: string
+          isFolder: boolean
+        }>
+        count: number
+      }
+
+      response.appendResponseLine(`Folder contains ${data.count} items:`)
+      response.appendResponseLine('')
+
+      for (const child of data.children) {
+        if (child.isFolder) {
+          response.appendResponseLine(
+            `[${child.id}] 📁 ${child.title} (folder)`,
+          )
+        } else {
+          response.appendResponseLine(`[${child.id}] ${child.title}`)
+          if (child.url) {
+            response.appendResponseLine(`    ${child.url}`)
+          }
+        }
+      }
+    },
+  },
+)
+
+export const moveBookmark = defineTool<z.ZodRawShape, Context, Response>({
+  name: 'browser_move_bookmark',
+  description: 'Move a bookmark or folder to a new location',
+  annotations: {
+    category: ToolCategories.BOOKMARKS,
+    readOnlyHint: false,
+  },
+  schema: {
+    bookmarkId: z.string().describe('Bookmark or folder ID to move'),
+    parentId: z.string().optional().describe('New parent folder ID'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe('Position within parent (0-based)'),
+    windowId: z.number().optional().describe('Window ID for routing'),
+  },
+  handler: async (request, response, context) => {
+    const { bookmarkId, parentId, index, windowId } = request.params as {
+      bookmarkId: string
+      parentId?: string
+      index?: number
+      windowId?: number
+    }
+
+    const result = await context.executeAction('moveBookmark', {
+      id: bookmarkId,
+      parentId,
+      index,
+      windowId,
+    })
+    const data = result as {
+      id: string
+      title: string
+      parentId?: string
+      index?: number
+    }
+
+    response.appendResponseLine(`Moved: ${data.title}`)
+    if (data.parentId) {
+      response.appendResponseLine(`New parent: ${data.parentId}`)
+    }
+    if (data.index !== undefined) {
+      response.appendResponseLine(`Position: ${data.index}`)
+    }
+  },
+})
+
+export const removeBookmarkTree = defineTool<z.ZodRawShape, Context, Response>({
+  name: 'browser_remove_bookmark_tree',
+  description:
+    'Remove a bookmark folder and all its contents recursively. Requires confirm: true.',
+  annotations: {
+    category: ToolCategories.BOOKMARKS,
+    readOnlyHint: false,
+  },
+  schema: {
+    folderId: z.string().describe('Folder ID to remove'),
+    confirm: z.boolean().describe('Must be true to confirm recursive deletion'),
+    windowId: z.number().optional().describe('Window ID for routing'),
+  },
+  handler: async (request, response, context) => {
+    const { folderId, confirm, windowId } = request.params as {
+      folderId: string
+      confirm: boolean
+      windowId?: number
+    }
+
+    const result = await context.executeAction('removeBookmarkTree', {
+      id: folderId,
+      confirm,
+      windowId,
+    })
+    const data = result as {
+      success: boolean
+      message: string
+    }
+
+    response.appendResponseLine(data.message)
+  },
+})
