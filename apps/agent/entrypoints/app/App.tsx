@@ -2,12 +2,11 @@ import { type FC, Suspense } from 'react'
 import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 
 import { NewTab } from '../newtab/index/NewTab'
+import { NewTabLayout } from '../newtab/layout/NewTabLayout'
 import { Personalize } from '../newtab/personalize/Personalize'
-
 import { FeaturesPage } from '../onboarding/features/Features'
 import { Onboarding } from '../onboarding/index/Onboarding'
 import { StepsLayout } from '../onboarding/steps/StepsLayout'
-
 import { AISettingsPage } from './ai-settings/AISettingsPage'
 import { ConnectMCP } from './connect-mcp/ConnectMCP'
 import { CreateGraphWrapper } from './create-graph/CreateGraphWrapper'
@@ -58,7 +57,7 @@ export const App: FC = () => {
           {/* Main app with sidebar */}
           <Route element={<SidebarLayout />}>
             {/* Home routes */}
-            <Route path="home">
+            <Route path="home" element={<NewTabLayout />}>
               <Route index element={<NewTab />} />
               <Route path="personalize" element={<Personalize />} />
             </Route>
