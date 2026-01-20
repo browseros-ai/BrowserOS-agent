@@ -124,7 +124,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.42",
+      "version": "0.0.44",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
@@ -175,7 +175,7 @@
     },
     "packages/agent-sdk": {
       "name": "@browseros-ai/agent-sdk",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "eventsource-parser": "^3.0.6",
         "zod-to-json-schema": "^3.24.1",

@@ -23,6 +23,18 @@
     ".": {
       "types": "./src/rpc.ts",
       "import": "./src/rpc.ts"
+    },
+    "./agent": {
+      "types": "./src/agent/gemini-agent.ts",
+      "default": "./src/agent/gemini-agent.ts"
+    },
+    "./agent/types": {
+      "types": "./src/agent/types.ts",
+      "default": "./src/agent/types.ts"
+    },
+    "./lib/clients/gateway": {
+      "types": "./src/lib/clients/gateway.ts",
+      "default": "./src/lib/clients/gateway.ts"
     }
   },
   "dependencies": {

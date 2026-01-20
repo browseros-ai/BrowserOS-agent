@@ -12,6 +12,8 @@ import { CaptureScreenshotPointerAction } from '@/actions/browser/CaptureScreens
 import { ClearAction } from '@/actions/browser/ClearAction'
 import { ClickAction } from '@/actions/browser/ClickAction'
 import { ClickCoordinatesAction } from '@/actions/browser/ClickCoordinatesAction'
+import { CloseWindowAction } from '@/actions/browser/CloseWindowAction'
+import { CreateWindowAction } from '@/actions/browser/CreateWindowAction'
 import { ExecuteJavaScriptAction } from '@/actions/browser/ExecuteJavaScriptAction'
 import { GetAccessibilityTreeAction } from '@/actions/browser/GetAccessibilityTreeAction'
 import { GetInteractiveSnapshotAction } from '@/actions/browser/GetInteractiveSnapshotAction'
@@ -191,6 +193,9 @@ export class BrowserOSController {
     this.actionRegistry.register('groupTabs', new GroupTabsAction())
     this.actionRegistry.register('updateTabGroup', new UpdateTabGroupAction())
     this.actionRegistry.register('ungroupTabs', new UngroupTabsAction())
+
+    this.actionRegistry.register('createWindow', new CreateWindowAction())
+    this.actionRegistry.register('closeWindow', new CloseWindowAction())
 
     this.actionRegistry.register('getBookmarks', new GetBookmarksAction())
     this.actionRegistry.register('createBookmark', new CreateBookmarkAction())

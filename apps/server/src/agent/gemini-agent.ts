@@ -26,19 +26,39 @@ import type { HonoSSEStream } from './provider-adapter/types'
 import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
 
-interface ToolExecutionResult {
+export interface ToolExecutionResult {
   parts: Part[]
   isError: boolean
   errorMessage?: string
 }
 
+export interface ToolExecutionHooks {
+  onBeforeToolCall?: (
+    toolName: string,
+    args: unknown,
+    browserContext?: BrowserContext,
+  ) => Promise<void>
+
+  onAfterToolCall?: (
+    toolName: string,
+    result: ToolExecutionResult,
+    browserContext?: BrowserContext,
+  ) => Promise<void>
+}
+
 export class GeminiAgent {
+  private toolHooks?: ToolExecutionHooks
+
   private constructor(
     private client: GeminiClient,
     private geminiConfig: GeminiConfig,
     private contentGenerator: VercelAIContentGenerator,
     private conversationId: string,
   ) {}
+
+  setToolHooks(hooks: ToolExecutionHooks): void {
+    this.toolHooks = hooks
+  }
 
   /**
    * Creates a GeminiAgent with pre-resolved config and MCP servers.
@@ -81,6 +101,7 @@ export class GeminiAgent {
 
     // Build excluded tools list - always exclude save_memory and google_web_search
     // Conditionally exclude screenshot tools if model doesn't support images
+    // Exclude window management tools unless in eval mode
     const excludedTools = ['save_memory', 'google_web_search']
     if (config.supportsImages === false) {
       excludedTools.push(
@@ -88,6 +109,9 @@ export class GeminiAgent {
         'browser_get_screenshot_pointer',
       )
       logger.info('Model does not support images, excluding screenshot tools')
+    }
+    if (config.evalMode !== true) {
+      excludedTools.push('browser_create_window', 'browser_close_window')
     }
 
     const geminiConfig = new GeminiConfig({
@@ -303,11 +327,24 @@ export class GeminiAgent {
     for (const requestInfo of toolCallRequests) {
       if (abortSignal.aborted) break
 
+      await this.toolHooks?.onBeforeToolCall?.(
+        requestInfo.name,
+        requestInfo.args,
+        browserContext,
+      )
+
       const result = await this.handleToolExecution(
         requestInfo,
         abortSignal,
         browserContext,
       )
+
+      await this.toolHooks?.onAfterToolCall?.(
+        requestInfo.name,
+        result,
+        browserContext,
+      )
+
       toolResponseParts.push(...result.parts)
 
       if (uiStream) {
