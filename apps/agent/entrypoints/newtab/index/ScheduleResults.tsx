@@ -93,6 +93,8 @@ export const ScheduleResults: FC = () => {
     setViewingRun(run)
   }
 
+  if (!displayedRuns.length) return null
+
   return (
     <Collapsible
       open={isOpen}
