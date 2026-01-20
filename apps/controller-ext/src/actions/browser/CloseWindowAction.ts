@@ -17,23 +17,6 @@ const CloseWindowOutputSchema = z.object({
 type CloseWindowInput = z.infer<typeof CloseWindowInputSchema>
 type CloseWindowOutput = z.infer<typeof CloseWindowOutputSchema>
 
-/**
- * CloseWindowAction - Close a browser window by ID
- *
- * Closes the window with the given ID.
- *
- * Input:
- * - windowId: ID of the window to close
- *
- * Output:
- * - success: true if window was closed
- *
- * Example:
- * {
- *   "windowId": 123
- * }
- * // Returns: { success: true }
- */
 export class CloseWindowAction extends ActionHandler<
   CloseWindowInput,
   CloseWindowOutput

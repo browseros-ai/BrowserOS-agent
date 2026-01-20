@@ -88,7 +88,7 @@ import {
 } from './tools/tab-management'
 import { closeWindow, createWindow } from './tools/window-management'
 
-// Array export for convenience (33 tools)
+// Array export for convenience (33 tools total)
 export const allControllerTools = [
   getActiveTab,
   listTabs,

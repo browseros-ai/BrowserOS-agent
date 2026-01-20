@@ -32,29 +32,6 @@ const CreateWindowOutputSchema = z.object({
 type CreateWindowInput = z.infer<typeof CreateWindowInputSchema>
 type CreateWindowOutput = z.infer<typeof CreateWindowOutputSchema>
 
-/**
- * CreateWindowAction - Create a new browser window
- *
- * Creates a new browser window with an optional URL. Can create
- * regular or incognito windows.
- *
- * Input:
- * - url (optional): URL to open in the new window (default: about:blank)
- * - incognito (optional): Whether to create an incognito window (default: false)
- * - focused (optional): Whether to focus the new window (default: true)
- *
- * Output:
- * - windowId: ID of the newly created window
- * - tabId: ID of the first tab in the new window
- *
- * Example:
- * {
- *   "url": "https://www.google.com",
- *   "incognito": false,
- *   "focused": true
- * }
- * // Returns: { windowId: 123, tabId: 456 }
- */
 export class CreateWindowAction extends ActionHandler<
   CreateWindowInput,
   CreateWindowOutput
