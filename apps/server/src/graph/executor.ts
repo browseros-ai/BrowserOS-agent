@@ -104,18 +104,15 @@ export async function executeGraph(
   }
 }
 
-function transformCodeForExecution(code: string): string {
-  // Remove multi-line imports: import { ... } from '@browseros-ai/agent-sdk'
+export function transformCodeForExecution(code: string): string {
+  // Remove multi-line imports: import { ... } from 'any-package'
   let result = code.replace(
-    /^\s*import\s+(?:type\s+)?\{[\s\S]*?\}\s*from\s*['"]@browseros-ai\/agent-sdk['"].*$/gm,
+    /^\s*import\s+(?:type\s+)?\{[\s\S]*?\}\s*from\s*['"][^'"\n]*['"].*$/gm,
     '',
   )
 
-  // Remove single-line imports: import X from '...', import type X from '...'
-  result = result.replace(
-    /^\s*import\s+.*['"]@browseros-ai\/agent-sdk['"].*$/gm,
-    '',
-  )
+  // Remove single-line imports: import X from '...', import 'side-effect', etc.
+  result = result.replace(/^\s*import\s+.*['"][^'"\n]*['"].*$/gm, '')
 
   return result
 }
