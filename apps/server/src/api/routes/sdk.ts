@@ -63,10 +63,12 @@ export function createSdkRoutes(deps: SdkDeps) {
       }
     })
     .post('/act', zValidator('json', ActRequestSchema), async (c) => {
-      const { instruction, context, browserContext, llm } = c.req.valid('json')
+      const { instruction, context, browserContext, llm, sessionId } =
+        c.req.valid('json')
       logger.info('SDK act request', {
         instruction,
         windowId: browserContext?.windowId,
+        hasSessionId: !!sessionId,
       })
 
       const llmConfig = llm ?? { provider: LLM_PROVIDERS.BROWSEROS }
@@ -97,6 +99,7 @@ export function createSdkRoutes(deps: SdkDeps) {
             browserContext,
             llmConfig,
             signal: c.req.raw.signal,
+            sessionId,
             onSSEEvent: async (event) => {
               // Events from AI agent are already properly formatted
               // Skip start/finish (managed at route level), forward everything else
@@ -208,15 +211,15 @@ export function createSdkRoutes(deps: SdkDeps) {
         // Use provided tabId, or get active tab (from window if specified)
         const tabId =
           requestTabId ?? (await browserService.getActiveTab(windowId)).tabId
-        const [screenshot, pageContent] = await Promise.all([
+        const [screenshot, interactiveElements] = await Promise.all([
           browserService.getScreenshot(tabId),
-          browserService.getPageContent(tabId),
+          browserService.getInteractiveElements(tabId, true),
         ])
 
         const result = await verifyService.verify({
           expectation,
           screenshot,
-          pageContent,
+          interactiveElements: interactiveElements.content,
           context,
           llmConfig,
           browserosId,

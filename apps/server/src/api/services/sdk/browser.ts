@@ -11,7 +11,12 @@ import {
   getImageContent,
   getTextContent,
 } from '../../utils/mcp-client'
-import type { ActiveTab, PageContent, Screenshot } from './types'
+import type {
+  ActiveTab,
+  InteractiveElements,
+  PageContent,
+  Screenshot,
+} from './types'
 import { SdkError } from './types'
 
 export class BrowserService {
@@ -83,5 +88,31 @@ export class BrowserService {
     if (result.isError) {
       throw new SdkError(getTextContent(result) || 'Navigation failed')
     }
+  }
+
+  async getInteractiveElements(
+    tabId: number,
+    simplified = false,
+    windowId?: number,
+  ): Promise<InteractiveElements> {
+    const result = await callMcpTool<InteractiveElements>(
+      this.mcpServerUrl,
+      'browser_get_interactive_elements',
+      {
+        tabId,
+        simplified,
+        ...(windowId && { windowId }),
+      },
+    )
+
+    if (result.isError) {
+      throw new SdkError(
+        getTextContent(result) || 'Failed to get interactive elements',
+      )
+    }
+
+    const content = result.structuredContent?.content || getTextContent(result)
+
+    return { content }
   }
 }

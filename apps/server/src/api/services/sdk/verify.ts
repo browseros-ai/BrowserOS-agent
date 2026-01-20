@@ -14,7 +14,8 @@ import type { Screenshot } from './types'
 export interface VerifyOptions {
   expectation: string
   screenshot: Screenshot
-  pageContent: string
+  pageContent?: string
+  interactiveElements?: string
   context?: Record<string, unknown>
   llmConfig: LLMConfig
   browserosId?: string
@@ -31,6 +32,7 @@ export class VerifyService {
       expectation,
       screenshot,
       pageContent,
+      interactiveElements,
       context,
       llmConfig,
       browserosId,
@@ -42,7 +44,7 @@ export class VerifyService {
 
 ${expectation}
 
-Look at the screenshot and page content. Determine if the expectation is met.
+Look at the screenshot and any provided page data. Determine if the expectation is met.
 
 Your response MUST start with exactly one of these words:
 - SUCCESS - if the expectation is met
@@ -53,7 +55,12 @@ Then explain your reasoning.`
     if (context) {
       textPrompt += `\n\nAdditional context:\n${JSON.stringify(context, null, 2)}`
     }
-    textPrompt += `\n\nPage text content:\n${pageContent}`
+    if (pageContent) {
+      textPrompt += `\n\nPage text content:\n${pageContent}`
+    }
+    if (interactiveElements) {
+      textPrompt += `\n\nInteractive elements:\n${interactiveElements}`
+    }
 
     const imageUrl = `data:${screenshot.mimeType};base64,${screenshot.data}`
 
