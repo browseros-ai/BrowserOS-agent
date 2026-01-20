@@ -38,6 +38,11 @@ export const TIMEOUTS = {
   // Port binding (server startup)
   PORT_BIND_RETRY_INTERVAL: 5_000,
   PORT_BIND_MAX_DURATION: 30_000,
+
+  // Health watchdog (must align with Chromium's kHealthCheckInterval = 30s)
+  HEALTH_WATCHDOG_CHECK_INTERVAL: 30_000,
+  HEALTH_WATCHDOG_TIMEOUT: 90_000,
+  HEALTH_WATCHDOG_STARTUP_GRACE: 60_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS
