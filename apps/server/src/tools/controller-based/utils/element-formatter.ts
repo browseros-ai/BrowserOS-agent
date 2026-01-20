@@ -3,6 +3,51 @@
  * Copyright 2025 BrowserOS
  */
 
+export type FormatPreset = 'simplified' | 'full'
+
+export interface FormatOptions {
+  showIndentation: boolean
+  showNodeId: boolean
+  showType: boolean
+  showTag: boolean
+  showName: boolean
+  showContext: boolean
+  showPath: boolean
+  showAttributes: boolean
+  showValueForTypeable: boolean
+  showViewportStatus: boolean
+  indentSize: number
+}
+
+const PRESET_OPTIONS: Record<FormatPreset, FormatOptions> = {
+  simplified: {
+    showIndentation: false,
+    showNodeId: true,
+    showType: true,
+    showTag: true,
+    showName: true,
+    showContext: false,
+    showPath: false,
+    showAttributes: false,
+    showValueForTypeable: true,
+    showViewportStatus: true,
+    indentSize: 2,
+  },
+  full: {
+    showIndentation: true,
+    showNodeId: true,
+    showType: true,
+    showTag: true,
+    showName: true,
+    showContext: false,
+    showPath: false,
+    showAttributes: true,
+    showValueForTypeable: true,
+    showViewportStatus: true,
+    indentSize: 2,
+  },
+}
+
 /**
  * Interactive Node interface matching the controller response
  */
@@ -39,10 +84,10 @@ export interface InteractiveNode {
  * Based on BrowserOS-agent ElementFormatter
  */
 export class ElementFormatter {
-  private simplified: boolean
+  private options: FormatOptions
 
-  constructor(simplified = false) {
-    this.simplified = simplified
+  constructor(preset: FormatPreset = 'full') {
+    this.options = PRESET_OPTIONS[preset]
   }
 
   /**
@@ -93,48 +138,30 @@ export class ElementFormatter {
    * Format a single element
    */
   formatElement(node: InteractiveNode): string {
-    let SHOW_INDENTATION = true
-    const SHOW_NODEID = true
-    const SHOW_TYPE = true
-    const SHOW_TAG = true
-    const SHOW_NAME = true
-    let SHOW_CONTEXT = false
-    let SHOW_PATH = false
-    let SHOW_ATTRIBUTES = true
-    const SHOW_VALUE_FOR_TYPEABLE = true
-    const APPEND_VIEWPORT_STATUS = true
-    const INDENT_SIZE = 2
-
-    if (this.simplified) {
-      SHOW_CONTEXT = false
-      SHOW_ATTRIBUTES = false
-      SHOW_PATH = false
-      SHOW_INDENTATION = false
-    }
-
+    const opts = this.options
     const parts: string[] = []
 
-    if (SHOW_INDENTATION) {
+    if (opts.showIndentation) {
       const depth = parseInt(node.attributes?.depth || '0', 10)
-      const indent = ' '.repeat(INDENT_SIZE * depth)
+      const indent = ' '.repeat(opts.indentSize * depth)
       parts.push(indent)
     }
 
-    if (SHOW_NODEID) {
+    if (opts.showNodeId) {
       parts.push(`[${node.nodeId}]`)
     }
 
-    if (SHOW_TYPE) {
+    if (opts.showType) {
       parts.push(`<${this._getTypeSymbol(node.type)}>`)
     }
 
-    if (SHOW_TAG) {
+    if (opts.showTag) {
       const tag =
         node.attributes?.['html-tag'] || node.attributes?.role || 'div'
       parts.push(`<${tag}>`)
     }
 
-    if (SHOW_NAME && node.name) {
+    if (opts.showName && node.name) {
       const truncated = this._truncateText(node.name, 40)
       parts.push(`"${truncated}"`)
     } else if (node.type === 'typeable') {
@@ -150,19 +177,19 @@ export class ElementFormatter {
       }
     }
 
-    if (SHOW_CONTEXT && node.attributes?.context) {
+    if (opts.showContext && node.attributes?.context) {
       const truncated = this._truncateText(node.attributes.context, 60)
       parts.push(`ctx:"${truncated}"`)
     }
 
-    if (SHOW_PATH && node.attributes?.path) {
+    if (opts.showPath && node.attributes?.path) {
       const formatted = this._formatPath(node.attributes.path)
       if (formatted) {
         parts.push(`path:"${formatted}"`)
       }
     }
 
-    if (SHOW_ATTRIBUTES) {
+    if (opts.showAttributes) {
       const attrString = this._formatAttributes(node)
       if (attrString) {
         parts.push(`attr:"${attrString}"`)
@@ -170,8 +197,8 @@ export class ElementFormatter {
     }
 
     if (
-      SHOW_VALUE_FOR_TYPEABLE &&
-      !SHOW_ATTRIBUTES &&
+      opts.showValueForTypeable &&
+      !opts.showAttributes &&
       node.type === 'typeable' &&
       node.attributes?.value
     ) {
@@ -179,12 +206,48 @@ export class ElementFormatter {
       parts.push(`value="${value}"`)
     }
 
-    if (APPEND_VIEWPORT_STATUS) {
+    if (opts.showViewportStatus) {
       const isInViewport = node.attributes?.in_viewport !== 'false'
       parts.push(isInViewport ? '(visible)' : '(hidden)')
     }
 
     return parts.join(' ')
+  }
+
+  /**
+   * Get legend entries based on enabled format options
+   */
+  getLegend(): string[] {
+    const opts = this.options
+    const legend: string[] = []
+
+    if (opts.showNodeId) {
+      legend.push('[nodeId] - Use this number to interact with the element')
+    }
+    if (opts.showType) {
+      legend.push('<C> - Clickable element')
+      legend.push('<T> - Typeable/input element')
+    }
+    if (opts.showViewportStatus) {
+      legend.push('(visible) - Element is in viewport')
+      legend.push('(hidden) - Element is out of viewport, may need scrolling')
+    }
+    if (opts.showIndentation) {
+      legend.push('Indentation shows DOM depth')
+    }
+    if (opts.showPath) {
+      legend.push('path:"..." - DOM path to element')
+    }
+    if (opts.showContext) {
+      legend.push('ctx:"..." - Surrounding text context')
+    }
+    if (opts.showAttributes) {
+      legend.push(
+        'attr:"..." - Element attributes (type, placeholder, value, aria-label)',
+      )
+    }
+
+    return legend
   }
 
   private _getTypeSymbol(type: string): string {

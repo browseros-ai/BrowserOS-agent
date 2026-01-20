@@ -13,8 +13,8 @@ import {
   type InteractiveNode,
 } from '../utils/element-formatter'
 
-const FULL_FORMATTER = new ElementFormatter(false)
-const SIMPLIFIED_FORMATTER = new ElementFormatter(true)
+const FULL_FORMATTER = new ElementFormatter('full')
+const SIMPLIFIED_FORMATTER = new ElementFormatter('simplified')
 
 export const getInteractiveElements = defineTool<
   z.ZodRawShape,
@@ -103,11 +103,9 @@ export const getInteractiveElements = defineTool<
     }
 
     lines.push('Legend:')
-    lines.push('  [nodeId] - Use this number to interact with the element')
-    lines.push('  <C> - Clickable element')
-    lines.push('  <T> - Typeable/input element')
-    lines.push('  (visible) - Element is in viewport')
-    lines.push('  (hidden) - Element is out of viewport, may need scrolling')
+    for (const entry of formatter.getLegend()) {
+      lines.push(`  ${entry}`)
+    }
 
     // Output text response
     for (const line of lines) {
