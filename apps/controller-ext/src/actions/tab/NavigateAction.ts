@@ -26,6 +26,7 @@ const NavigateInputSchema = z.object({
 // Output schema
 const NavigateOutputSchema = z.object({
   tabId: z.number().describe('ID of the navigated tab'),
+  windowId: z.number().describe('ID of the window containing the tab'),
   url: z.string().describe('URL that the tab is navigating to'),
   message: z.string().describe('Confirmation message'),
 })
@@ -79,11 +80,12 @@ export class NavigateAction extends ActionHandler<
     // Navigate the tab
     const tab = await this.tabAdapter.navigateTab(targetTabId, input.url)
 
-    if (tab.id === undefined) {
-      throw new Error('Navigated tab has no ID')
+    if (tab.id === undefined || tab.windowId === undefined) {
+      throw new Error('Navigated tab has no ID or windowId')
     }
     return {
       tabId: tab.id,
+      windowId: tab.windowId,
       url: input.url,
       message: `Navigating to ${input.url}`,
     }

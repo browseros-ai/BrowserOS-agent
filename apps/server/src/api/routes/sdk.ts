@@ -6,6 +6,7 @@
  * SDK Routes - REST API for @browseros-ai/agent-sdk
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -29,6 +30,23 @@ import {
 import { VerifyService } from '../services/sdk/verify'
 import type { Env } from '../types'
 
+async function waitForPageLoad(
+  browserService: BrowserService,
+  tabId: number,
+): Promise<void> {
+  const startTime = Date.now()
+
+  while (Date.now() - startTime < TIMEOUTS.PAGE_LOAD_WAIT) {
+    const status = await browserService.getPageLoadStatus(tabId)
+    if (status.isDOMContentLoaded) {
+      return
+    }
+    await new Promise((resolve) =>
+      setTimeout(resolve, TIMEOUTS.PAGE_LOAD_POLL_INTERVAL),
+    )
+  }
+}
+
 export function createSdkRoutes(deps: SdkDeps) {
   const { port, browserosId } = deps
 
@@ -46,8 +64,15 @@ export function createSdkRoutes(deps: SdkDeps) {
       logger.info('SDK nav request', { url, tabId, windowId })
 
       try {
-        await browserService.navigate(url, tabId, windowId)
-        return c.json({ success: true })
+        const { tabId: navigatedTabId } = await browserService.navigate(
+          url,
+          tabId,
+          windowId,
+        )
+
+        await waitForPageLoad(browserService, navigatedTabId)
+
+        return c.json({ success: true, tabId: navigatedTabId })
       } catch (error) {
         const err =
           error instanceof SdkError
