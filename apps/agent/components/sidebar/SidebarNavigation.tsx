@@ -52,6 +52,7 @@ const primaryNavItems: NavItem[] = [
     name: 'Personalize',
     to: '/home/personalize',
     icon: UserPen,
+    feature: Feature.PERSONALIZATION_SUPPORT,
   },
 ]
 
