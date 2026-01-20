@@ -46,6 +46,8 @@ export {
   ungroupTabs,
   updateTabGroup,
 } from './tools/tab-management'
+// Window Management
+export { closeWindow, createWindow } from './tools/window-management'
 // Types
 export type { Context } from './types/context'
 export type { ImageContentData, Response } from './types/response'
@@ -84,8 +86,9 @@ import {
   ungroupTabs,
   updateTabGroup,
 } from './tools/tab-management'
+import { closeWindow, createWindow } from './tools/window-management'
 
-// Array export for convenience (32 tools)
+// Array export for convenience (33 tools)
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -118,4 +121,6 @@ export const allControllerTools = [
   removeBookmark,
   searchHistory,
   getRecentHistory,
+  createWindow,
+  closeWindow,
 ]
