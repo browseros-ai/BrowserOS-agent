@@ -1,6 +1,6 @@
 import { Menu } from 'lucide-react'
 import type { FC } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { SettingsSidebar } from '@/components/sidebar/SettingsSidebar'
 import { Button } from '@/components/ui/button'
@@ -10,14 +10,10 @@ import { SETTINGS_PAGE_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { RpcClientProvider } from '@/lib/rpc/RpcClientProvider'
 
-const COLLAPSE_DELAY = 150
-
 export const SettingsSidebarLayout: FC = () => {
   const location = useLocation()
   const isMobile = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     track(SETTINGS_PAGE_VIEWED_EVENT, { page: location.pathname })
@@ -25,28 +21,6 @@ export const SettingsSidebarLayout: FC = () => {
 
   useEffect(() => {
     setMobileOpen(false)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (collapseTimeoutRef.current) {
-        clearTimeout(collapseTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const handleMouseEnter = useCallback(() => {
-    if (collapseTimeoutRef.current) {
-      clearTimeout(collapseTimeoutRef.current)
-      collapseTimeoutRef.current = null
-    }
-    setSidebarOpen(true)
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    collapseTimeoutRef.current = setTimeout(() => {
-      setSidebarOpen(false)
-    }, COLLAPSE_DELAY)
   }, [])
 
   if (isMobile) {
@@ -71,7 +45,7 @@ export const SettingsSidebarLayout: FC = () => {
           </main>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetContent side="left" className="w-72 p-0">
-              <SettingsSidebar expanded />
+              <SettingsSidebar />
             </SheetContent>
           </Sheet>
         </div>
@@ -81,19 +55,9 @@ export const SettingsSidebarLayout: FC = () => {
 
   return (
     <RpcClientProvider>
-      <div className="relative min-h-screen bg-background">
-        {/* Sidebar - fixed overlay */}
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: hover interactions needed */}
-        <div
-          className="fixed inset-y-0 left-0 z-40"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <SettingsSidebar expanded={sidebarOpen} />
-        </div>
-
-        {/* Main content - full width, centered */}
-        <main className="min-h-screen overflow-y-auto">
+      <div className="flex h-screen bg-background">
+        <SettingsSidebar />
+        <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
             <Outlet />
           </div>

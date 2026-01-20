@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Bot,
+  Info,
   MessageSquare,
   Palette,
   PlugZap,
@@ -9,19 +10,10 @@ import {
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { cn } from '@/lib/utils'
-
-interface SettingsSidebarProps {
-  expanded?: boolean
-}
 
 type NavItem = {
   name: string
@@ -49,9 +41,7 @@ const settingsNavItems: NavItem[] = [
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
-export const SettingsSidebar: FC<SettingsSidebarProps> = ({
-  expanded = false,
-}) => {
+export const SettingsSidebar: FC = () => {
   const location = useLocation()
   const { supports } = useCapabilities()
 
@@ -59,93 +49,60 @@ export const SettingsSidebar: FC<SettingsSidebarProps> = ({
     (item) => !item.feature || supports(item.feature),
   )
 
-  const backButton = (
-    <NavLink
-      to="/home"
-      className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-    >
-      <ArrowLeft className="size-4 shrink-0" />
-      <span
-        className={cn(
-          'truncate transition-opacity duration-200',
-          expanded ? 'opacity-100' : 'opacity-0',
-        )}
-      >
-        Back
-      </span>
-    </NavLink>
-  )
-
   return (
-    <div
-      className={cn(
-        'flex h-full flex-col border-r bg-sidebar text-sidebar-foreground transition-all duration-200 ease-in-out',
-        expanded ? 'w-64' : 'w-14',
-      )}
-    >
-      <div className="flex h-14 items-center border-b px-2">
-        <TooltipProvider delayDuration={0}>
-          {expanded ? (
-            backButton
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>{backButton}</TooltipTrigger>
-              <TooltipContent side="right">Back to Home</TooltipContent>
-            </Tooltip>
-          )}
-        </TooltipProvider>
+    <div className="flex h-full w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
+      <div className="flex h-14 items-center justify-between border-b px-2">
+        <NavLink
+          to="/home"
+          className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <ArrowLeft className="size-4 shrink-0" />
+          <span className="truncate">Back</span>
+        </NavLink>
+        <ThemeToggle
+          className="mr-1 h-8 w-8 shrink-0"
+          iconClassName="h-4 w-4"
+        />
       </div>
 
-      <TooltipProvider delayDuration={0}>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
-          <div
-            className={cn(
-              'mb-2 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider transition-opacity duration-200',
-              expanded ? 'opacity-100' : 'opacity-0',
-            )}
-          >
-            Settings
-          </div>
-          <nav className="space-y-1">
-            {filteredItems.map((item) => {
-              const Icon = item.icon
-              const isActive = location.pathname === item.to
-
-              const navItem = (
-                <NavLink
-                  to={item.to}
-                  className={cn(
-                    'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                    isActive &&
-                      'bg-sidebar-accent text-sidebar-accent-foreground',
-                  )}
-                >
-                  <Icon className="size-4 shrink-0" />
-                  <span
-                    className={cn(
-                      'truncate transition-opacity duration-200',
-                      expanded ? 'opacity-100' : 'opacity-0',
-                    )}
-                  >
-                    {item.name}
-                  </span>
-                </NavLink>
-              )
-
-              if (!expanded) {
-                return (
-                  <Tooltip key={item.to}>
-                    <TooltipTrigger asChild>{navItem}</TooltipTrigger>
-                    <TooltipContent side="right">{item.name}</TooltipContent>
-                  </Tooltip>
-                )
-              }
-
-              return <div key={item.to}>{navItem}</div>
-            })}
-          </nav>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+        <div className="mb-2 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+          Settings
         </div>
-      </TooltipProvider>
+        <nav className="space-y-1">
+          {filteredItems.map((item) => {
+            const Icon = item.icon
+            const isActive = location.pathname === item.to
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  isActive &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground',
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span className="truncate">{item.name}</span>
+              </NavLink>
+            )
+          })}
+        </nav>
+      </div>
+
+      <div className="mt-auto border-t p-2">
+        <a
+          href="https://docs.browseros.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          <Info className="size-4 shrink-0" />
+          <span className="truncate">About BrowserOS</span>
+        </a>
+      </div>
     </div>
   )
 }
