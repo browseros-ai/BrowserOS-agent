@@ -254,7 +254,11 @@ describe('Agent', () => {
     it('returns ActResult with steps from SSE stream', async () => {
       const fetchMock = mockSSEFetch([
         { type: 'start-step' },
-        { type: 'text-delta', delta: 'I need to click the button', id: 'thought' },
+        {
+          type: 'text-delta',
+          delta: 'I need to click the button',
+          id: 'thought',
+        },
         {
           type: 'tool-input-available',
           toolCallId: '1',
@@ -277,7 +281,7 @@ describe('Agent', () => {
       expect(result.steps).toHaveLength(1)
       expect(result.steps[0].thought).toBe('I need to click the button')
       expect(result.steps[0].toolCalls).toHaveLength(1)
-      expect(result.steps[0].toolCalls![0].name).toBe('browser_click')
+      expect(result.steps[0].toolCalls?.[0].name).toBe('browser_click')
     })
 
     it('throws ActionError on failure', async () => {
@@ -338,10 +342,7 @@ describe('Agent', () => {
         if (callCount === 1) {
           // act() SSE response
           const encoder = new TextEncoder()
-          const sseData = [
-            { type: 'start-step' },
-            { type: 'finish-step' },
-          ]
+          const sseData = [{ type: 'start-step' }, { type: 'finish-step' }]
             .map((e) => `data: ${JSON.stringify(e)}\n\n`)
             .join('')
           return Promise.resolve({
@@ -386,10 +387,7 @@ describe('Agent', () => {
         if (callCount === 1 || callCount === 3) {
           // act() SSE response
           const encoder = new TextEncoder()
-          const sseData = [
-            { type: 'start-step' },
-            { type: 'finish-step' },
-          ]
+          const sseData = [{ type: 'start-step' }, { type: 'finish-step' }]
             .map((e) => `data: ${JSON.stringify(e)}\n\n`)
             .join('')
           return Promise.resolve({
@@ -445,10 +443,7 @@ describe('Agent', () => {
         if (callCount % 2 === 1) {
           // act() SSE response
           const encoder = new TextEncoder()
-          const sseData = [
-            { type: 'start-step' },
-            { type: 'finish-step' },
-          ]
+          const sseData = [{ type: 'start-step' }, { type: 'finish-step' }]
             .map((e) => `data: ${JSON.stringify(e)}\n\n`)
             .join('')
           return Promise.resolve({

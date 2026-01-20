@@ -50,9 +50,14 @@ export async function executeGraph(
     // Create execution directory
     await mkdir(execDir, { recursive: true })
 
-    // Always load from fixed path for testing iteration
-    const codePath = path.join(import.meta.dir, '../../../../tmp/current_code.ts')
-    logger.debug(`Loading graph code from ${codePath}`)
+    // Transform code: remove import statements (Agent is passed directly)
+    const transformedCode = transformCodeForExecution(code)
+
+    // Write code to file
+    const codePath = path.join(execDir, 'graph.ts')
+    await Bun.write(codePath, transformedCode)
+
+    logger.debug(`Wrote graph code to ${codePath}`)
 
     logger.debug('executeGraph creating Agent with browserContext', {
       sessionId,
