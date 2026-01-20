@@ -5,8 +5,12 @@
  */
 import { ActionRegistry } from '@/actions/ActionRegistry'
 import { CreateBookmarkAction } from '@/actions/bookmark/CreateBookmarkAction'
+import { CreateBookmarkFolderAction } from '@/actions/bookmark/CreateBookmarkFolderAction'
+import { GetBookmarkChildrenAction } from '@/actions/bookmark/GetBookmarkChildrenAction'
 import { GetBookmarksAction } from '@/actions/bookmark/GetBookmarksAction'
+import { MoveBookmarkAction } from '@/actions/bookmark/MoveBookmarkAction'
 import { RemoveBookmarkAction } from '@/actions/bookmark/RemoveBookmarkAction'
+import { RemoveBookmarkTreeAction } from '@/actions/bookmark/RemoveBookmarkTreeAction'
 import { CaptureScreenshotAction } from '@/actions/browser/CaptureScreenshotAction'
 import { CaptureScreenshotPointerAction } from '@/actions/browser/CaptureScreenshotPointerAction'
 import { ClearAction } from '@/actions/browser/ClearAction'
@@ -200,6 +204,19 @@ export class BrowserOSController {
     this.actionRegistry.register('getBookmarks', new GetBookmarksAction())
     this.actionRegistry.register('createBookmark', new CreateBookmarkAction())
     this.actionRegistry.register('removeBookmark', new RemoveBookmarkAction())
+    this.actionRegistry.register(
+      'createBookmarkFolder',
+      new CreateBookmarkFolderAction(),
+    )
+    this.actionRegistry.register(
+      'getBookmarkChildren',
+      new GetBookmarkChildrenAction(),
+    )
+    this.actionRegistry.register('moveBookmark', new MoveBookmarkAction())
+    this.actionRegistry.register(
+      'removeBookmarkTree',
+      new RemoveBookmarkTreeAction(),
+    )
 
     this.actionRegistry.register('searchHistory', new SearchHistoryAction())
     this.actionRegistry.register(

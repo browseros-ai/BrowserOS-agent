@@ -206,6 +206,128 @@ export class BookmarkAdapter {
   }
 
   /**
+   * Create a bookmark folder
+   *
+   * @param title - Folder name
+   * @param parentId - Parent folder ID (defaults to "1" = Bookmarks Bar)
+   * @returns Created folder node
+   */
+  async createBookmarkFolder(options: {
+    title: string
+    parentId?: string
+  }): Promise<chrome.bookmarks.BookmarkTreeNode> {
+    const { title, parentId = '1' } = options
+    logger.debug(
+      `[BookmarkAdapter] Creating bookmark folder: "${title}" in parent ${parentId}`,
+    )
+
+    try {
+      const created = await chrome.bookmarks.create({
+        title,
+        parentId,
+      })
+      logger.debug(
+        `[BookmarkAdapter] Created folder: ${created.id} - ${created.title}`,
+      )
+      return created
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(
+        `[BookmarkAdapter] Failed to create bookmark folder: ${errorMessage}`,
+      )
+      throw new Error(`Failed to create bookmark folder: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Get direct children of a folder
+   *
+   * @param folderId - Folder ID to get children from
+   * @returns Array of child nodes
+   */
+  async getBookmarkChildren(
+    folderId: string,
+  ): Promise<chrome.bookmarks.BookmarkTreeNode[]> {
+    logger.debug(`[BookmarkAdapter] Getting children of folder: ${folderId}`)
+
+    try {
+      const children = await chrome.bookmarks.getChildren(folderId)
+      logger.debug(
+        `[BookmarkAdapter] Found ${children.length} children in folder ${folderId}`,
+      )
+      return children
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(
+        `[BookmarkAdapter] Failed to get bookmark children: ${errorMessage}`,
+      )
+      throw new Error(`Failed to get bookmark children: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Move a bookmark or folder to a new location
+   *
+   * @param id - Bookmark or folder ID to move
+   * @param destination - New location
+   * @returns Updated bookmark node
+   */
+  async moveBookmark(
+    id: string,
+    destination: { parentId?: string; index?: number },
+  ): Promise<chrome.bookmarks.BookmarkTreeNode> {
+    logger.debug(
+      `[BookmarkAdapter] Moving bookmark ${id} to parent ${destination.parentId}, index ${destination.index}`,
+    )
+
+    try {
+      const moved = await chrome.bookmarks.move(id, destination)
+      logger.debug(
+        `[BookmarkAdapter] Moved bookmark ${id} to ${moved.parentId}`,
+      )
+      return moved
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(
+        `[BookmarkAdapter] Failed to move bookmark ${id}: ${errorMessage}`,
+      )
+      throw new Error(`Failed to move bookmark: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * Remove a folder and all its contents recursively
+   *
+   * @param id - Folder ID to remove
+   * @throws if id is a root node ("0", "1", "2")
+   */
+  async removeBookmarkTree(id: string): Promise<void> {
+    const protectedIds = ['0', '1', '2']
+    if (protectedIds.includes(id)) {
+      throw new Error(
+        `Cannot delete protected bookmark folder: ${id}. Root folders (Bookmarks Bar, Other Bookmarks, Mobile Bookmarks) cannot be deleted.`,
+      )
+    }
+
+    logger.debug(`[BookmarkAdapter] Removing bookmark tree: ${id}`)
+
+    try {
+      await chrome.bookmarks.removeTree(id)
+      logger.debug(`[BookmarkAdapter] Removed bookmark tree: ${id}`)
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
+      logger.error(
+        `[BookmarkAdapter] Failed to remove bookmark tree ${id}: ${errorMessage}`,
+      )
+      throw new Error(`Failed to remove bookmark tree: ${errorMessage}`)
+    }
+  }
+
+  /**
    * Flatten bookmark tree into array
    * @private
    */

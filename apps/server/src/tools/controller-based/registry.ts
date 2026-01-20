@@ -12,7 +12,15 @@ export {
   sendKeys,
 } from './tools/advanced'
 // Bookmark Management
-export { createBookmark, getBookmarks, removeBookmark } from './tools/bookmarks'
+export {
+  createBookmark,
+  createBookmarkFolder,
+  getBookmarkChildren,
+  getBookmarks,
+  moveBookmark,
+  removeBookmark,
+  removeBookmarkTree,
+} from './tools/bookmarks'
 // Content Extraction
 export { getPageContent } from './tools/content'
 // Coordinate-based
@@ -61,7 +69,15 @@ import {
   executeJavaScript,
   sendKeys,
 } from './tools/advanced'
-import { createBookmark, getBookmarks, removeBookmark } from './tools/bookmarks'
+import {
+  createBookmark,
+  createBookmarkFolder,
+  getBookmarkChildren,
+  getBookmarks,
+  moveBookmark,
+  removeBookmark,
+  removeBookmarkTree,
+} from './tools/bookmarks'
 import { getPageContent } from './tools/content'
 import { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
 import { getRecentHistory, searchHistory } from './tools/history'
@@ -90,7 +106,7 @@ import {
 } from './tools/tab-management'
 import { closeWindow, createWindow } from './tools/window-management'
 
-// Array export for convenience (33 tools total)
+// Array export for convenience (37 tools total)
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -122,6 +138,10 @@ export const allControllerTools = [
   getBookmarks,
   createBookmark,
   removeBookmark,
+  createBookmarkFolder,
+  getBookmarkChildren,
+  moveBookmark,
+  removeBookmarkTree,
   searchHistory,
   getRecentHistory,
   createWindow,
