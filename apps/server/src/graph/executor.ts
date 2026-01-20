@@ -12,6 +12,7 @@ import { Agent } from '@browseros-ai/agent-sdk'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 
+//TODO: nikhil - Fix this with new bun package logic
 // Expose zod globally for generated graph code. The codegen service generates code
 // that uses `z` for schema validation, but transformCodeForExecution strips all imports
 // since dependencies can't be resolved in dynamically imported files (especially in
