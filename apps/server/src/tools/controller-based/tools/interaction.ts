@@ -14,6 +14,7 @@ import {
 } from '../utils/element-formatter'
 
 const FULL_FORMATTER = new ElementFormatter('full')
+const DETAILED_FORMATTER = new ElementFormatter('detailed')
 const SIMPLIFIED_FORMATTER = new ElementFormatter('simplified')
 
 export const getInteractiveElements = defineTool<
@@ -59,7 +60,7 @@ export const getInteractiveElements = defineTool<
       processingTimeMs: number
     }
 
-    const formatter = simplified ? SIMPLIFIED_FORMATTER : FULL_FORMATTER
+    const formatter = simplified ? SIMPLIFIED_FORMATTER : DETAILED_FORMATTER
 
     // Separate clickable and typeable elements
     const clickableElements = snapshot.elements.filter(

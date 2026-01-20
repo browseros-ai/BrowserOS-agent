@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  */
 
-export type FormatPreset = 'simplified' | 'full'
+export type FormatPreset = 'simplified' | 'full' | 'detailed'
 
 export interface FormatOptions {
   showIndentation: boolean
@@ -33,7 +33,7 @@ const PRESET_OPTIONS: Record<FormatPreset, FormatOptions> = {
     showViewportStatus: true,
     indentSize: 2,
   },
-  full: {
+  detailed: {
     showIndentation: true,
     showNodeId: true,
     showType: true,
@@ -41,6 +41,19 @@ const PRESET_OPTIONS: Record<FormatPreset, FormatOptions> = {
     showName: true,
     showContext: false,
     showPath: false,
+    showAttributes: true,
+    showValueForTypeable: true,
+    showViewportStatus: true,
+    indentSize: 2,
+  },
+  full: {
+    showIndentation: true,
+    showNodeId: true,
+    showType: true,
+    showTag: true,
+    showName: true,
+    showContext: true,
+    showPath: true,
     showAttributes: true,
     showValueForTypeable: true,
     showViewportStatus: true,
