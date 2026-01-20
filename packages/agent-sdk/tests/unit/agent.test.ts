@@ -9,7 +9,7 @@ import {
   NavigationError,
   VerificationError,
 } from '../../src/errors'
-import type { ProgressEvent } from '../../src/types'
+import type { UIMessageStreamEvent } from '../../src/types'
 
 const TEST_URL = 'http://localhost:9222'
 
@@ -25,6 +25,32 @@ function mockFetch(response: unknown, status = 200) {
 
 function mockFetchError(error: Error) {
   return mock(() => Promise.reject(error))
+}
+
+function mockSSEFetch(events: UIMessageStreamEvent[], status = 200) {
+  const sseData = events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('')
+  const encoder = new TextEncoder()
+  const encoded = encoder.encode(sseData)
+
+  return mock(() =>
+    Promise.resolve({
+      ok: status >= 200 && status < 300,
+      status,
+      body: {
+        getReader: () => {
+          let read = false
+          return {
+            read: async () => {
+              if (read) return { done: true, value: undefined }
+              read = true
+              return { done: false, value: encoded }
+            },
+            releaseLock: () => {},
+          }
+        },
+      },
+    } as unknown as Response),
+  )
 }
 
 describe('Agent', () => {
@@ -64,6 +90,16 @@ describe('Agent', () => {
         expect.any(Object),
       )
     })
+
+    it('generates sessionId when stateful mode is enabled', () => {
+      const agent = new Agent({ url: TEST_URL, stateful: true })
+      expect(agent.sessionId).not.toBeNull()
+    })
+
+    it('does not generate sessionId when stateful mode is disabled', () => {
+      const agent = new Agent({ url: TEST_URL, stateful: false })
+      expect(agent.sessionId).toBeNull()
+    })
   })
 
   describe('nav()', () => {
@@ -74,11 +110,17 @@ describe('Agent', () => {
       const agent = new Agent({ url: TEST_URL })
       await agent.nav('https://example.com')
 
-      expect(fetchMock).toHaveBeenCalledWith('http://localhost:9222/sdk/nav', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: 'https://example.com' }),
-      })
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:9222/sdk/nav',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.url).toBe('https://example.com')
     })
 
     it('includes tabId and windowId options', async () => {
@@ -88,15 +130,11 @@ describe('Agent', () => {
       const agent = new Agent({ url: TEST_URL })
       await agent.nav('https://example.com', { tabId: 123, windowId: 456 })
 
-      expect(fetchMock).toHaveBeenCalledWith('http://localhost:9222/sdk/nav', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: 'https://example.com',
-          tabId: 123,
-          windowId: 456,
-        }),
-      })
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.url).toBe('https://example.com')
+      expect(body.tabId).toBe(123)
+      expect(body.windowId).toBe(456)
     })
 
     it('returns NavResult on success', async () => {
@@ -131,10 +169,10 @@ describe('Agent', () => {
       )
     })
 
-    it('emits nav progress event', async () => {
+    it('emits UIMessageStreamEvents', async () => {
       globalThis.fetch = mockFetch({ success: true })
 
-      const events: ProgressEvent[] = []
+      const events: UIMessageStreamEvent[] = []
       const agent = new Agent({
         url: TEST_URL,
         onProgress: (e) => events.push(e),
@@ -142,62 +180,62 @@ describe('Agent', () => {
 
       await agent.nav('https://example.com')
 
-      expect(events).toHaveLength(1)
-      expect(events[0]).toEqual({
-        type: 'nav',
-        message: 'Navigating to https://example.com',
-        metadata: { url: 'https://example.com' },
-      })
+      expect(events.length).toBeGreaterThan(0)
+      expect(events[0]).toEqual({ type: 'start-step' })
+      expect(events[events.length - 1]).toEqual({ type: 'finish-step' })
     })
   })
 
   describe('act()', () => {
     it('sends correct request to /sdk/act', async () => {
-      const fetchMock = mockFetch({ success: true, steps: [] })
+      const fetchMock = mockSSEFetch([
+        { type: 'start-step' },
+        { type: 'finish-step' },
+      ])
       globalThis.fetch = fetchMock
 
       const agent = new Agent({ url: TEST_URL })
       await agent.act('click the button')
 
-      expect(fetchMock).toHaveBeenCalledWith('http://localhost:9222/sdk/act', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instruction: 'click the button',
-          context: undefined,
-          maxSteps: undefined,
-          windowId: undefined,
-          llm: undefined,
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:9222/sdk/act',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
         }),
-      })
+      )
+
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.instruction).toBe('click the button')
+      expect(body.sessionId).toBeDefined()
     })
 
-    it('includes context, maxSteps, and windowId options', async () => {
-      const fetchMock = mockFetch({ success: true, steps: [] })
+    it('includes context and maxSteps options', async () => {
+      const fetchMock = mockSSEFetch([
+        { type: 'start-step' },
+        { type: 'finish-step' },
+      ])
       globalThis.fetch = fetchMock
 
       const agent = new Agent({ url: TEST_URL })
       await agent.act('search for item', {
         context: { query: 'headphones' },
         maxSteps: 5,
-        windowId: 789,
       })
 
-      expect(fetchMock).toHaveBeenCalledWith('http://localhost:9222/sdk/act', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instruction: 'search for item',
-          context: { query: 'headphones' },
-          maxSteps: 5,
-          windowId: 789,
-          llm: undefined,
-        }),
-      })
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.instruction).toBe('search for item')
+      expect(body.context).toEqual({ query: 'headphones' })
+      expect(body.maxSteps).toBe(5)
     })
 
     it('includes llm config from constructor', async () => {
-      const fetchMock = mockFetch({ success: true, steps: [] })
+      const fetchMock = mockSSEFetch([
+        { type: 'start-step' },
+        { type: 'finish-step' },
+      ])
       globalThis.fetch = fetchMock
 
       const llmConfig = {
@@ -208,35 +246,38 @@ describe('Agent', () => {
       const agent = new Agent({ url: TEST_URL, llm: llmConfig })
       await agent.act('click the button')
 
-      expect(fetchMock).toHaveBeenCalledWith('http://localhost:9222/sdk/act', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instruction: 'click the button',
-          context: undefined,
-          maxSteps: undefined,
-          windowId: undefined,
-          llm: llmConfig,
-        }),
-      })
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.llm).toEqual(llmConfig)
     })
 
-    it('returns ActResult on success', async () => {
-      const mockResult = {
-        success: true,
-        steps: [
-          {
-            thought: 'I need to click the button',
-            toolCalls: [{ name: 'browser_click', args: { nodeId: 1 } }],
-          },
-        ],
-      }
-      globalThis.fetch = mockFetch(mockResult)
+    it('returns ActResult with steps from SSE stream', async () => {
+      const fetchMock = mockSSEFetch([
+        { type: 'start-step' },
+        { type: 'text-delta', delta: 'I need to click the button', id: 'thought' },
+        {
+          type: 'tool-input-available',
+          toolCallId: '1',
+          toolName: 'browser_click',
+          input: { nodeId: 1 },
+        },
+        {
+          type: 'tool-output-available',
+          toolCallId: '1',
+          output: { success: true },
+        },
+        { type: 'finish-step' },
+      ])
+      globalThis.fetch = fetchMock
 
       const agent = new Agent({ url: TEST_URL })
       const result = await agent.act('click the button')
 
-      expect(result).toEqual(mockResult)
+      expect(result.success).toBe(true)
+      expect(result.steps).toHaveLength(1)
+      expect(result.steps[0].thought).toBe('I need to click the button')
+      expect(result.steps[0].toolCalls).toHaveLength(1)
+      expect(result.steps[0].toolCalls![0].name).toBe('browser_click')
     })
 
     it('throws ActionError on failure', async () => {
@@ -247,10 +288,15 @@ describe('Agent', () => {
       await expect(agent.act('click the button')).rejects.toThrow(ActionError)
     })
 
-    it('emits act progress event', async () => {
-      globalThis.fetch = mockFetch({ success: true, steps: [] })
+    it('emits SSE events via onProgress', async () => {
+      const fetchMock = mockSSEFetch([
+        { type: 'start-step' },
+        { type: 'text-delta', delta: 'thinking...', id: 'thought' },
+        { type: 'finish-step' },
+      ])
+      globalThis.fetch = fetchMock
 
-      const events: ProgressEvent[] = []
+      const events: UIMessageStreamEvent[] = []
       const agent = new Agent({
         url: TEST_URL,
         onProgress: (e) => events.push(e),
@@ -258,12 +304,188 @@ describe('Agent', () => {
 
       await agent.act('click the button')
 
-      expect(events).toHaveLength(1)
-      expect(events[0]).toEqual({
-        type: 'act',
-        message: 'click the button',
-        metadata: { instruction: 'click the button' },
+      expect(events).toHaveLength(3)
+      expect(events[0]).toEqual({ type: 'start-step' })
+      expect(events[1]).toEqual({
+        type: 'text-delta',
+        delta: 'thinking...',
+        id: 'thought',
       })
+      expect(events[2]).toEqual({ type: 'finish-step' })
+    })
+
+    it('resets sessionId when resetState is true', async () => {
+      const fetchMock = mockSSEFetch([
+        { type: 'start-step' },
+        { type: 'finish-step' },
+      ])
+      globalThis.fetch = fetchMock
+
+      const agent = new Agent({ url: TEST_URL })
+      const originalSessionId = agent.sessionId
+
+      await agent.act('click the button', { resetState: true })
+
+      expect(agent.sessionId).not.toBe(originalSessionId)
+    })
+  })
+
+  describe('act() with verify option', () => {
+    it('verifies after action succeeds', async () => {
+      let callCount = 0
+      globalThis.fetch = mock(() => {
+        callCount++
+        if (callCount === 1) {
+          // act() SSE response
+          const encoder = new TextEncoder()
+          const sseData = [
+            { type: 'start-step' },
+            { type: 'finish-step' },
+          ]
+            .map((e) => `data: ${JSON.stringify(e)}\n\n`)
+            .join('')
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: {
+              getReader: () => {
+                let read = false
+                return {
+                  read: async () => {
+                    if (read) return { done: true, value: undefined }
+                    read = true
+                    return { done: false, value: encoder.encode(sseData) }
+                  },
+                  releaseLock: () => {},
+                }
+              },
+            },
+          } as unknown as Response)
+        }
+        // verify() JSON response
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ success: true, reason: 'Verified' }),
+        } as Response)
+      })
+
+      const agent = new Agent({ url: TEST_URL })
+      const result = await agent.act('click add to cart', {
+        verify: 'Cart shows 1 item',
+      })
+
+      expect(result.success).toBe(true)
+      expect(callCount).toBe(2)
+    })
+
+    it('retries when verification fails', async () => {
+      let callCount = 0
+      globalThis.fetch = mock(() => {
+        callCount++
+        if (callCount === 1 || callCount === 3) {
+          // act() SSE response
+          const encoder = new TextEncoder()
+          const sseData = [
+            { type: 'start-step' },
+            { type: 'finish-step' },
+          ]
+            .map((e) => `data: ${JSON.stringify(e)}\n\n`)
+            .join('')
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: {
+              getReader: () => {
+                let read = false
+                return {
+                  read: async () => {
+                    if (read) return { done: true, value: undefined }
+                    read = true
+                    return { done: false, value: encoder.encode(sseData) }
+                  },
+                  releaseLock: () => {},
+                }
+              },
+            },
+          } as unknown as Response)
+        }
+        if (callCount === 2) {
+          // First verify() fails
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              Promise.resolve({ success: false, reason: 'Cart is empty' }),
+          } as Response)
+        }
+        // Second verify() succeeds
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({ success: true, reason: 'Cart has item' }),
+        } as Response)
+      })
+
+      const agent = new Agent({ url: TEST_URL })
+      const result = await agent.act('click add to cart', {
+        verify: 'Cart shows 1 item',
+        maxRetries: 1,
+      })
+
+      expect(result.success).toBe(true)
+      expect(callCount).toBe(4) // act, verify(fail), act, verify(pass)
+    })
+
+    it('returns failure when all retries exhausted', async () => {
+      let callCount = 0
+      globalThis.fetch = mock(() => {
+        callCount++
+        if (callCount % 2 === 1) {
+          // act() SSE response
+          const encoder = new TextEncoder()
+          const sseData = [
+            { type: 'start-step' },
+            { type: 'finish-step' },
+          ]
+            .map((e) => `data: ${JSON.stringify(e)}\n\n`)
+            .join('')
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            body: {
+              getReader: () => {
+                let read = false
+                return {
+                  read: async () => {
+                    if (read) return { done: true, value: undefined }
+                    read = true
+                    return { done: false, value: encoder.encode(sseData) }
+                  },
+                  releaseLock: () => {},
+                }
+              },
+            },
+          } as unknown as Response)
+        }
+        // verify() always fails
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({ success: false, reason: 'Cart is empty' }),
+        } as Response)
+      })
+
+      const agent = new Agent({ url: TEST_URL })
+      const result = await agent.act('click add to cart', {
+        verify: 'Cart shows 1 item',
+        maxRetries: 2,
+      })
+
+      expect(result.success).toBe(false)
+      expect(callCount).toBe(6) // (act + verify) x 3
     })
   })
 
@@ -283,17 +505,16 @@ describe('Agent', () => {
       const expectedJsonSchema = zodToJsonSchema(productSchema)
       expect(fetchMock).toHaveBeenCalledWith(
         'http://localhost:9222/sdk/extract',
-        {
+        expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instruction: 'get product info',
-            schema: expectedJsonSchema,
-            context: undefined,
-            llm: undefined,
-          }),
-        },
+        }),
       )
+
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.instruction).toBe('get product info')
+      expect(body.schema).toEqual(expectedJsonSchema)
     })
 
     it('includes context option', async () => {
@@ -306,48 +527,9 @@ describe('Agent', () => {
         context: { format: 'USD' },
       })
 
-      const expectedJsonSchema = zodToJsonSchema(productSchema)
-      expect(fetchMock).toHaveBeenCalledWith(
-        'http://localhost:9222/sdk/extract',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instruction: 'get product info',
-            schema: expectedJsonSchema,
-            context: { format: 'USD' },
-            llm: undefined,
-          }),
-        },
-      )
-    })
-
-    it('includes llm config from constructor', async () => {
-      const fetchMock = mockFetch({ data: { name: 'Test', price: 99 } })
-      globalThis.fetch = fetchMock
-
-      const llmConfig = {
-        provider: 'anthropic' as const,
-        model: 'claude-3',
-        apiKey: 'key',
-      }
-      const agent = new Agent({ url: TEST_URL, llm: llmConfig })
-      await agent.extract('get product info', { schema: productSchema })
-
-      const expectedJsonSchema = zodToJsonSchema(productSchema)
-      expect(fetchMock).toHaveBeenCalledWith(
-        'http://localhost:9222/sdk/extract',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            instruction: 'get product info',
-            schema: expectedJsonSchema,
-            context: undefined,
-            llm: llmConfig,
-          }),
-        },
-      )
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.context).toEqual({ format: 'USD' })
     })
 
     it('returns ExtractResult on success', async () => {
@@ -375,10 +557,10 @@ describe('Agent', () => {
       ).rejects.toThrow(ExtractionError)
     })
 
-    it('emits extract progress event', async () => {
+    it('emits UIMessageStreamEvents', async () => {
       globalThis.fetch = mockFetch({ data: { name: 'Test', price: 99 } })
 
-      const events: ProgressEvent[] = []
+      const events: UIMessageStreamEvent[] = []
       const agent = new Agent({
         url: TEST_URL,
         onProgress: (e) => events.push(e),
@@ -386,12 +568,9 @@ describe('Agent', () => {
 
       await agent.extract('get product info', { schema: productSchema })
 
-      expect(events).toHaveLength(1)
-      expect(events[0]).toEqual({
-        type: 'extract',
-        message: 'get product info',
-        metadata: { instruction: 'get product info' },
-      })
+      expect(events.length).toBeGreaterThan(0)
+      expect(events[0]).toEqual({ type: 'start-step' })
+      expect(events[events.length - 1]).toEqual({ type: 'finish-step' })
     })
   })
 
@@ -405,16 +584,15 @@ describe('Agent', () => {
 
       expect(fetchMock).toHaveBeenCalledWith(
         'http://localhost:9222/sdk/verify',
-        {
+        expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            expectation: 'search results are visible',
-            context: undefined,
-            llm: undefined,
-          }),
-        },
+        }),
       )
+
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.expectation).toBe('search results are visible')
     })
 
     it('includes context option', async () => {
@@ -424,18 +602,9 @@ describe('Agent', () => {
       const agent = new Agent({ url: TEST_URL })
       await agent.verify('price is correct', { context: { expected: 99.99 } })
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        'http://localhost:9222/sdk/verify',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            expectation: 'price is correct',
-            context: { expected: 99.99 },
-            llm: undefined,
-          }),
-        },
-      )
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.context).toEqual({ expected: 99.99 })
     })
 
     it('includes llm config from constructor', async () => {
@@ -446,18 +615,9 @@ describe('Agent', () => {
       const agent = new Agent({ url: TEST_URL, llm: llmConfig })
       await agent.verify('page loaded')
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        'http://localhost:9222/sdk/verify',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            expectation: 'page loaded',
-            context: undefined,
-            llm: llmConfig,
-          }),
-        },
-      )
+      const call = fetchMock.mock.calls[0]
+      const body = JSON.parse(call[1].body)
+      expect(body.llm).toEqual(llmConfig)
     })
 
     it('returns VerifyResult on success', async () => {
@@ -500,10 +660,10 @@ describe('Agent', () => {
       )
     })
 
-    it('emits verify progress event', async () => {
+    it('emits UIMessageStreamEvents', async () => {
       globalThis.fetch = mockFetch({ success: true, reason: 'Verified' })
 
-      const events: ProgressEvent[] = []
+      const events: UIMessageStreamEvent[] = []
       const agent = new Agent({
         url: TEST_URL,
         onProgress: (e) => events.push(e),
@@ -511,12 +671,9 @@ describe('Agent', () => {
 
       await agent.verify('page loaded')
 
-      expect(events).toHaveLength(1)
-      expect(events[0]).toEqual({
-        type: 'verify',
-        message: 'page loaded',
-        metadata: { expectation: 'page loaded' },
-      })
+      expect(events.length).toBeGreaterThan(0)
+      expect(events[0]).toEqual({ type: 'start-step' })
+      expect(events[events.length - 1]).toEqual({ type: 'finish-step' })
     })
   })
 
@@ -524,21 +681,21 @@ describe('Agent', () => {
     it('allows setting progress callback after construction', async () => {
       globalThis.fetch = mockFetch({ success: true })
 
-      const events: ProgressEvent[] = []
+      const events: UIMessageStreamEvent[] = []
       const agent = new Agent({ url: TEST_URL })
       agent.onProgress((e) => events.push(e))
 
       await agent.nav('https://example.com')
 
-      expect(events).toHaveLength(1)
-      expect(events[0].type).toBe('nav')
+      expect(events.length).toBeGreaterThan(0)
+      expect(events[0]).toEqual({ type: 'start-step' })
     })
 
     it('replaces previous callback', async () => {
       globalThis.fetch = mockFetch({ success: true })
 
-      const events1: ProgressEvent[] = []
-      const events2: ProgressEvent[] = []
+      const events1: UIMessageStreamEvent[] = []
+      const events2: UIMessageStreamEvent[] = []
       const agent = new Agent({
         url: TEST_URL,
         onProgress: (e) => events1.push(e),
@@ -548,7 +705,7 @@ describe('Agent', () => {
       await agent.nav('https://example.com')
 
       expect(events1).toHaveLength(0)
-      expect(events2).toHaveLength(1)
+      expect(events2.length).toBeGreaterThan(0)
     })
   })
 
@@ -601,6 +758,45 @@ describe('Agent', () => {
           'Request failed with status 500',
         )
       }
+    })
+  })
+
+  describe('dispose()', () => {
+    it('sends DELETE request to clean up session', async () => {
+      const fetchMock = mock(() => Promise.resolve({ ok: true } as Response))
+      globalThis.fetch = fetchMock
+
+      const agent = new Agent({ url: TEST_URL })
+      const sessionId = agent.sessionId
+
+      await agent.dispose()
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `http://localhost:9222/chat/${sessionId}`,
+        { method: 'DELETE' },
+      )
+    })
+
+    it('does not send DELETE when stateful is false', async () => {
+      const fetchMock = mock(() => Promise.resolve({ ok: true } as Response))
+      globalThis.fetch = fetchMock
+
+      const agent = new Agent({ url: TEST_URL, stateful: false })
+      await agent.dispose()
+
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('only disposes once', async () => {
+      const fetchMock = mock(() => Promise.resolve({ ok: true } as Response))
+      globalThis.fetch = fetchMock
+
+      const agent = new Agent({ url: TEST_URL })
+
+      await agent.dispose()
+      await agent.dispose()
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
     })
   })
 })

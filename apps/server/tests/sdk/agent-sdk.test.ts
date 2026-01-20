@@ -66,9 +66,14 @@ describe('Agent SDK Integration', () => {
       assert.ok(events.length > 0, 'Should emit progress events')
       assert.strictEqual(
         (events[0] as { type: string }).type,
-        'nav',
-        'First event should be nav type',
+        'start-step',
+        'First event should be start-step type',
       )
+      // Check for nav-specific events (text events with id='nav')
+      const navEvents = events.filter(
+        (e) => (e as { id?: string }).id === 'nav',
+      )
+      assert.ok(navEvents.length > 0, 'Should emit nav-related events')
     }, 30000)
 
     it('handles invalid URL gracefully', async () => {
@@ -111,8 +116,12 @@ describe('Agent SDK Integration', () => {
       console.log('\n=== act() Progress Events ===')
       console.log(JSON.stringify(events, null, 2))
 
+      // act() emits SSE events like 'start', 'finish', 'text-delta', etc.
+      // The nav() events have id='nav', act() events come from the SSE stream
       const actEvents = events.filter(
-        (e) => (e as { type: string }).type === 'act',
+        (e) =>
+          (e as { type: string }).type === 'start' ||
+          (e as { type: string }).type === 'finish',
       )
       assert.ok(actEvents.length > 0, 'Should emit act progress events')
     }, 60000)
