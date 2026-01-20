@@ -140,16 +140,30 @@ export const grepInteractiveElements = defineTool<
         'Regex pattern to match (case insensitive). Supports standard regex including ' +
           'pipe for OR (e.g., "submit|cancel", "button.*primary", "[0-9]+")',
       ),
+    context: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Number of elements to show before and after each match (default: 2). Set to 0 to show only matches.',
+      ),
     windowId: z.number().optional().describe('Window ID for routing'),
   },
-  handler: async (request, response, context) => {
-    const { tabId, pattern, windowId } = request.params as {
+  handler: async (request, response, ctx) => {
+    const {
+      tabId,
+      pattern,
+      context: contextLines = 2,
+      windowId,
+    } = request.params as {
       tabId: number
       pattern: string
+      context?: number
       windowId?: number
     }
 
-    const result = await context.executeAction('getInteractiveSnapshot', {
+    const result = await ctx.executeAction('getInteractiveSnapshot', {
       tabId,
       windowId,
     })
@@ -170,32 +184,50 @@ export const grepInteractiveElements = defineTool<
     }
 
     const allElements = snapshot.elements
-    const matchingElements: Array<{
-      node: InteractiveNode
-      formatted: string
-    }> = []
+    const formattedElements = allElements.map((node) => ({
+      node,
+      formatted: formatter.formatElement(node),
+    }))
 
-    for (const node of allElements) {
-      const formatted = formatter.formatElement(node)
-      if (regex.test(formatted)) {
-        matchingElements.push({ node, formatted })
+    const matchingIndices: number[] = []
+    for (let i = 0; i < formattedElements.length; i++) {
+      if (regex.test(formattedElements[i].formatted)) {
+        matchingIndices.push(i)
       }
     }
 
     const lines: string[] = []
-    lines.push(`GREP RESULTS (Pattern: "${pattern}")`)
+    lines.push(`GREP RESULTS (Pattern: "${pattern}", Context: ${contextLines})`)
     lines.push(
       `Snapshot ID: ${snapshot.snapshotId} | Processing: ${snapshot.processingTimeMs}ms`,
     )
     lines.push('')
 
-    if (matchingElements.length > 0) {
+    if (matchingIndices.length > 0) {
       lines.push(
-        `Matches (${matchingElements.length} of ${allElements.length} elements):`,
+        `Matches (${matchingIndices.length} of ${allElements.length} elements):`,
       )
       lines.push('')
-      for (const { formatted } of matchingElements) {
-        lines.push(formatted)
+
+      const includedIndices = new Set<number>()
+      for (const idx of matchingIndices) {
+        const start = Math.max(0, idx - contextLines)
+        const end = Math.min(formattedElements.length - 1, idx + contextLines)
+        for (let i = start; i <= end; i++) {
+          includedIndices.add(i)
+        }
+      }
+
+      const sortedIndices = Array.from(includedIndices).sort((a, b) => a - b)
+      let lastIdx = -2
+      for (const idx of sortedIndices) {
+        if (lastIdx >= 0 && idx - lastIdx > 1) {
+          lines.push('  ---')
+        }
+        const isMatch = matchingIndices.includes(idx)
+        const prefix = isMatch ? '> ' : '  '
+        lines.push(`${prefix}${formattedElements[idx].formatted}`)
+        lastIdx = idx
       }
     } else {
       lines.push(`No elements matched pattern "${pattern}"`)
@@ -207,6 +239,7 @@ export const grepInteractiveElements = defineTool<
     for (const entry of formatter.getLegend()) {
       lines.push(`  ${entry}`)
     }
+    lines.push('  > - Matching element')
 
     for (const line of lines) {
       response.appendResponseLine(line)
@@ -265,6 +298,7 @@ export const typeText = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
+    await context.executeAction('click', { tabId, nodeId, windowId })
     await context.executeAction('inputText', { tabId, nodeId, text, windowId })
 
     response.appendResponseLine(
@@ -292,6 +326,7 @@ export const clearInput = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
+    await context.executeAction('click', { tabId, nodeId, windowId })
     await context.executeAction('clear', { tabId, nodeId, windowId })
 
     response.appendResponseLine(`Cleared element ${nodeId} in tab ${tabId}`)

@@ -52,7 +52,7 @@ const PRESET_OPTIONS: Record<FormatPreset, FormatOptions> = {
     showType: true,
     showTag: true,
     showName: true,
-    showContext: true,
+    showContext: false,
     showPath: true,
     showAttributes: true,
     showValueForTypeable: true,
