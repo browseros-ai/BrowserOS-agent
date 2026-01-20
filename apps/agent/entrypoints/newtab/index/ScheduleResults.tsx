@@ -39,6 +39,7 @@ interface JobRunWithDetails extends ScheduledJobRun {
 }
 
 const MAX_DISPLAY_COUNT = 3
+const SCHEDULE_RESULTS_COLLAPSED_KEY = 'schedule-results-collapsed'
 
 const getStatusIcon = (status: JobRunWithDetails['status']) => {
   switch (status) {
@@ -54,8 +55,16 @@ const getStatusIcon = (status: JobRunWithDetails['status']) => {
 const formatTimestamp = (dateString: string) => dayjs(dateString).fromNow()
 
 export const ScheduleResults: FC = () => {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(() => {
+    const stored = localStorage.getItem(SCHEDULE_RESULTS_COLLAPSED_KEY)
+    return stored !== 'true'
+  })
   const [viewingRun, setViewingRun] = useState<JobRunWithDetails | null>(null)
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    localStorage.setItem(SCHEDULE_RESULTS_COLLAPSED_KEY, (!open).toString())
+  }
 
   const { jobRuns } = useScheduledJobRuns()
   const { jobs } = useScheduledJobs()
@@ -93,11 +102,13 @@ export const ScheduleResults: FC = () => {
     setViewingRun(run)
   }
 
+  if (!displayedRuns.length) return null
+
   return (
     <Collapsible
       open={isOpen}
-      onOpenChange={setIsOpen}
-      className="mb-16 w-xl space-y-3 md:w-3xl"
+      onOpenChange={handleOpenChange}
+      className="mx-auto mb-16 w-lg space-y-3 md:w-2xl"
     >
       <CollapsibleTrigger asChild>
         <Button

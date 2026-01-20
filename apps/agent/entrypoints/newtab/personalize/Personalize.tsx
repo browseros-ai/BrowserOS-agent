@@ -1,6 +1,5 @@
-import { ArrowLeft, Check, ChevronDown, Copy } from 'lucide-react'
+import { Check, ChevronDown, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -52,125 +51,112 @@ export const Personalize = () => {
   }
 
   return (
-    <div className="pt-[max(5vh,16px)]">
-      <div className="absolute top-6 left-6 z-10">
-        <Button variant="outline" asChild className="rounded-xl">
-          <NavLink to="/home" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </NavLink>
-        </Button>
+    <div className="mx-auto w-full max-w-2xl space-y-8">
+      <NewTabBranding />
+
+      <div
+        className={cn(
+          'space-y-3 transition-all duration-500',
+          mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+        )}
+      >
+        <Label htmlFor="personalization">Your Information</Label>
+        <Textarea
+          id="personalization"
+          value={personalization}
+          autoFocus
+          onChange={(e) => setPersonalization(e.target.value)}
+          placeholder="Tell BrowserOS about yourself... (Supports Markdown)"
+          className="styled-scrollbar h-96 resize-none rounded-2xl border-2 border-border/50 bg-card px-4 py-3 transition-transform placeholder:text-muted-foreground focus:border-[var(--accent-orange)]/30 focus:ring-4 focus:ring-[var(--accent-orange)]/10"
+        />
+        <p className="text-muted-foreground text-xs">
+          Your information is saved locally and never leaves your device.
+          Markdown formatting is supported.
+        </p>
       </div>
 
-      <div className="relative flex min-h-screen items-center justify-center px-4 py-16 md:w-xl">
-        <div className={`w-full max-w-3xl space-y-8 duration-700`}>
-          <NewTabBranding />
-
-          <div
-            className={cn(
-              'space-y-3 transition-transform',
-              mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-            )}
-          >
-            <Label htmlFor="personalization">Your Information</Label>
-            <Textarea
-              id="personalization"
-              value={personalization}
-              autoFocus
-              onChange={(e) => setPersonalization(e.target.value)}
-              placeholder="Tell BrowserOS about yourself... (Supports Markdown)"
-              className="styled-scrollbar h-96 resize-none rounded-2xl border-2 border-border/50 bg-card px-4 py-3 transition-transform placeholder:text-muted-foreground focus:border-[var(--accent-orange)]/30 focus:ring-4 focus:ring-[var(--accent-orange)]/10"
-            />
-            <p className="text-muted-foreground text-xs">
-              Your information is saved locally and never leaves your device.
-              Markdown formatting is supported.
-            </p>
-          </div>
-
-          <div
-            className={cn(
-              'space-y-3 transition-transform',
-              mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
-            )}
-          >
-            <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-              Need help getting started?
-            </h2>
-            <div className="space-y-2">
-              {sections.map((section) => (
-                <Collapsible
-                  key={section.key}
-                  open={expandedSection === section.key}
-                  onOpenChange={(open) =>
-                    setExpandedSection(open ? section.key : null)
-                  }
-                  className="w-full rounded-xl border border-border/50 bg-card hover:border-border"
+      <div
+        className={cn(
+          'space-y-3 transition-all delay-100 duration-500',
+          mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+        )}
+      >
+        <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">
+          Need help getting started?
+        </h2>
+        <div className="space-y-2">
+          {sections.map((section) => (
+            <Collapsible
+              key={section.key}
+              open={expandedSection === section.key}
+              onOpenChange={(open) =>
+                setExpandedSection(open ? section.key : null)
+              }
+              className="w-full rounded-xl border border-border/50 bg-card hover:border-border"
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex h-auto w-full items-center justify-between p-4 text-left hover:bg-accent/50"
                 >
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="flex h-auto w-full items-center justify-between p-4 text-left hover:bg-accent/50"
-                    >
-                      <div className="flex-1">
-                        <h3 className="mb-1 font-medium text-foreground text-sm">
-                          {section.title}
-                        </h3>
-                        <p className="text-muted-foreground text-xs">
-                          {section.description}
-                        </p>
-                      </div>
-                      <ChevronDown
-                        className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${expandedSection === section.key ? 'rotate-180' : ''}`}
-                      />
-                    </Button>
-                  </CollapsibleTrigger>
+                  <div className="flex-1">
+                    <h3 className="mb-1 font-medium text-foreground text-sm">
+                      {section.title}
+                    </h3>
+                    <p className="text-muted-foreground text-xs">
+                      {section.description}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 ${expandedSection === section.key ? 'rotate-180' : ''}`}
+                  />
+                </Button>
+              </CollapsibleTrigger>
 
-                  <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                    <div className="space-y-3 px-4 pb-4">
-                      <div>
-                        <p className="mb-2 font-medium text-muted-foreground text-xs">
-                          Template (click to copy):
-                        </p>
-                        <div className="relative">
-                          <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-accent/50 p-4 text-foreground text-xs">
-                            {templates[section.key].template}
-                          </pre>
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => copyTemplate(section.key)}
-                            className="absolute top-3 right-3"
-                            title="Copy template"
-                          >
-                            {copiedSection === section.key ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Copy className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="mb-2 font-medium text-muted-foreground text-xs">
-                          Example:
-                        </p>
-                        <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border/30 bg-muted/30 p-4 text-muted-foreground text-xs">
-                          {templates[section.key].example}
-                        </pre>
-                      </div>
-
-                      <p className="text-muted-foreground text-xs">
-                        Click the copy button to add this template to your
-                        clipboard, then paste it into the text area above and
-                        customize it.
-                      </p>
+              <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                <div className="space-y-3 px-4 pb-4">
+                  <div>
+                    <p className="mb-2 font-medium text-muted-foreground text-xs">
+                      Template (click to copy):
+                    </p>
+                    <div className="relative">
+                      <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-accent/50 p-4 text-foreground text-xs">
+                        {templates[section.key].template}
+                      </pre>
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        onClick={() => copyTemplate(section.key)}
+                        className="absolute top-3 right-3"
+                        title="Copy template"
+                      >
+                        {copiedSection === section.key ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
                     </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              ))}
-            </div>
-          </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-2 font-medium text-muted-foreground text-xs">
+                      Example:
+                    </p>
+                    <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border/30 bg-muted/30 p-4 text-muted-foreground text-xs">
+                      {templates[section.key].example}
+                    </pre>
+                  </div>
+
+                  <p className="text-muted-foreground text-xs">
+                    Click the copy button to add this template to your
+                    clipboard, then paste it into the text area above and
+                    customize it.
+                  </p>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          ))}
         </div>
       </div>
     </div>

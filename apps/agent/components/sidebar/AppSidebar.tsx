@@ -6,9 +6,13 @@ import { SidebarUserFooter } from './SidebarUserFooter'
 
 interface AppSidebarProps {
   expanded?: boolean
+  onOpenShortcuts?: () => void
 }
 
-export const AppSidebar: FC<AppSidebarProps> = ({ expanded = false }) => {
+export const AppSidebar: FC<AppSidebarProps> = ({
+  expanded = false,
+  onOpenShortcuts,
+}) => {
   return (
     <div
       className={cn(
@@ -18,7 +22,10 @@ export const AppSidebar: FC<AppSidebarProps> = ({ expanded = false }) => {
     >
       <SidebarBranding expanded={expanded} />
       <SidebarNavigation expanded={expanded} />
-      <SidebarUserFooter expanded={expanded} />
+      <SidebarUserFooter
+        expanded={expanded}
+        onOpenShortcuts={onOpenShortcuts}
+      />
     </div>
   )
 }

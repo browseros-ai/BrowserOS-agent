@@ -31,7 +31,6 @@ import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanel
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
-import { FooterLinks } from './FooterLinks'
 import type { SuggestionItem } from './lib/suggestions/types'
 import {
   getSuggestionLabel,
@@ -355,10 +354,6 @@ export const NewTab = () => {
 
         {/* Top sites */}
         {!isSuggestionsVisible && <TopSites />}
-
-        {!isSuggestionsVisible && (
-          <FooterLinks onOpenShortcuts={() => setShortcutsDialogOpen(true)} />
-        )}
 
         {mounted && !isSuggestionsVisible && <ScheduleResults />}
       </div>

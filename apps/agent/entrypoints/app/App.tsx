@@ -13,6 +13,7 @@ import { ConnectMCP } from './connect-mcp/ConnectMCP'
 import { CreateGraphWrapper } from './create-graph/CreateGraphWrapper'
 import { CustomizationPage } from './customization/CustomizationPage'
 import { SurveyPage } from './jtbd-agent/SurveyPage'
+import { SettingsSidebarLayout } from './layout/SettingsSidebarLayout'
 import { SidebarLayout } from './layout/SidebarLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
@@ -65,8 +66,10 @@ export const App: FC = () => {
             {/* Primary nav routes */}
             <Route path="workflows" element={<WorkflowsPage />} />
             <Route path="scheduled" element={<ScheduledTasksPage />} />
+          </Route>
 
-            {/* Settings routes */}
+          {/* Settings with dedicated sidebar */}
+          <Route element={<SettingsSidebarLayout />}>
             <Route path="settings">
               <Route index element={<Navigate to="/settings/ai" replace />} />
               <Route path="ai" element={<AISettingsPage key="ai" />} />
