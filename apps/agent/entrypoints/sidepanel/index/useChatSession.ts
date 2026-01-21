@@ -346,7 +346,7 @@ export const useChatSession = () => {
   const resetConversation = () => {
     track(CONVERSATION_RESET_EVENT, { message_count: messages.length })
     stop()
-    const oldConversationId = conversationIdRef.current
+    const _oldConversationId = conversationIdRef.current
     setConversationId(crypto.randomUUID())
     setMessages([])
     setTextToAction(new Map())
