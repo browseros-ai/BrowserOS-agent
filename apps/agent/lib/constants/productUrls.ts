@@ -48,3 +48,13 @@ export const productVideoUrl = 'https://youtu.be/J-lFhTP-7is'
  * @public
  */
 export const productRepositoryShortUrl = 'https://git.new/browseros'
+
+/**
+ * @public
+ */
+export const workflowsHelpUrl = 'https://docs.browseros.com'
+
+/**
+ * @public
+ */
+export const scheduledTasksHelpUrl = 'https://docs.browseros.com'
