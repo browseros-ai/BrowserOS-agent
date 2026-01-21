@@ -24,7 +24,7 @@ import { HealthWatchdog } from './lib/health-watchdog'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
-import { Mutex } from './lib/mutex'
+import { MutexPool } from './lib/mutex'
 import { bindPortWithRetry, PortBindError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
@@ -70,7 +70,7 @@ export class Application {
       `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
     )
     const tools = createToolRegistry(cdpContext, controllerContext)
-    const toolMutex = new Mutex()
+    const mutexPool = new MutexPool()
 
     // Create health watchdog only when launched by Chrome (instanceInstallId present)
     // In dev mode (no instanceInstallId), watchdog is disabled
@@ -89,7 +89,7 @@ export class Application {
         tools,
         cdpContext,
         controllerContext,
-        toolMutex,
+        mutexPool,
         allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
