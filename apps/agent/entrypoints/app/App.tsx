@@ -1,4 +1,4 @@
-import { type FC, Suspense } from 'react'
+import type { FC } from 'react'
 import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 
 import { NewTab } from '../newtab/index/NewTab'
@@ -17,7 +17,7 @@ import { SidebarLayout } from './layout/SidebarLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
-import { WorkflowsPage } from './workflows/WorkflowsPage'
+import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
 function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
   const params = new URLSearchParams(window.location.search)
@@ -52,59 +52,54 @@ export const App: FC = () => {
 
   return (
     <HashRouter>
-      <Suspense fallback={<div className="h-dvh w-dvw bg-background" />}>
-        <Routes>
-          {/* Main app with sidebar */}
-          <Route element={<SidebarLayout />}>
-            {/* Home routes */}
-            <Route path="home" element={<NewTabLayout />}>
-              <Route index element={<NewTab />} />
-              <Route path="personalize" element={<Personalize />} />
-            </Route>
-
-            {/* Primary nav routes */}
-            <Route path="workflows" element={<WorkflowsPage />} />
-            <Route path="scheduled" element={<ScheduledTasksPage />} />
+      <Routes>
+        {/* Main app with sidebar */}
+        <Route element={<SidebarLayout />}>
+          {/* Home routes */}
+          <Route path="home" element={<NewTabLayout />}>
+            <Route index element={<NewTab />} />
+            <Route path="personalize" element={<Personalize />} />
           </Route>
 
-          {/* Settings with dedicated sidebar */}
-          <Route element={<SettingsSidebarLayout />}>
-            <Route path="settings">
-              <Route index element={<Navigate to="/settings/ai" replace />} />
-              <Route path="ai" element={<AISettingsPage key="ai" />} />
-              <Route path="chat" element={<LlmHubPage />} />
-              <Route path="connect-mcp" element={<ConnectMCP />} />
-              <Route path="mcp" element={<MCPSettingsPage />} />
-              <Route path="customization" element={<CustomizationPage />} />
-              <Route path="survey" element={<SurveyPage {...surveyParams} />} />
-            </Route>
+          {/* Primary nav routes */}
+          <Route path="workflows" element={<WorkflowsPageWrapper />} />
+          <Route path="scheduled" element={<ScheduledTasksPage />} />
+        </Route>
+
+        {/* Settings with dedicated sidebar */}
+        <Route element={<SettingsSidebarLayout />}>
+          <Route path="settings">
+            <Route index element={<Navigate to="/settings/ai" replace />} />
+            <Route path="ai" element={<AISettingsPage key="ai" />} />
+            <Route path="chat" element={<LlmHubPage />} />
+            <Route path="connect-mcp" element={<ConnectMCP />} />
+            <Route path="mcp" element={<MCPSettingsPage />} />
+            <Route path="customization" element={<CustomizationPage />} />
+            <Route path="survey" element={<SurveyPage {...surveyParams} />} />
           </Route>
+        </Route>
 
-          {/* Full-screen without sidebar */}
-          <Route
-            path="workflows/create-graph"
-            element={<CreateGraphWrapper />}
-          />
+        {/* Full-screen without sidebar */}
+        <Route path="workflows/create-graph" element={<CreateGraphWrapper />} />
 
-          {/* Onboarding routes - no sidebar */}
-          <Route path="onboarding">
-            <Route index element={<Onboarding />} />
-            <Route path="steps/:stepId" element={<StepsLayout />} />
-            <Route path="features" element={<FeaturesPage />} />
-          </Route>
+        {/* Onboarding routes - no sidebar */}
+        <Route path="onboarding">
+          <Route index element={<Onboarding />} />
+          <Route path="steps/:stepId" element={<StepsLayout />} />
+          <Route path="features" element={<FeaturesPage />} />
+        </Route>
 
-          {/* Backward compatibility redirects */}
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route
-            path="/personalize"
-            element={<Navigate to="/home/personalize" replace />}
-          />
-          <Route path="/options/*" element={<OptionsRedirect />} />
+        {/* Backward compatibility redirects */}
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route
+          path="/personalize"
+          element={<Navigate to="/home/personalize" replace />}
+        />
+        <Route path="/options/*" element={<OptionsRedirect />} />
 
-          {/* Fallback to home */}
-          <Route path="*" element={<Navigate to="/home" replace />} />
-        </Routes>
-      </Suspense>
+        {/* Fallback to home */}
+        <Route path="*" element={<Navigate to="/home" replace />} />
+      </Routes>
     </HashRouter>
   )
 }
