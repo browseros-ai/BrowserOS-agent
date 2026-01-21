@@ -11,7 +11,7 @@
   "scripts": {
     "postinstall": "bun run build:agent-sdk",
     "start:dev": "bun ./scripts/build/start-all.ts",
-    "start:server": "bun run --filter @browseros/server start",
+    "start:server": "bun run --filter @browseros/server --elide-lines=0 start",
     "start:agent": "bun ./scripts/build/controller-ext.ts && bun run --filter @browseros/agent dev",
     "build:server": "FORCE_COLOR=1 bun run --filter @browseros/server --elide-lines=0 build",
     "build:agent": "bun run --filter @browseros/agent build",
