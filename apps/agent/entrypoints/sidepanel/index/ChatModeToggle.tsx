@@ -1,4 +1,4 @@
-import { MousePointer2 } from 'lucide-react'
+import { MessageSquare, MousePointer2 } from 'lucide-react'
 import type { FC } from 'react'
 import {
   Tooltip,
@@ -20,33 +20,37 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
 }) => {
   const isAgentMode = mode === 'agent'
 
-  const button = (
-    <button
-      type="button"
-      onClick={() => onModeChange(isAgentMode ? 'chat' : 'agent')}
-      className={cn(
-        'flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 font-medium text-xs transition-all',
-        isAgentMode
-          ? 'border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]'
-          : 'border-border/50 bg-muted text-muted-foreground hover:text-foreground',
-      )}
-    >
-      <MousePointer2 className="h-3 w-3" />
-      <span>Agent Mode</span>
-      {isAgentMode && <span className="text-[10px]">✕</span>}
-    </button>
-  )
-
-  if (isAgentMode) {
-    return button
-  }
-
   return (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[200px]">
-          AI can read pages but won't click or navigate
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => onModeChange(isAgentMode ? 'chat' : 'agent')}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 font-medium text-xs transition-all',
+              isAgentMode
+                ? 'border-border/50 bg-muted text-muted-foreground hover:text-foreground'
+                : 'border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]',
+            )}
+          >
+            {isAgentMode ? (
+              <>
+                <MousePointer2 className="h-3 w-3" />
+                <span>Agent Mode</span>
+              </>
+            ) : (
+              <>
+                <MessageSquare className="h-3 w-3" />
+                <span>Chat Mode</span>
+              </>
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[220px]">
+          {isAgentMode
+            ? 'AI can browse, click, and navigate'
+            : 'AI can only read, cannot click or navigate'}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
