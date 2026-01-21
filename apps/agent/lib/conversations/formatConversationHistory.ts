@@ -1,7 +1,7 @@
 import type { UIMessage } from 'ai'
 
 const MAX_MESSAGES = 10
-const MAX_MESSAGE_CHARS = 10240
+const MAX_MESSAGE_CHARS = 102400
 
 export function formatConversationHistory(messages: UIMessage[]): string {
   if (messages.length === 0) return ''

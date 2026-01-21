@@ -37,12 +37,12 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
             {isAgentMode ? (
               <>
                 <MousePointer2 className="h-3 w-3" />
-                <span>Agent Mode</span>
+                <span>Agent Mode ON</span>
               </>
             ) : (
               <>
                 <MessageSquare className="h-3 w-3" />
-                <span>Chat Mode</span>
+                <span>Chat Mode ON</span>
               </>
             )}
           </button>
