@@ -400,12 +400,38 @@ export class GeminiAgent {
     honoStream: HonoSSEStream,
     signal?: AbortSignal,
     browserContext?: BrowserContext,
+    previousConversation?: string,
   ): Promise<void> {
     const abortSignal = signal || new AbortController().signal
     const promptId = `${this.conversationId}-${Date.now()}`
 
     const contextPrefix = this.formatBrowserContext(browserContext)
-    let currentParts: Part[] = [{ text: contextPrefix + message }]
+
+    // User query
+    const userQuery = `<USER_QUERY>
+${message}
+</USER_QUERY>`
+
+    // Inject previous conversation if resuming (no server-side history)
+    let fullMessage = userQuery
+    const hasHistory = this.client.getHistory().length > 0
+    if (previousConversation && !hasHistory) {
+      fullMessage = `<previous_conversation>
+The user is resuming a previous conversation. Here is the conversation history for context:
+
+${previousConversation}
+</previous_conversation>
+
+Continue the conversation based on the above context. Here is the user's new message:
+
+${userQuery}`
+      logger.info('Injecting previous conversation for resume', {
+        conversationId: this.conversationId,
+        historyLength: previousConversation.length,
+      })
+    }
+
+    let currentParts: Part[] = [{ text: contextPrefix + fullMessage }]
     let turnCount = 0
 
     const uiStream = honoStream

@@ -101,6 +101,7 @@ export class ChatService {
       rawStream,
       abortSignal,
       request.browserContext,
+      request.previousConversation,
     )
   }
 

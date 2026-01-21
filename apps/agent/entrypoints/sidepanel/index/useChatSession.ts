@@ -18,6 +18,7 @@ import {
   conversationStorage,
   useConversations,
 } from '@/lib/conversations/conversationStorage'
+import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
@@ -231,6 +232,13 @@ export const useChatSession = () => {
           }[]
         }
 
+        // Format previous messages (exclude the current message being sent)
+        const previousMessages = messages.slice(0, -1)
+        const previousConversation =
+          previousMessages.length > 0
+            ? formatConversationHistory(previousMessages)
+            : undefined
+
         return {
           api: `${agentUrlRef.current}/chat`,
           body: {
@@ -256,6 +264,7 @@ export const useChatSession = () => {
             userSystemPrompt: personalizationRef.current,
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
+            previousConversation,
           },
         }
       },
