@@ -44,8 +44,6 @@ export const CHROME_API_TIMEOUTS = {
   DEFAULT: 30_000,
 } as const
 
-export type TimeoutKey = keyof typeof CHROME_API_TIMEOUTS
-
 /**
  * Error thrown when a Chrome API call times out.
  */
@@ -92,11 +90,4 @@ export function withTimeout<T>(
         reject(error)
       })
   })
-}
-
-/**
- * Helper to get timeout value by key with fallback to DEFAULT
- */
-export function getTimeout(key: TimeoutKey): number {
-  return CHROME_API_TIMEOUTS[key] ?? CHROME_API_TIMEOUTS.DEFAULT
 }
