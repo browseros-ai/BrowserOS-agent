@@ -50,7 +50,7 @@ export function useJtbdPopup() {
       track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
       setPopupVisible(false)
       window.open(
-        `/options.html?page=survey&maxTurns=${maxTurns}&experimentId=${experimentId}`,
+        `/app.html?page=survey&maxTurns=${maxTurns}&experimentId=${experimentId}#/settings/survey`,
         '_blank',
       )
     },
