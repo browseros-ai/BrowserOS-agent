@@ -1,5 +1,6 @@
-import { MessageSquare, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import type { FC } from 'react'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import type { ChatMode } from './chatTypes'
 
@@ -12,36 +13,36 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
   mode,
   onModeChange,
 }) => {
+  const isAgentMode = mode === 'agent'
+
   return (
-    <div className="flex items-center rounded-full border border-border/50 bg-muted p-0.5">
-      <button
-        type="button"
-        onClick={() => onModeChange('chat')}
-        className={cn(
-          'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-medium text-xs transition-all',
-          mode === 'chat'
-            ? 'bg-background text-foreground shadow-sm'
-            : 'text-muted-foreground',
-        )}
-        title="Chat Mode"
-      >
-        <MessageSquare className="h-3 w-3" />
-        <span>Chat</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => onModeChange('agent')}
-        className={cn(
-          'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-medium text-xs transition-all',
-          mode === 'agent'
-            ? 'bg-background text-foreground shadow-sm'
-            : 'text-muted-foreground',
-        )}
-        title="Agent Mode"
-      >
-        <Zap className="h-3 w-3" />
-        <span>Agent</span>
-      </button>
-    </div>
+    <label
+      htmlFor="agent-mode-toggle"
+      className="flex cursor-pointer items-center gap-2"
+    >
+      <Switch
+        id="agent-mode-toggle"
+        checked={isAgentMode}
+        onCheckedChange={(checked) => onModeChange(checked ? 'agent' : 'chat')}
+      />
+      <div className="flex items-center gap-1">
+        <Zap
+          className={cn(
+            'h-3.5 w-3.5 transition-colors',
+            isAgentMode
+              ? 'text-[var(--accent-orange)]'
+              : 'text-muted-foreground',
+          )}
+        />
+        <span
+          className={cn(
+            'font-medium text-xs transition-colors',
+            isAgentMode ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          Agent {isAgentMode ? 'ON' : 'OFF'}
+        </span>
+      </div>
+    </label>
   )
 }
