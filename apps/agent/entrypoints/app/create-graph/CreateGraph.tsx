@@ -388,7 +388,7 @@ export const CreateGraph: FC = () => {
   }
 
   return (
-    <div className="h-dvh w-dvw bg-background text-foreground">
+    <div className="h-screen w-screen bg-background text-foreground">
       <ResizablePanelGroup orientation="horizontal">
         <ResizablePanel
           id="graph-canvas"
