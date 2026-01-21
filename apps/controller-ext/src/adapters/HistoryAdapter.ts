@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { logger } from '@/utils/logger'
+import { CHROME_API_TIMEOUTS, withTimeout } from '@/utils/timeout'
 
 /**
  * HistoryAdapter - Wrapper for Chrome history API
@@ -34,12 +35,16 @@ export class HistoryAdapter {
     )
 
     try {
-      const results = await chrome.history.search({
-        text: query,
-        maxResults,
-        startTime,
-        endTime,
-      })
+      const results = await withTimeout(
+        chrome.history.search({
+          text: query,
+          maxResults,
+          startTime,
+          endTime,
+        }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.search',
+      )
 
       logger.debug(`[HistoryAdapter] Found ${results.length} history items`)
       return results
@@ -69,11 +74,15 @@ export class HistoryAdapter {
     try {
       const startTime = Date.now() - hoursBack * 60 * 60 * 1000
 
-      const results = await chrome.history.search({
-        text: '',
-        maxResults,
-        startTime,
-      })
+      const results = await withTimeout(
+        chrome.history.search({
+          text: '',
+          maxResults,
+          startTime,
+        }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.search',
+      )
 
       logger.debug(`[HistoryAdapter] Retrieved ${results.length} recent items`)
       return results
@@ -97,7 +106,11 @@ export class HistoryAdapter {
     logger.debug(`[HistoryAdapter] Getting visits for: ${url}`)
 
     try {
-      const visits = await chrome.history.getVisits({ url })
+      const visits = await withTimeout(
+        chrome.history.getVisits({ url }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.getVisits',
+      )
       logger.debug(`[HistoryAdapter] Found ${visits.length} visits for ${url}`)
       return visits
     } catch (error) {
@@ -117,7 +130,11 @@ export class HistoryAdapter {
     logger.debug(`[HistoryAdapter] Adding URL to history: ${url}`)
 
     try {
-      await chrome.history.addUrl({ url })
+      await withTimeout(
+        chrome.history.addUrl({ url }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.addUrl',
+      )
       logger.debug(`[HistoryAdapter] Added URL: ${url}`)
     } catch (error) {
       const errorMessage =
@@ -136,7 +153,11 @@ export class HistoryAdapter {
     logger.debug(`[HistoryAdapter] Removing URL from history: ${url}`)
 
     try {
-      await chrome.history.deleteUrl({ url })
+      await withTimeout(
+        chrome.history.deleteUrl({ url }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.deleteUrl',
+      )
       logger.debug(`[HistoryAdapter] Removed URL: ${url}`)
     } catch (error) {
       const errorMessage =
@@ -158,7 +179,11 @@ export class HistoryAdapter {
     )
 
     try {
-      await chrome.history.deleteRange({ startTime, endTime })
+      await withTimeout(
+        chrome.history.deleteRange({ startTime, endTime }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.deleteRange',
+      )
       logger.debug('[HistoryAdapter] Deleted history range')
     } catch (error) {
       const errorMessage =
@@ -179,7 +204,11 @@ export class HistoryAdapter {
     logger.warn('[HistoryAdapter] Deleting ALL browser history')
 
     try {
-      await chrome.history.deleteAll()
+      await withTimeout(
+        chrome.history.deleteAll(),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.deleteAll',
+      )
       logger.warn('[HistoryAdapter] Deleted all history')
     } catch (error) {
       const errorMessage =
@@ -202,11 +231,15 @@ export class HistoryAdapter {
 
     try {
       // Get all recent history
-      const allHistory = await chrome.history.search({
-        text: '',
-        maxResults: 1000, // Get a large sample
-        startTime: 0,
-      })
+      const allHistory = await withTimeout(
+        chrome.history.search({
+          text: '',
+          maxResults: 1000, // Get a large sample
+          startTime: 0,
+        }),
+        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        'chrome.history.search',
+      )
 
       // Sort by visit count
       const sorted = allHistory

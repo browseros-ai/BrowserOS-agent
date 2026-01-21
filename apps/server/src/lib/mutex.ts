@@ -2,6 +2,32 @@
  * @license
  * Copyright 2025 BrowserOS
  */
+
+/**
+ * Pool of mutexes for per-window isolation.
+ * Allows parallel tool execution across different browser windows
+ * while preventing concurrent operations on the same window.
+ */
+export class MutexPool {
+  private mutexes = new Map<number, Mutex>()
+  private globalMutex = new Mutex()
+
+  getMutex(windowId?: number): Mutex {
+    if (!windowId) return this.globalMutex
+
+    let mutex = this.mutexes.get(windowId)
+    if (!mutex) {
+      mutex = new Mutex()
+      this.mutexes.set(windowId, mutex)
+    }
+    return mutex
+  }
+
+  removeMutex(windowId: number): void {
+    this.mutexes.delete(windowId)
+  }
+}
+
 export class Mutex {
   static Guard = class Guard {
     #mutex: Mutex

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { z } from 'zod'
+import { CHROME_API_TIMEOUTS, withTimeout } from '@/utils/timeout'
 import { ActionHandler } from '../ActionHandler'
 
 const CloseWindowInputSchema = z.object({
@@ -24,7 +25,11 @@ export class CloseWindowAction extends ActionHandler<
   readonly inputSchema = CloseWindowInputSchema
 
   async execute(input: CloseWindowInput): Promise<CloseWindowOutput> {
-    await chrome.windows.remove(input.windowId)
+    await withTimeout(
+      chrome.windows.remove(input.windowId),
+      CHROME_API_TIMEOUTS.WINDOW_CLOSE,
+      'chrome.windows.remove',
+    )
 
     return {
       success: true,

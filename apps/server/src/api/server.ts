@@ -45,7 +45,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     tools,
     cdpContext,
     controllerContext,
-    toolMutex,
+    mutexPool,
     allowRemote,
   } = config
 
@@ -68,7 +68,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         tools,
         cdpContext,
         controllerContext,
-        toolMutex,
+        mutexPool,
         allowRemote,
       }),
     )

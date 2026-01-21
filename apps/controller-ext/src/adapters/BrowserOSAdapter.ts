@@ -6,6 +6,7 @@
 /// <reference path="../types/chrome-browser-os.d.ts" />
 
 import { logger } from '@/utils/logger'
+import { CHROME_API_TIMEOUTS, withTimeout } from '@/utils/timeout'
 
 // ============= Re-export types from chrome.browserOS namespace =============
 
@@ -72,7 +73,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Getting interactive snapshot for tab ${tabId} with options: ${JSON.stringify(options)}`,
       )
 
-      return new Promise<InteractiveSnapshot>((resolve, reject) => {
+      const promise = new Promise<InteractiveSnapshot>((resolve, reject) => {
         if (options) {
           chrome.browserOS.getInteractiveSnapshot(
             tabId,
@@ -104,6 +105,12 @@ export class BrowserOSAdapter {
           )
         }
       })
+
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.INTERACTIVE_SNAPSHOT,
+        'getInteractiveSnapshot',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -121,7 +128,7 @@ export class BrowserOSAdapter {
     try {
       logger.debug(`[BrowserOSAdapter] Clicking node ${nodeId} in tab ${tabId}`)
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         chrome.browserOS.click(tabId, nodeId, () => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -130,6 +137,8 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.CLICK, 'click')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -147,7 +156,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Inputting text into node ${nodeId} in tab ${tabId}`,
       )
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         chrome.browserOS.inputText(tabId, nodeId, text, () => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -156,6 +165,8 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.INPUT_TEXT, 'inputText')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -173,7 +184,7 @@ export class BrowserOSAdapter {
     try {
       logger.debug(`[BrowserOSAdapter] Clearing node ${nodeId} in tab ${tabId}`)
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         chrome.browserOS.clear(tabId, nodeId, () => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -182,6 +193,8 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.CLEAR, 'clear')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -199,7 +212,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Scrolling to node ${nodeId} in tab ${tabId}`,
       )
 
-      return new Promise<boolean>((resolve, reject) => {
+      const promise = new Promise<boolean>((resolve, reject) => {
         chrome.browserOS.scrollToNode(tabId, nodeId, (scrolled: boolean) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -208,6 +221,8 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.SCROLL, 'scrollToNode')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -225,7 +240,7 @@ export class BrowserOSAdapter {
     try {
       logger.debug(`[BrowserOSAdapter] Sending keys "${keys}" to tab ${tabId}`)
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         chrome.browserOS.sendKeys(tabId, keys, () => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -234,6 +249,8 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.SEND_KEYS, 'sendKeys')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -251,7 +268,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Getting page load status for tab ${tabId}`,
       )
 
-      return new Promise<PageLoadStatus>((resolve, reject) => {
+      const promise = new Promise<PageLoadStatus>((resolve, reject) => {
         chrome.browserOS.getPageLoadStatus(tabId, (status: PageLoadStatus) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -260,6 +277,12 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.PAGE_LOAD_STATUS,
+        'getPageLoadStatus',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -281,7 +304,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Getting accessibility tree for tab ${tabId}`,
       )
 
-      return new Promise<chrome.browserOS.AccessibilityTree>(
+      const promise = new Promise<chrome.browserOS.AccessibilityTree>(
         (resolve, reject) => {
           chrome.browserOS.getAccessibilityTree(
             tabId,
@@ -294,6 +317,12 @@ export class BrowserOSAdapter {
             },
           )
         },
+      )
+
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.ACCESSIBILITY_TREE,
+        'getAccessibilityTree',
       )
     } catch (error) {
       const errorMessage =
@@ -328,7 +357,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Capturing screenshot for tab ${tabId}${sizeDesc}${highlightDesc}${dimensionsDesc}`,
       )
 
-      return new Promise<string>((resolve, reject) => {
+      const promise = new Promise<string>((resolve, reject) => {
         // Use exact dimensions if provided
         if (width !== undefined && height !== undefined) {
           chrome.browserOS.captureScreenshot(
@@ -397,6 +426,12 @@ export class BrowserOSAdapter {
           })
         }
       })
+
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.SCREENSHOT,
+        'captureScreenshot',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -414,7 +449,7 @@ export class BrowserOSAdapter {
     try {
       logger.debug(`[BrowserOSAdapter] Getting snapshot for tab ${tabId}`)
 
-      return new Promise<Snapshot>((resolve, reject) => {
+      const promise = new Promise<Snapshot>((resolve, reject) => {
         chrome.browserOS.getSnapshot(tabId, (snapshot: Snapshot) => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message))
@@ -426,6 +461,8 @@ export class BrowserOSAdapter {
           }
         })
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.SNAPSHOT, 'getSnapshot')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -594,7 +631,7 @@ export class BrowserOSAdapter {
     try {
       logger.debug(`[BrowserOSAdapter] Executing JavaScript in tab ${tabId}`)
 
-      return new Promise<unknown>((resolve, reject) => {
+      const promise = new Promise<unknown>((resolve, reject) => {
         // Check if executeJavaScript API is available
         if (
           'executeJavaScript' in chrome.browserOS &&
@@ -614,6 +651,12 @@ export class BrowserOSAdapter {
           reject(new Error('executeJavaScript API not available'))
         }
       })
+
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.EXECUTE_JS,
+        'executeJavaScript',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -636,7 +679,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Clicking at coordinates (${x}, ${y}) in tab ${tabId}`,
       )
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         // Check if clickCoordinates API is available
         if (
           'clickCoordinates' in chrome.browserOS &&
@@ -656,6 +699,8 @@ export class BrowserOSAdapter {
           reject(new Error('clickCoordinates API not available'))
         }
       })
+
+      return withTimeout(promise, CHROME_API_TIMEOUTS.CLICK, 'clickCoordinates')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -686,7 +731,7 @@ export class BrowserOSAdapter {
         `[BrowserOSAdapter] Typing at coordinates (${x}, ${y}) in tab ${tabId}`,
       )
 
-      return new Promise<void>((resolve, reject) => {
+      const promise = new Promise<void>((resolve, reject) => {
         // Check if typeAtCoordinates API is available
         if (
           'typeAtCoordinates' in chrome.browserOS &&
@@ -706,6 +751,12 @@ export class BrowserOSAdapter {
           reject(new Error('typeAtCoordinates API not available'))
         }
       })
+
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.INPUT_TEXT,
+        'typeAtCoordinates',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)

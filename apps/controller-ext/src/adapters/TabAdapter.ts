@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { logger } from '@/utils/logger'
+import { CHROME_API_TIMEOUTS, withTimeout } from '@/utils/timeout'
 
 /**
  * TabAdapter - Wrapper for Chrome tabs API
@@ -36,7 +37,11 @@ export class TabAdapter {
       } else {
         query.currentWindow = true
       }
-      const tabs = await chrome.tabs.query(query)
+      const tabs = await withTimeout(
+        chrome.tabs.query(query),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.query',
+      )
 
       if (tabs.length === 0) {
         throw new Error('No active tab found')
@@ -65,7 +70,11 @@ export class TabAdapter {
     logger.debug(`[TabAdapter] Getting tab ${tabId}`)
 
     try {
-      const tab = await chrome.tabs.get(tabId)
+      const tab = await withTimeout(
+        chrome.tabs.get(tabId),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.get',
+      )
       logger.debug(`[TabAdapter] Found tab: ${tab.id} (${tab.url})`)
       return tab
     } catch (error) {
@@ -85,7 +94,11 @@ export class TabAdapter {
     logger.debug('[TabAdapter] Getting all tabs')
 
     try {
-      const tabs = await chrome.tabs.query({})
+      const tabs = await withTimeout(
+        chrome.tabs.query({}),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.query',
+      )
       logger.debug(`[TabAdapter] Found ${tabs.length} tabs`)
       return tabs
     } catch (error) {
@@ -106,7 +119,11 @@ export class TabAdapter {
     logger.debug(`[TabAdapter] Querying tabs: ${JSON.stringify(query)}`)
 
     try {
-      const tabs = await chrome.tabs.query(query)
+      const tabs = await withTimeout(
+        chrome.tabs.query(query),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.query',
+      )
       logger.debug(`[TabAdapter] Query found ${tabs.length} tabs`)
       return tabs
     } catch (error) {
@@ -127,7 +144,11 @@ export class TabAdapter {
     logger.debug(`[TabAdapter] Getting tabs in window ${windowId}`)
 
     try {
-      const tabs = await chrome.tabs.query({ windowId })
+      const tabs = await withTimeout(
+        chrome.tabs.query({ windowId }),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.query',
+      )
       logger.debug(
         `[TabAdapter] Found ${tabs.length} tabs in window ${windowId}`,
       )
@@ -160,7 +181,11 @@ export class TabAdapter {
       } else {
         query.currentWindow = true
       }
-      const tabs = await chrome.tabs.query(query)
+      const tabs = await withTimeout(
+        chrome.tabs.query(query),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.query',
+      )
       logger.debug(`[TabAdapter] Found ${tabs.length} tabs`)
       return tabs
     } catch (error) {
@@ -199,7 +224,11 @@ export class TabAdapter {
       if (windowId !== undefined) {
         createProps.windowId = windowId
       }
-      const tab = await chrome.tabs.create(createProps)
+      const tab = await withTimeout(
+        chrome.tabs.create(createProps),
+        CHROME_API_TIMEOUTS.TAB_CREATE,
+        'chrome.tabs.create',
+      )
 
       if (!tab.id) {
         throw new Error('Created tab has no ID')
@@ -225,10 +254,18 @@ export class TabAdapter {
 
     try {
       // Get tab info before closing for logging
-      const tab = await chrome.tabs.get(tabId)
+      const tab = await withTimeout(
+        chrome.tabs.get(tabId),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabs.get',
+      )
       const title = tab.title || 'Untitled'
 
-      await chrome.tabs.remove(tabId)
+      await withTimeout(
+        chrome.tabs.remove(tabId),
+        CHROME_API_TIMEOUTS.TAB_CLOSE,
+        'chrome.tabs.remove',
+      )
       logger.debug(`[TabAdapter] Closed tab ${tabId}: ${title}`)
     } catch (error) {
       const errorMessage =
@@ -249,7 +286,11 @@ export class TabAdapter {
 
     try {
       // Update tab to be active
-      const tab = await chrome.tabs.update(tabId, { active: true })
+      const tab = await withTimeout(
+        chrome.tabs.update(tabId, { active: true }),
+        CHROME_API_TIMEOUTS.TAB_UPDATE,
+        'chrome.tabs.update',
+      )
 
       if (!tab) {
         throw new Error('Failed to update tab')
@@ -280,7 +321,11 @@ export class TabAdapter {
     logger.debug(`[TabAdapter] Navigating tab ${tabId} to ${url}`)
 
     try {
-      const tab = await chrome.tabs.update(tabId, { url })
+      const tab = await withTimeout(
+        chrome.tabs.update(tabId, { url }),
+        CHROME_API_TIMEOUTS.TAB_UPDATE,
+        'chrome.tabs.update',
+      )
 
       if (!tab) {
         throw new Error('Failed to update tab')
@@ -332,7 +377,11 @@ export class TabAdapter {
       if (windowId !== undefined && groupId === undefined) {
         options.createProperties = { windowId }
       }
-      const resultGroupId = await chrome.tabs.group(options)
+      const resultGroupId = await withTimeout(
+        chrome.tabs.group(options),
+        CHROME_API_TIMEOUTS.TAB_GROUP,
+        'chrome.tabs.group',
+      )
       logger.debug(`Grouped tabs into group ${resultGroupId}`)
       return resultGroupId
     } catch (error) {
@@ -358,7 +407,11 @@ export class TabAdapter {
     try {
       // Chrome API expects [number, ...number[]] tuple type or single number
       const tabIdsTuple = tabIds as [number, ...number[]]
-      await chrome.tabs.ungroup(tabIdsTuple)
+      await withTimeout(
+        chrome.tabs.ungroup(tabIdsTuple),
+        CHROME_API_TIMEOUTS.TAB_GROUP,
+        'chrome.tabs.ungroup',
+      )
       logger.debug(`Ungrouped ${tabIds.length} tabs`)
     } catch (error) {
       const errorMessage =
@@ -384,7 +437,11 @@ export class TabAdapter {
       if (windowId !== undefined) {
         query.windowId = windowId
       }
-      const groups = await chrome.tabGroups.query(query)
+      const groups = await withTimeout(
+        chrome.tabGroups.query(query),
+        CHROME_API_TIMEOUTS.TAB_QUERY,
+        'chrome.tabGroups.query',
+      )
       logger.debug(`Found ${groups.length} tab groups`)
       return groups
     } catch (error) {
@@ -409,7 +466,11 @@ export class TabAdapter {
     logger.debug(`Updating tab group ${groupId}: ${JSON.stringify(properties)}`)
 
     try {
-      const group = await chrome.tabGroups.update(groupId, properties)
+      const group = await withTimeout(
+        chrome.tabGroups.update(groupId, properties),
+        CHROME_API_TIMEOUTS.TAB_UPDATE,
+        'chrome.tabGroups.update',
+      )
       if (!group) {
         throw new Error(`Tab group ${groupId} not found`)
       }

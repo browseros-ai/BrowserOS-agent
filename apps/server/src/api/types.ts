@@ -17,8 +17,7 @@ import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
 import type { McpContext } from '../browser/cdp/context'
 import type { ControllerContext } from '../browser/extension/context'
-import type { HealthWatchdog } from '../lib/health-watchdog'
-import type { Mutex } from '../lib/mutex'
+import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { ToolDefinition } from '../tools/types/tool-definition'
 
@@ -69,7 +68,7 @@ export interface HttpServerConfig {
   tools: ToolDefinition[]
   cdpContext: McpContext | null
   controllerContext: ControllerContext
-  toolMutex: Mutex
+  mutexPool: MutexPool
   allowRemote: boolean
 
   // For Chat/Klavis routes
@@ -79,9 +78,6 @@ export interface HttpServerConfig {
 
   // For Graph routes
   codegenServiceUrl?: string
-
-  // Health watchdog (enabled when launched by Chrome)
-  healthWatchdog?: HealthWatchdog
 }
 
 // Graph request schemas
