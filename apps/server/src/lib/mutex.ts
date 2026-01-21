@@ -46,7 +46,7 @@ export class MutexPool {
   removeMutex(windowId: number): void {
     const mutex = this.mutexes.get(windowId)
     // Only remove if idle to prevent breaking mutual exclusion
-    if (mutex && mutex.isIdle()) {
+    if (mutex?.isIdle()) {
       this.mutexes.delete(windowId)
     }
   }
