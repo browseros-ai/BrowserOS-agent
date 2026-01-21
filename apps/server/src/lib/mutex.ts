@@ -22,10 +22,6 @@ export class MutexPool {
     }
     return mutex
   }
-
-  removeMutex(windowId: number): void {
-    this.mutexes.delete(windowId)
-  }
 }
 
 export class Mutex {
