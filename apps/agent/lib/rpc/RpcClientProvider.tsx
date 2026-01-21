@@ -1,7 +1,5 @@
-import { createContext, type FC, type ReactNode, use, useMemo } from 'react'
-import { getClient } from './getClient'
-
-type RpcClient = Awaited<ReturnType<typeof getClient>>
+import { createContext, type FC, type ReactNode, use } from 'react'
+import { getClient, type RpcClient } from './getClient'
 
 const RpcClientContext = createContext<Promise<RpcClient> | null>(null)
 
@@ -11,9 +9,8 @@ const RpcClientContext = createContext<Promise<RpcClient> | null>(null)
 export const RpcClientProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const clientPromise = useMemo(() => getClient(), [])
   return (
-    <RpcClientContext.Provider value={clientPromise}>
+    <RpcClientContext.Provider value={getClient()}>
       {children}
     </RpcClientContext.Provider>
   )
