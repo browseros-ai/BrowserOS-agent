@@ -37,4 +37,6 @@ export interface ResolvedAgentConfig {
   supportsImages?: boolean
   /** Eval mode - enables window management tools. Defaults to false. */
   evalMode?: boolean
+  /** Chat mode - restricts to read-only tools (no browser automation). Defaults to false. */
+  chatMode?: boolean
 }

@@ -19,12 +19,25 @@ import type { Content, Part } from '@google/genai'
 import type { BrowserContext } from '../api/types'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
+import { allCdpTools } from '../tools/cdp-based/registry'
+import { allControllerTools } from '../tools/controller-based/registry'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
 import { VercelAIContentGenerator } from './provider-adapter/index'
 import type { HonoSSEStream } from './provider-adapter/types'
 import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
+
+const CHAT_MODE_ALLOWED_TOOLS = new Set([
+  'browser_get_active_tab',
+  'browser_list_tabs',
+  'browser_get_page_content',
+  'browser_scroll_down',
+  'browser_scroll_up',
+  'browser_get_screenshot',
+  'browser_get_interactive_elements',
+  'browser_execute_javascript',
+])
 
 export interface ToolExecutionResult {
   parts: Part[]
@@ -102,6 +115,7 @@ export class GeminiAgent {
     // Build excluded tools list - always exclude save_memory and google_web_search
     // Conditionally exclude screenshot tools if model doesn't support images
     // Exclude window management tools unless in eval mode
+    // In chat mode, only allow read-only tools for page content extraction
     const excludedTools = ['save_memory', 'google_web_search']
     if (config.supportsImages === false) {
       excludedTools.push(
@@ -112,6 +126,21 @@ export class GeminiAgent {
     }
     if (config.evalMode !== true) {
       excludedTools.push('browser_create_window', 'browser_close_window')
+    }
+
+    // Chat mode: restrict to read-only tools only (no browser automation)
+    if (config.chatMode === true) {
+      const allToolNames = [
+        ...allControllerTools.map((t) => t.name),
+        ...allCdpTools.map((t) => t.name),
+      ]
+      const chatModeExcludedTools = allToolNames.filter(
+        (name) => !CHAT_MODE_ALLOWED_TOOLS.has(name),
+      )
+      excludedTools.push(...chatModeExcludedTools)
+      logger.info('Chat mode enabled, restricting to read-only tools', {
+        allowedTools: Array.from(CHAT_MODE_ALLOWED_TOOLS),
+      })
     }
 
     const geminiConfig = new GeminiConfig({
@@ -371,12 +400,38 @@ export class GeminiAgent {
     honoStream: HonoSSEStream,
     signal?: AbortSignal,
     browserContext?: BrowserContext,
+    previousConversation?: string,
   ): Promise<void> {
     const abortSignal = signal || new AbortController().signal
     const promptId = `${this.conversationId}-${Date.now()}`
 
     const contextPrefix = this.formatBrowserContext(browserContext)
-    let currentParts: Part[] = [{ text: contextPrefix + message }]
+
+    // User query
+    const userQuery = `<USER_QUERY>
+${message}
+</USER_QUERY>`
+
+    // Inject previous conversation if resuming (no server-side history)
+    let fullMessage = userQuery
+    const hasHistory = this.client.getHistory().length > 0
+    if (previousConversation && !hasHistory) {
+      fullMessage = `<previous_conversation>
+The user is resuming a previous conversation. Here is the conversation history for context:
+
+${previousConversation}
+</previous_conversation>
+
+Continue the conversation based on the above context. Here is the user's new message:
+
+${userQuery}`
+      logger.info('Injecting previous conversation for resume', {
+        conversationId: this.conversationId,
+        historyLength: previousConversation.length,
+      })
+    }
+
+    let currentParts: Part[] = [{ text: contextPrefix + fullMessage }]
     let turnCount = 0
 
     const uiStream = honoStream
