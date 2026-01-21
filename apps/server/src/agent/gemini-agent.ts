@@ -117,15 +117,21 @@ export class GeminiAgent {
 
     // Chat mode: restrict to read-only tools only (no browser automation)
     if (config.chatMode === true) {
-      const chatModeAllowedTools = [
+      const chatModeAllowedTools = new Set([
         'browser_get_active_tab',
         'browser_list_tabs',
         'browser_get_page_content',
         'browser_scroll_down',
         'browser_scroll_up',
         'browser_get_screenshot',
-      ]
-      const chatModeExcludedTools = [
+        'browser_get_interactive_elements',
+        'browser_execute_javascript',
+      ])
+
+      const allBrowserosTools = [
+        // Tab management
+        'browser_get_active_tab',
+        'browser_list_tabs',
         'browser_open_tab',
         'browser_close_tab',
         'browser_switch_tab',
@@ -134,19 +140,31 @@ export class GeminiAgent {
         'browser_group_tabs',
         'browser_update_tab_group',
         'browser_ungroup_tabs',
+        // Navigation
         'browser_navigate',
+        // Interaction
         'browser_get_interactive_elements',
         'browser_grep_interactive_elements',
         'browser_click_element',
         'browser_type_text',
         'browser_clear_input',
         'browser_scroll_to_element',
+        // Scrolling
+        'browser_scroll_down',
+        'browser_scroll_up',
+        // Screenshots
+        'browser_get_screenshot',
+        'browser_get_screenshot_pointer',
+        // Content
+        'browser_get_page_content',
+        // Advanced
         'browser_execute_javascript',
         'browser_send_keys',
         'browser_check_availability',
+        // Coordinates
         'browser_click_coordinates',
         'browser_type_at_coordinates',
-        'browser_get_screenshot_pointer',
+        // Bookmarks
         'browser_get_bookmarks',
         'browser_create_bookmark',
         'browser_remove_bookmark',
@@ -154,17 +172,24 @@ export class GeminiAgent {
         'browser_get_bookmark_children',
         'browser_move_bookmark',
         'browser_remove_bookmark_tree',
+        // History
         'browser_search_history',
         'browser_get_recent_history',
+        // Window
         'browser_create_window',
         'browser_close_window',
+        // CDP tools
         'list_console_messages',
         'list_network_requests',
         'get_network_request',
       ]
+
+      const chatModeExcludedTools = allBrowserosTools.filter(
+        (tool) => !chatModeAllowedTools.has(tool),
+      )
       excludedTools.push(...chatModeExcludedTools)
       logger.info('Chat mode enabled, restricting to read-only tools', {
-        allowedTools: chatModeAllowedTools,
+        allowedTools: Array.from(chatModeAllowedTools),
       })
     }
 
