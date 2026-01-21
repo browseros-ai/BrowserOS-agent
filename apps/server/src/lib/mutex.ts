@@ -18,10 +18,9 @@ export class MutexPool {
 
     let mutex = this.mutexes.get(windowId)
     if (!mutex) {
-      // Prevent unbounded growth - remove oldest if at limit
+      // Prevent unbounded growth - evict an idle mutex if at limit
       if (this.mutexes.size >= MutexPool.MAX_MUTEXES) {
-        const firstKey = this.mutexes.keys().next().value
-        if (firstKey !== undefined) this.mutexes.delete(firstKey)
+        this.evictIdleMutex()
       }
       mutex = new Mutex()
       this.mutexes.set(windowId, mutex)
@@ -29,8 +28,27 @@ export class MutexPool {
     return mutex
   }
 
+  /**
+   * Evicts an idle (unlocked, no waiters) mutex from the pool.
+   * Only removes mutexes that are safe to delete.
+   */
+  private evictIdleMutex(): void {
+    for (const [key, mutex] of this.mutexes) {
+      if (mutex.isIdle()) {
+        this.mutexes.delete(key)
+        return
+      }
+    }
+    // All mutexes are in use - allow pool to grow temporarily
+    // This is safer than breaking mutual exclusion
+  }
+
   removeMutex(windowId: number): void {
-    this.mutexes.delete(windowId)
+    const mutex = this.mutexes.get(windowId)
+    // Only remove if idle to prevent breaking mutual exclusion
+    if (mutex && mutex.isIdle()) {
+      this.mutexes.delete(windowId)
+    }
   }
 }
 
@@ -67,5 +85,13 @@ export class Mutex {
       return
     }
     resolve()
+  }
+
+  /**
+   * Returns true if the mutex is not locked and has no pending waiters.
+   * Safe to evict from pool when idle.
+   */
+  isIdle(): boolean {
+    return !this.#locked && this.#acquirers.length === 0
   }
 }
