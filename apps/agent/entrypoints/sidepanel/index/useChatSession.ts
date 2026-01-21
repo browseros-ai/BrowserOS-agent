@@ -140,6 +140,7 @@ export const useChatSession = () => {
   const modeRef = useRef<ChatMode>(mode)
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
+  const messagesRef = useRef<UIMessage[]>([])
 
   useDeepCompareEffect(() => {
     modeRef.current = mode
@@ -232,8 +233,8 @@ export const useChatSession = () => {
           }[]
         }
 
-        // Format previous messages (exclude the current message being sent)
-        const previousMessages = messages.slice(0, -1)
+        // Format previous messages from ref (messagesRef doesn't include current message yet)
+        const previousMessages = messagesRef.current
         const previousConversation =
           previousMessages.length > 0
             ? formatConversationHistory(previousMessages)
@@ -301,6 +302,7 @@ export const useChatSession = () => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
   useEffect(() => {
+    messagesRef.current = messages
     if (messages.length > 0) {
       saveConversation(conversationIdRef.current, messages)
     }
