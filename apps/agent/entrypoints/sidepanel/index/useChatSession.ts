@@ -362,11 +362,11 @@ export const useChatSession = () => {
     setLiked({})
     setDisliked({})
 
-    // if (agentServerUrl && oldConversationId) {
-    //   fetch(`${agentServerUrl}/chat/${oldConversationId}`, {
-    //     method: 'DELETE',
-    //   }).catch(() => {})
-    // }
+    if (agentServerUrl && _oldConversationId) {
+      fetch(`${agentServerUrl}/chat/${_oldConversationId}`, {
+        method: 'DELETE',
+      }).catch(() => {})
+    }
   }
 
   return {
