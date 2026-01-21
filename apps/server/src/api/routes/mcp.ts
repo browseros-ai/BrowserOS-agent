@@ -14,7 +14,7 @@ import type { McpContext } from '../../browser/cdp/context'
 import type { ControllerContext } from '../../browser/extension/context'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
-import type { Mutex } from '../../lib/mutex'
+import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
 import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
@@ -26,7 +26,7 @@ interface McpRouteDeps {
   tools: ToolDefinition[]
   cdpContext: McpContext | null
   controllerContext: ControllerContext
-  toolMutex: Mutex
+  mutexPool: MutexPool
   allowRemote: boolean
 }
 
@@ -48,7 +48,7 @@ function getMcpRequestSource(
  * Reuses the same logic from the old mcp/server.ts
  */
 function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
-  const { version, tools, cdpContext, controllerContext, toolMutex } = deps
+  const { version, tools, cdpContext, controllerContext, mutexPool } = deps
 
   const server = new McpServer(
     {
@@ -77,8 +77,9 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
       (async (params: Record<string, unknown>): Promise<CallToolResult> => {
         const startTime = performance.now()
 
-        // Serialize tool execution with mutex
-        const guard = await toolMutex.acquire()
+        // Serialize tool execution per-window (allows parallel execution across windows)
+        const windowId = params.windowId as number | undefined
+        const guard = await mutexPool.getMutex(windowId).acquire()
         try {
           logger.info(
             `${tool.name} request: ${JSON.stringify(params, null, '  ')}`,

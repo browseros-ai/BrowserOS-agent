@@ -384,15 +384,11 @@ export const CreateGraph: FC = () => {
   }, [status, lastAssistantMessageWithGraph ?? {}])
 
   if (!isInitialized || isLoadingProviders || !selectedProviderForHeader) {
-    return (
-      <div className="flex h-dvh w-dvw items-center justify-center bg-background text-foreground">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
+    return <div className="h-screen w-screen bg-background" />
   }
 
   return (
-    <div className="h-dvh w-dvw bg-background text-foreground">
+    <div className="h-screen w-screen bg-background text-foreground">
       <ResizablePanelGroup orientation="horizontal">
         <ResizablePanel
           id="graph-canvas"

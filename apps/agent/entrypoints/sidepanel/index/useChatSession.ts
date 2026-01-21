@@ -346,18 +346,11 @@ export const useChatSession = () => {
   const resetConversation = () => {
     track(CONVERSATION_RESET_EVENT, { message_count: messages.length })
     stop()
-    const oldConversationId = conversationIdRef.current
     setConversationId(crypto.randomUUID())
     setMessages([])
     setTextToAction(new Map())
     setLiked({})
     setDisliked({})
-
-    if (agentServerUrl && oldConversationId) {
-      fetch(`${agentServerUrl}/chat/${oldConversationId}`, {
-        method: 'DELETE',
-      }).catch(() => {})
-    }
   }
 
   return {

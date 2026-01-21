@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { logger } from '@/utils/logger'
+import { CHROME_API_TIMEOUTS, withTimeout } from '@/utils/timeout'
 
 /**
  * BookmarkAdapter - Wrapper for Chrome bookmarks API
@@ -23,7 +24,11 @@ export class BookmarkAdapter {
     logger.debug('[BookmarkAdapter] Getting bookmark tree')
 
     try {
-      const tree = await chrome.bookmarks.getTree()
+      const tree = await withTimeout(
+        chrome.bookmarks.getTree(),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.getTree',
+      )
       logger.debug(
         `[BookmarkAdapter] Retrieved bookmark tree with ${tree.length} root nodes`,
       )
@@ -50,7 +55,11 @@ export class BookmarkAdapter {
     logger.debug(`[BookmarkAdapter] Searching bookmarks: "${query}"`)
 
     try {
-      const results = await chrome.bookmarks.search(query)
+      const results = await withTimeout(
+        chrome.bookmarks.search(query),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.search',
+      )
       logger.debug(
         `[BookmarkAdapter] Found ${results.length} bookmarks matching "${query}"`,
       )
@@ -75,7 +84,11 @@ export class BookmarkAdapter {
     logger.debug(`[BookmarkAdapter] Getting bookmark: ${id}`)
 
     try {
-      const results = await chrome.bookmarks.get(id)
+      const results = await withTimeout(
+        chrome.bookmarks.get(id),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.get',
+      )
       if (results.length === 0) {
         throw new Error('Bookmark not found')
       }
@@ -105,7 +118,11 @@ export class BookmarkAdapter {
     )
 
     try {
-      const created = await chrome.bookmarks.create(bookmark)
+      const created = await withTimeout(
+        chrome.bookmarks.create(bookmark),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.create',
+      )
       logger.debug(
         `[BookmarkAdapter] Created bookmark: ${created.id} - ${created.title}`,
       )
@@ -129,7 +146,11 @@ export class BookmarkAdapter {
     logger.debug(`[BookmarkAdapter] Removing bookmark: ${id}`)
 
     try {
-      await chrome.bookmarks.remove(id)
+      await withTimeout(
+        chrome.bookmarks.remove(id),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.remove',
+      )
       logger.debug(`[BookmarkAdapter] Removed bookmark: ${id}`)
     } catch (error) {
       const errorMessage =
@@ -155,7 +176,11 @@ export class BookmarkAdapter {
     logger.debug(`[BookmarkAdapter] Updating bookmark: ${id}`)
 
     try {
-      const updated = await chrome.bookmarks.update(id, changes)
+      const updated = await withTimeout(
+        chrome.bookmarks.update(id, changes),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.update',
+      )
       logger.debug(
         `[BookmarkAdapter] Updated bookmark: ${id} - ${updated.title}`,
       )
@@ -182,7 +207,11 @@ export class BookmarkAdapter {
     logger.debug(`[BookmarkAdapter] Getting ${limit} recent bookmarks`)
 
     try {
-      const tree = await chrome.bookmarks.getTree()
+      const tree = await withTimeout(
+        chrome.bookmarks.getTree(),
+        CHROME_API_TIMEOUTS.CHROME_API,
+        'chrome.bookmarks.getTree',
+      )
       const bookmarks = this._flattenBookmarkTree(tree)
 
       // Filter to only URL bookmarks (not folders) and sort by dateAdded

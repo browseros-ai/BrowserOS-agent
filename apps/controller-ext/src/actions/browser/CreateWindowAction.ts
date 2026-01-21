@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { z } from 'zod'
+import { CHROME_API_TIMEOUTS, withTimeout } from '@/utils/timeout'
 import { ActionHandler } from '../ActionHandler'
 
 const CreateWindowInputSchema = z.object({
@@ -45,7 +46,11 @@ export class CreateWindowAction extends ActionHandler<
       incognito: input.incognito,
     }
 
-    const createdWindow = await chrome.windows.create(createData)
+    const createdWindow = await withTimeout(
+      chrome.windows.create(createData),
+      CHROME_API_TIMEOUTS.CHROME_API,
+      'chrome.windows.create',
+    )
 
     if (!createdWindow) {
       throw new Error('Failed to create window')
