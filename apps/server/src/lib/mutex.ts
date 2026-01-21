@@ -11,12 +11,18 @@
 export class MutexPool {
   private mutexes = new Map<number, Mutex>()
   private globalMutex = new Mutex()
+  private static MAX_MUTEXES = 50
 
   getMutex(windowId?: number): Mutex {
     if (!windowId) return this.globalMutex
 
     let mutex = this.mutexes.get(windowId)
     if (!mutex) {
+      // Prevent unbounded growth - remove oldest if at limit
+      if (this.mutexes.size >= MutexPool.MAX_MUTEXES) {
+        const firstKey = this.mutexes.keys().next().value
+        if (firstKey !== undefined) this.mutexes.delete(firstKey)
+      }
       mutex = new Mutex()
       this.mutexes.set(windowId, mutex)
     }
