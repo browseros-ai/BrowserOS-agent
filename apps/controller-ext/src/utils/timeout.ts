@@ -5,43 +5,18 @@
  */
 
 /**
- * Timeout configuration for different Chrome API operations.
- * These prevent hung Chrome APIs from blocking the ConcurrencyLimiter mutex.
+ * Timeout configuration for Chrome API and BrowserOS operations.
+ * These prevent hung APIs from blocking the mutex indefinitely.
  */
 export const CHROME_API_TIMEOUTS = {
-  // Window operations
-  WINDOW_CREATE: 30_000,
-  WINDOW_CLOSE: 30_000,
+  /** Quick Chrome API calls (tabs, bookmarks, history queries) */
+  CHROME_API: 15_000,
 
-  // Tab operations
-  TAB_QUERY: 10_000,
-  TAB_CREATE: 15_000,
-  TAB_CLOSE: 15_000,
-  TAB_UPDATE: 10_000,
-  TAB_GROUP: 15_000,
+  /** BrowserOS page actions (click, scroll, input, etc.) */
+  BROWSEROS_ACTION: 10_000,
 
-  // BrowserOS operations (heavier)
-  SCREENSHOT: 60_000,
-  INTERACTIVE_SNAPSHOT: 45_000,
-  SNAPSHOT: 30_000,
-  ACCESSIBILITY_TREE: 30_000,
-  PAGE_LOAD_STATUS: 30_000,
-
-  // BrowserOS actions (quick)
-  CLICK: 10_000,
-  INPUT_TEXT: 10_000,
-  CLEAR: 10_000,
-  SCROLL: 10_000,
-  SEND_KEYS: 10_000,
-  EXECUTE_JS: 30_000,
-
-  // Bookmark/History operations
-  BOOKMARK_QUERY: 10_000,
-  BOOKMARK_MODIFY: 10_000,
-  HISTORY_QUERY: 15_000,
-
-  // Default fallback
-  DEFAULT: 30_000,
+  /** Heavy BrowserOS operations (screenshot, snapshot, accessibility tree) */
+  BROWSEROS_HEAVY: 60_000,
 } as const
 
 /**

@@ -108,7 +108,7 @@ export class BrowserOSAdapter {
 
       return withTimeout(
         promise,
-        CHROME_API_TIMEOUTS.INTERACTIVE_SNAPSHOT,
+        CHROME_API_TIMEOUTS.BROWSEROS_HEAVY,
         'getInteractiveSnapshot',
       )
     } catch (error) {
@@ -138,7 +138,7 @@ export class BrowserOSAdapter {
         })
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.CLICK, 'click')
+      return withTimeout(promise, CHROME_API_TIMEOUTS.BROWSEROS_ACTION, 'click')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -166,7 +166,11 @@ export class BrowserOSAdapter {
         })
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.INPUT_TEXT, 'inputText')
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.BROWSEROS_ACTION,
+        'inputText',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -194,7 +198,7 @@ export class BrowserOSAdapter {
         })
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.CLEAR, 'clear')
+      return withTimeout(promise, CHROME_API_TIMEOUTS.BROWSEROS_ACTION, 'clear')
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -222,7 +226,11 @@ export class BrowserOSAdapter {
         })
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.SCROLL, 'scrollToNode')
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.BROWSEROS_ACTION,
+        'scrollToNode',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -250,7 +258,11 @@ export class BrowserOSAdapter {
         })
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.SEND_KEYS, 'sendKeys')
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.BROWSEROS_ACTION,
+        'sendKeys',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -280,7 +292,7 @@ export class BrowserOSAdapter {
 
       return withTimeout(
         promise,
-        CHROME_API_TIMEOUTS.PAGE_LOAD_STATUS,
+        CHROME_API_TIMEOUTS.BROWSEROS_HEAVY,
         'getPageLoadStatus',
       )
     } catch (error) {
@@ -321,7 +333,7 @@ export class BrowserOSAdapter {
 
       return withTimeout(
         promise,
-        CHROME_API_TIMEOUTS.ACCESSIBILITY_TREE,
+        CHROME_API_TIMEOUTS.BROWSEROS_HEAVY,
         'getAccessibilityTree',
       )
     } catch (error) {
@@ -429,7 +441,7 @@ export class BrowserOSAdapter {
 
       return withTimeout(
         promise,
-        CHROME_API_TIMEOUTS.SCREENSHOT,
+        CHROME_API_TIMEOUTS.BROWSEROS_HEAVY,
         'captureScreenshot',
       )
     } catch (error) {
@@ -462,7 +474,11 @@ export class BrowserOSAdapter {
         })
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.SNAPSHOT, 'getSnapshot')
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.BROWSEROS_HEAVY,
+        'getSnapshot',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -654,7 +670,7 @@ export class BrowserOSAdapter {
 
       return withTimeout(
         promise,
-        CHROME_API_TIMEOUTS.EXECUTE_JS,
+        CHROME_API_TIMEOUTS.BROWSEROS_HEAVY,
         'executeJavaScript',
       )
     } catch (error) {
@@ -700,7 +716,11 @@ export class BrowserOSAdapter {
         }
       })
 
-      return withTimeout(promise, CHROME_API_TIMEOUTS.CLICK, 'clickCoordinates')
+      return withTimeout(
+        promise,
+        CHROME_API_TIMEOUTS.BROWSEROS_ACTION,
+        'clickCoordinates',
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error)
@@ -754,7 +774,7 @@ export class BrowserOSAdapter {
 
       return withTimeout(
         promise,
-        CHROME_API_TIMEOUTS.INPUT_TEXT,
+        CHROME_API_TIMEOUTS.BROWSEROS_ACTION,
         'typeAtCoordinates',
       )
     } catch (error) {

@@ -42,7 +42,7 @@ export class HistoryAdapter {
           startTime,
           endTime,
         }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.search',
       )
 
@@ -80,7 +80,7 @@ export class HistoryAdapter {
           maxResults,
           startTime,
         }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.search',
       )
 
@@ -108,7 +108,7 @@ export class HistoryAdapter {
     try {
       const visits = await withTimeout(
         chrome.history.getVisits({ url }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.getVisits',
       )
       logger.debug(`[HistoryAdapter] Found ${visits.length} visits for ${url}`)
@@ -132,7 +132,7 @@ export class HistoryAdapter {
     try {
       await withTimeout(
         chrome.history.addUrl({ url }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.addUrl',
       )
       logger.debug(`[HistoryAdapter] Added URL: ${url}`)
@@ -155,7 +155,7 @@ export class HistoryAdapter {
     try {
       await withTimeout(
         chrome.history.deleteUrl({ url }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.deleteUrl',
       )
       logger.debug(`[HistoryAdapter] Removed URL: ${url}`)
@@ -181,7 +181,7 @@ export class HistoryAdapter {
     try {
       await withTimeout(
         chrome.history.deleteRange({ startTime, endTime }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.deleteRange',
       )
       logger.debug('[HistoryAdapter] Deleted history range')
@@ -206,7 +206,7 @@ export class HistoryAdapter {
     try {
       await withTimeout(
         chrome.history.deleteAll(),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.deleteAll',
       )
       logger.warn('[HistoryAdapter] Deleted all history')
@@ -237,7 +237,7 @@ export class HistoryAdapter {
           maxResults: 1000, // Get a large sample
           startTime: 0,
         }),
-        CHROME_API_TIMEOUTS.HISTORY_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.history.search',
       )
 

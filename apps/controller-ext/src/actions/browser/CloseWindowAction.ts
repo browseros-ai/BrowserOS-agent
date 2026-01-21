@@ -27,7 +27,7 @@ export class CloseWindowAction extends ActionHandler<
   async execute(input: CloseWindowInput): Promise<CloseWindowOutput> {
     await withTimeout(
       chrome.windows.remove(input.windowId),
-      CHROME_API_TIMEOUTS.WINDOW_CLOSE,
+      CHROME_API_TIMEOUTS.CHROME_API,
       'chrome.windows.remove',
     )
 

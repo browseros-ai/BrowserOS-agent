@@ -48,7 +48,7 @@ export class CreateWindowAction extends ActionHandler<
 
     const createdWindow = await withTimeout(
       chrome.windows.create(createData),
-      CHROME_API_TIMEOUTS.WINDOW_CREATE,
+      CHROME_API_TIMEOUTS.CHROME_API,
       'chrome.windows.create',
     )
 

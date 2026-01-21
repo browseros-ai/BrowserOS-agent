@@ -39,7 +39,7 @@ export class TabAdapter {
       }
       const tabs = await withTimeout(
         chrome.tabs.query(query),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.query',
       )
 
@@ -72,7 +72,7 @@ export class TabAdapter {
     try {
       const tab = await withTimeout(
         chrome.tabs.get(tabId),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.get',
       )
       logger.debug(`[TabAdapter] Found tab: ${tab.id} (${tab.url})`)
@@ -96,7 +96,7 @@ export class TabAdapter {
     try {
       const tabs = await withTimeout(
         chrome.tabs.query({}),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.query',
       )
       logger.debug(`[TabAdapter] Found ${tabs.length} tabs`)
@@ -121,7 +121,7 @@ export class TabAdapter {
     try {
       const tabs = await withTimeout(
         chrome.tabs.query(query),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.query',
       )
       logger.debug(`[TabAdapter] Query found ${tabs.length} tabs`)
@@ -146,7 +146,7 @@ export class TabAdapter {
     try {
       const tabs = await withTimeout(
         chrome.tabs.query({ windowId }),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.query',
       )
       logger.debug(
@@ -183,7 +183,7 @@ export class TabAdapter {
       }
       const tabs = await withTimeout(
         chrome.tabs.query(query),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.query',
       )
       logger.debug(`[TabAdapter] Found ${tabs.length} tabs`)
@@ -226,7 +226,7 @@ export class TabAdapter {
       }
       const tab = await withTimeout(
         chrome.tabs.create(createProps),
-        CHROME_API_TIMEOUTS.TAB_CREATE,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.create',
       )
 
@@ -256,14 +256,14 @@ export class TabAdapter {
       // Get tab info before closing for logging
       const tab = await withTimeout(
         chrome.tabs.get(tabId),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.get',
       )
       const title = tab.title || 'Untitled'
 
       await withTimeout(
         chrome.tabs.remove(tabId),
-        CHROME_API_TIMEOUTS.TAB_CLOSE,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.remove',
       )
       logger.debug(`[TabAdapter] Closed tab ${tabId}: ${title}`)
@@ -288,7 +288,7 @@ export class TabAdapter {
       // Update tab to be active
       const tab = await withTimeout(
         chrome.tabs.update(tabId, { active: true }),
-        CHROME_API_TIMEOUTS.TAB_UPDATE,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.update',
       )
 
@@ -323,7 +323,7 @@ export class TabAdapter {
     try {
       const tab = await withTimeout(
         chrome.tabs.update(tabId, { url }),
-        CHROME_API_TIMEOUTS.TAB_UPDATE,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.update',
       )
 
@@ -379,7 +379,7 @@ export class TabAdapter {
       }
       const resultGroupId = await withTimeout(
         chrome.tabs.group(options),
-        CHROME_API_TIMEOUTS.TAB_GROUP,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.group',
       )
       logger.debug(`Grouped tabs into group ${resultGroupId}`)
@@ -409,7 +409,7 @@ export class TabAdapter {
       const tabIdsTuple = tabIds as [number, ...number[]]
       await withTimeout(
         chrome.tabs.ungroup(tabIdsTuple),
-        CHROME_API_TIMEOUTS.TAB_GROUP,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabs.ungroup',
       )
       logger.debug(`Ungrouped ${tabIds.length} tabs`)
@@ -439,7 +439,7 @@ export class TabAdapter {
       }
       const groups = await withTimeout(
         chrome.tabGroups.query(query),
-        CHROME_API_TIMEOUTS.TAB_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabGroups.query',
       )
       logger.debug(`Found ${groups.length} tab groups`)
@@ -468,7 +468,7 @@ export class TabAdapter {
     try {
       const group = await withTimeout(
         chrome.tabGroups.update(groupId, properties),
-        CHROME_API_TIMEOUTS.TAB_UPDATE,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.tabGroups.update',
       )
       if (!group) {

@@ -26,7 +26,7 @@ export class BookmarkAdapter {
     try {
       const tree = await withTimeout(
         chrome.bookmarks.getTree(),
-        CHROME_API_TIMEOUTS.BOOKMARK_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.getTree',
       )
       logger.debug(
@@ -57,7 +57,7 @@ export class BookmarkAdapter {
     try {
       const results = await withTimeout(
         chrome.bookmarks.search(query),
-        CHROME_API_TIMEOUTS.BOOKMARK_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.search',
       )
       logger.debug(
@@ -86,7 +86,7 @@ export class BookmarkAdapter {
     try {
       const results = await withTimeout(
         chrome.bookmarks.get(id),
-        CHROME_API_TIMEOUTS.BOOKMARK_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.get',
       )
       if (results.length === 0) {
@@ -120,7 +120,7 @@ export class BookmarkAdapter {
     try {
       const created = await withTimeout(
         chrome.bookmarks.create(bookmark),
-        CHROME_API_TIMEOUTS.BOOKMARK_MODIFY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.create',
       )
       logger.debug(
@@ -148,7 +148,7 @@ export class BookmarkAdapter {
     try {
       await withTimeout(
         chrome.bookmarks.remove(id),
-        CHROME_API_TIMEOUTS.BOOKMARK_MODIFY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.remove',
       )
       logger.debug(`[BookmarkAdapter] Removed bookmark: ${id}`)
@@ -178,7 +178,7 @@ export class BookmarkAdapter {
     try {
       const updated = await withTimeout(
         chrome.bookmarks.update(id, changes),
-        CHROME_API_TIMEOUTS.BOOKMARK_MODIFY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.update',
       )
       logger.debug(
@@ -209,7 +209,7 @@ export class BookmarkAdapter {
     try {
       const tree = await withTimeout(
         chrome.bookmarks.getTree(),
-        CHROME_API_TIMEOUTS.BOOKMARK_QUERY,
+        CHROME_API_TIMEOUTS.CHROME_API,
         'chrome.bookmarks.getTree',
       )
       const bookmarks = this._flattenBookmarkTree(tree)
