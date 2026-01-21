@@ -384,7 +384,7 @@ export const CreateGraph: FC = () => {
   }, [status, lastAssistantMessageWithGraph ?? {}])
 
   if (!isInitialized || isLoadingProviders || !selectedProviderForHeader) {
-    return <div className="h-dvh w-dvw bg-background" />
+    return <div className="h-screen w-screen bg-background" />
   }
 
   return (

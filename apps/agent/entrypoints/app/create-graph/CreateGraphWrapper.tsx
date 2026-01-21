@@ -5,7 +5,7 @@ import { CreateGraph } from './CreateGraph'
 export const CreateGraphWrapper: FC = () => {
   return (
     <RpcClientProvider>
-      <Suspense fallback={<div className="h-dvh w-dvw bg-background" />}>
+      <Suspense fallback={<div className="h-screen w-screen bg-background" />}>
         <CreateGraph />
       </Suspense>
     </RpcClientProvider>
