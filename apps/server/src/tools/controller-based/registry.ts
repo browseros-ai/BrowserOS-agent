@@ -55,8 +55,8 @@ export {
   ungroupTabs,
   updateTabGroup,
 } from './tools/tab-management'
-// Window Management
-export { closeWindow, createWindow } from './tools/window-management'
+// Window Management (createWindow uses chrome.windows.create for actual windows)
+export { createWindow } from './tools/window-management'
 // Types
 export type { Context } from './types/context'
 export type { ImageContentData, Response } from './types/response'
@@ -104,9 +104,9 @@ import {
   ungroupTabs,
   updateTabGroup,
 } from './tools/tab-management'
-import { closeWindow, createWindow } from './tools/window-management'
+import { createWindow } from './tools/window-management'
 
-// Array export for convenience (37 tools total)
+// Array export for convenience (36 tools total)
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -145,5 +145,4 @@ export const allControllerTools = [
   searchHistory,
   getRecentHistory,
   createWindow,
-  closeWindow,
 ]

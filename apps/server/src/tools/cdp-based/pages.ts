@@ -228,3 +228,20 @@ export const handleDialog = defineTool({
     response.setIncludePages(true)
   },
 })
+
+export const closeWindow = defineTool({
+  name: 'browser_close_window',
+  description: `Close a browser window by its windowId. Bypasses beforeunload dialogs.`,
+  annotations: {
+    category: ToolCategories.TAB_MANAGEMENT,
+    readOnlyHint: false,
+  },
+  schema: {
+    windowId: z.number().describe('The ID of the window to close'),
+  },
+  handler: async (request, response, context) => {
+    await context.closeWindowByWindowId(request.params.windowId)
+    response.appendResponseLine(`Closed window ${request.params.windowId}`)
+    response.setIncludePages(true)
+  },
+})
