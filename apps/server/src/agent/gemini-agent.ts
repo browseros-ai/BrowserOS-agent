@@ -19,12 +19,25 @@ import type { Content, Part } from '@google/genai'
 import type { BrowserContext } from '../api/types'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
+import { allCdpTools } from '../tools/cdp-based/registry'
+import { allControllerTools } from '../tools/controller-based/registry'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
 import { VercelAIContentGenerator } from './provider-adapter/index'
 import type { HonoSSEStream } from './provider-adapter/types'
 import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
+
+const CHAT_MODE_ALLOWED_TOOLS = new Set([
+  'browser_get_active_tab',
+  'browser_list_tabs',
+  'browser_get_page_content',
+  'browser_scroll_down',
+  'browser_scroll_up',
+  'browser_get_screenshot',
+  'browser_get_interactive_elements',
+  'browser_execute_javascript',
+])
 
 export interface ToolExecutionResult {
   parts: Part[]
@@ -117,79 +130,16 @@ export class GeminiAgent {
 
     // Chat mode: restrict to read-only tools only (no browser automation)
     if (config.chatMode === true) {
-      const chatModeAllowedTools = new Set([
-        'browser_get_active_tab',
-        'browser_list_tabs',
-        'browser_get_page_content',
-        'browser_scroll_down',
-        'browser_scroll_up',
-        'browser_get_screenshot',
-        'browser_get_interactive_elements',
-        'browser_execute_javascript',
-      ])
-
-      const allBrowserosTools = [
-        // Tab management
-        'browser_get_active_tab',
-        'browser_list_tabs',
-        'browser_open_tab',
-        'browser_close_tab',
-        'browser_switch_tab',
-        'browser_get_load_status',
-        'browser_list_tab_groups',
-        'browser_group_tabs',
-        'browser_update_tab_group',
-        'browser_ungroup_tabs',
-        // Navigation
-        'browser_navigate',
-        // Interaction
-        'browser_get_interactive_elements',
-        'browser_grep_interactive_elements',
-        'browser_click_element',
-        'browser_type_text',
-        'browser_clear_input',
-        'browser_scroll_to_element',
-        // Scrolling
-        'browser_scroll_down',
-        'browser_scroll_up',
-        // Screenshots
-        'browser_get_screenshot',
-        'browser_get_screenshot_pointer',
-        // Content
-        'browser_get_page_content',
-        // Advanced
-        'browser_execute_javascript',
-        'browser_send_keys',
-        'browser_check_availability',
-        // Coordinates
-        'browser_click_coordinates',
-        'browser_type_at_coordinates',
-        // Bookmarks
-        'browser_get_bookmarks',
-        'browser_create_bookmark',
-        'browser_remove_bookmark',
-        'browser_create_bookmark_folder',
-        'browser_get_bookmark_children',
-        'browser_move_bookmark',
-        'browser_remove_bookmark_tree',
-        // History
-        'browser_search_history',
-        'browser_get_recent_history',
-        // Window
-        'browser_create_window',
-        'browser_close_window',
-        // CDP tools
-        'list_console_messages',
-        'list_network_requests',
-        'get_network_request',
+      const allToolNames = [
+        ...allControllerTools.map((t) => t.name),
+        ...allCdpTools.map((t) => t.name),
       ]
-
-      const chatModeExcludedTools = allBrowserosTools.filter(
-        (tool) => !chatModeAllowedTools.has(tool),
+      const chatModeExcludedTools = allToolNames.filter(
+        (name) => !CHAT_MODE_ALLOWED_TOOLS.has(name),
       )
       excludedTools.push(...chatModeExcludedTools)
       logger.info('Chat mode enabled, restricting to read-only tools', {
-        allowedTools: Array.from(chatModeAllowedTools),
+        allowedTools: Array.from(CHAT_MODE_ALLOWED_TOOLS),
       })
     }
 

@@ -1,6 +1,5 @@
-import { Zap } from 'lucide-react'
+import { MousePointer2 } from 'lucide-react'
 import type { FC } from 'react'
-import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import type { ChatMode } from './chatTypes'
 
@@ -16,33 +15,19 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
   const isAgentMode = mode === 'agent'
 
   return (
-    <label
-      htmlFor="agent-mode-toggle"
-      className="flex cursor-pointer items-center gap-2"
+    <button
+      type="button"
+      onClick={() => onModeChange(isAgentMode ? 'chat' : 'agent')}
+      className={cn(
+        'flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 font-medium text-xs transition-all',
+        isAgentMode
+          ? 'border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]'
+          : 'border-border/50 bg-muted text-muted-foreground hover:text-foreground',
+      )}
     >
-      <Switch
-        id="agent-mode-toggle"
-        checked={isAgentMode}
-        onCheckedChange={(checked) => onModeChange(checked ? 'agent' : 'chat')}
-      />
-      <div className="flex items-center gap-1">
-        <Zap
-          className={cn(
-            'h-3.5 w-3.5 transition-colors',
-            isAgentMode
-              ? 'text-[var(--accent-orange)]'
-              : 'text-muted-foreground',
-          )}
-        />
-        <span
-          className={cn(
-            'font-medium text-xs transition-colors',
-            isAgentMode ? 'text-foreground' : 'text-muted-foreground',
-          )}
-        >
-          Agent {isAgentMode ? 'ON' : 'OFF'}
-        </span>
-      </div>
-    </label>
+      <MousePointer2 className="h-3 w-3" />
+      <span>Agent Mode</span>
+      {isAgentMode && <span className="text-[10px]">✕</span>}
+    </button>
   )
 }
