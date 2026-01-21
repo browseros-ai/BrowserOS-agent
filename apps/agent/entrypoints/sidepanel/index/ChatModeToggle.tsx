@@ -1,5 +1,11 @@
 import { MousePointer2 } from 'lucide-react'
 import type { FC } from 'react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { ChatMode } from './chatTypes'
 
@@ -14,7 +20,7 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
 }) => {
   const isAgentMode = mode === 'agent'
 
-  return (
+  const button = (
     <button
       type="button"
       onClick={() => onModeChange(isAgentMode ? 'chat' : 'agent')}
@@ -29,5 +35,20 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
       <span>Agent Mode</span>
       {isAgentMode && <span className="text-[10px]">✕</span>}
     </button>
+  )
+
+  if (isAgentMode) {
+    return button
+  }
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[200px]">
+          AI can read pages but won't click or navigate
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

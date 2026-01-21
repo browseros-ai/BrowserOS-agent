@@ -90,7 +90,7 @@ export const useChatSession = () => {
     type: p.type,
   }))
 
-  const [mode, setMode] = useState<ChatMode>('chat')
+  const [mode, setMode] = useState<ChatMode>('agent')
   const [textToAction, setTextToAction] = useState<Map<string, ChatAction>>(
     new Map(),
   )
