@@ -1,6 +1,6 @@
 import { DialogClose, DialogContent } from '@radix-ui/react-dialog'
-import { ArrowRight, type LucideIcon, X } from 'lucide-react'
-import type { FC, ReactNode } from 'react'
+import { ArrowRight, Check, type LucideIcon, X } from 'lucide-react'
+import type { FC } from 'react'
 import {
   Dialog,
   DialogOverlay,
@@ -15,14 +15,10 @@ export interface Feature {
   Icon: LucideIcon
   tag: string
   title: string
-  description: string | ReactNode
-  highlights: {
-    title: string
-    description: string | ReactNode
-    Icon: LucideIcon
-  }[]
+  description: string
+  detailedDescription: string
+  highlights: string[]
   videoDuration?: string
-  tip: string
   gridClass: string
   videoUrl?: string
   gifUrl?: string
@@ -156,41 +152,24 @@ export const BentoCard: FC<BentoCardProps> = ({ feature, mounted, index }) => {
               </div>
             </div>
 
-            {/* Feature Highlights - Bento Layout */}
-            <div className="space-y-6 p-8 pt-6">
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {feature.description}
+            {/* Feature Details */}
+            <div className="space-y-5 p-8 pt-6">
+              <p className="text-foreground leading-relaxed">
+                {feature.detailedDescription}
               </p>
 
-              {/* Bento Grid for Highlights */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Highlights List */}
+              <ul className="space-y-2">
                 {feature.highlights.map((highlight, index) => (
-                  <div
-                    key={`${highlight.title} ${index.toString()}`}
-                    className="group flex gap-3 rounded-lg border border-border/50 bg-muted/50 p-4 transition-all hover:border-[var(--accent-orange)]/30 hover:bg-muted"
+                  <li
+                    key={`highlight-${index.toString()}`}
+                    className="flex items-start gap-2 text-muted-foreground text-sm"
                   >
-                    {typeof highlight.description === 'string' &&
-                      highlight.description?.length < 70 && (
-                        <highlight.Icon className="h-5 w-5 text-[var(--accent-orange)] transition-colors group-hover:text-white" />
-                      )}
-
-                    <div>
-                      <h4 className="mb-1 font-semibold text-sm transition-colors group-hover:text-[var(--accent-orange)]">
-                        {highlight.title}
-                      </h4>
-                      <p className="text-muted-foreground text-xs leading-relaxed">
-                        {highlight.description}
-                      </p>
-                    </div>
-                  </div>
+                    <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--accent-orange)]" />
+                    <span>{highlight}</span>
+                  </li>
                 ))}
-              </div>
-
-              <div className="space-y-3 border-border border-t pt-4">
-                <p className="text-center text-muted-foreground text-xs">
-                  💡 Tip: {feature.tip}
-                </p>
-              </div>
+              </ul>
             </div>
           </div>
         </DialogContent>
