@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   Bot,
+  Compass,
   Info,
   MessageSquare,
   Palette,
@@ -38,6 +39,7 @@ const settingsNavItems: NavItem[] = [
     icon: Palette,
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
+  { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
