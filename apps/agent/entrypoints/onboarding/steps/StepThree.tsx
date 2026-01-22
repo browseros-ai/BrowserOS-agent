@@ -66,7 +66,7 @@ export const StepThree: FC<StepThreeProps> = ({ direction }) => {
                 </p>
                 <div className="rounded-md border border-border/50 bg-background/60 p-2.5">
                   <code className="font-mono text-foreground text-xs">
-                    &quot;Summarize the current page&quot;
+                    &quot;Summarize this page&quot;
                   </code>
                 </div>
               </div>
