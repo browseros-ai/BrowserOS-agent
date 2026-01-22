@@ -76,24 +76,6 @@ const features: Feature[] = [
     videoUrl: MCP_SERVER_DEMO_URL,
   },
   {
-    id: 'cowork',
-    Icon: FolderOpen,
-    tag: 'FILES',
-    title: 'Cowork',
-    description:
-      'Give the agent access to local files. Research the web, then save reports to your computer.',
-    detailedDescription:
-      'Cowork lets the agent read and write files on your computer. Select a folder and the agent can read documents, write reports, and run shell commands—all while browsing the web. Research a topic online and generate an HTML report. Scrape product data and save it as a spreadsheet. The agent is sandboxed to your selected folder and cannot access anything outside it.',
-    highlights: [
-      'Read & write files — create reports, spreadsheets, and markdown documents',
-      'Run shell commands — execute commands within your selected folder',
-      'Browser + files — combine web research with local file operations',
-      'Sandboxed security — agent can only access the folder you select',
-    ],
-    gridClass: 'md:col-span-1',
-    videoUrl: COWORK_DEMO_URL || undefined,
-  },
-  {
     id: 'workflows',
     Icon: GitBranch,
     tag: 'AUTOMATION',
@@ -112,22 +94,22 @@ const features: Feature[] = [
     videoUrl: WORKFLOWS_DEMO_URL || undefined,
   },
   {
-    id: 'agentic-coding',
-    Icon: Code2,
-    tag: 'DEV',
-    title: 'Agentic Coding',
+    id: 'cowork',
+    Icon: FolderOpen,
+    tag: 'FILES',
+    title: 'Cowork',
     description:
-      'Claude Code tests your web app, reads console errors, and fixes your code in one loop.',
+      'Give the agent access to local files. Research the web, then save reports to your computer.',
     detailedDescription:
-      'The killer workflow for frontend developers. Claude Code connects to BrowserOS, opens your localhost app, clicks through the UI, reads console errors and network failures, then goes back to your codebase to fix the bugs—all in one continuous loop. No more switching between terminal and browser. No more copy-pasting error messages. Just describe the issue and let the agent debug it end-to-end.',
+      'Cowork lets the agent read and write files on your computer. Select a folder and the agent can read documents, write reports, and run shell commands—all while browsing the web. Research a topic online and generate an HTML report. Scrape product data and save it as a spreadsheet. The agent is sandboxed to your selected folder and cannot access anything outside it.',
     highlights: [
-      'Test & fix loop — Claude navigates your app, finds bugs, and patches them',
-      'Console access — read browser console and network errors from your terminal',
-      'Screenshot debugging — Claude captures screenshots to understand visual issues',
-      'Rapid prototyping — build UIs faster with AI that sees your work',
+      'Read & write files — create reports, spreadsheets, and markdown documents',
+      'Run shell commands — execute commands within your selected folder',
+      'Browser + files — combine web research with local file operations',
+      'Sandboxed security — agent can only access the folder you select',
     ],
-    gridClass: 'md:col-span-1',
-    videoUrl: AGENTIC_CODING_DEMO_URL || undefined,
+    gridClass: 'md:col-span-2',
+    videoUrl: COWORK_DEMO_URL || undefined,
   },
   {
     id: 'split-view',
@@ -146,6 +128,24 @@ const features: Feature[] = [
     ],
     gridClass: 'md:col-span-2',
     gifUrl: SPLIT_VIEW_GIF_URL,
+  },
+  {
+    id: 'agentic-coding',
+    Icon: Code2,
+    tag: 'DEV',
+    title: 'Agentic Coding',
+    description:
+      'Claude Code tests your web app, reads console errors, and fixes your code in one loop.',
+    detailedDescription:
+      'The killer workflow for frontend developers. Claude Code connects to BrowserOS, opens your localhost app, clicks through the UI, reads console errors and network failures, then goes back to your codebase to fix the bugs—all in one continuous loop. No more switching between terminal and browser. No more copy-pasting error messages. Just describe the issue and let the agent debug it end-to-end.',
+    highlights: [
+      'Test & fix loop — Claude navigates your app, finds bugs, and patches them',
+      'Console access — read browser console and network errors from your terminal',
+      'Screenshot debugging — Claude captures screenshots to understand visual issues',
+      'Rapid prototyping — build UIs faster with AI that sees your work',
+    ],
+    gridClass: 'md:col-span-1',
+    videoUrl: AGENTIC_CODING_DEMO_URL || undefined,
   },
 ]
 
