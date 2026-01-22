@@ -412,37 +412,4 @@ export class McpContext {
     )
     return waitForHelper.waitForEventsAfterAction(action)
   }
-
-  async closeWindowByWindowId(windowId: number): Promise<void> {
-    const targets = this.browser.targets()
-    let closedCount = 0
-
-    for (const target of targets) {
-      try {
-        // Access the internal _targetId property via type assertion
-        const targetId = (target as unknown as { _targetId?: string })._targetId
-        if (!targetId) continue
-
-        const session = await target.createCDPSession()
-        try {
-          const result = await session.send('Browser.getWindowForTarget', {
-            targetId,
-          })
-
-          if (result.windowId === windowId) {
-            await session.send('Target.closeTarget', { targetId })
-            closedCount++
-          }
-        } finally {
-          await session.detach().catch(() => {})
-        }
-      } catch {
-        // Target may already be closed or not support CDP session
-      }
-    }
-
-    if (closedCount === 0) {
-      throw new Error(`No targets found for window ${windowId}`)
-    }
-  }
 }

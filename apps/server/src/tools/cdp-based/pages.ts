@@ -240,8 +240,38 @@ export const closeWindow = defineTool({
     windowId: z.number().describe('The ID of the window to close'),
   },
   handler: async (request, response, context) => {
-    await context.closeWindowByWindowId(request.params.windowId)
-    response.appendResponseLine(`Closed window ${request.params.windowId}`)
+    const { windowId } = request.params
+    const targets = context.browser.targets()
+    let closedCount = 0
+
+    for (const target of targets) {
+      try {
+        const targetId = (target as unknown as { _targetId?: string })._targetId
+        if (!targetId) continue
+
+        const session = await target.createCDPSession()
+        try {
+          const result = await session.send('Browser.getWindowForTarget', {
+            targetId,
+          })
+
+          if (result.windowId === windowId) {
+            await session.send('Target.closeTarget', { targetId })
+            closedCount++
+          }
+        } finally {
+          await session.detach().catch(() => {})
+        }
+      } catch {
+        // Target may already be closed or not support CDP session
+      }
+    }
+
+    if (closedCount === 0) {
+      throw new Error(`No targets found for window ${windowId}`)
+    }
+
+    response.appendResponseLine(`Closed window ${windowId}`)
     response.setIncludePages(true)
   },
 })
