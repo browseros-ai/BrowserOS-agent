@@ -384,7 +384,13 @@ export const CreateGraph: FC = () => {
   }, [status, lastAssistantMessageWithGraph ?? {}])
 
   if (!isInitialized || isLoadingProviders || !selectedProviderForHeader) {
-    return <div className="h-screen w-screen bg-background" />
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <div className="fade-in animate-in text-muted-foreground duration-200 [animation-delay:300ms] [animation-fill-mode:backwards]">
+          Loading...
+        </div>
+      </div>
+    )
   }
 
   return (
