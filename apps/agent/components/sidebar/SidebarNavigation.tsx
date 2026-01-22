@@ -25,6 +25,7 @@ type NavItem = {
 const primaryNavItems: NavItem[] = [
   { name: 'Home', to: '/home', icon: Home },
   { name: 'login', to: '/login', icon: UserPen },
+  { name: 'logout', to: '/logout', icon: UserPen },
   {
     name: 'Workflows',
     to: '/workflows',
