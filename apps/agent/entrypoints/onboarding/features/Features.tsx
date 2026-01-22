@@ -72,7 +72,7 @@ const features: Feature[] = [
         description: (
           <>
             <KbdGroup>
-              <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>L</Kbd>
+              <Kbd>Alt</Kbd>+<Kbd>K</Kbd>
             </KbdGroup>{' '}
             on any webpage
           </>
@@ -84,7 +84,7 @@ const features: Feature[] = [
         description: (
           <>
             <KbdGroup>
-              <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>;</Kbd>
+              <Kbd>Alt</Kbd>+<Kbd>L</Kbd>
             </KbdGroup>{' '}
             to switch providers
           </>
