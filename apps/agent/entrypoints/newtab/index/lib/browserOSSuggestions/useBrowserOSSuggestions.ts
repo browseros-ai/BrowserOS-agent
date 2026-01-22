@@ -16,13 +16,8 @@ export const useBrowserOSSuggestions = ({
 }): BrowserOSSuggestion[] => {
   return [
     {
-      mode: 'chat',
+      mode: 'agent',
       message: query,
     },
-    // TODO: Temporarily removed agent mode on search suggestions
-    // {
-    //   mode: 'agent',
-    //   message: query,
-    // },
   ]
 }
