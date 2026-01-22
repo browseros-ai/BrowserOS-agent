@@ -22,6 +22,7 @@ import { formatConversationHistory } from '@/lib/conversations/formatConversatio
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
 import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
@@ -141,6 +142,17 @@ export const useChatSession = () => {
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
   const messagesRef = useRef<UIMessage[]>([])
+
+  useEffect(() => {
+    selectedWorkspaceStorage.getValue().then((folder) => {
+      workingDirRef.current = folder?.path
+    })
+
+    const unwatch = selectedWorkspaceStorage.watch((folder) => {
+      workingDirRef.current = folder?.path
+    })
+    return () => unwatch()
+  }, [])
 
   useDeepCompareEffect(() => {
     modeRef.current = mode
@@ -330,7 +342,6 @@ export const useChatSession = () => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
         setMode(storageAction.mode)
-        workingDirRef.current = storageAction.workingDir
         sendMessage({ text: storageAction.query, action: storageAction.action })
       }
     })

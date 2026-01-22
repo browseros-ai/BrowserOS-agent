@@ -146,7 +146,6 @@ export const NewTab = () => {
           query: searchQuery,
           mode: 'agent',
           action,
-          workingDir: selectedFolder?.path,
         })
         break
       }
@@ -164,7 +163,6 @@ export const NewTab = () => {
           query: item.message,
           mode: item.mode,
           action,
-          workingDir: selectedFolder?.path,
         })
         break
       }
