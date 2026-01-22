@@ -1,6 +1,6 @@
+import path from 'node:path'
 import { includeIgnoreFile } from '@eslint/compat'
 import type { CodegenConfig } from '@graphql-codegen/cli'
-import path from 'path'
 
 // biome-ignore lint/style/noProcessEnv: env needed for codegen config
 const env = process.env

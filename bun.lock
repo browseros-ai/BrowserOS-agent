@@ -45,6 +45,7 @@
         "@radix-ui/react-use-controllable-state": "^1.2.2",
         "@sentry/react": "^10.31.0",
         "@sentry/vite-plugin": "^4.6.1",
+        "@tanstack/react-query": "^5.90.19",
         "@types/cytoscape": "^3.31.0",
         "@types/dompurify": "^3.2.0",
         "@webext-core/messaging": "^2.3.0",
@@ -64,6 +65,7 @@
         "embla-carousel-react": "^8.6.0",
         "es-toolkit": "^1.42.0",
         "eventsource-parser": "^3.0.6",
+        "graphql": "^16.12.0",
         "hono": "^4.6.0",
         "klavis": "^2.15.0",
         "lucide-react": "^0.562.0",
@@ -1274,6 +1276,10 @@
     "@tailwindcss/typography": ["@tailwindcss/typography@0.5.19", "", { "dependencies": { "postcss-selector-parser": "6.0.10" }, "peerDependencies": { "tailwindcss": ">=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1" } }, "sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.1.18", "", { "dependencies": { "@tailwindcss/node": "4.1.18", "@tailwindcss/oxide": "4.1.18", "tailwindcss": "4.1.18" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7" } }, "sha512-jVA+/UpKL1vRLg6Hkao5jldawNmRo7mQYrZtNHMIVpLfLhDml5nMRUo/8MwoX2vNXvnaXNNMedrMfMugAVX1nA=="],
+
+    "@tanstack/query-core": ["@tanstack/query-core@5.90.19", "", {}, "sha512-GLW5sjPVIvH491VV1ufddnfldyVB+teCnpPIvweEfkpRx7CfUmUGhoh9cdcUKBh/KwVxk22aNEDxeTsvmyB/WA=="],
+
+    "@tanstack/react-query": ["@tanstack/react-query@5.90.19", "", { "dependencies": { "@tanstack/query-core": "5.90.19" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-qTZRZ4QyTzQc+M0IzrbKHxSeISUmRB3RPGmao5bT+sI6ayxSRhn0FXEnT5Hg3as8SBFcRosrXXRFB+yAcxVxJQ=="],
 
     "@theguild/federation-composition": ["@theguild/federation-composition@0.21.3", "", { "dependencies": { "constant-case": "^3.0.4", "debug": "4.4.3", "json5": "^2.2.3", "lodash.sortby": "^4.7.0" }, "peerDependencies": { "graphql": "^16.0.0" } }, "sha512-+LlHTa4UbRpZBog3ggAxjYIFvdfH3UMvvBUptur19TMWkqU4+n3GmN+mDjejU+dyBXIG27c25RsiQP1HyvM99g=="],
 
