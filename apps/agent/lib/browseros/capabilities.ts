@@ -91,99 +91,127 @@ function checkVersionConstraints(
   return true
 }
 
-let browserOSVersion: number[] | null = null
-let serverVersion: number[] | null = null
-let initialized = false
+type CapabilitiesState = {
+  browserOSVersion: number[] | null
+  serverVersion: number[] | null
+}
+
+let initPromise: Promise<CapabilitiesState> | null = null
+
+async function doInitialize(): Promise<CapabilitiesState> {
+  const adapter = BrowserOSAdapter.getInstance()
+  const state: CapabilitiesState = {
+    browserOSVersion: null,
+    serverVersion: null,
+  }
+
+  try {
+    const versionStr = await adapter.getBrowserosVersion()
+    if (versionStr) {
+      state.browserOSVersion = parseVersion(versionStr)
+    }
+  } catch {
+    // BrowserOS version unknown - features requiring it will be disabled
+  }
+
+  try {
+    const pref = await adapter.getPref(SERVER_VERSION_PREF)
+    if (pref?.value) {
+      state.serverVersion = parseVersion(pref.value)
+    }
+  } catch {
+    // Server version unknown - features requiring it will be disabled
+  }
+
+  return state
+}
+
+function ensureInitialized(): Promise<CapabilitiesState> {
+  if (!initPromise) {
+    initPromise = doInitialize()
+  }
+  return initPromise
+}
+
+function checkFeatureSupport(
+  state: CapabilitiesState,
+  feature: Feature,
+): boolean {
+  const config = FEATURE_CONFIG[feature]
+  if (!config) return false
+
+  const hasBrowserOSConstraints =
+    config.minBrowserOSVersion || config.maxBrowserOSVersion
+  if (
+    hasBrowserOSConstraints &&
+    !checkVersionConstraints(
+      state.browserOSVersion,
+      config.minBrowserOSVersion,
+      config.maxBrowserOSVersion,
+    )
+  ) {
+    return false
+  }
+
+  const hasServerConstraints =
+    config.minServerVersion || config.maxServerVersion
+  if (
+    hasServerConstraints &&
+    !checkVersionConstraints(
+      state.serverVersion,
+      config.minServerVersion,
+      config.maxServerVersion,
+    )
+  ) {
+    return false
+  }
+
+  return true
+}
 
 /**
  * Version-gated feature capabilities.
+ * All methods auto-initialize and are safe to call at any time.
  * @public
  */
 export const Capabilities = {
-  async initialize(): Promise<void> {
-    if (initialized) return
-
-    const adapter = BrowserOSAdapter.getInstance()
-
-    try {
-      const versionStr = await adapter.getBrowserosVersion()
-      if (versionStr) {
-        browserOSVersion = parseVersion(versionStr)
-      }
-    } catch {
-      // BrowserOS version unknown - features requiring it will be disabled
-    }
-
-    try {
-      const pref = await adapter.getPref(SERVER_VERSION_PREF)
-      if (pref?.value) {
-        serverVersion = parseVersion(pref.value)
-      }
-    } catch {
-      // Server version unknown - features requiring it will be disabled
-    }
-
-    initialized = true
-  },
-
-  // In development mode, all features are enabled to simplify testing
-  supports(feature: Feature): boolean {
+  /**
+   * Check if a feature is supported.
+   * In development mode, all features are enabled.
+   */
+  async supports(feature: Feature): Promise<boolean> {
     if (import.meta.env.DEV) return true
-    if (!initialized) {
-      throw new Error(
-        'Capabilities.initialize() must be called before supports()',
-      )
-    }
-
-    const config = FEATURE_CONFIG[feature]
-    if (!config) return false
-
-    const hasBrowserOSConstraints =
-      config.minBrowserOSVersion || config.maxBrowserOSVersion
-    if (
-      hasBrowserOSConstraints &&
-      !checkVersionConstraints(
-        browserOSVersion,
-        config.minBrowserOSVersion,
-        config.maxBrowserOSVersion,
-      )
-    ) {
-      return false
-    }
-
-    const hasServerConstraints =
-      config.minServerVersion || config.maxServerVersion
-    if (
-      hasServerConstraints &&
-      !checkVersionConstraints(
-        serverVersion,
-        config.minServerVersion,
-        config.maxServerVersion,
-      )
-    ) {
-      return false
-    }
-
-    return true
+    const state = await ensureInitialized()
+    return checkFeatureSupport(state, feature)
   },
 
-  getBrowserOSVersion(): string | null {
-    if (!browserOSVersion) return null
-    return browserOSVersion.join('.')
+  async getBrowserOSVersion(): Promise<string | null> {
+    const state = await ensureInitialized()
+    if (!state.browserOSVersion) return null
+    return state.browserOSVersion.join('.')
   },
 
-  getServerVersion(): string | null {
-    if (!serverVersion) return null
-    return serverVersion.join('.')
+  async getServerVersion(): Promise<string | null> {
+    const state = await ensureInitialized()
+    if (!state.serverVersion) return null
+    return state.serverVersion.join('.')
   },
 
-  isInitialized(): boolean {
-    return initialized
+  /**
+   * Pre-initialize capabilities. Optional - methods auto-initialize if needed.
+   * Useful for warming up before first use.
+   */
+  async initialize(): Promise<void> {
+    await ensureInitialized()
   },
 
+  /**
+   * Reset state for testing purposes.
+   */
   reset(): void {
-    browserOSVersion = null
-    serverVersion = null
-    initialized = false
+    initPromise = null
   },
 }
+
+// Pre-initialize when module is imported
+ensureInitialized()

@@ -21,10 +21,10 @@ export class McpPortError extends Error {
  * @public
  */
 export async function getAgentServerUrl(): Promise<string> {
-  if (
-    Capabilities.isInitialized() &&
-    Capabilities.supports(Feature.UNIFIED_PORT_SUPPORT)
-  ) {
+  const supportsUnifiedPort = await Capabilities.supports(
+    Feature.UNIFIED_PORT_SUPPORT,
+  )
+  if (supportsUnifiedPort) {
     const port = await getMcpPort()
     return `http://127.0.0.1:${port}`
   }

@@ -62,7 +62,7 @@ export const closePage = defineTool({
     try {
       await context.closePage(request.params.pageIdx)
     } catch (err) {
-      if (err.message === ERRORS.CLOSE_PAGE) {
+      if (err instanceof Error && err.message === ERRORS.CLOSE_PAGE) {
         response.appendResponseLine(err.message)
       } else {
         throw err
@@ -207,7 +207,7 @@ export const handleDialog = defineTool({
           await dialog.accept(request.params.promptText)
         } catch (err) {
           // Likely already handled by the user outside of MCP.
-          logger.error(err)
+          logger.error(err instanceof Error ? err.message : String(err))
         }
         response.appendResponseLine('Successfully accepted the dialog')
         break
@@ -217,7 +217,7 @@ export const handleDialog = defineTool({
           await dialog.dismiss()
         } catch (err) {
           // Likely already handled.
-          logger.error(err)
+          logger.error(err instanceof Error ? err.message : String(err))
         }
         response.appendResponseLine('Successfully dismissed the dialog')
         break

@@ -72,13 +72,10 @@ export class Application {
     const tools = createToolRegistry(cdpContext, controllerContext)
     const mutexPool = new MutexPool()
 
-    // Create health watchdog only when launched by Chrome (instanceInstallId present)
-    // In dev mode (no instanceInstallId), watchdog is disabled
-    if (this.config.instanceInstallId) {
+    const isDev = process.env.NODE_ENV === 'development'
+    if (!isDev) {
       this.healthWatchdog = new HealthWatchdog({ logger })
-      logger.info('Health watchdog enabled (Chrome launch detected)')
-    } else {
-      logger.info('Health watchdog disabled (dev mode)')
+      logger.info('Health watchdog enabled')
     }
 
     try {

@@ -16,6 +16,7 @@ type ChangelogVersionConfig = {
  */
 export const CHANGELOG_VERSIONS: Record<string, ChangelogVersionConfig> = {
   '0.0.52': { showChangelog: true },
+  '0.0.55': { showChangelog: true, anchor: 'v0-37-0' },
 }
 
 export function getChangelogUrl(version: string): string {

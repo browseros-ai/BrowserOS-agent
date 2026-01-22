@@ -18,9 +18,11 @@ import {
   conversationStorage,
   useConversations,
 } from '@/lib/conversations/conversationStorage'
+import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
 import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
@@ -90,7 +92,7 @@ export const useChatSession = () => {
     type: p.type,
   }))
 
-  const [mode, setMode] = useState<ChatMode>('chat')
+  const [mode, setMode] = useState<ChatMode>('agent')
   const [textToAction, setTextToAction] = useState<Map<string, ChatAction>>(
     new Map(),
   )
@@ -139,6 +141,18 @@ export const useChatSession = () => {
   const modeRef = useRef<ChatMode>(mode)
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
+  const messagesRef = useRef<UIMessage[]>([])
+
+  useEffect(() => {
+    selectedWorkspaceStorage.getValue().then((folder) => {
+      workingDirRef.current = folder?.path
+    })
+
+    const unwatch = selectedWorkspaceStorage.watch((folder) => {
+      workingDirRef.current = folder?.path
+    })
+    return () => unwatch()
+  }, [])
 
   useDeepCompareEffect(() => {
     modeRef.current = mode
@@ -231,6 +245,13 @@ export const useChatSession = () => {
           }[]
         }
 
+        // Format previous messages from ref (messagesRef doesn't include current message yet)
+        const previousMessages = messagesRef.current
+        const previousConversation =
+          previousMessages.length > 0
+            ? formatConversationHistory(previousMessages)
+            : undefined
+
         return {
           api: `${agentUrlRef.current}/chat`,
           body: {
@@ -256,6 +277,7 @@ export const useChatSession = () => {
             userSystemPrompt: personalizationRef.current,
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
+            previousConversation,
           },
         }
       },
@@ -292,6 +314,7 @@ export const useChatSession = () => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
   useEffect(() => {
+    messagesRef.current = messages
     if (messages.length > 0) {
       saveConversation(conversationIdRef.current, messages)
     }
@@ -319,7 +342,6 @@ export const useChatSession = () => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
         setMode(storageAction.mode)
-        workingDirRef.current = storageAction.workingDir
         sendMessage({ text: storageAction.query, action: storageAction.action })
       }
     })

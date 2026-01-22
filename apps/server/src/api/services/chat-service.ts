@@ -92,6 +92,7 @@ export class ChatService {
       userSystemPrompt: request.userSystemPrompt,
       sessionExecutionDir,
       supportsImages: request.supportsImages,
+      chatMode: request.mode === 'chat',
     }
 
     const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)
@@ -100,6 +101,7 @@ export class ChatService {
       rawStream,
       abortSignal,
       request.browserContext,
+      request.previousConversation,
     )
   }
 
