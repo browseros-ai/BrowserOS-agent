@@ -1,5 +1,11 @@
-import { useEffect, useState } from 'react'
-import { Capabilities, type Feature } from './capabilities'
+import { useCallback, useEffect, useState } from 'react'
+import { Capabilities, Feature } from './capabilities'
+
+interface CapabilitiesState {
+  browserOSVersion: string | null
+  serverVersion: string | null
+  supportedFeatures: Map<Feature, boolean>
+}
 
 interface UseCapabilitiesResult {
   supports: (feature: Feature) => boolean
@@ -10,7 +16,7 @@ interface UseCapabilitiesResult {
 
 /**
  * React hook for version-gated feature checks.
- * Initializes Capabilities on first use and provides a sync `supports` function.
+ * Auto-initializes Capabilities and caches feature support results.
  *
  * @example
  * const { supports, isLoading } = useCapabilities()
@@ -21,29 +27,38 @@ interface UseCapabilitiesResult {
  * @public
  */
 export function useCapabilities(): UseCapabilitiesResult {
-  const [isLoading, setIsLoading] = useState(!Capabilities.isInitialized())
-  const [browserOSVersion, setBrowserOSVersion] = useState<string | null>(
-    Capabilities.getBrowserOSVersion(),
-  )
-  const [serverVersion, setServerVersion] = useState<string | null>(
-    Capabilities.getServerVersion(),
-  )
+  const [isLoading, setIsLoading] = useState(true)
+  const [state, setState] = useState<CapabilitiesState>({
+    browserOSVersion: null,
+    serverVersion: null,
+    supportedFeatures: new Map(),
+  })
 
   useEffect(() => {
-    if (Capabilities.isInitialized()) {
-      setIsLoading(false)
-      setBrowserOSVersion(Capabilities.getBrowserOSVersion())
-      setServerVersion(Capabilities.getServerVersion())
-      return
-    }
-
     let cancelled = false
 
     async function init() {
-      await Capabilities.initialize()
+      const [browserOSVersion, serverVersion] = await Promise.all([
+        Capabilities.getBrowserOSVersion(),
+        Capabilities.getServerVersion(),
+      ])
+
+      // Pre-check all features
+      const featureChecks = await Promise.all(
+        Object.values(Feature)
+          .filter((v) => typeof v === 'string')
+          .map(async (feature) => {
+            const supported = await Capabilities.supports(feature as Feature)
+            return [feature as Feature, supported] as const
+          }),
+      )
+
       if (!cancelled) {
-        setBrowserOSVersion(Capabilities.getBrowserOSVersion())
-        setServerVersion(Capabilities.getServerVersion())
+        setState({
+          browserOSVersion,
+          serverVersion,
+          supportedFeatures: new Map(featureChecks),
+        })
         setIsLoading(false)
       }
     }
@@ -55,10 +70,18 @@ export function useCapabilities(): UseCapabilitiesResult {
     }
   }, [])
 
-  const supports = (feature: Feature): boolean => {
-    if (!Capabilities.isInitialized()) return false
-    return Capabilities.supports(feature)
-  }
+  const supports = useCallback(
+    (feature: Feature): boolean => {
+      if (isLoading) return false
+      return state.supportedFeatures.get(feature) ?? false
+    },
+    [isLoading, state.supportedFeatures],
+  )
 
-  return { supports, isLoading, browserOSVersion, serverVersion }
+  return {
+    supports,
+    isLoading,
+    browserOSVersion: state.browserOSVersion,
+    serverVersion: state.serverVersion,
+  }
 }
