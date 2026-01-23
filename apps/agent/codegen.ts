@@ -18,7 +18,7 @@ const ignoresList = ignorePatterns.ignores?.map((each) => `!${each}`) ?? []
 
 const config: CodegenConfig = {
   schema: schemaPath,
-  documents: ['./**/*.tsx', ...ignoresList],
+  documents: ['./**/*.tsx', './**/*.ts', ...ignoresList],
   ignoreNoDocuments: true,
   generates: {
     './generated/graphql/': {
