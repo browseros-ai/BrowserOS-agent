@@ -1,5 +1,5 @@
 import type { useCombobox } from 'downshift'
-import { Bot, Search, Sparkles } from 'lucide-react'
+import { Search, Sparkles } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
@@ -64,14 +64,8 @@ const SuggestionItemRenderer: FC<{
     case 'browseros':
       return (
         <li className={baseClassName} {...getItemProps({ item, index })}>
-          {item.mode === 'chat' ? (
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <Bot className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="font-semibold">
-            {item.mode === 'chat' ? 'Ask BrowserOS:' : 'Run Agent:'}
-          </span>
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <span className="font-semibold">Ask BrowserOS:</span>
           {item.message || 'Type a message...'}
         </li>
       )

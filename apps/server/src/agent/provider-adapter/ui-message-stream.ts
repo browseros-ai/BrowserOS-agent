@@ -24,9 +24,9 @@ export type UIMessageStreamEvent =
       type: 'tool-input-available'
       toolCallId: string
       toolName: string
-      input: unknown
+      input?: unknown
     }
-  | { type: 'tool-output-available'; toolCallId: string; output: unknown }
+  | { type: 'tool-output-available'; toolCallId: string; output?: unknown }
   | { type: 'tool-input-error'; toolCallId: string; errorText: string }
   | { type: 'tool-output-error'; toolCallId: string; errorText: string }
   | { type: 'source-url'; sourceId: string; url: string; title?: string }

@@ -27,19 +27,28 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "files": [
     "dist"
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
     },
     "./api.json": "./dist/api.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
+      },
+      "./api.json": "./dist/api.json"
+    }
   },
   "dependencies": {
     "eventsource-parser": "^3.0.6",

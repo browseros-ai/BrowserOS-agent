@@ -14,7 +14,7 @@
                     document.documentElement.classList.add('dark');
                 } else if (theme === 'light') {
                     document.documentElement.classList.add('light');
-                } else {
+                } else if (theme === 'system') {
                     // system or null - check system preference
                     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                         document.documentElement.classList.add('dark');

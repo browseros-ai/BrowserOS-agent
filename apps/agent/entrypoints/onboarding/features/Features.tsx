@@ -1,27 +1,14 @@
 import {
   ArrowDown,
-  ArrowLeftRight,
   ArrowRight,
   BookOpenText,
-  ClipboardList,
-  CodeXml,
-  FileTerminal,
-  Layers,
-  LayoutDashboard,
-  Link,
+  Bot,
+  Code2,
+  FolderOpen,
+  GitBranch,
   LinkIcon,
-  Lock,
-  MessageSquare,
-  Monitor,
-  MousePointerClick,
-  Puzzle,
-  Search,
-  Settings,
-  ShieldCheck,
-  SlidersVertical,
+  Plug,
   SplitSquareHorizontal,
-  SquareStack,
-  Zap,
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import DiscordLogo from '@/assets/discord-logo.svg'
@@ -29,13 +16,14 @@ import GithubLogo from '@/assets/github-logo.svg'
 import SlackLogo from '@/assets/slack-logo.svg'
 import { PillIndicator } from '@/components/elements/pill-indicator'
 import { Button } from '@/components/ui/button'
-import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import {
   AGENT_MODE_DEMO_URL,
+  AGENTIC_CODING_DEMO_URL,
   BROWSER_OS_INTRO_VIDEO_URL,
+  COWORK_DEMO_URL,
   MCP_SERVER_DEMO_URL,
-  QUICK_SEARCH_GIF_URL,
   SPLIT_VIEW_GIF_URL,
+  WORKFLOWS_DEMO_URL,
 } from '@/lib/constants/mediaUrls'
 import {
   discordUrl,
@@ -49,157 +37,115 @@ import { VideoFrame } from './VideoFrame'
 
 const features: Feature[] = [
   {
-    id: 'split-view',
-    Icon: SplitSquareHorizontal,
-    tag: 'CORE',
-    title: 'Split-View Mode',
-    description: 'Use ChatGPT, Claude, and Gemini alongside any website.',
-    highlights: [
-      {
-        title: 'Stop Tab Switching Chaos',
-        description:
-          'Access ChatGPT, Gemini, and Claude on any website without switching tabs. Use your own logins and API keys.',
-        Icon: LayoutDashboard,
-      },
-      {
-        title: 'Clash-of-GPTs',
-        description:
-          'Use multiple LLMs side-by-side. Compare responses from different AI providers simultaneously.',
-        Icon: ShieldCheck,
-      },
-      {
-        title: 'Toggle with Shortcut',
-        description: (
-          <>
-            <KbdGroup>
-              <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>L</Kbd>
-            </KbdGroup>{' '}
-            on any webpage
-          </>
-        ),
-        Icon: ArrowLeftRight,
-      },
-      {
-        title: 'Switch Provider with Shortcut',
-        description: (
-          <>
-            <KbdGroup>
-              <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>;</Kbd>
-            </KbdGroup>{' '}
-            to switch providers
-          </>
-        ),
-        Icon: SlidersVertical,
-      },
-    ],
-    tip: 'Use shortcuts to toggle split-view mode and switch providers.',
-    gridClass: 'md:col-span-2',
-    gifUrl: SPLIT_VIEW_GIF_URL,
-  },
-  {
-    id: 'context-aware',
-    tag: 'AI',
-    Icon: MessageSquare,
-    title: 'Built in Agent',
+    id: 'agent',
+    Icon: Bot,
+    tag: 'AI AGENT',
+    title: 'Built-in AI Agent',
     description:
-      'Let BrowserOS Agent browse, click, type, and complete tasks for you. Just describe what you need done!',
+      'Describe any task and watch BrowserOS execute it—clicking, typing, and navigating for you.',
+    detailedDescription:
+      'The BrowserOS Agent turns your words into browser actions. Describe what you need in plain English—fill out this form, extract data from that page, navigate through these steps—and the agent handles the rest. It clicks buttons, types text, navigates between pages, and completes multi-step workflows automatically. Everything runs locally on your machine with your own API keys, so your data stays private.',
     highlights: [
-      {
-        title: 'Smart Navigation',
-        description:
-          'Agent navigates websites and finds information automatically',
-        Icon: MousePointerClick,
-      },
-      {
-        title: 'Form Filling',
-        description:
-          'Automatically fills forms with intelligent context understanding',
-        Icon: ClipboardList,
-      },
-      {
-        title: 'Data Extraction',
-        description: 'Extracts and organizes data from any webpage',
-        Icon: SquareStack,
-      },
-      {
-        title: 'Privacy Protected',
-        description: 'All automation runs locally with your own API keys',
-        Icon: Lock,
-      },
+      'Multi-tab execution — run agents in multiple tabs simultaneously',
+      'Smart navigation — automatically finds and interacts with page elements',
+      'Form filling — completes forms with intelligent context understanding',
+      'Data extraction — pulls structured data from any webpage',
+      'Auto-save sessions — pick up where you left off from the Assistant panel',
     ],
     videoDuration: '2:22',
-    tip: 'Simply describe your task in natural language and let the agent handle the complexity!',
-    gridClass: 'md:col-span-1',
+    gridClass: 'md:col-span-2',
     videoUrl: AGENT_MODE_DEMO_URL,
   },
   {
-    id: 'workflow-presets',
-    tag: 'PRODUCTIVITY',
-    Icon: Layers,
+    id: 'mcp-server',
+    Icon: Plug,
+    tag: 'MCP',
     title: 'BrowserOS as MCP Server',
     description:
-      'Connect BrowserOS with Claude Code, Claude Desktop, and other MCP clients for powerful agentic browser automation',
+      'Connect Claude Code, Gemini CLI, or any MCP client to control your browser with 31 tools.',
+    detailedDescription:
+      'BrowserOS includes a built-in MCP server that lets AI coding agents control your browser. Claude Code can open tabs, click elements, fill forms, take screenshots, and read page content—all through natural language commands. Unlike Chrome DevTools MCP which requires debug profiles and separate servers, BrowserOS works out of the box. Just copy the URL from settings and connect.',
     highlights: [
-      {
-        title: 'Agentic Browser Automation',
-        description: 'Execute web tasks autonomously through natural language',
-        Icon: Monitor,
-      },
-      {
-        title: 'Seamless Integration',
-        description: 'Works with Claude Code, Desktop, and MCP clients',
-        Icon: Link,
-      },
-      {
-        title: 'Web Development Workflows',
-        description: 'Accelerate frontend development and prototyping',
-        Icon: CodeXml,
-      },
-      {
-        title: 'Web Automation',
-        description: 'Automate repetitive web tasks and workflows',
-        Icon: FileTerminal,
-      },
+      'One-line setup — run `claude mcp add` with your server URL to connect',
+      '31 browser tools — tabs, clicks, typing, screenshots, bookmarks, history',
+      'Works everywhere — Claude Code, Gemini CLI, Codex, Claude Desktop',
+      'Authenticated access — extract data from logged-in pages like LinkedIn',
     ],
     videoDuration: '1:40',
-    tip: 'Use commands like "Open amazon.com on browseros" to control your browser directly from Claude! Read the setup guide to get started.',
     gridClass: 'md:col-span-1',
     videoUrl: MCP_SERVER_DEMO_URL,
   },
   {
-    id: 'search',
-    tag: 'SEARCH',
-    Icon: Search,
-    title: 'Quick Search',
+    id: 'workflows',
+    Icon: GitBranch,
+    tag: 'AUTOMATION',
+    title: 'Visual Workflows',
     description:
-      'Lightning-fast search using any AI provider from the new tab page.',
+      'Build reliable, repeatable automations with a visual graph builder.',
+    detailedDescription:
+      'Workflows turn complex browser tasks into reliable, reusable automations. Instead of hoping the agent figures out the right steps each time, you define the exact sequence in a visual graph. Describe what you want in chat, and the workflow agent generates the graph. Add loops, conditionals, and parallel branches. Save workflows and run them on-demand whenever you need.',
     highlights: [
-      {
-        title: 'Instant AI Search',
-        description:
-          'Search with any AI provider directly from your new tab page',
-        Icon: Search,
-      },
-      {
-        title: 'Lightning Fast',
-        description: 'Opens the search results within 400ms!',
-        Icon: Zap,
-      },
-      {
-        title: 'Easy Configuration',
-        description: 'You can customize providers in settings.',
-        Icon: Settings,
-      },
-      {
-        title: 'Multiple Providers',
-        description:
-          'Switch between Google, ChatGPT, Claude, Gemini and more instantly',
-        Icon: Puzzle,
-      },
+      'Chat-to-graph — describe your automation and get a visual workflow',
+      'Parallel execution — run multiple branches simultaneously',
+      'Loops & conditionals — handle complex logic with flow control',
+      'Save & reuse — run saved workflows on-demand, daily, or weekly',
     ],
-    tip: 'Set up your default AI provider in settings for the fastest search experience!',
+    gridClass: 'md:col-span-1',
+    videoUrl: WORKFLOWS_DEMO_URL || undefined,
+  },
+  {
+    id: 'cowork',
+    Icon: FolderOpen,
+    tag: 'FILES',
+    title: 'Cowork',
+    description:
+      'Give the agent access to local files. Research the web, then save reports to your computer.',
+    detailedDescription:
+      'Cowork lets the agent read and write files on your computer. Select a folder and the agent can read documents, write reports, and run shell commands—all while browsing the web. Research a topic online and generate an HTML report. Scrape product data and save it as a spreadsheet. The agent is sandboxed to your selected folder and cannot access anything outside it.',
+    highlights: [
+      'Read & write files — create reports, spreadsheets, and markdown documents',
+      'Run shell commands — execute commands within your selected folder',
+      'Browser + files — combine web research with local file operations',
+      'Sandboxed security — agent can only access the folder you select',
+    ],
     gridClass: 'md:col-span-2',
-    gifUrl: QUICK_SEARCH_GIF_URL,
+    videoUrl: COWORK_DEMO_URL || undefined,
+  },
+  {
+    id: 'split-view',
+    Icon: SplitSquareHorizontal,
+    tag: 'CORE',
+    title: 'Split-View Mode',
+    description:
+      'Open ChatGPT, Claude, or Gemini alongside any webpage. Compare responses in the LLM Hub.',
+    detailedDescription:
+      'Access AI chat on any webpage without switching tabs. Click the Chat button or press Alt+K to open a panel with Claude, ChatGPT, or Gemini right next to your current page. Copy page content, attach screenshots, and get answers in context. Open the LLM Hub (Cmd+Shift+U) to query multiple models simultaneously and compare their responses side-by-side.',
+    highlights: [
+      'AI on any page — chat panel stays open as you browse',
+      'LLM Hub — compare responses from Claude, ChatGPT, and Gemini at once',
+      'Quick toggle — Alt+K opens chat, Alt+L switches providers',
+      'Copy & screenshot — grab page content or capture screenshots for context',
+    ],
+    gridClass: 'md:col-span-2',
+    gifUrl: SPLIT_VIEW_GIF_URL,
+  },
+  {
+    id: 'agentic-coding',
+    Icon: Code2,
+    tag: 'DEV',
+    title: 'Agentic Coding',
+    description:
+      'Claude Code tests your web app, reads console errors, and fixes your code in one loop.',
+    detailedDescription:
+      'The killer workflow for frontend developers. Claude Code connects to BrowserOS, opens your localhost app, clicks through the UI, reads console errors and network failures, then goes back to your codebase to fix the bugs—all in one continuous loop. No more switching between terminal and browser. No more copy-pasting error messages. Just describe the issue and let the agent debug it end-to-end.',
+    highlights: [
+      'Test & fix loop — Claude navigates your app, finds bugs, and patches them',
+      'Console access — read browser console and network errors from your terminal',
+      'Screenshot debugging — Claude captures screenshots to understand visual issues',
+      'Rapid prototyping — build UIs faster with AI that sees your work',
+    ],
+    gridClass: 'md:col-span-1',
+    videoUrl: AGENTIC_CODING_DEMO_URL || undefined,
   },
 ]
 

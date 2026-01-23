@@ -2,76 +2,29 @@ import { ArrowRight, Sparkles, Zap } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { openSidePanel } from '@/lib/browseros/toggleSidePanel'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 interface StepThreeProps {
   direction: StepDirection
 }
 
-type ExampleMode = 'chat-mode' | 'agent-mode'
-
-const runExample = async ({
-  url,
-  mode,
-  query,
-}: {
-  url: string
-  mode: ExampleMode
-  query: string
-}) => {
-  try {
-    const newTab = await chrome.tabs.create({
-      url,
-      active: true,
-    })
-    if (!newTab.id) {
-      return
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    const isChatMode = mode === 'chat-mode'
-
-    // TODO: Setup a typesafe messaging system
-    await chrome.runtime.sendMessage({
-      type: 'NEWTAB_EXECUTE_QUERY',
-      tabId: newTab.id,
-      query: query,
-      chatMode: isChatMode,
-      metadata: {
-        source: 'onboarding',
-        executionMode: 'dynamic',
-      },
-    })
-
-    await openSidePanel(newTab.id)
-
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    return
-  } catch (error) {
-    // TODO: Record error to error recording service
-    // biome-ignore lint/suspicious/noConsole: error recording service not setup yet
-    console.error('Error running example:', error)
-    return
-  }
-}
-
 export const StepThree: FC<StepThreeProps> = ({ direction }) => {
-  const runChatModeExample = () => {
-    runExample({
-      url: 'https://news.google.com',
-      mode: 'chat-mode',
-      query: "summarize today's news",
+  const runChatModeExample = async () => {
+    await chrome.tabs.create({ url: 'https://news.google.com', active: true })
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    openSidePanelWithSearch('open', {
+      query: 'Summarize this page',
+      mode: 'chat',
     })
   }
 
-  const runAgentModeExample = () => {
-    runExample({
-      url: 'chrome://newtab/',
-      mode: 'agent-mode',
+  const runAgentModeExample = async () => {
+    await chrome.tabs.create({ url: 'about:blank', active: true })
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    openSidePanelWithSearch('open', {
       query: 'Navigate to amazon.com and order tide pods',
+      mode: 'agent',
     })
   }
 
@@ -113,7 +66,7 @@ export const StepThree: FC<StepThreeProps> = ({ direction }) => {
                 </p>
                 <div className="rounded-md border border-border/50 bg-background/60 p-2.5">
                   <code className="font-mono text-foreground text-xs">
-                    &quot;summarize today&apos;s news&quot;
+                    &quot;Summarize this page&quot;
                   </code>
                 </div>
               </div>
