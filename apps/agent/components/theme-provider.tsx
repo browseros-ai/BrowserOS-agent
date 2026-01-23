@@ -7,12 +7,12 @@ type ThemeProviderProps = {
 }
 
 type ThemeProviderState = {
-  theme: Theme
+  theme: Theme | undefined
   setTheme: (theme: Theme) => void
 }
 
 const initialState: ThemeProviderState = {
-  theme: 'system',
+  theme: undefined,
   setTheme: () => null,
 }
 
@@ -23,16 +23,14 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
  */
 export function ThemeProvider({
   children,
-  defaultTheme = 'system',
+  defaultTheme,
   ...props
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(defaultTheme)
+  const [theme, setThemeState] = useState<Theme | undefined>(defaultTheme)
 
   useEffect(() => {
     themeStorage.getValue().then((savedTheme) => {
-      if (savedTheme) {
-        setThemeState(savedTheme)
-      }
+      setThemeState(savedTheme ?? 'system')
     })
 
     const unwatch = themeStorage.watch((newTheme) => {
@@ -45,6 +43,8 @@ export function ThemeProvider({
   }, [])
 
   useEffect(() => {
+    if (!theme) return
+
     const root = window.document.documentElement
 
     const applyTheme = (targetTheme: 'dark' | 'light') => {
