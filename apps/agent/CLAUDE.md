@@ -39,3 +39,80 @@ The key directories of the project are:
 - `entrypoints/newtab`: Contains the code for the new tab page of the extension.
 - `entrypoints/popup`: Contains the code for the popup that appears when the extension icon is clicked.
 - `entrypoints/onboarding`: Contains the onboarding flow for new users which is triggered on first install.
+
+## GraphQL Client
+
+- The frontend uses React Query with `graphql-codegen` to interact with the backend GraphQL API. The types are generated and stored in `@apps/agent/generated/graphql`
+
+- When working with React Query and GraphQL, some important utilities are already created to make the interaction simpler:
+  - `@apps/agent/lib/graphql/useGraphqlInfiniteQuery.ts`
+  - `@apps/agent/lib/graphql/useGraphqlMutation.ts`
+  - `@apps/agent/lib/graphql/useGraphqlQuery.ts`
+  - `@apps/agent/lib/graphql/getQueryKeyFromDocument.ts`
+
+This is how a standard GraphQL query and mutation looks like:
+
+```ts
+import { graphql } from "~/graphql/gql";
+import { useGraphqlQuery } from "@/lib/graphql/useGraphqlQuery";
+import { useGraphqlMutation } from "@/lib/graphql/useGraphqlMutation";
+import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { getQueryKeyFromDocument } from "@/modules/graphql/getQueryKeyFromDocument";
+import { useQueryClient } from "@tanstack/react-query";
+
+export const GetProfileByUserIdDocument = graphql(`
+  query GetProfileByUserId($userId: String!) {
+    profileByUserId(userId: $userId) {
+      id
+      rowId
+      name
+      userId
+      meta
+      profilePictureUrl
+      linkedInUrl
+      updatedAt
+      createdAt
+      deletedAt
+    }
+  }
+`);
+
+const UpdateProfileIndustryDocument = graphql(`
+  mutation UpdateProfileIndustry($userId: String!, $meta: JSON) {
+    updateProfileByUserId(input: { userId: $userId, patch: { meta: $meta } }) {
+      profile {
+        id
+        rowId
+        meta
+      }
+    }
+  }
+`);
+
+  const { sessionInfo } = useSessionInfo()
+
+  const userId = sessionInfo.user?.id
+
+const queryClient = useQueryClient();
+
+const { data: profileData } = useGraphqlQuery(
+  GetProfileByUserIdDocument,
+  {
+    userId,
+  },
+  {
+    enabled: !!userId,
+  },
+);
+
+const updateProfileMutation = useGraphqlMutation(
+  UpdateProfileIndustryDocument,
+  {
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: [getQueryKeyFromDocument(GetProfileByUserIdDocument)],
+      });
+    },
+  },
+);
+```
