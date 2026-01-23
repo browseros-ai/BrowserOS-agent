@@ -21,6 +21,8 @@ if (useBrowserOS) {
   }
   if (env.BROWSEROS_CDP_PORT) {
     chromiumArgs.push(`--browseros-cdp-port=${env.BROWSEROS_CDP_PORT}`)
+    // Enable HTTP-based CDP so the server can connect
+    chromiumArgs.push(`--remote-debugging-port=${env.BROWSEROS_CDP_PORT}`)
   }
   if (env.BROWSEROS_SERVER_PORT) {
     chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
