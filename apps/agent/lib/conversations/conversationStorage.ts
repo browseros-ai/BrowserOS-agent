@@ -1,6 +1,7 @@
 import { storage } from '@wxt-dev/storage'
 import type { UIMessage } from 'ai'
 import { useEffect, useState } from 'react'
+import { useSessionInfo } from '../auth/sessionStorage'
 
 const MAX_CONVERSATIONS = 50
 
@@ -19,6 +20,14 @@ export const conversationStorage = storage.defineItem<Conversation[]>(
 
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([])
+
+  const { sessionInfo } = useSessionInfo()
+
+  useEffect(() => {
+    // user is logged in, could sync conversations from server here
+    if (sessionInfo.user?.id && conversations.length === 0) {
+    }
+  }, [sessionInfo.user?.id, conversations])
 
   useEffect(() => {
     conversationStorage.getValue().then(setConversations)
