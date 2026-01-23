@@ -27,10 +27,8 @@ export const BulkCreateConversationMessagesDocument = graphql(`
   }
 `)
 
-export const CheckConversationExistsDocument = graphql(`
-  query CheckConversationExists($rowId: String!) {
-    conversation(rowId: $rowId) {
-      rowId
-    }
+export const ConversationExistsDocument = graphql(`
+  query ConversationExists($pConversationId: String) {
+    conversationExists(pConversationId: $pConversationId)
   }
 `)

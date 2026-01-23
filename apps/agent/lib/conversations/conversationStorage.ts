@@ -2,6 +2,7 @@ import { storage } from '@wxt-dev/storage'
 import type { UIMessage } from 'ai'
 import { useEffect, useState } from 'react'
 import { useSessionInfo } from '../auth/sessionStorage'
+import { uploadConversationsToGraphql } from './uploadConversationsToGraphql'
 
 const MAX_CONVERSATIONS = 50
 
@@ -25,7 +26,8 @@ export function useConversations() {
 
   useEffect(() => {
     // user is logged in, could sync conversations from server here
-    if (sessionInfo.user?.id && conversations.length === 0) {
+    if (sessionInfo.user?.id && conversations.length > 0) {
+      uploadConversationsToGraphql(conversations, setConversations)
     }
   }, [sessionInfo.user?.id, conversations])
 
