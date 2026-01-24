@@ -1,6 +1,6 @@
 import { Menu } from 'lucide-react'
 import type { FC } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { AppSidebar } from '@/components/sidebar/AppSidebar'
 import { Button } from '@/components/ui/button'
@@ -11,15 +11,26 @@ import { SETTINGS_PAGE_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { RpcClientProvider } from '@/lib/rpc/RpcClientProvider'
 
-const COLLAPSE_DELAY = 150
+const SIDEBAR_STORAGE_KEY = 'browseros-sidebar-expanded'
 
 export const SidebarLayout: FC = () => {
   const location = useLocation()
   const isMobile = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Default to collapsed (false) on first load
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+    return stored === 'true'
+  })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
-  const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => {
+      const newValue = !prev
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(newValue))
+      return newValue
+    })
+  }, [])
 
   const openShortcuts = useCallback(() => {
     setShortcutsDialogOpen(true)
@@ -31,28 +42,6 @@ export const SidebarLayout: FC = () => {
 
   useEffect(() => {
     setMobileOpen(false)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (collapseTimeoutRef.current) {
-        clearTimeout(collapseTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const handleMouseEnter = useCallback(() => {
-    if (collapseTimeoutRef.current) {
-      clearTimeout(collapseTimeoutRef.current)
-      collapseTimeoutRef.current = null
-    }
-    setSidebarOpen(true)
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    collapseTimeoutRef.current = setTimeout(() => {
-      setSidebarOpen(false)
-    }, COLLAPSE_DELAY)
   }, [])
 
   if (isMobile) {
@@ -91,19 +80,16 @@ export const SidebarLayout: FC = () => {
 
   return (
     <RpcClientProvider>
-      <div className="relative min-h-screen bg-background">
-        {/* Sidebar - fixed overlay */}
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: hover interactions needed */}
-        <div
-          className="fixed inset-y-0 left-0 z-40"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <AppSidebar expanded={sidebarOpen} onOpenShortcuts={openShortcuts} />
-        </div>
+      <div className="flex min-h-screen bg-background">
+        {/* Sidebar - push mode */}
+        <AppSidebar
+          expanded={sidebarOpen}
+          onToggle={toggleSidebar}
+          onOpenShortcuts={openShortcuts}
+        />
 
-        {/* Main content - full width, centered */}
-        <main className="min-h-screen overflow-y-auto">
+        {/* Main content - adjusts based on sidebar width */}
+        <main className="relative min-h-screen flex-1 overflow-y-auto">
           <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
             <Outlet />
           </div>

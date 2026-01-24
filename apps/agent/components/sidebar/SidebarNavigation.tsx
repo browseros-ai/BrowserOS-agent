@@ -64,13 +64,14 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
             const navItem = (
               <NavLink
                 to={item.to}
+                data-sidebar-interactive
                 className={cn(
                   'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   isActive &&
                     'bg-sidebar-accent text-sidebar-accent-foreground',
                 )}
               >
-                <Icon className="size-4 shrink-0" />
+                <Icon className="size-5 shrink-0" />
                 <span
                   className={cn(
                     'truncate transition-opacity duration-200',

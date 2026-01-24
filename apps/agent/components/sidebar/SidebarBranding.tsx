@@ -6,18 +6,29 @@ import { useWorkspace } from '@/lib/workspace/use-workspace'
 
 interface SidebarBrandingProps {
   expanded?: boolean
+  onToggle?: () => void
 }
 
 export const SidebarBranding: FC<SidebarBrandingProps> = ({
   expanded = true,
+  onToggle,
 }) => {
   const { selectedFolder } = useWorkspace()
 
   return (
     <div className="flex h-14 items-center border-b">
-      <div className="flex w-14 shrink-0 items-center justify-center">
-        <img src={ProductLogo} alt="BrowserOS" className="size-8" />
-      </div>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggle?.()
+        }}
+        className="flex w-14 shrink-0 items-center justify-center transition-opacity hover:opacity-70 active:opacity-50"
+        aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        data-sidebar-toggle
+      >
+        <img src={ProductLogo} alt="BrowserOS" className="size-9" />
+      </button>
       <div
         className={cn(
           'flex min-w-0 flex-1 items-center justify-between pr-3 transition-opacity duration-200',
@@ -30,7 +41,9 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
           </span>
           <span className="text-muted-foreground text-xs">Personal</span>
         </div>
-        <ThemeToggle className="h-8 w-8 shrink-0" iconClassName="h-4 w-4" />
+        <div data-sidebar-interactive>
+          <ThemeToggle className="h-8 w-8 shrink-0" iconClassName="h-4 w-4" />
+        </div>
       </div>
     </div>
   )

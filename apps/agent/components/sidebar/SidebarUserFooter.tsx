@@ -41,9 +41,10 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
       href="https://docs.browseros.com/"
       target="_blank"
       rel="noopener noreferrer"
+      data-sidebar-interactive
       className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
-      <Info className="size-4 shrink-0" />
+      <Info className="size-5 shrink-0" />
       <span
         className={cn(
           'truncate transition-opacity duration-200',
@@ -59,9 +60,10 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
     <Button
       variant="ghost"
       onClick={onOpenShortcuts}
+      data-sidebar-interactive
       className="flex h-9 w-full items-center justify-start gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
-      <Keyboard className="size-4 shrink-0" />
+      <Keyboard className="size-5 shrink-0" />
       <span
         className={cn(
           'truncate transition-opacity duration-200',
