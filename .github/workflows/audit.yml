@@ -3,21 +3,19 @@ name: Daily Security Audit
 on:
   schedule:
     # Runs at midnight IST (6:30 PM UTC previous day)
-    - cron: '30 18 * * *'
+    - cron: "30 18 * * *"
   workflow_dispatch: # Allows manual triggering
 
 jobs:
   security-audit:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
 
       - name: Install dependencies
         run: bun ci
@@ -28,7 +26,7 @@ jobs:
         run: |
           # Run audit and capture output (skip the version line)
           bun audit --json 2>&1 | tail -n 1 > audit-results.json || true
-          
+
           # Check if vulnerabilities exist
           VULN_COUNT=$(cat audit-results.json | bun -e "const data = JSON.parse(require('fs').readFileSync(0, 'utf-8')); console.log(Object.keys(data).reduce((sum, pkg) => sum + data[pkg].length, 0))")
           echo "vuln_count=$VULN_COUNT" >> $GITHUB_OUTPUT
@@ -40,11 +38,11 @@ jobs:
           cat > parse-audit.ts << 'EOF'
           const fs = require('fs');
           const auditData = JSON.parse(fs.readFileSync('audit-results.json', 'utf-8'));
-          
+
           // Collect all vulnerabilities from all packages
           const allVulns: any[] = [];
           let totalCount = 0;
-          
+
           for (const [packageName, vulns] of Object.entries(auditData)) {
             if (Array.isArray(vulns)) {
               vulns.forEach((vuln: any) => {
@@ -53,7 +51,7 @@ jobs:
               });
             }
           }
-          
+
           if (totalCount === 0) {
             console.log(JSON.stringify({
               text: "✅ *Daily Security Audit - No Vulnerabilities Found*",
@@ -78,7 +76,7 @@ jobs:
             }));
             process.exit(0);
           }
-          
+
           // Count by severity
           const severityCounts = {
             critical: 0,
@@ -86,27 +84,27 @@ jobs:
             moderate: 0,
             low: 0
           };
-          
+
           allVulns.forEach(vuln => {
             severityCounts[vuln.severity as keyof typeof severityCounts]++;
           });
-          
+
           let message = `⚠️ *Daily Security Audit - ${totalCount} Vulnerabilit${totalCount === 1 ? 'y' : 'ies'} Found*\n\n`;
           message += `*Severity Breakdown:*\n`;
           message += `• Critical: ${severityCounts.critical}\n`;
           message += `• High: ${severityCounts.high}\n`;
           message += `• Moderate: ${severityCounts.moderate}\n`;
           message += `• Low: ${severityCounts.low}\n\n`;
-          
+
           message += `*Top Vulnerabilities:*\n`;
-          
+
           // Sort by severity
           const severityOrder = { critical: 0, high: 1, moderate: 2, low: 3 };
-          allVulns.sort((a, b) => 
-            severityOrder[a.severity as keyof typeof severityOrder] - 
+          allVulns.sort((a, b) =>
+            severityOrder[a.severity as keyof typeof severityOrder] -
             severityOrder[b.severity as keyof typeof severityOrder]
           );
-          
+
           allVulns.slice(0, 5).forEach(vuln => {
             const emoji = {
               critical: '🔴',
@@ -114,7 +112,7 @@ jobs:
               moderate: '🟡',
               low: '🟢'
             }[vuln.severity] || '⚪';
-            
+
             message += `\n${emoji} *${vuln.title}*\n`;
             message += `   Package: \`${vuln.packageName}\`\n`;
             message += `   Severity: ${vuln.severity.toUpperCase()}\n`;
@@ -129,11 +127,11 @@ jobs:
               message += `   <${vuln.url}|View Details>\n`;
             }
           });
-          
+
           if (allVulns.length > 5) {
             message += `\n_...and ${allVulns.length - 5} more vulnerabilit${allVulns.length - 5 === 1 ? 'y' : 'ies'}_`;
           }
-          
+
           const payload = {
             text: `⚠️ Security Audit: ${totalCount} vulnerabilit${totalCount === 1 ? 'y' : 'ies'} found`,
             blocks: [
@@ -168,10 +166,10 @@ jobs:
               }
             ]
           };
-          
+
           console.log(JSON.stringify(payload));
           EOF
-          
+
           bun run parse-audit.ts > slack-payload.json
 
       - name: Send to Slack
