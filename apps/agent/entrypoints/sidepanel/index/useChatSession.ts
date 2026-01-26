@@ -26,6 +26,7 @@ import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
 import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
+import { useRemoteConversationSave } from './useRemoteConversationSave'
 
 const getLastMessageText = (messages: UIMessage[]) => {
   const lastMessage = messages[messages.length - 1]
@@ -76,7 +77,12 @@ export const useChatSession = () => {
     error: agentUrlError,
   } = useAgentServerUrl()
 
-  const { saveConversation } = useConversations()
+  const { saveConversation: saveLocalConversation } = useConversations()
+  const {
+    isLoggedIn,
+    saveConversation: saveRemoteConversation,
+    resetConversation: resetRemoteConversation,
+  } = useRemoteConversationSave()
   const [searchParams, setSearchParams] = useSearchParams()
   const conversationIdParam = searchParams.get('conversationId')
 
@@ -316,9 +322,13 @@ export const useChatSession = () => {
   useEffect(() => {
     messagesRef.current = messages
     if (messages.length > 0) {
-      saveConversation(conversationIdRef.current, messages)
+      if (isLoggedIn) {
+        saveRemoteConversation(conversationIdRef.current, messages)
+      } else {
+        saveLocalConversation(conversationIdRef.current, messages)
+      }
     }
-  }, [messages])
+  }, [messages, isLoggedIn])
 
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
@@ -373,6 +383,7 @@ export const useChatSession = () => {
     setTextToAction(new Map())
     setLiked({})
     setDisliked({})
+    resetRemoteConversation()
   }
 
   return {
