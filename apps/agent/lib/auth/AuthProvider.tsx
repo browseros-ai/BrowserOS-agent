@@ -13,5 +13,5 @@ export const AuthProvider: FC<PropsWithChildren> = ({ children }) => {
     })
   }, [data])
 
-  return <>{children} </>
+  return <>{children}</>
 }
