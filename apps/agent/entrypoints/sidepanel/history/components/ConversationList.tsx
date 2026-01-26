@@ -1,5 +1,5 @@
-import { MessageSquare } from 'lucide-react'
-import type { FC } from 'react'
+import { Loader2, MessageSquare } from 'lucide-react'
+import { type FC, useEffect, useRef } from 'react'
 import { Link } from 'react-router'
 import { ConversationGroup } from './ConversationGroup'
 import type { GroupedConversations } from './types'
@@ -9,13 +9,45 @@ interface ConversationListProps {
   groupedConversations: GroupedConversations
   activeConversationId: string
   onDelete?: (id: string) => void
+  hasNextPage?: boolean
+  isFetchingNextPage?: boolean
+  onLoadMore?: () => void
 }
 
 export const ConversationList: FC<ConversationListProps> = ({
   groupedConversations,
   activeConversationId,
   onDelete,
+  hasNextPage,
+  isFetchingNextPage,
+  onLoadMore,
 }) => {
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!hasNextPage || !onLoadMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          onLoadMore()
+        }
+      },
+      { threshold: 0.1 },
+    )
+
+    const currentRef = loadMoreRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [hasNextPage, isFetchingNextPage, onLoadMore])
+
   const hasConversations =
     groupedConversations.today.length > 0 ||
     groupedConversations.thisWeek.length > 0 ||
@@ -61,6 +93,17 @@ export const ConversationList: FC<ConversationListProps> = ({
               onDelete={onDelete}
               activeConversationId={activeConversationId}
             />
+
+            {hasNextPage && (
+              <div
+                ref={loadMoreRef}
+                className="flex items-center justify-center py-4"
+              >
+                {isFetchingNextPage && (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

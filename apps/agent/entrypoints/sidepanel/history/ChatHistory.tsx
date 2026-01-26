@@ -6,6 +6,7 @@ import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { useConversations } from '@/lib/conversations/conversationStorage'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
 import { getQueryKeyFromDocument } from '@/lib/graphql/getQueryKeyFromDocument'
+import { useGraphqlInfiniteQuery } from '@/lib/graphql/useGraphqlInfiniteQuery'
 import { useGraphqlMutation } from '@/lib/graphql/useGraphqlMutation'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useChatSessionContext } from '../layout/ChatSessionContext'
@@ -27,10 +28,22 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
   })
   const profileId = profileData?.profileByUserId?.rowId
 
-  const { data: graphqlData } = useGraphqlQuery(
+  const {
+    data: graphqlData,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useGraphqlInfiniteQuery(
     GetConversationsForHistoryDocument,
-    { profileId: profileId! },
-    { enabled: !!profileId },
+    (cursor) => ({ profileId: profileId!, after: cursor }),
+    {
+      enabled: !!profileId,
+      initialPageParam: undefined,
+      getNextPageParam: (lastPage) =>
+        lastPage.conversations?.pageInfo.hasNextPage
+          ? lastPage.conversations.pageInfo.endCursor
+          : undefined,
+    },
   )
 
   const deleteConversationMutation = useGraphqlMutation(
@@ -51,21 +64,23 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
   }
 
   const conversations = useMemo<HistoryConversation[]>(() => {
-    if (!graphqlData?.conversations?.nodes) return []
+    if (!graphqlData?.pages) return []
 
-    return graphqlData.conversations.nodes
-      .filter((node): node is NonNullable<typeof node> => node !== null)
-      .map((node) => {
-        const messages = node.conversationMessages.nodes
-          .filter((m): m is NonNullable<typeof m> => m !== null)
-          .map((m) => m.message as UIMessage)
+    return graphqlData.pages.flatMap((page) =>
+      (page.conversations?.nodes ?? [])
+        .filter((node): node is NonNullable<typeof node> => node !== null)
+        .map((node) => {
+          const messages = node.conversationMessages.nodes
+            .filter((m): m is NonNullable<typeof m> => m !== null)
+            .map((m) => m.message as UIMessage)
 
-        return {
-          id: node.rowId,
-          lastMessagedAt: new Date(node.lastMessagedAt).getTime(),
-          lastUserMessage: extractLastUserMessage(messages),
-        }
-      })
+          return {
+            id: node.rowId,
+            lastMessagedAt: new Date(node.lastMessagedAt).getTime(),
+            lastUserMessage: extractLastUserMessage(messages),
+          }
+        }),
+    )
   }, [graphqlData])
 
   const groupedConversations = useMemo(
@@ -78,6 +93,9 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
       groupedConversations={groupedConversations}
       activeConversationId={activeConversationId}
       onDelete={handleDelete}
+      hasNextPage={hasNextPage}
+      isFetchingNextPage={isFetchingNextPage}
+      onLoadMore={fetchNextPage}
     />
   )
 }
