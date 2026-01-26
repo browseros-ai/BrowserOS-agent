@@ -12,7 +12,7 @@ import {
 
 export async function uploadConversationsToGraphql(
   conversations: Conversation[],
-  _setConversations: (conversations: Conversation[]) => void,
+  setConversations: (conversations: Conversation[]) => void,
 ) {
   if (conversations.length === 0) return
 
@@ -81,16 +81,15 @@ export async function uploadConversationsToGraphql(
     } catch (error) {
       sentry.captureException(error, {
         extra: {
-          message: `Failed to upload conversation: ${conversation.id}`,
+          conversationId: conversation.id,
+          messageCount: conversation.messages.length,
         },
       })
-      throw error
     }
   }
 
-  // if (uploadedIds.length > 0) {
-  //   const remaining = conversations.filter((c) => !uploadedIds.includes(c.id))
-  //   await conversationStorage.setValue(remaining)
-  //   setConversations(remaining)
-  // }
+  if (uploadedIds.length > 0) {
+    const remaining = conversations.filter((c) => !uploadedIds.includes(c.id))
+    setConversations(remaining)
+  }
 }
