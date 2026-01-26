@@ -47,15 +47,19 @@ export async function uploadConversationsToGraphql(
       })
 
       if (conversation.messages.length > 0) {
-        await execute(BulkCreateConversationMessagesDocument, {
-          input: {
-            pConversationId: conversation.id,
-            pMessages: conversation.messages.map((msg, index) => ({
-              orderIndex: index,
-              message: msg,
-            })),
-          },
-        })
+        const BATCH_SIZE = 50
+        for (let i = 0; i < conversation.messages.length; i += BATCH_SIZE) {
+          const batch = conversation.messages.slice(i, i + BATCH_SIZE)
+          await execute(BulkCreateConversationMessagesDocument, {
+            input: {
+              pConversationId: conversation.id,
+              pMessages: batch.map((msg, batchIndex) => ({
+                orderIndex: i + batchIndex,
+                message: msg,
+              })),
+            },
+          })
+        }
       }
 
       uploadedIds.push(conversation.id)
