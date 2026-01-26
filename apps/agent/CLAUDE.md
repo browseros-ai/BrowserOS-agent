@@ -46,6 +46,17 @@ The key directories of the project are:
 - When writing a graphql document, create a /graphql directory under the current directory where the file is present and create a file to contain the document.
   - For example: if you want to create grapqhl queries in @apps/agent/entrypoints/sidepanel/history/ChatHistory.tsx then write the graphql document in @apps/agent/entrypoints/sidepanel/history/graphql/chatHistoryDocument.ts 
 - Shadcn UI is setup in this project and always use shadcn components for the UI
+- When need to record errors, do not use console.error -> instead use the sentry service to capture errors:
+```ts
+import { sentry } from '@/lib/sentry/sentry'
+
+sentry.captureException(error, {
+  extra: {
+    message: 'Failed to fetch graph data from the server',
+    codeId: workflow.codeId,
+  },
+})
+```
 
 ## GraphQL Client
 
@@ -127,6 +138,6 @@ const updateProfileMutation = useGraphqlMutation(
 ```
 
 To run codegen to generate graphql code after creating a query, you should run codegen using the command (since .env.development is necessary for codegen):
-```
+```sh
 bun --env-file=.env.development run codegen
 ```
