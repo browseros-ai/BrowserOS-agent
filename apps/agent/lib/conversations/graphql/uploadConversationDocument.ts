@@ -40,3 +40,11 @@ export const ConversationExistsDocument = graphql(`
     conversationExists(pConversationId: $pConversationId)
   }
 `)
+
+export const GetUploadedMessageCountDocument = graphql(`
+  query GetUploadedMessageCount($conversationId: String!) {
+    conversationMessages(condition: { conversationId: $conversationId }, first: 0) {
+      totalCount
+    }
+  }
+`)

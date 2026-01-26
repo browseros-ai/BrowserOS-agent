@@ -42,6 +42,8 @@ The key directories of the project are:
 
 ## GraphQL Client
 
+- The Graphql main schema file is in `@apps/agent/generated/graphql/schema.graphql` - this is the source of truth for constructing all graphql queries
+
 - The frontend uses React Query with `graphql-codegen` to interact with the backend GraphQL API. The types are generated and stored in `@apps/agent/generated/graphql`
 
 - When working with React Query and GraphQL, some important utilities are already created to make the interaction simpler:
@@ -115,4 +117,9 @@ const updateProfileMutation = useGraphqlMutation(
     },
   },
 );
+```
+
+To run codegen to generate graphql code after creating a query, you should run codegen using the command (since .env.development is necessary for codegen):
+```
+bun --env-file=.env.development run codegen
 ```

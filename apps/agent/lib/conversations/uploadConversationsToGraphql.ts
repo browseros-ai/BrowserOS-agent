@@ -7,6 +7,7 @@ import {
   ConversationExistsDocument,
   CreateConversationForUploadDocument,
   GetProfileIdByUserIdDocument,
+  GetUploadedMessageCountDocument,
 } from './graphql/uploadConversationDocument'
 
 export async function uploadConversationsToGraphql(
@@ -31,30 +32,44 @@ export async function uploadConversationsToGraphql(
         pConversationId: conversation.id,
       })
 
-      if (existsResult.conversationExists) {
-        uploadedIds.push(conversation.id)
-        continue
-      }
-      await execute(CreateConversationForUploadDocument, {
-        input: {
-          conversation: {
-            rowId: conversation.id,
-            profileId,
-            lastMessagedAt: new Date(conversation.lastMessagedAt).toISOString(),
-            createdAt: new Date(conversation.lastMessagedAt).toISOString(),
-          },
-        },
-      })
+      let uploadedCount = 0
 
-      if (conversation.messages.length > 0) {
+      if (existsResult.conversationExists) {
+        const countResult = await execute(GetUploadedMessageCountDocument, {
+          conversationId: conversation.id,
+        })
+        uploadedCount = countResult.conversationMessages?.totalCount ?? 0
+
+        if (uploadedCount >= conversation.messages.length) {
+          uploadedIds.push(conversation.id)
+          continue
+        }
+      } else {
+        await execute(CreateConversationForUploadDocument, {
+          input: {
+            conversation: {
+              rowId: conversation.id,
+              profileId,
+              lastMessagedAt: new Date(
+                conversation.lastMessagedAt,
+              ).toISOString(),
+              createdAt: new Date(conversation.lastMessagedAt).toISOString(),
+            },
+          },
+        })
+      }
+
+      const remainingMessages = conversation.messages.slice(uploadedCount)
+
+      if (remainingMessages.length > 0) {
         const BATCH_SIZE = 50
-        for (let i = 0; i < conversation.messages.length; i += BATCH_SIZE) {
-          const batch = conversation.messages.slice(i, i + BATCH_SIZE)
+        for (let i = 0; i < remainingMessages.length; i += BATCH_SIZE) {
+          const batch = remainingMessages.slice(i, i + BATCH_SIZE)
           await execute(BulkCreateConversationMessagesDocument, {
             input: {
               pConversationId: conversation.id,
               pMessages: batch.map((msg, batchIndex) => ({
-                orderIndex: i + batchIndex,
+                orderIndex: uploadedCount + i + batchIndex,
                 message: msg,
               })),
             },
