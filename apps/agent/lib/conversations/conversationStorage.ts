@@ -27,7 +27,7 @@ export function useConversations() {
   useEffect(() => {
     // user is logged in, could sync conversations from server here
     if (sessionInfo.user?.id && conversations.length > 0) {
-      uploadConversationsToGraphql(conversations, setConversations)
+      uploadConversationsToGraphql(conversations)
     }
   }, [sessionInfo.user?.id, conversations])
 

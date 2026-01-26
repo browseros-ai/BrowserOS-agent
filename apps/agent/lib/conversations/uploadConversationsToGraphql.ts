@@ -1,7 +1,7 @@
 import { execute } from '@/lib/graphql/execute'
 import { sessionStorage } from '../auth/sessionStorage'
 import { sentry } from '../sentry/sentry'
-import type { Conversation } from './conversationStorage'
+import { type Conversation, conversationStorage } from './conversationStorage'
 import {
   BulkCreateConversationMessagesDocument,
   ConversationExistsDocument,
@@ -12,7 +12,6 @@ import {
 
 export async function uploadConversationsToGraphql(
   conversations: Conversation[],
-  setConversations: (conversations: Conversation[]) => void,
 ) {
   if (conversations.length === 0) return
 
@@ -90,6 +89,6 @@ export async function uploadConversationsToGraphql(
 
   if (uploadedIds.length > 0) {
     const remaining = conversations.filter((c) => !uploadedIds.includes(c.id))
-    setConversations(remaining)
+    conversationStorage.setValue(remaining)
   }
 }
