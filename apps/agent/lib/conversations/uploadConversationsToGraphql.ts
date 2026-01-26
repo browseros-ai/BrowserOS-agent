@@ -2,44 +2,39 @@ import { execute } from '@/lib/graphql/execute'
 import { sessionStorage } from '../auth/sessionStorage'
 import { sentry } from '../sentry/sentry'
 import type { Conversation } from './conversationStorage'
-import { conversationStorage } from './conversationStorage'
 import {
   BulkCreateConversationMessagesDocument,
   ConversationExistsDocument,
   CreateConversationForUploadDocument,
+  GetProfileIdByUserIdDocument,
 } from './graphql/uploadConversationDocument'
 
 export async function uploadConversationsToGraphql(
   conversations: Conversation[],
-  setConversations: (conversations: Conversation[]) => void,
+  _setConversations: (conversations: Conversation[]) => void,
 ) {
-  console.log(conversations.length)
   if (conversations.length === 0) return
 
   const sessionInfo = await sessionStorage.getValue()
-  const profileId = sessionInfo?.user?.id
+  const userId = sessionInfo?.user?.id
+  if (!userId) return
 
-  console.log('Uploading conversations to GraphQL for profileId:', profileId)
+  const profileResult = await execute(GetProfileIdByUserIdDocument, { userId })
+  const profileId = profileResult.profileByUserId?.rowId
   if (!profileId) return
 
   const uploadedIds: string[] = []
 
   for (const conversation of conversations) {
     try {
-      console.log('running...')
-
       const existsResult = await execute(ConversationExistsDocument, {
         pConversationId: conversation.id,
       })
-
-      console.log(existsResult)
 
       if (existsResult.conversationExists) {
         uploadedIds.push(conversation.id)
         continue
       }
-
-      console.log('uploading conversation...')
       await execute(CreateConversationForUploadDocument, {
         input: {
           conversation: {
