@@ -40,6 +40,13 @@ The key directories of the project are:
 - `entrypoints/popup`: Contains the code for the popup that appears when the extension icon is clicked.
 - `entrypoints/onboarding`: Contains the onboarding flow for new users which is triggered on first install.
 
+## React Coding patterns
+
+- Avoid using useCallback and useMemo as much as possible - only add them if their presence is absolutely necessary
+- When writing a graphql document, create a /graphql directory under the current directory where the file is present and create a file to contain the document.
+  - For example: if you want to create grapqhl queries in @apps/agent/entrypoints/sidepanel/history/ChatHistory.tsx then write the graphql document in @apps/agent/entrypoints/sidepanel/history/graphql/chatHistoryDocument.ts 
+- Shadcn UI is setup in this project and always use shadcn components for the UI
+
 ## GraphQL Client
 
 - The Graphql main schema file is in `@apps/agent/generated/graphql/schema.graphql` - this is the source of truth for constructing all graphql queries
