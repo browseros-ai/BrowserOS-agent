@@ -1,5 +1,5 @@
 import type { UIMessage } from 'ai'
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
 import { execute } from '@/lib/graphql/execute'
@@ -96,9 +96,20 @@ export function useRemoteConversationSave() {
     savedMessageIdsRef.current = new Set()
   }
 
+  const markMessagesAsSaved = useCallback(
+    (conversationId: string, messages: UIMessage[]) => {
+      createdConversationsRef.current.add(conversationId)
+      for (const msg of messages) {
+        savedMessageIdsRef.current.add(msg.id)
+      }
+    },
+    [],
+  )
+
   return {
     isLoggedIn: !!userId,
     saveConversation,
     resetConversation,
+    markMessagesAsSaved,
   }
 }

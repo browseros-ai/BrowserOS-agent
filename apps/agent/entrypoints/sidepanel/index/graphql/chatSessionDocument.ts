@@ -74,3 +74,16 @@ export const UpdateConversationLastMessagedAtDocument = graphql(`
     }
   }
 `)
+
+export const GetConversationWithMessagesDocument = graphql(`
+  query GetConversationWithMessages($conversationId: String!) {
+    conversation(rowId: $conversationId) {
+      rowId
+      conversationMessages(first: 100, orderBy: ORDER_INDEX_ASC) {
+        nodes {
+          message
+        }
+      }
+    }
+  }
+`)
