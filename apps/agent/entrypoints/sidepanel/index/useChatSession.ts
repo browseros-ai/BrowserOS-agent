@@ -322,13 +322,17 @@ export const useChatSession = () => {
   useEffect(() => {
     messagesRef.current = messages
     if (messages.length > 0) {
+      // Local storage: save on every change (including during streaming)
+      // Remote: only save when not streaming to avoid partial message saves
       if (isLoggedIn) {
-        saveRemoteConversation(conversationIdRef.current, messages)
+        if (status !== 'streaming') {
+          saveRemoteConversation(conversationIdRef.current, messages)
+        }
       } else {
         saveLocalConversation(conversationIdRef.current, messages)
       }
     }
-  }, [messages, isLoggedIn])
+  }, [messages, isLoggedIn, status])
 
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
