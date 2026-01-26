@@ -19,3 +19,11 @@ export const GetConversationsForHistoryDocument = graphql(`
     }
   }
 `)
+
+export const DeleteConversationDocument = graphql(`
+  mutation DeleteConversation($rowId: String!) {
+    deleteConversation(input: { rowId: $rowId }) {
+      deletedConversationId
+    }
+  }
+`)

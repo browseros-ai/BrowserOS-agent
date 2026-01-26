@@ -1,19 +1,26 @@
+import { useQueryClient } from '@tanstack/react-query'
 import type { UIMessage } from 'ai'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { useConversations } from '@/lib/conversations/conversationStorage'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
+import { getQueryKeyFromDocument } from '@/lib/graphql/getQueryKeyFromDocument'
+import { useGraphqlMutation } from '@/lib/graphql/useGraphqlMutation'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useChatSessionContext } from '../layout/ChatSessionContext'
 import { ConversationList } from './components/ConversationList'
 import type { HistoryConversation } from './components/types'
 import { extractLastUserMessage, groupConversations } from './components/utils'
-import { GetConversationsForHistoryDocument } from './graphql/chatHistoryDocument'
+import {
+  DeleteConversationDocument,
+  GetConversationsForHistoryDocument,
+} from './graphql/chatHistoryDocument'
 import { LocalChatHistory } from './local/LocalChatHistory'
 
 const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
   const { conversationId: activeConversationId } = useChatSessionContext()
+  const queryClient = useQueryClient()
 
   const { data: profileData } = useGraphqlQuery(GetProfileIdByUserIdDocument, {
     userId,
@@ -25,6 +32,23 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
     { profileId: profileId! },
     { enabled: !!profileId },
   )
+
+  const deleteConversationMutation = useGraphqlMutation(
+    DeleteConversationDocument,
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: [
+            getQueryKeyFromDocument(GetConversationsForHistoryDocument),
+          ],
+        })
+      },
+    },
+  )
+
+  const handleDelete = (id: string) => {
+    deleteConversationMutation.mutate({ rowId: id })
+  }
 
   const conversations = useMemo<HistoryConversation[]>(() => {
     if (!graphqlData?.conversations?.nodes) return []
@@ -53,6 +77,7 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
     <ConversationList
       groupedConversations={groupedConversations}
       activeConversationId={activeConversationId}
+      onDelete={handleDelete}
     />
   )
 }
