@@ -60,7 +60,8 @@ export const getBookmarks = defineTool<z.ZodRawShape, Context, Response>({
 
 export const createBookmark = defineTool<z.ZodRawShape, Context, Response>({
   name: 'browser_create_bookmark',
-  description: 'Create a new bookmark',
+  description:
+    'Create a new bookmark. Use parentId to place it inside an existing folder or a newly created one.',
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -68,7 +69,12 @@ export const createBookmark = defineTool<z.ZodRawShape, Context, Response>({
   schema: {
     title: z.string().describe('Bookmark title'),
     url: z.string().describe('URL to bookmark'),
-    parentId: z.string().optional().describe('Optional parent folder ID'),
+    parentId: z
+      .string()
+      .optional()
+      .describe(
+        'Folder ID to create bookmark in (from browser_get_bookmarks or browser_create_bookmark_folder)',
+      ),
     windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
@@ -116,13 +122,51 @@ export const removeBookmark = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
+export const updateBookmark = defineTool<z.ZodRawShape, Context, Response>({
+  name: 'browser_update_bookmark',
+  description: 'Update a bookmark title or URL',
+  annotations: {
+    category: ToolCategories.BOOKMARKS,
+    readOnlyHint: false,
+  },
+  schema: {
+    bookmarkId: z.string().describe('Bookmark ID to update'),
+    title: z.string().optional().describe('New title for the bookmark'),
+    url: z.string().optional().describe('New URL for the bookmark'),
+    windowId: z.number().optional().describe('Window ID for routing'),
+  },
+  handler: async (request, response, context) => {
+    const { bookmarkId, title, url, windowId } = request.params as {
+      bookmarkId: string
+      title?: string
+      url?: string
+      windowId?: number
+    }
+
+    const result = await context.executeAction('updateBookmark', {
+      id: bookmarkId,
+      title,
+      url,
+      windowId,
+    })
+    const data = result as { id: string; title: string; url?: string }
+
+    response.appendResponseLine(`Updated bookmark: ${data.title}`)
+    if (data.url) {
+      response.appendResponseLine(`URL: ${data.url}`)
+    }
+    response.appendResponseLine(`ID: ${data.id}`)
+  },
+})
+
 export const createBookmarkFolder = defineTool<
   z.ZodRawShape,
   Context,
   Response
 >({
   name: 'browser_create_bookmark_folder',
-  description: 'Create a new bookmark folder',
+  description:
+    'Create a new bookmark folder. Returns folderId to use as parentId when creating or moving bookmarks into this folder.',
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -214,14 +258,20 @@ export const getBookmarkChildren = defineTool<z.ZodRawShape, Context, Response>(
 
 export const moveBookmark = defineTool<z.ZodRawShape, Context, Response>({
   name: 'browser_move_bookmark',
-  description: 'Move a bookmark or folder to a new location',
+  description:
+    'Move a bookmark or folder into a different folder (existing or newly created).',
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
   },
   schema: {
     bookmarkId: z.string().describe('Bookmark or folder ID to move'),
-    parentId: z.string().optional().describe('New parent folder ID'),
+    parentId: z
+      .string()
+      .optional()
+      .describe(
+        'Destination folder ID (from browser_get_bookmarks or browser_create_bookmark_folder)',
+      ),
     index: z
       .number()
       .int()
