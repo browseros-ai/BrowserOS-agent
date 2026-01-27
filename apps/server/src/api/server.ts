@@ -24,6 +24,7 @@ import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
+import { createShutdownRoute } from './routes/shutdown'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -49,12 +50,16 @@ export async function createHttpServer(config: HttpServerConfig) {
     allowRemote,
   } = config
 
-  const { healthWatchdog } = config
+  const { healthWatchdog, onShutdown } = config
 
   // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
+    .route(
+      '/shutdown',
+      createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
+    )
     .route(
       '/extension-status',
       createExtensionStatusRoute({ controllerContext }),
