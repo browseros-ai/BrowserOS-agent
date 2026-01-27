@@ -200,11 +200,22 @@ const health = await swarmService.getHealth()
 - [x] SwarmService unified entry point
 - [x] Enhanced API routes with streaming
 - [x] Health/metrics/tracing endpoints
+- [x] Server router integration
+
+### ✅ Extension (controller-ext)
+- [x] SwarmWindowManager
+- [x] Swarm action handlers (create, navigate, focus, close, arrange)
+- [x] Window tracking and cleanup
+
+### ✅ UI (agent)
+- [x] SwarmPanel component
+- [x] SwarmWorkerCard component
+- [x] SwarmTrigger component
+- [x] useSwarm hook
 
 ### 🔄 Pending
-- [ ] Server router integration
-- [ ] UI components for swarm visualization
-- [ ] Chromium-side SwarmWindowManager
+- [ ] Wire SwarmTrigger to chat input
+- [ ] E2E integration testing
 
 ## Files Structure
 
@@ -236,4 +247,19 @@ apps/server/src/swarm/
 │   └── tracer.ts                    # Tracing + metrics + health
 └── service/
     └── swarm-service.ts             # Unified service
+
+apps/controller-ext/src/actions/swarm/
+├── index.ts                         # Public exports
+├── SwarmWindowManager.ts            # Window lifecycle management
+└── SwarmActions.ts                  # Action handlers
+
+apps/agent/components/swarm/
+├── index.ts                         # Public exports
+├── types.ts                         # UI types
+├── SwarmPanel.tsx                   # Main visualization panel
+├── SwarmWorkerCard.tsx              # Worker status card
+└── SwarmTrigger.tsx                 # Chat mode toggle
+
+apps/agent/lib/swarm/
+└── useSwarm.ts                      # React hook for swarm state
 ```
