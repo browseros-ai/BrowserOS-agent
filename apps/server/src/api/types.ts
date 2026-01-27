@@ -59,7 +59,7 @@ export type Env = {
 
 /**
  * Configuration for the consolidated HTTP server.
- * This server handles all routes: health, klavis, chat, mcp, provider
+ * This server handles all routes: health, klavis, chat, mcp, provider, swarm
  */
 export interface HttpServerConfig {
   // Server basics
@@ -87,6 +87,21 @@ export interface HttpServerConfig {
 
   // For shutdown route
   onShutdown?: () => void
+
+  // For Swarm routes (optional - swarm is disabled if not provided)
+  swarm?: {
+    enabled: boolean
+    maxWorkers?: number
+    enablePooling?: boolean
+    enableCircuitBreaker?: boolean
+    enableTracing?: boolean
+    loadBalancingStrategy?:
+      | 'round-robin'
+      | 'least-connections'
+      | 'weighted'
+      | 'resource-aware'
+      | 'latency-based'
+  }
 }
 
 // Graph request schemas

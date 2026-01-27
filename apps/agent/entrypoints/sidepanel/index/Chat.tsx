@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { SwarmPanel } from '@/components/swarm/SwarmPanel'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
 import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
+import { useSwarm } from '@/lib/swarm/useSwarm'
 import { useChatSessionContext } from '../layout/ChatSessionContext'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
@@ -36,6 +38,11 @@ export const Chat = () => {
     onTakeSurvey,
     onDismiss: onDismissJtbdPopup,
   } = useJtbdPopup()
+
+  // Swarm state
+  const [swarmEnabled, setSwarmEnabled] = useState(false)
+  const [swarmWorkerCount] = useState(3)
+  const { swarm, startSwarm, stopSwarm, error: swarmError } = useSwarm()
 
   const [input, setInput] = useState('')
   const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
@@ -96,11 +103,18 @@ export const Chat = () => {
     setAttachedTabs((prev) => prev.filter((t) => t.id !== tabId))
   }
 
-  const executeMessage = (customMessageText?: string) => {
+  const executeMessage = async (customMessageText?: string) => {
     const messageText = customMessageText ? customMessageText : input.trim()
     if (!messageText) return
 
     recordMessageSent()
+
+    // If swarm mode is enabled and in agent mode, use swarm
+    if (swarmEnabled && mode === 'agent') {
+      setInput('')
+      await startSwarm(messageText, { maxWorkers: swarmWorkerCount })
+      return
+    }
 
     if (attachedTabs.length) {
       const action = createBrowserOSAction({
@@ -157,7 +171,15 @@ export const Chat = () => {
         )}
         {agentUrlError && <ChatError error={agentUrlError} />}
         {chatError && <ChatError error={chatError} />}
+        {swarmError && <ChatError error={swarmError} />}
       </main>
+
+      {/* Swarm progress panel */}
+      {swarm && (
+        <div className="px-3 pb-2">
+          <SwarmPanel swarm={swarm} onTerminate={stopSwarm} />
+        </div>
+      )}
 
       <ChatFooter
         mode={mode}
@@ -170,6 +192,9 @@ export const Chat = () => {
         attachedTabs={attachedTabs}
         onToggleTab={toggleTabSelection}
         onRemoveTab={removeTab}
+        swarmEnabled={swarmEnabled}
+        swarmWorkerCount={swarmWorkerCount}
+        onSwarmToggle={setSwarmEnabled}
       />
     </>
   )

@@ -2,6 +2,7 @@ import { ChevronDown, Folder, Layers } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
 import { TabSelector } from '@/components/elements/tab-selector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
+import { SwarmTrigger } from '@/components/swarm/SwarmTrigger'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,10 @@ interface ChatFooterProps {
   attachedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
   onRemoveTab: (tabId?: number) => void
+  // Swarm props
+  swarmEnabled?: boolean
+  swarmWorkerCount?: number
+  onSwarmToggle?: (enabled: boolean) => void
 }
 
 export const ChatFooter: FC<ChatFooterProps> = ({
@@ -35,6 +40,9 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   attachedTabs,
   onToggleTab,
   onRemoveTab,
+  swarmEnabled = false,
+  swarmWorkerCount = 3,
+  onSwarmToggle,
 }) => {
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
@@ -46,6 +54,14 @@ export const ChatFooter: FC<ChatFooterProps> = ({
       <div className="p-3">
         <div className="flex items-center gap-2">
           <ChatModeToggle mode={mode} onModeChange={onModeChange} />
+
+          {mode === 'agent' && onSwarmToggle && (
+            <SwarmTrigger
+              enabled={swarmEnabled}
+              onToggle={onSwarmToggle}
+              workerCount={swarmWorkerCount}
+            />
+          )}
 
           <div className="h-4 w-px bg-border/50" />
 

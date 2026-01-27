@@ -8,14 +8,18 @@
  * This server combines:
  * - Agent HTTP routes (chat, klavis, provider)
  * - MCP HTTP routes (using @hono/mcp transport)
+ * - Swarm HTTP routes (AI Swarm Mode)
  */
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
+import type { ControllerBridge } from '../browser/extension/bridge'
 import { logger } from '../lib/logger'
 import { bindPortWithRetry } from '../lib/port-binding'
+import { createSwarmLLMProvider } from '../swarm/service/swarm-llm-provider'
+import { SwarmService } from '../swarm/service/swarm-service'
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -25,6 +29,7 @@ import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
 import { createStatusRoute } from './routes/status'
+import { createSwarmRoutes } from './routes/swarm'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -48,12 +53,42 @@ export async function createHttpServer(config: HttpServerConfig) {
     controllerContext,
     mutexPool,
     allowRemote,
+    swarm: swarmConfig,
   } = config
 
   const { healthWatchdog, onShutdown } = config
 
+  // Initialize SwarmService if enabled
+  let swarmService: SwarmService | null = null
+  if (swarmConfig?.enabled) {
+    const bridge = controllerContext.bridge
+    if (!bridge) {
+      logger.warn(
+        'SwarmService: Extension bridge not connected, swarm features may be limited',
+      )
+    }
+
+    // Create LLM provider for task decomposition
+    const swarmLLMProvider = createSwarmLLMProvider(browserosId)
+
+    swarmService = new SwarmService(
+      bridge as ControllerBridge,
+      swarmLLMProvider,
+      {
+        enablePooling: swarmConfig.enablePooling ?? true,
+        enableCircuitBreaker: swarmConfig.enableCircuitBreaker ?? true,
+        enableTracing: swarmConfig.enableTracing ?? true,
+        loadBalancingStrategy:
+          swarmConfig.loadBalancingStrategy ?? 'resource-aware',
+        maxWorkers: swarmConfig.maxWorkers ?? 10,
+      },
+    )
+    await swarmService.initialize()
+    logger.info('SwarmService initialized', { config: swarmConfig })
+  }
+
   // DECLARATIVE route composition - chain .route() calls for type inference
-  const app = new Hono<Env>()
+  let app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
     .route(
@@ -98,6 +133,12 @@ export async function createHttpServer(config: HttpServerConfig) {
         codegenServiceUrl: config.codegenServiceUrl,
       }),
     )
+
+  // Add swarm routes if SwarmService is enabled
+  if (swarmService) {
+    app = app.route('/swarm', createSwarmRoutes({ swarmService }))
+    logger.info('Swarm routes enabled at /swarm')
+  }
 
   // Error handler
   app.onError((err, c) => {
@@ -147,5 +188,15 @@ export async function createHttpServer(config: HttpServerConfig) {
     app,
     server,
     config,
+    swarmService,
+    /** Gracefully shutdown all services */
+    async shutdown() {
+      if (swarmService) {
+        await swarmService.shutdown()
+        logger.info('SwarmService shutdown complete')
+      }
+      server.stop()
+      logger.info('HTTP Server stopped')
+    },
   }
 }
