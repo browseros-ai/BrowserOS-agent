@@ -20,6 +20,7 @@ export {
   moveBookmark,
   removeBookmark,
   removeBookmarkTree,
+  updateBookmark,
 } from './tools/bookmarks'
 // Content Extraction
 export { getPageContent } from './tools/content'
@@ -77,6 +78,7 @@ import {
   moveBookmark,
   removeBookmark,
   removeBookmarkTree,
+  updateBookmark,
 } from './tools/bookmarks'
 import { getPageContent } from './tools/content'
 import { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
@@ -106,7 +108,7 @@ import {
 } from './tools/tab-management'
 import { createWindow } from './tools/window-management'
 
-// Array export for convenience (36 tools total)
+// Array export for convenience (37 tools total)
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -142,6 +144,7 @@ export const allControllerTools = [
   getBookmarkChildren,
   moveBookmark,
   removeBookmarkTree,
+  updateBookmark,
   searchHistory,
   getRecentHistory,
   createWindow,

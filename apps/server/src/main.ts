@@ -93,6 +93,7 @@ export class Application {
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
         healthWatchdog: this.healthWatchdog ?? undefined,
+        onShutdown: () => this.stop(),
         // Enable AI Swarm Mode
         swarm: {
           enabled: true,

@@ -11,6 +11,7 @@ import { GetBookmarksAction } from '@/actions/bookmark/GetBookmarksAction'
 import { MoveBookmarkAction } from '@/actions/bookmark/MoveBookmarkAction'
 import { RemoveBookmarkAction } from '@/actions/bookmark/RemoveBookmarkAction'
 import { RemoveBookmarkTreeAction } from '@/actions/bookmark/RemoveBookmarkTreeAction'
+import { UpdateBookmarkAction } from '@/actions/bookmark/UpdateBookmarkAction'
 import { CaptureScreenshotAction } from '@/actions/browser/CaptureScreenshotAction'
 import { CaptureScreenshotPointerAction } from '@/actions/browser/CaptureScreenshotPointerAction'
 import { ClearAction } from '@/actions/browser/ClearAction'
@@ -220,6 +221,7 @@ export class BrowserOSController {
     this.actionRegistry.register('getBookmarks', new GetBookmarksAction())
     this.actionRegistry.register('createBookmark', new CreateBookmarkAction())
     this.actionRegistry.register('removeBookmark', new RemoveBookmarkAction())
+    this.actionRegistry.register('updateBookmark', new UpdateBookmarkAction())
     this.actionRegistry.register(
       'createBookmarkFolder',
       new CreateBookmarkFolderAction(),

@@ -18,13 +18,14 @@ import { HttpAgentError } from '../agent/errors'
 import { logger } from '../lib/logger'
 import { bindPortWithRetry } from '../lib/port-binding'
 import { createChatRoutes } from './routes/chat'
-import { createExtensionStatusRoute } from './routes/extension-status'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
+import { createShutdownRoute } from './routes/shutdown'
+import { createStatusRoute } from './routes/status'
 import { createSwarmRoutes } from './routes/swarm'
 import { SwarmService } from '../swarm/service/swarm-service'
 import type { Env, HttpServerConfig } from './types'
@@ -53,7 +54,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     swarm: swarmConfig,
   } = config
 
-  const { healthWatchdog } = config
+  const { healthWatchdog, onShutdown } = config
 
   // Initialize SwarmService if enabled
   let swarmService: SwarmService | null = null
@@ -78,9 +79,10 @@ export async function createHttpServer(config: HttpServerConfig) {
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
     .route(
-      '/extension-status',
-      createExtensionStatusRoute({ controllerContext }),
+      '/shutdown',
+      createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
     )
+    .route('/status', createStatusRoute({ controllerContext }))
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(

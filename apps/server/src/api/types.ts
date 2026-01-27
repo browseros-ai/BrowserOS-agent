@@ -85,6 +85,9 @@ export interface HttpServerConfig {
   // For health monitoring
   healthWatchdog?: HealthWatchdog
 
+  // For shutdown route
+  onShutdown?: () => void
+
   // For Swarm routes (optional - swarm is disabled if not provided)
   swarm?: {
     enabled: boolean
