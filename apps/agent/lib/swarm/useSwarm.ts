@@ -7,9 +7,9 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { SwarmState, SwarmStatus, SwarmWorker, WorkerStatus, SwarmEvent } from '@/components/swarm/types'
+import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 interface SwarmConfig {
-  serverUrl: string
   maxWorkers?: number
   timeout?: number
 }
@@ -30,7 +30,6 @@ interface UseSwarmReturn {
 }
 
 const defaultConfig: SwarmConfig = {
-  serverUrl: 'http://localhost:8787',
   maxWorkers: 5,
   timeout: 600000, // 10 minutes
 }
@@ -40,7 +39,7 @@ const defaultConfig: SwarmConfig = {
  * 
  * @example
  * ```tsx
- * const { swarm, startSwarm, stopSwarm } = useSwarm({ serverUrl: 'http://localhost:8787' })
+ * const { swarm, startSwarm, stopSwarm } = useSwarm()
  * 
  * const handleSubmit = async (task: string) => {
  *   await startSwarm(task, { maxWorkers: 5 })
@@ -48,7 +47,7 @@ const defaultConfig: SwarmConfig = {
  * ```
  */
 export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
-  const { serverUrl, maxWorkers, timeout } = { ...defaultConfig, ...config }
+  const { maxWorkers, timeout } = { ...defaultConfig, ...config }
 
   const [swarm, setSwarm] = useState<SwarmState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -152,6 +151,9 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
       abortControllerRef.current = new AbortController()
 
       try {
+        // Get server URL
+        const serverUrl = await getAgentServerUrl()
+
         // Initialize swarm state
         const swarmId = crypto.randomUUID()
         const workerCount = options?.maxWorkers ?? maxWorkers ?? 5
@@ -247,7 +249,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         setIsLoading(false)
       }
     },
-    [serverUrl, maxWorkers, handleSwarmEvent]
+    [maxWorkers, handleSwarmEvent]
   )
 
   const stopSwarm = useCallback(async () => {
@@ -257,6 +259,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
       eventSourceRef.current?.close()
       abortControllerRef.current?.abort()
 
+      const serverUrl = await getAgentServerUrl()
       await fetch(`${serverUrl}/swarm/${swarm.id}`, {
         method: 'DELETE',
       })
@@ -267,13 +270,14 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
     } catch (e) {
       console.error('Failed to stop swarm:', e)
     }
-  }, [swarm, serverUrl])
+  }, [swarm])
 
   const arrangeWindows = useCallback(
     async (layout: 'grid' | 'cascade' | 'tile') => {
       if (!swarm) return
 
       try {
+        const serverUrl = await getAgentServerUrl()
         await fetch(`${serverUrl}/swarm/${swarm.id}/arrange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -283,7 +287,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         console.error('Failed to arrange windows:', e)
       }
     },
-    [swarm, serverUrl]
+    [swarm]
   )
 
   const focusWorker = useCallback(
@@ -291,6 +295,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
       if (!swarm) return
 
       try {
+        const serverUrl = await getAgentServerUrl()
         await fetch(`${serverUrl}/swarm/${swarm.id}/worker/${workerId}/focus`, {
           method: 'POST',
         })
@@ -298,7 +303,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         console.error('Failed to focus worker:', e)
       }
     },
-    [swarm, serverUrl]
+    [swarm]
   )
 
   const terminateWorker = useCallback(
@@ -306,6 +311,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
       if (!swarm) return
 
       try {
+        const serverUrl = await getAgentServerUrl()
         await fetch(`${serverUrl}/swarm/${swarm.id}/worker/${workerId}`, {
           method: 'DELETE',
         })
@@ -321,7 +327,7 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         console.error('Failed to terminate worker:', e)
       }
     },
-    [swarm, serverUrl]
+    [swarm]
   )
 
   const reset = useCallback(() => {
