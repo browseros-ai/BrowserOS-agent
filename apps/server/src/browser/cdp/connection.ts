@@ -33,6 +33,7 @@ const connectOptions: ConnectOptions = {
 /**
  * Connect to an existing browser instance via CDP.
  * Always connects, never launches.
+ * Times out after 5 seconds if CDP is not available.
  */
 export async function ensureBrowserConnected(
   browserURL: string,
@@ -40,10 +41,22 @@ export async function ensureBrowserConnected(
   if (browser?.connected) {
     return browser
   }
-  browser = await puppeteer.connect({
+
+  // Add timeout to prevent hanging if CDP is not available
+  const timeoutMs = 5000
+  const connectPromise = puppeteer.connect({
     ...connectOptions,
     browserURL,
     defaultViewport: null,
   })
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(
+      () => reject(new Error(`CDP connection timeout after ${timeoutMs}ms`)),
+      timeoutMs,
+    )
+  })
+
+  browser = await Promise.race([connectPromise, timeoutPromise])
   return browser
 }

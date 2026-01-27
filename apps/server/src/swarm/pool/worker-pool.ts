@@ -9,11 +9,11 @@
  * task execution with automatic scaling.
  */
 
-import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
-import { logger } from '../../lib/logger'
+import { EventEmitter } from 'node:events'
 import type { ControllerBridge } from '../../browser/extension/bridge'
-import type { Worker, WorkerTask, WorkerState } from '../types'
+import { logger } from '../../lib/logger'
+import type { WorkerTask } from '../types'
 
 export interface PooledWorker {
   id: string
@@ -82,6 +82,7 @@ export class WorkerPool extends EventEmitter {
 
   /**
    * Initializes the pool with minimum workers.
+   * Defers pre-warming until extension is connected to avoid blocking startup.
    */
   async initialize(): Promise<void> {
     if (this.initializing) return
@@ -93,25 +94,50 @@ export class WorkerPool extends EventEmitter {
     })
 
     try {
-      // Pre-warm minimum workers
-      const warmupPromises: Promise<void>[] = []
-      for (let i = 0; i < this.config.minWorkers; i++) {
-        warmupPromises.push(this.warmWorker())
-      }
-
-      await Promise.all(warmupPromises)
-
-      // Start maintenance loop
+      // Start maintenance loop (handles pre-warming when extension connects)
       this.startMaintenance()
 
-      logger.info('Worker pool initialized', {
-        warmWorkers: this.getIdleCount(),
+      // Pre-warm workers in background (don't block server startup)
+      // Workers will be created on-demand if not available
+      this.warmWorkersInBackground().catch((err) => {
+        logger.debug(
+          'Background worker warmup skipped (extension not connected)',
+          {
+            error: err instanceof Error ? err.message : String(err),
+          },
+        )
+      })
+
+      logger.info('Worker pool initialized (pre-warming in background)', {
+        maxWorkers: this.config.maxWorkers,
       })
     } finally {
       this.initializing = false
     }
 
     this.emit('initialized', this.getStats())
+  }
+
+  /**
+   * Pre-warms workers in background without blocking.
+   */
+  private async warmWorkersInBackground(): Promise<void> {
+    // Small delay to let extension connect
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    const warmupPromises: Promise<void>[] = []
+    for (let i = 0; i < this.config.minWorkers; i++) {
+      warmupPromises.push(
+        this.warmWorker().catch(() => {
+          // Ignore individual warmup failures
+        }),
+      )
+    }
+
+    await Promise.allSettled(warmupPromises)
+    logger.debug('Background warmup complete', {
+      warmWorkers: this.getIdleCount(),
+    })
   }
 
   /**
@@ -419,9 +445,8 @@ export class WorkerPool extends EventEmitter {
    * Gets count of warm workers.
    */
   getWarmCount(): number {
-    return Array.from(this.workers.values()).filter(
-      (w) => w.state === 'warm',
-    ).length
+    return Array.from(this.workers.values()).filter((w) => w.state === 'warm')
+      .length
   }
 
   /**

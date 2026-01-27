@@ -15,8 +15,10 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
+import type { ControllerBridge } from '../browser/extension/bridge'
 import { logger } from '../lib/logger'
 import { bindPortWithRetry } from '../lib/port-binding'
+import { SwarmService } from '../swarm/service/swarm-service'
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -27,7 +29,6 @@ import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
 import { createStatusRoute } from './routes/status'
 import { createSwarmRoutes } from './routes/swarm'
-import { SwarmService } from '../swarm/service/swarm-service'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -58,17 +59,24 @@ export async function createHttpServer(config: HttpServerConfig) {
 
   // Initialize SwarmService if enabled
   let swarmService: SwarmService | null = null
-  if (swarmConfig?.enabled && controllerContext.bridge) {
+  if (swarmConfig?.enabled) {
+    const bridge = controllerContext.bridge
+    if (!bridge) {
+      logger.warn(
+        'SwarmService: Extension bridge not connected, swarm features may be limited',
+      )
+    }
     swarmService = new SwarmService(
-      controllerContext.bridge,
+      bridge as ControllerBridge,
       null, // LLM provider will be resolved per-request
       {
         enablePooling: swarmConfig.enablePooling ?? true,
         enableCircuitBreaker: swarmConfig.enableCircuitBreaker ?? true,
         enableTracing: swarmConfig.enableTracing ?? true,
-        loadBalancingStrategy: swarmConfig.loadBalancingStrategy ?? 'resource-aware',
+        loadBalancingStrategy:
+          swarmConfig.loadBalancingStrategy ?? 'resource-aware',
         maxWorkers: swarmConfig.maxWorkers ?? 10,
-      }
+      },
     )
     await swarmService.initialize()
     logger.info('SwarmService initialized', { config: swarmConfig })
