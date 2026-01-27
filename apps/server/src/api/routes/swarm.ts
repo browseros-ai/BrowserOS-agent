@@ -213,6 +213,8 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
           event.type === 'swarm_completed' ||
           event.type === 'swarm_failed'
         ) {
+          clearInterval(keepAlive)
+          unsubscribe()
           stream.close()
         }
       })

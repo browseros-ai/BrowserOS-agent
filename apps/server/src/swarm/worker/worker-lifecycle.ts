@@ -245,13 +245,17 @@ export class WorkerLifecycleManager {
       }
 
       // Increment retry count and respawn
-      worker.retryCount++
+      const newRetryCount = worker.retryCount + 1
+      worker.retryCount = newRetryCount
       worker.state = 'spawning'
       worker.windowId = undefined
       worker.error = undefined
 
       try {
-        return await this.spawnWorker(swarmId, worker.task)
+        const newWorker = await this.spawnWorker(swarmId, worker.task)
+        // Preserve retry count on the new worker
+        newWorker.retryCount = newRetryCount
+        return newWorker
       } catch (retryError) {
         logger.error('Worker retry failed', {
           swarmId,
