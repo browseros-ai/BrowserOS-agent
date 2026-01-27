@@ -93,6 +93,15 @@ export class Application {
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
         healthWatchdog: this.healthWatchdog ?? undefined,
+        // Enable AI Swarm Mode
+        swarm: {
+          enabled: true,
+          maxWorkers: 10,
+          enablePooling: true,
+          enableCircuitBreaker: true,
+          enableTracing: true,
+          loadBalancingStrategy: 'resource-aware',
+        },
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)
