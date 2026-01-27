@@ -42,6 +42,19 @@ import { OpenTabAction } from '@/actions/tab/OpenTabAction'
 import { SwitchTabAction } from '@/actions/tab/SwitchTabAction'
 import { UngroupTabsAction } from '@/actions/tab/UngroupTabsAction'
 import { UpdateTabGroupAction } from '@/actions/tab/UpdateTabGroupAction'
+// Swarm actions
+import {
+  CreateSwarmWindowAction,
+  NavigateSwarmWindowAction,
+  FocusSwarmWindowAction,
+  CloseSwarmWindowAction,
+  TerminateSwarmAction,
+  ArrangeSwarmWindowsAction,
+  GetSwarmWindowsAction,
+  CaptureSwarmScreenshotAction,
+  GetSwarmStatsAction,
+} from '@/actions/swarm/SwarmActions'
+import { swarmWindowManager } from '@/actions/swarm/SwarmWindowManager'
 import { CONCURRENCY_CONFIG } from '@/config/constants'
 import type { ProtocolRequest, ProtocolResponse } from '@/protocol/types'
 import { ConnectionStatus } from '@/protocol/types'
@@ -128,6 +141,9 @@ export class BrowserOSController {
     try {
       this.wsClient.send({ type: 'window_removed', windowId })
       logger.debug('Sent window_removed event', { windowId })
+
+      // Notify swarm window manager so it can clean up tracking
+      swarmWindowManager.handleWindowClosed(windowId)
     } catch (error) {
       logger.warn('Failed to send window_removed event', {
         windowId,
@@ -267,6 +283,35 @@ export class BrowserOSController {
       'typeAtCoordinates',
       new TypeAtCoordinatesAction(),
     )
+
+    // Swarm window management actions
+    this.actionRegistry.register(
+      'createSwarmWindow',
+      new CreateSwarmWindowAction(),
+    )
+    this.actionRegistry.register(
+      'navigateSwarmWindow',
+      new NavigateSwarmWindowAction(),
+    )
+    this.actionRegistry.register(
+      'focusSwarmWindow',
+      new FocusSwarmWindowAction(),
+    )
+    this.actionRegistry.register(
+      'closeSwarmWindow',
+      new CloseSwarmWindowAction(),
+    )
+    this.actionRegistry.register('terminateSwarm', new TerminateSwarmAction())
+    this.actionRegistry.register(
+      'arrangeSwarmWindows',
+      new ArrangeSwarmWindowsAction(),
+    )
+    this.actionRegistry.register('getSwarmWindows', new GetSwarmWindowsAction())
+    this.actionRegistry.register(
+      'captureSwarmScreenshot',
+      new CaptureSwarmScreenshotAction(),
+    )
+    this.actionRegistry.register('getSwarmStats', new GetSwarmStatsAction())
 
     const actions = this.actionRegistry.getAvailableActions()
     logger.info(`Registered ${actions.length} action(s): ${actions.join(', ')}`)
