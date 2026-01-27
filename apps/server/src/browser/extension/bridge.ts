@@ -127,6 +127,34 @@ export class ControllerBridge {
     return this.primaryClientId !== null
   }
 
+  /**
+   * Waits for window ownership registration with polling.
+   * This resolves the race condition where HTTP requests arrive before
+   * the window_created WebSocket message is processed.
+   *
+   * @param windowId - The window ID to wait for
+   * @param timeoutMs - Maximum time to wait (default 500ms)
+   * @param pollIntervalMs - Polling interval (default 50ms)
+   * @returns The owner clientId if found, null if timeout
+   */
+  private async waitForWindowOwnership(
+    windowId: number,
+    timeoutMs: number = 500,
+    pollIntervalMs: number = 50,
+  ): Promise<string | null> {
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < timeoutMs) {
+      const ownerClientId = this.windowOwnership.get(windowId)
+      if (ownerClientId && this.clients.has(ownerClientId)) {
+        return ownerClientId
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+    }
+
+    return null
+  }
+
   async sendRequest(
     action: string,
     payload: unknown,
@@ -140,14 +168,17 @@ export class ControllerBridge {
     const payloadObj = payload as Record<string, unknown> | null
     const windowId = payloadObj?.windowId as number | undefined
 
-    // FIXME: Race condition - when a new window is created, the window_created
-    // WebSocket message may not be processed before requests arrive for that window.
-    // This causes fallback to primaryClientId. For single-profile setups this works,
-    // but breaks multi-profile routing. Proper fix: poll/wait for window ownership
-    // registration here (e.g., retry for up to 500ms before falling back).
     let targetClientId = this.primaryClientId
     if (windowId !== undefined) {
-      const ownerClientId = this.windowOwnership.get(windowId)
+      // First check if already registered
+      let ownerClientId = this.windowOwnership.get(windowId)
+
+      // If not registered, wait for registration (fixes race condition)
+      if (!ownerClientId || !this.clients.has(ownerClientId)) {
+        this.logger.debug('Window not yet registered, waiting...', { windowId })
+        ownerClientId = await this.waitForWindowOwnership(windowId)
+      }
+
       if (ownerClientId && this.clients.has(ownerClientId)) {
         targetClientId = ownerClientId
         this.logger.debug('Routing request by windowId', {
@@ -155,7 +186,7 @@ export class ControllerBridge {
           targetClientId,
         })
       } else {
-        this.logger.warn('No owner found for windowId, using primary', {
+        this.logger.warn('Window ownership timeout, using primary', {
           windowId,
           primaryClientId: this.primaryClientId,
         })
