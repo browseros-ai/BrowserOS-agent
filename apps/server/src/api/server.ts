@@ -8,6 +8,7 @@
  * This server combines:
  * - Agent HTTP routes (chat, klavis, provider)
  * - MCP HTTP routes (using @hono/mcp transport)
+ * - Swarm HTTP routes (AI Swarm Mode)
  */
 
 import { Hono } from 'hono'
@@ -24,6 +25,8 @@ import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
+import { createSwarmRoutes } from './routes/swarm'
+import { SwarmService } from '../swarm/service/swarm-service'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -47,12 +50,31 @@ export async function createHttpServer(config: HttpServerConfig) {
     controllerContext,
     mutexPool,
     allowRemote,
+    swarm: swarmConfig,
   } = config
 
   const { healthWatchdog } = config
 
+  // Initialize SwarmService if enabled
+  let swarmService: SwarmService | null = null
+  if (swarmConfig?.enabled && controllerContext.bridge) {
+    swarmService = new SwarmService(
+      controllerContext.bridge,
+      null, // LLM provider will be resolved per-request
+      {
+        enablePooling: swarmConfig.enablePooling ?? true,
+        enableCircuitBreaker: swarmConfig.enableCircuitBreaker ?? true,
+        enableTracing: swarmConfig.enableTracing ?? true,
+        loadBalancingStrategy: swarmConfig.loadBalancingStrategy ?? 'resource-aware',
+        maxWorkers: swarmConfig.maxWorkers ?? 10,
+      }
+    )
+    await swarmService.initialize()
+    logger.info('SwarmService initialized', { config: swarmConfig })
+  }
+
   // DECLARATIVE route composition - chain .route() calls for type inference
-  const app = new Hono<Env>()
+  let app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
     .route(
@@ -96,6 +118,12 @@ export async function createHttpServer(config: HttpServerConfig) {
         codegenServiceUrl: config.codegenServiceUrl,
       }),
     )
+
+  // Add swarm routes if SwarmService is enabled
+  if (swarmService) {
+    app = app.route('/swarm', createSwarmRoutes({ swarmService }))
+    logger.info('Swarm routes enabled at /swarm')
+  }
 
   // Error handler
   app.onError((err, c) => {
@@ -145,5 +173,15 @@ export async function createHttpServer(config: HttpServerConfig) {
     app,
     server,
     config,
+    swarmService,
+    /** Gracefully shutdown all services */
+    async shutdown() {
+      if (swarmService) {
+        await swarmService.shutdown()
+        logger.info('SwarmService shutdown complete')
+      }
+      server.stop()
+      logger.info('HTTP Server stopped')
+    },
   }
 }

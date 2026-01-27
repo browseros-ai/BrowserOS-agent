@@ -6,6 +6,11 @@
  * Swarm API Routes
  *
  * HTTP endpoints for creating, monitoring, and controlling swarms.
+ * Provides comprehensive API for AI Swarm Mode including:
+ * - Swarm creation and execution
+ * - Real-time streaming updates
+ * - Health and metrics endpoints
+ * - Tracing and observability
  */
 
 import { Hono } from 'hono'
@@ -13,21 +18,30 @@ import { streamSSE } from 'hono/streaming'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { logger } from '../../lib/logger'
-import type {
-  SwarmCoordinator,
-  SwarmEvent,
-} from '../../swarm/coordinator/swarm-coordinator'
+import type { SwarmService } from '../../swarm/service/swarm-service'
+import type { SwarmEvent } from '../../swarm/coordinator/swarm-coordinator'
 import { SwarmRequestSchema } from '../../swarm/types'
 
 interface SwarmRoutesDeps {
-  coordinator: SwarmCoordinator
+  swarmService: SwarmService
 }
 
 /**
- * Creates swarm API routes.
+ * Extended request schema with priority support.
+ */
+const ExtendedSwarmRequestSchema = SwarmRequestSchema.extend({
+  priority: z.enum(['critical', 'high', 'normal', 'low', 'background']).optional(),
+})
+
+/**
+ * Creates swarm API routes with full SwarmService integration.
  */
 export function createSwarmRoutes(deps: SwarmRoutesDeps) {
   const app = new Hono()
+
+  // ============================================================================
+  // Core Swarm Endpoints
+  // ============================================================================
 
   /**
    * POST /swarm
@@ -35,23 +49,37 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
    */
   app.post(
     '/',
-    zValidator('json', SwarmRequestSchema),
+    zValidator('json', ExtendedSwarmRequestSchema),
     async (c) => {
       const body = c.req.valid('json')
       const outputFormat = (c.req.query('format') ?? 'markdown') as
         | 'json'
         | 'markdown'
         | 'html'
+      const stream = c.req.query('stream') === 'true'
 
       logger.info('Creating swarm via API', {
         task: body.task.slice(0, 100),
         maxWorkers: body.maxWorkers,
+        priority: body.priority,
+        stream,
       })
 
       try {
-        const result = await deps.coordinator.createAndExecute(body, {
-          outputFormat,
-        })
+        const result = await deps.swarmService.execute(
+          {
+            task: body.task,
+            maxWorkers: body.maxWorkers,
+            timeoutMs: body.timeoutMs,
+            outputFormat: body.outputFormat,
+            conversationId: body.conversationId,
+          },
+          {
+            priority: body.priority,
+            outputFormat,
+            stream,
+          },
+        )
 
         return c.json({
           success: true,
@@ -75,74 +103,52 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
   )
 
   /**
-   * POST /swarm/create
-   * Create a swarm without executing (for manual control)
+   * POST /swarm/stream
+   * Create and execute a swarm with SSE streaming results
    */
   app.post(
-    '/create',
-    zValidator('json', SwarmRequestSchema),
+    '/stream',
+    zValidator('json', ExtendedSwarmRequestSchema),
     async (c) => {
       const body = c.req.valid('json')
+      const outputFormat = (c.req.query('format') ?? 'markdown') as
+        | 'json'
+        | 'markdown'
+        | 'html'
 
-      try {
-        const swarm = await deps.coordinator.createSwarm(body)
+      logger.info('Creating streaming swarm', {
+        task: body.task.slice(0, 100),
+        maxWorkers: body.maxWorkers,
+      })
 
-        return c.json({
-          success: true,
-          data: {
-            swarmId: swarm.id,
-            state: swarm.state,
-            task: swarm.task,
-          },
-        })
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Failed to create swarm'
-
-        return c.json(
-          {
-            success: false,
-            error: message,
-          },
-          500,
-        )
-      }
+      return streamSSE(c, async (stream) => {
+        try {
+          for await (const chunk of deps.swarmService.executeStreaming(
+            {
+              task: body.task,
+              maxWorkers: body.maxWorkers,
+              timeoutMs: body.timeoutMs,
+              outputFormat: body.outputFormat,
+              conversationId: body.conversationId,
+            },
+            { outputFormat },
+          )) {
+            await stream.writeSSE({
+              event: chunk.type,
+              data: JSON.stringify(chunk.data),
+            })
+          }
+        } catch (error) {
+          await stream.writeSSE({
+            event: 'error',
+            data: JSON.stringify({
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }),
+          })
+        }
+      })
     },
   )
-
-  /**
-   * POST /swarm/:swarmId/execute
-   * Execute a previously created swarm
-   */
-  app.post('/:swarmId/execute', async (c) => {
-    const swarmId = c.req.param('swarmId')
-    const outputFormat = (c.req.query('format') ?? 'markdown') as
-      | 'json'
-      | 'markdown'
-      | 'html'
-
-    try {
-      const result = await deps.coordinator.executeSwarm(swarmId, {
-        outputFormat,
-      })
-
-      return c.json({
-        success: true,
-        data: result,
-      })
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Swarm execution failed'
-
-      return c.json(
-        {
-          success: false,
-          error: message,
-        },
-        500,
-      )
-    }
-  })
 
   /**
    * GET /swarm/:swarmId
@@ -150,7 +156,7 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
    */
   app.get('/:swarmId', (c) => {
     const swarmId = c.req.param('swarmId')
-    const status = deps.coordinator.getStatus(swarmId)
+    const status = deps.swarmService.getStatus(swarmId)
 
     if (!status) {
       return c.json(
@@ -174,7 +180,7 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
    */
   app.get('/:swarmId/stream', async (c) => {
     const swarmId = c.req.param('swarmId')
-    const status = deps.coordinator.getStatus(swarmId)
+    const status = deps.swarmService.getStatus(swarmId)
 
     if (!status) {
       return c.json(
@@ -194,7 +200,7 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
       })
 
       // Subscribe to events
-      const unsubscribe = deps.coordinator.onSwarmEvent((event: SwarmEvent) => {
+      const unsubscribe = deps.swarmService.onEvent((event: SwarmEvent) => {
         if ('swarmId' in event && event.swarmId !== swarmId) return
 
         stream.writeSSE({
@@ -243,7 +249,7 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
     const swarmId = c.req.param('swarmId')
 
     try {
-      await deps.coordinator.terminateSwarm(swarmId)
+      await deps.swarmService.terminate(swarmId)
 
       return c.json({
         success: true,
@@ -261,6 +267,88 @@ export function createSwarmRoutes(deps: SwarmRoutesDeps) {
         500,
       )
     }
+  })
+
+  // ============================================================================
+  // Health & Metrics Endpoints
+  // ============================================================================
+
+  /**
+   * GET /swarm/health
+   * Get swarm service health status
+   */
+  app.get('/health', async (c) => {
+    const health = await deps.swarmService.getHealth()
+
+    const statusCode = health.status === 'healthy' ? 200 : 
+                       health.status === 'degraded' ? 200 : 503
+
+    return c.json(health, statusCode)
+  })
+
+  /**
+   * GET /swarm/metrics
+   * Get swarm service metrics
+   */
+  app.get('/metrics', (c) => {
+    const metrics = deps.swarmService.getMetrics()
+
+    return c.json({
+      success: true,
+      data: metrics,
+    })
+  })
+
+  /**
+   * GET /swarm/metrics/:swarmId
+   * Get metrics for a specific swarm
+   */
+  app.get('/metrics/:swarmId', (c) => {
+    const swarmId = c.req.param('swarmId')
+    const metrics = deps.swarmService.getMetrics(swarmId)
+
+    if (!metrics) {
+      return c.json(
+        {
+          success: false,
+          error: 'No metrics found for swarm',
+        },
+        404,
+      )
+    }
+
+    return c.json({
+      success: true,
+      data: metrics,
+    })
+  })
+
+  // ============================================================================
+  // Tracing Endpoints
+  // ============================================================================
+
+  /**
+   * GET /swarm/trace/:traceId
+   * Get trace data for debugging
+   */
+  app.get('/trace/:traceId', (c) => {
+    const traceId = c.req.param('traceId')
+    const trace = deps.swarmService.getTrace(traceId)
+
+    if (!trace) {
+      return c.json(
+        {
+          success: false,
+          error: 'Trace not found',
+        },
+        404,
+      )
+    }
+
+    return c.json({
+      success: true,
+      data: trace,
+    })
   })
 
   return app

@@ -1,131 +1,239 @@
 # AI Swarm Mode - Technical Design Document
 
-> **Version:** 1.0  
-> **Status:** Implementation In Progress  
+> **Version:** 2.0  
+> **Status:** Core Implementation Complete  
 > **Issue:** #279
 
 ## Overview
 
-AI Swarm Mode enables a master agent to spawn and orchestrate multiple worker agents in separate browser windows, parallelizing complex multi-step tasks.
+AI Swarm Mode enables a master agent to spawn and orchestrate multiple worker agents in separate browser windows, parallelizing complex multi-step tasks. This is a production-grade implementation with enterprise features including circuit breakers, load balancing, resource pooling, distributed tracing, and streaming aggregation.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SwarmCoordinator                          │
-│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐     │
-│  │SwarmRegistry│  │ TaskPlanner  │  │ResultAggregator │     │
-│  └──────┬──────┘  └──────┬───────┘  └────────┬────────┘     │
-│         │                │                   │               │
-│         └────────────────┼───────────────────┘               │
-│                          │                                   │
-│  ┌───────────────────────┴───────────────────────────────┐  │
-│  │              WorkerLifecycleManager                    │  │
-│  │   spawn()  •  monitor()  •  terminate()  •  recover()  │  │
-│  └───────────────────────────────────────────────────────┘  │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     SwarmMessagingBus                        │
-│         (EventEmitter-based pub/sub communication)           │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     ControllerBridge                         │
-│              (Multi-window WebSocket routing)                │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              SwarmService                                     │
+│   ┌────────────────────────────────────────────────────────────────────┐     │
+│   │                       SwarmCoordinator                              │     │
+│   │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────────┐   │     │
+│   │  │SwarmRegistry│  │ TaskPlanner  │  │ StreamingAggregator     │   │     │
+│   │  └──────┬──────┘  └──────┬───────┘  └───────────┬─────────────┘   │     │
+│   │         │                │                      │                  │     │
+│   │         └────────────────┼──────────────────────┘                  │     │
+│   └──────────────────────────┼─────────────────────────────────────────┘     │
+│                              │                                                │
+│   ┌──────────────────────────┴─────────────────────────────────────────┐     │
+│   │                    Advanced Components                              │     │
+│   │  ┌──────────────┐ ┌──────────────┐ ┌───────────────────────────┐  │     │
+│   │  │PriorityQueue │ │ LoadBalancer │ │ CircuitBreaker + Bulkhead │  │     │
+│   │  └──────────────┘ └──────────────┘ └───────────────────────────┘  │     │
+│   │  ┌──────────────────────────────────────────────────────────────┐ │     │
+│   │  │                      WorkerPool                               │ │     │
+│   │  │   Pre-warmed workers • Auto-scaling • Resource isolation      │ │     │
+│   │  └──────────────────────────────────────────────────────────────┘ │     │
+│   └────────────────────────────────────────────────────────────────────┘     │
+│                                                                              │
+│   ┌────────────────────────────────────────────────────────────────────┐     │
+│   │                      Observability                                  │     │
+│   │  ┌─────────────┐  ┌─────────────────┐  ┌────────────────────────┐ │     │
+│   │  │ SwarmTracer │  │ MetricsCollector│  │ HealthChecker          │ │     │
+│   │  └─────────────┘  └─────────────────┘  └────────────────────────┘ │     │
+│   └────────────────────────────────────────────────────────────────────┘     │
+└────────────────────────────────┬─────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         Worker Layer                                          │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │                    SwarmWorkerAgent                                   │    │
+│  │   LLM Planning • Browser Automation • Progress Reporting • Recovery  │    │
+│  └──────────────────────────────────────────────────────────────────────┘    │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │                    SwarmMessagingBus                                  │    │
+│  │               EventEmitter pub/sub communication                      │    │
+│  └──────────────────────────────────────────────────────────────────────┘    │
+└────────────────────────────────┬─────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         ControllerBridge                                      │
+│                   Multi-window WebSocket routing                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Components
+## Core Components
+
+### SwarmService (Main Entry Point)
+Unified service that integrates all components. Single point of configuration.
+
+### SwarmCoordinator
+Orchestrates swarm lifecycle: planning → spawning → executing → aggregating.
 
 ### SwarmRegistry
-Tracks active swarms and their workers with state management.
+Tracks active swarms and workers with state management.
 
 ### TaskPlanner
 LLM-powered decomposition of complex tasks into parallel subtasks.
 
-### WorkerLifecycleManager
-Manages worker window spawning, health monitoring, and termination.
+### SwarmWorkerAgent
+Autonomous agent that runs in worker windows, executes tasks with LLM-guided planning.
 
-### SwarmMessagingBus
-Event-based pub/sub for master-worker communication.
+## Advanced Features
 
-### ResultAggregator
-Merges worker results with support for partial failures.
+### PriorityTaskQueue
+- Priority-based scheduling (critical, high, normal, low, background)
+- Dependency graph resolution
+- Deadline awareness with urgency boosting
+- Fair scheduling with aging
+
+### LoadBalancer
+Strategies: `round-robin`, `least-connections`, `weighted`, `resource-aware`, `latency-based`
+- Worker capacity tracking
+- Sticky sessions support
+- Health-aware routing
+
+### CircuitBreaker + Bulkhead
+- Failure threshold monitoring
+- Automatic recovery with half-open state
+- Concurrent execution limiting
+- Fallback support
+
+### WorkerPool
+- Pre-warmed workers for instant task assignment
+- Auto-scaling based on utilization
+- Idle worker termination
+- Resource pooling
+
+### StreamingAggregator
+- Real-time result streaming via SSE
+- Multiple aggregation modes: merge, concat, vote, custom
+- Conflict detection and resolution
+- Progressive result building
+
+### Observability
+- **SwarmTracer**: OpenTelemetry-compatible distributed tracing
+- **MetricsCollector**: Real-time metrics with history
+- **HealthChecker**: Comprehensive health endpoints
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | /swarm | Create and execute swarm |
-| POST | /swarm/create | Create swarm without executing |
-| POST | /swarm/:id/execute | Execute existing swarm |
+| POST | /swarm/stream | Execute with SSE streaming |
 | GET | /swarm/:id | Get swarm status |
 | GET | /swarm/:id/stream | SSE for real-time updates |
 | DELETE | /swarm/:id | Terminate swarm |
-
-## Message Protocol
-
-```typescript
-type SwarmMessage = {
-  id: string
-  timestamp: number
-  swarmId: string
-  senderId: string  // 'master' or 'worker-{id}'
-  targetId: string  // 'master', 'worker-{id}', or 'broadcast'
-  type: 'task_assign' | 'task_progress' | 'task_complete' | 'task_failed' | 'heartbeat' | 'terminate'
-  payload: unknown
-}
-```
-
-## Configuration
-
-```typescript
-const SWARM_LIMITS = {
-  MAX_WORKERS: 10,
-  DEFAULT_WORKERS: 5,
-  MAX_RETRIES_PER_WORKER: 3,
-}
-
-const SWARM_TIMEOUTS = {
-  WORKER_SPAWN_MS: 10_000,
-  HEARTBEAT_INTERVAL_MS: 5_000,
-  TASK_DEFAULT_MS: 300_000,  // 5 min
-  SWARM_DEFAULT_MS: 600_000, // 10 min
-}
-```
+| GET | /swarm/health | Service health check |
+| GET | /swarm/metrics | Service metrics |
+| GET | /swarm/metrics/:id | Swarm-specific metrics |
+| GET | /swarm/trace/:id | Trace data |
 
 ## Usage Example
 
 ```typescript
-const coordinator = new SwarmCoordinator(deps, config)
+import { SwarmService } from './swarm'
 
-const result = await coordinator.createAndExecute({
-  task: 'Research and compare the top 5 CRM solutions',
-  maxWorkers: 5,
+// Initialize service
+const swarmService = new SwarmService(bridge, llmProvider, {
+  enablePooling: true,
+  enableCircuitBreaker: true,
+  enableTracing: true,
+  loadBalancingStrategy: 'resource-aware',
 })
 
-// result = {
-//   swarmId: '...',
-//   partial: false,
-//   result: '# CRM Comparison Report...',
-//   metrics: { totalDurationMs: 180000, ... }
-// }
+await swarmService.initialize()
+
+// Execute with priority
+const result = await swarmService.execute(
+  {
+    task: 'Research and compare the top 5 CRM solutions',
+    maxWorkers: 5,
+  },
+  {
+    priority: 'high',
+    outputFormat: 'markdown',
+  }
+)
+
+// Or stream results
+for await (const chunk of swarmService.executeStreaming(request)) {
+  console.log(chunk.type, chunk.data)
+}
+
+// Get metrics
+const metrics = swarmService.getMetrics()
+
+// Health check
+const health = await swarmService.getHealth()
 ```
 
 ## Implementation Status
 
-- [x] Core types and constants
+### ✅ Core
+- [x] Types and constants
 - [x] SwarmRegistry
 - [x] SwarmMessagingBus
 - [x] WorkerLifecycleManager
 - [x] TaskPlanner
 - [x] ResultAggregator
 - [x] SwarmCoordinator
-- [x] API routes
-- [ ] Integration with main server
-- [ ] Worker agent implementation
-- [ ] UI components
+
+### ✅ Advanced
+- [x] PriorityTaskQueue with dependency resolution
+- [x] LoadBalancer with 5 strategies
+- [x] CircuitBreaker + Bulkhead patterns
+- [x] WorkerPool with auto-scaling
+- [x] StreamingAggregator with conflict resolution
+
+### ✅ Observability
+- [x] SwarmTracer (OpenTelemetry-compatible)
+- [x] MetricsCollector
+- [x] HealthChecker
+
+### ✅ Worker
+- [x] SwarmWorkerAgent implementation
+- [x] LLM-guided execution planning
+- [x] Browser automation integration
+
+### ✅ Integration
+- [x] SwarmService unified entry point
+- [x] Enhanced API routes with streaming
+- [x] Health/metrics/tracing endpoints
+
+### 🔄 Pending
+- [ ] Server router integration
+- [ ] UI components for swarm visualization
 - [ ] Chromium-side SwarmWindowManager
+
+## Files Structure
+
+```
+apps/server/src/swarm/
+├── index.ts                         # Public exports
+├── types.ts                         # Core types with Zod schemas
+├── constants.ts                     # Limits, timeouts, defaults
+├── coordinator/
+│   ├── swarm-coordinator.ts         # Main orchestrator
+│   ├── swarm-registry.ts            # Swarm tracking
+│   └── task-planner.ts              # LLM task decomposition
+├── worker/
+│   ├── worker-lifecycle.ts          # Worker management
+│   └── swarm-worker-agent.ts        # Autonomous worker agent
+├── messaging/
+│   └── swarm-bus.ts                 # Pub/sub messaging
+├── aggregation/
+│   ├── result-aggregator.ts         # Basic aggregation
+│   └── streaming-aggregator.ts      # Real-time streaming
+├── scheduler/
+│   ├── priority-queue.ts            # Priority scheduling
+│   └── load-balancer.ts             # Worker load distribution
+├── resilience/
+│   └── circuit-breaker.ts           # Fault tolerance
+├── pool/
+│   └── worker-pool.ts               # Resource pooling
+├── observability/
+│   └── tracer.ts                    # Tracing + metrics + health
+└── service/
+    └── swarm-service.ts             # Unified service
+```
