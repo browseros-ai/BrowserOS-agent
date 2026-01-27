@@ -132,7 +132,7 @@ export const updateBookmark = defineTool<z.ZodRawShape, Context, Response>({
   schema: {
     bookmarkId: z.string().describe('Bookmark ID to update'),
     title: z.string().optional().describe('New title for the bookmark'),
-    url: z.string().optional().describe('New URL for the bookmark'),
+    url: z.string().url().optional().describe('New URL for the bookmark'),
     windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
