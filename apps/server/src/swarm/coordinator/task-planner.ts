@@ -15,18 +15,18 @@ import { logger } from '../../lib/logger'
 import { SWARM_LIMITS } from '../constants'
 import type { WorkerTask } from '../types'
 
-// Schema for LLM decomposition output
+// Schema for LLM decomposition output - intentionally lenient to handle LLM quirks
 const DecomposedTaskSchema = z.object({
   subtasks: z.array(
     z.object({
       instruction: z.string(),
-      startUrl: z.string().url().optional(),
-      estimatedDurationMinutes: z.number().optional(),
-      dependencies: z.array(z.string()).optional(),
+      startUrl: z.string().url().optional().nullable(), // Allow null from LLM
+      estimatedDurationMinutes: z.number().optional().nullable(),
+      dependencies: z.array(z.string()).optional().nullable(),
     }),
   ),
   reasoning: z.string(),
-  suggestedWorkerCount: z.number().int().min(1).max(10),
+  suggestedWorkerCount: z.number().int().min(0).max(10), // Allow 0 for non-parallelizable tasks
 })
 
 type DecomposedTask = z.infer<typeof DecomposedTaskSchema>
@@ -97,15 +97,15 @@ export class TaskPlanner {
       const response = await this.llmProvider.generate(prompt)
       const decomposed = this.parseResponse(response)
 
-      // Convert to WorkerTasks
+      // Convert to WorkerTasks (convert null to undefined for type safety)
       const workerTasks = decomposed.subtasks.map((subtask, index) => ({
         id: `task-${index + 1}-${randomUUID().slice(0, 8)}`,
         instruction: subtask.instruction,
-        startUrl: subtask.startUrl,
+        startUrl: subtask.startUrl ?? undefined,
         timeoutMs: subtask.estimatedDurationMinutes
           ? subtask.estimatedDurationMinutes * 60 * 1000
           : undefined,
-        dependencies: subtask.dependencies,
+        dependencies: subtask.dependencies ?? undefined,
       }))
 
       // Limit to maxWorkers
@@ -143,7 +143,11 @@ Return ONLY a number between 1 and ${SWARM_LIMITS.MAX_WORKERS}.`
       const response = await this.llmProvider.generate(prompt)
       const count = parseInt(response.trim(), 10)
 
-      if (isNaN(count) || count < 1 || count > SWARM_LIMITS.MAX_WORKERS) {
+      if (
+        Number.isNaN(count) ||
+        count < 1 ||
+        count > SWARM_LIMITS.MAX_WORKERS
+      ) {
         return SWARM_LIMITS.DEFAULT_WORKERS
       }
 
@@ -169,18 +173,46 @@ Return ONLY a number between 1 and ${SWARM_LIMITS.MAX_WORKERS}.`
   private parseResponse(response: string): DecomposedTask {
     // Clean up response (remove markdown code blocks if present)
     let cleaned = response.trim()
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.slice(7)
-    }
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.slice(3)
-    }
-    if (cleaned.endsWith('```')) {
-      cleaned = cleaned.slice(0, -3)
+
+    // Handle various markdown code block formats
+    const jsonBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonBlockMatch) {
+      cleaned = jsonBlockMatch[1].trim()
+    } else {
+      // Fallback: remove leading/trailing code block markers
+      if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.slice(7)
+      }
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.slice(3)
+      }
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.slice(0, -3)
+      }
     }
 
     try {
       const parsed = JSON.parse(cleaned.trim())
+
+      // Normalize the parsed data before validation
+      if (parsed.subtasks) {
+        parsed.subtasks = parsed.subtasks.map(
+          (task: Record<string, unknown>) => ({
+            ...task,
+            // Convert null to undefined for optional fields
+            startUrl: task.startUrl || undefined,
+            estimatedDurationMinutes:
+              task.estimatedDurationMinutes ?? undefined,
+            dependencies: task.dependencies ?? undefined,
+          }),
+        )
+      }
+
+      // Ensure suggestedWorkerCount is at least 1
+      if (parsed.suggestedWorkerCount < 1) {
+        parsed.suggestedWorkerCount = 1
+      }
+
       return DecomposedTaskSchema.parse(parsed)
     } catch (error) {
       logger.error('Failed to parse decomposition response', {
@@ -194,7 +226,9 @@ Return ONLY a number between 1 and ${SWARM_LIMITS.MAX_WORKERS}.`
   /**
    * Creates a simple decomposition without LLM (fallback).
    */
-  createManualTasks(tasks: Array<{ instruction: string; startUrl?: string }>): WorkerTask[] {
+  createManualTasks(
+    tasks: Array<{ instruction: string; startUrl?: string }>,
+  ): WorkerTask[] {
     return tasks.map((t, index) => ({
       id: `task-${index + 1}-${randomUUID().slice(0, 8)}`,
       instruction: t.instruction,

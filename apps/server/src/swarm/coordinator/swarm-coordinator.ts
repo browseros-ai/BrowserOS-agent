@@ -12,12 +12,9 @@
 import { EventEmitter } from 'node:events'
 import type { ControllerBridge } from '../../browser/extension/bridge'
 import { logger } from '../../lib/logger'
-import { DEFAULT_SWARM_CONFIG, SWARM_TIMEOUTS } from '../constants'
-import type { SwarmRegistry } from './swarm-registry'
-import type { TaskPlanner, LLMProvider } from './task-planner'
-import type { WorkerLifecycleManager } from '../worker/worker-lifecycle'
-import type { SwarmMessagingBus } from '../messaging/swarm-bus'
 import type { ResultAggregator } from '../aggregation/result-aggregator'
+import { DEFAULT_SWARM_CONFIG } from '../constants'
+import type { SwarmMessagingBus } from '../messaging/swarm-bus'
 import type {
   Swarm,
   SwarmConfig,
@@ -26,20 +23,35 @@ import type {
   SwarmStatus,
   WorkerTask,
 } from '../types'
+import type { WorkerAgentManager } from '../worker/worker-agent-manager'
+import type { WorkerLifecycleManager } from '../worker/worker-lifecycle'
+import type { SwarmRegistry } from './swarm-registry'
+import type { TaskPlanner } from './task-planner'
 
 export interface SwarmCoordinatorDeps {
   bridge: ControllerBridge
   registry: SwarmRegistry
   taskPlanner: TaskPlanner
   lifecycle: WorkerLifecycleManager
+  agentManager?: WorkerAgentManager
   messageBus: SwarmMessagingBus
   aggregator: ResultAggregator
 }
 
 export type SwarmEvent =
   | { type: 'swarm_started'; swarmId: string; workerCount: number }
-  | { type: 'worker_spawned'; swarmId: string; workerId: string; taskId: string }
-  | { type: 'worker_progress'; swarmId: string; workerId: string; progress: number }
+  | {
+      type: 'worker_spawned'
+      swarmId: string
+      workerId: string
+      taskId: string
+    }
+  | {
+      type: 'worker_progress'
+      swarmId: string
+      workerId: string
+      progress: number
+    }
   | { type: 'worker_completed'; swarmId: string; workerId: string }
   | { type: 'worker_failed'; swarmId: string; workerId: string; error: string }
   | { type: 'aggregation_started'; swarmId: string }
@@ -100,6 +112,19 @@ export class SwarmCoordinator extends EventEmitter {
         swarmId,
         workerCount: tasks.length,
       } satisfies SwarmEvent)
+
+      // Phase 2.5: Start worker agents (they will execute tasks)
+      if (this.deps.agentManager) {
+        logger.info('Starting worker agents', {
+          swarmId,
+          workerCount: tasks.length,
+        })
+        await this.deps.agentManager.startAllWorkerAgents(swarmId)
+      } else {
+        logger.warn('No agent manager configured, workers will not execute', {
+          swarmId,
+        })
+      }
 
       // Phase 3: Execute and monitor
       this.deps.registry.updateState(swarmId, 'executing')

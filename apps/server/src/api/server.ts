@@ -18,6 +18,7 @@ import { HttpAgentError } from '../agent/errors'
 import type { ControllerBridge } from '../browser/extension/bridge'
 import { logger } from '../lib/logger'
 import { bindPortWithRetry } from '../lib/port-binding'
+import { createSwarmLLMProvider } from '../swarm/service/swarm-llm-provider'
 import { SwarmService } from '../swarm/service/swarm-service'
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
@@ -66,9 +67,13 @@ export async function createHttpServer(config: HttpServerConfig) {
         'SwarmService: Extension bridge not connected, swarm features may be limited',
       )
     }
+
+    // Create LLM provider for task decomposition
+    const swarmLLMProvider = createSwarmLLMProvider(browserosId)
+
     swarmService = new SwarmService(
       bridge as ControllerBridge,
-      null, // LLM provider will be resolved per-request
+      swarmLLMProvider,
       {
         enablePooling: swarmConfig.enablePooling ?? true,
         enableCircuitBreaker: swarmConfig.enableCircuitBreaker ?? true,

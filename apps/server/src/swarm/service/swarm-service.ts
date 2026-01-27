@@ -12,32 +12,39 @@
 import { EventEmitter } from 'node:events'
 import type { ControllerBridge } from '../../browser/extension/bridge'
 import { logger } from '../../lib/logger'
-
+import { ResultAggregator } from '../aggregation/result-aggregator'
+import { StreamingAggregator } from '../aggregation/streaming-aggregator'
+import { SWARM_LIMITS } from '../constants'
+import {
+  SwarmCoordinator,
+  type SwarmEvent,
+} from '../coordinator/swarm-coordinator'
 // Core
 import { SwarmRegistry } from '../coordinator/swarm-registry'
-import { SwarmCoordinator, type SwarmEvent } from '../coordinator/swarm-coordinator'
-import { TaskPlanner, type LLMProvider } from '../coordinator/task-planner'
-import { WorkerLifecycleManager } from '../worker/worker-lifecycle'
+import { type LLMProvider, TaskPlanner } from '../coordinator/task-planner'
 import { SwarmMessagingBus } from '../messaging/swarm-bus'
-import { ResultAggregator } from '../aggregation/result-aggregator'
-
+import {
+  SwarmHealthChecker,
+  SwarmMetricsCollector,
+  SwarmTracer,
+} from '../observability/tracer'
+import { WorkerPool } from '../pool/worker-pool'
+import { Bulkhead, CircuitBreaker } from '../resilience/circuit-breaker'
+import {
+  LoadBalancer,
+  type LoadBalancingStrategy,
+} from '../scheduler/load-balancer'
 // Advanced features
 import { PriorityTaskQueue } from '../scheduler/priority-queue'
-import { LoadBalancer, type LoadBalancingStrategy } from '../scheduler/load-balancer'
-import { CircuitBreaker, Bulkhead } from '../resilience/circuit-breaker'
-import { WorkerPool } from '../pool/worker-pool'
-import { StreamingAggregator, type WorkerResult } from '../aggregation/streaming-aggregator'
-import { SwarmTracer, SwarmMetricsCollector, SwarmHealthChecker } from '../observability/tracer'
-
 // Types
 import type {
   SwarmConfig,
   SwarmRequest,
   SwarmResult,
   SwarmStatus,
-  WorkerTask,
 } from '../types'
-import { DEFAULT_SWARM_CONFIG, SWARM_LIMITS } from '../constants'
+import { WorkerAgentManager } from '../worker/worker-agent-manager'
+import { WorkerLifecycleManager } from '../worker/worker-lifecycle'
 
 export interface SwarmServiceConfig extends Partial<SwarmConfig> {
   /** Enable worker pooling */
@@ -78,6 +85,7 @@ export class SwarmService extends EventEmitter {
   private coordinator: SwarmCoordinator
   private taskPlanner: TaskPlanner
   private lifecycle: WorkerLifecycleManager
+  private agentManager: WorkerAgentManager
   private messageBus: SwarmMessagingBus
   private aggregator: ResultAggregator
 
@@ -96,8 +104,8 @@ export class SwarmService extends EventEmitter {
   private initialized = false
 
   constructor(
-    private bridge: ControllerBridge,
-    private llmProvider: LLMProvider,
+    bridge: ControllerBridge,
+    llmProvider: LLMProvider,
     config: Partial<SwarmServiceConfig> = {},
   ) {
     super()
@@ -114,6 +122,13 @@ export class SwarmService extends EventEmitter {
       this.messageBus,
     )
 
+    this.agentManager = new WorkerAgentManager({
+      bridge,
+      registry: this.registry,
+      messageBus: this.messageBus,
+      llmProvider,
+    })
+
     this.aggregator = new ResultAggregator(this.registry)
 
     this.coordinator = new SwarmCoordinator(
@@ -122,6 +137,7 @@ export class SwarmService extends EventEmitter {
         registry: this.registry,
         taskPlanner: this.taskPlanner,
         lifecycle: this.lifecycle,
+        agentManager: this.agentManager,
         messageBus: this.messageBus,
         aggregator: this.aggregator,
       },
@@ -240,6 +256,15 @@ export class SwarmService extends EventEmitter {
       priority?: 'critical' | 'high' | 'normal' | 'low' | 'background'
       outputFormat?: 'json' | 'markdown' | 'html'
       stream?: boolean
+      onStatusChange?: (status: string) => Promise<void> | void
+      onWorkerUpdate?: (
+        workerId: string,
+        update: Record<string, unknown>,
+      ) => Promise<void> | void
+      onProgress?: (
+        progress: number,
+        workerProgress?: Record<string, number>,
+      ) => Promise<void> | void
     } = {},
   ): Promise<SwarmResult> {
     const span = this.tracer.startTrace('swarm.execute', {
@@ -250,6 +275,57 @@ export class SwarmService extends EventEmitter {
     try {
       // Apply bulkhead
       await this.bulkhead.acquire()
+
+      // Subscribe to coordinator events if callbacks provided
+      const eventListeners: Array<() => void> = []
+
+      if (
+        options.onStatusChange ||
+        options.onWorkerUpdate ||
+        options.onProgress
+      ) {
+        const handleEvent = async (event: SwarmEvent) => {
+          try {
+            if (event.type === 'swarm_started' && options.onStatusChange) {
+              await options.onStatusChange('spawning')
+            } else if (
+              event.type === 'worker_spawned' &&
+              options.onWorkerUpdate
+            ) {
+              await options.onWorkerUpdate(event.workerId, {
+                status: 'spawning',
+              })
+            } else if (
+              event.type === 'worker_completed' &&
+              options.onWorkerUpdate
+            ) {
+              await options.onWorkerUpdate(event.workerId, {
+                status: 'completed',
+              })
+            } else if (
+              event.type === 'worker_failed' &&
+              options.onWorkerUpdate
+            ) {
+              await options.onWorkerUpdate(event.workerId, {
+                status: 'failed',
+                error: event.error,
+              })
+            } else if (event.type === 'worker_progress' && options.onProgress) {
+              await options.onProgress(event.progress)
+            } else if (
+              event.type === 'aggregation_started' &&
+              options.onStatusChange
+            ) {
+              await options.onStatusChange('aggregating')
+            }
+          } catch (e) {
+            logger.warn('Error in swarm event callback', { error: e })
+          }
+        }
+
+        this.coordinator.on('event', handleEvent)
+        eventListeners.push(() => this.coordinator.off('event', handleEvent))
+      }
 
       // Apply circuit breaker
       const executeWithBreaker = async () => {
@@ -264,6 +340,11 @@ export class SwarmService extends EventEmitter {
         result = await this.circuitBreaker.execute(executeWithBreaker)
       } else {
         result = await executeWithBreaker()
+      }
+
+      // Clean up event listeners
+      for (const cleanup of eventListeners) {
+        cleanup()
       }
 
       this.tracer.endSpan(span, 'ok')
@@ -377,7 +458,8 @@ export class SwarmService extends EventEmitter {
             memoryUsageMb: 0,
             cpuUtilization: 0,
             throughputTasksPerMin: 0,
-            errorRate: status.workers.failed / Math.max(status.workers.total, 1),
+            errorRate:
+              status.workers.failed / Math.max(status.workers.total, 1),
           })
         }
       }

@@ -5,15 +5,16 @@
  *
  * SwarmTrigger - Toggle button for swarm mode (matches ChatModeToggle style)
  */
+
+import { Users } from 'lucide-react'
 import type { FC } from 'react'
-import { cn } from '@/lib/utils'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Zap } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface SwarmTriggerProps {
   enabled: boolean
@@ -29,7 +30,7 @@ interface SwarmTriggerProps {
 export const SwarmTrigger: FC<SwarmTriggerProps> = ({
   enabled,
   onToggle,
-  workerCount = 5,
+  workerCount = 3,
   className,
 }) => {
   return (
@@ -47,14 +48,14 @@ export const SwarmTrigger: FC<SwarmTriggerProps> = ({
               className,
             )}
           >
-            <Zap className={cn('h-3 w-3', enabled && 'animate-pulse')} />
-            <span>{enabled ? `Swarm (${workerCount})` : 'Swarm'}</span>
+            <Users className="h-3 w-3" />
+            <span>{enabled ? `Swarm ×${workerCount}` : 'Swarm'}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-[220px]">
           {enabled
-            ? `AI will spawn ${workerCount} parallel workers`
-            : 'Enable Swarm Mode to parallelize complex tasks'}
+            ? `Spawns ${workerCount} parallel AI agents`
+            : 'Enable parallel AI agents for complex tasks'}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

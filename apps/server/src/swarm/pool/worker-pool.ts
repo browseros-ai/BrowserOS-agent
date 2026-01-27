@@ -207,7 +207,7 @@ export class WorkerPool extends EventEmitter {
 
     logger.debug('Creating pool worker', { workerId })
 
-    const result = await this.bridge.sendRequest('create_window', {
+    const result = await this.bridge.sendRequest('createWindow', {
       url: this.config.warmupUrl,
       focused: false,
       width: 1280,
@@ -297,7 +297,7 @@ export class WorkerPool extends EventEmitter {
     worker.state = 'draining'
 
     try {
-      await this.bridge.sendRequest('close_window', {
+      await this.bridge.sendRequest('closeWindow', {
         windowId: worker.windowId,
       })
     } catch (error) {

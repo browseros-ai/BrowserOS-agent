@@ -5,8 +5,14 @@
  *
  * useSwarm - React hook for managing swarm state and API communication
  */
-import { useState, useCallback, useEffect, useRef } from 'react'
-import type { SwarmState, SwarmStatus, SwarmWorker, WorkerStatus, SwarmEvent } from '@/components/swarm/types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type {
+  SwarmEvent,
+  SwarmState,
+  SwarmStatus,
+  SwarmWorker,
+  WorkerStatus,
+} from '@/components/swarm/types'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 interface SwarmConfig {
@@ -21,7 +27,10 @@ interface UseSwarmReturn {
   error: string | null
 
   // Actions
-  startSwarm: (task: string, options?: { maxWorkers?: number; priority?: string }) => Promise<void>
+  startSwarm: (
+    task: string,
+    options?: { maxWorkers?: number; priority?: string },
+  ) => Promise<void>
   stopSwarm: () => Promise<void>
   arrangeWindows: (layout: 'grid' | 'cascade' | 'tile') => Promise<void>
   focusWorker: (workerId: string) => Promise<void>
@@ -36,18 +45,18 @@ const defaultConfig: SwarmConfig = {
 
 /**
  * React hook for managing AI Swarm Mode
- * 
+ *
  * @example
  * ```tsx
  * const { swarm, startSwarm, stopSwarm } = useSwarm()
- * 
+ *
  * const handleSubmit = async (task: string) => {
  *   await startSwarm(task, { maxWorkers: 5 })
  * }
  * ```
  */
 export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
-  const { maxWorkers, timeout } = { ...defaultConfig, ...config }
+  const { maxWorkers } = { ...defaultConfig, ...config }
 
   const [swarm, setSwarm] = useState<SwarmState | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -75,9 +84,11 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         }
 
         case 'worker_update': {
-          const workerUpdate = event.data as Partial<SwarmWorker> & { id: string }
+          const workerUpdate = event.data as Partial<SwarmWorker> & {
+            id: string
+          }
           const workers = prev.workers.map((w) =>
-            w.id === workerUpdate.id ? { ...w, ...workerUpdate } : w
+            w.id === workerUpdate.id ? { ...w, ...workerUpdate } : w,
           )
           return { ...prev, workers }
         }
@@ -98,10 +109,15 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         }
 
         case 'result': {
-          const { result, workerId } = event.data as { result: string; workerId?: string }
+          const { result, workerId } = event.data as {
+            result: string
+            workerId?: string
+          }
           if (workerId) {
             const workers = prev.workers.map((w) =>
-              w.id === workerId ? { ...w, result, status: 'completed' as WorkerStatus } : w
+              w.id === workerId
+                ? { ...w, result, status: 'completed' as WorkerStatus }
+                : w,
             )
             return { ...prev, workers }
           }
@@ -109,10 +125,15 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         }
 
         case 'error': {
-          const { error: errorMsg, workerId } = event.data as { error: string; workerId?: string }
+          const { error: errorMsg, workerId } = event.data as {
+            error: string
+            workerId?: string
+          }
           if (workerId) {
             const workers = prev.workers.map((w) =>
-              w.id === workerId ? { ...w, error: errorMsg, status: 'failed' as WorkerStatus } : w
+              w.id === workerId
+                ? { ...w, error: errorMsg, status: 'failed' as WorkerStatus }
+                : w,
             )
             return { ...prev, workers }
           }
@@ -141,7 +162,10 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
   }, [])
 
   const startSwarm = useCallback(
-    async (task: string, options?: { maxWorkers?: number; priority?: string }) => {
+    async (
+      task: string,
+      options?: { maxWorkers?: number; priority?: string },
+    ) => {
       setIsLoading(true)
       setError(null)
 
@@ -158,11 +182,14 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         const swarmId = crypto.randomUUID()
         const workerCount = options?.maxWorkers ?? maxWorkers ?? 5
 
-        const initialWorkers: SwarmWorker[] = Array.from({ length: workerCount }, (_, i) => ({
-          id: `worker-${i + 1}`,
-          status: 'pending',
-          progress: 0,
-        }))
+        const initialWorkers: SwarmWorker[] = Array.from(
+          { length: workerCount },
+          (_, i) => ({
+            id: `worker-${i + 1}`,
+            status: 'pending',
+            progress: 0,
+          }),
+        )
 
         setSwarm({
           id: swarmId,
@@ -180,15 +207,17 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
           ...(options?.priority && { priority: options.priority }),
         })
 
-        const eventSource = new EventSource(`${serverUrl}/swarm/stream?${params}`)
+        const eventSource = new EventSource(
+          `${serverUrl}/swarm/stream?${params}`,
+        )
         eventSourceRef.current = eventSource
 
         eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data) as SwarmEvent
             handleSwarmEvent(data)
-          } catch (e) {
-            console.error('Failed to parse swarm event:', e)
+          } catch {
+            // Ignore parse errors
           }
         }
 
@@ -202,54 +231,25 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
           try {
             const data = JSON.parse((event as MessageEvent).data) as SwarmEvent
             handleSwarmEvent(data)
-          } catch (e) {
+          } catch {
             // Ignore
           }
           setIsLoading(false)
           eventSource.close()
         })
 
-        // Also make the initial POST request
-        const response = await fetch(`${serverUrl}/swarm`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            task,
-            maxWorkers: workerCount,
-            priority: options?.priority,
-          }),
-          signal: abortControllerRef.current.signal,
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          throw new Error(errorData.error || `HTTP ${response.status}`)
-        }
-
-        const result = await response.json()
-        
-        // Update with final result if SSE hasn't updated yet
-        setSwarm((prev) => {
-          if (!prev || prev.status === 'completed') return prev
-          return {
-            ...prev,
-            ...(result.result && { result: result.result }),
-            ...(result.metrics && { metrics: result.metrics }),
-            status: result.status || prev.status,
-          }
-        })
-
-        setIsLoading(false)
+        // SSE stream handles the swarm execution - no separate POST needed
       } catch (e) {
-        const errorMsg = e instanceof Error ? e.message : 'Failed to start swarm'
+        const errorMsg =
+          e instanceof Error ? e.message : 'Failed to start swarm'
         setError(errorMsg)
         setSwarm((prev) =>
-          prev ? { ...prev, status: 'failed', error: errorMsg } : null
+          prev ? { ...prev, status: 'failed', error: errorMsg } : null,
         )
         setIsLoading(false)
       }
     },
-    [maxWorkers, handleSwarmEvent]
+    [maxWorkers, handleSwarmEvent],
   )
 
   const stopSwarm = useCallback(async () => {
@@ -265,10 +265,12 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
       })
 
       setSwarm((prev) =>
-        prev ? { ...prev, status: 'terminated', completedAt: Date.now() } : null
+        prev
+          ? { ...prev, status: 'terminated', completedAt: Date.now() }
+          : null,
       )
-    } catch (e) {
-      console.error('Failed to stop swarm:', e)
+    } catch {
+      // Failed to stop swarm - ignore
     }
   }, [swarm])
 
@@ -283,11 +285,11 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ layout }),
         })
-      } catch (e) {
-        console.error('Failed to arrange windows:', e)
+      } catch {
+        // Failed to arrange windows - ignore
       }
     },
-    [swarm]
+    [swarm],
   )
 
   const focusWorker = useCallback(
@@ -299,11 +301,11 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         await fetch(`${serverUrl}/swarm/${swarm.id}/worker/${workerId}/focus`, {
           method: 'POST',
         })
-      } catch (e) {
-        console.error('Failed to focus worker:', e)
+      } catch {
+        // Failed to focus worker - ignore
       }
     },
-    [swarm]
+    [swarm],
   )
 
   const terminateWorker = useCallback(
@@ -319,15 +321,17 @@ export function useSwarm(config: Partial<SwarmConfig> = {}): UseSwarmReturn {
         setSwarm((prev) => {
           if (!prev) return prev
           const workers = prev.workers.map((w) =>
-            w.id === workerId ? { ...w, status: 'terminated' as WorkerStatus } : w
+            w.id === workerId
+              ? { ...w, status: 'terminated' as WorkerStatus }
+              : w,
           )
           return { ...prev, workers }
         })
-      } catch (e) {
-        console.error('Failed to terminate worker:', e)
+      } catch {
+        // Failed to terminate worker - ignore
       }
     },
-    [swarm]
+    [swarm],
   )
 
   const reset = useCallback(() => {

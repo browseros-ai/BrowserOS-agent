@@ -11,6 +11,14 @@ import type { ControllerBridge } from './bridge'
 export class ControllerContext implements Context {
   constructor(private controllerBridge: ControllerBridge) {}
 
+  /**
+   * Get the underlying controller bridge for advanced use cases.
+   * Used by SwarmService to manage multiple browser windows.
+   */
+  get bridge(): ControllerBridge {
+    return this.controllerBridge
+  }
+
   async executeAction(action: string, payload: unknown): Promise<unknown> {
     return this.controllerBridge.sendRequest(
       action,

@@ -12,14 +12,10 @@
 import { randomUUID } from 'node:crypto'
 import type { ControllerBridge } from '../../browser/extension/bridge'
 import { logger } from '../../lib/logger'
-import {
-  DEFAULT_RETRY_POLICY,
-  SWARM_TIMEOUTS,
-  SWARM_LIMITS,
-} from '../constants'
-import type { SwarmMessagingBus } from '../messaging/swarm-bus'
+import { DEFAULT_RETRY_POLICY, SWARM_TIMEOUTS } from '../constants'
 import type { SwarmRegistry } from '../coordinator/swarm-registry'
-import type { Worker, WorkerTask, RetryPolicy } from '../types'
+import type { SwarmMessagingBus } from '../messaging/swarm-bus'
+import type { RetryPolicy, Worker, WorkerTask } from '../types'
 
 interface WorkerHealthState {
   workerId: string
@@ -68,8 +64,8 @@ export class WorkerLifecycleManager {
     this.registry.addWorker(swarmId, worker)
 
     try {
-      // Create window via ControllerBridge
-      const windowResult = await this.bridge.sendRequest('create_window', {
+      // Create window via ControllerBridge (action name is camelCase: createWindow)
+      const windowResult = await this.bridge.sendRequest('createWindow', {
         url: task.startUrl ?? 'about:blank',
         focused: false, // Workers run in background
         width: 1280,
@@ -309,7 +305,7 @@ export class WorkerLifecycleManager {
    */
   private async terminateWorkerWindow(windowId: number): Promise<void> {
     try {
-      await this.bridge.sendRequest('close_window', { windowId })
+      await this.bridge.sendRequest('closeWindow', { windowId })
     } catch (error) {
       logger.warn('Failed to close worker window', {
         windowId,
