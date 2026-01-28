@@ -46,11 +46,15 @@ export function setupLlmProvidersSyncToBackend(): () => void {
   const unsubscribe = providersStorage.watch(async (providers) => {
     if (!providers || providers.length === 0) return
 
-    const session = await sessionStorage.getValue()
-    const userId = session?.user?.id
-    if (!userId) return
+    try {
+      const session = await sessionStorage.getValue()
+      const userId = session?.user?.id
+      if (!userId) return
 
-    await uploadLlmProvidersToGraphql(providers, userId)
+      await uploadLlmProvidersToGraphql(providers, userId)
+    } catch {
+      // Sync failed silently - will retry on next storage change
+    }
   })
   return unsubscribe
 }
