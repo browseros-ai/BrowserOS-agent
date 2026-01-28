@@ -139,15 +139,23 @@ export function useScheduledJobRuns() {
   return { jobRuns, addJobRun, removeJobRun, editJobRun }
 }
 
-export function setupScheduledJobsSyncToBackend(): () => void {
-  const unsubscribe = scheduledJobStorage.watch(async (jobs) => {
-    if (!jobs) return
-    try {
-      const session = await sessionStorage.getValue()
-      const userId = session?.user?.id
-      if (!userId) return
+async function syncScheduledJobs(): Promise<void> {
+  const jobs = await scheduledJobStorage.getValue()
+  if (!jobs) return
 
-      await syncSchedulesToBackend(jobs, userId)
+  const session = await sessionStorage.getValue()
+  const userId = session?.user?.id
+  if (!userId) return
+
+  await syncSchedulesToBackend(jobs, userId)
+}
+
+export function setupScheduledJobsSyncToBackend(): () => void {
+  syncScheduledJobs().catch(() => {})
+
+  const unsubscribe = scheduledJobStorage.watch(async () => {
+    try {
+      await syncScheduledJobs()
     } catch {
       // Sync failed silently - will retry on next storage change
     }

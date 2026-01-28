@@ -37,21 +37,28 @@ export function setupLlmProvidersBackupToBrowserOS(): () => void {
   return unsubscribe
 }
 
+async function syncLlmProviders(): Promise<void> {
+  const providers = await providersStorage.getValue()
+  if (!providers || providers.length === 0) return
+
+  const session = await sessionStorage.getValue()
+  const userId = session?.user?.id
+  if (!userId) return
+
+  await uploadLlmProvidersToGraphql(providers, userId)
+}
+
 /**
  * Setup one-way sync of LLM providers to GraphQL backend
  * Watches for storage changes and uploads non-sensitive provider data
  * @public
  */
 export function setupLlmProvidersSyncToBackend(): () => void {
-  const unsubscribe = providersStorage.watch(async (providers) => {
-    if (!providers || providers.length === 0) return
+  syncLlmProviders().catch(() => {})
 
+  const unsubscribe = providersStorage.watch(async () => {
     try {
-      const session = await sessionStorage.getValue()
-      const userId = session?.user?.id
-      if (!userId) return
-
-      await uploadLlmProvidersToGraphql(providers, userId)
+      await syncLlmProviders()
     } catch {
       // Sync failed silently - will retry on next storage change
     }
