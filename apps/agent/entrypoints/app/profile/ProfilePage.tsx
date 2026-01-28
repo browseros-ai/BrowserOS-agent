@@ -180,7 +180,7 @@ export const ProfilePage: FC = () => {
   if (isLoadingProfile) {
     return (
       <Card className="w-full max-w-md">
-        <CardContent className="flex items-center justify-center py-12">
+        <CardContent className="flex min-h-[420px] items-center justify-center">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
