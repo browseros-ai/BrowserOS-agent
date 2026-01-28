@@ -46,16 +46,11 @@ function remoteToComparable(job: RemoteScheduledJob) {
   }
 }
 
-function remoteToLocal(remote: RemoteScheduledJob): ScheduledJob {
-  const createdAt = remote.createdAt.endsWith('Z')
-    ? remote.createdAt
-    : `${remote.createdAt}Z`
-  const lastRunAt = remote.lastRunAt
-    ? remote.lastRunAt.endsWith('Z')
-      ? remote.lastRunAt
-      : `${remote.lastRunAt}Z`
-    : undefined
+function normalizeTimestamp(ts: string): string {
+  return ts.endsWith('Z') ? ts : `${ts}Z`
+}
 
+function remoteToLocal(remote: RemoteScheduledJob): ScheduledJob {
   return {
     id: remote.rowId,
     name: remote.name,
@@ -64,9 +59,20 @@ function remoteToLocal(remote: RemoteScheduledJob): ScheduledJob {
     scheduleTime: remote.scheduleTime ?? undefined,
     scheduleInterval: remote.scheduleInterval ?? undefined,
     enabled: remote.enabled,
-    createdAt,
-    lastRunAt,
+    createdAt: normalizeTimestamp(remote.createdAt),
+    updatedAt: normalizeTimestamp(remote.updatedAt),
+    lastRunAt: remote.lastRunAt
+      ? normalizeTimestamp(remote.lastRunAt)
+      : undefined,
   }
+}
+
+function getLocalUpdatedAt(job: ScheduledJob): Date {
+  return new Date(job.updatedAt || job.createdAt)
+}
+
+function getRemoteUpdatedAt(remote: RemoteScheduledJob): Date {
+  return new Date(normalizeTimestamp(remote.updatedAt))
 }
 
 export async function syncSchedulesToBackend(
@@ -88,30 +94,47 @@ export async function syncSchedulesToBackend(
     }
   }
 
-  const localJobIds = new Set(localJobs.map((j) => j.id))
+  const localJobsMap = new Map(localJobs.map((j) => [j.id, j]))
   const jobsToAddLocally: ScheduledJob[] = []
+  const jobsToUpdateLocally: ScheduledJob[] = []
 
   for (const [rowId, remote] of remoteJobs) {
-    if (!localJobIds.has(rowId)) {
+    const localJob = localJobsMap.get(rowId)
+    if (!localJob) {
       jobsToAddLocally.push(remoteToLocal(remote))
+    } else {
+      const localTime = getLocalUpdatedAt(localJob)
+      const remoteTime = getRemoteUpdatedAt(remote)
+
+      if (remoteTime > localTime) {
+        jobsToUpdateLocally.push(remoteToLocal(remote))
+      }
     }
   }
 
-  if (jobsToAddLocally.length > 0) {
+  if (jobsToAddLocally.length > 0 || jobsToUpdateLocally.length > 0) {
     const currentJobs = (await scheduledJobStorage.getValue()) ?? []
     const existingIds = new Set(currentJobs.map((j) => j.id))
+
     const newJobs = jobsToAddLocally.filter((j) => !existingIds.has(j.id))
 
-    if (newJobs.length > 0) {
-      await scheduledJobStorage.setValue([...currentJobs, ...newJobs])
+    const mergedJobs = currentJobs.map((j) => {
+      const updated = jobsToUpdateLocally.find((u) => u.id === j.id)
+      return updated ?? j
+    })
 
-      for (const job of newJobs) {
-        if (job.enabled) {
-          try {
+    if (newJobs.length > 0 || jobsToUpdateLocally.length > 0) {
+      await scheduledJobStorage.setValue([...mergedJobs, ...newJobs])
+
+      for (const job of [...newJobs, ...jobsToUpdateLocally]) {
+        try {
+          const alarmName = `scheduled-job-${job.id}`
+          await chrome.alarms.clear(alarmName)
+          if (job.enabled) {
             await createAlarmFromJob(job)
-          } catch {
-            // Alarm creation may fail in non-background context
           }
+        } catch {
+          // Alarm operations may fail in non-background context
         }
       }
     }
@@ -122,6 +145,11 @@ export async function syncSchedulesToBackend(
       const remote = remoteJobs.get(job.id)
 
       if (remote) {
+        const localTime = getLocalUpdatedAt(job)
+        const remoteTime = getRemoteUpdatedAt(remote)
+
+        if (remoteTime >= localTime) continue
+
         if (isEqual(toComparable(job), remoteToComparable(remote))) continue
 
         await execute(UpdateScheduledJobDocument, {
@@ -137,7 +165,7 @@ export async function syncSchedulesToBackend(
               lastRunAt: job.lastRunAt
                 ? new Date(job.lastRunAt).toISOString()
                 : null,
-              updatedAt: new Date().toISOString(),
+              updatedAt: job.updatedAt || new Date().toISOString(),
             },
           },
         })
@@ -154,7 +182,7 @@ export async function syncSchedulesToBackend(
               scheduleInterval: job.scheduleInterval ?? null,
               enabled: job.enabled,
               createdAt: new Date(job.createdAt).toISOString(),
-              updatedAt: new Date().toISOString(),
+              updatedAt: job.updatedAt || new Date().toISOString(),
               lastRunAt: job.lastRunAt
                 ? new Date(job.lastRunAt).toISOString()
                 : null,

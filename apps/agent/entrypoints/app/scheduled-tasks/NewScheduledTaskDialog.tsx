@@ -71,7 +71,7 @@ interface NewScheduledTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialValues?: ScheduledJob | null
-  onSave: (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => void
+  onSave: (data: Omit<ScheduledJob, 'id' | 'createdAt' | 'updatedAt'>) => void
 }
 
 export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({

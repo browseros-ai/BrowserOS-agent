@@ -33,10 +33,14 @@ export function useScheduledJobs() {
     return unwatch
   }, [])
 
-  const addJob = async (job: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
+  const addJob = async (
+    job: Omit<ScheduledJob, 'id' | 'createdAt' | 'updatedAt'>,
+  ) => {
+    const now = new Date().toISOString()
     const newJob: ScheduledJob = {
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       ...job,
     }
     const current = (await scheduledJobStorage.getValue()) ?? []
@@ -64,8 +68,9 @@ export function useScheduledJobs() {
     const job = current.find((j) => j.id === id)
     if (!job) return
 
+    const updatedAt = new Date().toISOString()
     await scheduledJobStorage.setValue(
-      current.map((j) => (j.id === id ? { ...j, enabled } : j)),
+      current.map((j) => (j.id === id ? { ...j, enabled, updatedAt } : j)),
     )
 
     if (enabled) {
@@ -77,7 +82,7 @@ export function useScheduledJobs() {
 
   const editJob = async (
     id: string,
-    updates: Omit<ScheduledJob, 'id' | 'createdAt'>,
+    updates: Omit<ScheduledJob, 'id' | 'createdAt' | 'updatedAt'>,
   ) => {
     const current = (await scheduledJobStorage.getValue()) ?? []
     const existingJob = current.find((j) => j.id === id)
@@ -86,6 +91,7 @@ export function useScheduledJobs() {
     const updatedJob: ScheduledJob = {
       id,
       createdAt: existingJob.createdAt,
+      updatedAt: new Date().toISOString(),
       ...updates,
     }
     await scheduledJobStorage.setValue(

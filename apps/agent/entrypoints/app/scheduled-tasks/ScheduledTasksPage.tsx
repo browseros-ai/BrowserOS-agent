@@ -66,7 +66,9 @@ export const ScheduledTasksPage: FC = () => {
     }
   }
 
-  const handleSave = async (data: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
+  const handleSave = async (
+    data: Omit<ScheduledJob, 'id' | 'createdAt' | 'updatedAt'>,
+  ) => {
     if (editingJob) {
       await editJob(editingJob.id, data)
       track(SCHEDULED_TASK_EDITED_EVENT, {
