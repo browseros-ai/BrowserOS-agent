@@ -9,6 +9,7 @@ import {
 import { fetchMcpTools } from '@/lib/mcp/client'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
 import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
+import { setupScheduledJobsSyncToBackend } from '@/lib/schedules/scheduleStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
@@ -18,6 +19,7 @@ export default defineBackground(() => {
   Capabilities.initialize().catch(() => null)
   setupLlmProvidersBackupToBrowserOS()
   setupLlmProvidersSyncToBackend()
+  setupScheduledJobsSyncToBackend()
 
   scheduledJobRuns()
 
