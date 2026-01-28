@@ -74,9 +74,13 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
             .filter((m): m is NonNullable<typeof m> => m !== null)
             .map((m) => m.message as UIMessage)
 
+          const timestamp = node.lastMessagedAt.endsWith('Z')
+            ? node.lastMessagedAt
+            : `${node.lastMessagedAt}Z`
+
           return {
             id: node.rowId,
-            lastMessagedAt: new Date(node.lastMessagedAt).getTime(),
+            lastMessagedAt: new Date(timestamp).getTime(),
             lastUserMessage: extractLastUserMessage(messages),
           }
         }),
