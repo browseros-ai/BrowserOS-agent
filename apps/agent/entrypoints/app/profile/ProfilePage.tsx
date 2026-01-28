@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
+  ArrowLeft,
   Camera,
   CheckCircle2,
   CircleUser,
@@ -188,9 +189,21 @@ export const ProfilePage: FC = () => {
 
   return (
     <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Update Profile</CardTitle>
-        <CardDescription>Update your profile information</CardDescription>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="shrink-0"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="flex-1 pr-9 text-center">
+            <CardTitle className="text-2xl">Update Profile</CardTitle>
+            <CardDescription>Update your profile information</CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {state === 'success' && (
