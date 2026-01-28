@@ -129,6 +129,7 @@ export const AISettingsPage: FC = () => {
   const confirmDeleteProvider = async () => {
     if (providerToDelete) {
       await deleteProvider(providerToDelete.id)
+      deleteRemoteProviderMutation.mutate({ rowId: providerToDelete.id })
       setProviderToDelete(null)
     }
   }
