@@ -2,7 +2,10 @@ import { Capabilities } from '@/lib/browseros/capabilities'
 import { getHealthCheckUrl, getMcpServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanel, toggleSidePanel } from '@/lib/browseros/toggleSidePanel'
 import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
-import { setupLlmProvidersBackupToBrowserOS } from '@/lib/llm-providers/storage'
+import {
+  setupLlmProvidersBackupToBrowserOS,
+  setupLlmProvidersSyncToBackend,
+} from '@/lib/llm-providers/storage'
 import { fetchMcpTools } from '@/lib/mcp/client'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
 import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
@@ -14,6 +17,7 @@ export default defineBackground(() => {
 
   Capabilities.initialize().catch(() => null)
   setupLlmProvidersBackupToBrowserOS()
+  setupLlmProvidersSyncToBackend()
 
   scheduledJobRuns()
 
