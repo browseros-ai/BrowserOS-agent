@@ -1,4 +1,4 @@
-import { LogIn, LogOut, User } from 'lucide-react'
+import { ChevronDown, LogIn, LogOut, User } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router'
 import ProductLogo from '@/assets/product_logo.svg'
@@ -55,39 +55,41 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
     <img src={ProductLogo} alt="BrowserOS" className="size-8" />
   )
 
-  const headerContent = (
-    <div className="flex h-14 items-center">
-      <div className="flex w-14 shrink-0 items-center justify-center">
-        {headerIcon}
-      </div>
-      <div
-        className={cn(
-          'flex min-w-0 flex-1 items-center justify-between pr-3 transition-opacity duration-200',
-          expanded ? 'opacity-100' : 'opacity-0',
-        )}
-      >
-        <div className="flex min-w-0 flex-col gap-0.5 leading-none">
-          <span className="truncate font-semibold">
-            {isLoggedIn ? user.name : selectedFolder?.name || 'BrowserOS'}
-          </span>
-          <span className="truncate text-muted-foreground text-xs">
-            {isLoggedIn ? user.email : 'Personal'}
-          </span>
-        </div>
-        <ThemeToggle className="h-8 w-8 shrink-0" iconClassName="h-4 w-4" />
-      </div>
-    </div>
-  )
-
   return (
-    <div className="border-b">
+    <div className="flex h-14 items-center justify-between border-b px-2">
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="w-full text-left transition-colors hover:bg-sidebar-accent"
+            className={cn(
+              'flex cursor-pointer items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none',
+              expanded ? 'pr-3' : '',
+            )}
           >
-            {headerContent}
+            {headerIcon}
+            <div
+              className={cn(
+                'flex min-w-0 flex-col gap-0.5 leading-none transition-opacity duration-200',
+                expanded ? 'opacity-100' : 'hidden',
+              )}
+            >
+              <div className="flex items-center gap-1">
+                <span className="truncate font-semibold">
+                  {isLoggedIn ? user.name : selectedFolder?.name || 'BrowserOS'}
+                </span>
+                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+              </div>
+              <span
+                className={cn(
+                  'truncate text-xs',
+                  isLoggedIn
+                    ? 'text-muted-foreground'
+                    : 'font-medium text-primary',
+                )}
+              >
+                {isLoggedIn ? user.email : 'Sign in'}
+              </span>
+            </div>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -129,6 +131,14 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <div
+        className={cn(
+          'shrink-0 transition-opacity duration-200',
+          expanded ? 'opacity-100' : 'hidden',
+        )}
+      >
+        <ThemeToggle className="h-8 w-8" iconClassName="h-4 w-4" />
+      </div>
     </div>
   )
 }
