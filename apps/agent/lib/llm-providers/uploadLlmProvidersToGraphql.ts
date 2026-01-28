@@ -1,12 +1,46 @@
+import { isEqual, omit } from 'es-toolkit'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
 import { execute } from '@/lib/graphql/execute'
 import { sentry } from '@/lib/sentry/sentry'
 import {
   CreateLlmProviderForUploadDocument,
-  LlmProviderExistsDocument,
+  GetLlmProvidersByProfileIdDocument,
   UpdateLlmProviderForUploadDocument,
 } from './graphql/uploadLlmProviderDocument'
 import type { LlmProviderConfig } from './types'
+
+type RemoteProvider = {
+  rowId: string
+  type: string
+  name: string
+  baseUrl: string | null
+  modelId: string
+  supportsImages: boolean
+  contextWindow: number | null
+  temperature: number | null
+  resourceName: string | null
+  region: string | null
+}
+
+const IGNORED_FIELDS = [
+  'id',
+  'createdAt',
+  'updatedAt',
+  'apiKey',
+  'accessKeyId',
+  'secretAccessKey',
+  'sessionToken',
+] as const
+
+function toComparable(provider: LlmProviderConfig) {
+  const data = omit(provider, IGNORED_FIELDS)
+  return {
+    ...data,
+    baseUrl: data.baseUrl ?? null,
+    resourceName: data.resourceName ?? null,
+    region: data.region ?? null,
+  }
+}
 
 export async function uploadLlmProvidersToGraphql(
   providers: LlmProviderConfig[],
@@ -18,52 +52,60 @@ export async function uploadLlmProvidersToGraphql(
   const profileId = profileResult.profileByUserId?.rowId
   if (!profileId) return
 
+  const remoteResult = await execute(GetLlmProvidersByProfileIdDocument, {
+    profileId,
+  })
+  const remoteProviders = new Map<string, RemoteProvider>()
+  for (const node of remoteResult.llmProviders?.nodes ?? []) {
+    if (node) {
+      remoteProviders.set(node.rowId, node as RemoteProvider)
+    }
+  }
+
   for (const provider of providers) {
     if (provider.type === 'browseros') continue
 
     try {
-      const existsResult = await execute(LlmProviderExistsDocument, {
-        rowId: provider.id,
-      })
+      const remote = remoteProviders.get(provider.id)
 
-      const providerData = {
-        rowId: provider.id,
-        profileId,
-        type: provider.type,
-        name: provider.name,
-        baseUrl: provider.baseUrl ?? null,
-        modelId: provider.modelId,
-        supportsImages: provider.supportsImages,
-        contextWindow: provider.contextWindow,
-        temperature: provider.temperature,
-        resourceName: provider.resourceName ?? null,
-        region: provider.region ?? null,
-        createdAt: new Date(provider.createdAt).toISOString(),
-        updatedAt: new Date(provider.updatedAt).toISOString(),
-      }
+      if (remote) {
+        if (isEqual(toComparable(provider), omit(remote, ['rowId']))) continue
 
-      if (existsResult.llmProvider) {
         await execute(UpdateLlmProviderForUploadDocument, {
           input: {
             rowId: provider.id,
             patch: {
-              type: providerData.type,
-              name: providerData.name,
-              baseUrl: providerData.baseUrl,
-              modelId: providerData.modelId,
-              supportsImages: providerData.supportsImages,
-              contextWindow: providerData.contextWindow,
-              temperature: providerData.temperature,
-              resourceName: providerData.resourceName,
-              region: providerData.region,
-              updatedAt: providerData.updatedAt,
+              type: provider.type,
+              name: provider.name,
+              baseUrl: provider.baseUrl ?? null,
+              modelId: provider.modelId,
+              supportsImages: provider.supportsImages,
+              contextWindow: provider.contextWindow,
+              temperature: provider.temperature,
+              resourceName: provider.resourceName ?? null,
+              region: provider.region ?? null,
+              updatedAt: new Date(provider.updatedAt).toISOString(),
             },
           },
         })
       } else {
         await execute(CreateLlmProviderForUploadDocument, {
           input: {
-            llmProvider: providerData,
+            llmProvider: {
+              rowId: provider.id,
+              profileId,
+              type: provider.type,
+              name: provider.name,
+              baseUrl: provider.baseUrl ?? null,
+              modelId: provider.modelId,
+              supportsImages: provider.supportsImages,
+              contextWindow: provider.contextWindow,
+              temperature: provider.temperature,
+              resourceName: provider.resourceName ?? null,
+              region: provider.region ?? null,
+              createdAt: new Date(provider.createdAt).toISOString(),
+              updatedAt: new Date(provider.updatedAt).toISOString(),
+            },
           },
         })
       }

@@ -1,13 +1,5 @@
 import { graphql } from '@/generated/graphql/gql'
 
-export const LlmProviderExistsDocument = graphql(`
-  query LlmProviderExists($rowId: String!) {
-    llmProvider(rowId: $rowId) {
-      rowId
-    }
-  }
-`)
-
 export const CreateLlmProviderForUploadDocument = graphql(`
   mutation CreateLlmProviderForUpload($input: CreateLlmProviderInput!) {
     createLlmProvider(input: $input) {
@@ -42,8 +34,6 @@ export const GetLlmProvidersByProfileIdDocument = graphql(`
         temperature
         resourceName
         region
-        createdAt
-        updatedAt
       }
     }
   }
