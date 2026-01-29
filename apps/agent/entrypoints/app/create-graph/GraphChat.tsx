@@ -162,7 +162,9 @@ export const GraphChat: FC<GraphChatProps> = ({
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={'Describe your workflow...'}
+            placeholder={
+              'Visit Amazon and add sensodyne toothpaste to the cart.'
+            }
             rows={1}
           />
           {status === 'streaming' ? (

@@ -1,5 +1,4 @@
 import type { UIMessage } from 'ai'
-import { compact } from 'es-toolkit/compat'
 import { Bot } from 'lucide-react'
 import { type FC, Fragment, type RefObject } from 'react'
 import {
@@ -65,17 +64,13 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               isLastMessage,
               isStreaming,
             )
-            const toolBatches =
-              segments?.filter((s) => s.type === 'tool-batch') ?? []
+            const toolBatches = segments.filter((s) => s.type === 'tool-batch')
             const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
 
-            const messageText =
-              segments
-                ?.filter((each) => each.type === 'text')
-                ?.map((each) => each.text)
-                ?.join('\n\n') ?? ''
-
-            const lastText = compact(messageText.split('\n\n')).at(-1) ?? ''
+            const messageText = segments
+              ?.filter((each) => each.type === 'text')
+              ?.map((each) => each.text)
+              ?.join('\n\n')
 
             const likeAction = () => onClickLike(message.id)
             const dislikeAction = (comment?: string) =>
@@ -85,11 +80,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               <Fragment key={message.id}>
                 <Message from={message.role}>
                   <MessageContent>
-                    {message.role === 'assistant' ? (
-                      <MessageResponse key={message.id}>
-                        {lastText}
-                      </MessageResponse>
-                    ) : action ? (
+                    {action ? (
                       <UserActionMessage action={action} />
                     ) : (
                       segments.map((segment) => {
