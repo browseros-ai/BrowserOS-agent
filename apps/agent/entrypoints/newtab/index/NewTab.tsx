@@ -25,6 +25,7 @@ import {
 } from '@/lib/chat-actions/types'
 import {
   NEWTAB_AI_TRIGGERED_EVENT,
+  NEWTAB_OPENED_EVENT,
   NEWTAB_SEARCH_EXECUTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
@@ -181,6 +182,7 @@ export const NewTab = () => {
 
   useEffect(() => {
     setMounted(true)
+    track(NEWTAB_OPENED_EVENT)
   }, [])
 
   return (

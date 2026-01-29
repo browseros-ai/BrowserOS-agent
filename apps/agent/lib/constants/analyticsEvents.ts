@@ -72,6 +72,9 @@ export const SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT =
   'newtab.scheduled_task.view_more'
 
 /** @public */
+export const NEWTAB_OPENED_EVENT = 'newtab.opened'
+
+/** @public */
 export const NEWTAB_AI_TRIGGERED_EVENT = 'newtab.ai.triggered'
 
 /** @public */
