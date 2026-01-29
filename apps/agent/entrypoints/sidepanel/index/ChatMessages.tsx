@@ -1,4 +1,5 @@
 import type { UIMessage } from 'ai'
+import { compact } from 'es-toolkit/compat'
 import { Bot } from 'lucide-react'
 import { type FC, Fragment, type RefObject } from 'react'
 import {
@@ -72,6 +73,8 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               ?.map((each) => each.text)
               ?.join('\n\n')
 
+            const lastText = compact(messageText.split('\n\n')).at(-1) ?? ''
+
             const likeAction = () => onClickLike(message.id)
             const dislikeAction = (comment?: string) =>
               onClickDislike(message.id, comment)
@@ -80,7 +83,11 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               <Fragment key={message.id}>
                 <Message from={message.role}>
                   <MessageContent>
-                    {action ? (
+                    {message.role === 'assistant' ? (
+                      <MessageResponse key={message.id}>
+                        {lastText}
+                      </MessageResponse>
+                    ) : action ? (
                       <UserActionMessage action={action} />
                     ) : (
                       segments.map((segment) => {
