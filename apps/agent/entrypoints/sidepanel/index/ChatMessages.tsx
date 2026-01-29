@@ -65,7 +65,8 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               isLastMessage,
               isStreaming,
             )
-            const toolBatches = segments.filter((s) => s.type === 'tool-batch')
+            const toolBatches =
+              segments?.filter((s) => s.type === 'tool-batch') ?? []
             const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
 
             const messageText =
