@@ -42,6 +42,11 @@ export const LoginPage: FC = () => {
       const result = await signIn.magicLink({
         email: email.trim(),
         callbackURL: '/home',
+        fetchOptions: {
+          headers: {
+            origin: 'localhost',
+          },
+        },
       })
 
       if (result.error) {

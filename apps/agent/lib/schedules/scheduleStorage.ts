@@ -145,7 +145,7 @@ export function useScheduledJobRuns() {
   return { jobRuns, addJobRun, removeJobRun, editJobRun }
 }
 
-async function syncScheduledJobs(): Promise<void> {
+export async function syncScheduledJobs(): Promise<void> {
   const jobs = await scheduledJobStorage.getValue()
   if (!jobs) return
 

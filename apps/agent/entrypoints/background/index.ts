@@ -1,3 +1,4 @@
+import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { Capabilities } from '@/lib/browseros/capabilities'
 import { getHealthCheckUrl, getMcpServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanel, toggleSidePanel } from '@/lib/browseros/toggleSidePanel'
@@ -5,11 +6,15 @@ import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
 import {
   setupLlmProvidersBackupToBrowserOS,
   setupLlmProvidersSyncToBackend,
+  syncLlmProviders,
 } from '@/lib/llm-providers/storage'
 import { fetchMcpTools } from '@/lib/mcp/client'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
 import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
-import { setupScheduledJobsSyncToBackend } from '@/lib/schedules/scheduleStorage'
+import {
+  setupScheduledJobsSyncToBackend,
+  syncScheduledJobs,
+} from '@/lib/schedules/scheduleStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
@@ -55,6 +60,25 @@ export default defineBackground(() => {
 
     if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
       checkAndShowChangelog().catch(() => null)
+    }
+  })
+
+  chrome.runtime.onMessage.addListener((message, sender) => {
+    if (message?.type === 'AUTH_SUCCESS' && sender.tab?.id) {
+      chrome.tabs.update(sender.tab.id, {
+        url: chrome.runtime.getURL('app.html#/home'),
+      })
+    }
+  })
+
+  sessionStorage.watch(async (newSession) => {
+    if (newSession?.user?.id) {
+      try {
+        await syncLlmProviders()
+      } catch {}
+      try {
+        await syncScheduledJobs()
+      } catch {}
     }
   })
 

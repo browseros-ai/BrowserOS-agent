@@ -37,7 +37,7 @@ export function setupLlmProvidersBackupToBrowserOS(): () => void {
   return unsubscribe
 }
 
-async function syncLlmProviders(): Promise<void> {
+export async function syncLlmProviders(): Promise<void> {
   const providers = await providersStorage.getValue()
   if (!providers || providers.length === 0) return
 
