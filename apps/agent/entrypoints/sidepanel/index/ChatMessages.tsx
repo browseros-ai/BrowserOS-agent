@@ -68,10 +68,11 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
             const toolBatches = segments.filter((s) => s.type === 'tool-batch')
             const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
 
-            const messageText = segments
-              ?.filter((each) => each.type === 'text')
-              ?.map((each) => each.text)
-              ?.join('\n\n')
+            const messageText =
+              segments
+                ?.filter((each) => each.type === 'text')
+                ?.map((each) => each.text)
+                ?.join('\n\n') ?? ''
 
             const lastText = compact(messageText.split('\n\n')).at(-1) ?? ''
 
