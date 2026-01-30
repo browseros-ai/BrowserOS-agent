@@ -1,4 +1,10 @@
-import { AlertCircle, CheckCircle2, Loader2, Mail } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  Mail,
+} from 'lucide-react'
 import type { FC } from 'react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -121,9 +127,23 @@ export const LoginPage: FC = () => {
 
   return (
     <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome to BrowserOS</CardTitle>
-        <CardDescription>Sign in to your account to continue</CardDescription>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="shrink-0"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div className="flex-1 pr-9 text-center">
+            <CardTitle className="text-2xl">Welcome to BrowserOS</CardTitle>
+            <CardDescription>
+              Sign in to your account to continue
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {error && (
