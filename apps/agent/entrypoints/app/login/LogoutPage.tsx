@@ -4,6 +4,12 @@ import { Loader2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { signOut } from '@/lib/auth/auth-client'
 import { providersStorage } from '@/lib/llm-providers/storage'
 import { scheduledJobStorage } from '@/lib/schedules/scheduleStorage'
@@ -21,15 +27,23 @@ export const LogoutPage: FC = () => {
       await localforage.clear()
 
       await signOut()
-      navigate('/login', { replace: true })
+      navigate('/home', { replace: true })
     }
 
     performLogout()
   }, [])
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader2 className="size-8 animate-spin text-muted-foreground" />
-    </div>
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center">
+        <div className="mx-auto mb-4">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        </div>
+        <CardTitle className="text-2xl">Logging out</CardTitle>
+        <CardDescription>
+          Clearing your session and synced data...
+        </CardDescription>
+      </CardHeader>
+    </Card>
   )
 }
