@@ -87,6 +87,15 @@ export class Application {
         codegenServiceUrl: this.config.codegenServiceUrl,
 
         onShutdown: () => this.stop(),
+        // Enable AI Swarm Mode
+        swarm: {
+          enabled: true,
+          maxWorkers: 10,
+          enablePooling: true,
+          enableCircuitBreaker: true,
+          enableTracing: true,
+          loadBalancingStrategy: 'resource-aware',
+        },
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)
