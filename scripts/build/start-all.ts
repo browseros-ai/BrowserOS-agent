@@ -53,6 +53,27 @@ function killPort(port: number): void {
   })
 }
 
+async function waitForCdp(cdpPort: number, maxAttempts = 60): Promise<void> {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`, {
+        signal: AbortSignal.timeout(1000),
+      })
+      if (response.ok) {
+        return
+      }
+    } catch {
+      // CDP not ready yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  log(
+    'server',
+    COLORS.server,
+    `Warning: CDP not available after ${maxAttempts * 0.5}s, starting server anyway`,
+  )
+}
+
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const server = createNetServer()
@@ -185,19 +206,24 @@ async function main() {
 
   const env = createEnvWithMutablePorts(ports, userDataDir)
 
-  log('server', COLORS.server, 'Starting server...')
-  log('agent', COLORS.agent, 'Starting agent...\n')
+  // Start agent first (launches browser)
+  log('agent', COLORS.agent, 'Starting agent (browser)...\n')
 
-  const serverProc = spawn({
-    cmd: ['bun', 'run', '--filter', '@browseros/server', 'start'],
+  const agentProc = spawn({
+    cmd: ['bun', 'run', '--filter', '@browseros/agent', 'dev'],
     cwd: MONOREPO_ROOT,
     stdout: 'pipe',
     stderr: 'pipe',
     env,
   })
 
-  const agentProc = spawn({
-    cmd: ['bun', 'run', '--filter', '@browseros/agent', 'dev'],
+  // Wait for CDP to be available before starting server
+  log('server', COLORS.server, 'Waiting for CDP to be ready...')
+  await waitForCdp(ports.cdp)
+  log('server', COLORS.server, 'CDP ready, starting server...\n')
+
+  const serverProc = spawn({
+    cmd: ['bun', 'run', '--filter', '@browseros/server', 'start'],
     cwd: MONOREPO_ROOT,
     stdout: 'pipe',
     stderr: 'pipe',
