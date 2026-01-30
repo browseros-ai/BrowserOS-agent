@@ -50,12 +50,12 @@ export async function createHttpServer(config: HttpServerConfig) {
     allowRemote,
   } = config
 
-  const { healthWatchdog, onShutdown } = config
+  const { onShutdown } = config
 
   // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
-    .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
+    .route('/health', createHealthRoute())
     .route(
       '/shutdown',
       createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
