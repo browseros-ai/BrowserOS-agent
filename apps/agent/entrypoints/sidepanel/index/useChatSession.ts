@@ -19,13 +19,16 @@ import {
   useConversations,
 } from '@/lib/conversations/conversationStorage'
 import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
+import { execute } from '@/lib/graphql/execute'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
+import { GetConversationWithMessagesDocument } from './graphql/chatSessionDocument'
 import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
+import { useRemoteConversationSave } from './useRemoteConversationSave'
 
 const getLastMessageText = (messages: UIMessage[]) => {
   const lastMessage = messages[messages.length - 1]
@@ -76,7 +79,13 @@ export const useChatSession = () => {
     error: agentUrlError,
   } = useAgentServerUrl()
 
-  const { saveConversation } = useConversations()
+  const { saveConversation: saveLocalConversation } = useConversations()
+  const {
+    isLoggedIn,
+    saveConversation: saveRemoteConversation,
+    resetConversation: resetRemoteConversation,
+    markMessagesAsSaved,
+  } = useRemoteConversationSave()
   const [searchParams, setSearchParams] = useSearchParams()
   const conversationIdParam = searchParams.get('conversationId')
 
@@ -294,31 +303,63 @@ export const useChatSession = () => {
     if (!conversationIdParam) return
 
     const restoreConversation = async () => {
-      const conversations = await conversationStorage.getValue()
-      const conversation = conversations?.find(
-        (c) => c.id === conversationIdParam,
-      )
+      if (isLoggedIn) {
+        const result = await execute(GetConversationWithMessagesDocument, {
+          conversationId: conversationIdParam,
+        })
 
-      if (conversation) {
-        setConversationId(
-          conversation.id as ReturnType<typeof crypto.randomUUID>,
+        if (result.conversation) {
+          const messages = result.conversation.conversationMessages.nodes
+            .filter((node): node is NonNullable<typeof node> => node !== null)
+            .map((node) => node.message as UIMessage)
+
+          setConversationId(
+            conversationIdParam as ReturnType<typeof crypto.randomUUID>,
+          )
+          setMessages(messages)
+          markMessagesAsSaved(conversationIdParam, messages)
+        }
+      } else {
+        const conversations = await conversationStorage.getValue()
+        const conversation = conversations?.find(
+          (c) => c.id === conversationIdParam,
         )
-        setMessages(conversation.messages)
+
+        if (conversation) {
+          setConversationId(
+            conversation.id as ReturnType<typeof crypto.randomUUID>,
+          )
+          setMessages(conversation.messages)
+        }
       }
 
       setSearchParams({}, { replace: true })
     }
 
     restoreConversation()
-  }, [conversationIdParam, setMessages, setSearchParams])
+  }, [
+    conversationIdParam,
+    setMessages,
+    setSearchParams,
+    isLoggedIn,
+    markMessagesAsSaved,
+  ])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
   useEffect(() => {
     messagesRef.current = messages
     if (messages.length > 0) {
-      saveConversation(conversationIdRef.current, messages)
+      // Local storage: save on every change (including during streaming)
+      // Remote: only save when not streaming to avoid partial message saves
+      if (isLoggedIn) {
+        if (status !== 'streaming') {
+          saveRemoteConversation(conversationIdRef.current, messages)
+        }
+      } else {
+        saveLocalConversation(conversationIdRef.current, messages)
+      }
     }
-  }, [messages])
+  }, [messages, isLoggedIn, status])
 
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
@@ -373,6 +414,7 @@ export const useChatSession = () => {
     setTextToAction(new Map())
     setLiked({})
     setDisliked({})
+    resetRemoteConversation()
   }
 
   return {

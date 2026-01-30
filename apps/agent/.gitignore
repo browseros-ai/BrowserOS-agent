@@ -30,3 +30,6 @@ stats-*.json
 # Env files
 .env*
 !.env.example
+
+# GraphQL generated files
+generated/
