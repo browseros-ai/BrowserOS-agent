@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { env } from '@/lib/env'
 import { getQueryKeyFromDocument } from '@/lib/graphql/getQueryKeyFromDocument'
 import { useGraphqlMutation } from '@/lib/graphql/useGraphqlMutation'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
@@ -60,6 +61,7 @@ export const ProfilePage: FC = () => {
   const isLoggedIn = !!userId
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [state, setState] = useState<ProfileState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -114,7 +116,13 @@ export const ProfilePage: FC = () => {
     }
   }, [isLoggedIn, sessionInfo, navigate])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview)
+    }
+  }, [avatarPreview])
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -131,16 +139,39 @@ export const ProfilePage: FC = () => {
     setIsUploading(true)
     setError(null)
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setAvatarUrl(event.target?.result as string)
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
+
+    try {
+      const res = await fetch(
+        `${env.VITE_PUBLIC_BROWSEROS_API}/upload/presigned-url`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ contentType: file.type }),
+        },
+      )
+
+      if (!res.ok) throw new Error('Failed to get upload URL')
+
+      const { presignedUrl, publicUrl } = await res.json()
+
+      const uploadRes = await fetch(presignedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      })
+
+      if (!uploadRes.ok) throw new Error('Failed to upload image')
+
+      setAvatarUrl(publicUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image')
+      setAvatarPreview(null)
+    } finally {
       setIsUploading(false)
     }
-    reader.onerror = () => {
-      setError('Failed to read image file')
-      setIsUploading(false)
-    }
-    reader.readAsDataURL(file)
   }
 
   const handleAvatarClick = () => {
@@ -231,9 +262,9 @@ export const ProfilePage: FC = () => {
                 disabled={isUploading || state === 'loading'}
                 className="group relative cursor-pointer"
               >
-                {avatarUrl ? (
+                {avatarPreview || avatarUrl ? (
                   <img
-                    src={avatarUrl}
+                    src={avatarPreview || avatarUrl!}
                     alt="Profile"
                     className="size-24 rounded-full object-cover transition-opacity group-hover:opacity-80"
                   />
