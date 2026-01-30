@@ -9,7 +9,6 @@
     "build": "wxt build",
     "zip": "wxt zip",
     "compile": "tsc --noEmit",
-    "postinstall": "wxt prepare",
     "lint": "bunx biome check",
     "typecheck": "tsc --noEmit",
     "lint:fix": "bunx biome check --write --unsafe",
