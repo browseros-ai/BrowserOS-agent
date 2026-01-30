@@ -5,19 +5,9 @@
  */
 
 import { Hono } from 'hono'
-import type { HealthWatchdog } from '../../lib/health-watchdog'
 
-interface HealthRouteConfig {
-  watchdog?: HealthWatchdog
-}
-
-/**
- * Health check route group.
- * Records health check timestamps for the watchdog (if enabled).
- */
-export function createHealthRoute(config: HealthRouteConfig = {}) {
+export function createHealthRoute() {
   return new Hono().get('/', (c) => {
-    config.watchdog?.recordHealthCheck()
     return c.json({ status: 'ok' })
   })
 }
