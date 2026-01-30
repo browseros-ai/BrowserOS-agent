@@ -306,7 +306,7 @@ export const ProfilePage: FC = () => {
                     <FormLabel>First Name</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="John"
+                        placeholder=""
                         disabled={state === 'loading'}
                         {...field}
                       />
@@ -323,7 +323,7 @@ export const ProfilePage: FC = () => {
                     <FormLabel>Last Name</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Doe"
+                        placeholder=""
                         disabled={state === 'loading'}
                         {...field}
                       />
