@@ -8,15 +8,16 @@ import { StreamableHTTPTransport } from '@hono/mcp'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+// @ts-expect-error chrome-devtools-mcp has no type declarations
+import { McpResponse as CdpMcpResponse } from 'chrome-devtools-mcp/build/src/McpResponse.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
-import type { McpContext } from '../../browser/cdp/context'
 import type { ControllerContext } from '../../browser/extension/context'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
-import { McpResponse } from '../../tools/response/mcp-response'
+import { ControllerResponse } from '../../tools/controller-based/response/controller-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
 import { isLocalhostRequest } from '../utils/security'
@@ -24,7 +25,8 @@ import { isLocalhostRequest } from '../utils/security'
 interface McpRouteDeps {
   version: string
   tools: ToolDefinition[]
-  cdpContext: McpContext | null
+  // biome-ignore lint/suspicious/noExplicitAny: upstream McpContext has no type declarations
+  cdpContext: any | null
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean
@@ -85,32 +87,31 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
             `${tool.name} request: ${JSON.stringify(params, null, '  ')}`,
           )
 
-          // Detect if this is a controller tool (browser_* tools)
           const isControllerTool = tool.name.startsWith('browser_')
-          const contextForResponse =
-            isControllerTool && controllerContext
-              ? controllerContext
-              : cdpContext
 
-          // Create response handler and execute tool
-          const response = new McpResponse()
-          await tool.handler({ params }, response, cdpContext)
-
-          // Process and return response
           try {
-            const content = await response.handle(
-              tool.name,
-              contextForResponse as McpContext,
-            )
+            let content: CallToolResult['content']
+            let structuredContent: Record<string, unknown> | undefined
 
-            // Log successful tool execution (non-blocking)
+            if (isControllerTool) {
+              const response = new ControllerResponse()
+              await tool.handler({ params }, response, controllerContext)
+              content = response.toContent()
+              structuredContent = response.structuredContent
+            } else {
+              const response = new CdpMcpResponse()
+              await tool.handler({ params }, response, cdpContext)
+              const result = await response.handle(tool.name, cdpContext)
+              content = result.content
+              structuredContent = result.structuredContent
+            }
+
             metrics.log('tool_executed', {
               tool_name: tool.name,
               duration_ms: Math.round(performance.now() - startTime),
               success: true,
             })
 
-            const structuredContent = response.structuredContent
             return {
               content,
               ...(structuredContent && { structuredContent }),
@@ -119,7 +120,6 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
             const errorText =
               error instanceof Error ? error.message : String(error)
 
-            // Log failed tool execution (non-blocking)
             metrics.log('tool_executed', {
               tool_name: tool.name,
               duration_ms: Math.round(performance.now() - startTime),

@@ -15,12 +15,14 @@ import {
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
-import type { McpContext } from '../browser/cdp/context'
 import type { ControllerContext } from '../browser/extension/context'
 
 import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { ToolDefinition } from '../tools/types/tool-definition'
+
+// biome-ignore lint/suspicious/noExplicitAny: upstream McpContext from chrome-devtools-mcp has no type declarations
+type McpContext = any
 
 // Re-export browser context types for consumers
 export {

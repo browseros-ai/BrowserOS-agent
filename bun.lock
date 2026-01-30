@@ -124,7 +124,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.48",
+      "version": "0.0.50",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
@@ -148,6 +148,7 @@
         "@openrouter/ai-sdk-provider": "^1.5.2",
         "@sentry/bun": "^10.31.0",
         "ai": "^5.0.101",
+        "chrome-devtools-mcp": "0.15.1",
         "commander": "^14.0.1",
         "core-js": "3.45.1",
         "debug": "4.4.3",
@@ -168,9 +169,6 @@
         "pino-pretty": "^13.0.0",
         "puppeteer": "24.23.0",
         "typescript": "^5.9.2",
-      },
-      "optionalDependencies": {
-        "chrome-devtools-mcp": "latest",
       },
     },
     "packages/agent-sdk": {

@@ -12,9 +12,10 @@ import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
+// @ts-expect-error chrome-devtools-mcp has no type declarations
+import { McpContext } from 'chrome-devtools-mcp/build/src/McpContext.js'
 import { createHttpServer } from './api/server'
 import { ensureBrowserConnected } from './browser/cdp/connection'
-import { McpContext } from './browser/cdp/context'
 import { ControllerBridge } from './browser/extension/bridge'
 import { ControllerContext } from './browser/extension/context'
 import type { ServerConfig } from './config'
@@ -210,7 +211,9 @@ export class Application {
     process.exit(EXIT_CODES.GENERAL_ERROR)
   }
 
-  private async connectToCdp(): Promise<McpContext | null> {
+  private async connectToCdp(): Promise<InstanceType<
+    typeof McpContext
+  > | null> {
     if (!this.config.cdpPort) {
       logger.info(
         'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
@@ -223,7 +226,10 @@ export class Application {
         `http://127.0.0.1:${this.config.cdpPort}`,
       )
       logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
-      const context = await McpContext.from(browser, logger)
+      const { cdpDebugLogger } = await import('./tools/cdp-based/debug-adapter')
+      const context = await McpContext.from(browser, cdpDebugLogger, {
+        experimentalDevToolsDebugging: false,
+      })
       const { allCdpTools } = await import('./tools/cdp-based/registry')
       logger.info(`Loaded ${allCdpTools.length} CDP tools`)
       return context

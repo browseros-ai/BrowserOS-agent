@@ -9,12 +9,14 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { Mutex } from 'async-mutex'
+// @ts-expect-error chrome-devtools-mcp has no type declarations
+import { McpContext } from 'chrome-devtools-mcp/build/src/McpContext.js'
+// @ts-expect-error chrome-devtools-mcp has no type declarations
+import { McpResponse } from 'chrome-devtools-mcp/build/src/McpResponse.js'
 import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-import { McpContext } from '../../src/browser/cdp/context'
-import { logger } from '../../src/lib/logger'
-import { McpResponse } from '../../src/tools/response/mcp-response'
+import { cdpDebugLogger } from '../../src/tools/cdp-based/debug-adapter'
 
 import { ensureBrowserOS } from './setup'
 
@@ -75,7 +77,8 @@ let cachedBrowser: Browser | undefined
  * - Run `bun run test:cleanup` when you need to kill processes
  */
 export async function withBrowser(
-  cb: (response: McpResponse, context: McpContext) => Promise<void>,
+  // biome-ignore lint/suspicious/noExplicitAny: upstream types have no declarations
+  cb: (response: any, context: any) => Promise<void>,
   _options: { debug?: boolean } = {},
 ): Promise<void> {
   return await browserMutex.runExclusive(async () => {
@@ -101,7 +104,9 @@ export async function withBrowser(
     await cachedBrowser.newPage()
 
     const response = new McpResponse()
-    const context = await McpContext.from(cachedBrowser, logger)
+    const context = await McpContext.from(cachedBrowser, cdpDebugLogger, {
+      experimentalDevToolsDebugging: false,
+    })
 
     await cb(response, context)
   })
