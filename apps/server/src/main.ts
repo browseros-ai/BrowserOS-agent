@@ -145,7 +145,7 @@ export class Application {
     }
 
     if (!INLINED_ENV.SENTRY_DSN) {
-      logger.warn('Sentry disabled: missing SENTRY_DSN')
+      logger.debug('Sentry disabled: missing SENTRY_DSN')
     }
 
     Sentry.setContext('browseros', {
@@ -227,9 +227,10 @@ export class Application {
       const { allCdpTools } = await import('./tools/cdp-based/registry')
       logger.info(`Loaded ${allCdpTools.length} CDP tools`)
       return context
-    } catch (_error) {
+    } catch (error) {
       logger.warn(
         `Warning: Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+        { error: error instanceof Error ? error.message : String(error) },
       )
       logger.warn(
         'CDP tools will not be available. Only extension tools will work.',
