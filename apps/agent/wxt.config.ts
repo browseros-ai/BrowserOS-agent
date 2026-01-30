@@ -66,17 +66,19 @@ export default defineConfig({
     },
     plugins: [
       tailwindcss(),
-      sentryVitePlugin({
-        org: env.SENTRY_ORG,
-        project: env.SENTRY_PROJECT,
-        authToken: env.SENTRY_AUTH_TOKEN,
-        sourcemaps: {
-          // Bug with sentry & WXT - refer: https://github.com/wxt-dev/wxt/issues/1735
-          // As you're enabling client source maps, you probably want to delete them after they're uploaded to Sentry.
-          // Set the appropriate glob pattern for your output folder - some glob examples below:
-          // filesToDeleteAfterUpload: ['./dist/**/*.map'],
-        },
-      }),
+      ...(env.SENTRY_AUTH_TOKEN
+        ? [
+            sentryVitePlugin({
+              org: env.SENTRY_ORG,
+              project: env.SENTRY_PROJECT,
+              authToken: env.SENTRY_AUTH_TOKEN,
+              sourcemaps: {
+                // Bug with sentry & WXT - refer: https://github.com/wxt-dev/wxt/issues/1735
+                // filesToDeleteAfterUpload: ['./dist/**/*.map'],
+              },
+            }),
+          ]
+        : []),
     ],
   }),
 })

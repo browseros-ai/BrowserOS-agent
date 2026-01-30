@@ -16,7 +16,7 @@
     "start:agent": "bun ./scripts/build/controller-ext.ts && bun run --filter @browseros/agent dev",
     "build:server": "FORCE_COLOR=1 bun run --filter @browseros/server --elide-lines=0 build",
     "build:agent": "bun run --filter @browseros/agent build",
-    "build:agent:dev": "bun run --filter @browseros/agent build:dev",
+    "build:agent:dev": "FORCE_COLOR=1 bun run --filter @browseros/agent --elide-lines=0 build:dev",
     "build:agent-sdk": "bun run --filter @browseros-ai/agent-sdk build",
     "build:ext": "FORCE_COLOR=1 bun run --filter browseros-controller --elide-lines=0 build",
     "test": "bun run --filter @browseros/server test",
