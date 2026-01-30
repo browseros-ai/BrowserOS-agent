@@ -167,10 +167,13 @@ export class GeminiAgent {
     ).contentGenerator = contentGenerator
 
     const client = geminiConfig.getGeminiClient()
+    const excludeSections: string[] = []
+    if (config.isScheduledTask) excludeSections.push('tab-grouping')
+
     client.getChat().setSystemInstruction(
       buildSystemPrompt({
         userSystemPrompt: config.userSystemPrompt,
-        isScheduledTask: config.isScheduledTask,
+        exclude: excludeSections,
       }),
     )
     await client.setTools()
