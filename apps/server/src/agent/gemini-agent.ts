@@ -167,9 +167,12 @@ export class GeminiAgent {
     ).contentGenerator = contentGenerator
 
     const client = geminiConfig.getGeminiClient()
-    client
-      .getChat()
-      .setSystemInstruction(buildSystemPrompt(config.userSystemPrompt))
+    client.getChat().setSystemInstruction(
+      buildSystemPrompt({
+        userSystemPrompt: config.userSystemPrompt,
+        isScheduledTask: config.isScheduledTask,
+      }),
+    )
     await client.setTools()
 
     // Disable chat recording to prevent disk writes

@@ -218,9 +218,26 @@ export function getSystemPrompt(): string {
   return systemPrompt
 }
 
-export function buildSystemPrompt(userSystemPrompt?: string): string {
-  if (!userSystemPrompt) return systemPrompt
-  return `${systemPrompt}\n\n---\n\n## User Preferences:\n\n${userSystemPrompt}`
+interface BuildSystemPromptOptions {
+  userSystemPrompt?: string
+  isScheduledTask?: boolean
+}
+
+export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
+  let prompt = systemPrompt
+
+  if (options?.isScheduledTask) {
+    prompt = prompt.replace(
+      /## Tab Grouping First \(MANDATORY\)[\s\S]*?(?=\n## Complete Tasks Fully)/,
+      '',
+    )
+  }
+
+  if (options?.userSystemPrompt) {
+    prompt = `${prompt}\n\n---\n\n## User Preferences:\n\n${options.userSystemPrompt}`
+  }
+
+  return prompt
 }
 
 export { systemPrompt }
