@@ -155,11 +155,11 @@ export const ProfilePage: FC = () => {
 
       if (!res.ok) throw new Error('Failed to get upload URL')
 
-      const { presignedUrl, publicUrl } = await res.json()
+      const { presignedUrl, publicUrl, headers } = await res.json()
 
       const uploadRes = await fetch(presignedUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type },
+        headers,
         body: file,
       })
 
