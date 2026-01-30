@@ -11,7 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { GetProfileByUserIdDocument } from '@/entrypoints/app/profile/graphql/profileDocument'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 
@@ -29,6 +31,20 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
   const user = sessionInfo?.user
   const isLoggedIn = !!user
 
+  const { data: profileData } = useGraphqlQuery(
+    GetProfileByUserIdDocument,
+    { userId: user?.id ?? '' },
+    { enabled: !!user?.id },
+  )
+
+  const profile = profileData?.profileByUserId
+  const profileName =
+    profile?.firstName || profile?.lastName
+      ? [profile.firstName, profile.lastName].filter(Boolean).join(' ')
+      : null
+  const displayName = profileName || user?.name || 'User'
+  const displayImage = profile?.avatarUrl || user?.image
+
   const getInitials = (name?: string | null) => {
     if (!name) return '?'
     return name
@@ -40,15 +56,15 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
   }
 
   const headerIcon = isLoggedIn ? (
-    user.image ? (
+    displayImage ? (
       <img
-        src={user.image}
-        alt={user.name || 'User'}
+        src={displayImage}
+        alt={displayName}
         className="size-8 shrink-0 rounded-full object-cover"
       />
     ) : (
       <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-medium text-primary-foreground text-xs">
-        {getInitials(user.name)}
+        {getInitials(displayName)}
       </div>
     )
   ) : (
@@ -75,7 +91,9 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
             >
               <div className="flex items-center gap-1">
                 <span className="truncate font-semibold">
-                  {isLoggedIn ? user.name : selectedFolder?.name || 'BrowserOS'}
+                  {isLoggedIn
+                    ? displayName
+                    : selectedFolder?.name || 'BrowserOS'}
                 </span>
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
               </div>
@@ -87,7 +105,7 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
                     : 'font-medium text-primary',
                 )}
               >
-                {isLoggedIn ? user.email : 'Sign in'}
+                {isLoggedIn ? 'Personal' : 'Sign in'}
               </span>
             </div>
           </button>
@@ -102,10 +120,10 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="font-medium text-sm leading-none">
-                    {user.name}
+                    {displayName}
                   </p>
                   <p className="text-muted-foreground text-xs leading-none">
-                    {user.email}
+                    Personal
                   </p>
                 </div>
               </DropdownMenuLabel>
