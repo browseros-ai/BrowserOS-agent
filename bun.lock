@@ -137,7 +137,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.47",
+      "version": "0.0.48",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
@@ -1737,7 +1737,7 @@
 
     "chroma-js": ["chroma-js@3.2.0", "", {}, "sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw=="],
 
-    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.14.0", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-JsnA8tApxOZHAUwduMsGFk0Mc3aQF0MX58fo9LoPxJFkyKdq34QonGPGNG38rWXJVQ2X70eI8wosJbOrXN79dQ=="],
+    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.15.1", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-tuVDg+uNtjXuCUiI+lA+SFxJ7OaXmdq7n+Ug/XNEra1Y/FVRfLaqNGKJJgHeJHWYdonm7HXAmdyBbg9Rd7uzmQ=="],
 
     "chrome-launcher": ["chrome-launcher@1.2.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^2.0.1" }, "bin": { "print-chrome-path": "bin/print-chrome-path.cjs" } }, "sha512-JbuGuBNss258bvGil7FT4HKdC3SC2K7UAEUqiPy3ACS3Yxo3hAW6bvFpCu2HsIJLgTqxgEX6BkujvzZfLpUD0Q=="],
 
