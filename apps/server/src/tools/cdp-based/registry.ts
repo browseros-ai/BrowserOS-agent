@@ -6,13 +6,13 @@ import type { ToolDefinition } from '../types/tool-definition'
 
 import * as consoleTools from './console'
 import * as networkTools from './network'
-import { closeWindow } from './pages'
 
 /**
  * All available CDP-based browser automation tools
  */
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool collection requires any
 export const allCdpTools: Array<ToolDefinition<any>> = [
+  //FIXME: nikhil - figure out the better wway to enable/disable tools
   ...Object.values(consoleTools),
   // ...Object.values(emulationTools),
   // ...Object.values(inputTools),
@@ -23,8 +23,6 @@ export const allCdpTools: Array<ToolDefinition<any>> = [
   // ...Object.values(screenshotTools),
   // ...Object.values(scriptTools),
   // ...Object.values(snapshotTools),
-  // CDP-based window close (bypasses beforeunload)
-  closeWindow,
 ]
 
 // Re-export individual tool modules for selective imports

@@ -44,7 +44,7 @@ const DEFAULT_BINARY_PATH =
 
 async function isExtensionConnected(port: number): Promise<boolean> {
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/status`, {
+    const response = await fetch(`http://127.0.0.1:${port}/extension-status`, {
       signal: AbortSignal.timeout(1000),
     })
     if (response.ok) {

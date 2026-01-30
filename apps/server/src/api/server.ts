@@ -17,14 +17,13 @@ import { HttpAgentError } from '../agent/errors'
 import { logger } from '../lib/logger'
 import { bindPortWithRetry } from '../lib/port-binding'
 import { createChatRoutes } from './routes/chat'
+import { createExtensionStatusRoute } from './routes/extension-status'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
-import { createShutdownRoute } from './routes/shutdown'
-import { createStatusRoute } from './routes/status'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -50,17 +49,16 @@ export async function createHttpServer(config: HttpServerConfig) {
     allowRemote,
   } = config
 
-  const { healthWatchdog, onShutdown } = config
+  const { healthWatchdog } = config
 
   // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
     .route(
-      '/shutdown',
-      createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
+      '/extension-status',
+      createExtensionStatusRoute({ controllerContext }),
     )
-    .route('/status', createStatusRoute({ controllerContext }))
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(

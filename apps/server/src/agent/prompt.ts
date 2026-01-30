@@ -135,25 +135,10 @@ When user asks to "organize tabs", "group tabs", or "clean up tabs":
 
 Use when built-in tools cannot accomplish the task.
 
-## Bookmarks
-- \`browser_get_bookmarks(folderId?)\` - Get all bookmarks or from specific folder
-- \`browser_create_bookmark(title, url, parentId?)\` - Create bookmark (use parentId to place in folder)
-- \`browser_update_bookmark(bookmarkId, title?, url?)\` - Edit bookmark title or URL
+## Bookmarks & History
+- \`browser_get_bookmarks(folderId?)\` - Get bookmarks
+- \`browser_create_bookmark(title, url, parentId?)\` - Create bookmark
 - \`browser_remove_bookmark(bookmarkId)\` - Delete bookmark
-- \`browser_create_bookmark_folder(title, parentId?)\` - Create folder (returns folderId to use as parentId)
-- \`browser_get_bookmark_children(folderId)\` - Get contents of a folder
-- \`browser_move_bookmark(bookmarkId, parentId?, index?)\` - Move bookmark or folder to new location
-- \`browser_remove_bookmark_tree(folderId, confirm)\` - Delete folder and all contents
-
-**Organizing bookmarks into folders:**
-\`\`\`
-1. browser_create_bookmark_folder("Work") → folderId: "123"
-2. browser_create_bookmark("Docs", "https://docs.google.com", parentId="123")
-3. browser_move_bookmark(existingBookmarkId, parentId="123")
-\`\`\`
-Use \`browser_get_bookmarks\` to find existing folder IDs, or create new folders with \`browser_create_bookmark_folder\`.
-
-## History
 - \`browser_search_history(query, maxResults?)\` - Search history
 - \`browser_get_recent_history(count?)\` - Recent history
 

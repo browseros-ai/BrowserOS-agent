@@ -49,3 +49,22 @@ export const createWindow = defineTool<z.ZodRawShape, Context, Response>({
     response.addStructuredContent('tabId', data.tabId)
   },
 })
+
+export const closeWindow = defineTool<z.ZodRawShape, Context, Response>({
+  name: 'browser_close_window',
+  description: 'Close a browser window by its windowId.',
+  annotations: {
+    category: ToolCategories.TAB_MANAGEMENT,
+    readOnlyHint: false,
+  },
+  schema: {
+    windowId: z.coerce.number().describe('The ID of the window to close'),
+  },
+  handler: async (request, response, context) => {
+    const { windowId } = request.params as { windowId: number }
+
+    await context.executeAction('closeWindow', { windowId })
+
+    response.appendResponseLine(`Closed window ${windowId}`)
+  },
+})

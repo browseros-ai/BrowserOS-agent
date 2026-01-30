@@ -84,9 +84,6 @@ export interface HttpServerConfig {
 
   // For health monitoring
   healthWatchdog?: HealthWatchdog
-
-  // For shutdown route
-  onShutdown?: () => void
 }
 
 // Graph request schemas

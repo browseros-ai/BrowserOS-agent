@@ -11,20 +11,7 @@ function parseErrorMessage(message: string): {
   text: string
   url?: string
   isRateLimit?: boolean
-  isConnectionError?: boolean
 } {
-  // Detect MCP server connection failures
-  if (
-    (message.includes('Failed to fetch') || message.includes('fetch failed')) &&
-    message.includes('127.0.0.1')
-  ) {
-    return {
-      text: 'Unable to connect to BrowserOS agent. Follow below instructions.',
-      url: 'https://docs.browseros.com/troubleshooting/connection-issues',
-      isConnectionError: true,
-    }
-  }
-
   // Detect BrowserOS rate limit (unique pattern, no provider uses this)
   if (message.includes('BrowserOS LLM daily limit reached')) {
     return {
@@ -51,33 +38,17 @@ function parseErrorMessage(message: string): {
 }
 
 export const ChatError: FC<ChatErrorProps> = ({ error, onRetry }) => {
-  const { text, url, isRateLimit, isConnectionError } = parseErrorMessage(
-    error.message,
-  )
-
-  const getTitle = () => {
-    if (isRateLimit) return 'Daily limit reached'
-    if (isConnectionError) return 'Connection failed'
-    return 'Something went wrong'
-  }
+  const { text, url, isRateLimit } = parseErrorMessage(error.message)
 
   return (
     <div className="mx-4 flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <AlertCircle className="h-5 w-5" />
-        <span className="font-medium text-sm">{getTitle()}</span>
+        <span className="font-medium text-sm">
+          {isRateLimit ? 'Daily limit reached' : 'Something went wrong'}
+        </span>
       </div>
       <p className="text-center text-destructive text-xs">{text}</p>
-      {isConnectionError && url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-muted-foreground text-xs underline hover:text-foreground"
-        >
-          View troubleshooting guide
-        </a>
-      )}
       {isRateLimit && (
         <p className="text-muted-foreground text-xs">
           <a

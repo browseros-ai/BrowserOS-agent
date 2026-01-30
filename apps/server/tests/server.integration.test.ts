@@ -68,9 +68,9 @@ describe('HTTP Server Integration Tests', () => {
     })
   })
 
-  describe('Status endpoint', () => {
+  describe('Extension status endpoint', () => {
     it('reports extension as connected', async () => {
-      const response = await fetch(`${getBaseUrl()}/status`)
+      const response = await fetch(`${getBaseUrl()}/extension-status`)
       assert.strictEqual(response.status, 200)
 
       const json = (await response.json()) as {

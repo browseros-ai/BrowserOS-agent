@@ -93,7 +93,6 @@ export class Application {
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
         healthWatchdog: this.healthWatchdog ?? undefined,
-        onShutdown: () => this.stop(),
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)

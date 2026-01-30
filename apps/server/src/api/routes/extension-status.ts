@@ -7,11 +7,11 @@
 import { Hono } from 'hono'
 import type { ControllerContext } from '../../browser/extension/context'
 
-interface StatusDeps {
+interface ExtensionStatusDeps {
   controllerContext: ControllerContext
 }
 
-export function createStatusRoute(deps: StatusDeps) {
+export function createExtensionStatusRoute(deps: ExtensionStatusDeps) {
   const { controllerContext } = deps
 
   return new Hono().get('/', (c) =>
