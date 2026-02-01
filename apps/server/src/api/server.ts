@@ -15,7 +15,7 @@ import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { logger } from '../lib/logger'
-import { bindPortWithRetry } from '../lib/port-binding'
+
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -131,15 +131,18 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
   })
 
-  // Bind with retry logic to handle TIME_WAIT states
-  const server = await bindPortWithRetry(port, async () => {
-    return Bun.serve({
-      fetch: (request, server) => app.fetch(request, { server }),
-      port,
-      hostname: host,
-      idleTimeout: 0, // Disable idle timeout for long-running LLM streams
-    })
+  const server = Bun.serve({
+    fetch: (request, server) => app.fetch(request, { server }),
+    port,
+    hostname: host,
+    idleTimeout: 0,
+    reusePort: false,
   })
+
+  if (server.port !== port) {
+    server.stop(true)
+    throw new Error(`Port mismatch: requested ${port} but got ${server.port}`)
+  }
 
   logger.info('Consolidated HTTP Server started', { port, host })
 

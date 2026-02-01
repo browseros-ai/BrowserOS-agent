@@ -25,7 +25,7 @@ import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
 import { MutexPool } from './lib/mutex'
-import { bindPortWithRetry, PortBindError } from './lib/port-binding'
+import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
@@ -181,11 +181,9 @@ export class Application {
     const port = this.config.extensionPort
     logger.info(`Controller server starting on ws://127.0.0.1:${port}`)
 
-    return bindPortWithRetry(port, async () => {
-      const controllerBridge = new ControllerBridge(port, logger)
-      await controllerBridge.waitForReady()
-      return { controllerContext: new ControllerContext(controllerBridge) }
-    })
+    const controllerBridge = new ControllerBridge(port, logger)
+    await controllerBridge.waitForReady()
+    return { controllerContext: new ControllerContext(controllerBridge) }
   }
 
   private handleStartupError(
@@ -199,10 +197,9 @@ export class Application {
     })
     Sentry.captureException(error)
 
-    if (error instanceof PortBindError) {
+    if (isPortInUseError(error)) {
       logger.error(
-        `Port ${port} is unavailable after ${error.retriedFor}ms of retries. ` +
-          `Chromium should try a different port.`,
+        `Port ${port} is already in use. Chromium should try a different port.`,
       )
       process.exit(EXIT_CODES.PORT_CONFLICT)
     }
