@@ -1,8 +1,10 @@
 import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
+import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { sendScheduleMessage } from '@/lib/messaging/schedules/scheduleMessages'
 import { createAlarmFromJob } from './createAlarmFromJob'
 import type { ScheduledJob, ScheduledJobRun } from './scheduleTypes'
+import { syncSchedulesToBackend } from './syncSchedulesToBackend'
 
 const getAlarmName = (jobId: string) => `scheduled-job-${jobId}`
 
@@ -31,10 +33,14 @@ export function useScheduledJobs() {
     return unwatch
   }, [])
 
-  const addJob = async (job: Omit<ScheduledJob, 'id' | 'createdAt'>) => {
+  const addJob = async (
+    job: Omit<ScheduledJob, 'id' | 'createdAt' | 'updatedAt'>,
+  ) => {
+    const now = new Date().toISOString()
     const newJob: ScheduledJob = {
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       ...job,
     }
     const current = (await scheduledJobStorage.getValue()) ?? []
@@ -62,8 +68,9 @@ export function useScheduledJobs() {
     const job = current.find((j) => j.id === id)
     if (!job) return
 
+    const updatedAt = new Date().toISOString()
     await scheduledJobStorage.setValue(
-      current.map((j) => (j.id === id ? { ...j, enabled } : j)),
+      current.map((j) => (j.id === id ? { ...j, enabled, updatedAt } : j)),
     )
 
     if (enabled) {
@@ -75,7 +82,7 @@ export function useScheduledJobs() {
 
   const editJob = async (
     id: string,
-    updates: Omit<ScheduledJob, 'id' | 'createdAt'>,
+    updates: Omit<ScheduledJob, 'id' | 'createdAt' | 'updatedAt'>,
   ) => {
     const current = (await scheduledJobStorage.getValue()) ?? []
     const existingJob = current.find((j) => j.id === id)
@@ -84,6 +91,7 @@ export function useScheduledJobs() {
     const updatedJob: ScheduledJob = {
       id,
       createdAt: existingJob.createdAt,
+      updatedAt: new Date().toISOString(),
       ...updates,
     }
     await scheduledJobStorage.setValue(
@@ -135,4 +143,29 @@ export function useScheduledJobRuns() {
   }
 
   return { jobRuns, addJobRun, removeJobRun, editJobRun }
+}
+
+export async function syncScheduledJobs(): Promise<void> {
+  const jobs = await scheduledJobStorage.getValue()
+  if (!jobs) return
+
+  const session = await sessionStorage.getValue()
+  const userId = session?.user?.id
+  if (!userId) return
+
+  await syncSchedulesToBackend(jobs, userId)
+}
+
+export function setupScheduledJobsSyncToBackend(): () => void {
+  syncScheduledJobs().catch(() => {})
+
+  const unsubscribe = scheduledJobStorage.watch(async () => {
+    try {
+      await syncScheduledJobs()
+    } catch {
+      // Sync failed silently - will retry on next storage change
+    }
+  })
+
+  return unsubscribe
 }

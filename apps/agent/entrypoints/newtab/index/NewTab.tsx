@@ -40,6 +40,7 @@ import { NewTabBranding } from './NewTabBranding'
 import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
+import { SignInHint } from './SignInHint'
 import { TopSites } from './TopSites'
 
 /**
@@ -365,6 +366,7 @@ export const NewTab = () => {
           onOpenChange={setShortcutsDialogOpen}
         />
       )}
+      <SignInHint />
     </div>
   )
 }

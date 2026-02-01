@@ -7,6 +7,12 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "plugins": [
+      {
+        "name": "@0no-co/graphqlsp",
+        "schema": "./generated/graphql/schema.graphql"
+      }
+    ]
   }
 }
