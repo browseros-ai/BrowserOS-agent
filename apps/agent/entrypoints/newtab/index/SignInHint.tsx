@@ -51,7 +51,7 @@ export const SignInHint = () => {
     await signInHintDismissedAtStorage.setValue(Date.now())
   }
 
-  const show = visible && !dismissed
+  const show = visible && !dismissed && !isPending && !session
 
   return (
     <AnimatePresence>
