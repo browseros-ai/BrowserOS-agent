@@ -5,45 +5,38 @@ import { defineWebExtConfig } from 'wxt'
 // biome-ignore lint/style/noProcessEnv: config file needs env access
 const env = process.env
 
-const useBrowserOS = env.USE_BROWSEROS_BINARY === 'true'
-
 const MONOREPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const CONTROLLER_EXT_DIR = join(MONOREPO_ROOT, 'apps/controller-ext/dist')
 
-const chromiumArgs: string[] = []
+const chromiumArgs = [
+  '--use-mock-keychain',
+  '--show-component-extension-options',
+  '--disable-browseros-server',
+  '--disable-browseros-extensions',
+  `--load-extension=${CONTROLLER_EXT_DIR}`,
+]
 
-if (useBrowserOS) {
-  chromiumArgs.push('--use-mock-keychain', '--show-component-extension-options')
-  chromiumArgs.push(`--load-extension=${CONTROLLER_EXT_DIR}`)
-
-  if (env.BROWSEROS_DISABLE_SERVER === 'true') {
-    chromiumArgs.push('--disable-browseros-server')
-  }
-  if (env.BROWSEROS_CDP_PORT) {
-    chromiumArgs.push(`--browseros-cdp-port=${env.BROWSEROS_CDP_PORT}`)
-    // Enable HTTP-based CDP so the server can connect
-    chromiumArgs.push(`--remote-debugging-port=${env.BROWSEROS_CDP_PORT}`)
-  }
-  if (env.BROWSEROS_SERVER_PORT) {
-    chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
-  }
-  if (env.BROWSEROS_EXTENSION_PORT) {
-    chromiumArgs.push(
-      `--browseros-extension-port=${env.BROWSEROS_EXTENSION_PORT}`,
-    )
-  }
-  if (env.BROWSEROS_USER_DATA_DIR) {
-    chromiumArgs.push(`--user-data-dir=${env.BROWSEROS_USER_DATA_DIR}`)
-  }
+if (env.BROWSEROS_CDP_PORT) {
+  // TODO: replace with --browseros-cdp-port once we fix the browseros bug
+  chromiumArgs.push(`--remote-debugging-port=${env.BROWSEROS_CDP_PORT}`)
+}
+if (env.BROWSEROS_SERVER_PORT) {
+  chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
+}
+if (env.BROWSEROS_EXTENSION_PORT) {
+  chromiumArgs.push(
+    `--browseros-extension-port=${env.BROWSEROS_EXTENSION_PORT}`,
+  )
 }
 
 export default defineWebExtConfig({
-  ...(useBrowserOS && {
-    binaries: {
-      chrome: '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS',
-    },
-  }),
+  binaries: {
+    chrome:
+      env.BROWSEROS_BINARY ||
+      '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS',
+  },
   chromiumArgs,
+  chromiumProfile: '/tmp/browseros-dev',
+  keepProfileChanges: true,
   startUrls: ['chrome://newtab'],
-  disabled: !useBrowserOS,
 })

@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "bun --env-file=.env.development wxt",
     "build": "wxt build",
+    "build:dev": "wxt build --mode development",
     "zip": "wxt zip",
     "compile": "tsc --noEmit",
     "lint": "bunx biome check",
