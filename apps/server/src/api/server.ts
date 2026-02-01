@@ -28,13 +28,29 @@ import { createStatusRoute } from './routes/status'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
-/**
- * Creates the consolidated HTTP server with port binding retry logic.
- * Retries binding every 5s for up to 30s to handle TIME_WAIT states.
- *
- * @param config - Server configuration
- * @returns Bun server instance
- */
+async function assertPortAvailable(port: number): Promise<void> {
+  const net = await import('node:net')
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer()
+
+    probe.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(
+          Object.assign(new Error(`Port ${port} is already in use`), {
+            code: 'EADDRINUSE',
+          }),
+        )
+      } else {
+        reject(err)
+      }
+    })
+
+    probe.listen({ port, host: '127.0.0.1', exclusive: true }, () => {
+      probe.close(() => resolve())
+    })
+  })
+}
+
 export async function createHttpServer(config: HttpServerConfig) {
   const {
     port,
@@ -131,18 +147,14 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
   })
 
+  await assertPortAvailable(port)
+
   const server = Bun.serve({
     fetch: (request, server) => app.fetch(request, { server }),
     port,
     hostname: host,
     idleTimeout: 0,
-    reusePort: false,
   })
-
-  if (server.port !== port) {
-    server.stop(true)
-    throw new Error(`Port mismatch: requested ${port} but got ${server.port}`)
-  }
 
   logger.info('Consolidated HTTP Server started', { port, host })
 
