@@ -9,6 +9,7 @@ import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 
 const MAX_RUNS_PER_JOB = 15
 const STALE_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
 export const scheduledJobRuns = async () => {
   const cleanupStaleJobRuns = async () => {
@@ -158,6 +159,57 @@ export const scheduledJobRuns = async () => {
     }
   }
 
+  let runningMissedJobs = false
+
+  const runMissedJobs = async () => {
+    if (runningMissedJobs) return
+    runningMissedJobs = true
+
+    try {
+      const jobs = (await scheduledJobStorage.getValue()).filter(
+        (j) => j.enabled,
+      )
+      const runs = (await scheduledJobRunStorage.getValue()) ?? []
+      const now = Date.now()
+      const cutoff = now - TWENTY_FOUR_HOURS_MS
+
+      for (const job of jobs) {
+        const hasRecentRun = runs.some(
+          (r) => r.jobId === job.id && new Date(r.startedAt).getTime() > cutoff,
+        )
+        if (hasRecentRun) continue
+
+        const hasRunningRun = runs.some(
+          (r) => r.jobId === job.id && r.status === 'running',
+        )
+        if (hasRunningRun) continue
+
+        if (job.scheduleType === 'daily' && job.scheduleTime) {
+          const [hours, minutes] = job.scheduleTime.split(':').map(Number)
+          const scheduledToday = new Date()
+          scheduledToday.setHours(hours, minutes, 0, 0)
+          if (now < scheduledToday.getTime()) continue
+        }
+
+        if (
+          (job.scheduleType === 'hourly' || job.scheduleType === 'minutes') &&
+          job.scheduleInterval
+        ) {
+          const intervalMs =
+            job.scheduleType === 'hourly'
+              ? job.scheduleInterval * 60 * 60 * 1000
+              : job.scheduleInterval * 60 * 1000
+          const createdAt = new Date(job.createdAt).getTime()
+          if (now - createdAt < intervalMs) continue
+        }
+
+        await executeScheduledJob(job.id)
+      }
+    } finally {
+      runningMissedJobs = false
+    }
+  }
+
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (!alarm.name.startsWith('scheduled-job-')) return
     const jobId = alarm.name.replace('scheduled-job-', '')
@@ -179,10 +231,12 @@ export const scheduledJobRuns = async () => {
   chrome.runtime.onStartup.addListener(async () => {
     await cleanupStaleJobRuns()
     await syncAlarmState()
+    await runMissedJobs()
   })
 
   chrome.runtime.onInstalled.addListener(async () => {
     await cleanupStaleJobRuns()
     await syncAlarmState()
+    await runMissedJobs()
   })
 }
