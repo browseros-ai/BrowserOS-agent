@@ -5,8 +5,8 @@
   "version": "0.0.52",
   "type": "module",
   "scripts": {
-    "dev": "bun --env-file=.env.development wxt",
-    "build": "wxt build",
+    "dev": "bun --env-file=.env.development run codegen && bun --env-file=.env.development wxt",
+    "build": "bun run codegen && wxt build",
     "build:dev": "wxt build --mode development",
     "zip": "wxt zip",
     "compile": "tsc --noEmit",
