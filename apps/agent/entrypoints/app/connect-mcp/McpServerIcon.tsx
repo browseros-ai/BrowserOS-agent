@@ -1,5 +1,7 @@
 import { Server } from 'lucide-react'
 import type { FC } from 'react'
+import CanvaSvg from '@/assets/mcp-icons/canva.svg'
+import ConfluenceSvg from '@/assets/mcp-icons/confluence.svg'
 import FigmaSvg from '@/assets/mcp-icons/figma.svg'
 import GithubSvg from '@/assets/mcp-icons/github.svg'
 import GitlabSvg from '@/assets/mcp-icons/gitlab.svg'
@@ -8,9 +10,11 @@ import GoogleSvg from '@/assets/mcp-icons/google.svg'
 import GoogleCalendarSvg from '@/assets/mcp-icons/google_calendar.svg'
 import GoogleDocsSvg from '@/assets/mcp-icons/google_docs_editors.svg'
 import GoogleDriveSvg from '@/assets/mcp-icons/google_drive.svg'
+import JiraSvg from '@/assets/mcp-icons/jira.svg'
 import LinearSvg from '@/assets/mcp-icons/linear.svg'
 import LinkedinSvg from '@/assets/mcp-icons/linkedin.svg'
 import NotionSvg from '@/assets/mcp-icons/notion.svg'
+import SalesforceSvg from '@/assets/mcp-icons/salesforce.svg'
 import SlackSvg from '@/assets/mcp-icons/slack.svg'
 
 const mcpIconMap: Record<string, string> = {
@@ -23,10 +27,14 @@ const mcpIconMap: Record<string, string> = {
   LinkedIn: LinkedinSvg,
   Notion: NotionSvg,
   Airtable: GoogleSvg,
+  Confluence: ConfluenceSvg,
   GitHub: GithubSvg,
   GitLab: GitlabSvg,
   Linear: LinearSvg,
+  Jira: JiraSvg,
   Figma: FigmaSvg,
+  Canva: CanvaSvg,
+  Salesforce: SalesforceSvg,
 }
 
 interface McpServerIconProps {
