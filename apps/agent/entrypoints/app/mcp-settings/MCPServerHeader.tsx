@@ -1,4 +1,4 @@
-import { Check, Copy, ExternalLink, Server } from 'lucide-react'
+import { Check, Copy, ExternalLink, Globe, Server } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
@@ -8,6 +8,7 @@ interface MCPServerHeaderProps {
   error: string | null
   title?: string
   description?: string
+  remoteAccessEnabled?: boolean
 }
 
 const DOCS_URL = 'https://docs.browseros.com/features/use-with-claude-code'
@@ -18,6 +19,7 @@ export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
   error,
   title = 'BrowserOS MCP Server',
   description = 'Connect BrowserOS to MCP clients like claude code, gemini and others.',
+  remoteAccessEnabled = false,
 }) => {
   const [isCopied, setIsCopied] = useState(false)
 
@@ -83,6 +85,17 @@ export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
               </Button>
             </div>
           </div>
+
+          {remoteAccessEnabled && serverUrl && !isLoading && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
+              <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <p className="text-muted-foreground text-xs">
+                External access is enabled. To connect from another device,
+                replace <span className="font-mono">127.0.0.1</span> with this
+                machine's IP address.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

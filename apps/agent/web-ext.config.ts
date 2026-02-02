@@ -22,6 +22,9 @@ if (env.BROWSEROS_CDP_PORT) {
 }
 if (env.BROWSEROS_SERVER_PORT) {
   chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
+  chromiumArgs.push(`--browseros-server-port=${env.BROWSEROS_SERVER_PORT}`)
+  // --disable-browseros-server means no proxy is running, so proxy port falls back to server port
+  chromiumArgs.push(`--browseros-proxy-port=${env.BROWSEROS_SERVER_PORT}`)
 }
 if (env.BROWSEROS_EXTENSION_PORT) {
   chromiumArgs.push(

@@ -113,6 +113,11 @@ export async function getProxyServerUrl(): Promise<string> {
  * @public
  */
 export async function getHealthCheckUrl(): Promise<string> {
+  const supportsProxy = await Capabilities.supports(Feature.PROXY_SUPPORT)
+  if (supportsProxy) {
+    const port = await getProxyPort()
+    return `http://127.0.0.1:${port}/health`
+  }
   const port = await getMcpPort()
   return `http://127.0.0.1:${port}/health`
 }
