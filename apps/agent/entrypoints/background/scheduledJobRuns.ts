@@ -159,43 +159,54 @@ export const scheduledJobRuns = async () => {
     }
   }
 
+  let runningMissedJobs = false
+
   const runMissedJobs = async () => {
-    const jobs = (await scheduledJobStorage.getValue()).filter((j) => j.enabled)
-    const runs = (await scheduledJobRunStorage.getValue()) ?? []
-    const now = Date.now()
-    const cutoff = now - TWENTY_FOUR_HOURS_MS
+    if (runningMissedJobs) return
+    runningMissedJobs = true
 
-    for (const job of jobs) {
-      const hasRecentRun = runs.some(
-        (r) => r.jobId === job.id && new Date(r.startedAt).getTime() > cutoff,
+    try {
+      const jobs = (await scheduledJobStorage.getValue()).filter(
+        (j) => j.enabled,
       )
-      if (hasRecentRun) continue
+      const runs = (await scheduledJobRunStorage.getValue()) ?? []
+      const now = Date.now()
+      const cutoff = now - TWENTY_FOUR_HOURS_MS
 
-      const hasRunningRun = runs.some(
-        (r) => r.jobId === job.id && r.status === 'running',
-      )
-      if (hasRunningRun) continue
+      for (const job of jobs) {
+        const hasRecentRun = runs.some(
+          (r) => r.jobId === job.id && new Date(r.startedAt).getTime() > cutoff,
+        )
+        if (hasRecentRun) continue
 
-      if (job.scheduleType === 'daily' && job.scheduleTime) {
-        const [hours, minutes] = job.scheduleTime.split(':').map(Number)
-        const scheduledToday = new Date()
-        scheduledToday.setHours(hours, minutes, 0, 0)
-        if (now < scheduledToday.getTime()) continue
+        const hasRunningRun = runs.some(
+          (r) => r.jobId === job.id && r.status === 'running',
+        )
+        if (hasRunningRun) continue
+
+        if (job.scheduleType === 'daily' && job.scheduleTime) {
+          const [hours, minutes] = job.scheduleTime.split(':').map(Number)
+          const scheduledToday = new Date()
+          scheduledToday.setHours(hours, minutes, 0, 0)
+          if (now < scheduledToday.getTime()) continue
+        }
+
+        if (
+          (job.scheduleType === 'hourly' || job.scheduleType === 'minutes') &&
+          job.scheduleInterval
+        ) {
+          const intervalMs =
+            job.scheduleType === 'hourly'
+              ? job.scheduleInterval * 60 * 60 * 1000
+              : job.scheduleInterval * 60 * 1000
+          const createdAt = new Date(job.createdAt).getTime()
+          if (now - createdAt < intervalMs) continue
+        }
+
+        await executeScheduledJob(job.id)
       }
-
-      if (
-        (job.scheduleType === 'hourly' || job.scheduleType === 'minutes') &&
-        job.scheduleInterval
-      ) {
-        const intervalMs =
-          job.scheduleType === 'hourly'
-            ? job.scheduleInterval * 60 * 60 * 1000
-            : job.scheduleInterval * 60 * 1000
-        const createdAt = new Date(job.createdAt).getTime()
-        if (now - createdAt < intervalMs) continue
-      }
-
-      await executeScheduledJob(job.id)
+    } finally {
+      runningMissedJobs = false
     }
   }
 
