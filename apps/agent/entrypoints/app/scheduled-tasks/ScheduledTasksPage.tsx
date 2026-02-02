@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   NEW_SCHEDULED_TASK_CREATED_EVENT,
   SCHEDULED_TASK_DELETED_EVENT,
@@ -24,6 +25,7 @@ import { DeleteScheduledJobDocument } from '@/lib/schedules/graphql/syncSchedule
 import { useScheduledJobs } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
+import { ScheduledTaskResults } from './ScheduledTaskResults'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
 import { ScheduledTasksList } from './ScheduledTasksList'
 import type { ScheduledJob } from './types'
@@ -109,14 +111,27 @@ export const ScheduledTasksPage: FC = () => {
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
       <ScheduledTasksHeader onAddClick={handleAdd} />
 
-      <ScheduledTasksList
-        jobs={jobs}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onToggle={handleToggle}
-        onRun={handleRun}
-        onViewRun={handleViewRun}
-      />
+      <Tabs defaultValue="results">
+        <TabsList>
+          <TabsTrigger value="results">Results</TabsTrigger>
+          <TabsTrigger value="tasks">Scheduled Tasks</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="results">
+          <ScheduledTaskResults onViewRun={handleViewRun} />
+        </TabsContent>
+
+        <TabsContent value="tasks">
+          <ScheduledTasksList
+            jobs={jobs}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onToggle={handleToggle}
+            onRun={handleRun}
+            onViewRun={handleViewRun}
+          />
+        </TabsContent>
+      </Tabs>
 
       <NewScheduledTaskDialog
         open={isDialogOpen}
