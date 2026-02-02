@@ -76,9 +76,9 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Custom MCP Server</DialogTitle>
+          <DialogTitle>Add Custom App</DialogTitle>
           <DialogDescription>
-            Configure your custom MCP server connection
+            Configure your custom app connection
           </DialogDescription>
         </DialogHeader>
 
@@ -91,7 +91,7 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
                 <FormItem>
                   <FormLabel>Server Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="My Custom MCP" {...field} />
+                    <Input placeholder="My Custom App" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -19,12 +19,12 @@ import { useGetUserMCPIntegrations } from './useGetUserMCPIntegrations'
 import { useRemoveManagedServer } from './useRemoveManagedServer'
 
 const failedToAddMcp = (serverName: string, e: unknown) => {
-  toast.error(`Failed to add MCP Server: ${serverName}`)
+  toast.error(`Failed to add app: ${serverName}`)
   sentry.captureException(e)
 }
 
 const failedToRemoveMcp = (serverName: string, e: unknown) => {
-  toast.error(`Failed to remove MCP Server: ${serverName}`)
+  toast.error(`Failed to remove app: ${serverName}`)
   sentry.captureException(e)
 }
 
@@ -83,7 +83,7 @@ export const ConnectMCP: FC = () => {
 
       addServer({
         id: Date.now().toString(),
-        displayName: `${name} MCP`,
+        displayName: name,
         type: 'managed',
         managedServerName: name,
         managedServerDescription: description,
@@ -154,9 +154,9 @@ export const ConnectMCP: FC = () => {
             <Server className="h-6 w-6 text-[var(--accent-orange)]" />
           </div>
           <div className="flex-1">
-            <h2 className="mb-1 font-semibold text-xl">MCP Servers</h2>
+            <h2 className="mb-1 font-semibold text-xl">Connected Apps</h2>
             <p className="mb-6 text-muted-foreground text-sm">
-              Connect BrowserOS assistant to MCP servers to send email, schedule
+              Connect BrowserOS assistant to apps to send email, schedule
               calendar events, write docs, and more
             </p>
 
@@ -167,7 +167,7 @@ export const ConnectMCP: FC = () => {
                 className="border-[var(--accent-orange)] bg-[var(--accent-orange)]/10 text-[var(--accent-orange)] hover:bg-[var(--accent-orange)]/20"
               >
                 <Plus className="h-4 w-4" />
-                <span>Enable built-in MCP</span>
+                <span>Add built-in app</span>
               </Button>
 
               <Button
@@ -175,7 +175,7 @@ export const ConnectMCP: FC = () => {
                 onClick={() => setAddingCustomMcp(true)}
               >
                 <Plus className="h-4 w-4" />
-                <span>Add Custom MCP</span>
+                <span>Add custom app</span>
               </Button>
             </div>
           </div>
@@ -185,7 +185,7 @@ export const ConnectMCP: FC = () => {
       {/* Created Servers */}
       {createdServers.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
-          <h3 className="mb-4 font-semibold text-lg">Your MCP Servers</h3>
+          <h3 className="mb-4 font-semibold text-lg">Your Connected Apps</h3>
           <div className="space-y-3">
             {createdServers.map((server) => (
               <div

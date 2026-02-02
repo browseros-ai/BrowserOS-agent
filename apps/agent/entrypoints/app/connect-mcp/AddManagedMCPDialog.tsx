@@ -32,9 +32,9 @@ export const AddManagedMCPDialog: FC<AddManagedMCPDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Enable built-in MCP Server</DialogTitle>
+          <DialogTitle>Add built-in app</DialogTitle>
           <DialogDescription>
-            Select a built-in MCP server to enable
+            Select a built-in app to connect
           </DialogDescription>
         </DialogHeader>
 

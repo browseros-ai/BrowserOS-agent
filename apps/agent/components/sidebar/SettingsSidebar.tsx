@@ -27,7 +27,7 @@ const settingsNavItems: NavItem[] = [
   { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
   { name: 'LLM Chat & Hub', to: '/settings/chat', icon: MessageSquare },
   {
-    name: 'Connect to MCPs',
+    name: 'Connect Apps',
     to: '/settings/connect-mcp',
     icon: PlugZap,
     feature: Feature.MANAGED_MCP_SUPPORT,
