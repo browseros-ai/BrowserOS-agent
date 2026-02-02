@@ -17,7 +17,7 @@ import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
 import type { McpContext } from '../browser/cdp/context'
 import type { ControllerContext } from '../browser/extension/context'
-import type { HealthWatchdog } from '../lib/health-watchdog'
+
 import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { ToolDefinition } from '../tools/types/tool-definition'
@@ -81,9 +81,6 @@ export interface HttpServerConfig {
 
   // For Graph routes
   codegenServiceUrl?: string
-
-  // For health monitoring
-  healthWatchdog?: HealthWatchdog
 
   // For shutdown route
   onShutdown?: () => void

@@ -15,7 +15,7 @@ import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { logger } from '../lib/logger'
-import { bindPortWithRetry } from '../lib/port-binding'
+
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -28,13 +28,29 @@ import { createStatusRoute } from './routes/status'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
-/**
- * Creates the consolidated HTTP server with port binding retry logic.
- * Retries binding every 5s for up to 30s to handle TIME_WAIT states.
- *
- * @param config - Server configuration
- * @returns Bun server instance
- */
+async function assertPortAvailable(port: number): Promise<void> {
+  const net = await import('node:net')
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer()
+
+    probe.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(
+          Object.assign(new Error(`Port ${port} is already in use`), {
+            code: 'EADDRINUSE',
+          }),
+        )
+      } else {
+        reject(err)
+      }
+    })
+
+    probe.listen({ port, host: '127.0.0.1', exclusive: true }, () => {
+      probe.close(() => resolve())
+    })
+  })
+}
+
 export async function createHttpServer(config: HttpServerConfig) {
   const {
     port,
@@ -50,12 +66,12 @@ export async function createHttpServer(config: HttpServerConfig) {
     allowRemote,
   } = config
 
-  const { healthWatchdog, onShutdown } = config
+  const { onShutdown } = config
 
   // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
-    .route('/health', createHealthRoute({ watchdog: healthWatchdog }))
+    .route('/health', createHealthRoute())
     .route(
       '/shutdown',
       createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
@@ -131,14 +147,13 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
   })
 
-  // Bind with retry logic to handle TIME_WAIT states
-  const server = await bindPortWithRetry(port, async () => {
-    return Bun.serve({
-      fetch: (request, server) => app.fetch(request, { server }),
-      port,
-      hostname: host,
-      idleTimeout: 0, // Disable idle timeout for long-running LLM streams
-    })
+  await assertPortAvailable(port)
+
+  const server = Bun.serve({
+    fetch: (request, server) => app.fetch(request, { server }),
+    port,
+    hostname: host,
+    idleTimeout: 0,
   })
 
   logger.info('Consolidated HTTP Server started', { port, host })

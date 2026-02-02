@@ -20,12 +20,12 @@ import { ControllerContext } from './browser/extension/context'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
 import { initializeDb } from './lib/db'
-import { HealthWatchdog } from './lib/health-watchdog'
+
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
 import { MutexPool } from './lib/mutex'
-import { bindPortWithRetry, PortBindError } from './lib/port-binding'
+import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
@@ -35,7 +35,6 @@ import { VERSION } from './version'
 export class Application {
   private config: ServerConfig
   private db: Database | null = null
-  private healthWatchdog: HealthWatchdog | null = null
 
   constructor(config: ServerConfig) {
     this.config = config
@@ -72,12 +71,6 @@ export class Application {
     const tools = createToolRegistry(cdpContext, controllerContext)
     const mutexPool = new MutexPool()
 
-    const isDev = process.env.NODE_ENV === 'development'
-    if (!isDev) {
-      this.healthWatchdog = new HealthWatchdog({ logger })
-      logger.info('Health watchdog enabled')
-    }
-
     try {
       await createHttpServer({
         port: this.config.serverPort,
@@ -92,7 +85,7 @@ export class Application {
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
-        healthWatchdog: this.healthWatchdog ?? undefined,
+
         onShutdown: () => this.stop(),
       })
     } catch (error) {
@@ -106,9 +99,6 @@ export class Application {
       `Health endpoint: http://127.0.0.1:${this.config.serverPort}/health`,
     )
 
-    // Start the watchdog after HTTP server is ready
-    this.healthWatchdog?.start()
-
     this.logStartupSummary()
 
     metrics.log('http_server.started', { version: VERSION })
@@ -116,7 +106,7 @@ export class Application {
 
   stop(): void {
     logger.info('Shutting down server...')
-    this.healthWatchdog?.stop()
+
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
     process.exit(EXIT_CODES.SUCCESS)
@@ -155,7 +145,7 @@ export class Application {
     }
 
     if (!INLINED_ENV.SENTRY_DSN) {
-      logger.warn('Sentry disabled: missing SENTRY_DSN')
+      logger.debug('Sentry disabled: missing SENTRY_DSN')
     }
 
     Sentry.setContext('browseros', {
@@ -191,11 +181,9 @@ export class Application {
     const port = this.config.extensionPort
     logger.info(`Controller server starting on ws://127.0.0.1:${port}`)
 
-    return bindPortWithRetry(port, async () => {
-      const controllerBridge = new ControllerBridge(port, logger)
-      await controllerBridge.waitForReady()
-      return { controllerContext: new ControllerContext(controllerBridge) }
-    })
+    const controllerBridge = new ControllerBridge(port, logger)
+    await controllerBridge.waitForReady()
+    return { controllerContext: new ControllerContext(controllerBridge) }
   }
 
   private handleStartupError(
@@ -209,10 +197,9 @@ export class Application {
     })
     Sentry.captureException(error)
 
-    if (error instanceof PortBindError) {
+    if (isPortInUseError(error)) {
       logger.error(
-        `Port ${port} is unavailable after ${error.retriedFor}ms of retries. ` +
-          `Chromium should try a different port.`,
+        `Port ${port} is already in use. Chromium should try a different port.`,
       )
       process.exit(EXIT_CODES.PORT_CONFLICT)
     }
@@ -237,9 +224,10 @@ export class Application {
       const { allCdpTools } = await import('./tools/cdp-based/registry')
       logger.info(`Loaded ${allCdpTools.length} CDP tools`)
       return context
-    } catch (_error) {
+    } catch (error) {
       logger.warn(
         `Warning: Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+        { error: error instanceof Error ? error.message : String(error) },
       )
       logger.warn(
         'CDP tools will not be available. Only extension tools will work.',

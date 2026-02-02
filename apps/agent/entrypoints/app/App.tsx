@@ -12,10 +12,15 @@ import { ConnectMCP } from './connect-mcp/ConnectMCP'
 import { CreateGraphWrapper } from './create-graph/CreateGraphWrapper'
 import { CustomizationPage } from './customization/CustomizationPage'
 import { SurveyPage } from './jtbd-agent/SurveyPage'
+import { AuthLayout } from './layout/AuthLayout'
 import { SettingsSidebarLayout } from './layout/SettingsSidebarLayout'
 import { SidebarLayout } from './layout/SidebarLayout'
 import { LlmHubPage } from './llm-hub/LlmHubPage'
+import { LoginPage } from './login/LoginPage'
+import { LogoutPage } from './login/LogoutPage'
+import { MagicLinkCallback } from './login/MagicLinkCallback'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
+import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
@@ -53,6 +58,14 @@ export const App: FC = () => {
   return (
     <HashRouter>
       <Routes>
+        {/* Public auth routes */}
+        <Route element={<AuthLayout />}>
+          <Route path="login" element={<LoginPage />} />
+          <Route path="logout" element={<LogoutPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="auth/magic-link" element={<MagicLinkCallback />} />
+        </Route>
+
         {/* Main app with sidebar */}
         <Route element={<SidebarLayout />}>
           {/* Home routes */}
@@ -82,7 +95,7 @@ export const App: FC = () => {
         {/* Full-screen without sidebar */}
         <Route path="workflows/create-graph" element={<CreateGraphWrapper />} />
 
-        {/* Onboarding routes - no sidebar */}
+        {/* Onboarding routes - no sidebar, no auth required */}
         <Route path="onboarding">
           <Route index element={<Onboarding />} />
           <Route path="steps/:stepId" element={<StepsLayout />} />
