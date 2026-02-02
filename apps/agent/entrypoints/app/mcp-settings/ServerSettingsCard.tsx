@@ -33,10 +33,12 @@ type DialogType = 'enable-remote' | 'restart' | null
 
 interface ServerSettingsCardProps {
   onServerRestart?: () => void
+  onRemoteAccessChange?: (enabled: boolean) => void
 }
 
 export const ServerSettingsCard: FC<ServerSettingsCardProps> = ({
   onServerRestart,
+  onRemoteAccessChange,
 }) => {
   const [allowRemote, setAllowRemote] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -50,7 +52,9 @@ export const ServerSettingsCard: FC<ServerSettingsCardProps> = ({
       try {
         const adapter = getBrowserOSAdapter()
         const pref = await adapter.getPref(BROWSEROS_PREFS.ALLOW_REMOTE_MCP)
-        setAllowRemote(pref?.value === true)
+        const isRemote = pref?.value === true
+        setAllowRemote(isRemote)
+        onRemoteAccessChange?.(isRemote)
       } catch {
         // API not available or error
       } finally {
@@ -59,7 +63,7 @@ export const ServerSettingsCard: FC<ServerSettingsCardProps> = ({
     }
 
     loadCurrentPref()
-  }, [])
+  }, [onRemoteAccessChange])
 
   const checkServerHealth = useCallback(async (): Promise<boolean> => {
     try {
@@ -128,6 +132,7 @@ export const ServerSettingsCard: FC<ServerSettingsCardProps> = ({
 
       if (serverRestarted) {
         setAllowRemote(newValue)
+        onRemoteAccessChange?.(newValue)
         track(
           newValue
             ? MCP_EXTERNAL_ACCESS_ENABLED_EVENT

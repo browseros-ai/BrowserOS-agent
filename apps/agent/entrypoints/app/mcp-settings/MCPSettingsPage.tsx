@@ -12,6 +12,8 @@ export const MCPSettingsPage: FC = () => {
   const [urlLoading, setUrlLoading] = useState(true)
   const [urlError, setUrlError] = useState<string | null>(null)
 
+  const [remoteAccessEnabled, setRemoteAccessEnabled] = useState(false)
+
   const [tools, setTools] = useState<McpTool[]>([])
   const [toolsLoading, setToolsLoading] = useState(false)
   const [toolsError, setToolsError] = useState<string | null>(null)
@@ -80,9 +82,13 @@ export const MCPSettingsPage: FC = () => {
         serverUrl={serverUrl}
         isLoading={urlLoading}
         error={urlError}
+        remoteAccessEnabled={remoteAccessEnabled}
       />
 
-      <ServerSettingsCard onServerRestart={loadServerUrlAndTools} />
+      <ServerSettingsCard
+        onServerRestart={loadServerUrlAndTools}
+        onRemoteAccessChange={setRemoteAccessEnabled}
+      />
 
       <MCPToolsSection
         tools={tools}

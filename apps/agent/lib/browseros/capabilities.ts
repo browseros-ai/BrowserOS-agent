@@ -29,6 +29,8 @@ export enum Feature {
   CUSTOMIZATION_SUPPORT = 'CUSTOMIZATION_SUPPORT',
   // Workspace folder selection with full path support requires new browserOS.choosePath API
   WORKSPACE_FOLDER_SUPPORT = 'WORKSPACE_FOLDER_SUPPORT',
+  // Proxy server support
+  PROXY_SUPPORT = 'PROXY_SUPPORT',
   // Workflows feature
   WORKFLOW_SUPPORT = 'WORKFLOW_SUPPORT',
 }
@@ -50,6 +52,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.UNIFIED_PORT_SUPPORT]: { minBrowserOSVersion: '0.36.1.0' },
   [Feature.CUSTOMIZATION_SUPPORT]: { minBrowserOSVersion: '0.36.1.0' },
   [Feature.WORKSPACE_FOLDER_SUPPORT]: { minBrowserOSVersion: '0.36.4.0' },
+  [Feature.PROXY_SUPPORT]: { minBrowserOSVersion: '0.39.0.1' },
   [Feature.WORKFLOW_SUPPORT]: { minServerVersion: '0.0.41' },
 }
 

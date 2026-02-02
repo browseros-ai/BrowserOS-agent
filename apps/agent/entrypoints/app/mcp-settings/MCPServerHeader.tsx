@@ -1,4 +1,4 @@
-import { Check, Copy, ExternalLink, Server } from 'lucide-react'
+import { Check, Copy, ExternalLink, Globe, Server } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
@@ -6,6 +6,9 @@ interface MCPServerHeaderProps {
   serverUrl: string | null
   isLoading: boolean
   error: string | null
+  title?: string
+  description?: string
+  remoteAccessEnabled?: boolean
 }
 
 const DOCS_URL = 'https://docs.browseros.com/features/use-with-claude-code'
@@ -14,6 +17,9 @@ export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
   serverUrl,
   isLoading,
   error,
+  title = 'BrowserOS MCP Server',
+  description = 'Connect BrowserOS to MCP clients like claude code, gemini and others.',
+  remoteAccessEnabled = false,
 }) => {
   const [isCopied, setIsCopied] = useState(false)
 
@@ -37,7 +43,7 @@ export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
         </div>
         <div className="flex-1">
           <div className="mb-1 flex items-center justify-between">
-            <h2 className="font-semibold text-xl">BrowserOS MCP Server</h2>
+            <h2 className="font-semibold text-xl">{title}</h2>
             <a
               href={DOCS_URL}
               target="_blank"
@@ -48,10 +54,7 @@ export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
-          <p className="mb-6 text-muted-foreground text-sm">
-            Connect BrowserOS to MCP clients like claude code, gemini and
-            others.
-          </p>
+          <p className="mb-6 text-muted-foreground text-sm">{description}</p>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <span className="whitespace-nowrap font-medium text-sm">
@@ -82,6 +85,17 @@ export const MCPServerHeader: FC<MCPServerHeaderProps> = ({
               </Button>
             </div>
           </div>
+
+          {remoteAccessEnabled && serverUrl && !isLoading && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
+              <Globe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <p className="text-muted-foreground text-xs">
+                External access is enabled. To connect from another device,
+                replace <span className="font-mono">127.0.0.1</span> with this
+                machine's IP address.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
