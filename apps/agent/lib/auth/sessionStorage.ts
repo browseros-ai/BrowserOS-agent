@@ -16,9 +16,13 @@ export const sessionStorage = storage.defineItem<SessionInfo>(
 
 export const useSessionInfo = () => {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({})
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    sessionStorage.getValue().then(setSessionInfo)
+    sessionStorage.getValue().then((value) => {
+      setSessionInfo(value)
+      setIsLoading(false)
+    })
     const unwatch = sessionStorage.watch((newValue) => {
       setSessionInfo(newValue ?? {})
     })
@@ -29,5 +33,5 @@ export const useSessionInfo = () => {
     await sessionStorage.setValue(info)
   }
 
-  return { sessionInfo, updateSessionInfo }
+  return { sessionInfo, isLoading, updateSessionInfo }
 }

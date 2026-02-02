@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useSession } from '@/lib/auth/auth-client'
+import { useSessionInfo } from '@/lib/auth/sessionStorage'
 
 const DISMISS_DURATION = 24 * 60 * 60 * 1000
 
@@ -20,13 +20,14 @@ const signInHintDismissedAtStorage = storage.defineItem<number | null>(
 )
 
 export const SignInHint = () => {
-  const { data: session, isPending } = useSession()
+  const { sessionInfo, isLoading } = useSessionInfo()
+  const isLoggedIn = !!sessionInfo?.user
   const navigate = useNavigate()
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    if (isPending || session) return
+    if (isLoading || isLoggedIn) return
 
     let cancelled = false
     let timer: ReturnType<typeof setTimeout>
@@ -44,14 +45,14 @@ export const SignInHint = () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [isPending, session])
+  }, [isLoading, isLoggedIn])
 
   const handleDismiss = async () => {
     setDismissed(true)
     await signInHintDismissedAtStorage.setValue(Date.now())
   }
 
-  const show = visible && !dismissed
+  const show = visible && !dismissed && !isLoggedIn
 
   return (
     <AnimatePresence>
