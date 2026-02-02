@@ -12,6 +12,7 @@ import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
 import { AvailableManagedServers } from './AvailableManagedServers'
+import { McpServerIcon } from './McpServerIcon'
 import { useAddManagedServer } from './useAddManagedServer'
 import { useGetMCPServersList } from './useGetMCPServersList'
 import { useGetUserMCPIntegrations } from './useGetUserMCPIntegrations'
@@ -192,7 +193,11 @@ export const ConnectMCP: FC = () => {
                 className="flex items-center gap-4 rounded-lg border border-border bg-background p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
-                  <Server className="h-5 w-5 text-[var(--accent-orange)]" />
+                  <McpServerIcon
+                    serverName={server.managedServerName ?? ''}
+                    size={20}
+                    className="text-[var(--accent-orange)]"
+                  />
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">

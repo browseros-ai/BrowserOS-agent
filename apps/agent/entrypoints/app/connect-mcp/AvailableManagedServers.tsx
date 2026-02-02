@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Plus, Server } from 'lucide-react'
+import { ChevronDown, Loader2, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,6 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { McpServerIcon } from './McpServerIcon'
 
 interface AvailableManagedServersProps {
   availableServers?: { name: string; description: string }[]
@@ -57,7 +58,11 @@ export const AvailableManagedServers: FC<AvailableManagedServersProps> = ({
                   >
                     <div className="flex w-full items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Server className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-[var(--accent-orange)]" />
+                        <McpServerIcon
+                          serverName={serverName}
+                          size={20}
+                          className="text-muted-foreground transition-colors group-hover:text-[var(--accent-orange)]"
+                        />
                         <span className="font-medium">{serverName}</span>
                       </div>
                       <Plus className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-[var(--accent-orange)]" />

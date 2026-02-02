@@ -1,4 +1,4 @@
-import { Plus, Server } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { McpServerIcon } from './McpServerIcon'
 
 interface AddManagedMCPDialogProps {
   open: boolean
@@ -47,7 +48,11 @@ export const AddManagedMCPDialog: FC<AddManagedMCPDialogProps> = ({
                 onClick={() => handleAddServer(args)}
                 className="group h-auto w-full items-center gap-3 p-3 hover:border-[var(--accent-orange)] hover:bg-[var(--accent-orange)]/5"
               >
-                <Server className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <McpServerIcon
+                  serverName={serverName}
+                  size={20}
+                  className="shrink-0 text-muted-foreground"
+                />
                 <div className="flex w-[calc(100%-64px)] flex-1 flex-col items-start gap-1">
                   <span className="font-medium">{serverName}</span>
                   {description && (
