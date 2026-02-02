@@ -93,6 +93,7 @@ export class ChatService {
       sessionExecutionDir,
       supportsImages: request.supportsImages,
       chatMode: request.mode === 'chat',
+      isScheduledTask: request.isScheduledTask,
     }
 
     const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)

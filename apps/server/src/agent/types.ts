@@ -39,4 +39,6 @@ export interface ResolvedAgentConfig {
   evalMode?: boolean
   /** Chat mode - restricts to read-only tools (no browser automation). Defaults to false. */
   chatMode?: boolean
+  /** Scheduled task mode - disables tab grouping. Defaults to false. */
+  isScheduledTask?: boolean
 }
