@@ -16,7 +16,7 @@ import {
   GlowingBorder,
   GlowingElement,
 } from '@/components/elements/glowing-border'
-import { TabSelector } from '@/components/elements/tab-selector'
+import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
 import {
@@ -352,7 +352,8 @@ export const NewTab = () => {
                   )}
 
                   <div className="relative" ref={tabsDropdownRef}>
-                    <TabSelector
+                    <TabPickerPopover
+                      variant="selector"
                       selectedTabs={selectedTabs}
                       onToggleTab={toggleTab}
                     >
@@ -368,7 +369,7 @@ export const NewTab = () => {
                         <Layers className="h-4 w-4" />
                         <span>Tabs</span>
                       </Button>
-                    </TabSelector>
+                    </TabPickerPopover>
                   </div>
                 </div>
 

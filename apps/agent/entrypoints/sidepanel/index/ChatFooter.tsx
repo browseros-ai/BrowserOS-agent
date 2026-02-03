@@ -1,7 +1,7 @@
 import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
+import { useRef, useState } from 'react'
 import { AppSelector } from '@/components/elements/AppSelector'
-import { TabSelector } from '@/components/elements/tab-selector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
@@ -11,7 +11,7 @@ import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { ChatAttachedTabs } from './ChatAttachedTabs'
-import { ChatInput } from './ChatInput'
+import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { ChatModeToggle } from './ChatModeToggle'
 import type { ChatMode } from './chatTypes'
 
@@ -44,6 +44,8 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   const { supports } = useCapabilities()
   const { servers: mcpServers } = useMcpServers()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
+  const chatInputRef = useRef<ChatInputHandle>(null)
+  const [isTabMentionOpen, setIsTabMentionOpen] = useState(false)
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
@@ -63,25 +65,24 @@ export const ChatFooter: FC<ChatFooterProps> = ({
           <div className="h-4 w-px bg-border/50" />
 
           <div className="flex items-center gap-1">
-            <TabSelector
-              selectedTabs={attachedTabs}
-              onToggleTab={onToggleTab}
-              side="top"
+            <button
+              type="button"
+              onClick={() => chatInputRef.current?.toggleTabMention()}
+              data-tab-mention-trigger
+              data-state={isTabMentionOpen ? 'open' : 'closed'}
+              aria-expanded={isTabMentionOpen}
+              aria-haspopup="dialog"
+              className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
+              title="Attach tabs (@)"
             >
-              <button
-                type="button"
-                className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
-                title="Select tabs"
-              >
-                <Layers className="h-4 w-4" />
-                {attachedTabs.length > 0 && (
-                  <span className="font-medium text-[var(--accent-orange)] text-xs">
-                    {attachedTabs.length}
-                  </span>
-                )}
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </TabSelector>
+              <Layers className="h-4 w-4" />
+              {attachedTabs.length > 0 && (
+                <span className="font-medium text-[var(--accent-orange)] text-xs">
+                  {attachedTabs.length}
+                </span>
+              )}
+              <ChevronDown className="h-3 w-3" />
+            </button>
 
             {supports(Feature.WORKSPACE_FOLDER_SUPPORT) && (
               <WorkspaceSelector side="top">
@@ -157,6 +158,8 @@ export const ChatFooter: FC<ChatFooterProps> = ({
           onStop={onStop}
           selectedTabs={attachedTabs}
           onToggleTab={onToggleTab}
+          onTabMentionOpenChange={setIsTabMentionOpen}
+          ref={chatInputRef}
         />
       </div>
     </footer>
