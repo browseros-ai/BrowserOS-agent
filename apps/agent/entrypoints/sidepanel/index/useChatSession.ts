@@ -317,11 +317,7 @@ export const useChatSession = () => {
     if (restoredConversationId === conversationIdParam) return
 
     if (isLoggedIn) {
-      if (!remoteConversationData?.conversation) {
-        setRestoredConversationId(conversationIdParam)
-        setSearchParams({}, { replace: true })
-        return
-      }
+      if (!remoteConversationData?.conversation) return
 
       const restoredMessages =
         remoteConversationData.conversation.conversationMessages.nodes
@@ -343,12 +339,12 @@ export const useChatSession = () => {
         )
 
         if (conversation) {
+          setRestoredConversationId(conversationIdParam)
           setConversationId(
             conversation.id as ReturnType<typeof crypto.randomUUID>,
           )
           setMessages(conversation.messages)
         }
-        setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
       }
       restoreLocal()
