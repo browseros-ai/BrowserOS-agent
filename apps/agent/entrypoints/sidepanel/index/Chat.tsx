@@ -1,7 +1,14 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
-import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
+import {
+  SIDEPANEL_AI_TRIGGERED_EVENT,
+  SIDEPANEL_MODE_CHANGED_EVENT,
+  SIDEPANEL_STOP_CLICKED_EVENT,
+  SIDEPANEL_SUGGESTION_CLICKED_EVENT,
+  SIDEPANEL_TAB_REMOVED_EVENT,
+  SIDEPANEL_TAB_TOGGLED_EVENT,
+} from '@/lib/constants/analyticsEvents'
 import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { useChatSessionContext } from '../layout/ChatSessionContext'
@@ -9,6 +16,7 @@ import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
 import { ChatFooter } from './ChatFooter'
 import { ChatMessages } from './ChatMessages'
+import type { ChatMode } from './chatTypes'
 
 /**
  * @public
@@ -84,9 +92,22 @@ export const Chat = () => {
     previousChatStatus.current = status
   }, [status])
 
+  const handleModeChange = (newMode: ChatMode) => {
+    track(SIDEPANEL_MODE_CHANGED_EVENT, { from: mode, to: newMode })
+    setMode(newMode)
+  }
+
+  const handleStop = () => {
+    track(SIDEPANEL_STOP_CLICKED_EVENT)
+    stop()
+  }
+
   const toggleTabSelection = (tab: chrome.tabs.Tab) => {
     setAttachedTabs((prev) => {
       const isSelected = prev.some((t) => t.id === tab.id)
+      track(SIDEPANEL_TAB_TOGGLED_EVENT, {
+        action: isSelected ? 'removed' : 'added',
+      })
       if (isSelected) {
         return prev.filter((t) => t.id !== tab.id)
       }
@@ -95,6 +116,7 @@ export const Chat = () => {
   }
 
   const removeTab = (tabId?: number) => {
+    track(SIDEPANEL_TAB_REMOVED_EVENT)
     setAttachedTabs((prev) => prev.filter((t) => t.id !== tabId))
   }
 
@@ -130,6 +152,7 @@ export const Chat = () => {
   }
 
   const handleSuggestionClick = (suggestion: string) => {
+    track(SIDEPANEL_SUGGESTION_CLICKED_EVENT, { mode })
     executeMessage(suggestion)
   }
 
@@ -167,12 +190,12 @@ export const Chat = () => {
 
       <ChatFooter
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         input={input}
         onInputChange={setInput}
         onSubmit={handleSubmit}
         status={status}
-        onStop={stop}
+        onStop={handleStop}
         attachedTabs={attachedTabs}
         onToggleTab={toggleTabSelection}
         onRemoveTab={removeTab}
