@@ -145,6 +145,22 @@ export const ConnectMCP: FC = () => {
     return true
   })
 
+  const unauthenticatedServers: { name: string; description: string }[] = []
+  if (!isUserMCPIntegrationsLoading) {
+    for (const server of createdServers) {
+      if (server.type !== 'managed' || !server.managedServerName) continue
+      const integration = userMCPIntegrations?.integrations?.find(
+        (i) => i.name === server.managedServerName,
+      )
+      if (!integration?.is_authenticated) {
+        unauthenticatedServers.push({
+          name: server.managedServerName,
+          description: server.managedServerDescription ?? '',
+        })
+      }
+    }
+  }
+
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
       {/* Header */}
@@ -279,7 +295,9 @@ export const ConnectMCP: FC = () => {
         open={addingManagedMcp}
         onOpenChange={setAddingManagedMcp}
         serversList={availableServers}
+        unauthenticatedServers={unauthenticatedServers}
         onAddServer={addManagedServer}
+        onAuthenticate={openAuthUrlForMCP}
       />
 
       <AddCustomMCPDialog
