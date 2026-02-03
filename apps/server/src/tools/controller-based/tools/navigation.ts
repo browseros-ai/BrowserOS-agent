@@ -9,6 +9,33 @@ import { defineTool } from '../../types/tool-definition'
 import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
+async function waitForTabReady(
+  context: Context,
+  tabId: number,
+  windowId?: number,
+): Promise<void> {
+  // Best-effort: give the tab a moment to load so follow-up tools (snapshot,
+  // screenshots, input) don't race a blank/incomplete page.
+  for (let i = 0; i < 30; i++) {
+    try {
+      const status = (await context.executeAction('getPageLoadStatus', {
+        tabId,
+        windowId,
+      })) as {
+        isResourcesLoading?: boolean
+        isDOMContentLoaded?: boolean
+        isPageComplete?: boolean
+      }
+      if (status.isPageComplete || status.isDOMContentLoaded) {
+        return
+      }
+    } catch {
+      // Ignore and keep waiting.
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+}
+
 export const navigate = defineTool<z.ZodRawShape, Context, Response>({
   name: 'browser_navigate',
   description: 'Navigate to a URL in the current or specified tab',
@@ -41,6 +68,8 @@ export const navigate = defineTool<z.ZodRawShape, Context, Response>({
       url: string
       message: string
     }
+
+    await waitForTabReady(context, data.tabId, data.windowId)
 
     response.appendResponseLine(data.message)
     response.appendResponseLine(`Tab ID: ${data.tabId}`)
