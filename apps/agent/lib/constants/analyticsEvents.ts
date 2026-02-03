@@ -96,6 +96,21 @@ export const NEWTAB_TAB_REMOVED_EVENT = 'newtab.tab.removed'
 export const NEWTAB_APPS_OPENED_EVENT = 'newtab.apps.opened'
 
 /** @public */
+export const WORKFLOW_DELETED_EVENT = 'settings.workflow.deleted'
+
+/** @public */
+export const WORKFLOW_RUN_STARTED_EVENT = 'settings.workflow.run_started'
+
+/** @public */
+export const WORKFLOW_RUN_STOPPED_EVENT = 'settings.workflow.run_stopped'
+
+/** @public */
+export const WORKFLOW_RUN_RETRIED_EVENT = 'settings.workflow.run_retried'
+
+/** @public */
+export const WORKFLOW_RUN_COMPLETED_EVENT = 'settings.workflow.run_completed'
+
+/** @public */
 export const SIDEPANEL_AI_TRIGGERED_EVENT = 'sidepanel.ai.triggered'
 
 export const SETTINGS_PAGE_VIEWED_EVENT = 'settings.page.viewed'
