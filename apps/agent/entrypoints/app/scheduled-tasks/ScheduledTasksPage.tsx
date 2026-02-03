@@ -1,4 +1,4 @@
-import { type FC, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { RunResultDialog } from '@/components/ai-elements/run-result-dialog'
 import {
   AlertDialog,
@@ -22,7 +22,10 @@ import {
 import { useGraphqlMutation } from '@/lib/graphql/useGraphqlMutation'
 import { track } from '@/lib/metrics/track'
 import { DeleteScheduledJobDocument } from '@/lib/schedules/graphql/syncSchedulesDocument'
-import { useScheduledJobs } from '@/lib/schedules/scheduleStorage'
+import {
+  scheduledJobRunStorage,
+  useScheduledJobs,
+} from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
 import { ScheduledTaskResults } from './ScheduledTaskResults'
@@ -40,6 +43,7 @@ export const ScheduledTasksPage: FC = () => {
 
   const deleteRemoteJobMutation = useGraphqlMutation(DeleteScheduledJobDocument)
 
+  const [activeTab, setActiveTab] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null)
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null)
@@ -103,6 +107,12 @@ export const ScheduledTasksPage: FC = () => {
     track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
   }
 
+  useEffect(() => {
+    scheduledJobRunStorage.getValue().then((runs) => {
+      setActiveTab(runs && runs.length > 0 ? 'results' : 'tasks')
+    })
+  }, [])
+
   const jobToDelete = deleteJobId
     ? jobs.find((j) => j.id === deleteJobId)
     : null
@@ -111,27 +121,29 @@ export const ScheduledTasksPage: FC = () => {
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
       <ScheduledTasksHeader onAddClick={handleAdd} />
 
-      <Tabs defaultValue="results">
-        <TabsList>
-          <TabsTrigger value="results">Results</TabsTrigger>
-          <TabsTrigger value="tasks">Scheduled Tasks</TabsTrigger>
-        </TabsList>
+      {activeTab && (
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="results">Results</TabsTrigger>
+            <TabsTrigger value="tasks">Scheduled Tasks</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="results">
-          <ScheduledTaskResults onViewRun={handleViewRun} />
-        </TabsContent>
+          <TabsContent value="results">
+            <ScheduledTaskResults onViewRun={handleViewRun} />
+          </TabsContent>
 
-        <TabsContent value="tasks">
-          <ScheduledTasksList
-            jobs={jobs}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onToggle={handleToggle}
-            onRun={handleRun}
-            onViewRun={handleViewRun}
-          />
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="tasks">
+            <ScheduledTasksList
+              jobs={jobs}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onToggle={handleToggle}
+              onRun={handleRun}
+              onViewRun={handleViewRun}
+            />
+          </TabsContent>
+        </Tabs>
+      )}
 
       <NewScheduledTaskDialog
         open={isDialogOpen}
