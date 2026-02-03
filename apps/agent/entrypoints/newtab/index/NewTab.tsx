@@ -387,7 +387,7 @@ export const NewTab = () => {
                   <div className="ml-auto flex items-center gap-1.5">
                     {connectedManagedServers.length === 0 && (
                       <span className="flex items-center gap-1 font-semibold text-[var(--accent-orange)] text-sm">
-                        New! 👉
+                        New!
                       </span>
                     )}
                     {connectedManagedServers.length === 0 ? (
