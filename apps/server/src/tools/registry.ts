@@ -29,7 +29,9 @@ export function createToolRegistry(
       `(${cdpTools.length} CDP + ${wrappedControllerTools.length} extension)`,
   )
 
-  return [...cdpTools, ...wrappedControllerTools]
+  // TODO: re-enable controller tools
+  // return [...cdpTools, ...wrappedControllerTools]
+  return [...cdpTools]
 }
 
 function wrapControllerTools(
