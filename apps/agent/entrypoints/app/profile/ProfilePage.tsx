@@ -76,6 +76,7 @@ export const ProfilePage: FC = () => {
 
   const { data: profileData, isLoading: isLoadingProfile } = useGraphqlQuery(
     GetProfileByUserIdDocument,
+    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
     { userId: userId! },
     { enabled: !!userId },
   )
@@ -264,6 +265,7 @@ export const ProfilePage: FC = () => {
               >
                 {avatarPreview || avatarUrl ? (
                   <img
+                    // biome-ignore lint/style/noNonNullAssertion: guarded by ternary
                     src={avatarPreview || avatarUrl!}
                     alt="Profile"
                     className="size-24 rounded-full object-cover transition-opacity group-hover:opacity-80"

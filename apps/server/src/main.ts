@@ -14,7 +14,6 @@ import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { createHttpServer } from './api/server'
 import { ensureBrowserConnected } from './browser/cdp/connection'
-import { McpContext } from './browser/cdp/context'
 import { ControllerBridge } from './browser/extension/bridge'
 import { ControllerContext } from './browser/extension/context'
 import type { ServerConfig } from './config'
@@ -29,12 +28,16 @@ import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
+import { CdpContext } from './tools/cdp-based/upstream/context'
+import { logger as cdpDebugLogger } from './tools/cdp-based/upstream/logger'
 import { createToolRegistry } from './tools/registry'
 import { VERSION } from './version'
 
 export class Application {
   private config: ServerConfig
   private db: Database | null = null
+  private cdpContext: CdpContext | null = null
+  private cdpContextInit: Promise<CdpContext | null> | null = null
 
   constructor(config: ServerConfig) {
     this.config = config
@@ -63,12 +66,12 @@ export class Application {
       )
     }
 
-    const cdpContext = await this.connectToCdp()
+    const cdpEnabled = !!this.config.cdpPort
 
     logger.info(
       `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
     )
-    const tools = createToolRegistry(cdpContext)
+    const tools = createToolRegistry(cdpEnabled)
     const mutexPool = new MutexPool()
 
     try {
@@ -77,7 +80,7 @@ export class Application {
         host: '0.0.0.0',
         version: VERSION,
         tools,
-        cdpContext,
+        ensureCdpContext: () => this.ensureCdpContext(),
         controllerContext,
         mutexPool,
         allowRemote: this.config.mcpAllowRemote,
@@ -207,7 +210,7 @@ export class Application {
     process.exit(EXIT_CODES.GENERAL_ERROR)
   }
 
-  private async connectToCdp(): Promise<McpContext | null> {
+  private async connectToCdp(): Promise<CdpContext | null> {
     if (!this.config.cdpPort) {
       logger.info(
         'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
@@ -220,7 +223,9 @@ export class Application {
         `http://127.0.0.1:${this.config.cdpPort}`,
       )
       logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
-      const context = await McpContext.from(browser, logger)
+      const context = await CdpContext.from(browser, cdpDebugLogger, {
+        experimentalDevToolsDebugging: false,
+      })
       const { allCdpTools } = await import('./tools/cdp-based/registry')
       logger.info(`Loaded ${allCdpTools.length} CDP tools`)
       return context
@@ -234,6 +239,25 @@ export class Application {
       )
       return null
     }
+  }
+
+  private async ensureCdpContext(): Promise<CdpContext | null> {
+    if (this.cdpContext) {
+      return this.cdpContext
+    }
+    if (!this.config.cdpPort) {
+      return null
+    }
+    if (!this.cdpContextInit) {
+      this.cdpContextInit = this.connectToCdp()
+    }
+    const ctx = await this.cdpContextInit
+    if (ctx) {
+      this.cdpContext = ctx
+    }
+    // Allow retries if connection failed (ctx is null).
+    this.cdpContextInit = null
+    return ctx
   }
 
   private logStartupSummary(): void {

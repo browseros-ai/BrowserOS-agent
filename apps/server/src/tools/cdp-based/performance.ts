@@ -1,46 +1,47 @@
 /**
  * @license
- * Copyright 2025 BrowserOS
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Page } from 'puppeteer-core'
-import z from 'zod'
-import type { McpContext } from '../../browser/cdp/context'
-import { logger } from '../../lib/logger'
-
-import type { InsightName } from '../trace-processing/parse'
+import zlib from 'node:zlib'
+import { ToolCategory } from './categories'
+import type { Page } from './upstream/third-party'
+import { zod } from './upstream/third-party'
+import type { Context, Response } from './upstream/tool-definition'
+import { defineTool } from './upstream/tool-definition'
+import type { InsightName } from './upstream/trace-processing/parse'
 import {
-  getInsightOutput,
-  getTraceSummary,
   parseRawTraceBuffer,
   traceResultIsSuccess,
-} from '../trace-processing/parse'
-import type { Response } from '../types/response'
-import { ToolCategories } from '../types/tool-categories'
-import { defineTool } from '../types/tool-definition'
+} from './upstream/trace-processing/parse'
 
-// Type aliases for compatibility
-type Context = McpContext
+const filePathSchema = zod
+  .string()
+  .optional()
+  .describe(
+    'The absolute file path, or a file path relative to the current working directory, to save the raw trace data. For example, trace.json.gz (compressed) or trace.json (uncompressed).',
+  )
 
 export const startTrace = defineTool({
   name: 'performance_start_trace',
-  description:
-    'Starts a performance trace recording on the selected page. This can be used to look for performance problems and insights to improve the performance of the page. It will also report Core Web Vital (CWV) scores for the page.',
+  description: `Starts a performance trace recording on the selected page. This can be used to look for performance problems and insights to improve the performance of the page. It will also report Core Web Vital (CWV) scores for the page.`,
   annotations: {
-    category: ToolCategories.PERFORMANCE,
-    readOnlyHint: true,
+    category: ToolCategory.PERFORMANCE,
+    readOnlyHint: false,
   },
   schema: {
-    reload: z
+    reload: zod
       .boolean()
       .describe(
-        'Determines if, once tracing has started, the page should be automatically reloaded.',
+        'Determines if, once tracing has started, the current selected page should be automatically reloaded. Navigate the page to the right URL using the navigate_page tool BEFORE starting the trace if reload or autoStop is set to true.',
       ),
-    autoStop: z
+    autoStop: zod
       .boolean()
       .describe(
         'Determines if the trace recording should be automatically stopped.',
       ),
+    filePath: filePathSchema,
   },
   handler: async (request, response, context) => {
     if (context.isRunningPerformanceTrace()) {
@@ -94,8 +95,12 @@ export const startTrace = defineTool({
 
     if (request.params.autoStop) {
       await new Promise((resolve) => setTimeout(resolve, 5_000))
-      // biome-ignore lint/suspicious/noExplicitAny: McpContext compatible cast
-      await stopTracingAndAppendOutput(page, response, context as any)
+      await stopTracingAndAppendOutput(
+        page,
+        response,
+        context,
+        request.params.filePath,
+      )
     } else {
       response.appendResponseLine(
         `The performance trace is being recorded. Use performance_stop_trace to stop it.`,
@@ -109,30 +114,41 @@ export const stopTrace = defineTool({
   description:
     'Stops the active performance trace recording on the selected page.',
   annotations: {
-    category: ToolCategories.PERFORMANCE,
-    readOnlyHint: true,
+    category: ToolCategory.PERFORMANCE,
+    readOnlyHint: false,
   },
-  schema: {},
-  handler: async (_request, response, context) => {
+  schema: {
+    filePath: filePathSchema,
+  },
+  handler: async (request, response, context) => {
     if (!context.isRunningPerformanceTrace()) {
       return
     }
     const page = context.getSelectedPage()
-    // biome-ignore lint/suspicious/noExplicitAny: McpContext compatible cast
-    await stopTracingAndAppendOutput(page, response, context as any)
+    await stopTracingAndAppendOutput(
+      page,
+      response,
+      context,
+      request.params.filePath,
+    )
   },
 })
 
 export const analyzeInsight = defineTool({
   name: 'performance_analyze_insight',
   description:
-    'Provides more detailed information on a specific Performance Insight that was highlighted in the results of a trace recording.',
+    'Provides more detailed information on a specific Performance Insight of an insight set that was highlighted in the results of a trace recording.',
   annotations: {
-    category: ToolCategories.PERFORMANCE,
+    category: ToolCategory.PERFORMANCE,
     readOnlyHint: true,
   },
   schema: {
-    insightName: z
+    insightSetId: zod
+      .string()
+      .describe(
+        'The id for the specific insight set. Only use the ids given in the "Available insight sets" list.',
+      ),
+    insightName: zod
       .string()
       .describe(
         'The name of the Insight you want more information on. For example: "DocumentLatency" or "LCPBreakdown"',
@@ -147,16 +163,11 @@ export const analyzeInsight = defineTool({
       return
     }
 
-    const insightOutput = getInsightOutput(
+    response.attachTraceInsight(
       lastRecording,
+      request.params.insightSetId,
       request.params.insightName as InsightName,
     )
-    if ('error' in insightOutput) {
-      response.appendResponseLine(insightOutput.error)
-      return
-    }
-
-    response.appendResponseLine(insightOutput.output)
   },
 })
 
@@ -164,38 +175,38 @@ async function stopTracingAndAppendOutput(
   page: Page,
   response: Response,
   context: Context,
+  filePath?: string,
 ): Promise<void> {
   try {
     const traceEventsBuffer = await page.tracing.stop()
-    if (!traceEventsBuffer) {
-      response.appendResponseLine('No trace data available.')
-      return
+    if (filePath && traceEventsBuffer) {
+      let dataToWrite: Uint8Array = traceEventsBuffer
+      if (filePath.endsWith('.gz')) {
+        dataToWrite = await new Promise((resolve, reject) => {
+          zlib.gzip(traceEventsBuffer, (error, result) => {
+            if (error) {
+              reject(error)
+            } else {
+              resolve(result)
+            }
+          })
+        })
+      }
+      const file = await context.saveFile(dataToWrite, filePath)
+      response.appendResponseLine(
+        `The raw trace data was saved to ${file.filename}.`,
+      )
     }
-    const result = await parseRawTraceBuffer(traceEventsBuffer as Buffer)
+    const result = await parseRawTraceBuffer(traceEventsBuffer)
     response.appendResponseLine('The performance trace has been stopped.')
     if (traceResultIsSuccess(result)) {
-      // Convert to core TraceResult type
-      // biome-ignore lint/suspicious/noExplicitAny: flexible trace result structure
-      const coreResult = { ...result, name: 'trace' } as any
-      context.storeTraceRecording(coreResult)
-      response.appendResponseLine(
-        'Here is a high level summary of the trace and the Insights that were found:',
-      )
-      const traceSummaryText = getTraceSummary(result)
-      response.appendResponseLine(traceSummaryText)
+      context.storeTraceRecording(result)
+      response.attachTraceSummary(result)
     } else {
-      response.appendResponseLine(
-        'There was an unexpected error parsing the trace:',
+      throw new Error(
+        `There was an unexpected error parsing the trace: ${result.error}`,
       )
-      response.appendResponseLine(result.error || 'Unknown error')
     }
-  } catch (e) {
-    const errorText = e instanceof Error ? e.message : JSON.stringify(e)
-    logger.error(`Error stopping performance trace: ${errorText}`)
-    response.appendResponseLine(
-      'An error occurred generating the response for this trace:',
-    )
-    response.appendResponseLine(errorText)
   } finally {
     context.setIsRunningPerformanceTrace(false)
   }

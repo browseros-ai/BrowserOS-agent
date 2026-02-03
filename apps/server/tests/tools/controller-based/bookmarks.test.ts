@@ -179,47 +179,47 @@ describe('MCP Controller Bookmark Tools', () => {
   describe('browser_create_bookmark - Error Handling', () => {
     it('tests that missing title is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_create_bookmark',
-            arguments: {
-              url: 'https://example.com',
-            },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Create Bookmark Missing Title Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_create_bookmark',
+          arguments: {
+            url: 'https://example.com',
+          },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Create Bookmark Missing Title Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that missing URL is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_create_bookmark',
-            arguments: {
-              title: 'Test',
-            },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Create Bookmark Missing URL Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_create_bookmark',
+          arguments: {
+            title: 'Test',
+          },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Create Bookmark Missing URL Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -331,22 +331,22 @@ describe('MCP Controller Bookmark Tools', () => {
   describe('browser_remove_bookmark - Error Handling', () => {
     it('tests that missing bookmarkId is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_remove_bookmark',
-            arguments: {},
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Remove Bookmark Missing ID Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_remove_bookmark',
+          arguments: {},
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Remove Bookmark Missing ID Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -512,22 +512,22 @@ describe('MCP Controller Bookmark Tools', () => {
   describe('browser_update_bookmark - Error Handling', () => {
     it('tests that missing bookmarkId is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_update_bookmark',
-            arguments: { title: 'Test' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Update Bookmark Missing ID Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_update_bookmark',
+          arguments: { title: 'Test' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Update Bookmark Missing ID Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 

@@ -144,45 +144,43 @@ describe('MCP Controller Scrolling Tools', () => {
 
     it('tests that scroll_down with non-numeric tab ID is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_scroll_down',
-            arguments: { tabId: 'invalid' },
-          })
-          assert.fail('Should have thrown validation error')
-          // biome-ignore lint/suspicious/noExplicitAny: test needs to access error.message
-        } catch (error: any) {
-          console.log('\n=== Scroll Down Invalid Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_scroll_down',
+          arguments: { tabId: 'invalid' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Scroll Down Invalid Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that scroll_up with non-numeric tab ID is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_scroll_up',
-            arguments: { tabId: 'invalid' },
-          })
-          assert.fail('Should have thrown validation error')
-          // biome-ignore lint/suspicious/noExplicitAny: test needs to access error.message
-        } catch (error: any) {
-          console.log('\n=== Scroll Up Invalid Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_scroll_up',
+          arguments: { tabId: 'invalid' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Scroll Up Invalid Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
   })

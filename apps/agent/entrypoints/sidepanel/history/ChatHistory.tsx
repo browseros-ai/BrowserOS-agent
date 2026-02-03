@@ -37,6 +37,7 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
     fetchNextPage,
   } = useGraphqlInfiniteQuery(
     GetConversationsForHistoryDocument,
+    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
     (cursor) => ({ profileId: profileId!, after: cursor }),
     {
       enabled: !!profileId,

@@ -6,134 +6,68 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 
-import {
-  emulateCpu,
-  emulateNetwork,
-} from '../../../src/tools/cdp-based/emulation'
+import { emulate } from '../../../src/tools/cdp-based/emulation'
+import { CdpResponse } from '../../../src/tools/cdp-based/upstream/response'
 
-import { withBrowser } from '../../__helpers__/utils'
+import { withCdpBrowser } from '../../__helpers__/utils'
 
 describe('emulation', () => {
-  it('network - emulates network throttling when the throttling option is valid ', async () => {
-    await withBrowser(async (response, context) => {
-      await emulateNetwork.handler(
-        {
-          params: {
-            throttlingOption: 'Slow 3G',
-          },
-        },
+  it('emulate - sets network throttling', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const response = new CdpResponse()
+      await emulate.handler(
+        { params: { networkConditions: 'Slow 3G' } },
         response,
         context,
       )
-
       assert.strictEqual(context.getNetworkConditions(), 'Slow 3G')
     })
   })
 
-  it('network - disables network emulation', async () => {
-    await withBrowser(async (response, context) => {
-      await emulateNetwork.handler(
-        {
-          params: {
-            throttlingOption: 'No emulation',
-          },
-        },
+  it('emulate - disables network emulation', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const response = new CdpResponse()
+      await emulate.handler(
+        { params: { networkConditions: 'No emulation' } },
         response,
         context,
       )
-
       assert.strictEqual(context.getNetworkConditions(), null)
     })
   })
 
-  it('network - does not set throttling when the network throttling is not one of the predefined options', async () => {
-    await withBrowser(async (response, context) => {
-      await emulateNetwork.handler(
-        {
-          params: {
-            throttlingOption: 'Slow 11G',
-          },
-        },
+  it('emulate - sets cpu throttling', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const response = new CdpResponse()
+      await emulate.handler(
+        { params: { cpuThrottlingRate: 4 } },
         response,
         context,
       )
-
-      assert.strictEqual(context.getNetworkConditions(), null)
+      assert.strictEqual(context.getCpuThrottlingRate(), 4)
     })
   })
 
-  it('network - report correctly for the currently selected page', async () => {
-    await withBrowser(async (response, context) => {
-      await context.newPage()
-      await emulateNetwork.handler(
-        {
-          params: {
-            throttlingOption: 'Slow 3G',
-          },
-        },
+  it('emulate - keeps per-page state', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const pagesBefore = context.getPages()
+      assert.ok(pagesBefore[0])
+
+      const response = new CdpResponse()
+      const newPg = await context.newPage()
+      const firstPage = pagesBefore[0]
+
+      await emulate.handler(
+        { params: { networkConditions: 'Slow 3G' } },
         response,
         context,
       )
-
+      assert.ok(context.isPageSelected(newPg))
       assert.strictEqual(context.getNetworkConditions(), 'Slow 3G')
 
-      context.setSelectedPageIdx(0)
-
+      context.selectPage(firstPage)
+      assert.ok(context.isPageSelected(firstPage))
       assert.strictEqual(context.getNetworkConditions(), null)
-    })
-  })
-
-  it('cpu - emulates cpu throttling when the rate is valid (1-20x)', async () => {
-    await withBrowser(async (response, context) => {
-      await emulateCpu.handler(
-        {
-          params: {
-            throttlingRate: 4,
-          },
-        },
-        response,
-        context,
-      )
-
-      assert.strictEqual(context.getCpuThrottlingRate(), 4)
-    })
-  })
-
-  it('cpu - disables cpu throttling', async () => {
-    await withBrowser(async (response, context) => {
-      context.setCpuThrottlingRate(4)
-      await emulateCpu.handler(
-        {
-          params: {
-            throttlingRate: 1,
-          },
-        },
-        response,
-        context,
-      )
-
-      assert.strictEqual(context.getCpuThrottlingRate(), 1)
-    })
-  })
-
-  it('cpu - report correctly for the currently selected page', async () => {
-    await withBrowser(async (response, context) => {
-      await context.newPage()
-      await emulateCpu.handler(
-        {
-          params: {
-            throttlingRate: 4,
-          },
-        },
-        response,
-        context,
-      )
-
-      assert.strictEqual(context.getCpuThrottlingRate(), 4)
-
-      context.setSelectedPageIdx(0)
-
-      assert.strictEqual(context.getCpuThrottlingRate(), 1)
     })
   })
 })

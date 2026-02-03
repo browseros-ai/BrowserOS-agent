@@ -15,7 +15,6 @@ import type {
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
-import type { McpContext } from '../../browser/cdp/context'
 import {
   type ControllerContext,
   ScopedControllerContext,
@@ -24,8 +23,9 @@ import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
+import type { CdpContext } from '../../tools/cdp-based/upstream/context'
+import { CdpResponse } from '../../tools/cdp-based/upstream/response'
 import { ControllerResponse } from '../../tools/controller-based/response/controller-response'
-import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
 import { isLocalhostRequest } from '../utils/security'
@@ -33,7 +33,7 @@ import { isLocalhostRequest } from '../utils/security'
 interface McpRouteDeps {
   version: string
   tools: ToolDefinition[]
-  cdpContext: McpContext | null
+  ensureCdpContext: () => Promise<CdpContext | null>
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean
@@ -60,7 +60,7 @@ function getMcpRequestSource(
  * Reuses the same logic from the old mcp/server.ts
  */
 function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
-  const { version, tools, cdpContext, controllerContext, mutexPool } = deps
+  const { version, tools, controllerContext, mutexPool } = deps
 
   const server = new McpServer(
     {
@@ -101,8 +101,10 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
           )
 
           try {
-            let content: Array<TextContent | ImageContent>
-            let structuredContent: Record<string, unknown> | undefined
+            let result: {
+              content: Array<TextContent | ImageContent>
+              structuredContent: Record<string, unknown>
+            }
 
             if (isControllerTool) {
               const { windowId: _, ...cleanParams } = params
@@ -116,16 +118,28 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
                 response,
                 scopedContext,
               )
-              content = await response.handle(scopedContext)
-              structuredContent = response.structuredContent
+              const content = await response.handle(scopedContext)
+              result = {
+                content,
+                structuredContent: response.structuredContent ?? {},
+              }
             } else {
-              const response = new McpResponse()
-              await tool.handler({ params }, response, cdpContext)
-              content = await response.handle(
-                tool.name,
-                cdpContext as McpContext,
-              )
-              structuredContent = response.structuredContent
+              const cdpContext = await deps.ensureCdpContext()
+              if (!cdpContext) {
+                return {
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'CDP context not available. Start server with --cdp-port to enable CDP tools.',
+                    },
+                  ],
+                  isError: true,
+                }
+              }
+              const response = new CdpResponse()
+              // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
+              await tool.handler({ params }, response as any, cdpContext as any)
+              result = await response.handle(tool.name, cdpContext)
             }
 
             // Log successful tool execution (non-blocking)
@@ -136,8 +150,10 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
             })
 
             return {
-              content,
-              ...(structuredContent && { structuredContent }),
+              content: result.content,
+              ...(Object.keys(result.structuredContent).length
+                ? { structuredContent: result.structuredContent }
+                : {}),
             }
           } catch (error) {
             const errorText =

@@ -60,7 +60,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     rateLimiter,
     version,
     tools,
-    cdpContext,
+    ensureCdpContext,
     controllerContext,
     mutexPool,
     allowRemote,
@@ -84,7 +84,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       createMcpRoutes({
         version,
         tools,
-        cdpContext,
+        ensureCdpContext,
         controllerContext,
         mutexPool,
         allowRemote,

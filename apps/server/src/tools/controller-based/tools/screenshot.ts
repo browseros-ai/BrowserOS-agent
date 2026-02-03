@@ -41,17 +41,34 @@ export const getScreenshotPointer = defineTool<
       .describe('Optional label to show with pointer (e.g., "Click", "Type")'),
   },
   handler: async (request, response, context) => {
-    const params = request.params as {
+    const rawParams = request.params as {
       tabId: number
       nodeId: number
       size?: string
       pointerLabel?: string
     }
 
-    const result = await context.executeAction(
-      'captureScreenshotPointer',
-      params,
-    )
+    let result: unknown
+    try {
+      result = await context.executeAction(
+        'captureScreenshotPointer',
+        rawParams,
+      )
+    } catch (_error) {
+      // Sometimes require the tab/window to be active/visible for capture.
+      // Best-effort: activate the tab, then retry using the active windowId.
+      await context.executeAction('switchTab', {
+        tabId: rawParams.tabId,
+        windowId: rawParams.windowId,
+      })
+      const active = (await context.executeAction('getActiveTab', {})) as {
+        windowId: number
+      }
+      result = await context.executeAction('captureScreenshotPointer', {
+        ...rawParams,
+        windowId: active.windowId,
+      })
+    }
     const { dataUrl, pointerPosition } = result as {
       dataUrl: string
       pointerPosition?: { x: number; y: number }
@@ -65,11 +82,15 @@ export const getScreenshotPointer = defineTool<
 
     if (pointerPosition) {
       response.appendResponseLine(
-        `Screenshot captured with pointer at (${pointerPosition.x}, ${pointerPosition.y}) for node ${params.nodeId}`,
+        `Screenshot captured with pointer at (${pointerPosition.x}, ${pointerPosition.y}) for node ${
+          (rawParams as { nodeId: number }).nodeId
+        }`,
       )
     } else {
       response.appendResponseLine(
-        `Screenshot captured for node ${params.nodeId} (pointer position not available)`,
+        `Screenshot captured for node ${
+          (rawParams as { nodeId: number }).nodeId
+        } (pointer position not available)`,
       )
     }
   },
@@ -104,7 +125,7 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
       .describe('Exact height in pixels (overrides size)'),
   },
   handler: async (request, response, context) => {
-    const params = request.params as {
+    const rawParams = request.params as {
       tabId: number
       size?: string
       showHighlights?: boolean
@@ -112,7 +133,24 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
       height?: number
     }
 
-    const result = await context.executeAction('captureScreenshot', params)
+    let result: unknown
+    try {
+      result = await context.executeAction('captureScreenshot', rawParams)
+    } catch (_error) {
+      // Some BrowserOS builds require the tab/window to be active/visible for capture.
+      // Best-effort: activate the tab, then retry using the active windowId.
+      await context.executeAction('switchTab', {
+        tabId: rawParams.tabId,
+        windowId: rawParams.windowId,
+      })
+      const active = (await context.executeAction('getActiveTab', {})) as {
+        windowId: number
+      }
+      result = await context.executeAction('captureScreenshot', {
+        ...rawParams,
+        windowId: active.windowId,
+      })
+    }
     const { dataUrl } = result as { dataUrl: string }
 
     // Parse data URL to extract MIME type and base64 data
@@ -120,6 +158,8 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
 
     // Attach image to response
     response.attachImage({ mimeType, data })
-    response.appendResponseLine(`Screenshot captured from tab ${params.tabId}`)
+    response.appendResponseLine(
+      `Screenshot captured from tab ${(rawParams as { tabId: number }).tabId}`,
+    )
   },
 })
