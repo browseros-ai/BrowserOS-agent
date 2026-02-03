@@ -84,6 +84,7 @@ export const ScheduledTasksPage: FC = () => {
       })
     } else {
       await addJob(data)
+      setActiveTab('tasks')
       track(NEW_SCHEDULED_TASK_CREATED_EVENT, {
         scheduleType: data.scheduleType,
         interval: data.scheduleInterval,
