@@ -371,61 +371,68 @@ export const NewTab = () => {
                 </div>
 
                 {supports(Feature.MANAGED_MCP_SUPPORT) && (
-                  <div className="ml-auto">
-                    <Tooltip>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    {connectedManagedServers.length === 0 && (
+                      <span className="flex items-center gap-1 font-semibold text-[var(--accent-orange)] text-sm">
+                        New! 👉
+                      </span>
+                    )}
+                    {connectedManagedServers.length === 0 ? (
+                      <Tooltip>
+                        <AppSelector side="bottom">
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className={cn(
+                                'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                                'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                                'data-[state=open]:bg-accent',
+                              )}
+                            >
+                              <PlugZap className="h-4 w-4" />
+                              <span>Apps</span>
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                        </AppSelector>
+                        <TooltipContent side="left" className="max-w-56">
+                          Apps directly connected will have more accurate and
+                          faster responses for your queries!
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
                       <AppSelector side="bottom">
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className={cn(
-                              'relative flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
-                              'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                              'data-[state=open]:bg-accent',
-                            )}
-                          >
-                            {connectedManagedServers.length > 0 ? (
-                              <>
-                                <div className="flex items-center -space-x-1.5">
-                                  {connectedManagedServers
-                                    .slice(0, 4)
-                                    .map((s) => (
-                                      <div
-                                        key={s.id}
-                                        className="rounded-full ring-2 ring-card"
-                                      >
-                                        <McpServerIcon
-                                          serverName={s.managedServerName ?? ''}
-                                          size={16}
-                                        />
-                                      </div>
-                                    ))}
-                                </div>
-                                {connectedManagedServers.length > 4 && (
-                                  <span className="text-xs">
-                                    +{connectedManagedServers.length - 4}
-                                  </span>
-                                )}
-                                <span>Apps</span>
-                                <ChevronDown className="h-3 w-3" />
-                              </>
-                            ) : (
-                              <>
-                                <PlugZap className="h-4 w-4" />
-                                <span>Apps</span>
-                                <ChevronDown className="h-3 w-3" />
-                              </>
-                            )}
-                            <span className="absolute -top-2 -right-2 rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-semibold text-[10px] text-white leading-none">
-                              New!
+                        <Button
+                          variant="ghost"
+                          className={cn(
+                            'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                            'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                            'data-[state=open]:bg-accent',
+                          )}
+                        >
+                          <div className="flex items-center -space-x-1.5">
+                            {connectedManagedServers.slice(0, 4).map((s) => (
+                              <div
+                                key={s.id}
+                                className="rounded-full ring-2 ring-card"
+                              >
+                                <McpServerIcon
+                                  serverName={s.managedServerName ?? ''}
+                                  size={16}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          {connectedManagedServers.length > 4 && (
+                            <span className="text-xs">
+                              +{connectedManagedServers.length - 4}
                             </span>
-                          </Button>
-                        </TooltipTrigger>
+                          )}
+                          <span>Apps</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
                       </AppSelector>
-                      <TooltipContent side="left" className="max-w-56">
-                        Apps directly connected will have more accurate and
-                        faster responses for your queries!
-                      </TooltipContent>
-                    </Tooltip>
+                    )}
                   </div>
                 )}
               </div>
