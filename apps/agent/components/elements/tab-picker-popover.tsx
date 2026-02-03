@@ -31,6 +31,7 @@ interface TabPickerMentionPopoverProps extends TabPickerCommonProps {
   filterText: string
   onClose: () => void
   anchorRef: React.RefObject<HTMLElement | null>
+  side?: PopoverSide
 }
 
 interface TabPickerSelectorPopoverProps
@@ -57,6 +58,7 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
   onToggleTab,
   onClose,
   anchorRef,
+  side,
 }) => {
   const { tabs, allTabs, isLoading } = useAvailableTabs({
     enabled: isOpen,
@@ -78,6 +80,17 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
     if (!isOpen) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const isNavKey =
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'Enter' ||
+        e.key === 'Escape' ||
+        e.key === 'Tab'
+
+      if (isNavKey) {
+        e.stopPropagation()
+      }
+
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
@@ -98,13 +111,14 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
           onClose()
           break
         case 'Tab':
+          e.preventDefault()
           onClose()
           break
       }
     }
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown, true)
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
   }, [isOpen, tabs, focusedIndex, onToggleTab, onClose])
 
   useEffect(() => {
@@ -120,7 +134,7 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
     <Popover open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <PopoverAnchor virtualRef={anchorRef as React.RefObject<HTMLElement>} />
       <PopoverContent
-        side="top"
+        side={side ?? 'top'}
         align="start"
         sideOffset={8}
         className="w-[calc(100vw-24px)] max-w-[400px] p-0"

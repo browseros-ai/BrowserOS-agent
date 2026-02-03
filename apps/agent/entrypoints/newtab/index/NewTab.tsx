@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppSelector } from '@/components/elements/AppSelector'
 import {
   GlowingBorder,
@@ -59,6 +59,12 @@ import { ShortcutsDialog } from './ShortcutsDialog'
 import { SignInHint } from './SignInHint'
 import { TopSites } from './TopSites'
 
+interface MentionState {
+  isOpen: boolean
+  filterText: string
+  startPosition: number
+}
+
 /**
  * @public
  */
@@ -69,6 +75,11 @@ export const NewTab = () => {
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+  const [mentionState, setMentionState] = useState<MentionState>({
+    isOpen: false,
+    filterText: '',
+    startPosition: 0,
+  })
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
   const { servers: mcpServers } = useMcpServers()
@@ -111,6 +122,7 @@ export const NewTab = () => {
     highlightedIndex,
     getItemProps,
     reset,
+    setInputValue: setComboboxInputValue,
   } = useCombobox<SuggestionItem>({
     items: flatItems,
     itemToString: (item) => (item ? getSuggestionLabel(item) : ''),
@@ -136,7 +148,103 @@ export const NewTab = () => {
     },
   })
 
+  const inputValueRef = useRef(inputValue)
+  const mentionStateRef = useRef(mentionState)
+
+  useEffect(() => {
+    inputValueRef.current = inputValue
+    mentionStateRef.current = mentionState
+  })
+
+  const closeMention = useCallback(() => {
+    const state = mentionStateRef.current
+    if (!state.isOpen) return
+
+    const currentInput = inputValueRef.current
+    const beforeMention = currentInput.slice(0, state.startPosition)
+    const afterMention = currentInput.slice(
+      state.startPosition + 1 + state.filterText.length,
+    )
+    const nextInput = beforeMention + afterMention
+    inputValueRef.current = nextInput
+    setComboboxInputValue(nextInput)
+
+    const nextMentionState = { isOpen: false, filterText: '', startPosition: 0 }
+    mentionStateRef.current = nextMentionState
+    setMentionState(nextMentionState)
+
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      const newPosition = beforeMention.length
+      inputRef.current?.setSelectionRange(newPosition, newPosition)
+    })
+  }, [setComboboxInputValue])
+
+  const handleInputChange = (value: string) => {
+    const input = inputRef.current
+    const cursorPosition = input?.selectionStart ?? value.length
+    const state = mentionStateRef.current
+
+    if (state.isOpen) {
+      const textAfterAt = value.slice(state.startPosition + 1)
+      const spaceIndex = textAfterAt.search(/\s/)
+      const filterText =
+        spaceIndex === -1 ? textAfterAt : textAfterAt.slice(0, spaceIndex)
+
+      if (
+        cursorPosition <= state.startPosition ||
+        value[state.startPosition] !== '@'
+      ) {
+        const nextMentionState = {
+          isOpen: false,
+          filterText: '',
+          startPosition: 0,
+        }
+        mentionStateRef.current = nextMentionState
+        setMentionState(nextMentionState)
+      } else {
+        const nextMentionState = { ...state, filterText }
+        mentionStateRef.current = nextMentionState
+        setMentionState(nextMentionState)
+      }
+    } else {
+      const charBeforeCursor = value[cursorPosition - 1]
+      const textBeforeAt = value.slice(0, cursorPosition - 1)
+      const isAtWordBoundary = /(?:^|[\s\n])$/.test(textBeforeAt)
+
+      if (charBeforeCursor === '@' && isAtWordBoundary) {
+        const nextMentionState = {
+          isOpen: true,
+          filterText: '',
+          startPosition: cursorPosition - 1,
+        }
+        mentionStateRef.current = nextMentionState
+        setMentionState(nextMentionState)
+      }
+    }
+
+    inputValueRef.current = value
+  }
+
+  useEffect(() => {
+    if (!mentionState.isOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (inputRef.current?.contains(target)) return
+      if (target.closest('[data-slot="popover-content"]')) return
+      closeMention()
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [mentionState.isOpen, closeMention])
+
   const handleSend = () => {
+    if (mentionStateRef.current.isOpen) {
+      closeMention()
+      return
+    }
     if (highlightedIndex > -1) {
       const selectedItem = flatItems[highlightedIndex]
       runSelectedAction(selectedItem)
@@ -202,12 +310,13 @@ export const NewTab = () => {
   }
 
   const isSuggestionsVisible =
+    !mentionState.isOpen &&
     // User is typing text into the input
-    (isOpen && inputValue.length) ||
-    // There are sections to display
-    (sections.length > 0 && inputValue.length) ||
-    // User has selected some active tabs
-    (isOpen && selectedTabs.length)
+    ((isOpen && inputValue.length) ||
+      // There are sections to display
+      (sections.length > 0 && inputValue.length) ||
+      // User has selected some active tabs
+      (isOpen && selectedTabs.length))
 
   useEffect(() => {
     setMounted(true)
@@ -224,7 +333,9 @@ export const NewTab = () => {
         <div
           className={cn(
             'relative overflow-hidden bg-border/50 p-[2px]',
-            isSuggestionsVisible || selectedTabs.length > 0
+            isSuggestionsVisible ||
+              mentionState.isOpen ||
+              selectedTabs.length > 0
               ? 'bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
               : 'bg-border/50 hover:border-border',
           )}
@@ -243,7 +354,9 @@ export const NewTab = () => {
           <div
             className={cn(
               'relative bg-card shadow-lg',
-              isSuggestionsVisible || selectedTabs.length > 0
+              isSuggestionsVisible ||
+                mentionState.isOpen ||
+                selectedTabs.length > 0
                 ? 'border-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
                 : 'border-border/50 hover:border-border',
             )}
@@ -253,12 +366,31 @@ export const NewTab = () => {
             <div className="flex items-center gap-3 px-5 py-4">
               <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
 
+              <TabPickerPopover
+                variant="mention"
+                isOpen={mentionState.isOpen}
+                filterText={mentionState.filterText}
+                selectedTabs={selectedTabs}
+                onToggleTab={toggleTab}
+                onClose={closeMention}
+                anchorRef={inputRef}
+                side="bottom"
+              />
               <input
-                ref={inputRef}
                 type="text"
                 placeholder="Ask AI or search Google..."
                 className="flex-1 border-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
-                {...getInputProps()}
+                {...getInputProps({
+                  ref: inputRef,
+                  onChange: (e) => handleInputChange(e.currentTarget.value),
+                  onKeyDown: (e) => {
+                    if (!mentionStateRef.current.isOpen) return
+                    if (e.key === 'Tab') {
+                      e.preventDefault()
+                      closeMention()
+                    }
+                  },
+                })}
               />
 
               <Button
