@@ -271,7 +271,11 @@ export const clickElement = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
-    await context.executeAction('click', { tabId, nodeId, windowId })
+    await context.executeAction('click', {
+      tabId,
+      nodeId,
+      windowId,
+    })
 
     response.appendResponseLine(`Clicked element ${nodeId} in tab ${tabId}`)
   },
@@ -298,8 +302,17 @@ export const typeText = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
-    await context.executeAction('click', { tabId, nodeId, windowId })
-    await context.executeAction('inputText', { tabId, nodeId, text, windowId })
+    await context.executeAction('click', {
+      tabId,
+      nodeId,
+      windowId,
+    })
+    await context.executeAction('inputText', {
+      tabId,
+      nodeId,
+      text,
+      windowId,
+    })
 
     response.appendResponseLine(
       `Typed text into element ${nodeId} in tab ${tabId}`,
@@ -326,8 +339,16 @@ export const clearInput = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
-    await context.executeAction('click', { tabId, nodeId, windowId })
-    await context.executeAction('clear', { tabId, nodeId, windowId })
+    await context.executeAction('click', {
+      tabId,
+      nodeId,
+      windowId,
+    })
+    await context.executeAction('clear', {
+      tabId,
+      nodeId,
+      windowId,
+    })
 
     response.appendResponseLine(`Cleared element ${nodeId} in tab ${tabId}`)
   },
@@ -352,7 +373,11 @@ export const scrollToElement = defineTool<z.ZodRawShape, Context, Response>({
       windowId?: number
     }
 
-    await context.executeAction('scrollToNode', { tabId, nodeId, windowId })
+    await context.executeAction('scrollToNode', {
+      tabId,
+      nodeId,
+      windowId,
+    })
 
     response.appendResponseLine(`Scrolled to element ${nodeId} in tab ${tabId}`)
   },

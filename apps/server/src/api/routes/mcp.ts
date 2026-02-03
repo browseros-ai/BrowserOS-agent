@@ -10,12 +10,13 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
-import type { McpContext } from '../../browser/cdp/context'
 import type { ControllerContext } from '../../browser/extension/context'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
+import type { CdpContext } from '../../tools/cdp-based/upstream/context'
+import { CdpResponse } from '../../tools/cdp-based/upstream/response'
 import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
@@ -24,7 +25,7 @@ import { isLocalhostRequest } from '../utils/security'
 interface McpRouteDeps {
   version: string
   tools: ToolDefinition[]
-  cdpContext: McpContext | null
+  ensureCdpContext: () => Promise<CdpContext | null>
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean
@@ -48,7 +49,7 @@ function getMcpRequestSource(
  * Reuses the same logic from the old mcp/server.ts
  */
 function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
-  const { version, tools, cdpContext, controllerContext, mutexPool } = deps
+  const { version, tools, controllerContext, mutexPool } = deps
 
   const server = new McpServer(
     {
@@ -87,21 +88,70 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
 
           // Detect if this is a controller tool (browser_* tools)
           const isControllerTool = tool.name.startsWith('browser_')
-          const contextForResponse =
-            isControllerTool && controllerContext
-              ? controllerContext
-              : cdpContext
+          if (isControllerTool) {
+            const response = new McpResponse()
+            // For controller tools, the handler wrapper ignores the passed context.
+            // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
+            await tool.handler({ params }, response as any, null as any)
 
-          // Create response handler and execute tool
-          const response = new McpResponse()
-          await tool.handler({ params }, response, cdpContext)
+            try {
+              const content = await response.handle(
+                tool.name,
+                // biome-ignore lint/suspicious/noExplicitAny: controller tools don't use CDP context formatting
+                controllerContext as any,
+              )
 
-          // Process and return response
+              // Log successful tool execution (non-blocking)
+              metrics.log('tool_executed', {
+                tool_name: tool.name,
+                duration_ms: Math.round(performance.now() - startTime),
+                success: true,
+              })
+
+              const structuredContent = response.structuredContent
+              return {
+                content,
+                ...(structuredContent && { structuredContent }),
+              }
+            } catch (error) {
+              const errorText =
+                error instanceof Error ? error.message : String(error)
+
+              // Log failed tool execution (non-blocking)
+              metrics.log('tool_executed', {
+                tool_name: tool.name,
+                duration_ms: Math.round(performance.now() - startTime),
+                success: false,
+                error_message:
+                  error instanceof Error ? error.message : 'Unknown error',
+              })
+
+              return {
+                content: [{ type: 'text', text: errorText }],
+                isError: true,
+              }
+            }
+          }
+
+          const cdpContext = await deps.ensureCdpContext()
+          if (!cdpContext) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'CDP context not available. Start server with --cdp-port to enable CDP tools.',
+                },
+              ],
+              isError: true,
+            }
+          }
+
+          const response = new CdpResponse()
+          // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
+          await tool.handler({ params }, response as any, cdpContext as any)
+
           try {
-            const content = await response.handle(
-              tool.name,
-              contextForResponse as McpContext,
-            )
+            const result = await response.handle(tool.name, cdpContext)
 
             // Log successful tool execution (non-blocking)
             metrics.log('tool_executed', {
@@ -110,10 +160,11 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
               success: true,
             })
 
-            const structuredContent = response.structuredContent
             return {
-              content,
-              ...(structuredContent && { structuredContent }),
+              content: result.content,
+              ...(Object.keys(result.structuredContent).length
+                ? { structuredContent: result.structuredContent }
+                : {}),
             }
           } catch (error) {
             const errorText =

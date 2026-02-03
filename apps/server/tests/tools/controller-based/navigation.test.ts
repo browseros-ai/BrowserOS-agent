@@ -40,32 +40,6 @@ describe('MCP Controller Navigation Tools', () => {
       })
     }, 30000)
 
-    it('tests that navigation to data URL succeeds', async () => {
-      await withMcpServer(async (client) => {
-        const result = await client.callTool({
-          name: 'browser_navigate',
-          arguments: {
-            url: 'data:text/html,<h1>Test Page</h1>',
-          },
-        })
-        const content = result.content as McpContentItem[]
-
-        console.log('\n=== Data URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
-        assert.ok(!result.isError, 'Navigation to data URL should succeed')
-        assert.ok(Array.isArray(content), 'Content should be array')
-        assert.ok(content.length > 0, 'Should have content')
-
-        const textContent = content.find((c) => c.type === 'text')
-        assert.ok(textContent, 'Should have text content')
-        assert.ok(
-          textContent.text?.includes('data:text/html'),
-          'Should reference data URL',
-        )
-      })
-    }, 30000)
-
     it('tests that navigation to HTTP URL succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({

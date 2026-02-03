@@ -15,11 +15,10 @@ import {
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
-import type { McpContext } from '../browser/cdp/context'
 import type { ControllerContext } from '../browser/extension/context'
-
 import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
+import type { CdpContext } from '../tools/cdp-based/upstream/context'
 import type { ToolDefinition } from '../tools/types/tool-definition'
 
 // Re-export browser context types for consumers
@@ -69,7 +68,7 @@ export interface HttpServerConfig {
   // For MCP routes - server will create McpServer internally
   version: string
   tools: ToolDefinition[]
-  cdpContext: McpContext | null
+  ensureCdpContext: () => Promise<CdpContext | null>
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean

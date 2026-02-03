@@ -13,7 +13,10 @@ import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
 import { McpContext } from '../../src/browser/cdp/context'
-import { logger } from '../../src/lib/logger'
+import { logger as mcpLogger } from '../../src/lib/logger'
+import { CdpContext } from '../../src/tools/cdp-based/upstream/context'
+import { logger as cdpLogger } from '../../src/tools/cdp-based/upstream/logger'
+import { CdpResponse } from '../../src/tools/cdp-based/upstream/response'
 import { McpResponse } from '../../src/tools/response/mcp-response'
 
 import { ensureBrowserOS } from './setup'
@@ -60,7 +63,7 @@ export async function killProcessOnPort(port: number): Promise<void> {
 // Test Wrappers
 // =============================================================================
 
-const browserMutex = new Mutex()
+const envMutex = new Mutex()
 let cachedBrowser: Browser | undefined
 
 /**
@@ -78,7 +81,7 @@ export async function withBrowser(
   cb: (response: McpResponse, context: McpContext) => Promise<void>,
   _options: { debug?: boolean } = {},
 ): Promise<void> {
-  return await browserMutex.runExclusive(async () => {
+  return await envMutex.runExclusive(async () => {
     const config = await ensureBrowserOS({ skipExtension: true })
 
     if (!cachedBrowser || !cachedBrowser.connected) {
@@ -87,27 +90,46 @@ export async function withBrowser(
       })
     }
 
-    const existingPages = await cachedBrowser.pages()
-    for (const page of existingPages) {
-      try {
-        if (!page.isClosed()) {
-          await page.close()
-        }
-      } catch {
-        // Ignore errors when closing pages that are already closed
-      }
-    }
-
-    await cachedBrowser.newPage()
-
     const response = new McpResponse()
-    const context = await McpContext.from(cachedBrowser, logger)
+    const context = await McpContext.from(cachedBrowser, mcpLogger)
+
+    // BrowserOS often starts on `chrome://new-tab-page/`, which can enforce
+    // Trusted Types policies and can yield empty accessibility snapshots.
+    // Keep tests stable by switching the selected page to a fresh about:blank.
+    await context.newPage()
 
     await cb(response, context)
   })
 }
 
-const mcpMutex = new Mutex()
+export async function withCdpBrowser(
+  cb: (response: CdpResponse, context: CdpContext) => Promise<void>,
+  _options: { debug?: boolean } = {},
+): Promise<void> {
+  return await envMutex.runExclusive(async () => {
+    const config = await ensureBrowserOS({ skipExtension: true })
+
+    if (!cachedBrowser || !cachedBrowser.connected) {
+      cachedBrowser = await puppeteer.connect({
+        browserURL: `http://127.0.0.1:${config.cdpPort}`,
+      })
+    }
+
+    const response = new CdpResponse()
+    const context = await CdpContext.from(cachedBrowser, cdpLogger, {
+      experimentalDevToolsDebugging: false,
+    })
+
+    try {
+      // Use a fresh page for each test without closing pages that may be used by
+      // the running MCP server in the same BrowserOS instance.
+      await context.newPage(true)
+      await cb(response, context)
+    } finally {
+      context.dispose()
+    }
+  })
+}
 
 /**
  * Test helper that provides an MCP client connected to the BrowserOS server.
@@ -123,7 +145,7 @@ const mcpMutex = new Mutex()
 export async function withMcpServer(
   cb: (client: Client) => Promise<void>,
 ): Promise<void> {
-  return await mcpMutex.runExclusive(async () => {
+  return await envMutex.runExclusive(async () => {
     const config = await ensureBrowserOS()
 
     const client = new Client({
