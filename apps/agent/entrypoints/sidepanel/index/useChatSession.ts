@@ -307,12 +307,14 @@ export const useChatSession = () => {
     },
   )
 
-  const restoredConversationRef = useRef<string | null>(null)
+  const [restoredConversationId, setRestoredConversationId] = useState<
+    string | null
+  >(null)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore should only run when query data arrives or conversationIdParam changes
   useEffect(() => {
     if (!conversationIdParam) return
-    if (restoredConversationRef.current === conversationIdParam) return
+    if (restoredConversationId === conversationIdParam) return
 
     if (isLoggedIn) {
       if (!remoteConversationData?.conversation) return
@@ -322,7 +324,7 @@ export const useChatSession = () => {
           .filter((node): node is NonNullable<typeof node> => node !== null)
           .map((node) => node.message as UIMessage)
 
-      restoredConversationRef.current = conversationIdParam
+      setRestoredConversationId(conversationIdParam)
       setConversationId(
         conversationIdParam as ReturnType<typeof crypto.randomUUID>,
       )
@@ -337,7 +339,7 @@ export const useChatSession = () => {
         )
 
         if (conversation) {
-          restoredConversationRef.current = conversationIdParam
+          setRestoredConversationId(conversationIdParam)
           setConversationId(
             conversation.id as ReturnType<typeof crypto.randomUUID>,
           )
@@ -422,8 +424,7 @@ export const useChatSession = () => {
   }
 
   const isRestoringConversation =
-    !!conversationIdParam &&
-    restoredConversationRef.current !== conversationIdParam
+    !!conversationIdParam && restoredConversationId !== conversationIdParam
 
   return {
     mode,
