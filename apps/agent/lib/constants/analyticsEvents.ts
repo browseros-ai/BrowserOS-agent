@@ -113,6 +113,24 @@ export const WORKFLOW_RUN_COMPLETED_EVENT = 'settings.workflow.run_completed'
 /** @public */
 export const SIDEPANEL_AI_TRIGGERED_EVENT = 'sidepanel.ai.triggered'
 
+/** @public */
+export const SIDEPANEL_MODE_CHANGED_EVENT = 'sidepanel.mode.changed'
+
+/** @public */
+export const SIDEPANEL_STOP_CLICKED_EVENT = 'sidepanel.generation.stopped'
+
+/** @public */
+export const SIDEPANEL_MESSAGE_COPIED_EVENT = 'sidepanel.message.copied'
+
+/** @public */
+export const SIDEPANEL_SUGGESTION_CLICKED_EVENT = 'sidepanel.suggestion.clicked'
+
+/** @public */
+export const SIDEPANEL_TAB_TOGGLED_EVENT = 'sidepanel.tab.toggled'
+
+/** @public */
+export const SIDEPANEL_TAB_REMOVED_EVENT = 'sidepanel.tab.removed'
+
 export const SETTINGS_PAGE_VIEWED_EVENT = 'settings.page.viewed'
 
 /** @public */
