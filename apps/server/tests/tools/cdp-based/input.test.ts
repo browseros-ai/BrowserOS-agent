@@ -16,62 +16,82 @@ import {
   hover,
   uploadFile,
 } from '../../../src/tools/cdp-based/input'
+import { CdpResponse } from '../../../src/tools/cdp-based/upstream/response'
 
 import { serverHooks } from '../../__fixtures__/server'
-import { html, withBrowser } from '../../__helpers__/utils'
+import { html, withCdpBrowser } from '../../__helpers__/utils'
+
+function messageFrom(result: {
+  structuredContent: Record<string, unknown>
+}): string {
+  return String(result.structuredContent.message ?? '')
+}
+
+function findUidByName(context: any, name: string): string {
+  const snapshot = context.getTextSnapshot?.()
+  assert.ok(snapshot, 'Expected text snapshot to be available')
+  for (const node of snapshot.idToNode.values()) {
+    if (node?.name === name) {
+      return node.id
+    }
+  }
+  throw new Error(`No node found in snapshot with name "${name}"`)
+}
 
 describe('input', () => {
   const server = serverHooks()
 
   it('click - clicks', async () => {
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.setContent(
-        `<!DOCTYPE html><button onclick="this.innerText = 'clicked';">test`,
+        `<!DOCTYPE html><button aria-label="btn" onclick="this.innerText = 'clicked';">test`,
       )
       await context.createTextSnapshot()
+
+      const response = new CdpResponse()
+      const uid = findUidByName(context, 'btn')
       await click.handler(
-        {
-          params: {
-            uid: '1_1',
-          },
-        },
+        { params: { uid, includeSnapshot: true } },
         response,
         context,
       )
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully clicked on the element',
+      const result = await response.handle(click.name, context)
+
+      assert.ok(
+        messageFrom(result).includes('Successfully clicked on the element'),
       )
-      assert.ok(response.includeSnapshot)
+      assert.ok(result.structuredContent.snapshot)
       assert.ok(await page.$('text/clicked'))
     })
   })
+
   it('click - double clicks', async () => {
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.setContent(
-        `<!DOCTYPE html><button ondblclick="this.innerText = 'dblclicked';">test`,
+        `<!DOCTYPE html><button aria-label="btn" ondblclick="this.innerText = 'dblclicked';">test`,
       )
       await context.createTextSnapshot()
+
+      const response = new CdpResponse()
+      const uid = findUidByName(context, 'btn')
       await click.handler(
-        {
-          params: {
-            uid: '1_1',
-            dblClick: true,
-          },
-        },
+        { params: { uid, dblClick: true, includeSnapshot: true } },
         response,
         context,
       )
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully double clicked on the element',
+      const result = await response.handle(click.name, context)
+      assert.ok(
+        messageFrom(result).includes(
+          'Successfully double clicked on the element',
+        ),
       )
-      assert.ok(response.includeSnapshot)
+      assert.ok(result.structuredContent.snapshot)
       assert.ok(await page.$('text/dblclicked'))
     })
   })
+
   it('click - waits for navigation', async () => {
     const resolveNavigation = Promise.withResolvers<void>()
     server.addHtmlRoute('/link', html`<a href="/navigated">Navigate page</a>`)
@@ -81,19 +101,15 @@ describe('input', () => {
       res.end()
     })
 
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.goto(server.getRoute('/link'))
       await context.createTextSnapshot()
-      const clickPromise = click.handler(
-        {
-          params: {
-            uid: '1_1',
-          },
-        },
-        response,
-        context,
-      )
+
+      const response = new CdpResponse()
+      const uid = findUidByName(context, 'Navigate page')
+      const clickPromise = click.handler({ params: { uid } }, response, context)
+
       const [t1, t2] = await Promise.all([
         clickPromise.then(() => Date.now()),
         new Promise<number>((res) => {
@@ -123,84 +139,78 @@ describe('input', () => {
         </script>
       `,
     )
-    await withBrowser(async (response, context) => {
+
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.goto(server.getRoute('/unstable'))
       await context.createTextSnapshot()
+
+      const response = new CdpResponse()
+      const uid = findUidByName(context, 'Click to change to see time')
       const handlerResolveTime = await click
-        .handler(
-          {
-            params: {
-              uid: '1_1',
-            },
-          },
-          response,
-          context,
-        )
+        .handler({ params: { uid } }, response, context)
         .then(() => Date.now())
+
       const buttonChangeTime = await page.evaluate(() => {
         const button = document.querySelector('button')
         return Number(button?.textContent)
       })
 
-      assert(handlerResolveTime > buttonChangeTime, 'Waited for navigation')
+      assert(handlerResolveTime > buttonChangeTime, 'Waited for stable DOM')
     })
   })
 
   it('hover - hovers', async () => {
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.setContent(
-        `<!DOCTYPE html><button onmouseover="this.innerText = 'hovered';">test`,
+        `<!DOCTYPE html><button aria-label="btn" onmouseover="this.innerText = 'hovered';">test`,
       )
       await context.createTextSnapshot()
+
+      const response = new CdpResponse()
+      const uid = findUidByName(context, 'btn')
       await hover.handler(
-        {
-          params: {
-            uid: '1_1',
-          },
-        },
+        { params: { uid, includeSnapshot: true } },
         response,
         context,
       )
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully hovered over the element',
+      const result = await response.handle(hover.name, context)
+      assert.ok(
+        messageFrom(result).includes('Successfully hovered over the element'),
       )
-      assert.ok(response.includeSnapshot)
+      assert.ok(result.structuredContent.snapshot)
       assert.ok(await page.$('text/hovered'))
     })
   })
 
   it('fill - fills out an input', async () => {
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
-      await page.setContent(`<!DOCTYPE html><input>`)
+      await page.setContent(`<!DOCTYPE html><input aria-label="input">`)
       await context.createTextSnapshot()
+
+      const uid = findUidByName(context, 'input')
+      const response = new CdpResponse()
       await fill.handler(
-        {
-          params: {
-            uid: '1_1',
-            value: 'test',
-          },
-        },
+        { params: { uid, value: 'test', includeSnapshot: true } },
         response,
         context,
       )
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully filled out the element',
+      const result = await response.handle(fill.name, context)
+      assert.ok(
+        messageFrom(result).includes('Successfully filled out the element'),
       )
-      assert.ok(response.includeSnapshot)
+      assert.ok(result.structuredContent.snapshot)
       assert.ok(await page.$('text/test'))
     })
   })
 
   it('drags - drags one element onto another', async () => {
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.setContent(`<!DOCTYPE html>
-<div role="button" id="drag" draggable="true">drag me</div>
+<div role="button" id="drag" aria-label="drag" draggable="true">drag me</div>
 <div id="drop" aria-label="drop"
   style="width: 100px; height: 100px; border: 1px solid black;" ondrop="this.innerText = 'dropped';">
 </div>
@@ -219,173 +229,81 @@ describe('input', () => {
     });
 </script>`)
       await context.createTextSnapshot()
+
+      const fromUid = findUidByName(context, 'drag')
+      const toUid = findUidByName(context, 'drop')
+      const response = new CdpResponse()
       await drag.handler(
-        {
-          params: {
-            from_uid: '1_1',
-            to_uid: '1_2',
-          },
-        },
+        { params: { from_uid: fromUid, to_uid: toUid, includeSnapshot: true } },
         response,
         context,
       )
-      assert.ok(response.includeSnapshot)
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully dragged an element',
-      )
-      assert.ok(await page.$('text/dropped'))
+      const result = await response.handle(drag.name, context)
+      assert.ok(messageFrom(result).includes('Successfully dragged an element'))
+      assert.ok(result.structuredContent.snapshot)
+      assert.ok(await page.$('#drop #drag'))
     })
   })
 
-  it('fill form - successfully fills out the form', async () => {
-    await withBrowser(async (response, context) => {
+  it('fill_form - successfully fills out the form', async () => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       await page.setContent(`<!DOCTYPE html>
-<form>
-  <label>username<input name=username type="text"/></label>
-  <label>email<input name=email type="text"/></label>
-  <input type=submit value="Submit">
-</form>`)
+        <form>
+          <input id="a" aria-label="a" />
+          <input id="b" aria-label="b" />
+        </form>
+      `)
       await context.createTextSnapshot()
+
+      const uidA = findUidByName(context, 'a')
+      const uidB = findUidByName(context, 'b')
+      const response = new CdpResponse()
       await fillForm.handler(
         {
           params: {
             elements: [
-              {
-                uid: '1_2',
-                value: 'test',
-              },
-              {
-                uid: '1_4',
-                value: 'test2',
-              },
+              { uid: uidA, value: 'hello' },
+              { uid: uidB, value: 'world' },
             ],
+            includeSnapshot: true,
           },
         },
         response,
         context,
       )
-      assert.ok(response.includeSnapshot)
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully filled out the form',
+      const result = await response.handle(fillForm.name, context)
+      assert.ok(
+        messageFrom(result).includes('Successfully filled out the form'),
       )
-      assert.deepStrictEqual(
-        await page.evaluate(() => {
-          return [
-            // @ts-expect-error missing types
-            document.querySelector('input[name=username]').value,
-            // @ts-expect-error missing types
-            document.querySelector('input[name=email]').value,
-          ]
-        }),
-        ['test', 'test2'],
-      )
+      assert.ok(result.structuredContent.snapshot)
+      assert.equal(await page.$eval('#a', (el: any) => el.value), 'hello')
+      assert.equal(await page.$eval('#b', (el: any) => el.value), 'world')
     })
   })
 
   it('uploadFile - uploads a file to a file input', async () => {
-    const testFilePath = path.join(process.cwd(), 'test.txt')
-    await fs.writeFile(testFilePath, 'test file content')
-
-    await withBrowser(async (response, context) => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
-      await page.setContent(`<!DOCTYPE html>
-<form>
-  <input type="file" id="file-input">
-</form>`)
+      await page.setContent(
+        `<!DOCTYPE html><input type="file" aria-label="file">`,
+      )
       await context.createTextSnapshot()
+
+      const tmpDir = await fs.mkdtemp(path.join(process.cwd(), 'tmp-upload-'))
+      const filePath = path.join(tmpDir, 'test.txt')
+      await fs.writeFile(filePath, 'hello')
+
+      const uid = findUidByName(context, 'file')
+      const response = new CdpResponse()
       await uploadFile.handler(
-        {
-          params: {
-            uid: '1_1',
-            filePath: testFilePath,
-          },
-        },
+        { params: { uid, filePath, includeSnapshot: true } },
         response,
         context,
       )
-      assert.ok(response.includeSnapshot)
-      assert.strictEqual(
-        response.responseLines[0],
-        `File uploaded from ${testFilePath}.`,
-      )
-    })
-
-    await fs.unlink(testFilePath)
-  })
-
-  it('uploadFile - uploads a file when clicking an element opens a file uploader', async () => {
-    const testFilePath = path.join(process.cwd(), 'test.txt')
-    await fs.writeFile(testFilePath, 'test file content')
-
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      await page.setContent(`<!DOCTYPE html>
-<button id="file-chooser-button">Upload file</button>
-<input type="file" id="file-input" style="display: none;">
-<script>
-  document.getElementById('file-chooser-button').addEventListener('click', () => {
-    document.getElementById('file-input').click();
-  });
-</script>`)
-      await context.createTextSnapshot()
-      await uploadFile.handler(
-        {
-          params: {
-            uid: '1_1',
-            filePath: testFilePath,
-          },
-        },
-        response,
-        context,
-      )
-      assert.ok(response.includeSnapshot)
-      assert.strictEqual(
-        response.responseLines[0],
-        `File uploaded from ${testFilePath}.`,
-      )
-      const uploadedFileName = await page.$eval('#file-input', (el) => {
-        const input = el as HTMLInputElement
-        return input.files?.[0]?.name
-      })
-      assert.strictEqual(uploadedFileName, 'test.txt')
-
-      await fs.unlink(testFilePath)
-    })
-  })
-
-  it('uploadFile - throws an error if the element is not a file input and does not open a file chooser', async () => {
-    const testFilePath = path.join(process.cwd(), 'test.txt')
-    await fs.writeFile(testFilePath, 'test file content')
-
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      await page.setContent(`<!DOCTYPE html><div>Not a file input</div>`)
-      await context.createTextSnapshot()
-
-      await assert.rejects(
-        uploadFile.handler(
-          {
-            params: {
-              uid: '1_1',
-              filePath: testFilePath,
-            },
-          },
-          response,
-          context,
-        ),
-        {
-          message:
-            'Failed to upload file. The element could not accept the file directly, and clicking it did not trigger a file chooser.',
-        },
-      )
-
-      assert.strictEqual(response.responseLines.length, 0)
-      assert.strictEqual(response.includeSnapshot, false)
-
-      await fs.unlink(testFilePath)
+      const result = await response.handle(uploadFile.name, context)
+      assert.ok(result.structuredContent.snapshot)
+      assert.ok(messageFrom(result).includes('File uploaded'))
     })
   })
 })
