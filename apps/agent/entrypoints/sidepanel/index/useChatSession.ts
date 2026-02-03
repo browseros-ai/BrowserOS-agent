@@ -19,7 +19,7 @@ import {
   useConversations,
 } from '@/lib/conversations/conversationStorage'
 import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
-import { execute } from '@/lib/graphql/execute'
+import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
@@ -299,51 +299,55 @@ export const useChatSession = () => {
     conversationId: conversationIdRef.current,
   })
 
+  const { data: remoteConversationData } = useGraphqlQuery(
+    GetConversationWithMessagesDocument,
+    { conversationId: conversationIdParam ?? '' },
+    {
+      enabled: !!conversationIdParam && isLoggedIn,
+    },
+  )
+
+  const restoredConversationRef = useRef<string | null>(null)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restore should only run when query data arrives or conversationIdParam changes
   useEffect(() => {
     if (!conversationIdParam) return
+    if (restoredConversationRef.current === conversationIdParam) return
 
-    const restoreConversation = async () => {
-      if (isLoggedIn) {
-        const result = await execute(GetConversationWithMessagesDocument, {
-          conversationId: conversationIdParam,
-        })
+    if (isLoggedIn) {
+      if (!remoteConversationData?.conversation) return
 
-        if (result.conversation) {
-          const messages = result.conversation.conversationMessages.nodes
-            .filter((node): node is NonNullable<typeof node> => node !== null)
-            .map((node) => node.message as UIMessage)
+      const restoredMessages =
+        remoteConversationData.conversation.conversationMessages.nodes
+          .filter((node): node is NonNullable<typeof node> => node !== null)
+          .map((node) => node.message as UIMessage)
 
-          setConversationId(
-            conversationIdParam as ReturnType<typeof crypto.randomUUID>,
-          )
-          setMessages(messages)
-          markMessagesAsSaved(conversationIdParam, messages)
-        }
-      } else {
+      restoredConversationRef.current = conversationIdParam
+      setConversationId(
+        conversationIdParam as ReturnType<typeof crypto.randomUUID>,
+      )
+      setMessages(restoredMessages)
+      markMessagesAsSaved(conversationIdParam, restoredMessages)
+      setSearchParams({}, { replace: true })
+    } else {
+      const restoreLocal = async () => {
         const conversations = await conversationStorage.getValue()
         const conversation = conversations?.find(
           (c) => c.id === conversationIdParam,
         )
 
         if (conversation) {
+          restoredConversationRef.current = conversationIdParam
           setConversationId(
             conversation.id as ReturnType<typeof crypto.randomUUID>,
           )
           setMessages(conversation.messages)
         }
+        setSearchParams({}, { replace: true })
       }
-
-      setSearchParams({}, { replace: true })
+      restoreLocal()
     }
-
-    restoreConversation()
-  }, [
-    conversationIdParam,
-    setMessages,
-    setSearchParams,
-    isLoggedIn,
-    markMessagesAsSaved,
-  ])
+  }, [conversationIdParam, remoteConversationData, isLoggedIn])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
   useEffect(() => {
