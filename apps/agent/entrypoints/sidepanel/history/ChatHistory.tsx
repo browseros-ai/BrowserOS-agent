@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import type { UIMessage } from 'ai'
 import type { FC } from 'react'
 import { useMemo } from 'react'
@@ -43,6 +43,7 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
         lastPage.conversations?.pageInfo.hasNextPage
           ? lastPage.conversations.pageInfo.endCursor
           : undefined,
+      placeholderData: keepPreviousData,
     },
   )
 
