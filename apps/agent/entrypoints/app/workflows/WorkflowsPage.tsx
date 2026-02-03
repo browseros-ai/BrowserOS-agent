@@ -9,6 +9,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  WORKFLOW_DELETED_EVENT,
+  WORKFLOW_RUN_STARTED_EVENT,
+} from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 import { sentry } from '@/lib/sentry/sentry'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
@@ -60,11 +65,13 @@ export const WorkflowsPage: FC = () => {
 
     await removeWorkflow(deleteWorkflowId)
     setDeleteWorkflowId(null)
+    track(WORKFLOW_DELETED_EVENT)
   }
 
   const handleRun = (workflowId: string) => {
     const workflow = workflows.find((w) => w.id === workflowId)
     if (workflow) {
+      track(WORKFLOW_RUN_STARTED_EVENT)
       runWorkflow(workflow.codeId, workflow.workflowName)
     }
   }

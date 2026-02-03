@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { SIDEPANEL_MESSAGE_COPIED_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 
 interface ChatMessageActionsProps {
   messageId: string
@@ -57,7 +59,10 @@ export const ChatMessageActions: FC<ChatMessageActionsProps> = ({
   return (
     <MessageActions>
       <MessageAction
-        onClick={() => navigator.clipboard.writeText(messageText)}
+        onClick={() => {
+          navigator.clipboard.writeText(messageText)
+          track(SIDEPANEL_MESSAGE_COPIED_EVENT)
+        }}
         label="Copy"
         tooltip="Copy to clipboard"
       >

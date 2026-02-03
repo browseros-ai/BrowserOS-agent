@@ -4,6 +4,12 @@ import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
+import {
+  WORKFLOW_RUN_COMPLETED_EVENT,
+  WORKFLOW_RUN_RETRIED_EVENT,
+  WORKFLOW_RUN_STOPPED_EVENT,
+} from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 
 type WorkflowMessageMetadata = {
   window?: chrome.windows.Window
@@ -71,6 +77,26 @@ export const useRunWorkflow = () => {
     }),
   })
 
+  const previousStatus = useRef(status)
+  useEffect(() => {
+    const wasProcessing =
+      previousStatus.current === 'streaming' ||
+      previousStatus.current === 'submitted'
+    const justFinished =
+      wasProcessing && (status === 'ready' || status === 'error')
+
+    if (justFinished && isRunning) {
+      track(WORKFLOW_RUN_COMPLETED_EVENT, {
+        status: wasCancelled
+          ? 'cancelled'
+          : status === 'error'
+            ? 'failed'
+            : 'completed',
+      })
+    }
+    previousStatus.current = status
+  }, [status, isRunning, wasCancelled])
+
   const startWorkflowRun = async () => {
     setMessages([])
     setWasCancelled(false)
@@ -97,11 +123,13 @@ export const useRunWorkflow = () => {
   }
 
   const stopRun = () => {
+    track(WORKFLOW_RUN_STOPPED_EVENT)
     setWasCancelled(true)
     stop()
   }
 
   const retry = async () => {
+    track(WORKFLOW_RUN_RETRIED_EVENT)
     await startWorkflowRun()
   }
 
