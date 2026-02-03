@@ -172,64 +172,64 @@ describe('MCP Controller Coordinates Tools', () => {
   describe('browser_click_coordinates - Error Handling', () => {
     it('tests that missing tabId is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_click_coordinates',
-            arguments: { x: 100, y: 100 },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Click Coordinates Missing TabId Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_click_coordinates',
+          arguments: { x: 100, y: 100 },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Click Coordinates Missing TabId Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that missing coordinates is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_click_coordinates',
-            arguments: { tabId: 1 },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Click Coordinates Missing XY Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_click_coordinates',
+          arguments: { tabId: 1 },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Click Coordinates Missing XY Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that non-numeric coordinates is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_click_coordinates',
-            arguments: { tabId: 1, x: 'invalid', y: 100 },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Click Coordinates Invalid Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_click_coordinates',
+          arguments: { tabId: 1, x: 'invalid', y: 100 },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Click Coordinates Invalid Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -440,43 +440,43 @@ describe('MCP Controller Coordinates Tools', () => {
   describe('browser_type_at_coordinates - Error Handling', () => {
     it('tests that missing text is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_type_at_coordinates',
-            arguments: { tabId: 1, x: 100, y: 100 },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Type at Coordinates Missing Text Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_type_at_coordinates',
+          arguments: { tabId: 1, x: 100, y: 100 },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Type at Coordinates Missing Text Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that missing coordinates is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_type_at_coordinates',
-            arguments: { tabId: 1, text: 'test' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Type at Coordinates Missing XY Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_type_at_coordinates',
+          arguments: { tabId: 1, text: 'test' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Type at Coordinates Missing XY Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 

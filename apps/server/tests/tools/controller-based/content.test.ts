@@ -249,22 +249,22 @@ describe('MCP Controller Content Tools', () => {
 
     it('tests that non-numeric tab ID is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_get_page_content',
-            arguments: { tabId: 'invalid', type: 'text' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Get Page Content Invalid Tab Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_get_page_content',
+          arguments: { tabId: 'invalid', type: 'text' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Get Page Content Invalid Tab Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -281,21 +281,22 @@ describe('MCP Controller Content Tools', () => {
         const tabIdMatch = navText.text.match(/Tab ID: (\d+)/)
         const tabId = parseInt(tabIdMatch[1], 10)
 
-        try {
-          await client.callTool({
-            name: 'browser_get_page_content',
-            arguments: { tabId, type: 'invalid-type' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Get Page Content Invalid Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_get_page_content',
+          arguments: { tabId, type: 'invalid-type' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid') || error.message.includes('enum'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Get Page Content Invalid Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid') ||
+            textContent.text.includes('enum') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
