@@ -299,7 +299,10 @@ export const useChatSession = () => {
     conversationId: conversationIdRef.current,
   })
 
-  const { data: remoteConversationData } = useGraphqlQuery(
+  const {
+    data: remoteConversationData,
+    isFetched: isRemoteConversationFetched,
+  } = useGraphqlQuery(
     GetConversationWithMessagesDocument,
     { conversationId: conversationIdParam ?? '' },
     {
@@ -317,19 +320,21 @@ export const useChatSession = () => {
     if (restoredConversationId === conversationIdParam) return
 
     if (isLoggedIn) {
-      if (!remoteConversationData?.conversation) return
+      if (!isRemoteConversationFetched) return
 
-      const restoredMessages =
-        remoteConversationData.conversation.conversationMessages.nodes
-          .filter((node): node is NonNullable<typeof node> => node !== null)
-          .map((node) => node.message as UIMessage)
+      if (remoteConversationData?.conversation) {
+        const restoredMessages =
+          remoteConversationData.conversation.conversationMessages.nodes
+            .filter((node): node is NonNullable<typeof node> => node !== null)
+            .map((node) => node.message as UIMessage)
 
+        setConversationId(
+          conversationIdParam as ReturnType<typeof crypto.randomUUID>,
+        )
+        setMessages(restoredMessages)
+        markMessagesAsSaved(conversationIdParam, restoredMessages)
+      }
       setRestoredConversationId(conversationIdParam)
-      setConversationId(
-        conversationIdParam as ReturnType<typeof crypto.randomUUID>,
-      )
-      setMessages(restoredMessages)
-      markMessagesAsSaved(conversationIdParam, restoredMessages)
       setSearchParams({}, { replace: true })
     } else {
       const restoreLocal = async () => {
@@ -339,12 +344,12 @@ export const useChatSession = () => {
         )
 
         if (conversation) {
-          setRestoredConversationId(conversationIdParam)
           setConversationId(
             conversation.id as ReturnType<typeof crypto.randomUUID>,
           )
           setMessages(conversation.messages)
         }
+        setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
       }
       restoreLocal()
