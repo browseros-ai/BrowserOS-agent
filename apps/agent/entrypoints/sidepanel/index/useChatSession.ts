@@ -425,6 +425,7 @@ export const useChatSession = () => {
     setTextToAction(new Map())
     setLiked({})
     setDisliked({})
+    setRestoredConversationId(null)
     resetRemoteConversation()
   }
 
