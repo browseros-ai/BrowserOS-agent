@@ -1,26 +1,28 @@
 /**
  * @license
- * Copyright 2025 BrowserOS
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
  */
-import type { ElementHandle, Page } from 'puppeteer-core'
-import z from 'zod'
 
-import { ToolCategories } from '../types/tool-categories'
-import { defineTool } from '../types/tool-definition'
+import { ToolCategory } from './categories'
+import type { ElementHandle, Page } from './upstream/third-party'
+import { zod } from './upstream/third-party'
+import { defineTool } from './upstream/tool-definition'
 
 export const screenshot = defineTool({
   name: 'take_screenshot',
   description: `Take a screenshot of the page or element.`,
   annotations: {
-    category: ToolCategories.DEBUGGING,
-    readOnlyHint: true,
+    category: ToolCategory.DEBUGGING,
+    // Not read-only due to filePath param.
+    readOnlyHint: false,
   },
   schema: {
-    format: z
+    format: zod
       .enum(['png', 'jpeg', 'webp'])
       .default('png')
       .describe('Type of format to save the screenshot as. Default is "png"'),
-    quality: z
+    quality: zod
       .number()
       .min(0)
       .max(100)
@@ -28,19 +30,19 @@ export const screenshot = defineTool({
       .describe(
         'Compression quality for JPEG and WebP formats (0-100). Higher values mean better quality but larger file sizes. Ignored for PNG format.',
       ),
-    uid: z
+    uid: zod
       .string()
       .optional()
       .describe(
         'The uid of an element on the page from the page content snapshot. If omitted takes a pages screenshot.',
       ),
-    fullPage: z
+    fullPage: zod
       .boolean()
       .optional()
       .describe(
         'If set to true takes a screenshot of the full page instead of the currently visible viewport. Incompatible with uid.',
       ),
-    filePath: z
+    filePath: zod
       .string()
       .optional()
       .describe(
@@ -59,10 +61,13 @@ export const screenshot = defineTool({
       pageOrHandle = context.getSelectedPage()
     }
 
+    const format = request.params.format
+    const quality = format === 'png' ? undefined : request.params.quality
+
     const screenshot = await pageOrHandle.screenshot({
-      type: request.params.format,
+      type: format,
       fullPage: request.params.fullPage,
-      quality: request.params.quality,
+      quality,
       optimizeForSpeed: true, // Bonus: optimize encoding for speed
     })
 
@@ -84,10 +89,7 @@ export const screenshot = defineTool({
     } else if (screenshot.length >= 2_000_000) {
       const { filename } = await context.saveTemporaryFile(
         screenshot,
-        `image/${request.params.format}` as
-          | 'image/png'
-          | 'image/jpeg'
-          | 'image/webp',
+        `image/${request.params.format}`,
       )
       response.appendResponseLine(`Saved screenshot to ${filename}.`)
     } else {

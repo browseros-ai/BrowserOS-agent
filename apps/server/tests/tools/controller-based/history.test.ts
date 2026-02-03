@@ -104,22 +104,22 @@ describe('MCP Controller History Tools', () => {
   describe('browser_search_history - Error Handling', () => {
     it('tests that non-numeric maxResults is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_search_history',
-            arguments: { query: 'test', maxResults: 'invalid' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Search History Invalid Max Results Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_search_history',
+          arguments: { query: 'test', maxResults: 'invalid' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Search History Invalid Max Results Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -236,22 +236,22 @@ describe('MCP Controller History Tools', () => {
   describe('browser_get_recent_history - Error Handling', () => {
     it('tests that non-numeric count is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_get_recent_history',
-            arguments: { count: 'invalid' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Get Recent History Invalid Count Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_get_recent_history',
+          arguments: { count: 'invalid' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Get Recent History Invalid Count Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 

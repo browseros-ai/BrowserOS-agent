@@ -243,23 +243,22 @@ describe('MCP Controller Tab Management Tools', () => {
 
     it('tests that non-numeric tab ID is rejected with validation error', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_close_tab',
-            arguments: { tabId: 'invalid' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Close Tab with Invalid ID Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_close_tab',
+          arguments: { tabId: 'invalid' },
+        })
 
-          // Validation error should be thrown by MCP SDK
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Close Tab with Invalid ID Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
   })

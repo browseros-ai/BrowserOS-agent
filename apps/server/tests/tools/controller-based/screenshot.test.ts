@@ -335,22 +335,22 @@ describe('MCP Controller Screenshot Tool', () => {
 
     it('tests that screenshot with non-numeric tab ID is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_get_screenshot',
-            arguments: { tabId: 'invalid' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Screenshot Invalid Tab Type Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_get_screenshot',
+          arguments: { tabId: 'invalid' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Expected number'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Screenshot Invalid Tab Type Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Expected number') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -368,24 +368,25 @@ describe('MCP Controller Screenshot Tool', () => {
         const tabIdMatch = navText.text.match(/Tab ID: (\d+)/)
         const tabId = parseInt(tabIdMatch[1], 10)
 
-        try {
-          await client.callTool({
-            name: 'browser_get_screenshot',
-            arguments: {
-              tabId,
-              size: 'invalid-size',
-            },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Screenshot Invalid Size Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_get_screenshot',
+          arguments: {
+            tabId,
+            size: 'invalid-size',
+          },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid') || error.message.includes('enum'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Screenshot Invalid Size Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid') ||
+            textContent.text.includes('enum') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 

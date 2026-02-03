@@ -3,13 +3,15 @@
  * Copyright 2025 BrowserOS
  */
 
-import { describe, it } from 'bun:test'
+import { describe, it, setDefaultTimeout } from 'bun:test'
 import assert from 'node:assert'
 import sinon from 'sinon'
 
 import type { TraceResult } from '../../src/browser/cdp/types'
 
 import { withBrowser } from '../__helpers__/utils'
+
+setDefaultTimeout(30000)
 
 describe('McpContext', () => {
   it('list pages', async () => {

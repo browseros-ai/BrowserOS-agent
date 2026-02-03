@@ -6,7 +6,6 @@
  * Tool Registry - Combines CDP and controller tools into a unified registry.
  */
 
-import type { McpContext } from '../browser/cdp/context'
 import type { ControllerContext } from '../browser/extension/context'
 import { logger } from '../lib/logger'
 
@@ -15,11 +14,11 @@ import { allControllerTools } from './controller-based/registry'
 import type { ToolDefinition } from './types/tool-definition'
 
 export function createToolRegistry(
-  cdpContext: McpContext | null,
+  cdpEnabled: boolean,
   controllerContext: ControllerContext,
   // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool registry requires any
 ): Array<ToolDefinition<any, any, any>> {
-  const cdpTools = cdpContext ? allCdpTools : []
+  const cdpTools = cdpEnabled ? allCdpTools : []
   const wrappedControllerTools = wrapControllerTools(
     allControllerTools,
     controllerContext,
@@ -30,7 +29,9 @@ export function createToolRegistry(
       `(${cdpTools.length} CDP + ${wrappedControllerTools.length} extension)`,
   )
 
-  return [...cdpTools, ...wrappedControllerTools]
+  // TODO: re-enable controller tools
+  // return [...cdpTools, ...wrappedControllerTools]
+  return [...cdpTools]
 }
 
 function wrapControllerTools(

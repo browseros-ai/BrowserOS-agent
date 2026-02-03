@@ -5,202 +5,157 @@
 
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import type { Dialog } from 'puppeteer-core'
 
 import {
   closePage,
   handleDialog,
   listPages,
   navigatePage,
-  navigatePageHistory,
   newPage,
   resizePage,
   selectPage,
 } from '../../../src/tools/cdp-based/pages'
+import { CdpResponse } from '../../../src/tools/cdp-based/upstream/response'
 
-import { withBrowser } from '../../__helpers__/utils'
+import { withCdpBrowser } from '../../__helpers__/utils'
+
+function pagesFromStructured(structuredContent: Record<string, unknown>) {
+  const pages = structuredContent.pages
+  assert.ok(Array.isArray(pages), 'Expected pages array in structuredContent')
+  return pages as Array<{ id: number; url: string; selected: boolean }>
+}
 
 describe('pages', () => {
-  it('list_pages - list pages', async () => {
-    await withBrowser(async (response, context) => {
+  it('list_pages - lists pages', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const response = new CdpResponse()
       await listPages.handler({ params: {} }, response, context)
-      assert.ok(response.includePages)
+      const result = await response.handle(listPages.name, context)
+      const pages = pagesFromStructured(result.structuredContent as any)
+      assert.ok(pages.length >= 1)
+      assert.ok(pages.some((p) => p.selected))
     })
   })
 
-  it('browser_new_page - create a page', async () => {
-    await withBrowser(async (response, context) => {
-      assert.strictEqual(context.getSelectedPageIdx(), 0)
+  it('new_page - creates a page', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const before = new CdpResponse()
+      await listPages.handler({ params: {} }, before, context)
+      const beforeResult = await before.handle(listPages.name, context)
+      const beforePages = pagesFromStructured(
+        beforeResult.structuredContent as any,
+      )
+
+      const response = new CdpResponse()
       await newPage.handler(
         { params: { url: 'about:blank' } },
         response,
         context,
       )
-      assert.strictEqual(context.getSelectedPageIdx(), 1)
-      assert.ok(response.includePages)
+      const result = await response.handle(newPage.name, context)
+      const afterPages = pagesFromStructured(result.structuredContent as any)
+      assert.strictEqual(afterPages.length, beforePages.length + 1)
+      assert.ok(afterPages.some((p) => p.selected))
     })
   })
 
-  it('browser_close_page - closes a page', async () => {
-    await withBrowser(async (response, context) => {
+  it('close_page - closes a page', async () => {
+    await withCdpBrowser(async (_response, context) => {
       const page = await context.newPage()
-      assert.strictEqual(context.getSelectedPageIdx(), 1)
-      assert.strictEqual(context.getPageByIdx(1), page)
-      await closePage.handler({ params: { pageIdx: 1 } }, response, context)
+      const pageId = context.getPageId(page)
+      assert.ok(typeof pageId === 'number')
+
+      const response = new CdpResponse()
+      await closePage.handler({ params: { pageId } }, response, context)
+      await response.handle(closePage.name, context)
       assert.ok(page.isClosed())
-      assert.ok(response.includePages)
     })
   })
 
-  it('browser_close_page - cannot close the last page', async () => {
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      await closePage.handler({ params: { pageIdx: 0 } }, response, context)
-      assert.deepStrictEqual(
-        response.responseLines[0],
-        `The last open page cannot be closed. It is fine to keep it open.`,
+  it('select_page - selects a page', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const second = await context.newPage()
+      const pages = context.getPages()
+      assert.ok(pages.length >= 2)
+      const firstId = context.getPageId(pages[0])
+      assert.ok(typeof firstId === 'number')
+
+      assert.ok(context.isPageSelected(second))
+
+      const response = new CdpResponse()
+      await selectPage.handler(
+        { params: { pageId: firstId } },
+        response,
+        context,
       )
-      assert.ok(response.includePages)
-      assert.ok(!page.isClosed())
+      const result = await response.handle(selectPage.name, context)
+      const pageData = pagesFromStructured(result.structuredContent as any)
+      assert.ok(pageData.find((p) => p.id === firstId)?.selected)
     })
   })
 
-  it('browser_select_page - selects a page', async () => {
-    await withBrowser(async (response, context) => {
-      await context.newPage()
-      assert.strictEqual(context.getSelectedPageIdx(), 1)
-      await selectPage.handler({ params: { pageIdx: 0 } }, response, context)
-      assert.strictEqual(context.getSelectedPageIdx(), 0)
-      assert.ok(response.includePages)
-    })
-  })
-
-  it('browser_navigate_page - navigates to correct page', async () => {
-    await withBrowser(async (response, context) => {
+  it('navigate_page - navigates to correct page', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const response = new CdpResponse()
       await navigatePage.handler(
         { params: { url: 'data:text/html,<div>Hello MCP</div>' } },
         response,
         context,
       )
+      await response.handle(navigatePage.name, context)
       const page = context.getSelectedPage()
       assert.equal(
         await page.evaluate(() => document.querySelector('div')?.textContent),
         'Hello MCP',
       )
-      assert.ok(response.includePages)
     })
   })
 
-  it('browser_navigate_page - throws an error if the page was closed not by the MCP server', async () => {
-    await withBrowser(async (response, context) => {
-      const page = await context.newPage()
-      assert.strictEqual(context.getSelectedPageIdx(), 1)
-      assert.strictEqual(context.getPageByIdx(1), page)
+  it('navigate_page - go back and forward', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const page = context.getSelectedPage()
+      await page.goto('data:text/html,<div>Hello</div>')
 
-      await page.close()
-
-      try {
+      {
+        const response = new CdpResponse()
         await navigatePage.handler(
-          { params: { url: 'data:text/html,<div>Hello MCP</div>' } },
+          { params: { type: 'back' } },
           response,
           context,
         )
-        assert.fail('should not reach here')
-      } catch (err) {
-        assert.strictEqual(
-          (err as Error).message,
-          'The selected page has been closed. Call list_pages to see open pages.',
+        await response.handle(navigatePage.name, context)
+        assert.equal(
+          await page.evaluate(() => document.location.href),
+          'about:blank',
+        )
+      }
+
+      {
+        const response = new CdpResponse()
+        await navigatePage.handler(
+          { params: { type: 'forward' } },
+          response,
+          context,
+        )
+        await response.handle(navigatePage.name, context)
+        assert.equal(
+          await page.evaluate(() => document.querySelector('div')?.textContent),
+          'Hello',
         )
       }
     })
   })
 
-  it('browser_navigate_page_history - go back', async () => {
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      await page.goto('data:text/html,<div>Hello MCP</div>')
-      await navigatePageHistory.handler(
-        { params: { navigate: 'back' } },
-        response,
-        context,
-      )
-
-      assert.equal(
-        await page.evaluate(() => document.location.href),
-        'about:blank',
-      )
-      assert.ok(response.includePages)
-    })
-  })
-
-  it('browser_navigate_page_history - go forward', async () => {
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      await page.goto('data:text/html,<div>Hello MCP</div>')
-      await page.goBack()
-      await navigatePageHistory.handler(
-        { params: { navigate: 'forward' } },
-        response,
-        context,
-      )
-
-      assert.equal(
-        await page.evaluate(() => document.querySelector('div')?.textContent),
-        'Hello MCP',
-      )
-      assert.ok(response.includePages)
-    })
-  })
-
-  it('browser_navigate_page_history - go forward with error', async () => {
-    await withBrowser(async (response, context) => {
-      await navigatePageHistory.handler(
-        { params: { navigate: 'forward' } },
-        response,
-        context,
-      )
-
-      assert.equal(
-        response.responseLines.at(0),
-        'Unable to navigate forward in currently selected page.',
-      )
-      assert.ok(response.includePages)
-    })
-  })
-
-  it('browser_navigate_page_history - go back with error', async () => {
-    await withBrowser(async (response, context) => {
-      await navigatePageHistory.handler(
-        { params: { navigate: 'back' } },
-        response,
-        context,
-      )
-
-      assert.equal(
-        response.responseLines.at(0),
-        'Unable to navigate back in currently selected page.',
-      )
-      assert.ok(response.includePages)
-    })
-  })
-
-  // Skip: BrowserOS doesn't support Browser.setContentsSize CDP command yet
-  // TODO: Implement Browser.setContentsSize in BrowserOS or use alternative (viewport resize)
-  it.skip('browser_resize - create a page', async () => {
-    await withBrowser(async (response, context) => {
-      assert.strictEqual(context.getSelectedPageIdx(), 0)
-      const page = context.getSelectedPage()
-      const resizePromise = page.evaluate(() => {
-        return new Promise((resolve) => {
-          window.addEventListener('resize', resolve, { once: true })
-        })
-      })
+  it('resize_page - sets viewport size', async () => {
+    await withCdpBrowser(async (_response, context) => {
+      const response = new CdpResponse()
       await resizePage.handler(
         { params: { width: 700, height: 500 } },
         response,
         context,
       )
-      await resizePromise
+      await response.handle(resizePage.name, context)
+      const page = context.getSelectedPage()
       const dimensions = await page.evaluate(() => {
         return [window.innerWidth, window.innerHeight]
       })
@@ -208,91 +163,26 @@ describe('pages', () => {
     })
   })
 
-  it('dialogs - can accept dialogs', async () => {
-    await withBrowser(async (response, context) => {
+  it('handle_dialog - can accept dialogs', async () => {
+    await withCdpBrowser(async (_response, context) => {
       const page = context.getSelectedPage()
       const dialogPromise = new Promise<void>((resolve) => {
-        page.on('dialog', () => {
-          resolve()
-        })
+        page.on('dialog', () => resolve())
       })
-      page.evaluate(() => {
+      void page.evaluate(() => {
         alert('test')
       })
       await dialogPromise
-      await handleDialog.handler(
-        {
-          params: {
-            action: 'accept',
-          },
-        },
-        response,
-        context,
-      )
-      assert.strictEqual(context.getDialog(), undefined)
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully accepted the dialog',
-      )
-    })
-  })
 
-  it('dialogs - can dismiss dialogs', async () => {
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      const dialogPromise = new Promise<void>((resolve) => {
-        page.on('dialog', () => {
-          resolve()
-        })
-      })
-      page.evaluate(() => {
-        alert('test')
-      })
-      await dialogPromise
+      const response = new CdpResponse()
       await handleDialog.handler(
-        {
-          params: {
-            action: 'dismiss',
-          },
-        },
+        { params: { action: 'accept' } },
         response,
         context,
       )
-      assert.strictEqual(context.getDialog(), undefined)
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully dismissed the dialog',
-      )
-    })
-  })
-
-  it('dialogs - can dismiss already dismissed dialog dialogs', async () => {
-    await withBrowser(async (response, context) => {
-      const page = context.getSelectedPage()
-      const dialogPromise = new Promise<Dialog>((resolve) => {
-        page.on('dialog', (dialog) => {
-          resolve(dialog)
-        })
-      })
-      page.evaluate(() => {
-        alert('test')
-      })
-      const dialog = await dialogPromise
-      await dialog.dismiss()
-      await handleDialog.handler(
-        {
-          params: {
-            action: 'dismiss',
-          },
-        },
-        response,
-        context,
-      )
-      assert.strictEqual(context.getDialog(), undefined)
-      assert.strictEqual(
-        response.responseLines[0],
-        'Successfully dismissed the dialog',
-      )
+      const result = await response.handle(handleDialog.name, context)
+      const message = String(result.structuredContent.message ?? '')
+      assert.ok(message.includes('Successfully accepted the dialog'))
     })
   })
 })

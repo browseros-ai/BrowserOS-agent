@@ -219,43 +219,43 @@ describe('MCP Controller Advanced Tools', () => {
   describe('browser_execute_javascript - Error Handling', () => {
     it('tests that missing code is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_execute_javascript',
-            arguments: { tabId: 1 },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Execute JS Missing Code Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_execute_javascript',
+          arguments: { tabId: 1 },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Execute JS Missing Code Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that missing tabId is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_execute_javascript',
-            arguments: { code: '1 + 1' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Execute JS Missing TabId Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_execute_javascript',
+          arguments: { code: '1 + 1' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Execute JS Missing TabId Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
@@ -474,64 +474,64 @@ describe('MCP Controller Advanced Tools', () => {
   describe('browser_send_keys - Error Handling', () => {
     it('tests that missing key is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_send_keys',
-            arguments: { tabId: 1 },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Send Keys Missing Key Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_send_keys',
+          arguments: { tabId: 1 },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Send Keys Missing Key Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that invalid key is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_send_keys',
-            arguments: { tabId: 1, key: 'InvalidKey' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Send Keys Invalid Key Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_send_keys',
+          arguments: { tabId: 1, key: 'InvalidKey' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Invalid enum value'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Send Keys Invalid Key Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Invalid enum value') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 
     it('tests that missing tabId is rejected', async () => {
       await withMcpServer(async (client) => {
-        try {
-          await client.callTool({
-            name: 'browser_send_keys',
-            arguments: { key: 'Enter' },
-          })
-          assert.fail('Should have thrown validation error')
-        } catch (error) {
-          console.log('\n=== Send Keys Missing TabId Error ===')
-          console.log(error.message)
+        const result = await client.callTool({
+          name: 'browser_send_keys',
+          arguments: { key: 'Enter' },
+        })
 
-          assert.ok(
-            error.message.includes('Invalid arguments') ||
-              error.message.includes('Required'),
-            'Should reject with validation error',
-          )
-        }
+        console.log('\n=== Send Keys Missing TabId Response ===')
+        console.log(JSON.stringify(result, null, 2))
+
+        assert.ok(result.isError, 'Should be an error')
+        const textContent = result.content.find((c) => c.type === 'text')
+        assert.ok(
+          textContent.text.includes('Invalid arguments') ||
+            textContent.text.includes('Required') ||
+            textContent.text.includes('Input validation error'),
+          'Should reject with validation error',
+        )
       })
     }, 30000)
 

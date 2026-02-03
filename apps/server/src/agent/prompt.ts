@@ -211,6 +211,66 @@ Use \`browser_get_bookmarks\` to find existing folder IDs, or create new folders
 }
 
 // -----------------------------------------------------------------------------
+// section: cdp-tool-reference
+// -----------------------------------------------------------------------------
+
+function getCdpToolReference(): string {
+  return `# CDP Tool Reference
+
+## Page Management
+- \`list_pages\` - Get all open pages in the browser
+- \`select_page(pageId)\` - Select a page for future tool calls
+- \`new_page(url)\` - Create a new page and navigate to URL
+- \`close_page(pageId)\` - Close a page (cannot close last page)
+- \`navigate_page(url|back|forward|reload)\` - Navigate selected page
+- \`resize_page(width, height)\` - Resize page dimensions
+- \`wait_for(text)\` - Wait for text to appear on page
+
+## Content Capture
+- \`take_snapshot(verbose?)\` - Get accessibility tree snapshot with element UIDs. **Prefer over screenshots.**
+- \`take_screenshot(format?, fullPage?, uid?)\` - Capture page or element image
+- \`evaluate_script(function, args?)\` - Run JavaScript in page context, returns JSON
+
+## Input & Interaction
+- \`click(uid)\` - Click element by UID from snapshot
+- \`hover(uid)\` - Hover over element
+- \`fill(uid, value)\` - Type into input/textarea or select option
+- \`fill_form([{uid, value}])\` - Fill multiple form elements at once
+- \`drag(from_uid, to_uid)\` - Drag element onto another
+- \`press_key(key)\` - Press key or combo (e.g., "Enter", "Control+A", "Control+Shift+R")
+- \`upload_file(uid, filePath)\` - Upload file through file input
+- \`handle_dialog(accept|dismiss, promptText?)\` - Handle browser dialogs (alert, confirm, prompt)
+
+## Console & Network
+- \`list_console_messages(types?, pageSize?)\` - Get page console logs
+- \`get_console_message(msgid)\` - Get specific console message
+- \`list_network_requests(resourceTypes?, pageSize?)\` - Get network requests (xhr, fetch, document, etc.)
+- \`get_network_request(reqid?)\` - Get request/response details
+
+## Emulation
+- \`emulate(options)\` - Emulate device conditions:
+  - \`networkConditions\`: Offline, Slow 3G, Fast 3G, Slow 4G, Fast 4G
+  - \`cpuThrottlingRate\`: 1-20 (1 = no throttling)
+  - \`geolocation\`: {latitude, longitude} or null
+  - \`colorScheme\`: dark, light, auto
+  - \`viewport\`: {width, height, isMobile, hasTouch, deviceScaleFactor}
+  - \`userAgent\`: string or null
+
+## Performance
+- \`performance_start_trace(reload, autoStop)\` - Start performance recording (reports Core Web Vitals)
+- \`performance_stop_trace(filePath?)\` - Stop recording and get results
+- \`performance_analyze_insight(insightSetId, insightName)\` - Get detailed insight analysis
+
+## Extensions (requires experimentalExtensionSupport)
+- \`list_extensions\` - List installed extensions
+- \`install_extension(path)\` - Install unpacked extension
+- \`uninstall_extension(id)\` - Remove extension
+- \`reload_extension(id)\` - Reload unpacked extension
+
+---`
+}
+
+// -----------------------------------------------------------------------------
 // section: external-integrations
 // -----------------------------------------------------------------------------
 
@@ -285,12 +345,13 @@ Now: Check browser state and proceed with the user's request.`
 const promptSections: Record<string, () => string> = {
   intro: getIntro,
   'security-boundary': getSecurityBoundary,
-  'tab-grouping': getTabGrouping,
+  // 'tab-grouping': getTabGrouping,
   'complete-tasks': getCompleteTasks,
   'observe-act-verify': getObserveActVerify,
   'handle-obstacles': getHandleObstacles,
   'error-recovery': getErrorRecovery,
-  'tool-reference': getToolReference,
+  // 'tool-reference': getToolReference,
+  'cdp-tool-reference': getCdpToolReference,
   'external-integrations': getExternalIntegrations,
   style: getStyle,
   'security-reminder': getSecurityReminder,
