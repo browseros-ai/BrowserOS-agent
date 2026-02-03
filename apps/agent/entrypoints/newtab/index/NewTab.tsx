@@ -5,11 +5,13 @@ import {
   Folder,
   Globe,
   Layers,
+  PlugZap,
   Search,
   X,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import { AppSelector } from '@/components/elements/AppSelector'
 import {
   GlowingBorder,
   GlowingElement,
@@ -17,6 +19,13 @@ import {
 import { TabSelector } from '@/components/elements/tab-selector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
+import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
@@ -28,6 +37,7 @@ import {
   NEWTAB_OPENED_EVENT,
   NEWTAB_SEARCH_EXECUTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
+import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
@@ -56,6 +66,15 @@ export const NewTab = () => {
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
+  const { servers: mcpServers } = useMcpServers()
+  const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
+
+  const connectedManagedServers = mcpServers.filter((s) => {
+    if (s.type !== 'managed' || !s.managedServerName) return false
+    return userMCPIntegrations?.integrations?.find(
+      (i) => i.name === s.managedServerName,
+    )?.is_authenticated
+  })
 
   const toggleTab = (tab: chrome.tabs.Tab) => {
     setSelectedTabs((prev) => {
@@ -352,6 +371,72 @@ export const NewTab = () => {
                     </TabSelector>
                   </div>
                 </div>
+
+                {supports(Feature.MANAGED_MCP_SUPPORT) && (
+                  <div className="ml-auto flex items-center gap-1.5">
+                    {connectedManagedServers.length === 0 && (
+                      <span className="flex items-center gap-1 font-semibold text-[var(--accent-orange)] text-sm">
+                        New! 👉
+                      </span>
+                    )}
+                    {connectedManagedServers.length === 0 ? (
+                      <Tooltip>
+                        <AppSelector side="bottom">
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className={cn(
+                                'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                                'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                                'data-[state=open]:bg-accent',
+                              )}
+                            >
+                              <PlugZap className="h-4 w-4" />
+                              <span>Apps</span>
+                              <ChevronDown className="h-3 w-3" />
+                            </Button>
+                          </TooltipTrigger>
+                        </AppSelector>
+                        <TooltipContent side="left" className="max-w-56">
+                          Apps directly connected will have more accurate and
+                          faster responses for your queries!
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <AppSelector side="bottom">
+                        <Button
+                          variant="ghost"
+                          className={cn(
+                            'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                            'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                            'data-[state=open]:bg-accent',
+                          )}
+                        >
+                          <div className="flex items-center -space-x-1.5">
+                            {connectedManagedServers.slice(0, 4).map((s) => (
+                              <div
+                                key={s.id}
+                                className="rounded-full ring-2 ring-card"
+                              >
+                                <McpServerIcon
+                                  serverName={s.managedServerName ?? ''}
+                                  size={16}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          {connectedManagedServers.length > 4 && (
+                            <span className="text-xs">
+                              +{connectedManagedServers.length - 4}
+                            </span>
+                          )}
+                          <span>Apps</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </AppSelector>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

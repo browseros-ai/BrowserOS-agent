@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, Plus, Server } from 'lucide-react'
+import { ChevronDown, Loader2, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,6 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { McpServerIcon } from './McpServerIcon'
 
 interface AvailableManagedServersProps {
   availableServers?: { name: string; description: string }[]
@@ -18,18 +19,18 @@ export const AvailableManagedServers: FC<AvailableManagedServersProps> = ({
   onAddServer,
   isLoading,
 }) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
         <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between hover:opacity-50">
           <div className="flex flex-col items-start">
-            <h3 className="font-semibold text-lg">Built-in Servers</h3>
+            <h3 className="font-semibold text-lg">Built-in Apps</h3>
             <p className="text-muted-foreground text-sm">
               {isLoading
                 ? 'Loading...'
-                : `${availableServers?.length} servers available`}
+                : `${availableServers?.length} apps available`}
             </p>
           </div>
           <ChevronDown
@@ -57,7 +58,11 @@ export const AvailableManagedServers: FC<AvailableManagedServersProps> = ({
                   >
                     <div className="flex w-full items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Server className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-[var(--accent-orange)]" />
+                        <McpServerIcon
+                          serverName={serverName}
+                          size={20}
+                          className="text-muted-foreground transition-colors group-hover:text-[var(--accent-orange)]"
+                        />
                         <span className="font-medium">{serverName}</span>
                       </div>
                       <Plus className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-[var(--accent-orange)]" />

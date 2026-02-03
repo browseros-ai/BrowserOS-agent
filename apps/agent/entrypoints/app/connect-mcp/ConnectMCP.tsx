@@ -12,18 +12,19 @@ import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
 import { AvailableManagedServers } from './AvailableManagedServers'
+import { McpServerIcon } from './McpServerIcon'
 import { useAddManagedServer } from './useAddManagedServer'
 import { useGetMCPServersList } from './useGetMCPServersList'
 import { useGetUserMCPIntegrations } from './useGetUserMCPIntegrations'
 import { useRemoveManagedServer } from './useRemoveManagedServer'
 
 const failedToAddMcp = (serverName: string, e: unknown) => {
-  toast.error(`Failed to add MCP Server: ${serverName}`)
+  toast.error(`Failed to add app: ${serverName}`)
   sentry.captureException(e)
 }
 
 const failedToRemoveMcp = (serverName: string, e: unknown) => {
-  toast.error(`Failed to remove MCP Server: ${serverName}`)
+  toast.error(`Failed to remove app: ${serverName}`)
   sentry.captureException(e)
 }
 
@@ -82,7 +83,7 @@ export const ConnectMCP: FC = () => {
 
       addServer({
         id: Date.now().toString(),
-        displayName: `${name} MCP`,
+        displayName: name,
         type: 'managed',
         managedServerName: name,
         managedServerDescription: description,
@@ -144,6 +145,22 @@ export const ConnectMCP: FC = () => {
     return true
   })
 
+  const unauthenticatedServers: { name: string; description: string }[] = []
+  if (!isUserMCPIntegrationsLoading) {
+    for (const server of createdServers) {
+      if (server.type !== 'managed' || !server.managedServerName) continue
+      const integration = userMCPIntegrations?.integrations?.find(
+        (i) => i.name === server.managedServerName,
+      )
+      if (!integration?.is_authenticated) {
+        unauthenticatedServers.push({
+          name: server.managedServerName,
+          description: server.managedServerDescription ?? '',
+        })
+      }
+    }
+  }
+
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
       {/* Header */}
@@ -153,9 +170,9 @@ export const ConnectMCP: FC = () => {
             <Server className="h-6 w-6 text-[var(--accent-orange)]" />
           </div>
           <div className="flex-1">
-            <h2 className="mb-1 font-semibold text-xl">MCP Servers</h2>
+            <h2 className="mb-1 font-semibold text-xl">Connected Apps</h2>
             <p className="mb-6 text-muted-foreground text-sm">
-              Connect BrowserOS assistant to MCP servers to send email, schedule
+              Connect BrowserOS assistant to apps to send email, schedule
               calendar events, write docs, and more
             </p>
 
@@ -166,7 +183,7 @@ export const ConnectMCP: FC = () => {
                 className="border-[var(--accent-orange)] bg-[var(--accent-orange)]/10 text-[var(--accent-orange)] hover:bg-[var(--accent-orange)]/20"
               >
                 <Plus className="h-4 w-4" />
-                <span>Enable built-in MCP</span>
+                <span>Add built-in app</span>
               </Button>
 
               <Button
@@ -174,7 +191,7 @@ export const ConnectMCP: FC = () => {
                 onClick={() => setAddingCustomMcp(true)}
               >
                 <Plus className="h-4 w-4" />
-                <span>Add Custom MCP</span>
+                <span>Add custom app</span>
               </Button>
             </div>
           </div>
@@ -184,7 +201,7 @@ export const ConnectMCP: FC = () => {
       {/* Created Servers */}
       {createdServers.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
-          <h3 className="mb-4 font-semibold text-lg">Your MCP Servers</h3>
+          <h3 className="mb-4 font-semibold text-lg">Your Connected Apps</h3>
           <div className="space-y-3">
             {createdServers.map((server) => (
               <div
@@ -192,7 +209,11 @@ export const ConnectMCP: FC = () => {
                 className="flex items-center gap-4 rounded-lg border border-border bg-background p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
-                  <Server className="h-5 w-5 text-[var(--accent-orange)]" />
+                  <McpServerIcon
+                    serverName={server.managedServerName ?? ''}
+                    size={20}
+                    className="text-[var(--accent-orange)]"
+                  />
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">
@@ -274,7 +295,9 @@ export const ConnectMCP: FC = () => {
         open={addingManagedMcp}
         onOpenChange={setAddingManagedMcp}
         serversList={availableServers}
+        unauthenticatedServers={unauthenticatedServers}
         onAddServer={addManagedServer}
+        onAuthenticate={openAuthUrlForMCP}
       />
 
       <AddCustomMCPDialog
