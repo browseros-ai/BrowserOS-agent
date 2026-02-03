@@ -421,6 +421,10 @@ export const useChatSession = () => {
     resetRemoteConversation()
   }
 
+  const isRestoringConversation =
+    !!conversationIdParam &&
+    restoredConversationRef.current !== conversationIdParam
+
   return {
     mode,
     setMode,
@@ -431,6 +435,7 @@ export const useChatSession = () => {
     providers,
     selectedProvider,
     isLoading: isLoadingProviders || isLoadingAgentUrl,
+    isRestoringConversation,
     agentUrlError,
     chatError,
     handleSelectProvider,

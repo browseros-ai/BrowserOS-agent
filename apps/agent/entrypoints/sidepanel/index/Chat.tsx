@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { SIDEPANEL_AI_TRIGGERED_EVENT } from '@/lib/constants/analyticsEvents'
@@ -27,6 +28,7 @@ export const Chat = () => {
     onClickLike,
     disliked,
     onClickDislike,
+    isRestoringConversation,
   } = useChatSessionContext()
 
   const {
@@ -134,7 +136,11 @@ export const Chat = () => {
   return (
     <>
       <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
-        {messages.length === 0 ? (
+        {isRestoringConversation ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : messages.length === 0 ? (
           <ChatEmptyState
             mode={mode}
             mounted={mounted}
