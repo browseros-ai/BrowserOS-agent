@@ -168,7 +168,7 @@ export class CdpContext implements Context {
         },
       } as ListenerMap
     })
-    this.#devtoolsUniverseManager = new UniverseManager(this.browser)
+    this.#devtoolsUniverseManager = new UniverseManager()
   }
 
   async #init() {

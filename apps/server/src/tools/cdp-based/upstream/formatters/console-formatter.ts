@@ -162,7 +162,7 @@ export class ConsoleFormatter {
     const separatorLineLength = 40
     const prefix = `--- ${fragment.description || 'async'} `
     const separator = prefix + '-'.repeat(separatorLineLength - prefix.length)
-    return separator + '\n' + this.#formatFragment(fragment)
+    return `${separator}\n${this.#formatFragment(fragment)}`
   }
 
   #formatFrame(frame: any): string {

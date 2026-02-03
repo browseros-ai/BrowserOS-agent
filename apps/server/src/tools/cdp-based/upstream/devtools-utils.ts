@@ -9,7 +9,7 @@
  * loading so the server can start and non-DevTools-dependent tools work.
  */
 
-import type { Browser, ConsoleMessage, Page } from './third-party'
+import type { ConsoleMessage, Page } from './third-party'
 
 export function extractUrlLikeFromDevToolsTitle(
   title: string,
@@ -55,8 +55,6 @@ export interface TargetUniverse {
 }
 
 export class UniverseManager {
-  constructor(_browser: Browser) {}
-
   async init(_pages: Page[]) {}
 
   dispose() {}

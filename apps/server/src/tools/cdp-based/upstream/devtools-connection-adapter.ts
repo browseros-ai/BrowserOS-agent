@@ -21,6 +21,7 @@ export class PuppeteerDevToolsConnection {
   readonly #sessionEventHandlers = new Map<string, puppeteer.Handler<unknown>>()
 
   constructor(session: puppeteer.CDPSession) {
+    // biome-ignore lint/style/noNonNullAssertion: session always has a connection
     this.#connection = session.connection()!
 
     session.on(
@@ -43,6 +44,7 @@ export class PuppeteerDevToolsConnection {
     }
     const session = this.#connection.session(sessionId)
     if (!session) {
+      // biome-ignore lint/style/useTemplate: upstream code
       throw new Error('Unknown session ' + sessionId)
     }
     // Rolled protocol version between puppeteer and DevTools doesn't necessarily match
@@ -88,6 +90,7 @@ export class PuppeteerDevToolsConnection {
       type !== CDPSessionEvent.SessionAttached &&
       type !== CDPSessionEvent.SessionDetached
     ) {
+      // biome-ignore lint/suspicious/useIterableCallbackReturn: upstream code
       this.#observers.forEach((observer) =>
         observer.onEvent({
           method: type as any,

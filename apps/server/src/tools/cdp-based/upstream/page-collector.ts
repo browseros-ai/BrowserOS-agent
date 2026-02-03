@@ -120,7 +120,7 @@ export class PageCollector<T> {
       navigations[0].push(withId)
     })
 
-    listeners['framenavigated'] = (frame: Frame) => {
+    listeners.framenavigated = (frame: Frame) => {
       // Only split the storage on main frame navigation
       if (frame !== page.mainFrame()) {
         return

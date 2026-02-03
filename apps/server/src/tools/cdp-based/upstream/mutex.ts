@@ -11,7 +11,7 @@ export class Mutex {
       this.#mutex = mutex
     }
     dispose(): void {
-      return this.#mutex.release()
+      this.#mutex.release()
     }
   }
 

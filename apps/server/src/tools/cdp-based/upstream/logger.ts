@@ -12,7 +12,7 @@ const mcpDebugNamespace = 'mcp:log'
 
 const namespacesToEnable = [
   mcpDebugNamespace,
-  ...(process.env['DEBUG'] ? [process.env['DEBUG']] : []),
+  ...(process.env.DEBUG ? [process.env.DEBUG] : []),
 ]
 
 export function saveLogsToFile(fileName: string): fs.WriteStream {
