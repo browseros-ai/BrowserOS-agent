@@ -5,7 +5,7 @@ import {
   Folder,
   Globe,
   Layers,
-  Puzzle,
+  PlugZap,
   Search,
   X,
 } from 'lucide-react'
@@ -401,7 +401,7 @@ export const NewTab = () => {
                           </>
                         ) : (
                           <>
-                            <Puzzle className="h-4 w-4" />
+                            <PlugZap className="h-4 w-4" />
                             <span>Apps</span>
                             <ChevronDown className="h-3 w-3" />
                           </>
