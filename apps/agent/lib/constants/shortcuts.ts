@@ -14,16 +14,16 @@ export const SHORTCUTS_LIST = [
     key: 'K',
     description: 'Toggle LLM Chat',
     modifier: {
-      windows: 'Alt',
-      mac: '⌥',
+      windows: 'Shift+Alt',
+      mac: 'Shift+Option',
     },
   },
   {
     key: 'L',
     description: 'Switch providers in LLM Chat',
     modifier: {
-      windows: 'Alt',
-      mac: '⌥',
+      windows: 'Shift+Alt',
+      mac: 'Shift+Option',
     },
   },
 ]
