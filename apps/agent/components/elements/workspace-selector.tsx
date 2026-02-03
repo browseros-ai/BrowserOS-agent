@@ -25,7 +25,7 @@ interface WorkspaceSelectorProps {
 
 export const WorkspaceSelector: FC<
   PropsWithChildren<WorkspaceSelectorProps>
-> = ({ children, side = 'top' }) => {
+> = ({ children, side = 'bottom' }) => {
   const [open, setOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
   const {
