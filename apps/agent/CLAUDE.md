@@ -141,3 +141,37 @@ To run codegen to generate graphql code after creating a query, you should run c
 ```sh
 bun --env-file=.env.development run codegen
 ```
+
+## Analytics & Event Tracking
+
+All user-facing events are tracked using a centralized pattern:
+
+- **Event constants** are defined in `lib/constants/analyticsEvents.ts`
+- **Tracking** is done via the `track()` utility from `lib/metrics/track.ts`
+
+**Event constant naming:**
+- Use `SCREAMING_SNAKE_CASE` ending with `_EVENT`
+- Add `/** @public */` JSDoc tag above each constant
+
+**Event value naming** follows the pattern `<area>.<entity>.<action>`:
+- `ui.*` - sidepanel/chat interactions (e.g. `ui.message.like`, `ui.conversation.reset`)
+- `settings.*` - settings page actions (e.g. `settings.scheduled_task.created`, `settings.managed_mcp.added`)
+- `newtab.*` - new tab page actions (e.g. `newtab.opened`, `newtab.ai.triggered`)
+- `sidepanel.*` - sidepanel-specific actions (e.g. `sidepanel.ai.triggered`)
+
+**Usage:**
+```ts
+import { MY_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
+
+// Without properties
+track(MY_EVENT)
+
+// With properties
+track(MY_EVENT, {
+  mode,
+  provider_type: selectedLlmProvider?.type,
+})
+```
+
+Always use event constants from `analyticsEvents.ts` — never pass raw string event names to `track()`.
