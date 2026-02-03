@@ -34,8 +34,13 @@ import {
 } from '@/lib/chat-actions/types'
 import {
   NEWTAB_AI_TRIGGERED_EVENT,
+  NEWTAB_APPS_OPENED_EVENT,
   NEWTAB_OPENED_EVENT,
   NEWTAB_SEARCH_EXECUTED_EVENT,
+  NEWTAB_TAB_REMOVED_EVENT,
+  NEWTAB_TAB_TOGGLED_EVENT,
+  NEWTAB_TABS_OPENED_EVENT,
+  NEWTAB_WORKSPACE_OPENED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
@@ -79,6 +84,9 @@ export const NewTab = () => {
   const toggleTab = (tab: chrome.tabs.Tab) => {
     setSelectedTabs((prev) => {
       const isSelected = prev.some((t) => t.id === tab.id)
+      track(NEWTAB_TAB_TOGGLED_EVENT, {
+        action: isSelected ? 'removed' : 'added',
+      })
       if (isSelected) {
         return prev.filter((t) => t.id !== tab.id)
       }
@@ -87,6 +95,7 @@ export const NewTab = () => {
   }
 
   const removeTab = (tabId?: number) => {
+    track(NEWTAB_TAB_REMOVED_EVENT)
     setSelectedTabs((prev) => prev.filter((t) => t.id !== tabId))
   }
 
@@ -338,6 +347,7 @@ export const NewTab = () => {
                     <WorkspaceSelector>
                       <Button
                         variant="ghost"
+                        onClick={() => track(NEWTAB_WORKSPACE_OPENED_EVENT)}
                         className={cn(
                           'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
                           'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -357,6 +367,7 @@ export const NewTab = () => {
                       onToggleTab={toggleTab}
                     >
                       <Button
+                        onClick={() => track(NEWTAB_TABS_OPENED_EVENT)}
                         className={cn(
                           'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
                           selectedTabs.length > 0
@@ -385,6 +396,11 @@ export const NewTab = () => {
                           <TooltipTrigger asChild>
                             <Button
                               variant="ghost"
+                              onClick={() =>
+                                track(NEWTAB_APPS_OPENED_EVENT, {
+                                  has_connected_apps: false,
+                                })
+                              }
                               className={cn(
                                 'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
                                 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -406,6 +422,12 @@ export const NewTab = () => {
                       <AppSelector side="bottom">
                         <Button
                           variant="ghost"
+                          onClick={() =>
+                            track(NEWTAB_APPS_OPENED_EVENT, {
+                              has_connected_apps: true,
+                              connected_count: connectedManagedServers.length,
+                            })
+                          }
                           className={cn(
                             'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
                             'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',

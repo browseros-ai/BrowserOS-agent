@@ -81,6 +81,21 @@ export const NEWTAB_AI_TRIGGERED_EVENT = 'newtab.ai.triggered'
 export const NEWTAB_SEARCH_EXECUTED_EVENT = 'newtab.search.executed'
 
 /** @public */
+export const NEWTAB_WORKSPACE_OPENED_EVENT = 'newtab.workspace.opened'
+
+/** @public */
+export const NEWTAB_TABS_OPENED_EVENT = 'newtab.tabs.opened'
+
+/** @public */
+export const NEWTAB_TAB_TOGGLED_EVENT = 'newtab.tab.toggled'
+
+/** @public */
+export const NEWTAB_TAB_REMOVED_EVENT = 'newtab.tab.removed'
+
+/** @public */
+export const NEWTAB_APPS_OPENED_EVENT = 'newtab.apps.opened'
+
+/** @public */
 export const SIDEPANEL_AI_TRIGGERED_EVENT = 'sidepanel.ai.triggered'
 
 export const SETTINGS_PAGE_VIEWED_EVENT = 'settings.page.viewed'
