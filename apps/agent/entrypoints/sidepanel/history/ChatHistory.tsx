@@ -1,5 +1,6 @@
 import { keepPreviousData, useQueryClient } from '@tanstack/react-query'
 import type { UIMessage } from 'ai'
+import { Loader2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
@@ -30,6 +31,7 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
 
   const {
     data: graphqlData,
+    isLoading: isLoadingConversations,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
@@ -92,6 +94,14 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
     () => groupConversations(conversations),
     [conversations],
   )
+
+  if (!profileId || isLoadingConversations) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <ConversationList
