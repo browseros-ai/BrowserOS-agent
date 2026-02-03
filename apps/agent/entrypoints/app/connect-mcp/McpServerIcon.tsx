@@ -1,5 +1,6 @@
 import { Server } from 'lucide-react'
 import type { FC } from 'react'
+import AirtableSvg from '@/assets/mcp-icons/airtable.svg'
 import CanvaSvg from '@/assets/mcp-icons/canva.svg'
 import ConfluenceSvg from '@/assets/mcp-icons/confluence.svg'
 import FigmaSvg from '@/assets/mcp-icons/figma.svg'
@@ -26,7 +27,7 @@ const mcpIconMap: Record<string, string> = {
   Slack: SlackSvg,
   LinkedIn: LinkedinSvg,
   Notion: NotionSvg,
-  Airtable: GoogleSvg,
+  Airtable: AirtableSvg,
   Confluence: ConfluenceSvg,
   GitHub: GithubSvg,
   GitLab: GitlabSvg,
