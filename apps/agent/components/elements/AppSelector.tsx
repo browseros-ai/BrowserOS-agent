@@ -1,4 +1,4 @@
-import { Check, KeyRound, Plus } from 'lucide-react'
+import { KeyRound, Plus, Settings } from 'lucide-react'
 import type { FC, ReactNode } from 'react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -155,23 +155,31 @@ export const AppSelector: FC<AppSelectorProps> = ({
                 <div className="my-2 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
                   Connected
                 </div>
-                {filteredConnected.map((server) => (
-                  <CommandItem
-                    key={server.id}
-                    value={`${server.id} ${server.displayName}`}
-                    className="flex items-center gap-3 px-3 py-2"
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+                  {filteredConnected.map((server) => (
+                    <div
+                      key={server.id}
+                      title={server.displayName}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-accent/50"
+                    >
+                      <McpServerIcon
+                        serverName={server.managedServerName ?? ''}
+                        size={18}
+                      />
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.open('/settings/connect-mcp', '_blank')
+                      setOpen(false)
+                    }}
+                    title="Manage apps"
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-border border-dashed text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    <McpServerIcon
-                      serverName={server.managedServerName ?? ''}
-                      size={18}
-                      className="shrink-0"
-                    />
-                    <span className="flex-1 truncate text-sm">
-                      {server.displayName}
-                    </span>
-                    <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
-                  </CommandItem>
-                ))}
+                    <Settings className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </CommandGroup>
             )}
 
