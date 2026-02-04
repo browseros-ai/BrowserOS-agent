@@ -146,4 +146,11 @@ export const JTBD_POPUP_SHOWN_EVENT = 'ui.jtbd_popup.shown'
 export const JTBD_POPUP_CLICKED_EVENT = 'ui.jtbd_popup.clicked'
 
 /** @public */
+export const SCHEDULED_TASK_CANCELLED_EVENT =
+  'settings.scheduled_task.cancelled'
+
+/** @public */
+export const SCHEDULED_TASK_RETRIED_EVENT = 'settings.scheduled_task.retried'
+
+/** @public */
 export const JTBD_POPUP_DISMISSED_EVENT = 'ui.jtbd_popup.dismissed'

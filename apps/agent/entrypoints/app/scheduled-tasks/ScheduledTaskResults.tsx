@@ -1,6 +1,14 @@
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { Calendar, CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react'
+import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  RotateCcw,
+  Square,
+  XCircle,
+} from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
@@ -21,6 +29,8 @@ interface JobRunWithDetails extends ScheduledJobRun {
 
 interface ScheduledTaskResultsProps {
   onViewRun: (run: ScheduledJobRun) => void
+  onCancelRun: (runId: string) => void
+  onRetryRun: (jobId: string) => void
 }
 
 const getStatusIcon = (status: JobRunWithDetails['status']) => {
@@ -38,6 +48,8 @@ const formatTimestamp = (dateString: string) => dayjs(dateString).fromNow()
 
 export const ScheduledTaskResults: FC<ScheduledTaskResultsProps> = ({
   onViewRun,
+  onCancelRun,
+  onRetryRun,
 }) => {
   const { jobRuns } = useScheduledJobRuns()
   const { jobs } = useScheduledJobs()
@@ -99,6 +111,34 @@ export const ScheduledTaskResults: FC<ScheduledTaskResultsProps> = ({
                 </p>
               )}
             </div>
+            {run.status === 'running' && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onCancelRun(run.id)
+                }}
+                className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Cancel run"
+              >
+                <Square className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {run.status === 'failed' && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRetryRun(run.jobId)
+                }}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Retry run"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </Button>
       ))}
