@@ -18,15 +18,11 @@ export const scrollDown = defineTool<z.ZodRawShape, Context, Response>({
   },
   schema: {
     tabId: z.coerce.number().describe('Tab ID to scroll'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, windowId } = request.params as {
-      tabId: number
-      windowId?: number
-    }
+    const { tabId } = request.params as { tabId: number }
 
-    await context.executeAction('scrollDown', { tabId, windowId })
+    await context.executeAction('scrollDown', { tabId })
 
     response.appendResponseLine(`Scrolled down in tab ${tabId}`)
   },
@@ -41,15 +37,11 @@ export const scrollUp = defineTool<z.ZodRawShape, Context, Response>({
   },
   schema: {
     tabId: z.coerce.number().describe('Tab ID to scroll'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, windowId } = request.params as {
-      tabId: number
-      windowId?: number
-    }
+    const { tabId } = request.params as { tabId: number }
 
-    await context.executeAction('scrollUp', { tabId, windowId })
+    await context.executeAction('scrollUp', { tabId })
 
     response.appendResponseLine(`Scrolled up in tab ${tabId}`)
   },

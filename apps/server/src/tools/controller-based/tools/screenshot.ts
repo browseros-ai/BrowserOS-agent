@@ -39,7 +39,6 @@ export const getScreenshotPointer = defineTool<
       .string()
       .optional()
       .describe('Optional label to show with pointer (e.g., "Click", "Type")'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
     const params = request.params as {
@@ -47,7 +46,6 @@ export const getScreenshotPointer = defineTool<
       nodeId: number
       size?: string
       pointerLabel?: string
-      windowId?: number
     }
 
     const result = await context.executeAction(
@@ -104,7 +102,6 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
       .number()
       .optional()
       .describe('Exact height in pixels (overrides size)'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
     const params = request.params as {
@@ -113,7 +110,6 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
       showHighlights?: boolean
       width?: number
       height?: number
-      windowId?: number
     }
 
     const result = await context.executeAction('captureScreenshot', params)
