@@ -13,8 +13,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   NEW_SCHEDULED_TASK_CREATED_EVENT,
+  SCHEDULED_TASK_CANCELLED_EVENT,
   SCHEDULED_TASK_DELETED_EVENT,
   SCHEDULED_TASK_EDITED_EVENT,
+  SCHEDULED_TASK_RETRIED_EVENT,
   SCHEDULED_TASK_TESTED_EVENT,
   SCHEDULED_TASK_TOGGLED_EVENT,
   SCHEDULED_TASK_VIEW_RESULTS_EVENT,
@@ -24,6 +26,7 @@ import { track } from '@/lib/metrics/track'
 import { DeleteScheduledJobDocument } from '@/lib/schedules/graphql/syncSchedulesDocument'
 import {
   scheduledJobRunStorage,
+  useScheduledJobRuns,
   useScheduledJobs,
 } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
@@ -40,6 +43,7 @@ import type { ScheduledJob } from './types'
 export const ScheduledTasksPage: FC = () => {
   const { jobs, addJob, editJob, toggleJob, removeJob, runJob } =
     useScheduledJobs()
+  const { cancelJobRun } = useScheduledJobRuns()
 
   const deleteRemoteJobMutation = useGraphqlMutation(DeleteScheduledJobDocument)
 
@@ -103,6 +107,16 @@ export const ScheduledTasksPage: FC = () => {
     track(SCHEDULED_TASK_TESTED_EVENT)
   }
 
+  const handleCancelRun = async (runId: string) => {
+    await cancelJobRun(runId)
+    track(SCHEDULED_TASK_CANCELLED_EVENT)
+  }
+
+  const handleRetryRun = async (jobId: string) => {
+    await runJob(jobId)
+    track(SCHEDULED_TASK_RETRIED_EVENT)
+  }
+
   const handleViewRun = (run: ScheduledJobRun) => {
     setViewingRun(run)
     track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
@@ -130,7 +144,11 @@ export const ScheduledTasksPage: FC = () => {
           </TabsList>
 
           <TabsContent value="results">
-            <ScheduledTaskResults onViewRun={handleViewRun} />
+            <ScheduledTaskResults
+              onViewRun={handleViewRun}
+              onCancelRun={handleCancelRun}
+              onRetryRun={handleRetryRun}
+            />
           </TabsContent>
 
           <TabsContent value="tasks">
@@ -141,6 +159,8 @@ export const ScheduledTasksPage: FC = () => {
               onToggle={handleToggle}
               onRun={handleRun}
               onViewRun={handleViewRun}
+              onCancelRun={handleCancelRun}
+              onRetryRun={handleRetryRun}
             />
           </TabsContent>
         </Tabs>

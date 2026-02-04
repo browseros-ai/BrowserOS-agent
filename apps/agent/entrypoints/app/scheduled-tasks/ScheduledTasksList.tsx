@@ -9,6 +9,8 @@ interface ScheduledTasksListProps {
   onToggle: (jobId: string, enabled: boolean) => void
   onRun: (jobId: string) => void
   onViewRun: (run: ScheduledJobRun) => void
+  onCancelRun: (runId: string) => void
+  onRetryRun: (jobId: string) => void
 }
 
 export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
@@ -18,6 +20,8 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
   onToggle,
   onRun,
   onViewRun,
+  onCancelRun,
+  onRetryRun,
 }) => {
   if (jobs.length === 0) {
     return (
@@ -42,6 +46,8 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
           onToggle={(enabled) => onToggle(job.id, enabled)}
           onRun={() => onRun(job.id)}
           onViewRun={onViewRun}
+          onCancelRun={onCancelRun}
+          onRetryRun={onRetryRun}
         />
       ))}
     </div>

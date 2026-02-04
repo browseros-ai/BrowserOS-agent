@@ -23,6 +23,7 @@ interface ChatServerRequest {
   conversationId?: string
   windowId?: number
   activeTab?: ActiveTab
+  signal?: AbortSignal
 }
 
 interface ChatServerResponse {
@@ -93,6 +94,7 @@ export async function getChatServerResponse(
 
   const response = await fetch(`${agentServerUrl}/chat`, {
     method: 'POST',
+    signal: request.signal,
     headers: {
       'Content-Type': 'application/json',
     },

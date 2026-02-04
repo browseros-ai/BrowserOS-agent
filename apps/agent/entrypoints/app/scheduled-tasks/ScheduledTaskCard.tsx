@@ -7,6 +7,8 @@ import {
   Loader2,
   Pencil,
   Play,
+  RotateCcw,
+  Square,
   Trash2,
   XCircle,
 } from 'lucide-react'
@@ -31,6 +33,8 @@ interface ScheduledTaskCardProps {
   onToggle: (enabled: boolean) => void
   onRun: () => void
   onViewRun: (run: ScheduledJobRun) => void
+  onCancelRun: (runId: string) => void
+  onRetryRun: (jobId: string) => void
 }
 
 function formatSchedule(job: ScheduledJob): string {
@@ -72,6 +76,8 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
   onToggle,
   onRun,
   onViewRun,
+  onCancelRun,
+  onRetryRun,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
 
@@ -180,14 +186,44 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
                       </p>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onViewRun(run)}
-                    className="shrink-0 text-muted-foreground hover:text-foreground"
-                  >
-                    View
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {run.status === 'running' && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onCancelRun(run.id)
+                        }}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Cancel run"
+                      >
+                        <Square className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {run.status === 'failed' && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRetryRun(run.jobId)
+                        }}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Retry run"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onViewRun(run)}
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                    >
+                      View
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -11,6 +11,8 @@ const MAX_RUNS_PER_JOB = 15
 const STALE_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
+const runAbortControllers = new Map<string, AbortController>()
+
 export const scheduledJobRuns = async () => {
   const cleanupStaleJobRuns = async () => {
     const current = (await scheduledJobRunStorage.getValue()) ?? []
@@ -127,12 +129,15 @@ export const scheduledJobRuns = async () => {
     }
 
     const jobRun = await createJobRun(jobId, 'running')
+    const abortController = new AbortController()
+    runAbortControllers.set(jobRun.id, abortController)
 
     try {
       const response = await getChatServerResponse({
         message: job.query,
         activeTab: backgroundTab,
         windowId: backgroundWindow.id,
+        signal: abortController.signal,
       })
 
       await updateJobRun(jobRun.id, {
@@ -144,7 +149,12 @@ export const scheduledJobRuns = async () => {
         toolCalls: response.toolCalls,
       })
     } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e)
+      const isCancelled = abortController.signal.aborted
+      const errorMessage = isCancelled
+        ? 'Cancelled by user'
+        : e instanceof Error
+          ? e.message
+          : String(e)
       await updateJobRun(jobRun.id, {
         status: 'failed',
         completedAt: new Date().toISOString(),
@@ -152,6 +162,7 @@ export const scheduledJobRuns = async () => {
         error: errorMessage,
       })
     } finally {
+      runAbortControllers.delete(jobRun.id)
       await updateJobLastRunAt(jobId)
       if (backgroundWindow.id) {
         await chrome.windows.remove(backgroundWindow.id)
@@ -226,6 +237,15 @@ export const scheduledJobRuns = async () => {
         error: e instanceof Error ? e.message : String(e),
       }
     }
+  })
+
+  onScheduleMessage('cancelScheduledJobRun', async ({ data }) => {
+    const controller = runAbortControllers.get(data.runId)
+    if (!controller) {
+      return { success: false, error: 'Run not found or already completed' }
+    }
+    controller.abort()
+    return { success: true }
   })
 
   chrome.runtime.onStartup.addListener(async () => {

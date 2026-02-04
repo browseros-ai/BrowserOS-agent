@@ -4,6 +4,10 @@ interface RunScheduledJobData {
   jobId: string
 }
 
+interface CancelScheduledJobRunData {
+  runId: string
+}
+
 interface RunScheduledJobResponse {
   success: boolean
   error?: string
@@ -11,6 +15,9 @@ interface RunScheduledJobResponse {
 
 type ScheduleMessagesProtocol = {
   runScheduledJob(data: RunScheduledJobData): RunScheduledJobResponse
+  cancelScheduledJobRun(
+    data: CancelScheduledJobRunData,
+  ): RunScheduledJobResponse
 }
 
 const { sendMessage, onMessage } =

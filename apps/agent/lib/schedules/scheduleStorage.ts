@@ -142,7 +142,11 @@ export function useScheduledJobRuns() {
     )
   }
 
-  return { jobRuns, addJobRun, removeJobRun, editJobRun }
+  const cancelJobRun = async (runId: string) => {
+    return sendScheduleMessage('cancelScheduledJobRun', { runId })
+  }
+
+  return { jobRuns, addJobRun, removeJobRun, editJobRun, cancelJobRun }
 }
 
 export async function syncScheduledJobs(): Promise<void> {
