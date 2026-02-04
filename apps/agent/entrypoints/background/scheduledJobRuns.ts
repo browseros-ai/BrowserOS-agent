@@ -163,10 +163,14 @@ export const scheduledJobRuns = async () => {
       })
     } finally {
       runAbortControllers.delete(jobRun.id)
-      await updateJobLastRunAt(jobId)
       if (backgroundWindow.id) {
-        await chrome.windows.remove(backgroundWindow.id)
+        try {
+          await chrome.windows.remove(backgroundWindow.id)
+        } catch {
+          // Window may already be closed
+        }
       }
+      await updateJobLastRunAt(jobId)
     }
   }
 
