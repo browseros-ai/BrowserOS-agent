@@ -40,4 +40,16 @@ export interface Response {
    * Add a key-value pair to structured content (flat, no nesting)
    */
   addStructuredContent(key: string, value: unknown): void
+
+  /**
+   * Request page content snapshot to be appended after tool execution.
+   * Only supported by ControllerResponse (no-op on other implementations).
+   */
+  setIncludeSnapshot?(value: boolean): void
+
+  /**
+   * Request screenshot to be appended after tool execution.
+   * Only supported by ControllerResponse (no-op on other implementations).
+   */
+  setIncludeScreenshot?(value: boolean): void
 }

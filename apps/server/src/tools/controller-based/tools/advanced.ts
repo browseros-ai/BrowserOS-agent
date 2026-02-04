@@ -81,6 +81,7 @@ export const sendKeys = defineTool<z.ZodRawShape, Context, Response>({
     const data = result as { success: boolean; message: string }
 
     response.appendResponseLine(data.message)
+    response.setIncludeSnapshot?.(true)
   },
 })
 

@@ -261,6 +261,7 @@ export const clickElement = defineTool<z.ZodRawShape, Context, Response>({
     await context.executeAction('click', { tabId, nodeId })
 
     response.appendResponseLine(`Clicked element ${nodeId} in tab ${tabId}`)
+    response.setIncludeSnapshot?.(true)
   },
 })
 
@@ -289,6 +290,7 @@ export const typeText = defineTool<z.ZodRawShape, Context, Response>({
     response.appendResponseLine(
       `Typed text into element ${nodeId} in tab ${tabId}`,
     )
+    response.setIncludeSnapshot?.(true)
   },
 })
 
