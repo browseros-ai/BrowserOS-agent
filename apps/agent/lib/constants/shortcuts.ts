@@ -8,22 +8,25 @@ export const SHORTCUTS_LIST = [
     modifier: {
       windows: 'Alt',
       mac: '⌥',
+      linux: 'Alt',
     },
   },
   {
     key: 'K',
     description: 'Toggle LLM Chat',
     modifier: {
-      windows: 'Shift+Alt',
-      mac: 'Shift+Option',
+      windows: 'Ctrl+Shift',
+      mac: '⌘+Shift',
+      linux: 'Ctrl+Shift',
     },
   },
   {
     key: 'L',
     description: 'Switch providers in LLM Chat',
     modifier: {
-      windows: 'Shift+Alt',
-      mac: 'Shift+Option',
+      windows: 'Ctrl+Shift',
+      mac: '⌘+Shift',
+      linux: 'Ctrl+Shift',
     },
   },
 ]
