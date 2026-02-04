@@ -168,6 +168,9 @@ export class ChatService {
         headers: {
           Accept: 'application/json, text/event-stream',
           'X-BrowserOS-Source': 'gemini-agent',
+          ...(browserContext?.windowId != null && {
+            'X-BrowserOS-Window-Id': String(browserContext.windowId),
+          }),
         },
         trust: true,
       })
