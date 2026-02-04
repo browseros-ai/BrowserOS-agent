@@ -6,16 +6,24 @@
 
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type {
+  CallToolResult,
+  ImageContent,
+  TextContent,
+} from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
 import type { McpContext } from '../../browser/cdp/context'
-import type { ControllerContext } from '../../browser/extension/context'
+import {
+  type ControllerContext,
+  ScopedControllerContext,
+} from '../../browser/extension/context'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
+import { ControllerResponse } from '../../tools/controller-based/response/controller-response'
 import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
@@ -81,27 +89,39 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
         const windowId = params.windowId as number | undefined
         const guard = await mutexPool.getMutex(windowId).acquire()
         try {
+          const isControllerTool = tool.name.startsWith('browser_')
+
           logger.info(
             `${tool.name} request: ${JSON.stringify(params, null, '  ')}`,
           )
 
-          // Detect if this is a controller tool (browser_* tools)
-          const isControllerTool = tool.name.startsWith('browser_')
-          const contextForResponse =
-            isControllerTool && controllerContext
-              ? controllerContext
-              : cdpContext
-
-          // Create response handler and execute tool
-          const response = new McpResponse()
-          await tool.handler({ params }, response, cdpContext)
-
-          // Process and return response
           try {
-            const content = await response.handle(
-              tool.name,
-              contextForResponse as McpContext,
-            )
+            let content: Array<TextContent | ImageContent>
+            let structuredContent: Record<string, unknown> | undefined
+
+            if (isControllerTool) {
+              const { windowId: _, ...cleanParams } = params
+              const scopedContext = new ScopedControllerContext(
+                controllerContext.bridge,
+                windowId,
+              )
+              const response = new ControllerResponse()
+              await tool.handler(
+                { params: cleanParams },
+                response,
+                scopedContext,
+              )
+              content = await response.handle(scopedContext)
+              structuredContent = response.structuredContent
+            } else {
+              const response = new McpResponse()
+              await tool.handler({ params }, response, cdpContext)
+              content = await response.handle(
+                tool.name,
+                cdpContext as McpContext,
+              )
+              structuredContent = response.structuredContent
+            }
 
             // Log successful tool execution (non-blocking)
             metrics.log('tool_executed', {
@@ -110,7 +130,6 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
               success: true,
             })
 
-            const structuredContent = response.structuredContent
             return {
               content,
               ...(structuredContent && { structuredContent }),

@@ -7,6 +7,7 @@ import type {
   TextContent,
 } from '@modelcontextprotocol/sdk/types.js'
 
+import type { Context } from '../types/context'
 import type { ImageContentData, Response } from '../types/response'
 
 /**
@@ -48,6 +49,46 @@ export class ControllerResponse implements Response {
     return Object.keys(this.#structuredContent).length > 0
       ? this.#structuredContent
       : undefined
+  }
+
+  #includeSnapshot = false
+  #includeScreenshot = false
+
+  setIncludeSnapshot(value: boolean): void {
+    this.#includeSnapshot = value
+  }
+
+  setIncludeScreenshot(value: boolean): void {
+    this.#includeScreenshot = value
+  }
+
+  async handle(context: Context): Promise<Array<TextContent | ImageContent>> {
+    const content = this.toContent()
+
+    if (this.#includeSnapshot) {
+      const result = await context.executeAction('getPageContent', {})
+      const text = (result as { content?: string })?.content
+      if (text) {
+        content.push({
+          type: 'text',
+          text: `\n## Page Content After Action\n${text}`,
+        })
+      }
+    }
+
+    if (this.#includeScreenshot) {
+      const result = await context.executeAction('captureScreenshot', {})
+      const data = result as { data?: string; mimeType?: string }
+      if (data?.data) {
+        content.push({
+          type: 'image',
+          data: data.data,
+          mimeType: data.mimeType ?? 'image/png',
+        })
+      }
+    }
+
+    return content
   }
 
   /**

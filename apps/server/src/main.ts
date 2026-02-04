@@ -68,7 +68,7 @@ export class Application {
     logger.info(
       `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
     )
-    const tools = createToolRegistry(cdpContext, controllerContext)
+    const tools = createToolRegistry(cdpContext)
     const mutexPool = new MutexPool()
 
     try {
