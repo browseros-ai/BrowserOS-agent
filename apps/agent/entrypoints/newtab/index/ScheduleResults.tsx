@@ -6,6 +6,8 @@ import {
   ChevronDown,
   Clock,
   Loader2,
+  RotateCcw,
+  Square,
   XCircle,
 } from 'lucide-react'
 import type { FC } from 'react'
@@ -19,6 +21,8 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import {
+  SCHEDULED_TASK_CANCELLED_EVENT,
+  SCHEDULED_TASK_RETRIED_EVENT,
   SCHEDULED_TASK_VIEW_MORE_IN_NEWTAB_EVENT,
   SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT,
 } from '@/lib/constants/analyticsEvents'
@@ -66,8 +70,8 @@ export const ScheduleResults: FC = () => {
     localStorage.setItem(SCHEDULE_RESULTS_COLLAPSED_KEY, (!open).toString())
   }
 
-  const { jobRuns } = useScheduledJobRuns()
-  const { jobs } = useScheduledJobs()
+  const { jobRuns, cancelJobRun } = useScheduledJobRuns()
+  const { jobs, runJob } = useScheduledJobs()
 
   const runningCount = jobRuns.filter((r) => r.status === 'running').length
 
@@ -100,6 +104,17 @@ export const ScheduleResults: FC = () => {
   const viewRun = (run: JobRunWithDetails) => {
     track(SCHEDULED_TASK_VIEW_RESULTS_IN_NEWTAB_EVENT)
     setViewingRun(run)
+  }
+
+  const handleCancelRun = async (runId: string) => {
+    await cancelJobRun(runId)
+    track(SCHEDULED_TASK_CANCELLED_EVENT)
+  }
+
+  const handleRetryRun = async (jobId: string) => {
+    await runJob(jobId)
+    setViewingRun(null)
+    track(SCHEDULED_TASK_RETRIED_EVENT)
   }
 
   if (!displayedRuns.length) return null
@@ -158,6 +173,34 @@ export const ScheduleResults: FC = () => {
                   </p>
                 )}
               </div>
+              {run.status === 'running' && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCancelRun(run.id)
+                  }}
+                  className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Cancel run"
+                >
+                  <Square className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {run.status === 'failed' && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRetryRun(run.jobId)
+                  }}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Retry run"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </Button>
         ))}
@@ -176,6 +219,8 @@ export const ScheduleResults: FC = () => {
         run={viewingRun}
         jobName={viewingRun?.job?.name}
         onOpenChange={(open) => !open && setViewingRun(null)}
+        onCancelRun={handleCancelRun}
+        onRetryRun={handleRetryRun}
       />
     </Collapsible>
   )

@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Copy,
   Loader2,
+  RotateCcw,
+  Square,
   XCircle,
 } from 'lucide-react'
 import { type FC, useState } from 'react'
@@ -27,6 +29,8 @@ interface RunResultDialogProps {
   run: ScheduledJobRun | null
   jobName?: string
   onOpenChange: (open: boolean) => void
+  onCancelRun?: (runId: string) => void
+  onRetryRun?: (jobId: string) => void
 }
 
 const formatDateTime = (dateStr: string) =>
@@ -46,6 +50,8 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
   run,
   jobName,
   onOpenChange,
+  onCancelRun,
+  onRetryRun,
 }) => {
   const [copied, setCopied] = useState(false)
 
@@ -99,6 +105,24 @@ export const RunResultDialog: FC<RunResultDialogProps> = ({
         </ScrollArea>
 
         <DialogFooter>
+          {run.status === 'running' && onCancelRun && (
+            <Button variant="destructive" onClick={() => onCancelRun(run.id)}>
+              <Square className="h-4 w-4" />
+              Cancel
+            </Button>
+          )}
+          {run.status === 'failed' && onRetryRun && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onRetryRun(run.jobId)
+                onOpenChange(false)
+              }}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Retry
+            </Button>
+          )}
           {run.result && (
             <Button
               variant="outline"
