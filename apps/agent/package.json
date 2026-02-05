@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^2.0.95",
+    "@browseros/shared": "workspace:*",
     "@browseros/server": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@lobehub/icons": "^2.44.0",

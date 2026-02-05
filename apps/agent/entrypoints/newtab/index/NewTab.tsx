@@ -1,3 +1,4 @@
+import { NEWTAB_TIPS } from '@browseros/shared/constants/limits'
 import { useCombobox } from 'downshift'
 import {
   ArrowRight,
@@ -7,6 +8,7 @@ import {
   Layers,
   PlugZap,
   Search,
+  Sparkles,
   X,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -18,6 +20,7 @@ import {
 } from '@/components/elements/glowing-border'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -65,6 +68,117 @@ interface MentionState {
   startPosition: number
 }
 
+interface TipItem {
+  title: string
+  body: string
+  tag?: string
+}
+
+const NEWTAB_TIP_OPEN_COUNT_KEY = 'newtab-tip-open-count'
+const NEWTAB_TIP_INDEX_KEY = 'newtab-tip-index'
+
+const NEWTAB_TIPS_LIST: TipItem[] = [
+  {
+    title: 'Open chat on any page',
+    body: 'Press Option+K to toggle the AI chat panel with full page context.',
+    tag: 'Shortcut',
+  },
+  {
+    title: 'Switch providers fast',
+    body: 'Press Option+L to cycle between Claude, ChatGPT, and Gemini in chat.',
+    tag: 'Shortcut',
+  },
+  {
+    title: 'Compare models side by side',
+    body: 'Open the LLM Hub with Cmd+Shift+U to see multiple responses at once.',
+    tag: 'Shortcut',
+  },
+  {
+    title: 'Use Workflows for repeatable tasks',
+    body: 'Build a visual graph once, then run the automation anytime.',
+    tag: 'Workflows',
+  },
+  {
+    title: 'Schedule tasks to run later',
+    body: 'Scheduled tasks run in the background and show results on this page.',
+    tag: 'Automation',
+  },
+  {
+    title: 'Bring your own model',
+    body: 'Connect Gemini, Claude, OpenAI, or local models with your API keys.',
+    tag: 'Models',
+  },
+  {
+    title: 'Keep data on device',
+    body: 'Use Ollama or LM Studio to run chat locally for private work.',
+    tag: 'Privacy',
+  },
+  {
+    title: 'Best agent performance',
+    body: 'Agent Mode works best with Claude Opus 4.5 or Sonnet 4.5.',
+    tag: 'Agent',
+  },
+  {
+    title: 'Cowork unlocks file access',
+    body: 'Enable Cowork so the agent can read and write in a selected folder.',
+    tag: 'Cowork',
+  },
+  {
+    title: 'Built-in ad blocking',
+    body: 'BrowserOS ships with uBlock Origin and keeps Manifest V2 enabled.',
+    tag: 'Browsing',
+  },
+  {
+    title: 'Import from Chrome',
+    body: 'Move bookmarks and passwords via chrome://settings/importData.',
+    tag: 'Setup',
+  },
+]
+
+const readStoredNumber = (key: string, fallback: number) => {
+  const raw = localStorage.getItem(key)
+  if (!raw) return fallback
+  const value = Number.parseInt(raw, 10)
+  return Number.isFinite(value) ? value : fallback
+}
+
+const TipsSection = ({ tip }: { tip: TipItem }) => {
+  return (
+    <div className="mx-auto w-full max-w-2xl">
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-card/90 to-card/60 p-5 shadow-sm">
+        <div className="absolute -top-10 -left-10 h-24 w-24 rounded-full bg-[var(--accent-orange)]/20 blur-2xl" />
+        <div className="absolute -right-10 -bottom-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+        <div className="relative flex items-start gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-background/80">
+            <Sparkles className="h-5 w-5 text-[var(--accent-orange)]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
+                Tip
+              </span>
+              {tip.tag ? (
+                <Badge
+                  variant="secondary"
+                  className="h-5 px-2 text-[10px] uppercase tracking-wide"
+                >
+                  {tip.tag}
+                </Badge>
+              ) : null}
+            </div>
+            <div className="mt-1 font-semibold text-foreground text-sm">
+              {tip.title}
+            </div>
+            <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
+              {tip.body}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /**
  * @public
  */
@@ -75,6 +189,7 @@ export const NewTab = () => {
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+  const [tipToShow, setTipToShow] = useState<TipItem | null>(null)
   const [mentionState, setMentionState] = useState<MentionState>({
     isOpen: false,
     filterText: '',
@@ -321,6 +436,24 @@ export const NewTab = () => {
   useEffect(() => {
     setMounted(true)
     track(NEWTAB_OPENED_EVENT)
+  }, [])
+
+  useEffect(() => {
+    if (NEWTAB_TIPS_LIST.length === 0) return
+
+    const openCount = readStoredNumber(NEWTAB_TIP_OPEN_COUNT_KEY, 0) + 1
+    localStorage.setItem(NEWTAB_TIP_OPEN_COUNT_KEY, openCount.toString())
+
+    if (openCount % NEWTAB_TIPS.SHOW_EVERY !== 0) {
+      setTipToShow(null)
+      return
+    }
+
+    const previousIndex = readStoredNumber(NEWTAB_TIP_INDEX_KEY, -1)
+    const nextIndex =
+      (previousIndex + 1 + NEWTAB_TIPS_LIST.length) % NEWTAB_TIPS_LIST.length
+    localStorage.setItem(NEWTAB_TIP_INDEX_KEY, nextIndex.toString())
+    setTipToShow(NEWTAB_TIPS_LIST[nextIndex])
   }, [])
 
   return (
@@ -599,6 +732,10 @@ export const NewTab = () => {
 
         {/* Top sites */}
         {!isSuggestionsVisible && <TopSites />}
+
+        {mounted && !isSuggestionsVisible && tipToShow && (
+          <TipsSection tip={tipToShow} />
+        )}
 
         {mounted && !isSuggestionsVisible && <ScheduleResults />}
       </div>

@@ -30,3 +30,8 @@ export const CONTENT_LIMITS = {
   MAX_QUEUE_SIZE: 1_000,
   CONSOLE_META_CHAR: 100,
 } as const
+
+export const NEWTAB_TIPS = {
+  // Show a tip every N new tab opens.
+  SHOW_EVERY: 10,
+} as const
