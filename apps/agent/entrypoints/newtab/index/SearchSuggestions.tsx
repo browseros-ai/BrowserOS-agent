@@ -1,5 +1,5 @@
 import type { useCombobox } from 'downshift'
-import { Search, Sparkles } from 'lucide-react'
+import { Globe, Sparkles } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
@@ -29,16 +29,40 @@ const SuggestionItemRenderer: FC<{
   index: number
 }> = ({ item, isHighlighted, getItemProps, index }) => {
   const baseClassName = cn(
-    'ph-mask flex w-full items-center gap-3 rounded-lg p-3 text-left text-foreground text-sm transition-colors hover:bg-accent cursor-pointer',
-    isHighlighted && 'bg-accent',
+    'ph-mask flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-foreground text-sm transition-colors cursor-pointer',
+    isHighlighted
+      ? 'border-border/70 bg-accent'
+      : 'hover:border-border/50 hover:bg-accent/70',
   )
 
   switch (item.type) {
     case 'search':
       return (
         <li className={baseClassName} {...getItemProps({ item, index })}>
-          <Search className="h-4 w-4 text-muted-foreground" />
-          {item.query}
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-background/70">
+            {item.engine.iconUrl ? (
+              <img
+                src={item.engine.iconUrl}
+                alt={`${item.engine.label} icon`}
+                className="h-5 w-5"
+              />
+            ) : item.engine.kind === 'llm' ? (
+              <Sparkles className="h-4 w-4 text-[var(--accent-orange)]" />
+            ) : (
+              <Globe className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium text-foreground">
+              {item.engine.label}
+            </div>
+            <div className="truncate text-muted-foreground text-xs">
+              {item.query}
+            </div>
+          </div>
+          <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
+            {item.engine.kind === 'llm' ? 'AI' : 'Search'}
+          </span>
         </li>
       )
 
@@ -83,7 +107,7 @@ export const SearchSuggestions: FC<SearchSuggestionsProps> = ({
   return (
     <motion.ul
       {...getMenuProps()}
-      className="styled-scrollbar flex max-h-60 flex-col gap-2 overflow-y-auto px-2"
+      className="styled-scrollbar flex max-h-72 flex-col gap-3 overflow-y-auto px-2"
       transition={{ duration: 0.2 }}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}

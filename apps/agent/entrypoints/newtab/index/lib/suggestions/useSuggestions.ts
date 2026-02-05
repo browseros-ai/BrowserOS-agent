@@ -1,10 +1,6 @@
 import { useMemo } from 'react'
-import { useAITabSuggestions } from '../aiTabSuggestions/useAITabSuggestions'
-import { useBrowserOSSuggestions } from '../browserOSSuggestions/useBrowserOSSuggestions'
-import { useSearchSuggestions } from '../searchSuggestions/useSearchSuggestions'
+import { SEARCH_TARGETS } from './searchTargets'
 import type {
-  AITabSuggestionItem,
-  BrowserOSSuggestionItem,
   SearchSuggestionItem,
   SuggestionItem,
   SuggestionSection,
@@ -12,89 +8,58 @@ import type {
 
 interface UseSuggestionsArgs {
   query: string
-  selectedTabs: chrome.tabs.Tab[]
 }
 
 /**
  * @public
  */
-export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
-  const { data: searchResultsFromAPI } = useSearchSuggestions({
-    query,
-    searchEngine: 'google',
-  })
-
-  const searchResults: string[] = useMemo(() => {
-    const results = [...(searchResultsFromAPI ?? [])]
-    if (query && !results.includes(query)) {
-      results.unshift(query)
-    }
-    return results
-  }, [searchResultsFromAPI, query])
-
-  const aiTabResults = useAITabSuggestions({ selectedTabs, input: query })
-  const browserOSResults = useBrowserOSSuggestions({ query })
-
+export const useSuggestions = ({ query }: UseSuggestionsArgs) => {
   const sections = useMemo(() => {
     const result: SuggestionSection[] = []
 
-    if (query && browserOSResults.length > 0) {
-      const browserOSItems: BrowserOSSuggestionItem[] = browserOSResults.map(
-        (item, index) => ({
-          id: `browseros-${index}`,
-          type: 'browseros' as const,
-          mode: item.mode,
-          message: item.message,
-        }),
-      )
-      result.push({
-        id: 'browseros',
-        // Removed title since browserOS result will only have 1 item
-        title: '',
-        items: browserOSItems,
-      })
-    }
+    if (!query) return result
 
-    if (selectedTabs.length > 0 && aiTabResults.length > 0) {
-      const aiItems: AITabSuggestionItem[] = aiTabResults.map(
-        (item, index) => ({
-          id: `ai-tab-${index}`,
-          type: 'ai-tab' as const,
-          name: item.name,
-          icon: item.icon,
-          description: item.description,
-          minTabs: item.minTabs,
-          maxTabs: item.maxTabs,
-        }),
-      )
+    const searchItems: SearchSuggestionItem[] = []
+    const llmItems: SearchSuggestionItem[] = []
+
+    SEARCH_TARGETS.forEach((target) => {
+      const item: SearchSuggestionItem = {
+        id: `search-${target.id}`,
+        type: 'search',
+        query,
+        url: target.buildUrl(query),
+        engine: {
+          id: target.id,
+          label: target.label,
+          kind: target.kind,
+          iconUrl: target.iconUrl,
+        },
+      }
+      if (target.kind === 'search') {
+        searchItems.push(item)
+      } else {
+        llmItems.push(item)
+      }
+    })
+
+    if (searchItems.length > 0) {
       result.push({
-        id: 'ai-actions',
-        title: 'AI Actions',
-        items: aiItems,
-      })
-    } else if (query && searchResults && searchResults.length > 0) {
-      const searchItems: SearchSuggestionItem[] = searchResults.map(
-        (item, index) => ({
-          id: `search-${index}`,
-          type: 'search' as const,
-          query: item,
-        }),
-      )
-      result.push({
-        id: 'google-search',
-        title: 'Google Search',
+        id: 'search-engines',
+        title: 'Search Engines',
         items: searchItems,
       })
     }
 
+    if (llmItems.length > 0) {
+      result.push({
+        id: 'llm-providers',
+        title: 'AI Providers',
+        items: llmItems,
+      })
+    }
+
     return result
-  }, [
-    query,
-    browserOSResults,
-    selectedTabs.length,
-    aiTabResults,
-    searchResults,
-  ])
+  }, [query])
 
   const flatItems = useMemo(
     () => sections.flatMap((section) => section.items),

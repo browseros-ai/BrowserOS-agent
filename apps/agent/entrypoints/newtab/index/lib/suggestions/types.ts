@@ -5,6 +5,15 @@ import type { LucideIcon } from 'lucide-react'
  */
 export type SuggestionType = 'search' | 'ai-tab' | 'browseros'
 
+export type SearchTargetKind = 'search' | 'llm'
+
+export interface SearchTargetInfo {
+  id: string
+  label: string
+  kind: SearchTargetKind
+  iconUrl?: string
+}
+
 /**
  * @public
  */
@@ -18,6 +27,8 @@ interface BaseSuggestionItem {
 export interface SearchSuggestionItem extends BaseSuggestionItem {
   type: 'search'
   query: string
+  url: string
+  engine: SearchTargetInfo
 }
 
 /**
