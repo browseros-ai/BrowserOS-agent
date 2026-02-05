@@ -89,7 +89,7 @@ export const Chat: FC<Props> = ({
       })
       voice.clearTranscript()
     }
-  }, [voice.transcript, voice.isTranscribing, voice.clearTranscript])
+  }, [voice])
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
