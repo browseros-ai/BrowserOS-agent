@@ -228,22 +228,6 @@ export class GeminiAgent {
     return `${contextLines.join('\n')}\n\n---\n\n`
   }
 
-  private injectWindowIdIntoToolArgs(
-    requestInfo: ToolCallRequestInfo,
-    browserContext?: BrowserContext,
-  ): void {
-    if (browserContext?.windowId && requestInfo.name.startsWith('browser_')) {
-      logger.debug('Injecting windowId into tool args', {
-        tool: requestInfo.name,
-        windowId: browserContext.windowId,
-      })
-      requestInfo.args = {
-        ...requestInfo.args,
-        windowId: browserContext.windowId,
-      }
-    }
-  }
-
   private async executeToolWithTimeout(
     requestInfo: ToolCallRequestInfo,
     abortSignal: AbortSignal,
@@ -271,10 +255,7 @@ export class GeminiAgent {
   private async handleToolExecution(
     requestInfo: ToolCallRequestInfo,
     abortSignal: AbortSignal,
-    browserContext?: BrowserContext,
   ): Promise<ToolExecutionResult> {
-    this.injectWindowIdIntoToolArgs(requestInfo, browserContext)
-
     try {
       const completedToolCall = await this.executeToolWithTimeout(
         requestInfo,
@@ -368,11 +349,7 @@ export class GeminiAgent {
         browserContext,
       )
 
-      const result = await this.handleToolExecution(
-        requestInfo,
-        abortSignal,
-        browserContext,
-      )
+      const result = await this.handleToolExecution(requestInfo, abortSignal)
 
       await this.toolHooks?.onAfterToolCall?.(
         requestInfo.name,

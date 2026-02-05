@@ -22,4 +22,31 @@ export class ControllerContext implements Context {
   isConnected(): boolean {
     return this.controllerBridge.isConnected()
   }
+
+  get bridge(): ControllerBridge {
+    return this.controllerBridge
+  }
+}
+
+export class ScopedControllerContext implements Context {
+  constructor(
+    private controllerBridge: ControllerBridge,
+    private windowId?: number,
+  ) {}
+
+  async executeAction(action: string, payload: unknown): Promise<unknown> {
+    const enriched =
+      this.windowId != null
+        ? { ...(payload as Record<string, unknown>), windowId: this.windowId }
+        : payload
+    return this.controllerBridge.sendRequest(
+      action,
+      enriched,
+      TIMEOUTS.CONTROLLER_DEFAULT,
+    )
+  }
+
+  isConnected(): boolean {
+    return this.controllerBridge.isConnected()
+  }
 }

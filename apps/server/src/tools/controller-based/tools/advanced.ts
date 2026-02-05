@@ -20,19 +20,16 @@ export const executeJavaScript = defineTool<z.ZodRawShape, Context, Response>({
   schema: {
     tabId: z.coerce.number().describe('Tab ID to execute code in'),
     code: z.string().describe('JavaScript code to execute'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, code, windowId } = request.params as {
+    const { tabId, code } = request.params as {
       tabId: number
       code: string
-      windowId?: number
     }
 
     const result = await context.executeAction('executeJavaScript', {
       tabId,
       code,
-      windowId,
     })
     // biome-ignore lint/suspicious/noExplicitAny: JS execution returns arbitrary values
     const data = result as { result: any }
@@ -70,23 +67,21 @@ export const sendKeys = defineTool<z.ZodRawShape, Context, Response>({
         'PageDown',
       ])
       .describe('Keyboard key to send'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, key, windowId } = request.params as {
+    const { tabId, key } = request.params as {
       tabId: number
       key: string
-      windowId?: number
     }
 
     const result = await context.executeAction('sendKeys', {
       tabId,
       key,
-      windowId,
     })
     const data = result as { success: boolean; message: string }
 
     response.appendResponseLine(data.message)
+    response.setIncludeSnapshot?.(true)
   },
 })
 
@@ -97,12 +92,9 @@ export const checkAvailability = defineTool<z.ZodRawShape, Context, Response>({
     category: ToolCategories.ADVANCED,
     readOnlyHint: true,
   },
-  schema: {
-    windowId: z.number().optional().describe('Window ID for routing'),
-  },
-  handler: async (request, response, context) => {
-    const { windowId } = request.params as { windowId?: number }
-    const result = await context.executeAction('checkBrowserOS', { windowId })
+  schema: {},
+  handler: async (_request, response, context) => {
+    const result = await context.executeAction('checkBrowserOS', {})
     const data = result as {
       available: boolean
       apis?: string[]

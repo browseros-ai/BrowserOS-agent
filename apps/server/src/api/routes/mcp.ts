@@ -4,18 +4,27 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type {
+  CallToolResult,
+  ImageContent,
+  TextContent,
+} from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
 import type { McpContext } from '../../browser/cdp/context'
-import type { ControllerContext } from '../../browser/extension/context'
+import {
+  type ControllerContext,
+  ScopedControllerContext,
+} from '../../browser/extension/context'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
+import { ControllerResponse } from '../../tools/controller-based/response/controller-response'
 import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
@@ -31,6 +40,9 @@ interface McpRouteDeps {
 }
 
 const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
+const MCP_WINDOW_ID_HEADER = 'X-BrowserOS-Window-Id'
+
+const windowIdStore = new AsyncLocalStorage<number | undefined>()
 
 type McpRequestSource = 'gemini-agent' | 'sdk-internal' | 'third-party'
 
@@ -77,31 +89,44 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
       (async (params: Record<string, unknown>): Promise<CallToolResult> => {
         const startTime = performance.now()
 
-        // Serialize tool execution per-window (allows parallel execution across windows)
-        const windowId = params.windowId as number | undefined
+        // Resolve windowId: explicit param takes priority over request header
+        const windowId =
+          (params.windowId as number | undefined) ?? windowIdStore.getStore()
         const guard = await mutexPool.getMutex(windowId).acquire()
         try {
+          const isControllerTool = tool.name.startsWith('browser_')
+
           logger.info(
             `${tool.name} request: ${JSON.stringify(params, null, '  ')}`,
           )
 
-          // Detect if this is a controller tool (browser_* tools)
-          const isControllerTool = tool.name.startsWith('browser_')
-          const contextForResponse =
-            isControllerTool && controllerContext
-              ? controllerContext
-              : cdpContext
-
-          // Create response handler and execute tool
-          const response = new McpResponse()
-          await tool.handler({ params }, response, cdpContext)
-
-          // Process and return response
           try {
-            const content = await response.handle(
-              tool.name,
-              contextForResponse as McpContext,
-            )
+            let content: Array<TextContent | ImageContent>
+            let structuredContent: Record<string, unknown> | undefined
+
+            if (isControllerTool) {
+              const { windowId: _, ...cleanParams } = params
+              const scopedContext = new ScopedControllerContext(
+                controllerContext.bridge,
+                windowId,
+              )
+              const response = new ControllerResponse()
+              await tool.handler(
+                { params: cleanParams },
+                response,
+                scopedContext,
+              )
+              content = await response.handle(scopedContext)
+              structuredContent = response.structuredContent
+            } else {
+              const response = new McpResponse()
+              await tool.handler({ params }, response, cdpContext)
+              content = await response.handle(
+                tool.name,
+                cdpContext as McpContext,
+              )
+              structuredContent = response.structuredContent
+            }
 
             // Log successful tool execution (non-blocking)
             metrics.log('tool_executed', {
@@ -110,7 +135,6 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
               success: true,
             })
 
-            const structuredContent = response.structuredContent
             return {
               content,
               ...(structuredContent && { structuredContent }),
@@ -158,36 +182,41 @@ export function createMcpRoutes(deps: McpRouteDeps) {
     }
 
     const source = getMcpRequestSource(c.req.header(MCP_SOURCE_HEADER))
+    const headerWindowId = c.req.header(MCP_WINDOW_ID_HEADER)
+    const requestWindowId = headerWindowId ? Number(headerWindowId) : undefined
+
     metrics.log('mcp.request', { source })
 
-    try {
-      // Create a new transport for EACH request to prevent request ID collisions.
-      // Different clients may use the same JSON-RPC request IDs, which would cause
-      // responses to be routed to the wrong HTTP connections if transport state is shared.
-      const transport = new StreamableHTTPTransport({
-        sessionIdGenerator: undefined, // Stateless mode - no session management
-        enableJsonResponse: true, // Return JSON responses (not SSE streams)
-      })
+    return windowIdStore.run(requestWindowId, async () => {
+      try {
+        // Create a new transport for EACH request to prevent request ID collisions.
+        // Different clients may use the same JSON-RPC request IDs, which would cause
+        // responses to be routed to the wrong HTTP connections if transport state is shared.
+        const transport = new StreamableHTTPTransport({
+          sessionIdGenerator: undefined, // Stateless mode - no session management
+          enableJsonResponse: true, // Return JSON responses (not SSE streams)
+        })
 
-      // Connect the server to this transport
-      await mcpServer.connect(transport)
+        // Connect the server to this transport
+        await mcpServer.connect(transport)
 
-      // Handle the request and return response
-      return transport.handleRequest(c)
-    } catch (error) {
-      Sentry.captureException(error)
-      logger.error('Error handling MCP request', {
-        error: error instanceof Error ? error.message : String(error),
-      })
+        // Handle the request and return response
+        return transport.handleRequest(c)
+      } catch (error) {
+        Sentry.captureException(error)
+        logger.error('Error handling MCP request', {
+          error: error instanceof Error ? error.message : String(error),
+        })
 
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          error: { code: -32603, message: 'Internal server error' },
-          id: null,
-        },
-        500,
-      )
-    }
+        return c.json(
+          {
+            jsonrpc: '2.0',
+            error: { code: -32603, message: 'Internal server error' },
+            id: null,
+          },
+          500,
+        )
+      }
+    })
   })
 }

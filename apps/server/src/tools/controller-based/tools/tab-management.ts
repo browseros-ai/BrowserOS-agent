@@ -16,12 +16,9 @@ export const getActiveTab = defineTool<z.ZodRawShape, Context, Response>({
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
   },
-  schema: {
-    windowId: z.number().optional().describe('Window ID (injected by agent)'),
-  },
-  handler: async (request, response, context) => {
-    const params = request.params as { windowId?: number }
-    const result = await context.executeAction('getActiveTab', params)
+  schema: {},
+  handler: async (_request, response, context) => {
+    const result = await context.executeAction('getActiveTab', {})
     const data = result as {
       tabId: number
       url: string
@@ -48,12 +45,9 @@ export const listTabs = defineTool<z.ZodRawShape, Context, Response>({
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
   },
-  schema: {
-    windowId: z.number().optional().describe('Window ID (injected by agent)'),
-  },
-  handler: async (request, response, context) => {
-    const params = request.params as { windowId?: number }
-    const result = await context.executeAction('getTabs', params)
+  schema: {},
+  handler: async (_request, response, context) => {
+    const result = await context.executeAction('getTabs', {})
     const data = result as {
       tabs: Array<{
         id: number
@@ -99,13 +93,11 @@ export const openTab = defineTool<z.ZodRawShape, Context, Response>({
       .boolean()
       .optional()
       .describe('Whether to make the new tab active (default: true)'),
-    windowId: z.number().optional().describe('Window ID (injected by agent)'),
   },
   handler: async (request, response, context) => {
     const params = request.params as {
       url?: string
       active?: boolean
-      windowId?: number
     }
 
     const result = await context.executeAction('openTab', params)
@@ -126,15 +118,11 @@ export const closeTab = defineTool<z.ZodRawShape, Context, Response>({
   },
   schema: {
     tabId: z.coerce.number().describe('ID of the tab to close'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, windowId } = request.params as {
-      tabId: number
-      windowId?: number
-    }
+    const { tabId } = request.params as { tabId: number }
 
-    await context.executeAction('closeTab', { tabId, windowId })
+    await context.executeAction('closeTab', { tabId })
 
     response.appendResponseLine(`Closed tab ${tabId}`)
   },
@@ -149,15 +137,11 @@ export const switchTab = defineTool<z.ZodRawShape, Context, Response>({
   },
   schema: {
     tabId: z.coerce.number().describe('ID of the tab to switch to'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, windowId } = request.params as {
-      tabId: number
-      windowId?: number
-    }
+    const { tabId } = request.params as { tabId: number }
 
-    const result = await context.executeAction('switchTab', { tabId, windowId })
+    const result = await context.executeAction('switchTab', { tabId })
     const data = result as { tabId: number; url: string; title: string }
 
     response.appendResponseLine(`Switched to tab: ${data.title}`)
@@ -174,17 +158,12 @@ export const getLoadStatus = defineTool<z.ZodRawShape, Context, Response>({
   },
   schema: {
     tabId: z.coerce.number().describe('Tab ID to check'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, windowId } = request.params as {
-      tabId: number
-      windowId?: number
-    }
+    const { tabId } = request.params as { tabId: number }
 
     const result = await context.executeAction('getPageLoadStatus', {
       tabId,
-      windowId,
     })
     const data = result as {
       tabId: number
@@ -218,12 +197,9 @@ export const listTabGroups = defineTool<z.ZodRawShape, Context, Response>({
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
   },
-  schema: {
-    windowId: z.number().optional().describe('Window ID (injected by agent)'),
-  },
-  handler: async (request, response, context) => {
-    const params = request.params as { windowId?: number }
-    const result = await context.executeAction('listTabGroups', params)
+  schema: {},
+  handler: async (_request, response, context) => {
+    const result = await context.executeAction('listTabGroups', {})
     const data = result as {
       groups: Array<{
         id: number
@@ -291,15 +267,13 @@ export const groupTabs = defineTool<z.ZodRawShape, Context, Response>({
       .number()
       .optional()
       .describe('Existing group ID to add tabs to'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabIds, title, color, groupId, windowId } = request.params as {
+    const { tabIds, title, color, groupId } = request.params as {
       tabIds: number[]
       title?: string
       color?: string
       groupId?: number
-      windowId?: number
     }
 
     const result = await context.executeAction('groupTabs', {
@@ -307,7 +281,6 @@ export const groupTabs = defineTool<z.ZodRawShape, Context, Response>({
       title,
       color,
       groupId,
-      windowId,
     })
     const data = result as {
       groupId: number
@@ -356,15 +329,13 @@ export const updateTabGroup = defineTool<z.ZodRawShape, Context, Response>({
       .boolean()
       .optional()
       .describe('Whether to collapse (hide) the group tabs'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { groupId, title, color, collapsed, windowId } = request.params as {
+    const { groupId, title, color, collapsed } = request.params as {
       groupId: number
       title?: string
       color?: string
       collapsed?: boolean
-      windowId?: number
     }
 
     const result = await context.executeAction('updateTabGroup', {
@@ -372,7 +343,6 @@ export const updateTabGroup = defineTool<z.ZodRawShape, Context, Response>({
       title,
       color,
       collapsed,
-      windowId,
     })
     const data = result as {
       groupId: number
@@ -403,17 +373,12 @@ export const ungroupTabs = defineTool<z.ZodRawShape, Context, Response>({
     tabIds: z
       .array(z.coerce.number())
       .describe('Array of tab IDs to remove from their groups'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabIds, windowId } = request.params as {
-      tabIds: number[]
-      windowId?: number
-    }
+    const { tabIds } = request.params as { tabIds: number[] }
 
     const result = await context.executeAction('ungroupTabs', {
       tabIds,
-      windowId,
     })
     const data = result as { ungroupedCount: number }
 

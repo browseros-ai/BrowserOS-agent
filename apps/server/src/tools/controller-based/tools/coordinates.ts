@@ -20,17 +20,15 @@ export const clickCoordinates = defineTool<z.ZodRawShape, Context, Response>({
     tabId: z.coerce.number().describe('Tab ID to click in'),
     x: z.coerce.number().describe('X coordinate'),
     y: z.coerce.number().describe('Y coordinate'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, x, y, windowId } = request.params as {
+    const { tabId, x, y } = request.params as {
       tabId: number
       x: number
       y: number
-      windowId?: number
     }
 
-    await context.executeAction('clickCoordinates', { tabId, x, y, windowId })
+    await context.executeAction('clickCoordinates', { tabId, x, y })
 
     response.appendResponseLine(
       `Clicked at coordinates (${x}, ${y}) in tab ${tabId}`,
@@ -50,15 +48,13 @@ export const typeAtCoordinates = defineTool<z.ZodRawShape, Context, Response>({
     x: z.coerce.number().describe('X coordinate'),
     y: z.coerce.number().describe('Y coordinate'),
     text: z.string().describe('Text to type'),
-    windowId: z.number().optional().describe('Window ID for routing'),
   },
   handler: async (request, response, context) => {
-    const { tabId, x, y, text, windowId } = request.params as {
+    const { tabId, x, y, text } = request.params as {
       tabId: number
       x: number
       y: number
       text: string
-      windowId?: number
     }
 
     await context.executeAction('typeAtCoordinates', {
@@ -66,7 +62,6 @@ export const typeAtCoordinates = defineTool<z.ZodRawShape, Context, Response>({
       x,
       y,
       text,
-      windowId,
     })
 
     response.appendResponseLine(

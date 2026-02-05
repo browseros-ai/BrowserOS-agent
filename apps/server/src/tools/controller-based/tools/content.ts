@@ -29,7 +29,6 @@ export const getPageContent = defineTool<z.ZodRawShape, Context, Response>({
   },
   schema: {
     tabId: z.coerce.number().describe('Tab ID to extract content from'),
-    windowId: z.number().optional().describe('Window ID for routing'),
     type: z
       .enum(['text', 'text-with-links'])
       .describe('Type of content to extract: text or text-with-links'),
@@ -81,7 +80,6 @@ export const getPageContent = defineTool<z.ZodRawShape, Context, Response>({
       page?: string
       contextWindow?: string
       options?: { context?: 'visible' | 'full'; includeSections?: string[] }
-      windowId?: number
     }
 
     try {
@@ -101,7 +99,6 @@ export const getPageContent = defineTool<z.ZodRawShape, Context, Response>({
       const snapshotResult = await context.executeAction('getSnapshot', {
         tabId: params.tabId,
         type: includeLinks ? 'links' : 'text',
-        windowId: params.windowId,
       })
       const snapshot = snapshotResult as Snapshot
 
