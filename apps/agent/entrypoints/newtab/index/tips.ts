@@ -84,7 +84,7 @@ export const dismissTip = () => {
   sessionStorage.setItem(TIP_DISMISSED_KEY, Date.now().toString())
 }
 
-export const getRandomTip = (): Tip => {
-  const index = Math.floor(Math.random() * TIPS.length)
-  return TIPS[index]
+export const getRandomTip = (): Tip | null => {
+  if (TIPS.length === 0) return null
+  return TIPS[Math.floor(Math.random() * TIPS.length)]
 }

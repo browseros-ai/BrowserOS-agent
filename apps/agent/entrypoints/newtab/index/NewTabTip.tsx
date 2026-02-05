@@ -6,18 +6,18 @@ import { track } from '@/lib/metrics/track'
 import { dismissTip, getRandomTip, shouldShowTip } from './tips'
 
 export const NewTabTip: FC = () => {
-  const [visible, setVisible] = useState(() => shouldShowTip())
   const tip = useMemo(() => getRandomTip(), [])
+  const [visible, setVisible] = useState(() => tip !== null && shouldShowTip())
 
   const handleDismiss = () => {
     setVisible(false)
     dismissTip()
-    track(NEWTAB_TIP_DISMISSED_EVENT, { tip_id: tip.id })
+    if (tip) track(NEWTAB_TIP_DISMISSED_EVENT, { tip_id: tip.id })
   }
 
   return (
     <AnimatePresence>
-      {visible && (
+      {visible && tip && (
         <motion.div
           className="flex items-center justify-center"
           initial={{ opacity: 0, y: 8 }}
