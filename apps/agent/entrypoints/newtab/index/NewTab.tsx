@@ -53,6 +53,7 @@ import {
   useSuggestions,
 } from './lib/suggestions/useSuggestions'
 import { NewTabBranding } from './NewTabBranding'
+import { NewTabTip } from './NewTabTip'
 import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
@@ -596,6 +597,8 @@ export const NewTab = () => {
             )}
           </div>
         </div>
+
+        {mounted && !isSuggestionsVisible && <NewTabTip />}
 
         {/* Top sites */}
         {!isSuggestionsVisible && <TopSites />}

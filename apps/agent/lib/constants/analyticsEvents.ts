@@ -96,6 +96,9 @@ export const NEWTAB_TAB_REMOVED_EVENT = 'newtab.tab.removed'
 export const NEWTAB_APPS_OPENED_EVENT = 'newtab.apps.opened'
 
 /** @public */
+export const NEWTAB_TIP_DISMISSED_EVENT = 'newtab.tip.dismissed'
+
+/** @public */
 export const WORKFLOW_DELETED_EVENT = 'settings.workflow.deleted'
 
 /** @public */
