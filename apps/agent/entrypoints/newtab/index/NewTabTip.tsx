@@ -1,17 +1,13 @@
 import { Lightbulb, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { type FC, useEffect, useMemo, useState } from 'react'
+import { type FC, useMemo, useState } from 'react'
 import { NEWTAB_TIP_DISMISSED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { dismissTip, getRandomTip, shouldShowTip } from './tips'
 
 export const NewTabTip: FC = () => {
-  const [visible, setVisible] = useState(true)
+  const [visible, setVisible] = useState(() => shouldShowTip())
   const tip = useMemo(() => getRandomTip(), [])
-
-  useEffect(() => {
-    if (!shouldShowTip()) return
-  }, [])
 
   const handleDismiss = () => {
     setVisible(false)

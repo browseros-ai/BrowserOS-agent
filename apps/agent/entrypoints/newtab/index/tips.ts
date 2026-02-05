@@ -4,7 +4,7 @@ export interface Tip {
   shortcut?: string
 }
 
-export const TIP_SHOW_PROBABILITY = 1
+export const TIP_SHOW_PROBABILITY = 0.2
 
 const TIP_DISMISSED_KEY = 'tip-dismissed-session'
 
