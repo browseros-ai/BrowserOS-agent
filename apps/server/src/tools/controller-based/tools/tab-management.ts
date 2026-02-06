@@ -187,6 +187,10 @@ export const getLoadStatus = defineTool<z.ZodRawShape, Context, Response>({
     response.addStructuredContent('isDOMContentLoaded', data.isDOMContentLoaded)
     response.addStructuredContent('isResourcesLoading', data.isResourcesLoading)
     response.addStructuredContent('isPageComplete', data.isPageComplete)
+
+    if (data.isPageComplete) {
+      response.setIncludeSnapshot?.(tabId)
+    }
   },
 })
 
