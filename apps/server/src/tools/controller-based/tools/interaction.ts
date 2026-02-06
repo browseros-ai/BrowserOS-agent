@@ -3,10 +3,9 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 import {
   ElementFormatter,
@@ -19,12 +18,13 @@ const SIMPLIFIED_FORMATTER = new ElementFormatter('simplified')
 
 export const getInteractiveElements = defineTool<
   z.ZodRawShape,
-  Context,
+  ControllerToolContext,
   Response
 >({
   name: 'browser_get_interactive_elements',
   description:
     'Get a snapshot of all interactive elements on the page (buttons, links, inputs)',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ELEMENT_INTERACTION,
     readOnlyHint: true,
@@ -42,9 +42,12 @@ export const getInteractiveElements = defineTool<
       simplified?: boolean
     }
 
-    const result = await context.executeAction('getInteractiveSnapshot', {
-      tabId,
-    })
+    const result = await context.controller.executeAction(
+      'getInteractiveSnapshot',
+      {
+        tabId,
+      },
+    )
     const snapshot = result as {
       snapshotId: number
       timestamp: number
@@ -113,7 +116,7 @@ export const getInteractiveElements = defineTool<
 
 export const grepInteractiveElements = defineTool<
   z.ZodRawShape,
-  Context,
+  ControllerToolContext,
   Response
 >({
   name: 'browser_grep_interactive_elements',
@@ -121,6 +124,7 @@ export const grepInteractiveElements = defineTool<
     'Search interactive elements using regex patterns (case insensitive). Returns elements ' +
     'matching the pattern against their full formatted representation (nodeId, type, tag, ' +
     'name, attributes, viewport status). Use pipe (|) for OR patterns.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ELEMENT_INTERACTION,
     readOnlyHint: true,
@@ -153,9 +157,12 @@ export const grepInteractiveElements = defineTool<
       context?: number
     }
 
-    const result = await ctx.executeAction('getInteractiveSnapshot', {
-      tabId,
-    })
+    const result = await ctx.controller.executeAction(
+      'getInteractiveSnapshot',
+      {
+        tabId,
+      },
+    )
     const snapshot = result as {
       snapshotId: number
       timestamp: number
@@ -238,10 +245,15 @@ export const grepInteractiveElements = defineTool<
   },
 })
 
-export const clickElement = defineTool<z.ZodRawShape, Context, Response>({
+export const clickElement = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_click_element',
   description:
     'Click an element by its nodeId (from browser_get_interactive_elements)',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ELEMENT_INTERACTION,
     readOnlyHint: false,
@@ -258,16 +270,21 @@ export const clickElement = defineTool<z.ZodRawShape, Context, Response>({
       nodeId: number
     }
 
-    await context.executeAction('click', { tabId, nodeId })
+    await context.controller.executeAction('click', { tabId, nodeId })
 
     response.appendResponseLine(`Clicked element ${nodeId} in tab ${tabId}`)
-    response.setIncludeSnapshot?.(true)
+    response.setIncludeSnapshot?.(tabId)
   },
 })
 
-export const typeText = defineTool<z.ZodRawShape, Context, Response>({
+export const typeText = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_type_text',
   description: 'Type text into an input element',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ELEMENT_INTERACTION,
     readOnlyHint: false,
@@ -284,19 +301,24 @@ export const typeText = defineTool<z.ZodRawShape, Context, Response>({
       text: string
     }
 
-    await context.executeAction('click', { tabId, nodeId })
-    await context.executeAction('inputText', { tabId, nodeId, text })
+    await context.controller.executeAction('click', { tabId, nodeId })
+    await context.controller.executeAction('inputText', { tabId, nodeId, text })
 
     response.appendResponseLine(
       `Typed text into element ${nodeId} in tab ${tabId}`,
     )
-    response.setIncludeSnapshot?.(true)
+    response.setIncludeSnapshot?.(tabId)
   },
 })
 
-export const clearInput = defineTool<z.ZodRawShape, Context, Response>({
+export const clearInput = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_clear_input',
   description: 'Clear text from an input element',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ELEMENT_INTERACTION,
     readOnlyHint: false,
@@ -311,16 +333,21 @@ export const clearInput = defineTool<z.ZodRawShape, Context, Response>({
       nodeId: number
     }
 
-    await context.executeAction('click', { tabId, nodeId })
-    await context.executeAction('clear', { tabId, nodeId })
+    await context.controller.executeAction('click', { tabId, nodeId })
+    await context.controller.executeAction('clear', { tabId, nodeId })
 
     response.appendResponseLine(`Cleared element ${nodeId} in tab ${tabId}`)
   },
 })
 
-export const scrollToElement = defineTool<z.ZodRawShape, Context, Response>({
+export const scrollToElement = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_scroll_to_element',
   description: 'Scroll to bring an element into view',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ELEMENT_INTERACTION,
     readOnlyHint: false,
@@ -335,7 +362,7 @@ export const scrollToElement = defineTool<z.ZodRawShape, Context, Response>({
       nodeId: number
     }
 
-    await context.executeAction('scrollToNode', { tabId, nodeId })
+    await context.controller.executeAction('scrollToNode', { tabId, nodeId })
 
     response.appendResponseLine(`Scrolled to element ${nodeId} in tab ${tabId}`)
   },

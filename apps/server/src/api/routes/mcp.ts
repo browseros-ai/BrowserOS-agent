@@ -15,17 +15,16 @@ import type {
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import type { z } from 'zod'
-import {
-  type ControllerContext,
-  ScopedControllerContext,
-} from '../../browser/extension/context'
+import type { SessionManager } from '../../agent/session'
+import type { ControllerBridge } from '../../browser/extension/bridge'
+import { ScopedControllerContext } from '../../browser/extension/context'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
-import type { MutexPool } from '../../lib/mutex'
 import { Sentry } from '../../lib/sentry'
 import type { CdpContext } from '../../tools/cdp-based/context'
 import { CdpResponse } from '../../tools/cdp-based/response'
 import { ControllerResponse } from '../../tools/controller-based/response/controller-response'
+import { SessionBrowserState } from '../../tools/session-browser-state'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
 import { isLocalhostRequest } from '../utils/security'
@@ -34,33 +33,88 @@ interface McpRouteDeps {
   version: string
   tools: ToolDefinition[]
   ensureCdpContext: () => Promise<CdpContext | null>
-  controllerContext: ControllerContext
-  mutexPool: MutexPool
+  controllerBridge: ControllerBridge
+  sessionManager: SessionManager
   allowRemote: boolean
 }
 
-const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
-const MCP_WINDOW_ID_HEADER = 'X-BrowserOS-Window-Id'
+const MCP_SCOPE_HEADER = 'X-BrowserOS-Scope-Id'
 
-const windowIdStore = new AsyncLocalStorage<number | undefined>()
+const MCP_SCOPE_TTL_MS = 30 * 60 * 1000
+const MCP_SCOPE_SWEEP_MS = 5 * 60 * 1000
 
-type McpRequestSource = 'gemini-agent' | 'sdk-internal' | 'third-party'
-
-function getMcpRequestSource(
-  headerValue: string | undefined,
-): McpRequestSource {
-  if (headerValue === 'gemini-agent' || headerValue === 'sdk-internal') {
-    return headerValue
-  }
-  return 'third-party'
+interface McpScopeEntry {
+  state: SessionBrowserState
+  lastAccess: number
 }
 
-/**
- * Creates an MCP server with registered tools.
- * Reuses the same logic from the old mcp/server.ts
- */
-function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
-  const { version, tools, controllerContext, mutexPool } = deps
+const scopeIdStore = new AsyncLocalStorage<string | undefined>()
+
+function resolveScope(
+  scopeId: string | undefined,
+  sessionManager: SessionManager,
+  mcpScopeMap: Map<string, McpScopeEntry>,
+): SessionBrowserState {
+  if (!scopeId) {
+    return new SessionBrowserState()
+  }
+
+  const conversationState = sessionManager.getBrowserState(scopeId)
+  if (conversationState) {
+    return conversationState
+  }
+
+  const existing = mcpScopeMap.get(scopeId)
+  if (existing) {
+    existing.lastAccess = Date.now()
+    return existing.state
+  }
+
+  const state = new SessionBrowserState()
+  mcpScopeMap.set(scopeId, { state, lastAccess: Date.now() })
+  return state
+}
+
+async function resolveCdpPage(
+  params: Record<string, unknown>,
+  state: SessionBrowserState,
+  cdpContext: CdpContext,
+) {
+  if (params.pageId != null) {
+    const page = cdpContext.getPageById(params.pageId as number)
+    if (!page) {
+      throw new Error(`Unknown pageId: ${params.pageId}`)
+    }
+    return page
+  }
+
+  const activePageId = state.activePageId
+  if (activePageId !== undefined) {
+    try {
+      const page = cdpContext.getPageById(activePageId)
+      if (page) return page
+    } catch {
+      // stale — page closed, fall through
+    }
+    state.setActiveByPageId(undefined)
+  }
+
+  const page = await cdpContext.newPage()
+  const pageId = cdpContext.getPageId(page)
+  // @ts-expect-error _tabId is internal
+  const tabId = page._tabId as number | undefined
+  if (pageId !== undefined) {
+    state.register({ pageId, tabId })
+    state.setActiveByPageId(pageId)
+  }
+  return page
+}
+
+function createMcpServerWithTools(
+  deps: McpRouteDeps,
+  mcpScopeMap: Map<string, McpScopeEntry>,
+): McpServer {
+  const { version, tools, controllerBridge, sessionManager } = deps
 
   const server = new McpServer(
     {
@@ -71,12 +125,10 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
     { capabilities: { logging: {} } },
   )
 
-  // Handle logging level requests
   server.server.setRequestHandler(SetLevelRequestSchema, () => {
     return {}
   })
 
-  // Register each tool with the MCP server
   for (const tool of tools) {
     // @ts-expect-error TS2589: Type instantiation too deep with complex Zod schema generics
     server.registerTool(
@@ -89,13 +141,11 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
       (async (params: Record<string, unknown>): Promise<CallToolResult> => {
         const startTime = performance.now()
 
-        // Resolve windowId: explicit param takes priority over request header
-        const windowId =
-          (params.windowId as number | undefined) ?? windowIdStore.getStore()
-        const guard = await mutexPool.getMutex(windowId).acquire()
-        try {
-          const isControllerTool = tool.name.startsWith('browser_')
+        const scopeId = scopeIdStore.getStore()
+        const state = resolveScope(scopeId, sessionManager, mcpScopeMap)
+        const windowId = state.windowId
 
+        try {
           logger.info(
             `${tool.name} request: ${JSON.stringify(params, null, '  ')}`,
           )
@@ -106,24 +156,7 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
               structuredContent: Record<string, unknown>
             }
 
-            if (isControllerTool) {
-              const { windowId: _, ...cleanParams } = params
-              const scopedContext = new ScopedControllerContext(
-                controllerContext.bridge,
-                windowId,
-              )
-              const response = new ControllerResponse()
-              await tool.handler(
-                { params: cleanParams },
-                response,
-                scopedContext,
-              )
-              const content = await response.handle(scopedContext)
-              result = {
-                content,
-                structuredContent: response.structuredContent ?? {},
-              }
-            } else {
+            if (tool.kind === 'cdp') {
               const cdpContext = await deps.ensureCdpContext()
               if (!cdpContext) {
                 return {
@@ -136,13 +169,41 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
                   isError: true,
                 }
               }
+
+              const page = await resolveCdpPage(params, state, cdpContext)
+              const { pageId: _, ...cleanParams } = params
+
               const response = new CdpResponse()
-              // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
-              await tool.handler({ params }, response as any, cdpContext as any)
-              result = await response.handle(tool.name, cdpContext)
+              result = await cdpContext.withPage(page, async () => {
+                await tool.handler(
+                  { params: cleanParams },
+                  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
+                  response as any,
+                  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
+                  cdpContext as any,
+                )
+                return await response.handle(tool.name, cdpContext)
+              })
+            } else {
+              const { windowId: _, ...cleanParams } = params
+              const scopedContext = new ScopedControllerContext(
+                controllerBridge,
+                windowId,
+              )
+              const controllerToolContext = { controller: scopedContext, state }
+              const response = new ControllerResponse()
+              await tool.handler(
+                { params: cleanParams },
+                response,
+                controllerToolContext,
+              )
+              const content = await response.handle(scopedContext)
+              result = {
+                content,
+                structuredContent: response.structuredContent ?? {},
+              }
             }
 
-            // Log successful tool execution (non-blocking)
             metrics.log('tool_executed', {
               tool_name: tool.name,
               duration_ms: Math.round(performance.now() - startTime),
@@ -159,7 +220,6 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
             const errorText =
               error instanceof Error ? error.message : String(error)
 
-            // Log failed tool execution (non-blocking)
             metrics.log('tool_executed', {
               tool_name: tool.name,
               duration_ms: Math.round(performance.now() - startTime),
@@ -174,7 +234,7 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
             }
           }
         } finally {
-          guard.dispose()
+          // no mutex to release
         }
       }) as (params: Record<string, unknown>) => Promise<CallToolResult>,
     )
@@ -186,37 +246,41 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
 export function createMcpRoutes(deps: McpRouteDeps) {
   const { allowRemote } = deps
 
-  // Create MCP server once with all tools registered
-  const mcpServer = createMcpServerWithTools(deps)
+  const mcpScopeMap = new Map<string, McpScopeEntry>()
+
+  // TTL-based cleanup for third-party MCP sessions
+  setInterval(() => {
+    const now = Date.now()
+    for (const [id, entry] of mcpScopeMap) {
+      if (now - entry.lastAccess > MCP_SCOPE_TTL_MS) {
+        mcpScopeMap.delete(id)
+        logger.debug('Expired MCP scope', { scopeId: id })
+      }
+    }
+  }, MCP_SCOPE_SWEEP_MS)
+
+  const mcpServer = createMcpServerWithTools(deps, mcpScopeMap)
 
   return new Hono<Env>().all('/', async (c) => {
-    // Security check: localhost only (unless allowRemote is enabled)
     if (!allowRemote && !isLocalhostRequest(c)) {
       logger.warn('Rejected non-localhost MCP request')
       metrics.log('mcp.rejected', { reason: 'non_localhost' })
       return c.json({ error: 'Forbidden: Only localhost access allowed' }, 403)
     }
 
-    const source = getMcpRequestSource(c.req.header(MCP_SOURCE_HEADER))
-    const headerWindowId = c.req.header(MCP_WINDOW_ID_HEADER)
-    const requestWindowId = headerWindowId ? Number(headerWindowId) : undefined
+    const scopeId = c.req.header(MCP_SCOPE_HEADER) || undefined
 
-    metrics.log('mcp.request', { source })
+    metrics.log('mcp.request', { scopeId: scopeId ?? 'ephemeral' })
 
-    return windowIdStore.run(requestWindowId, async () => {
+    return scopeIdStore.run(scopeId, async () => {
       try {
-        // Create a new transport for EACH request to prevent request ID collisions.
-        // Different clients may use the same JSON-RPC request IDs, which would cause
-        // responses to be routed to the wrong HTTP connections if transport state is shared.
         const transport = new StreamableHTTPTransport({
-          sessionIdGenerator: undefined, // Stateless mode - no session management
-          enableJsonResponse: true, // Return JSON responses (not SSE streams)
+          sessionIdGenerator: undefined,
+          enableJsonResponse: true,
         })
 
-        // Connect the server to this transport
         await mcpServer.connect(transport)
 
-        // Handle the request and return response
         return transport.handleRequest(c)
       } catch (error) {
         Sentry.captureException(error)

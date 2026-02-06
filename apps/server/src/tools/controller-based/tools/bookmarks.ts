@@ -3,15 +3,19 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
-export const getBookmarks = defineTool<z.ZodRawShape, Context, Response>({
+export const getBookmarks = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_get_bookmarks',
   description: 'Get all bookmarks from the browser',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: true,
@@ -25,7 +29,7 @@ export const getBookmarks = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { folderId } = request.params as { folderId?: string }
 
-    const result = await context.executeAction('getBookmarks', {
+    const result = await context.controller.executeAction('getBookmarks', {
       folderId,
     })
     const data = result as {
@@ -53,10 +57,15 @@ export const getBookmarks = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const createBookmark = defineTool<z.ZodRawShape, Context, Response>({
+export const createBookmark = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_create_bookmark',
   description:
     'Create a new bookmark. Use parentId to place it inside an existing folder or a newly created one.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -78,7 +87,7 @@ export const createBookmark = defineTool<z.ZodRawShape, Context, Response>({
       parentId?: string
     }
 
-    const result = await context.executeAction('createBookmark', {
+    const result = await context.controller.executeAction('createBookmark', {
       title,
       url,
       parentId,
@@ -91,9 +100,14 @@ export const createBookmark = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const removeBookmark = defineTool<z.ZodRawShape, Context, Response>({
+export const removeBookmark = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_remove_bookmark',
   description: 'Remove a bookmark by ID',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -104,15 +118,20 @@ export const removeBookmark = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { bookmarkId } = request.params as { bookmarkId: string }
 
-    await context.executeAction('removeBookmark', { id: bookmarkId })
+    await context.controller.executeAction('removeBookmark', { id: bookmarkId })
 
     response.appendResponseLine(`Removed bookmark ${bookmarkId}`)
   },
 })
 
-export const updateBookmark = defineTool<z.ZodRawShape, Context, Response>({
+export const updateBookmark = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_update_bookmark',
   description: 'Update a bookmark title or URL',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -129,7 +148,7 @@ export const updateBookmark = defineTool<z.ZodRawShape, Context, Response>({
       url?: string
     }
 
-    const result = await context.executeAction('updateBookmark', {
+    const result = await context.controller.executeAction('updateBookmark', {
       id: bookmarkId,
       title,
       url,
@@ -146,12 +165,13 @@ export const updateBookmark = defineTool<z.ZodRawShape, Context, Response>({
 
 export const createBookmarkFolder = defineTool<
   z.ZodRawShape,
-  Context,
+  ControllerToolContext,
   Response
 >({
   name: 'browser_create_bookmark_folder',
   description:
     'Create a new bookmark folder. Returns folderId to use as parentId when creating or moving bookmarks into this folder.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -169,10 +189,13 @@ export const createBookmarkFolder = defineTool<
       parentId?: string
     }
 
-    const result = await context.executeAction('createBookmarkFolder', {
-      title,
-      parentId,
-    })
+    const result = await context.controller.executeAction(
+      'createBookmarkFolder',
+      {
+        title,
+        parentId,
+      },
+    )
     const data = result as {
       id: string
       title: string
@@ -187,56 +210,65 @@ export const createBookmarkFolder = defineTool<
   },
 })
 
-export const getBookmarkChildren = defineTool<z.ZodRawShape, Context, Response>(
-  {
-    name: 'browser_get_bookmark_children',
-    description: 'Get direct children of a bookmark folder',
-    annotations: {
-      category: ToolCategories.BOOKMARKS,
-      readOnlyHint: true,
-    },
-    schema: {
-      folderId: z.string().describe('Folder ID to get children from'),
-    },
-    handler: async (request, response, context) => {
-      const { folderId } = request.params as { folderId: string }
+export const getBookmarkChildren = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
+  name: 'browser_get_bookmark_children',
+  description: 'Get direct children of a bookmark folder',
+  kind: 'controller' as const,
+  annotations: {
+    category: ToolCategories.BOOKMARKS,
+    readOnlyHint: true,
+  },
+  schema: {
+    folderId: z.string().describe('Folder ID to get children from'),
+  },
+  handler: async (request, response, context) => {
+    const { folderId } = request.params as { folderId: string }
 
-      const result = await context.executeAction('getBookmarkChildren', {
+    const result = await context.controller.executeAction(
+      'getBookmarkChildren',
+      {
         folderId,
-      })
-      const data = result as {
-        children: Array<{
-          id: string
-          title: string
-          url?: string
-          isFolder: boolean
-        }>
-        count: number
-      }
+      },
+    )
+    const data = result as {
+      children: Array<{
+        id: string
+        title: string
+        url?: string
+        isFolder: boolean
+      }>
+      count: number
+    }
 
-      response.appendResponseLine(`Folder contains ${data.count} items:`)
-      response.appendResponseLine('')
+    response.appendResponseLine(`Folder contains ${data.count} items:`)
+    response.appendResponseLine('')
 
-      for (const child of data.children) {
-        if (child.isFolder) {
-          response.appendResponseLine(
-            `[${child.id}] 📁 ${child.title} (folder)`,
-          )
-        } else {
-          response.appendResponseLine(`[${child.id}] ${child.title}`)
-          if (child.url) {
-            response.appendResponseLine(`    ${child.url}`)
-          }
+    for (const child of data.children) {
+      if (child.isFolder) {
+        response.appendResponseLine(`[${child.id}] 📁 ${child.title} (folder)`)
+      } else {
+        response.appendResponseLine(`[${child.id}] ${child.title}`)
+        if (child.url) {
+          response.appendResponseLine(`    ${child.url}`)
         }
       }
-    },
+    }
   },
-)
+})
 
-export const moveBookmark = defineTool<z.ZodRawShape, Context, Response>({
+export const moveBookmark = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_move_bookmark',
   description:
     'Move a bookmark or folder into a different folder (existing or newly created).',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -263,7 +295,7 @@ export const moveBookmark = defineTool<z.ZodRawShape, Context, Response>({
       index?: number
     }
 
-    const result = await context.executeAction('moveBookmark', {
+    const result = await context.controller.executeAction('moveBookmark', {
       id: bookmarkId,
       parentId,
       index,
@@ -285,10 +317,15 @@ export const moveBookmark = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const removeBookmarkTree = defineTool<z.ZodRawShape, Context, Response>({
+export const removeBookmarkTree = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_remove_bookmark_tree',
   description:
     'Remove a bookmark folder and all its contents recursively. Requires confirm: true.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.BOOKMARKS,
     readOnlyHint: false,
@@ -303,10 +340,13 @@ export const removeBookmarkTree = defineTool<z.ZodRawShape, Context, Response>({
       confirm: boolean
     }
 
-    const result = await context.executeAction('removeBookmarkTree', {
-      id: folderId,
-      confirm,
-    })
+    const result = await context.controller.executeAction(
+      'removeBookmarkTree',
+      {
+        id: folderId,
+        confirm,
+      },
+    )
     const data = result as {
       success: boolean
       message: string

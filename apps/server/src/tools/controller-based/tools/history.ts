@@ -3,15 +3,19 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
-export const searchHistory = defineTool<z.ZodRawShape, Context, Response>({
+export const searchHistory = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_search_history',
   description: 'Search browser history by text query',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.HISTORY,
     readOnlyHint: true,
@@ -29,7 +33,7 @@ export const searchHistory = defineTool<z.ZodRawShape, Context, Response>({
       maxResults?: number
     }
 
-    const result = await context.executeAction('searchHistory', {
+    const result = await context.controller.executeAction('searchHistory', {
       query,
       maxResults,
     })
@@ -65,9 +69,14 @@ export const searchHistory = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const getRecentHistory = defineTool<z.ZodRawShape, Context, Response>({
+export const getRecentHistory = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_get_recent_history',
   description: 'Get most recent browser history items',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.HISTORY,
     readOnlyHint: true,
@@ -81,7 +90,7 @@ export const getRecentHistory = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { count } = request.params as { count?: number }
 
-    const result = await context.executeAction('getRecentHistory', {
+    const result = await context.controller.executeAction('getRecentHistory', {
       count,
     })
     const data = result as {

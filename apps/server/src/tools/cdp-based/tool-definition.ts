@@ -4,25 +4,25 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { ToolCategory } from './categories'
+import type { ToolCategories } from '../types/tool-categories'
+import { commonSchemas, ERRORS, type Request } from '../types/tool-definition'
 import type { GeolocationOptions, TextSnapshotNode } from './context'
 import type { InstalledExtension } from './extension-registry'
-import type { Dialog, ElementHandle, Page, Viewport } from './third-party'
-import { zod } from './third-party'
+import type { Dialog, ElementHandle, Page, Viewport, zod } from './third-party'
 import type { InsightName, TraceResult } from './trace-processing/parse'
 import type { PaginationOptions } from './utils/types'
+
+export { type Request, commonSchemas, ERRORS }
 
 export interface ToolDefinition<
   Schema extends zod.ZodRawShape = zod.ZodRawShape,
 > {
   name: string
   description: string
+  kind: 'cdp'
   annotations: {
     title?: string
-    category: ToolCategory
-    /**
-     * If true, the tool does not modify its environment.
-     */
+    category: ToolCategories | string
     readOnlyHint: boolean
     conditions?: string[]
   }
@@ -32,10 +32,6 @@ export interface ToolDefinition<
     response: Response,
     context: Context,
   ) => Promise<void>
-}
-
-export interface Request<Schema extends zod.ZodRawShape> {
-  params: zod.objectOutputType<Schema, zod.ZodTypeAny>
 }
 
 export interface ImageContentData {
@@ -78,7 +74,6 @@ export interface Response {
     options?: { requestFilePath?: string; responseFilePath?: string },
   ): void
   attachConsoleMessage(msgid: number): void
-  // Allows re-using DevTools data queried by some tools.
   attachDevToolsData(data: DevToolsData): void
   setTabId(tabId: string): void
   attachTraceSummary(trace: TraceResult): void
@@ -90,9 +85,6 @@ export interface Response {
   setListExtensions(): void
 }
 
-/**
- * Only add methods required by tools/*.
- */
 export type Context = Readonly<{
   isRunningPerformanceTrace(): boolean
   setIsRunningPerformanceTrace(x: boolean): void
@@ -106,7 +98,6 @@ export type Context = Readonly<{
   isPageSelected(page: Page): boolean
   newPage(background?: boolean): Promise<Page>
   closePage(pageId: number): Promise<void>
-  selectPage(page: Page): void
   getElementByUid(uid: string): Promise<ElementHandle<Element>>
   getAXNodeByUid(uid: string): TextSnapshotNode | undefined
   setNetworkConditions(conditions: string | null): void
@@ -131,13 +122,7 @@ export type Context = Readonly<{
   ): Promise<void>
   waitForTextOnPage(text: string, timeout?: number): Promise<Element>
   getDevToolsData(): Promise<DevToolsData>
-  /**
-   * Returns a reqid for a cdpRequestId.
-   */
   resolveCdpRequestId(cdpRequestId: string): number | undefined
-  /**
-   * Returns a reqid for a cdpRequestId.
-   */
   resolveCdpElementId(cdpBackendNodeId: number): string | undefined
   installExtension(path: string): Promise<string>
   uninstallExtension(id: string): Promise<void>
@@ -151,18 +136,6 @@ export function defineTool<Schema extends zod.ZodRawShape>(
   return definition
 }
 
-export const CLOSE_PAGE_ERROR =
-  'The last open page cannot be closed. It is fine to keep it open.'
+export const timeoutSchema = commonSchemas.timeout
 
-export const timeoutSchema = {
-  timeout: zod
-    .number()
-    .int()
-    .optional()
-    .describe(
-      `Maximum wait time in milliseconds. If set to 0, the default timeout will be used.`,
-    )
-    .transform((value) => {
-      return value && value <= 0 ? undefined : value
-    }),
-}
+export const CLOSE_PAGE_ERROR = ERRORS.CLOSE_PAGE

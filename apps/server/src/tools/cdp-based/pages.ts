@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
+import { ToolCategories } from '../types/tool-categories'
 import { logger } from './logger'
 import type { Dialog } from './third-party'
 import { zod } from './third-party'
@@ -13,8 +13,9 @@ import { CLOSE_PAGE_ERROR, defineTool, timeoutSchema } from './tool-definition'
 export const listPages = defineTool({
   name: 'list_pages',
   description: `Get a list of pages open in the browser.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NAVIGATION,
+    category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: true,
   },
   schema: {},
@@ -23,39 +24,12 @@ export const listPages = defineTool({
   },
 })
 
-export const selectPage = defineTool({
-  name: 'select_page',
-  description: `Select a page as a context for future tool calls.`,
-  annotations: {
-    category: ToolCategory.NAVIGATION,
-    readOnlyHint: true,
-  },
-  schema: {
-    pageId: zod
-      .number()
-      .describe(
-        `The ID of the page to select. Call ${listPages.name} to get available pages.`,
-      ),
-    bringToFront: zod
-      .boolean()
-      .optional()
-      .describe('Whether to focus the page and bring it to the top.'),
-  },
-  handler: async (request, response, context) => {
-    const page = context.getPageById(request.params.pageId)
-    context.selectPage(page)
-    response.setIncludePages(true)
-    if (request.params.bringToFront) {
-      await page.bringToFront()
-    }
-  },
-})
-
 export const closePage = defineTool({
   name: 'close_page',
   description: `Closes the page by its index. The last open page cannot be closed.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NAVIGATION,
+    category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -67,7 +41,7 @@ export const closePage = defineTool({
     try {
       await context.closePage(request.params.pageId)
     } catch (err) {
-      if (err.message === CLOSE_PAGE_ERROR) {
+      if (err instanceof Error && err.message === CLOSE_PAGE_ERROR) {
         response.appendResponseLine(err.message)
       } else {
         throw err
@@ -80,8 +54,9 @@ export const closePage = defineTool({
 export const newPage = defineTool({
   name: 'new_page',
   description: `Creates a new page`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NAVIGATION,
+    category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -113,8 +88,9 @@ export const newPage = defineTool({
 export const navigatePage = defineTool({
   name: 'navigate_page',
   description: `Navigates the currently selected page to a URL.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NAVIGATION,
+    category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -197,7 +173,7 @@ export const navigatePage = defineTool({
                 )
               } catch (error) {
                 response.appendResponseLine(
-                  `Unable to navigate in the  selected page: ${error.message}.`,
+                  `Unable to navigate in the selected page: ${error instanceof Error ? error.message : String(error)}.`,
                 )
               }
               break
@@ -209,7 +185,7 @@ export const navigatePage = defineTool({
                 )
               } catch (error) {
                 response.appendResponseLine(
-                  `Unable to navigate back in the selected page: ${error.message}.`,
+                  `Unable to navigate back in the selected page: ${error instanceof Error ? error.message : String(error)}.`,
                 )
               }
               break
@@ -221,7 +197,7 @@ export const navigatePage = defineTool({
                 )
               } catch (error) {
                 response.appendResponseLine(
-                  `Unable to navigate forward in the selected page: ${error.message}.`,
+                  `Unable to navigate forward in the selected page: ${error instanceof Error ? error.message : String(error)}.`,
                 )
               }
               break
@@ -248,7 +224,7 @@ export const navigatePage = defineTool({
                 response.appendResponseLine(`Successfully reloaded the page.`)
               } catch (error) {
                 response.appendResponseLine(
-                  `Unable to reload the selected page: ${error.message}.`,
+                  `Unable to reload the selected page: ${error instanceof Error ? error.message : String(error)}.`,
                 )
               }
               break
@@ -274,8 +250,9 @@ export const navigatePage = defineTool({
 export const resizePage = defineTool({
   name: 'resize_page',
   description: `Resizes the selected page's window so that the page has specified dimension`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.EMULATION,
+    category: ToolCategories.EMULATION,
     readOnlyHint: false,
   },
   schema: {
@@ -296,8 +273,9 @@ export const resizePage = defineTool({
 export const handleDialog = defineTool({
   name: 'handle_dialog',
   description: `If a browser dialog was opened, use this command to handle it`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -346,8 +324,9 @@ export const handleDialog = defineTool({
 export const getTabId = defineTool({
   name: 'get_tab_id',
   description: `Get the tab ID of the page`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NAVIGATION,
+    category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: true,
     conditions: ['experimentalInteropTools'],
   },

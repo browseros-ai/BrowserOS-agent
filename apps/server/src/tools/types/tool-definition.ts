@@ -17,26 +17,16 @@ export interface ToolDefinition<
   // biome-ignore lint/suspicious/noExplicitAny: generic default for flexible tool responses
   TResponse = any,
 > {
-  /** Unique identifier for the tool */
   name: string
-
-  /** Human-readable description of what the tool does */
   description: string
-
-  /** Metadata and categorization */
+  kind: 'cdp' | 'controller'
   annotations: {
-    /** Optional display title */
     title?: string
-    /** Category for grouping */
     category: ToolCategories | string
-    /** If true, the tool does not modify its environment */
     readOnlyHint: boolean
+    conditions?: string[]
   }
-
-  /** Zod schema for validating input parameters */
   schema: Schema
-
-  /** Implementation handler */
   handler: (
     request: Request<Schema>,
     response: TResponse,
@@ -82,6 +72,12 @@ export const commonSchemas = {
       .transform((value: number | undefined) => {
         return value && value <= 0 ? undefined : value
       }),
+  },
+  cdpTarget: {
+    pageId: z.coerce
+      .number()
+      .optional()
+      .describe('Page ID to target (defaults to active page in session)'),
   },
 } as const
 

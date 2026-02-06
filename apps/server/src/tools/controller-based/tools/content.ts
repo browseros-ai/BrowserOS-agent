@@ -3,10 +3,9 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
 interface Snapshot {
@@ -20,9 +19,14 @@ interface SnapshotItem {
   url?: string
 }
 
-export const getPageContent = defineTool<z.ZodRawShape, Context, Response>({
+export const getPageContent = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_get_page_content',
   description: 'Extract text or text with links from the page.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.CONTENT_EXTRACTION,
     readOnlyHint: true,
@@ -96,10 +100,13 @@ export const getPageContent = defineTool<z.ZodRawShape, Context, Response>({
 
       const contextWindowSize = parseContextWindow(contextWindowStr)
 
-      const snapshotResult = await context.executeAction('getSnapshot', {
-        tabId: params.tabId,
-        type: includeLinks ? 'links' : 'text',
-      })
+      const snapshotResult = await context.controller.executeAction(
+        'getSnapshot',
+        {
+          tabId: params.tabId,
+          type: includeLinks ? 'links' : 'text',
+        },
+      )
       const snapshot = snapshotResult as Snapshot
 
       if (!snapshot || !snapshot.items) {

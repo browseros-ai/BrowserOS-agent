@@ -23,7 +23,6 @@ import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
-import { MutexPool } from './lib/mutex'
 import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
@@ -72,7 +71,6 @@ export class Application {
       `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
     )
     const tools = createToolRegistry(cdpEnabled)
-    const mutexPool = new MutexPool()
 
     try {
       await createHttpServer({
@@ -81,8 +79,8 @@ export class Application {
         version: VERSION,
         tools,
         ensureCdpContext: () => this.ensureCdpContext(),
+        controllerBridge: controllerContext.bridge,
         controllerContext,
-        mutexPool,
         allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,

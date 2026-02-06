@@ -221,7 +221,6 @@ function getCdpToolReference(): string {
 
 ## Page Management
 - \`list_pages\` - Get all open pages in the browser
-- \`select_page(pageId)\` - Select a page for future tool calls
 - \`new_page(url)\` - Create a new page and navigate to URL
 - \`close_page(pageId)\` - Close a page (cannot close last page)
 - \`navigate_page(url|back|forward|reload)\` - Navigate selected page

@@ -15,8 +15,8 @@ import {
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
+import type { ControllerBridge } from '../browser/extension/bridge'
 import type { ControllerContext } from '../browser/extension/context'
-import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { CdpContext } from '../tools/cdp-based/context'
 import type { ToolDefinition } from '../tools/types/tool-definition'
@@ -61,27 +61,22 @@ export type Env = {
  * This server handles all routes: health, klavis, chat, mcp, provider
  */
 export interface HttpServerConfig {
-  // Server basics
   port: number
   host?: string
 
-  // For MCP routes - server will create McpServer internally
   version: string
   tools: ToolDefinition[]
   ensureCdpContext: () => Promise<CdpContext | null>
+  controllerBridge: ControllerBridge
   controllerContext: ControllerContext
-  mutexPool: MutexPool
   allowRemote: boolean
 
-  // For Chat/Klavis routes
   browserosId?: string
   executionDir?: string
   rateLimiter?: RateLimiter
 
-  // For Graph routes
   codegenServiceUrl?: string
 
-  // For shutdown route
   onShutdown?: () => void
 }
 

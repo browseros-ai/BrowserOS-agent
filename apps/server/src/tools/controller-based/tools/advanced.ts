@@ -3,16 +3,20 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
-export const executeJavaScript = defineTool<z.ZodRawShape, Context, Response>({
+export const executeJavaScript = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_execute_javascript',
   description:
     'Execute arbitrary JavaScript code in the page context. Use this tool sparingly.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ADVANCED,
     readOnlyHint: false,
@@ -27,7 +31,7 @@ export const executeJavaScript = defineTool<z.ZodRawShape, Context, Response>({
       code: string
     }
 
-    const result = await context.executeAction('executeJavaScript', {
+    const result = await context.controller.executeAction('executeJavaScript', {
       tabId,
       code,
     })
@@ -41,9 +45,14 @@ export const executeJavaScript = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const sendKeys = defineTool<z.ZodRawShape, Context, Response>({
+export const sendKeys = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_send_keys',
   description: 'Send keyboard keys to the active tab',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ADVANCED,
     readOnlyHint: false,
@@ -74,27 +83,32 @@ export const sendKeys = defineTool<z.ZodRawShape, Context, Response>({
       key: string
     }
 
-    const result = await context.executeAction('sendKeys', {
+    const result = await context.controller.executeAction('sendKeys', {
       tabId,
       key,
     })
     const data = result as { success: boolean; message: string }
 
     response.appendResponseLine(data.message)
-    response.setIncludeSnapshot?.(true)
+    response.setIncludeSnapshot?.(tabId)
   },
 })
 
-export const checkAvailability = defineTool<z.ZodRawShape, Context, Response>({
+export const checkAvailability = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_check_availability',
   description: 'Check if the BrowserOS extension APIs are available',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.ADVANCED,
     readOnlyHint: true,
   },
   schema: {},
   handler: async (_request, response, context) => {
-    const result = await context.executeAction('checkBrowserOS', {})
+    const result = await context.controller.executeAction('checkBrowserOS', {})
     const data = result as {
       available: boolean
       apis?: string[]

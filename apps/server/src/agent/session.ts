@@ -5,36 +5,48 @@
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core'
 import { logger } from '../lib/logger'
+import { SessionBrowserState } from '../tools/session-browser-state'
 
 import { GeminiAgent } from './gemini-agent'
 import type { ResolvedAgentConfig } from './types'
 
+export interface Session {
+  agent: GeminiAgent
+  browserState: SessionBrowserState
+}
+
 export class SessionManager {
-  private sessions = new Map<string, GeminiAgent>()
+  private sessions = new Map<string, Session>()
 
   async getOrCreate(
     config: ResolvedAgentConfig,
     mcpServers: Record<string, MCPServerConfig>,
-  ): Promise<GeminiAgent> {
+  ): Promise<Session> {
     const existing = this.sessions.get(config.conversationId)
 
     if (existing) {
       logger.info('Reusing existing session', {
         conversationId: config.conversationId,
-        historyLength: existing.getHistory().length,
+        historyLength: existing.agent.getHistory().length,
       })
       return existing
     }
 
     const agent = await GeminiAgent.create(config, mcpServers)
-    this.sessions.set(config.conversationId, agent)
+    const browserState = new SessionBrowserState()
+    const session: Session = { agent, browserState }
+    this.sessions.set(config.conversationId, session)
 
     logger.info('Session added to manager', {
       conversationId: config.conversationId,
       totalSessions: this.sessions.size,
     })
 
-    return agent
+    return session
+  }
+
+  getBrowserState(conversationId: string): SessionBrowserState | undefined {
+    return this.sessions.get(conversationId)?.browserState
   }
 
   delete(conversationId: string): boolean {

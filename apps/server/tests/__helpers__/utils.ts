@@ -84,8 +84,8 @@ export async function withCdpBrowser(
     try {
       // Use a fresh page for each test without closing pages that may be used by
       // the running MCP server in the same BrowserOS instance.
-      await context.newPage(true)
-      await cb(response, context)
+      const page = await context.newPage(true)
+      await context.withPage(page, () => cb(response, context))
     } finally {
       context.dispose()
     }

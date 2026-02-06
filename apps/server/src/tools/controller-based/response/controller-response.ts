@@ -51,40 +51,54 @@ export class ControllerResponse implements Response {
       : undefined
   }
 
-  #includeSnapshot = false
-  #includeScreenshot = false
+  #snapshotTabId: number | null = null
+  #screenshotTabId: number | null = null
 
-  setIncludeSnapshot(value: boolean): void {
-    this.#includeSnapshot = value
+  setIncludeSnapshot(tabId: number): void {
+    this.#snapshotTabId = tabId
   }
 
-  setIncludeScreenshot(value: boolean): void {
-    this.#includeScreenshot = value
+  setIncludeScreenshot(tabId: number): void {
+    this.#screenshotTabId = tabId
   }
 
   async handle(context: Context): Promise<Array<TextContent | ImageContent>> {
     const content = this.toContent()
 
-    if (this.#includeSnapshot) {
-      const result = await context.executeAction('getPageContent', {})
-      const text = (result as { content?: string })?.content
-      if (text) {
-        content.push({
+    if (this.#snapshotTabId != null) {
+      try {
+        const result = await context.executeAction('getSnapshot', {
+          tabId: this.#snapshotTabId,
           type: 'text',
-          text: `\n## Page Content After Action\n${text}`,
         })
+        const snapshot = result as { items?: Array<{ text: string }> }
+        if (snapshot?.items?.length) {
+          const text = snapshot.items.map((item) => item.text).join('\n')
+          content.push({
+            type: 'text',
+            text: `\n## Page Content After Action (page loaded, no need to check load status)\n${text}`,
+          })
+        }
+      } catch {
+        // Enrichment is best-effort; don't fail the tool response
       }
     }
 
-    if (this.#includeScreenshot) {
-      const result = await context.executeAction('captureScreenshot', {})
-      const data = result as { data?: string; mimeType?: string }
-      if (data?.data) {
-        content.push({
-          type: 'image',
-          data: data.data,
-          mimeType: data.mimeType ?? 'image/png',
+    if (this.#screenshotTabId != null) {
+      try {
+        const result = await context.executeAction('captureScreenshot', {
+          tabId: this.#screenshotTabId,
         })
+        const data = result as { data?: string; mimeType?: string }
+        if (data?.data) {
+          content.push({
+            type: 'image',
+            data: data.data,
+            mimeType: data.mimeType ?? 'image/png',
+          })
+        }
+      } catch {
+        // Enrichment is best-effort; don't fail the tool response
       }
     }
 

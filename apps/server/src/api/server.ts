@@ -14,6 +14,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
+import { SessionManager } from '../agent/session'
 import { logger } from '../lib/logger'
 
 import { createChatRoutes } from './routes/chat'
@@ -61,14 +62,14 @@ export async function createHttpServer(config: HttpServerConfig) {
     version,
     tools,
     ensureCdpContext,
+    controllerBridge,
     controllerContext,
-    mutexPool,
     allowRemote,
   } = config
 
   const { onShutdown } = config
+  const sessionManager = new SessionManager()
 
-  // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute())
@@ -85,8 +86,8 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         tools,
         ensureCdpContext,
-        controllerContext,
-        mutexPool,
+        controllerBridge,
+        sessionManager,
         allowRemote,
       }),
     )
@@ -97,6 +98,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         executionDir,
         browserosId,
         rateLimiter,
+        sessionManager,
       }),
     )
     .route(

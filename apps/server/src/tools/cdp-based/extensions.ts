@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
+import { ToolCategories } from '../types/tool-categories'
 import { zod } from './third-party'
 import { defineTool } from './tool-definition'
 
@@ -13,8 +13,9 @@ const EXTENSIONS_CONDITION = 'experimentalExtensionSupport'
 export const installExtension = defineTool({
   name: 'install_extension',
   description: 'Installs a Chrome extension from the given path.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.EXTENSIONS,
+    category: ToolCategories.EXTENSIONS,
     readOnlyHint: false,
     conditions: [EXTENSIONS_CONDITION],
   },
@@ -33,8 +34,9 @@ export const installExtension = defineTool({
 export const uninstallExtension = defineTool({
   name: 'uninstall_extension',
   description: 'Uninstalls a Chrome extension by its ID.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.EXTENSIONS,
+    category: ToolCategories.EXTENSIONS,
     readOnlyHint: false,
     conditions: [EXTENSIONS_CONDITION],
   },
@@ -52,8 +54,9 @@ export const listExtensions = defineTool({
   name: 'list_extensions',
   description:
     'Lists all extensions via this server, including their name, ID, version, and enabled status.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.EXTENSIONS,
+    category: ToolCategories.EXTENSIONS,
     readOnlyHint: true,
     conditions: [EXTENSIONS_CONDITION],
   },
@@ -66,8 +69,9 @@ export const listExtensions = defineTool({
 export const reloadExtension = defineTool({
   name: 'reload_extension',
   description: 'Reloads an unpacked Chrome extension by its ID.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.EXTENSIONS,
+    category: ToolCategories.EXTENSIONS,
     readOnlyHint: false,
     conditions: [EXTENSIONS_CONDITION],
   },

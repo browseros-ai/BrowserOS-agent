@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
+import { ToolCategories } from '../types/tool-categories'
 import { PredefinedNetworkConditions, zod } from './third-party'
 import { defineTool } from './tool-definition'
 
@@ -17,8 +17,9 @@ const throttlingOptions: [string, ...string[]] = [
 export const emulate = defineTool({
   name: 'emulate',
   description: `Emulates various features on the selected page.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.EMULATION,
+    category: ToolCategories.EMULATION,
     readOnlyHint: false,
   },
   schema: {
