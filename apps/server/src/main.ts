@@ -32,6 +32,8 @@ import { Sentry } from './lib/sentry'
 import { createToolRegistry } from './tools/registry'
 import { VERSION } from './version'
 
+const CDP_CONNECT_TIMEOUT_MS = 10_000
+
 export class Application {
   private config: ServerConfig
   private db: Database | null = null
@@ -215,24 +217,40 @@ export class Application {
       return null
     }
 
+    const cdpUrl = `http://127.0.0.1:${this.config.cdpPort}`
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
     try {
-      const browser = await ensureBrowserConnected(
-        `http://127.0.0.1:${this.config.cdpPort}`,
-      )
-      logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
+      const browser = await Promise.race([
+        ensureBrowserConnected(cdpUrl),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(
+              new Error(
+                `CDP connection timed out after ${CDP_CONNECT_TIMEOUT_MS}ms`,
+              ),
+            )
+          }, CDP_CONNECT_TIMEOUT_MS)
+        }),
+      ])
+
+      logger.info(`Connected to CDP at ${cdpUrl}`)
       const context = await McpContext.from(browser, logger)
       const { allCdpTools } = await import('./tools/cdp-based/registry')
       logger.info(`Loaded ${allCdpTools.length} CDP tools`)
       return context
     } catch (error) {
-      logger.warn(
-        `Warning: Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
-        { error: error instanceof Error ? error.message : String(error) },
-      )
+      logger.warn(`Warning: Could not connect to CDP at ${cdpUrl}`, {
+        error: error instanceof Error ? error.message : String(error),
+      })
       logger.warn(
         'CDP tools will not be available. Only extension tools will work.',
       )
       return null
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
   }
 
