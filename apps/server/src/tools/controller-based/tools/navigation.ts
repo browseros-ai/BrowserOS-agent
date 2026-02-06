@@ -44,6 +44,6 @@ export const navigate = defineTool<z.ZodRawShape, Context, Response>({
     response.addStructuredContent('tabId', data.tabId)
     response.addStructuredContent('windowId', data.windowId)
     response.addStructuredContent('url', data.url)
-    response.setIncludeSnapshot?.(true)
+    response.setIncludeSnapshot?.(data.tabId)
   },
 })
