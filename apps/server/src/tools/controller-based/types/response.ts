@@ -43,13 +43,15 @@ export interface Response {
 
   /**
    * Request page content snapshot to be appended after tool execution.
+   * Pass the tabId of the tab to snapshot.
    * Only supported by ControllerResponse (no-op on other implementations).
    */
-  setIncludeSnapshot?(value: boolean): void
+  setIncludeSnapshot?(tabId: number): void
 
   /**
    * Request screenshot to be appended after tool execution.
+   * Pass the tabId of the tab to capture.
    * Only supported by ControllerResponse (no-op on other implementations).
    */
-  setIncludeScreenshot?(value: boolean): void
+  setIncludeScreenshot?(tabId: number): void
 }

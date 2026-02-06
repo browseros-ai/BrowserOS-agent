@@ -48,15 +48,16 @@ function getTabGrouping(): string {
   return `## Tab Grouping First (MANDATORY)
 **Your FIRST action for ANY task must be creating a tab group.** No exceptions.
 
-1. **Get Active Tab**: Call \`browser_get_active_tab\` to get the current tab ID
-2. **Create Group Immediately**: Call \`browser_group_tabs([tabId], title, color)\` with a short title (3-4 words max) based on user intent (e.g., "Hotel Research", "Gift Shopping", "Flight Booking")
-3. **Store the Group ID**: The response returns a \`groupId\` - remember it for the entire task
-4. **Add Every New Tab**: When calling \`browser_open_tab\`, immediately follow with \`browser_group_tabs([newTabId], groupId=storedGroupId)\` to add it to the existing group
+The active tab ID is already provided in the Browser Context above. Use it directly — do NOT call \`browser_get_active_tab\` to discover it.
 
-Example flow:
+1. **Create Group Immediately**: Call \`browser_group_tabs([tabId], title, color)\` using the active tab ID from Browser Context, with a short title (3-4 words max) based on user intent (e.g., "Hotel Research", "Gift Shopping", "Flight Booking")
+2. **Store the Group ID**: The response returns a \`groupId\` - remember it for the entire task
+3. **Add Every New Tab**: When calling \`browser_open_tab\`, immediately follow with \`browser_group_tabs([newTabId], groupId=storedGroupId)\` to add it to the existing group
+
+Example flow (given Browser Context shows Tab 42):
 \`\`\`
-1. browser_get_active_tab → tabId: 42
-2. browser_group_tabs([42], "Hotel Research", "blue") → groupId: 7
+1. browser_group_tabs([42], "Hotel Research", "blue") → groupId: 7
+2. browser_navigate("https://booking.com", tabId=42)
 3. browser_open_tab("booking.com") → tabId: 43
 4. browser_group_tabs([43], groupId=7) → adds to existing group
 \`\`\`
@@ -84,8 +85,8 @@ function getCompleteTasks(): string {
 
 function getObserveActVerify(): string {
   return `## Observe → Act → Verify
-- **Before acting**: Retrieve current tab, verify page loaded, fetch interactive elements
-- **After navigation**: Re-fetch elements (nodeIds become invalid after page changes)
+- **Before acting**: Use the active tab from Browser Context, fetch interactive elements
+- **After navigation/clicks**: If the tool response includes "Page Content After Action", the page is loaded — proceed directly without calling \`browser_get_load_status\`. Re-fetch elements only if you need to interact with new elements (nodeIds become invalid after page changes).
 - **After actions**: Confirm successful execution before continuing`
 }
 
