@@ -12,6 +12,7 @@ import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { createHttpServer } from './api/server'
 import { ensureBrowserConnected } from './browser/cdp/connection'
 import { McpContext } from './browser/cdp/context'
@@ -31,8 +32,6 @@ import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
 import { createToolRegistry } from './tools/registry'
 import { VERSION } from './version'
-
-const CDP_CONNECT_TIMEOUT_MS = 10_000
 
 export class Application {
   private config: ServerConfig
@@ -227,10 +226,10 @@ export class Application {
           timeoutId = setTimeout(() => {
             reject(
               new Error(
-                `CDP connection timed out after ${CDP_CONNECT_TIMEOUT_MS}ms`,
+                `CDP connection timed out after ${TIMEOUTS.CDP_CONNECT}ms`,
               ),
             )
-          }, CDP_CONNECT_TIMEOUT_MS)
+          }, TIMEOUTS.CDP_CONNECT)
         }),
       ])
 
