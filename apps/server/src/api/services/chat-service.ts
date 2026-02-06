@@ -18,24 +18,27 @@ import {
 } from '../../lib/clients/gateway'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
+import {
+  detectMcpTransport,
+  type McpTransportType,
+} from '../../lib/mcp-transport-detect'
 import type { BrowserContext, ChatRequest } from '../types'
 
-interface McpHttpServerOptions {
-  httpUrl: string
+interface McpServerOptions {
+  url: string
+  transport: McpTransportType
   headers?: Record<string, string>
   trust?: boolean
 }
 
-function createHttpMcpServerConfig(
-  options: McpHttpServerOptions,
-): MCPServerConfig {
+function createMcpServerConfig(options: McpServerOptions): MCPServerConfig {
   return new MCPServerConfig(
     undefined,
     undefined,
     undefined,
     undefined,
-    undefined,
-    options.httpUrl,
+    options.transport === 'sse' ? options.url : undefined,
+    options.transport === 'streamable-http' ? options.url : undefined,
     options.headers,
     undefined,
     undefined,
@@ -163,8 +166,9 @@ export class ChatService {
     const servers: Record<string, MCPServerConfig> = {}
 
     if (mcpServerUrl) {
-      servers['browseros-mcp'] = createHttpMcpServerConfig({
-        httpUrl: mcpServerUrl,
+      servers['browseros-mcp'] = createMcpServerConfig({
+        url: mcpServerUrl,
+        transport: 'streamable-http',
         headers: {
           Accept: 'application/json, text/event-stream',
           'X-BrowserOS-Source': 'gemini-agent',
@@ -182,8 +186,9 @@ export class ChatService {
           browserosId,
           browserContext.enabledMcpServers,
         )
-        servers['klavis-strata'] = createHttpMcpServerConfig({
-          httpUrl: result.strataServerUrl,
+        servers['klavis-strata'] = createMcpServerConfig({
+          url: result.strataServerUrl,
+          transport: 'streamable-http',
           trust: true,
         })
         logger.info('Added Klavis Strata MCP server', {
@@ -200,14 +205,22 @@ export class ChatService {
     }
 
     if (browserContext?.customMcpServers?.length) {
-      for (const server of browserContext.customMcpServers) {
-        servers[`custom-${server.name}`] = createHttpMcpServerConfig({
-          httpUrl: server.url,
+      const customServers = browserContext.customMcpServers
+      const transports = await Promise.all(
+        customServers.map((server) => detectMcpTransport(server.url)),
+      )
+      for (let i = 0; i < customServers.length; i++) {
+        const server = customServers[i]
+        const transport = transports[i]
+        servers[`custom-${server.name}`] = createMcpServerConfig({
+          url: server.url,
+          transport,
           trust: true,
         })
         logger.info('Added custom MCP server', {
           name: server.name,
           url: server.url,
+          transport,
         })
       }
     }
