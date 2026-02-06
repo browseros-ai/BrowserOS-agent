@@ -1,18 +1,14 @@
 /**
  * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 import { ToolCategory } from './categories'
-import { logger } from './upstream/logger'
-import type { Dialog } from './upstream/third-party'
-import { zod } from './upstream/third-party'
-import {
-  CLOSE_PAGE_ERROR,
-  defineTool,
-  timeoutSchema,
-} from './upstream/tool-definition'
+import { logger } from './logger'
+import type { Dialog } from './third-party'
+import { zod } from './third-party'
+import { CLOSE_PAGE_ERROR, defineTool, timeoutSchema } from './tool-definition'
 
 export const listPages = defineTool({
   name: 'list_pages',

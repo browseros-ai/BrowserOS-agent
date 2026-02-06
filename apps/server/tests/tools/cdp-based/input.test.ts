@@ -16,7 +16,7 @@ import {
   hover,
   uploadFile,
 } from '../../../src/tools/cdp-based/input'
-import { CdpResponse } from '../../../src/tools/cdp-based/upstream/response'
+import { CdpResponse } from '../../../src/tools/cdp-based/response'
 
 import { serverHooks } from '../../__fixtures__/server'
 import { html, withCdpBrowser } from '../../__helpers__/utils'

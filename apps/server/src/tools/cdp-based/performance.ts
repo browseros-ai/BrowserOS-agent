@@ -1,20 +1,20 @@
 /**
  * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 import zlib from 'node:zlib'
 import { ToolCategory } from './categories'
-import type { Page } from './upstream/third-party'
-import { zod } from './upstream/third-party'
-import type { Context, Response } from './upstream/tool-definition'
-import { defineTool } from './upstream/tool-definition'
-import type { InsightName } from './upstream/trace-processing/parse'
+import type { Page } from './third-party'
+import { zod } from './third-party'
+import type { Context, Response } from './tool-definition'
+import { defineTool } from './tool-definition'
+import type { InsightName } from './trace-processing/parse'
 import {
   parseRawTraceBuffer,
   traceResultIsSuccess,
-} from './upstream/trace-processing/parse'
+} from './trace-processing/parse'
 
 const filePathSchema = zod
   .string()

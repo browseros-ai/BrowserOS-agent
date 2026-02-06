@@ -15,7 +15,7 @@ import {
   resizePage,
   selectPage,
 } from '../../../src/tools/cdp-based/pages'
-import { CdpResponse } from '../../../src/tools/cdp-based/upstream/response'
+import { CdpResponse } from '../../../src/tools/cdp-based/response'
 
 import { withCdpBrowser } from '../../__helpers__/utils'
 

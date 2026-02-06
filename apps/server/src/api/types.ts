@@ -18,7 +18,7 @@ import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
 import type { ControllerContext } from '../browser/extension/context'
 import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
-import type { CdpContext } from '../tools/cdp-based/upstream/context'
+import type { CdpContext } from '../tools/cdp-based/context'
 import type { ToolDefinition } from '../tools/types/tool-definition'
 
 // Re-export browser context types for consumers

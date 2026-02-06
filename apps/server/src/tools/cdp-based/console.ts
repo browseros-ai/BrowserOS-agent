@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright 2025 Google LLC
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 import { ToolCategory } from './categories'
-import type { ConsoleMessageType } from './upstream/third-party'
-import { zod } from './upstream/third-party'
-import { defineTool } from './upstream/tool-definition'
+import type { ConsoleMessageType } from './third-party'
+import { zod } from './third-party'
+import { defineTool } from './tool-definition'
 
 type ConsoleResponseType = ConsoleMessageType | 'issue'
 

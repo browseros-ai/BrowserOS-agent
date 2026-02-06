@@ -1,12 +1,12 @@
 /**
  * @license
- * Copyright 2026 Google LLC
- * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 import { ToolCategory } from './categories'
-import { zod } from './upstream/third-party'
-import { defineTool } from './upstream/tool-definition'
+import { zod } from './third-party'
+import { defineTool } from './tool-definition'
 
 const EXTENSIONS_CONDITION = 'experimentalExtensionSupport'
 

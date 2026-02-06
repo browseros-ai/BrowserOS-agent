@@ -12,12 +12,9 @@ import { Mutex } from 'async-mutex'
 import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-import { McpContext } from '../../src/browser/cdp/context'
-import { logger as mcpLogger } from '../../src/lib/logger'
-import { CdpContext } from '../../src/tools/cdp-based/upstream/context'
-import { logger as cdpLogger } from '../../src/tools/cdp-based/upstream/logger'
-import { CdpResponse } from '../../src/tools/cdp-based/upstream/response'
-import { McpResponse } from '../../src/tools/response/mcp-response'
+import { CdpContext } from '../../src/tools/cdp-based/context'
+import { logger as cdpLogger } from '../../src/tools/cdp-based/logger'
+import { CdpResponse } from '../../src/tools/cdp-based/response'
 
 import { ensureBrowserOS } from './setup'
 
@@ -65,42 +62,6 @@ export async function killProcessOnPort(port: number): Promise<void> {
 
 const envMutex = new Mutex()
 let cachedBrowser: Browser | undefined
-
-/**
- * Test helper that provides an isolated browser context for each test.
- *
- * Lifecycle:
- * - First test: Starts full environment (~15-20s)
- * - Subsequent tests: Reuses existing environment (fast)
- * - After suite exits: Environment stays running (ready for next run)
- *
- * Cleanup:
- * - Run `bun run test:cleanup` when you need to kill processes
- */
-export async function withBrowser(
-  cb: (response: McpResponse, context: McpContext) => Promise<void>,
-  _options: { debug?: boolean } = {},
-): Promise<void> {
-  return await envMutex.runExclusive(async () => {
-    const config = await ensureBrowserOS({ skipExtension: true })
-
-    if (!cachedBrowser || !cachedBrowser.connected) {
-      cachedBrowser = await puppeteer.connect({
-        browserURL: `http://127.0.0.1:${config.cdpPort}`,
-      })
-    }
-
-    const response = new McpResponse()
-    const context = await McpContext.from(cachedBrowser, mcpLogger)
-
-    // BrowserOS often starts on `chrome://new-tab-page/`, which can enforce
-    // Trusted Types policies and can yield empty accessibility snapshots.
-    // Keep tests stable by switching the selected page to a fresh about:blank.
-    await context.newPage()
-
-    await cb(response, context)
-  })
-}
 
 export async function withCdpBrowser(
   cb: (response: CdpResponse, context: CdpContext) => Promise<void>,
