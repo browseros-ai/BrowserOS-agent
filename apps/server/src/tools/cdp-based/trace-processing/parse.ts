@@ -13,6 +13,7 @@ import { logger } from '../logger'
 
 export interface TraceResult {
   parsedTrace: unknown
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   insights: Map<string, any> | null
 }
 

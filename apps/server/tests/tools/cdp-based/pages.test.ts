@@ -31,6 +31,7 @@ describe('pages', () => {
       const response = new CdpResponse()
       await listPages.handler({ params: {} }, response, context)
       const result = await response.handle(listPages.name, context)
+      // biome-ignore lint/suspicious/noExplicitAny: test code
       const pages = pagesFromStructured(result.structuredContent as any)
       assert.ok(pages.length >= 1)
       assert.ok(pages.some((p) => p.selected))
@@ -43,6 +44,7 @@ describe('pages', () => {
       await listPages.handler({ params: {} }, before, context)
       const beforeResult = await before.handle(listPages.name, context)
       const beforePages = pagesFromStructured(
+        // biome-ignore lint/suspicious/noExplicitAny: test code
         beforeResult.structuredContent as any,
       )
 
@@ -53,6 +55,7 @@ describe('pages', () => {
         context,
       )
       const result = await response.handle(newPage.name, context)
+      // biome-ignore lint/suspicious/noExplicitAny: test code
       const afterPages = pagesFromStructured(result.structuredContent as any)
       assert.strictEqual(afterPages.length, beforePages.length + 1)
       assert.ok(afterPages.some((p) => p.selected))
@@ -89,6 +92,7 @@ describe('pages', () => {
         context,
       )
       const result = await response.handle(selectPage.name, context)
+      // biome-ignore lint/suspicious/noExplicitAny: test code
       const pageData = pagesFromStructured(result.structuredContent as any)
       assert.ok(pageData.find((p) => p.id === firstId)?.selected)
     })

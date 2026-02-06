@@ -17,6 +17,7 @@ function getJsonResultFromMessage(message: string): unknown {
   return JSON.parse(jsonLine)
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: test helper
 function findUidByName(context: any, name: string): string {
   const snapshot = context.getTextSnapshot?.()
   assert.ok(snapshot, 'Expected text snapshot to be available')

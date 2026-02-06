@@ -14,12 +14,14 @@ export interface ConsoleFormatterOptions {
   fetchDetailedData?: boolean
   id?: number
   devTools?: TargetUniverse
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   resolvedStackTraceForTesting?: any
 }
 
 export class ConsoleFormatter {
   #msg: ConsoleMessage | Error
   #resolvedArgs: unknown[] = []
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   #resolvedStackTrace?: any
   #id?: number
 
@@ -142,6 +144,7 @@ export class ConsoleFormatter {
     return result.join('\n')
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   #formatStackTrace(stackTrace: any): string {
     if (!stackTrace) {
       return ''
@@ -154,10 +157,12 @@ export class ConsoleFormatter {
     ].join('\n')
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   #formatFragment(fragment: any): string {
     return fragment.frames.map(this.#formatFrame.bind(this)).join('\n')
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   #formatAsyncFragment(fragment: any): string {
     const separatorLineLength = 40
     const prefix = `--- ${fragment.description || 'async'} `
@@ -165,6 +170,7 @@ export class ConsoleFormatter {
     return `${separator}\n${this.#formatFragment(fragment)}`
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   #formatFrame(frame: any): string {
     let result = `at ${frame.name ?? '<anonymous>'}`
     if (frame.uiSourceCode) {

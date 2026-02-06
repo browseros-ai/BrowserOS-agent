@@ -33,4 +33,5 @@ export const allCdpTools: Array<ToolDefinition<any>> = [
   ...Object.values(snapshotTools),
 ].filter(
   (v) => typeof v === 'object' && v !== null && 'handler' in v && 'name' in v,
+  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool registry
 ) as Array<ToolDefinition<any>>

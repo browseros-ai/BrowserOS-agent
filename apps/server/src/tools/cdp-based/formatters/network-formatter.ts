@@ -50,6 +50,7 @@ export class NetworkFormatter {
   async #loadDetailedData(): Promise<void> {
     // Load Request Body
     if (this.#request.hasPostData()) {
+      // biome-ignore lint/suspicious/noImplicitAnyLet: upstream code
       let data
       try {
         data = this.#request.postData() ?? (await this.#request.fetchPostData())
@@ -268,6 +269,7 @@ export class NetworkFormatter {
 
 function getSizeLimitedString(text: string, sizeLimit: number) {
   if (text.length > sizeLimit) {
+    // biome-ignore lint/style/useTemplate: upstream code
     return text.substring(0, sizeLimit) + '... <truncated>'
   }
   return text

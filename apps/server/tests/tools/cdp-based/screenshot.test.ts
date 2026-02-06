@@ -23,6 +23,7 @@ describe('screenshot', () => {
       const result = await response.handle(screenshot.name, context)
 
       assert.ok(result.content.length >= 2)
+      // biome-ignore lint/suspicious/noExplicitAny: test code
       const image = result.content.find((c) => c.type === 'image') as any
       assert.ok(image)
       assert.equal(image.mimeType, 'image/png')

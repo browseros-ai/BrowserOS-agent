@@ -27,6 +27,7 @@ function messageFrom(result: {
   return String(result.structuredContent.message ?? '')
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: test helper
 function findUidByName(context: any, name: string): string {
   const snapshot = context.getTextSnapshot?.()
   assert.ok(snapshot, 'Expected text snapshot to be available')
@@ -277,7 +278,9 @@ describe('input', () => {
         messageFrom(result).includes('Successfully filled out the form'),
       )
       assert.ok(result.structuredContent.snapshot)
+      // biome-ignore lint/suspicious/noExplicitAny: test code
       assert.equal(await page.$eval('#a', (el: any) => el.value), 'hello')
+      // biome-ignore lint/suspicious/noExplicitAny: test code
       assert.equal(await page.$eval('#b', (el: any) => el.value), 'world')
     })
   })

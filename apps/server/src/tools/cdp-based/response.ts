@@ -272,6 +272,7 @@ export class CdpResponse implements Response {
     if (this.#attachedConsoleMessageId) {
       const message = context.getConsoleMessageById(
         this.#attachedConsoleMessageId,
+        // biome-ignore lint/suspicious/noExplicitAny: upstream code
       ) as any
       const consoleMessageStableId = this.#attachedConsoleMessageId
       if ('args' in message) {
@@ -297,6 +298,7 @@ export class CdpResponse implements Response {
     if (this.#consoleDataOptions?.include) {
       let messages = context.getConsoleData(
         this.#consoleDataOptions.includePreservedMessages,
+        // biome-ignore lint/suspicious/noExplicitAny: upstream code
       ) as any[]
 
       if (this.#consoleDataOptions.types?.length) {
@@ -376,6 +378,7 @@ export class CdpResponse implements Response {
     })
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: upstream code
   format(
     toolName: string,
     context: CdpContext,
@@ -485,6 +488,7 @@ Call ${handleDialog.name} to handle it before continuing.`)
         []
       for (const insightSet of data.traceSummary.insights?.values() ?? []) {
         for (const [insightName, model] of Object.entries(
+          // biome-ignore lint/suspicious/noExplicitAny: upstream code
           insightSet.model as Record<string, any>,
         )) {
           traceInsights.push({

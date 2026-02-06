@@ -17,6 +17,7 @@ import { CDPSessionEvent } from './third-party'
  */
 export class PuppeteerDevToolsConnection {
   readonly #connection: puppeteer.Connection
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   readonly #observers = new Set<any>()
   readonly #sessionEventHandlers = new Map<string, puppeteer.Handler<unknown>>()
 
@@ -36,6 +37,7 @@ export class PuppeteerDevToolsConnection {
     this.#startForwardingCdpEvents(session)
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   send(method: any, params: any, sessionId: string | undefined): Promise<any> {
     if (sessionId === undefined) {
       throw new Error(
@@ -47,19 +49,19 @@ export class PuppeteerDevToolsConnection {
       // biome-ignore lint/style/useTemplate: upstream code
       throw new Error('Unknown session ' + sessionId)
     }
-    // Rolled protocol version between puppeteer and DevTools doesn't necessarily match
-    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // biome-ignore lint/suspicious/noExplicitAny: upstream code
     return session
       .send(method as any, params)
       .then((result) => ({ result }))
       .catch((error) => ({ error })) as any
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   observe(observer: any): void {
     this.#observers.add(observer)
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   unobserve(observer: any): void {
     this.#observers.delete(observer)
   }
@@ -83,7 +85,8 @@ export class PuppeteerDevToolsConnection {
   #handleEvent(
     sessionId: string,
     type: string | symbol | number,
-    event: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: upstream code
+    event: any,
   ): void {
     if (
       typeof type === 'string' &&
@@ -93,6 +96,7 @@ export class PuppeteerDevToolsConnection {
       // biome-ignore lint/suspicious/useIterableCallbackReturn: upstream code
       this.#observers.forEach((observer) =>
         observer.onEvent({
+          // biome-ignore lint/suspicious/noExplicitAny: upstream code
           method: type as any,
           sessionId,
           params: event,

@@ -207,6 +207,7 @@ export class CdpContext implements Context {
       return request.id === cdpRequestId
     })
     if (!request) {
+      // biome-ignore lint/style/useTemplate: upstream code
       this.logger('no network request for ' + cdpRequestId)
       return
     }
@@ -225,6 +226,7 @@ export class CdpContext implements Context {
     // TODO: index by backendNodeId instead.
     const queue = [this.#textSnapshot.root]
     while (queue.length) {
+      // biome-ignore lint/style/noNonNullAssertion: upstream code
       const current = queue.pop()!
       if (current.backendNodeId === cdpBackendNodeId) {
         return current.id
@@ -253,6 +255,7 @@ export class CdpContext implements Context {
   }
 
   getConsoleMessageStableId(message: ConsoleMessage | Error | unknown): number {
+    // biome-ignore lint/suspicious/noExplicitAny: upstream code
     return this.#consoleCollector.getIdForResource(message as any)
   }
 
@@ -512,6 +515,7 @@ export class CdpContext implements Context {
     for (const devToolsPage of pages) {
       if (devToolsPage.url().startsWith('devtools://')) {
         try {
+          // biome-ignore lint/style/useTemplate: upstream code
           this.logger('Calling getTargetInfo for ' + devToolsPage.url())
           const data = await devToolsPage
             // @ts-expect-error no types for _client().
@@ -611,6 +615,7 @@ export class CdpContext implements Context {
       if (loaderId && backendNodeId) {
         const uniqueBackendId = `${loaderId}_${backendNodeId}`
         if (this.#uniqueBackendNodeIdToMcpId.has(uniqueBackendId)) {
+          // biome-ignore lint/style/noNonNullAssertion: upstream code
           id = this.#uniqueBackendNodeIdToMcpId.get(uniqueBackendId)!
         } else {
           this.#uniqueBackendNodeIdToMcpId.set(uniqueBackendId, id)

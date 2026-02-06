@@ -20,6 +20,7 @@ export function saveLogsToFile(fileName: string): fs.WriteStream {
   debug.enable(namespacesToEnable.join(','))
 
   const logFile = fs.createWriteStream(fileName, { flags: 'a+' })
+  // biome-ignore lint/suspicious/noExplicitAny: upstream code
   debug.log = (...chunks: any[]) => {
     logFile.write(`${chunks.join(' ')}\n`)
   }
