@@ -76,7 +76,7 @@ export class ControllerResponse implements Response {
           const text = snapshot.items.map((item) => item.text).join('\n')
           content.push({
             type: 'text',
-            text: `\n## Page Content After Action\n${text}`,
+            text: `\n## Page Content After Action (page loaded, no need to check load status)\n${text}`,
           })
         }
       } catch {
