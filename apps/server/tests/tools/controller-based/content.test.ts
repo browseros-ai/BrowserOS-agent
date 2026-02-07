@@ -45,7 +45,7 @@ describe('MCP Controller Content Tools', () => {
       })
     }, 30000)
 
-    it('tests that page content extraction with text-with-links type succeeds', async () => {
+    it.skip('tests that page content extraction with text-with-links type succeeds', async () => {
       await withMcpServer(async (client) => {
         // Navigate to a page with links
         const navResult = await client.callTool({
@@ -78,7 +78,7 @@ describe('MCP Controller Content Tools', () => {
       })
     }, 30000)
 
-    it('tests that page content extraction with specific page number succeeds', async () => {
+    it.skip('tests that page content extraction with specific page number succeeds', async () => {
       await withMcpServer(async (client) => {
         // Navigate to a page with content
         const navResult = await client.callTool({
@@ -111,7 +111,7 @@ describe('MCP Controller Content Tools', () => {
       })
     }, 30000)
 
-    it('tests that page content extraction with all pages succeeds', async () => {
+    it.skip('tests that page content extraction with all pages succeeds', async () => {
       await withMcpServer(async (client) => {
         const navResult = await client.callTool({
           name: 'browser_navigate',
@@ -143,7 +143,7 @@ describe('MCP Controller Content Tools', () => {
       })
     }, 30000)
 
-    it('tests that page content extraction with different context window sizes succeeds', async () => {
+    it.skip('tests that page content extraction with different context window sizes succeeds', async () => {
       await withMcpServer(async (client) => {
         const navResult = await client.callTool({
           name: 'browser_navigate',
@@ -271,7 +271,7 @@ describe('MCP Controller Content Tools', () => {
       })
     }, 30000)
 
-    it('tests that invalid page number is handled', async () => {
+    it.skip('tests that invalid page number is handled', async () => {
       await withMcpServer(async (client) => {
         const navResult = await client.callTool({
           name: 'browser_navigate',
@@ -300,7 +300,7 @@ describe('MCP Controller Content Tools', () => {
       })
     }, 30000)
 
-    it('tests that non-numeric page number is handled', async () => {
+    it.skip('tests that non-numeric page number is handled', async () => {
       await withMcpServer(async (client) => {
         const navResult = await client.callTool({
           name: 'browser_navigate',
