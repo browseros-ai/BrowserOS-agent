@@ -49,11 +49,14 @@ export class PuppeteerDevToolsConnection {
       // biome-ignore lint/style/useTemplate: upstream code
       throw new Error('Unknown session ' + sessionId)
     }
-    // biome-ignore lint/suspicious/noExplicitAny: upstream code
-    return session
-      .send(method as any, params)
-      .then((result) => ({ result }))
-      .catch((error) => ({ error })) as any
+    return (
+      session
+        // biome-ignore lint/suspicious/noExplicitAny: upstream code
+        .send(method as any, params)
+        .then((result) => ({ result }))
+        // biome-ignore lint/suspicious/noExplicitAny: upstream code
+        .catch((error) => ({ error })) as any
+    )
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: upstream code

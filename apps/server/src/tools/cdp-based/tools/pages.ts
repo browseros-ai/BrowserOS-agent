@@ -164,6 +164,7 @@ export const navigatePage = defineTool({
 
     try {
       await context.waitForEventsAfterAction(
+        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: upstream code
         async () => {
           switch (request.params.type) {
             case 'url':
