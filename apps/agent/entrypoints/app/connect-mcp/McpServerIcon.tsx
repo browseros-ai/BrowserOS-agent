@@ -20,6 +20,7 @@ import GoogleSvg from '@/assets/mcp-icons/google.svg'
 import GoogleCalendarSvg from '@/assets/mcp-icons/google_calendar.svg'
 import GoogleDocsSvg from '@/assets/mcp-icons/google_docs_editors.svg'
 import GoogleDriveSvg from '@/assets/mcp-icons/google_drive.svg'
+import GoogleFormsSvg from '@/assets/mcp-icons/google_forms.svg'
 import HubSpotSvg from '@/assets/mcp-icons/hubspot.svg'
 import IntercomSvg from '@/assets/mcp-icons/intercom.svg'
 import JiraSvg from '@/assets/mcp-icons/jira.svg'
@@ -52,7 +53,7 @@ const mcpIconMap: Record<string, string> = {
   'Google Docs': GoogleDocsSvg,
   'Google Drive': GoogleDriveSvg,
   'Google Sheets': GoogleSvg,
-  'Google Forms': GoogleSvg,
+  'Google Forms': GoogleFormsSvg,
   Slack: SlackSvg,
   LinkedIn: LinkedinSvg,
   Notion: NotionSvg,
