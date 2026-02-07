@@ -3,13 +3,9 @@
  * Copyright 2025 BrowserOS
  */
 
-/**
- * Image content data for screenshot attachments
- */
-export interface ImageContentData {
-  data: string // base64-encoded image data
-  mimeType: string // e.g., 'image/png'
-}
+export type { ImageContentData } from '../../types/response'
+
+import type { ImageContentData } from '../../types/response'
 
 /**
  * Response builder interface for controller tools.

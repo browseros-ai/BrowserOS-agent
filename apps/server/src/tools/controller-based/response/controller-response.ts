@@ -7,6 +7,7 @@ import type {
   TextContent,
 } from '@modelcontextprotocol/sdk/types.js'
 
+import type { ToolResult } from '../../types/response'
 import type { Context } from '../types/context'
 import type { ImageContentData, Response } from '../types/response'
 
@@ -45,12 +46,6 @@ export class ControllerResponse implements Response {
     this.#structuredContent[key] = value
   }
 
-  get structuredContent(): Record<string, unknown> | undefined {
-    return Object.keys(this.#structuredContent).length > 0
-      ? this.#structuredContent
-      : undefined
-  }
-
   #snapshotTabId: number | null = null
   #screenshotTabId: number | null = null
 
@@ -62,7 +57,7 @@ export class ControllerResponse implements Response {
     this.#screenshotTabId = tabId
   }
 
-  async handle(context: Context): Promise<Array<TextContent | ImageContent>> {
+  async handle(context: Context): Promise<ToolResult> {
     const content = this.toContent()
 
     if (this.#snapshotTabId != null) {
@@ -102,7 +97,10 @@ export class ControllerResponse implements Response {
       }
     }
 
-    return content
+    return {
+      content,
+      structuredContent: this.#structuredContent,
+    }
   }
 
   /**

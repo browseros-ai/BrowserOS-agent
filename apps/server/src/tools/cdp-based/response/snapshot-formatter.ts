@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { TextSnapshot, TextSnapshotNode } from '../context'
+import type { TextSnapshot, TextSnapshotNode } from '../context/cdp-context'
 
 export class SnapshotFormatter {
   #snapshot: TextSnapshot

@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategories } from '../types/tool-categories'
-import type { ElementHandle, Page } from './third-party'
-import { zod } from './third-party'
-import { defineTool } from './tool-definition'
+import { ToolCategories } from '../../types/tool-categories'
+import type { ElementHandle, Page } from '../third-party'
+import { zod } from '../third-party'
+import { defineTool } from '../types/cdp-tool-definition'
 
 export const screenshot = defineTool({
   name: 'take_screenshot',

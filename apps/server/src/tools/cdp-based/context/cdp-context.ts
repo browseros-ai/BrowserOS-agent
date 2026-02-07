@@ -8,6 +8,24 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import type {
+  Browser,
+  ConsoleMessage,
+  Debugger,
+  Dialog,
+  ElementHandle,
+  HTTPRequest,
+  Page,
+  PredefinedNetworkConditions,
+  SerializedAXNode,
+  Viewport,
+} from '../third-party'
+import { Locator } from '../third-party'
+import { listPages } from '../tools/pages'
+import { takeSnapshot } from '../tools/snapshot'
+import type { TraceResult } from '../trace-processing/parse'
+import type { Context, DevToolsData } from '../types/cdp-tool-definition'
+import { CLOSE_PAGE_ERROR } from '../types/cdp-tool-definition'
 import type { TargetUniverse } from './devtools-utils'
 import {
   extractUrlLikeFromDevToolsTitle,
@@ -20,24 +38,6 @@ import {
 } from './extension-registry'
 import type { ListenerMap } from './page-collector'
 import { ConsoleCollector, NetworkCollector } from './page-collector'
-import { listPages } from './pages'
-import { takeSnapshot } from './snapshot'
-import type {
-  Browser,
-  ConsoleMessage,
-  Debugger,
-  Dialog,
-  ElementHandle,
-  HTTPRequest,
-  Page,
-  PredefinedNetworkConditions,
-  SerializedAXNode,
-  Viewport,
-} from './third-party'
-import { Locator } from './third-party'
-import type { Context, DevToolsData } from './tool-definition'
-import { CLOSE_PAGE_ERROR } from './tool-definition'
-import type { TraceResult } from './trace-processing/parse'
 import { WaitForHelper } from './wait-for-helper'
 
 export interface TextSnapshotNode extends SerializedAXNode {

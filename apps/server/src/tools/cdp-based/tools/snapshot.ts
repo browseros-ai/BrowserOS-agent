@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategories } from '../types/tool-categories'
-import { zod } from './third-party'
-import { defineTool, timeoutSchema } from './tool-definition'
+import { ToolCategories } from '../../types/tool-categories'
+import { zod } from '../third-party'
+import { defineTool, timeoutSchema } from '../types/cdp-tool-definition'
 
 export const takeSnapshot = defineTool({
   name: 'take_snapshot',

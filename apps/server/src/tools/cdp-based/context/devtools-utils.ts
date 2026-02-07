@@ -9,7 +9,7 @@
  * loading so the server can start and non-DevTools-dependent tools work.
  */
 
-import type { ConsoleMessage, Page } from './third-party'
+import type { ConsoleMessage, Page } from '../third-party'
 
 export function extractUrlLikeFromDevToolsTitle(
   title: string,

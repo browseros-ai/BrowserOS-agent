@@ -4,40 +4,29 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { ToolCategories } from '../types/tool-categories'
-import { commonSchemas, ERRORS, type Request } from '../types/tool-definition'
-import type { GeolocationOptions, TextSnapshotNode } from './context'
-import type { InstalledExtension } from './extension-registry'
-import type { Dialog, ElementHandle, Page, Viewport, zod } from './third-party'
-import type { InsightName, TraceResult } from './trace-processing/parse'
-import type { PaginationOptions } from './utils/types'
+import type { ImageContentData } from '../../types/response'
+import {
+  type ToolDefinition as BaseToolDefinition,
+  commonSchemas,
+  ERRORS,
+  type Request,
+} from '../../types/tool-definition'
+import type {
+  GeolocationOptions,
+  TextSnapshotNode,
+} from '../context/cdp-context'
+import type { InstalledExtension } from '../context/extension-registry'
+import type { Dialog, ElementHandle, Page, Viewport, zod } from '../third-party'
+import type { InsightName, TraceResult } from '../trace-processing/parse'
+import type { PaginationOptions } from '../utils/types'
 
 export { type Request, commonSchemas, ERRORS }
 
-export interface ToolDefinition<
-  Schema extends zod.ZodRawShape = zod.ZodRawShape,
-> {
-  name: string
-  description: string
-  kind: 'cdp'
-  annotations: {
-    title?: string
-    category: ToolCategories | string
-    readOnlyHint: boolean
-    conditions?: string[]
-  }
-  schema: Schema
-  handler: (
-    request: Request<Schema>,
-    response: Response,
-    context: Context,
-  ) => Promise<void>
-}
+export type { ImageContentData } from '../../types/response'
 
-export interface ImageContentData {
-  data: string
-  mimeType: string
-}
+export type CdpToolDefinition<
+  Schema extends zod.ZodRawShape = zod.ZodRawShape,
+> = BaseToolDefinition<Schema, Context, Response> & { kind: 'cdp' }
 
 export interface SnapshotParams {
   verbose?: boolean
@@ -131,7 +120,7 @@ export type Context = Readonly<{
 }>
 
 export function defineTool<Schema extends zod.ZodRawShape>(
-  definition: ToolDefinition<Schema>,
+  definition: CdpToolDefinition<Schema>,
 ) {
   return definition
 }

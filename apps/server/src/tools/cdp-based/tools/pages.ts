@@ -4,11 +4,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategories } from '../types/tool-categories'
-import { logger } from './logger'
-import type { Dialog } from './third-party'
-import { zod } from './third-party'
-import { CLOSE_PAGE_ERROR, defineTool, timeoutSchema } from './tool-definition'
+import { ToolCategories } from '../../types/tool-categories'
+import { logger } from '../context/logger'
+import type { Dialog } from '../third-party'
+import { zod } from '../third-party'
+import {
+  CLOSE_PAGE_ERROR,
+  defineTool,
+  timeoutSchema,
+} from '../types/cdp-tool-definition'
 
 export const listPages = defineTool({
   name: 'list_pages',

@@ -7,7 +7,7 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-
+import { CdpResponse } from '../../../src/tools/cdp-based/response/cdp-response'
 import {
   click,
   drag,
@@ -15,8 +15,7 @@ import {
   fillForm,
   hover,
   uploadFile,
-} from '../../../src/tools/cdp-based/input'
-import { CdpResponse } from '../../../src/tools/cdp-based/response'
+} from '../../../src/tools/cdp-based/tools/input'
 
 import { serverHooks } from '../../__fixtures__/server'
 import { html, withCdpBrowser } from '../../__helpers__/utils'

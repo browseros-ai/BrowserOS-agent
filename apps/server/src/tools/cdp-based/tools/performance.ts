@@ -5,16 +5,16 @@
  */
 
 import zlib from 'node:zlib'
-import { ToolCategories } from '../types/tool-categories'
-import type { Page } from './third-party'
-import { zod } from './third-party'
-import type { Context, Response } from './tool-definition'
-import { defineTool } from './tool-definition'
-import type { InsightName } from './trace-processing/parse'
+import { ToolCategories } from '../../types/tool-categories'
+import type { Page } from '../third-party'
+import { zod } from '../third-party'
+import type { InsightName } from '../trace-processing/parse'
 import {
   parseRawTraceBuffer,
   traceResultIsSuccess,
-} from './trace-processing/parse'
+} from '../trace-processing/parse'
+import type { Context, Response } from '../types/cdp-tool-definition'
+import { defineTool } from '../types/cdp-tool-definition'
 
 const filePathSchema = zod
   .string()

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type * as puppeteer from './third-party'
-import { CDPSessionEvent } from './third-party'
+import type * as puppeteer from '../third-party'
+import { CDPSessionEvent } from '../third-party'
 
 /**
  * This class makes a puppeteer connection look like DevTools CDPConnection.

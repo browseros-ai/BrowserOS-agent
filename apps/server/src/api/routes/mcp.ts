@@ -11,7 +11,7 @@ import type { ControllerBridge } from '../../browser/extension/bridge'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
-import type { CdpContext } from '../../tools/cdp-based/context'
+import type { CdpContext } from '../../tools/cdp-based/context/cdp-context'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import {

@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategories } from '../types/tool-categories'
-import type { CdpContext, TextSnapshotNode } from './context'
-import { logger } from './logger'
-import type { ElementHandle } from './third-party'
-import { zod } from './third-party'
-import { defineTool } from './tool-definition'
-import { parseKey } from './utils/keyboard'
+import { ToolCategories } from '../../types/tool-categories'
+import type { CdpContext, TextSnapshotNode } from '../context/cdp-context'
+import { logger } from '../context/logger'
+import type { ElementHandle } from '../third-party'
+import { zod } from '../third-party'
+import { defineTool } from '../types/cdp-tool-definition'
+import { parseKey } from '../utils/keyboard'
 
 const dblClickSchema = zod
   .boolean()

@@ -4,14 +4,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type {
-  CallToolResult,
-  ImageContent,
-  TextContent,
-} from '@modelcontextprotocol/sdk/types.js'
-import type { CdpContext } from '../../../tools/cdp-based/context'
-import { CdpResponse } from '../../../tools/cdp-based/response'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
+import type { CdpContext } from '../../../tools/cdp-based/context/cdp-context'
+import { CdpResponse } from '../../../tools/cdp-based/response/cdp-response'
 import type { SessionBrowserState } from '../../../tools/session-browser-state'
+import type { ToolResult } from '../../../tools/types/response'
 import type { ToolDefinition } from '../../../tools/types/tool-definition'
 
 export async function resolveCdpPage(
@@ -54,10 +51,7 @@ export async function dispatchCdpTool(
   params: Record<string, unknown>,
   state: SessionBrowserState,
   cdpContext: CdpContext,
-): Promise<{
-  content: Array<TextContent | ImageContent>
-  structuredContent: Record<string, unknown>
-}> {
+): Promise<ToolResult> {
   const page = await resolveCdpPage(params, state, cdpContext)
   const { pageId: _, ...cleanParams } = params
 

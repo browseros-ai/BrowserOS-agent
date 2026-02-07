@@ -11,7 +11,8 @@ import type { z } from 'zod'
 import type { ControllerBridge } from '../../../browser/extension/bridge'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
-import type { CdpContext } from '../../../tools/cdp-based/context'
+import type { CdpContext } from '../../../tools/cdp-based/context/cdp-context'
+import type { ToolResult } from '../../../tools/types/response'
 import type { ToolDefinition } from '../../../tools/types/tool-definition'
 import { CDP_UNAVAILABLE_RESULT, dispatchCdpTool } from './dispatch-cdp'
 import { dispatchControllerTool } from './dispatch-controller'
@@ -66,13 +67,7 @@ export function createMcpServer(
           )
 
           try {
-            let result: {
-              content: Array<
-                | import('@modelcontextprotocol/sdk/types.js').TextContent
-                | import('@modelcontextprotocol/sdk/types.js').ImageContent
-              >
-              structuredContent: Record<string, unknown>
-            }
+            let result: ToolResult
 
             if (tool.kind === 'cdp') {
               const cdpContext = await deps.ensureCdpContext()
