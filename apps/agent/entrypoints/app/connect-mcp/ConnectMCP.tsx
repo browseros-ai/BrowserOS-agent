@@ -40,7 +40,8 @@ export const ConnectMCP: FC = () => {
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const { trigger: removeManagedServerMutation } = useRemoveManagedServer()
 
-  const { data: serversList } = useGetMCPServersList()
+  const { data: serversList, isLoading: isServersListLoading } =
+    useGetMCPServersList()
 
   const { data: userMCPIntegrations, isLoading: isUserMCPIntegrationsLoading } =
     useGetUserMCPIntegrations()
@@ -288,7 +289,7 @@ export const ConnectMCP: FC = () => {
       <AvailableManagedServers
         availableServers={availableServers}
         onAddServer={addManagedServer}
-        isLoading={false}
+        isLoading={isServersListLoading}
       />
 
       <AddManagedMCPDialog
