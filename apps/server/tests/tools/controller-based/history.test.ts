@@ -18,9 +18,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { query: 'example' },
         })
 
-        console.log('\n=== Search History Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
 
@@ -44,9 +41,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { query: 'test', maxResults: 10 },
         })
 
-        console.log('\n=== Search History with Max Results Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -62,9 +56,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { query: '' },
         })
 
-        console.log('\n=== Search History Empty Query Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -79,9 +70,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { query: 'test@example.com' },
         })
 
-        console.log('\n=== Search History Special Characters Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -92,9 +80,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_search_history',
           arguments: { query: 'test', maxResults: 1000 },
         })
-
-        console.log('\n=== Search History Large Max Results Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -108,9 +93,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_search_history',
           arguments: { query: 'test', maxResults: 'invalid' },
         })
-
-        console.log('\n=== Search History Invalid Max Results Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -130,9 +112,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { query: 'test', maxResults: 0 },
         })
 
-        console.log('\n=== Search History Zero Max Results Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -151,9 +130,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { query: 'test', maxResults: -1 },
         })
 
-        console.log('\n=== Search History Negative Max Results Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         // Should either succeed with 0 results or handle gracefully
         assert.ok(result, 'Should return a result')
       })
@@ -167,9 +143,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_get_recent_history',
           arguments: {},
         })
-
-        console.log('\n=== Get Recent History Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
@@ -194,9 +167,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { count: 10 },
         })
 
-        console.log('\n=== Get Recent History with Count Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -211,9 +181,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { count: 500 },
         })
 
-        console.log('\n=== Get Recent History Large Count Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -224,9 +191,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_get_recent_history',
           arguments: { count: 1 },
         })
-
-        console.log('\n=== Get Recent History Count 1 Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -240,9 +204,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_get_recent_history',
           arguments: { count: 'invalid' },
         })
-
-        console.log('\n=== Get Recent History Invalid Count Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -262,9 +223,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { count: 0 },
         })
 
-        console.log('\n=== Get Recent History Zero Count Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -281,9 +239,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_get_recent_history',
           arguments: { count: -1 },
         })
-
-        console.log('\n=== Get Recent History Negative Count Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should either succeed with 0 results or handle gracefully
         assert.ok(result, 'Should return a result')
@@ -349,9 +304,6 @@ describe('MCP Controller History Tools', () => {
           arguments: { count: 5 },
         })
 
-        console.log('\n=== Workflow: Get Recent History ===')
-        console.log(JSON.stringify(recentResult, null, 2))
-
         assert.ok(!recentResult.isError, 'Get recent should succeed')
 
         // Search history
@@ -359,9 +311,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_search_history',
           arguments: { query: 'browseros', maxResults: 10 },
         })
-
-        console.log('\n=== Workflow: Search History ===')
-        console.log(JSON.stringify(searchResult, null, 2))
 
         assert.ok(!searchResult.isError, 'Search should succeed')
       })
@@ -374,9 +323,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_get_recent_history',
           arguments: { count: 20 },
         })
-
-        console.log('\n=== Workflow: First Recent History Call ===')
-        console.log(JSON.stringify(result1, null, 2))
 
         assert.ok(!result1.isError, 'First call should succeed')
 
@@ -391,9 +337,6 @@ describe('MCP Controller History Tools', () => {
           name: 'browser_get_recent_history',
           arguments: { count: 20 },
         })
-
-        console.log('\n=== Workflow: Second Recent History Call ===')
-        console.log(JSON.stringify(result2, null, 2))
 
         assert.ok(!result2.isError, 'Second call should succeed')
       })

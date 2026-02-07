@@ -35,22 +35,6 @@ describe('MCP Controller Screenshot Tool', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Default Screenshot Response ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...result,
-              content: result.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 data ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be an array')
         assert.ok(result.content.length > 0, 'Content should not be empty')
@@ -102,22 +86,6 @@ describe('MCP Controller Screenshot Tool', () => {
           },
         })
 
-        console.log('\n=== Small Screenshot Response ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...result,
-              content: result.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 data ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!result.isError, 'Should succeed')
 
         const imageContent = result.content.find((c) => c.type === 'image')
@@ -149,22 +117,6 @@ describe('MCP Controller Screenshot Tool', () => {
           },
         })
 
-        console.log('\n=== Medium Screenshot Response ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...result,
-              content: result.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 data ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!result.isError, 'Should succeed')
 
         const imageContent = result.content.find((c) => c.type === 'image')
@@ -194,22 +146,6 @@ describe('MCP Controller Screenshot Tool', () => {
             size: 'large',
           },
         })
-
-        console.log('\n=== Large Screenshot Response ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...result,
-              content: result.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 data ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
 
         assert.ok(!result.isError, 'Should succeed')
 
@@ -242,22 +178,6 @@ describe('MCP Controller Screenshot Tool', () => {
           },
         })
 
-        console.log('\n=== Custom Size Screenshot Response ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...result,
-              content: result.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 data ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!result.isError, 'Should succeed')
 
         const imageContent = result.content.find((c) => c.type === 'image')
@@ -288,22 +208,6 @@ describe('MCP Controller Screenshot Tool', () => {
           },
         })
 
-        console.log('\n=== Screenshot with Highlights Response ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...result,
-              content: result.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 data ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!result.isError, 'Should succeed')
 
         const imageContent = result.content.find((c) => c.type === 'image')
@@ -319,9 +223,6 @@ describe('MCP Controller Screenshot Tool', () => {
           name: 'browser_get_screenshot',
           arguments: { tabId: 999999999 },
         })
-
-        console.log('\n=== Screenshot Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
@@ -339,9 +240,6 @@ describe('MCP Controller Screenshot Tool', () => {
           name: 'browser_get_screenshot',
           arguments: { tabId: 'invalid' },
         })
-
-        console.log('\n=== Screenshot Invalid Tab Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -375,9 +273,6 @@ describe('MCP Controller Screenshot Tool', () => {
             size: 'invalid-size',
           },
         })
-
-        console.log('\n=== Screenshot Invalid Size Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -413,9 +308,6 @@ describe('MCP Controller Screenshot Tool', () => {
             height: 600,
           },
         })
-
-        console.log('\n=== Screenshot Negative Dimensions Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // May be rejected by validation or extension
         assert.ok(result, 'Should return a result')
@@ -503,9 +395,6 @@ describe('MCP Controller Screenshot Tool', () => {
           },
         })
 
-        console.log('\n=== Workflow: Navigate Response ===')
-        console.log(JSON.stringify(navResult, null, 2))
-
         const navText = navResult.content.find((c) => c.type === 'text')
         const tabIdMatch = navText.text.match(/Tab ID: (\d+)/)
         const tabId = parseInt(tabIdMatch[1], 10)
@@ -516,22 +405,6 @@ describe('MCP Controller Screenshot Tool', () => {
           arguments: { tabId, size: 'small' },
         })
 
-        console.log('\n=== Workflow: Small Screenshot ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...smallResult,
-              content: smallResult.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!smallResult.isError, 'Small screenshot should succeed')
 
         // Take large screenshot
@@ -540,22 +413,6 @@ describe('MCP Controller Screenshot Tool', () => {
           arguments: { tabId, size: 'large' },
         })
 
-        console.log('\n=== Workflow: Large Screenshot ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...largeResult,
-              content: largeResult.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
-
         assert.ok(!largeResult.isError, 'Large screenshot should succeed')
 
         // Take custom size screenshot
@@ -563,22 +420,6 @@ describe('MCP Controller Screenshot Tool', () => {
           name: 'browser_get_screenshot',
           arguments: { tabId, width: 1024, height: 768 },
         })
-
-        console.log('\n=== Workflow: Custom Screenshot ===')
-        console.log(
-          JSON.stringify(
-            {
-              ...customResult,
-              content: customResult.content.map((c) =>
-                c.type === 'image'
-                  ? { ...c, data: `<base64 ${c.data?.length || 0} chars>` }
-                  : c,
-              ),
-            },
-            null,
-            2,
-          ),
-        )
 
         assert.ok(!customResult.isError, 'Custom screenshot should succeed')
       })

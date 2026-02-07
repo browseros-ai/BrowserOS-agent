@@ -33,9 +33,6 @@ describe('MCP Controller Scrolling Tools', () => {
         })
         const scrollContent = scrollResult.content as McpContentItem[]
 
-        console.log('\n=== Scroll Down Response ===')
-        console.log(JSON.stringify(scrollResult, null, 2))
-
         assert.ok(!scrollResult.isError, 'Should succeed')
         assert.ok(Array.isArray(scrollContent), 'Content should be array')
         assert.ok(scrollContent.length > 0, 'Should have content')
@@ -83,9 +80,6 @@ describe('MCP Controller Scrolling Tools', () => {
         })
         const scrollContent = scrollResult.content as McpContentItem[]
 
-        console.log('\n=== Scroll Up Response ===')
-        console.log(JSON.stringify(scrollResult, null, 2))
-
         assert.ok(!scrollResult.isError, 'Should succeed')
         assert.ok(Array.isArray(scrollContent), 'Content should be array')
 
@@ -108,9 +102,6 @@ describe('MCP Controller Scrolling Tools', () => {
         })
         const content = result.content as McpContentItem[]
 
-        console.log('\n=== Scroll Down Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(content), 'Should have content array')
 
@@ -129,9 +120,6 @@ describe('MCP Controller Scrolling Tools', () => {
         })
         const content = result.content as McpContentItem[]
 
-        console.log('\n=== Scroll Up Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(content), 'Should have content array')
 
@@ -148,9 +136,6 @@ describe('MCP Controller Scrolling Tools', () => {
           name: 'browser_scroll_down',
           arguments: { tabId: 'invalid' },
         })
-
-        console.log('\n=== Scroll Down Invalid Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -169,9 +154,6 @@ describe('MCP Controller Scrolling Tools', () => {
           name: 'browser_scroll_up',
           arguments: { tabId: 'invalid' },
         })
-
-        console.log('\n=== Scroll Up Invalid Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -256,9 +238,6 @@ describe('MCP Controller Scrolling Tools', () => {
         })
         const navContent = navResult.content as McpContentItem[]
 
-        console.log('\n=== Workflow: Navigate Response ===')
-        console.log(JSON.stringify(navResult, null, 2))
-
         assert.ok(!navResult.isError, 'Navigation should succeed')
 
         const navText = navContent.find((c) => c.type === 'text')
@@ -270,9 +249,6 @@ describe('MCP Controller Scrolling Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Workflow: First Scroll Down ===')
-        console.log(JSON.stringify(scroll1, null, 2))
-
         assert.ok(!scroll1.isError, 'First scroll down should succeed')
 
         const scroll2 = await client.callTool({
@@ -280,18 +256,12 @@ describe('MCP Controller Scrolling Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Workflow: Second Scroll Down ===')
-        console.log(JSON.stringify(scroll2, null, 2))
-
         assert.ok(!scroll2.isError, 'Second scroll down should succeed')
 
         const scroll3 = await client.callTool({
           name: 'browser_scroll_up',
           arguments: { tabId },
         })
-
-        console.log('\n=== Workflow: Scroll Up ===')
-        console.log(JSON.stringify(scroll3, null, 2))
 
         assert.ok(!scroll3.isError, 'Scroll up should succeed')
       })

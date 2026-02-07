@@ -18,9 +18,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: {},
         })
 
-        console.log('\n=== Get Active Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be an array')
         assert.ok(result.content.length > 0, 'Content should not be empty')
@@ -49,9 +46,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: {},
         })
 
-        console.log('\n=== List Tabs Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
         assert.ok(result.content.length > 0, 'Should have content')
@@ -72,9 +66,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_list_tabs',
           arguments: {},
         })
-
-        console.log('\n=== List Tabs Structured Content ===')
-        console.log(JSON.stringify(result.structuredContent, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(result.structuredContent, 'Should have structuredContent')
@@ -116,9 +107,6 @@ describe('MCP Controller Tab Management Tools', () => {
           },
         })
 
-        console.log('\n=== Open Tab with URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
         assert.ok(result.content.length > 0, 'Should have content')
@@ -140,9 +128,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_open_tab',
           arguments: {},
         })
-
-        console.log('\n=== Open Tab without URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
@@ -166,9 +151,6 @@ describe('MCP Controller Tab Management Tools', () => {
             active: false,
           },
         })
-
-        console.log('\n=== Open Background Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
@@ -202,9 +184,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Close Tab Response ===')
-        console.log(JSON.stringify(closeResult, null, 2))
-
         assert.ok(!closeResult.isError, 'Should succeed')
         assert.ok(Array.isArray(closeResult.content), 'Content should be array')
 
@@ -223,9 +202,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_close_tab',
           arguments: { tabId: 999999999 },
         })
-
-        console.log('\n=== Close Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
@@ -247,9 +223,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_close_tab',
           arguments: { tabId: 'invalid' },
         })
-
-        console.log('\n=== Close Tab with Invalid ID Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -289,9 +262,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Switch Tab Response ===')
-        console.log(JSON.stringify(switchResult, null, 2))
-
         assert.ok(!switchResult.isError, 'Should succeed')
         assert.ok(
           Array.isArray(switchResult.content),
@@ -314,9 +284,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_switch_tab',
           arguments: { tabId: 999999999 },
         })
-
-        console.log('\n=== Switch to Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
@@ -352,9 +319,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Get Load Status Response ===')
-        console.log(JSON.stringify(statusResult, null, 2))
-
         assert.ok(!statusResult.isError, 'Should succeed')
         assert.ok(
           Array.isArray(statusResult.content),
@@ -388,9 +352,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_get_load_status',
           arguments: { tabId: 999999999 },
         })
-
-        console.log('\n=== Get Load Status Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
@@ -465,9 +426,6 @@ describe('MCP Controller Tab Management Tools', () => {
           },
         })
 
-        console.log('\n=== Lifecycle: Open Response ===')
-        console.log(JSON.stringify(openResult, null, 2))
-
         assert.ok(!openResult.isError, 'Open should succeed')
 
         // Extract tab ID
@@ -482,9 +440,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Lifecycle: Switch Response ===')
-        console.log(JSON.stringify(switchResult, null, 2))
-
         assert.ok(!switchResult.isError, 'Switch should succeed')
 
         // Verify it's now active
@@ -492,9 +447,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_get_active_tab',
           arguments: {},
         })
-
-        console.log('\n=== Lifecycle: Verify Active Response ===')
-        console.log(JSON.stringify(activeResult, null, 2))
 
         assert.ok(!activeResult.isError, 'Get active should succeed')
         const activeText = activeResult.content.find((c) => c.type === 'text')
@@ -509,9 +461,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Lifecycle: Close Response ===')
-        console.log(JSON.stringify(closeResult, null, 2))
-
         assert.ok(!closeResult.isError, 'Close should succeed')
       })
     }, 30000)
@@ -524,9 +473,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_list_tab_groups',
           arguments: {},
         })
-
-        console.log('\n=== List Tab Groups Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be an array')
@@ -578,9 +524,6 @@ describe('MCP Controller Tab Management Tools', () => {
             color: 'blue',
           },
         })
-
-        console.log('\n=== Group Tabs Response ===')
-        console.log(JSON.stringify(groupResult, null, 2))
 
         assert.ok(!groupResult.isError, 'Group should succeed')
         const groupText = groupResult.content.find((c) => c.type === 'text')
@@ -648,9 +591,6 @@ describe('MCP Controller Tab Management Tools', () => {
           },
         })
 
-        console.log('\n=== Update Tab Group Response ===')
-        console.log(JSON.stringify(updateResult, null, 2))
-
         assert.ok(!updateResult.isError, 'Update should succeed')
         const updateText = updateResult.content.find((c) => c.type === 'text')
         assert.ok(updateText, 'Should have text content')
@@ -702,9 +642,6 @@ describe('MCP Controller Tab Management Tools', () => {
           arguments: { tabIds: [tabId] },
         })
 
-        console.log('\n=== Ungroup Tabs Response ===')
-        console.log(JSON.stringify(ungroupResult, null, 2))
-
         assert.ok(!ungroupResult.isError, 'Ungroup should succeed')
         const ungroupText = ungroupResult.content.find((c) => c.type === 'text')
         assert.ok(ungroupText, 'Should have text content')
@@ -740,9 +677,6 @@ describe('MCP Controller Tab Management Tools', () => {
         const tab2Text = tab2Result.content.find((c) => c.type === 'text')
         const tabId2 = parseInt(tab2Text.text.match(/Tab ID: (\d+)/)[1], 10)
 
-        console.log('\n=== Workflow: Created tabs ===')
-        console.log(`Tab IDs: ${tabId1}, ${tabId2}`)
-
         // Step 2: Group the tabs
         const groupResult = await client.callTool({
           name: 'browser_group_tabs',
@@ -754,9 +688,6 @@ describe('MCP Controller Tab Management Tools', () => {
         })
         assert.ok(!groupResult.isError, 'Group should succeed')
         const groupId = groupResult.structuredContent.groupId
-
-        console.log('\n=== Workflow: Grouped tabs ===')
-        console.log(`Group ID: ${groupId}`)
 
         // Step 3: List groups to verify
         const listResult = await client.callTool({
@@ -774,9 +705,6 @@ describe('MCP Controller Tab Management Tools', () => {
         )
         assert.strictEqual(ourGroup.color, 'purple', 'Color should match')
 
-        console.log('\n=== Workflow: Verified group in list ===')
-        console.log(JSON.stringify(ourGroup, null, 2))
-
         // Step 4: Update the group
         const updateResult = await client.callTool({
           name: 'browser_update_tab_group',
@@ -788,17 +716,12 @@ describe('MCP Controller Tab Management Tools', () => {
         })
         assert.ok(!updateResult.isError, 'Update should succeed')
 
-        console.log('\n=== Workflow: Updated group ===')
-        console.log(JSON.stringify(updateResult.structuredContent, null, 2))
-
         // Step 5: Ungroup tabs
         const ungroupResult = await client.callTool({
           name: 'browser_ungroup_tabs',
           arguments: { tabIds: [tabId1, tabId2] },
         })
         assert.ok(!ungroupResult.isError, 'Ungroup should succeed')
-
-        console.log('\n=== Workflow: Ungrouped tabs ===')
 
         // Step 6: Clean up
         await client.callTool({
@@ -809,8 +732,6 @@ describe('MCP Controller Tab Management Tools', () => {
           name: 'browser_close_tab',
           arguments: { tabId: tabId2 },
         })
-
-        console.log('\n=== Workflow: Complete ===')
       })
     }, 60000)
   })

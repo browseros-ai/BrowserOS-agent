@@ -30,9 +30,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text' },
         })
 
-        console.log('\n=== Get Page Content (Text) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(Array.isArray(result.content), 'Content should be array')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -67,9 +64,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text-with-links' },
         })
 
-        console.log('\n=== Get Page Content (Text with Links) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(textContent, 'Should have text content')
 
@@ -103,9 +97,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text', page: '1' },
         })
 
-        console.log('\n=== Get Page Content (Page 1) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(textContent, 'Should have text content')
 
@@ -137,9 +128,6 @@ describe('MCP Controller Content Tools', () => {
           name: 'browser_get_page_content',
           arguments: { tabId, type: 'text', page: 'all' },
         })
-
-        console.log('\n=== Get Page Content (All Pages) Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(textContent, 'Should have text content')
@@ -177,11 +165,6 @@ describe('MCP Controller Content Tools', () => {
             arguments: { tabId, type: 'text', contextWindow },
           })
 
-          console.log(
-            `\n=== Get Page Content (${contextWindow} window) Response ===`,
-          )
-          console.log(JSON.stringify(result, null, 2))
-
           const textContent = result.content.find((c) => c.type === 'text')
           assert.ok(textContent, 'Should have text content')
 
@@ -215,9 +198,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text' },
         })
 
-        console.log('\n=== Get Page Content (Empty Page) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -233,9 +213,6 @@ describe('MCP Controller Content Tools', () => {
           name: 'browser_get_page_content',
           arguments: { tabId: 999999999, type: 'text' },
         })
-
-        console.log('\n=== Get Page Content Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
@@ -253,9 +230,6 @@ describe('MCP Controller Content Tools', () => {
           name: 'browser_get_page_content',
           arguments: { tabId: 'invalid', type: 'text' },
         })
-
-        console.log('\n=== Get Page Content Invalid Tab Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -286,9 +260,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'invalid-type' },
         })
 
-        console.log('\n=== Get Page Content Invalid Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -318,9 +289,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text', page: '999' },
         })
 
-        console.log('\n=== Get Page Content Invalid Page Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should not throw error')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -349,9 +317,6 @@ describe('MCP Controller Content Tools', () => {
           name: 'browser_get_page_content',
           arguments: { tabId, type: 'text', page: 'invalid' },
         })
-
-        console.log('\n=== Get Page Content Non-Numeric Page Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should not throw error')
 
@@ -429,9 +394,6 @@ describe('MCP Controller Content Tools', () => {
           },
         })
 
-        console.log('\n=== Workflow: Navigate Response ===')
-        console.log(JSON.stringify(navResult, null, 2))
-
         const navText = navResult.content.find((c) => c.type === 'text')
         const tabIdMatch = navText.text.match(/Tab ID: (\d+)/)
         const tabId = parseInt(tabIdMatch[1], 10)
@@ -442,9 +404,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text' },
         })
 
-        console.log('\n=== Workflow: Extract Text ===')
-        console.log(JSON.stringify(textResult, null, 2))
-
         assert.ok(!textResult.isError, 'Text extraction should succeed')
 
         // Extract text with links
@@ -452,9 +411,6 @@ describe('MCP Controller Content Tools', () => {
           name: 'browser_get_page_content',
           arguments: { tabId, type: 'text-with-links' },
         })
-
-        console.log('\n=== Workflow: Extract Text with Links ===')
-        console.log(JSON.stringify(linksResult, null, 2))
 
         assert.ok(
           !linksResult.isError,
@@ -486,9 +442,6 @@ describe('MCP Controller Content Tools', () => {
           arguments: { tabId, type: 'text', page: 'all', contextWindow: '20k' },
         })
 
-        console.log('\n=== Workflow: Extract All Pages ===')
-        console.log(JSON.stringify(allPagesResult, null, 2))
-
         assert.ok(
           !allPagesResult.isError,
           'All pages extraction should succeed',
@@ -499,9 +452,6 @@ describe('MCP Controller Content Tools', () => {
           name: 'browser_get_page_content',
           arguments: { tabId, type: 'text', page: '1', contextWindow: '20k' },
         })
-
-        console.log('\n=== Workflow: Extract Page 1 ===')
-        console.log(JSON.stringify(page1Result, null, 2))
 
         assert.ok(!page1Result.isError, 'Page 1 extraction should succeed')
       })

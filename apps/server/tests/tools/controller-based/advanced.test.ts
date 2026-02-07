@@ -27,9 +27,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, code: '1 + 1' },
         })
 
-        console.log('\n=== Execute Simple JavaScript Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -58,9 +55,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, code: '"Hello World"' },
         })
 
-        console.log('\n=== Execute JS Returning String Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -84,9 +78,6 @@ describe('MCP Controller Advanced Tools', () => {
           },
         })
 
-        console.log('\n=== Execute JS Returning Object Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -106,9 +97,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_execute_javascript',
           arguments: { tabId, code: '[1, 2, 3, 4, 5]' },
         })
-
-        console.log('\n=== Execute JS Returning Array Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -133,9 +121,6 @@ describe('MCP Controller Advanced Tools', () => {
           },
         })
 
-        console.log('\n=== Execute DOM Manipulation JS Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -156,9 +141,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, code: 'undefined' },
         })
 
-        console.log('\n=== Execute JS Returning Undefined Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -178,9 +160,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_execute_javascript',
           arguments: { tabId, code: 'null' },
         })
-
-        console.log('\n=== Execute JS Returning Null Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -208,9 +187,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, code },
         })
 
-        console.log('\n=== Execute Multiline JS Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -223,9 +199,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_execute_javascript',
           arguments: { tabId: 1 },
         })
-
-        console.log('\n=== Execute JS Missing Code Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -244,9 +217,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_execute_javascript',
           arguments: { code: '1 + 1' },
         })
-
-        console.log('\n=== Execute JS Missing TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -275,9 +245,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, code: 'invalid javascript syntax {{{' },
         })
 
-        console.log('\n=== Execute Invalid JS Syntax Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         // Should either error or return error in result
         assert.ok(result, 'Should return a result')
       })
@@ -289,9 +256,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_execute_javascript',
           arguments: { tabId: 999999, code: '1 + 1' },
         })
-
-        console.log('\n=== Execute JS Invalid TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should error
         assert.ok(result.isError || result.content, 'Should handle invalid tab')
@@ -316,9 +280,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, key: 'Enter' },
         })
 
-        console.log('\n=== Send Enter Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -342,9 +303,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, key: 'Escape' },
         })
 
-        console.log('\n=== Send Escape Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -364,9 +322,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_send_keys',
           arguments: { tabId, key: 'Tab' },
         })
-
-        console.log('\n=== Send Tab Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -393,8 +348,6 @@ describe('MCP Controller Advanced Tools', () => {
 
           assert.ok(!result.isError, `Sending ${key} should succeed`)
         }
-
-        console.log('\n=== Send Arrow Keys Complete ===')
       })
     }, 30000)
 
@@ -419,8 +372,6 @@ describe('MCP Controller Advanced Tools', () => {
 
           assert.ok(!result.isError, `Sending ${key} should succeed`)
         }
-
-        console.log('\n=== Send Navigation Keys Complete ===')
       })
     }, 30000)
 
@@ -439,9 +390,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_send_keys',
           arguments: { tabId, key: 'Delete' },
         })
-
-        console.log('\n=== Send Delete Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -463,9 +411,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId, key: 'Backspace' },
         })
 
-        console.log('\n=== Send Backspace Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -478,9 +423,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_send_keys',
           arguments: { tabId: 1 },
         })
-
-        console.log('\n=== Send Keys Missing Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -500,9 +442,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId: 1, key: 'InvalidKey' },
         })
 
-        console.log('\n=== Send Keys Invalid Key Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -520,9 +459,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_send_keys',
           arguments: { key: 'Enter' },
         })
-
-        console.log('\n=== Send Keys Missing TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -542,9 +478,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: { tabId: 999999, key: 'Enter' },
         })
 
-        console.log('\n=== Send Keys Invalid TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         // Should error
         assert.ok(result.isError || result.content, 'Should handle invalid tab')
       })
@@ -558,9 +491,6 @@ describe('MCP Controller Advanced Tools', () => {
           name: 'browser_check_availability',
           arguments: {},
         })
-
-        console.log('\n=== Check Availability Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
@@ -646,9 +576,6 @@ describe('MCP Controller Advanced Tools', () => {
           arguments: {},
         })
 
-        console.log('\n=== Workflow: Check Availability ===')
-        console.log(JSON.stringify(availResult, null, 2))
-
         assert.ok(!availResult.isError, 'Availability check should succeed')
 
         // Execute JavaScript
@@ -668,9 +595,6 @@ describe('MCP Controller Advanced Tools', () => {
             code: 'window.location.href',
           },
         })
-
-        console.log('\n=== Workflow: Execute JavaScript ===')
-        console.log(JSON.stringify(jsResult, null, 2))
 
         assert.ok(!jsResult.isError, 'JavaScript execution should succeed')
       })
@@ -716,8 +640,6 @@ describe('MCP Controller Advanced Tools', () => {
         })
 
         assert.ok(!js2Result.isError, 'Second JS execution should succeed')
-
-        console.log('\n=== Workflow: JS → Keys → JS Complete ===')
       })
     }, 30000)
 
@@ -742,8 +664,6 @@ describe('MCP Controller Advanced Tools', () => {
 
           assert.ok(!result.isError, `Sending ${key} should succeed`)
         }
-
-        console.log('\n=== Workflow: Multiple Key Sequence Complete ===')
       })
     }, 30000)
   })

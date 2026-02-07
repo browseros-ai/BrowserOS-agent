@@ -33,9 +33,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, simplified: true },
         })
 
-        console.log('\n=== Get Interactive Elements (Simplified) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
 
@@ -71,9 +68,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, simplified: false },
         })
 
-        console.log('\n=== Get Interactive Elements (Full) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -104,9 +98,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Get Interactive Elements (No Elements) Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -127,9 +118,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId: 999999999 },
         })
 
-        console.log('\n=== Get Interactive Elements Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
 
@@ -146,9 +134,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_get_interactive_elements',
           arguments: { tabId: 'invalid' },
         })
-
-        console.log('\n=== Get Interactive Elements Invalid Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -199,9 +184,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId },
         })
 
-        console.log('\n=== Click Element Response ===')
-        console.log(JSON.stringify(clickResult, null, 2))
-
         assert.ok(!clickResult.isError, 'Should succeed')
 
         const clickText = clickResult.content.find((c) => c.type === 'text')
@@ -225,9 +207,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_click_element',
           arguments: { tabId: 999999999, nodeId: 1 },
         })
-
-        console.log('\n=== Click Element Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(result.content), 'Should have content array')
@@ -257,9 +236,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId: 999999999 },
         })
 
-        console.log('\n=== Click Element Invalid Node Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result, 'Should return a result')
 
         if (result.isError) {
@@ -275,9 +251,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_click_element',
           arguments: { tabId: 'invalid', nodeId: 'invalid' },
         })
-
-        console.log('\n=== Click Element Invalid Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -324,9 +297,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId, text: 'Hello World' },
         })
 
-        console.log('\n=== Type Text Response ===')
-        console.log(JSON.stringify(typeResult, null, 2))
-
         assert.ok(!typeResult.isError, 'Should succeed')
 
         const typeText = typeResult.content.find((c) => c.type === 'text')
@@ -367,9 +337,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId, text: '' },
         })
 
-        console.log('\n=== Type Empty String Response ===')
-        console.log(JSON.stringify(typeResult, null, 2))
-
         assert.ok(!typeResult.isError, 'Should succeed')
       })
     }, 30000)
@@ -403,9 +370,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId, text: '!@#$%^&*()_+-={}[]|:";\'<>?,./' },
         })
 
-        console.log('\n=== Type Special Characters Response ===')
-        console.log(JSON.stringify(typeResult, null, 2))
-
         assert.ok(!typeResult.isError, 'Should succeed')
       })
     }, 30000)
@@ -418,9 +382,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_type_text',
           arguments: { tabId: 999999999, nodeId: 1, text: 'test' },
         })
-
-        console.log('\n=== Type Text Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
 
@@ -448,9 +409,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_type_text',
           arguments: { tabId, nodeId: 999999999, text: 'test' },
         })
-
-        console.log('\n=== Type Text Invalid Node Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
 
@@ -495,9 +453,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId },
         })
 
-        console.log('\n=== Clear Input Response ===')
-        console.log(JSON.stringify(clearResult, null, 2))
-
         assert.ok(!clearResult.isError, 'Should succeed')
 
         const clearText = clearResult.content.find((c) => c.type === 'text')
@@ -517,9 +472,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_clear_input',
           arguments: { tabId: 999999999, nodeId: 1 },
         })
-
-        console.log('\n=== Clear Input Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
 
@@ -547,9 +499,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_clear_input',
           arguments: { tabId, nodeId: 999999999 },
         })
-
-        console.log('\n=== Clear Input Invalid Node Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
 
@@ -594,9 +543,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId },
         })
 
-        console.log('\n=== Scroll To Element Response ===')
-        console.log(JSON.stringify(scrollResult, null, 2))
-
         assert.ok(!scrollResult.isError, 'Should succeed')
 
         const scrollText = scrollResult.content.find((c) => c.type === 'text')
@@ -616,9 +562,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_scroll_to_element',
           arguments: { tabId: 999999999, nodeId: 1 },
         })
-
-        console.log('\n=== Scroll To Element Invalid Tab Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return a result')
 
@@ -647,9 +590,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId: 999999999 },
         })
 
-        console.log('\n=== Scroll To Element Invalid Node Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result, 'Should return a result')
 
         if (result.isError) {
@@ -671,9 +611,6 @@ describe('MCP Controller Interaction Tools', () => {
           },
         })
 
-        console.log('\n=== Workflow: Navigate ===')
-        console.log(JSON.stringify(navResult, null, 2))
-
         const navText = navResult.content.find((c) => c.type === 'text')
         const tabIdMatch = navText.text.match(/Tab ID: (\d+)/)
         const tabId = parseInt(tabIdMatch[1], 10)
@@ -683,9 +620,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_get_interactive_elements',
           arguments: { tabId },
         })
-
-        console.log('\n=== Workflow: Get Elements ===')
-        console.log(JSON.stringify(elementsResult, null, 2))
 
         assert.ok(!elementsResult.isError, 'Get elements should succeed')
 
@@ -700,9 +634,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_click_element',
           arguments: { tabId, nodeId },
         })
-
-        console.log('\n=== Workflow: Click Element ===')
-        console.log(JSON.stringify(clickResult, null, 2))
 
         assert.ok(!clickResult.isError, 'Click should succeed')
       })
@@ -728,9 +659,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId },
         })
 
-        console.log('\n=== Workflow: Get Form Elements ===')
-        console.log(JSON.stringify(elementsResult, null, 2))
-
         const elementsText = elementsResult.content.find(
           (c) => c.type === 'text',
         )
@@ -744,9 +672,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId, text: 'John Doe' },
         })
 
-        console.log('\n=== Workflow: Type Text ===')
-        console.log(JSON.stringify(typeResult, null, 2))
-
         assert.ok(!typeResult.isError, 'Type should succeed')
 
         // Clear input
@@ -754,9 +679,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_clear_input',
           arguments: { tabId, nodeId },
         })
-
-        console.log('\n=== Workflow: Clear Input ===')
-        console.log(JSON.stringify(clearResult, null, 2))
 
         assert.ok(!clearResult.isError, 'Clear should succeed')
       })
@@ -794,9 +716,6 @@ describe('MCP Controller Interaction Tools', () => {
           arguments: { tabId, nodeId },
         })
 
-        console.log('\n=== Workflow: Scroll To Element ===')
-        console.log(JSON.stringify(scrollResult, null, 2))
-
         assert.ok(!scrollResult.isError, 'Scroll should succeed')
 
         // Click element
@@ -804,9 +723,6 @@ describe('MCP Controller Interaction Tools', () => {
           name: 'browser_click_element',
           arguments: { tabId, nodeId },
         })
-
-        console.log('\n=== Workflow: Click After Scroll ===')
-        console.log(JSON.stringify(clickResult, null, 2))
 
         assert.ok(!clickResult.isError, 'Click should succeed')
       })
