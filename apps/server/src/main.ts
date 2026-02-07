@@ -81,7 +81,6 @@ export class Application {
         ensureCdpContext: () => this.ensureCdpContext(),
         controllerBridge: controllerContext.bridge,
         controllerContext,
-        allowRemote: this.config.mcpAllowRemote,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),

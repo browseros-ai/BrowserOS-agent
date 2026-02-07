@@ -48,7 +48,6 @@ export type ChatRequest = z.infer<typeof ChatRequestSchema>
 
 /**
  * Hono environment bindings for Bun.serve integration.
- * The server binding is required for security checks (isLocalhostRequest).
  */
 export type Env = {
   Bindings: {
@@ -69,7 +68,6 @@ export interface HttpServerConfig {
   ensureCdpContext: () => Promise<CdpContext | null>
   controllerBridge: ControllerBridge
   controllerContext: ControllerContext
-  allowRemote: boolean
 
   browserosId?: string
   executionDir?: string

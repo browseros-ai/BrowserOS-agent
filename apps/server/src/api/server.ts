@@ -64,7 +64,6 @@ export async function createHttpServer(config: HttpServerConfig) {
     ensureCdpContext,
     controllerBridge,
     controllerContext,
-    allowRemote,
   } = config
 
   const { onShutdown } = config
@@ -88,7 +87,6 @@ export async function createHttpServer(config: HttpServerConfig) {
         ensureCdpContext,
         controllerBridge,
         sessionManager,
-        allowRemote,
       }),
     )
     .route(
