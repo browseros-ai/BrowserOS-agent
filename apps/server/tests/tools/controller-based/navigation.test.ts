@@ -20,9 +20,6 @@ describe('MCP Controller Navigation Tools', () => {
         })
         const content = result.content as McpContentItem[]
 
-        console.log('\n=== HTTPS URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Navigation should succeed')
         assert.ok(Array.isArray(content), 'Content should be an array')
         assert.ok(content.length > 0, 'Content should not be empty')
@@ -70,9 +67,6 @@ describe('MCP Controller Navigation Tools', () => {
         })
         const content = result.content as McpContentItem[]
 
-        console.log('\n=== Invalid URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result, 'Should return a result')
         assert.ok(Array.isArray(content), 'Should have content array')
 
@@ -95,9 +89,6 @@ describe('MCP Controller Navigation Tools', () => {
           },
         })
         const content = result.content as McpContentItem[]
-
-        console.log('\n=== Empty URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result, 'Should return result object')
         assert.ok(

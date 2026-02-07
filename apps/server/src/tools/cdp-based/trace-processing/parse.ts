@@ -9,7 +9,7 @@
  * can start and tools can return actionable errors instead of crashing.
  */
 
-import { logger } from '../logger'
+import { logger } from '../context/logger'
 
 export interface TraceResult {
   parsedTrace: unknown

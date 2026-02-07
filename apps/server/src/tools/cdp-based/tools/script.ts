@@ -4,17 +4,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
-import type { Frame, JSHandle, Page } from './third-party'
-import { zod } from './third-party'
-import { defineTool } from './tool-definition'
+import { ToolCategories } from '../../types/tool-categories'
+import type { Frame, JSHandle, Page } from '../third-party'
+import { zod } from '../third-party'
+import { defineTool } from '../types/cdp-tool-definition'
 
 export const evaluateScript = defineTool({
   name: 'evaluate_script',
   description: `Evaluate a JavaScript function inside the currently selected page. Returns the response as JSON
 so returned values have to JSON-serializable.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.DEBUGGING,
+    category: ToolCategories.DEBUGGING,
     readOnlyHint: false,
   },
   schema: {

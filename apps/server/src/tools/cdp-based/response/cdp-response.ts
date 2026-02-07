@@ -4,28 +4,29 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { CdpContext } from './context'
-import type { InstalledExtension } from './extension-registry'
-import { ConsoleFormatter } from './formatters/console-formatter'
-import { NetworkFormatter } from './formatters/network-formatter'
-import { SnapshotFormatter } from './formatters/snapshot-formatter'
-import { handleDialog } from './pages'
+import type { ToolResult } from '../../types/response'
+import type { CdpContext } from '../context/cdp-context'
+import type { InstalledExtension } from '../context/extension-registry'
 import type {
   ConsoleMessage,
   ImageContent,
   ResourceType,
   TextContent,
-} from './third-party'
+} from '../third-party'
+import { handleDialog } from '../tools/pages'
+import type { InsightName, TraceResult } from '../trace-processing/parse'
+import { getInsightOutput, getTraceSummary } from '../trace-processing/parse'
 import type {
   DevToolsData,
   ImageContentData,
   Response,
   SnapshotParams,
-} from './tool-definition'
-import type { InsightName, TraceResult } from './trace-processing/parse'
-import { getInsightOutput, getTraceSummary } from './trace-processing/parse'
-import { paginate } from './utils/pagination'
-import type { PaginationOptions } from './utils/types'
+} from '../types/cdp-tool-definition'
+import { paginate } from '../utils/pagination'
+import type { PaginationOptions } from '../utils/types'
+import { ConsoleFormatter } from './console-formatter'
+import { NetworkFormatter } from './network-formatter'
+import { SnapshotFormatter } from './snapshot-formatter'
 
 interface TraceInsightData {
   trace: TraceResult
@@ -219,13 +220,7 @@ export class CdpResponse implements Response {
     return this.#snapshotParams
   }
 
-  async handle(
-    toolName: string,
-    context: CdpContext,
-  ): Promise<{
-    content: Array<TextContent | ImageContent>
-    structuredContent: Record<string, unknown>
-  }> {
+  async handle(toolName: string, context: CdpContext): Promise<ToolResult> {
     if (this.#includePages) {
       await context.createPagesSnapshot()
     }
@@ -392,10 +387,7 @@ export class CdpResponse implements Response {
       traceInsight?: TraceInsightData
       extensions?: InstalledExtension[]
     },
-  ): {
-    content: Array<TextContent | ImageContent>
-    structuredContent: Record<string, unknown>
-  } {
+  ): ToolResult {
     const structuredContent: Record<string, unknown> = {}
 
     const response = [`# ${toolName} response`]

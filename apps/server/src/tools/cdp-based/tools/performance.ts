@@ -5,16 +5,16 @@
  */
 
 import zlib from 'node:zlib'
-import { ToolCategory } from './categories'
-import type { Page } from './third-party'
-import { zod } from './third-party'
-import type { Context, Response } from './tool-definition'
-import { defineTool } from './tool-definition'
-import type { InsightName } from './trace-processing/parse'
+import { ToolCategories } from '../../types/tool-categories'
+import type { Page } from '../third-party'
+import { zod } from '../third-party'
+import type { InsightName } from '../trace-processing/parse'
 import {
   parseRawTraceBuffer,
   traceResultIsSuccess,
-} from './trace-processing/parse'
+} from '../trace-processing/parse'
+import type { Context, Response } from '../types/cdp-tool-definition'
+import { defineTool } from '../types/cdp-tool-definition'
 
 const filePathSchema = zod
   .string()
@@ -26,8 +26,9 @@ const filePathSchema = zod
 export const startTrace = defineTool({
   name: 'performance_start_trace',
   description: `Starts a performance trace recording on the selected page. This can be used to look for performance problems and insights to improve the performance of the page. It will also report Core Web Vital (CWV) scores for the page.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.PERFORMANCE,
+    category: ToolCategories.PERFORMANCE,
     readOnlyHint: false,
   },
   schema: {
@@ -113,8 +114,9 @@ export const stopTrace = defineTool({
   name: 'performance_stop_trace',
   description:
     'Stops the active performance trace recording on the selected page.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.PERFORMANCE,
+    category: ToolCategories.PERFORMANCE,
     readOnlyHint: false,
   },
   schema: {
@@ -138,8 +140,9 @@ export const analyzeInsight = defineTool({
   name: 'performance_analyze_insight',
   description:
     'Provides more detailed information on a specific Performance Insight of an insight set that was highlighted in the results of a trace recording.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.PERFORMANCE,
+    category: ToolCategories.PERFORMANCE,
     readOnlyHint: true,
   },
   schema: {

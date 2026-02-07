@@ -4,16 +4,17 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
-import type { ElementHandle, Page } from './third-party'
-import { zod } from './third-party'
-import { defineTool } from './tool-definition'
+import { ToolCategories } from '../../types/tool-categories'
+import type { ElementHandle, Page } from '../third-party'
+import { zod } from '../third-party'
+import { defineTool } from '../types/cdp-tool-definition'
 
 export const screenshot = defineTool({
   name: 'take_screenshot',
   description: `Take a screenshot of the page or element.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.DEBUGGING,
+    category: ToolCategories.DEBUGGING,
     // Not read-only due to filePath param.
     readOnlyHint: false,
   },

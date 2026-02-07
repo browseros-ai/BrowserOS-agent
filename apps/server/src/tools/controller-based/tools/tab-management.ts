@@ -3,22 +3,26 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
-export const getActiveTab = defineTool<z.ZodRawShape, Context, Response>({
+export const getActiveTab = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_get_active_tab',
   description: 'Get information about the currently active browser tab',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
   },
   schema: {},
   handler: async (_request, response, context) => {
-    const result = await context.executeAction('getActiveTab', {})
+    const result = await context.controller.executeAction('getActiveTab', {})
     const data = result as {
       tabId: number
       url: string
@@ -38,16 +42,21 @@ export const getActiveTab = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const listTabs = defineTool<z.ZodRawShape, Context, Response>({
+export const listTabs = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_list_tabs',
   description: 'Get a list of all open browser tabs',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
   },
   schema: {},
   handler: async (_request, response, context) => {
-    const result = await context.executeAction('getTabs', {})
+    const result = await context.controller.executeAction('getTabs', {})
     const data = result as {
       tabs: Array<{
         id: number
@@ -77,9 +86,14 @@ export const listTabs = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const openTab = defineTool<z.ZodRawShape, Context, Response>({
+export const openTab = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_open_tab',
   description: 'Open a new browser tab with optional URL',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: false,
@@ -100,7 +114,7 @@ export const openTab = defineTool<z.ZodRawShape, Context, Response>({
       active?: boolean
     }
 
-    const result = await context.executeAction('openTab', params)
+    const result = await context.controller.executeAction('openTab', params)
     const data = result as { tabId: number; url: string; title?: string }
 
     response.appendResponseLine(`Opened new tab: ${data.title || 'Untitled'}`)
@@ -109,9 +123,14 @@ export const openTab = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const closeTab = defineTool<z.ZodRawShape, Context, Response>({
+export const closeTab = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_close_tab',
   description: 'Close a specific browser tab by ID',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: false,
@@ -122,15 +141,20 @@ export const closeTab = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { tabId } = request.params as { tabId: number }
 
-    await context.executeAction('closeTab', { tabId })
+    await context.controller.executeAction('closeTab', { tabId })
 
     response.appendResponseLine(`Closed tab ${tabId}`)
   },
 })
 
-export const switchTab = defineTool<z.ZodRawShape, Context, Response>({
+export const switchTab = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_switch_tab',
   description: 'Switch to (activate) a specific tab',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: false,
@@ -141,7 +165,9 @@ export const switchTab = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { tabId } = request.params as { tabId: number }
 
-    const result = await context.executeAction('switchTab', { tabId })
+    const result = await context.controller.executeAction('switchTab', {
+      tabId,
+    })
     const data = result as { tabId: number; url: string; title: string }
 
     response.appendResponseLine(`Switched to tab: ${data.title}`)
@@ -149,9 +175,14 @@ export const switchTab = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const getLoadStatus = defineTool<z.ZodRawShape, Context, Response>({
+export const getLoadStatus = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_get_load_status',
   description: 'Check if a page has finished loading',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
@@ -162,7 +193,7 @@ export const getLoadStatus = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { tabId } = request.params as { tabId: number }
 
-    const result = await context.executeAction('getPageLoadStatus', {
+    const result = await context.controller.executeAction('getPageLoadStatus', {
       tabId,
     })
     const data = result as {
@@ -190,16 +221,21 @@ export const getLoadStatus = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const listTabGroups = defineTool<z.ZodRawShape, Context, Response>({
+export const listTabGroups = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_list_tab_groups',
   description: 'List all tab groups in the browser',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: true,
   },
   schema: {},
   handler: async (_request, response, context) => {
-    const result = await context.executeAction('listTabGroups', {})
+    const result = await context.controller.executeAction('listTabGroups', {})
     const data = result as {
       groups: Array<{
         id: number
@@ -233,10 +269,15 @@ export const listTabGroups = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const groupTabs = defineTool<z.ZodRawShape, Context, Response>({
+export const groupTabs = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_group_tabs',
   description:
     'Group tabs together with an optional title and color. Use this to organize related tabs.',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: false,
@@ -276,7 +317,7 @@ export const groupTabs = defineTool<z.ZodRawShape, Context, Response>({
       groupId?: number
     }
 
-    const result = await context.executeAction('groupTabs', {
+    const result = await context.controller.executeAction('groupTabs', {
       tabIds,
       title,
       color,
@@ -301,9 +342,14 @@ export const groupTabs = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const updateTabGroup = defineTool<z.ZodRawShape, Context, Response>({
+export const updateTabGroup = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_update_tab_group',
   description: "Update a tab group's title, color, or collapsed state",
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: false,
@@ -338,7 +384,7 @@ export const updateTabGroup = defineTool<z.ZodRawShape, Context, Response>({
       collapsed?: boolean
     }
 
-    const result = await context.executeAction('updateTabGroup', {
+    const result = await context.controller.executeAction('updateTabGroup', {
       groupId,
       title,
       color,
@@ -362,9 +408,14 @@ export const updateTabGroup = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const ungroupTabs = defineTool<z.ZodRawShape, Context, Response>({
+export const ungroupTabs = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_ungroup_tabs',
   description: 'Remove tabs from their groups',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.TAB_MANAGEMENT,
     readOnlyHint: false,
@@ -377,7 +428,7 @@ export const ungroupTabs = defineTool<z.ZodRawShape, Context, Response>({
   handler: async (request, response, context) => {
     const { tabIds } = request.params as { tabIds: number[] }
 
-    const result = await context.executeAction('ungroupTabs', {
+    const result = await context.controller.executeAction('ungroupTabs', {
       tabIds,
     })
     const data = result as { ungroupedCount: number }

@@ -7,15 +7,16 @@
  * Categories for grouping and organizing browser automation tools
  */
 export enum ToolCategories {
-  // CDP categories (existing)
+  // CDP categories
   INPUT_AUTOMATION = 'Input automation',
   NAVIGATION_AUTOMATION = 'Navigation automation',
   EMULATION = 'Emulation',
   PERFORMANCE = 'Performance',
   NETWORK = 'Network',
   DEBUGGING = 'Debugging',
+  EXTENSIONS = 'Extensions',
 
-  // Controller categories (new)
+  // Controller categories
   TAB_MANAGEMENT = 'Tab Management',
   ELEMENT_INTERACTION = 'Element Interaction',
   SCROLLING = 'Scrolling',

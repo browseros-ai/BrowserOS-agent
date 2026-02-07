@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { CdpPage, Page, Protocol } from '../third-party'
 import { logger } from './logger'
-import type { CdpPage, Page, Protocol } from './third-party'
 
 export class WaitForHelper {
   #abortController = new AbortController()

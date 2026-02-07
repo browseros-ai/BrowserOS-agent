@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { logger } from './logger'
 import type {
   Browser,
   ConsoleMessage,
@@ -14,7 +13,8 @@ import type {
   Page,
   PageEvents as PuppeteerPageEvents,
   Target,
-} from './third-party'
+} from '../third-party'
+import { logger } from './logger'
 
 interface PageEvents extends PuppeteerPageEvents {
   issue: unknown

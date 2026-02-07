@@ -107,6 +107,7 @@ function getHandleObstacles(): string {
 // section: error-recovery
 // -----------------------------------------------------------------------------
 
+// biome-ignore lint/correctness/noUnusedVariables: will be used
 function getErrorRecovery(): string {
   return `## Error Recovery
 - Element not found → scroll, wait, re-fetch elements with \`browser_get_interactive_elements(tabId, simplified=false)\` for full details
@@ -221,7 +222,6 @@ function getCdpToolReference(): string {
 
 ## Page Management
 - \`list_pages\` - Get all open pages in the browser
-- \`select_page(pageId)\` - Select a page for future tool calls
 - \`new_page(url)\` - Create a new page and navigate to URL
 - \`close_page(pageId)\` - Close a page (cannot close last page)
 - \`navigate_page(url|back|forward|reload)\` - Navigate selected page
@@ -351,7 +351,7 @@ const promptSections: Record<string, () => string> = {
   'complete-tasks': getCompleteTasks,
   'observe-act-verify': getObserveActVerify,
   'handle-obstacles': getHandleObstacles,
-  'error-recovery': getErrorRecovery,
+  // 'error-recovery': getErrorRecovery,
   // 'tool-reference': getToolReference,
   'cdp-tool-reference': getCdpToolReference,
   'external-integrations': getExternalIntegrations,

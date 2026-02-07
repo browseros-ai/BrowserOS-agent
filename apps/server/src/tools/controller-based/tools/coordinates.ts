@@ -3,15 +3,19 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 
-export const clickCoordinates = defineTool<z.ZodRawShape, Context, Response>({
+export const clickCoordinates = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_click_coordinates',
   description: 'Click at specific X,Y coordinates on the page',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.COORDINATES,
     readOnlyHint: false,
@@ -28,7 +32,7 @@ export const clickCoordinates = defineTool<z.ZodRawShape, Context, Response>({
       y: number
     }
 
-    await context.executeAction('clickCoordinates', { tabId, x, y })
+    await context.controller.executeAction('clickCoordinates', { tabId, x, y })
 
     response.appendResponseLine(
       `Clicked at coordinates (${x}, ${y}) in tab ${tabId}`,
@@ -36,9 +40,14 @@ export const clickCoordinates = defineTool<z.ZodRawShape, Context, Response>({
   },
 })
 
-export const typeAtCoordinates = defineTool<z.ZodRawShape, Context, Response>({
+export const typeAtCoordinates = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_type_at_coordinates',
   description: 'Click at coordinates and type text',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.COORDINATES,
     readOnlyHint: false,
@@ -57,7 +66,7 @@ export const typeAtCoordinates = defineTool<z.ZodRawShape, Context, Response>({
       text: string
     }
 
-    await context.executeAction('typeAtCoordinates', {
+    await context.controller.executeAction('typeAtCoordinates', {
       tabId,
       x,
       y,

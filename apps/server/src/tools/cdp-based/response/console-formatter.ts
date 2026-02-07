@@ -7,7 +7,7 @@
 import {
   createStackTraceForConsoleMessage,
   type TargetUniverse,
-} from '../devtools-utils'
+} from '../context/devtools-utils'
 import type { ConsoleMessage } from '../third-party'
 
 export interface ConsoleFormatterOptions {

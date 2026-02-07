@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type * as puppeteer from './third-party'
-import { CDPSessionEvent } from './third-party'
+import type * as puppeteer from '../third-party'
+import { CDPSessionEvent } from '../third-party'
 
 /**
  * This class makes a puppeteer connection look like DevTools CDPConnection.
@@ -49,11 +49,14 @@ export class PuppeteerDevToolsConnection {
       // biome-ignore lint/style/useTemplate: upstream code
       throw new Error('Unknown session ' + sessionId)
     }
-    // biome-ignore lint/suspicious/noExplicitAny: upstream code
-    return session
-      .send(method as any, params)
-      .then((result) => ({ result }))
-      .catch((error) => ({ error })) as any
+    return (
+      session
+        // biome-ignore lint/suspicious/noExplicitAny: upstream code
+        .send(method as any, params)
+        .then((result) => ({ result }))
+        // biome-ignore lint/suspicious/noExplicitAny: upstream code
+        .catch((error) => ({ error })) as any
+    )
   }
 
   // biome-ignore lint/suspicious/noExplicitAny: upstream code

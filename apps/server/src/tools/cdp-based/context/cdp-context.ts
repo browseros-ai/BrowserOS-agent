@@ -4,9 +4,28 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import type {
+  Browser,
+  ConsoleMessage,
+  Debugger,
+  Dialog,
+  ElementHandle,
+  HTTPRequest,
+  Page,
+  PredefinedNetworkConditions,
+  SerializedAXNode,
+  Viewport,
+} from '../third-party'
+import { Locator } from '../third-party'
+import { listPages } from '../tools/pages'
+import { takeSnapshot } from '../tools/snapshot'
+import type { TraceResult } from '../trace-processing/parse'
+import type { Context, DevToolsData } from '../types/cdp-tool-definition'
+import { CLOSE_PAGE_ERROR } from '../types/cdp-tool-definition'
 import type { TargetUniverse } from './devtools-utils'
 import {
   extractUrlLikeFromDevToolsTitle,
@@ -19,24 +38,6 @@ import {
 } from './extension-registry'
 import type { ListenerMap } from './page-collector'
 import { ConsoleCollector, NetworkCollector } from './page-collector'
-import { listPages } from './pages'
-import { takeSnapshot } from './snapshot'
-import type {
-  Browser,
-  ConsoleMessage,
-  Debugger,
-  Dialog,
-  ElementHandle,
-  HTTPRequest,
-  Page,
-  PredefinedNetworkConditions,
-  SerializedAXNode,
-  Viewport,
-} from './third-party'
-import { Locator } from './third-party'
-import type { Context, DevToolsData } from './tool-definition'
-import { CLOSE_PAGE_ERROR } from './tool-definition'
-import type { TraceResult } from './trace-processing/parse'
 import { WaitForHelper } from './wait-for-helper'
 
 export interface TextSnapshotNode extends SerializedAXNode {
@@ -105,12 +106,10 @@ export class CdpContext implements Context {
   browser: Browser
   logger: Debugger
 
-  // The most recent page state.
   #pages: Page[] = []
   #pageToDevToolsPage = new Map<Page, Page>()
-  #selectedPage?: Page
-  // The most recent snapshot.
-  #textSnapshot: TextSnapshot | null = null
+  #pageScope = new AsyncLocalStorage<{ page: Page }>()
+  #textSnapshots = new WeakMap<Page, TextSnapshot>()
   #networkCollector: NetworkCollector
   #consoleCollector: ConsoleCollector
   #devtoolsUniverseManager: UniverseManager
@@ -123,7 +122,8 @@ export class CdpContext implements Context {
   #viewportMap = new WeakMap<Page, Viewport>()
   #userAgentMap = new WeakMap<Page, string>()
   #colorSchemeMap = new WeakMap<Page, 'dark' | 'light'>()
-  #dialog?: Dialog
+  #dialogs = new Map<Page, Dialog>()
+  #dialogHandlerPages = new WeakSet<Page>()
 
   #pageIdMap = new WeakMap<Page, number>()
   #nextPageId = 1
@@ -219,12 +219,14 @@ export class CdpContext implements Context {
       this.logger('no cdpBackendNodeId')
       return
     }
-    if (this.#textSnapshot === null) {
+    const page = this.getSelectedPage()
+    const snapshot = this.#textSnapshots.get(page)
+    if (!snapshot) {
       this.logger('no text snapshot')
       return
     }
     // TODO: index by backendNodeId instead.
-    const queue = [this.#textSnapshot.root]
+    const queue = [snapshot.root]
     while (queue.length) {
       // biome-ignore lint/style/noNonNullAssertion: upstream code
       const current = queue.pop()!
@@ -266,7 +268,10 @@ export class CdpContext implements Context {
   async newPage(background?: boolean): Promise<Page> {
     const page = await this.browser.newPage()
     await this.createPagesSnapshot()
-    this.selectPage(page)
+    const scope = this.#pageScope.getStore()
+    if (scope) scope.page = page
+    page.setDefaultTimeout(DEFAULT_TIMEOUT)
+    page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT)
     if (!background) {
       await page.bringToFront().catch(() => {})
     }
@@ -377,24 +382,30 @@ export class CdpContext implements Context {
   }
 
   getDialog(): Dialog | undefined {
-    return this.#dialog
+    const page = this.getSelectedPage()
+    return this.#dialogs.get(page)
   }
 
   clearDialog(): void {
-    this.#dialog = undefined
+    const page = this.getSelectedPage()
+    this.#dialogs.delete(page)
   }
 
   getSelectedPage(): Page {
-    const page = this.#selectedPage
-    if (!page) {
+    const scope = this.#pageScope.getStore()
+    if (!scope) {
       throw new Error('No page selected')
     }
-    if (page.isClosed()) {
+    if (scope.page.isClosed()) {
       throw new Error(
         `The selected page has been closed. Call ${listPages.name} to see open pages.`,
       )
     }
-    return page
+    return scope.page
+  }
+
+  withPage<T>(page: Page, fn: () => Promise<T>): Promise<T> {
+    return this.#pageScope.run({ page }, fn)
   }
 
   getPageById(pageId: number): Page {
@@ -409,22 +420,25 @@ export class CdpContext implements Context {
     return this.#pageIdMap.get(page)
   }
 
-  #dialogHandler = (dialog: Dialog): void => {
-    this.#dialog = dialog
+  #setupDialogHandler(page: Page): void {
+    if (this.#dialogHandlerPages.has(page)) return
+    this.#dialogHandlerPages.add(page)
+    page.on('dialog', (dialog: Dialog) => {
+      this.#dialogs.set(page, dialog)
+    })
   }
 
   isPageSelected(page: Page): boolean {
-    return this.#selectedPage === page
+    const scope = this.#pageScope.getStore()
+    return scope?.page === page
   }
 
-  selectPage(newPage: Page): void {
-    const oldPage = this.#selectedPage
-    if (oldPage) {
-      oldPage.off('dialog', this.#dialogHandler)
+  selectPage(page: Page): void {
+    const scope = this.#pageScope.getStore()
+    if (!scope) {
+      throw new Error('No page scope active')
     }
-    this.#selectedPage = newPage
-    newPage.on('dialog', this.#dialogHandler)
-    this.#updateSelectedPageTimeouts()
+    scope.page = page
   }
 
   #updateSelectedPageTimeouts() {
@@ -448,16 +462,20 @@ export class CdpContext implements Context {
   }
 
   getAXNodeByUid(uid: string) {
-    return this.#textSnapshot?.idToNode.get(uid)
+    const page = this.getSelectedPage()
+    const snapshot = this.#textSnapshots.get(page)
+    return snapshot?.idToNode.get(uid)
   }
 
   async getElementByUid(uid: string): Promise<ElementHandle<Element>> {
-    if (!this.#textSnapshot?.idToNode.size) {
+    const page = this.getSelectedPage()
+    const snapshot = this.#textSnapshots.get(page)
+    if (!snapshot?.idToNode.size) {
       throw new Error(
         `No snapshot found. Use ${takeSnapshot.name} to capture one.`,
       )
     }
-    const node = this.#textSnapshot?.idToNode.get(uid)
+    const node = snapshot?.idToNode.get(uid)
     if (!node) {
       throw new Error('No such element found in the snapshot.')
     }
@@ -488,19 +506,14 @@ export class CdpContext implements Context {
     }
 
     this.#pages = allPages.filter((page) => {
-      // If we allow debugging DevTools windows, return all pages.
-      // If we are in regular mode, the user should only see non-DevTools page.
       return (
         this.#options.experimentalDevToolsDebugging ||
         !page.url().startsWith('devtools://')
       )
     })
 
-    if (
-      (!this.#selectedPage || this.#pages.indexOf(this.#selectedPage) === -1) &&
-      this.#pages[0]
-    ) {
-      this.selectPage(this.#pages[0])
+    for (const page of this.#pages) {
+      this.#setupDialogHandler(page)
     }
 
     await this.detectOpenDevToolsWindows()
@@ -645,17 +658,18 @@ export class CdpContext implements Context {
     }
 
     const rootNodeWithId = assignIds(rootNode)
-    this.#textSnapshot = {
+    const textSnapshot: TextSnapshot = {
       root: rootNodeWithId,
       snapshotId: String(snapshotId),
       idToNode,
       hasSelectedElement: false,
       verbose,
     }
+    this.#textSnapshots.set(page, textSnapshot)
     const data = devtoolsData ?? (await this.getDevToolsData())
     if (data?.cdpBackendNodeId) {
-      this.#textSnapshot.hasSelectedElement = true
-      this.#textSnapshot.selectedElementUid = this.resolveCdpElementId(
+      textSnapshot.hasSelectedElement = true
+      textSnapshot.selectedElementUid = this.resolveCdpElementId(
         data?.cdpBackendNodeId,
       )
     }
@@ -669,7 +683,8 @@ export class CdpContext implements Context {
   }
 
   getTextSnapshot(): TextSnapshot | null {
-    return this.#textSnapshot
+    const page = this.getSelectedPage()
+    return this.#textSnapshots.get(page) ?? null
   }
 
   async saveTemporaryFile(

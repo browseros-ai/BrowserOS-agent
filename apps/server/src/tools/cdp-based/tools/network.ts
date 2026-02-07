@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
-import type { ResourceType } from './third-party'
-import { zod } from './third-party'
-import { defineTool } from './tool-definition'
+import { ToolCategories } from '../../types/tool-categories'
+import type { ResourceType } from '../third-party'
+import { zod } from '../third-party'
+import { defineTool } from '../types/cdp-tool-definition'
 
 const FILTERABLE_RESOURCE_TYPES: readonly [ResourceType, ...ResourceType[]] = [
   'document',
@@ -34,8 +34,9 @@ const FILTERABLE_RESOURCE_TYPES: readonly [ResourceType, ...ResourceType[]] = [
 export const listNetworkRequests = defineTool({
   name: 'list_network_requests',
   description: `List all requests for the currently selected page since the last navigation.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NETWORK,
+    category: ToolCategories.NETWORK,
     readOnlyHint: true,
   },
   schema: {
@@ -88,8 +89,9 @@ export const listNetworkRequests = defineTool({
 export const getNetworkRequest = defineTool({
   name: 'get_network_request',
   description: `Gets a network request by an optional reqid, if omitted returns the currently selected request in the DevTools Network panel.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.NETWORK,
+    category: ToolCategories.NETWORK,
     readOnlyHint: false,
   },
   schema: {

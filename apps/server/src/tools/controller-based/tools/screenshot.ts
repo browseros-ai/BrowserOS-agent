@@ -3,21 +3,21 @@
  * Copyright 2025 BrowserOS
  */
 import { z } from 'zod'
-
+import type { ControllerToolContext } from '../../types/controller-tool-context'
 import { ToolCategories } from '../../types/tool-categories'
 import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
 import type { Response } from '../types/response'
 import { parseDataUrl } from '../utils/parse-data-url'
 
 export const getScreenshotPointer = defineTool<
   z.ZodRawShape,
-  Context,
+  ControllerToolContext,
   Response
 >({
   name: 'browser_get_screenshot_pointer',
   description:
     'Capture a screenshot with a pointer overlay on a specific element',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.SCREENSHOTS,
     readOnlyHint: true,
@@ -41,64 +41,46 @@ export const getScreenshotPointer = defineTool<
       .describe('Optional label to show with pointer (e.g., "Click", "Type")'),
   },
   handler: async (request, response, context) => {
-    const rawParams = request.params as {
+    const params = request.params as {
       tabId: number
       nodeId: number
       size?: string
       pointerLabel?: string
     }
 
-    let result: unknown
-    try {
-      result = await context.executeAction(
-        'captureScreenshotPointer',
-        rawParams,
-      )
-    } catch (_error) {
-      // Sometimes require the tab/window to be active/visible for capture.
-      // Best-effort: activate the tab, then retry using the active windowId.
-      await context.executeAction('switchTab', {
-        tabId: rawParams.tabId,
-        windowId: rawParams.windowId,
-      })
-      const active = (await context.executeAction('getActiveTab', {})) as {
-        windowId: number
-      }
-      result = await context.executeAction('captureScreenshotPointer', {
-        ...rawParams,
-        windowId: active.windowId,
-      })
-    }
+    const result = await context.controller.executeAction(
+      'captureScreenshotPointer',
+      params,
+    )
     const { dataUrl, pointerPosition } = result as {
       dataUrl: string
       pointerPosition?: { x: number; y: number }
     }
 
-    // Parse data URL to extract MIME type and base64 data
     const { mimeType, data } = parseDataUrl(dataUrl)
 
-    // Attach image to response
     response.attachImage({ mimeType, data })
 
     if (pointerPosition) {
       response.appendResponseLine(
-        `Screenshot captured with pointer at (${pointerPosition.x}, ${pointerPosition.y}) for node ${
-          (rawParams as { nodeId: number }).nodeId
-        }`,
+        `Screenshot captured with pointer at (${pointerPosition.x}, ${pointerPosition.y}) for node ${params.nodeId}`,
       )
     } else {
       response.appendResponseLine(
-        `Screenshot captured for node ${
-          (rawParams as { nodeId: number }).nodeId
-        } (pointer position not available)`,
+        `Screenshot captured for node ${params.nodeId} (pointer position not available)`,
       )
     }
   },
 })
 
-export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
+export const getScreenshot = defineTool<
+  z.ZodRawShape,
+  ControllerToolContext,
+  Response
+>({
   name: 'browser_get_screenshot',
   description: 'Capture a screenshot of the page',
+  kind: 'controller' as const,
   annotations: {
     category: ToolCategories.SCREENSHOTS,
     readOnlyHint: true,
@@ -125,7 +107,7 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
       .describe('Exact height in pixels (overrides size)'),
   },
   handler: async (request, response, context) => {
-    const rawParams = request.params as {
+    const params = request.params as {
       tabId: number
       size?: string
       showHighlights?: boolean
@@ -133,33 +115,15 @@ export const getScreenshot = defineTool<z.ZodRawShape, Context, Response>({
       height?: number
     }
 
-    let result: unknown
-    try {
-      result = await context.executeAction('captureScreenshot', rawParams)
-    } catch (_error) {
-      // Some BrowserOS builds require the tab/window to be active/visible for capture.
-      // Best-effort: activate the tab, then retry using the active windowId.
-      await context.executeAction('switchTab', {
-        tabId: rawParams.tabId,
-        windowId: rawParams.windowId,
-      })
-      const active = (await context.executeAction('getActiveTab', {})) as {
-        windowId: number
-      }
-      result = await context.executeAction('captureScreenshot', {
-        ...rawParams,
-        windowId: active.windowId,
-      })
-    }
+    const result = await context.controller.executeAction(
+      'captureScreenshot',
+      params,
+    )
     const { dataUrl } = result as { dataUrl: string }
 
-    // Parse data URL to extract MIME type and base64 data
     const { mimeType, data } = parseDataUrl(dataUrl)
 
-    // Attach image to response
     response.attachImage({ mimeType, data })
-    response.appendResponseLine(
-      `Screenshot captured from tab ${(rawParams as { tabId: number }).tabId}`,
-    )
+    response.appendResponseLine(`Screenshot captured from tab ${params.tabId}`)
   },
 })

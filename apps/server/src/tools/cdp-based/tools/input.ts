@@ -4,13 +4,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ToolCategory } from './categories'
-import type { CdpContext, TextSnapshotNode } from './context'
-import { logger } from './logger'
-import type { ElementHandle } from './third-party'
-import { zod } from './third-party'
-import { defineTool } from './tool-definition'
-import { parseKey } from './utils/keyboard'
+import { ToolCategories } from '../../types/tool-categories'
+import type { CdpContext, TextSnapshotNode } from '../context/cdp-context'
+import { logger } from '../context/logger'
+import type { ElementHandle } from '../third-party'
+import { zod } from '../third-party'
+import { defineTool } from '../types/cdp-tool-definition'
+import { parseKey } from '../utils/keyboard'
 
 const dblClickSchema = zod
   .boolean()
@@ -35,8 +35,9 @@ function handleActionError(error: unknown, uid: string) {
 export const click = defineTool({
   name: 'click',
   description: `Clicks on the provided element`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -76,8 +77,9 @@ export const click = defineTool({
 export const clickAt = defineTool({
   name: 'click_at',
   description: `Clicks at the provided coordinates`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
     conditions: ['computerVision'],
   },
@@ -108,8 +110,9 @@ export const clickAt = defineTool({
 export const hover = defineTool({
   name: 'hover',
   description: `Hover over the provided element`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -204,8 +207,9 @@ async function fillFormElement(
 export const fill = defineTool({
   name: 'fill',
   description: `Type text into a input, text area or select an option from a <select> element.`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -236,8 +240,9 @@ export const fill = defineTool({
 export const drag = defineTool({
   name: 'drag',
   description: `Drag an element onto another element`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -268,8 +273,9 @@ export const drag = defineTool({
 export const fillForm = defineTool({
   name: 'fill_form',
   description: `Fill out multiple form elements at once`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -299,8 +305,9 @@ export const fillForm = defineTool({
 export const uploadFile = defineTool({
   name: 'upload_file',
   description: 'Upload a file through a provided element.',
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
@@ -350,8 +357,9 @@ export const uploadFile = defineTool({
 export const pressKey = defineTool({
   name: 'press_key',
   description: `Press a key or key combination. Use this when other input methods like fill() cannot be used (e.g., keyboard shortcuts, navigation keys, or special key combinations).`,
+  kind: 'cdp' as const,
   annotations: {
-    category: ToolCategory.INPUT,
+    category: ToolCategories.INPUT_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {

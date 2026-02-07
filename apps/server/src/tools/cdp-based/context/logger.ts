@@ -6,7 +6,7 @@
 
 import fs from 'node:fs'
 
-import { debug } from './third-party'
+import { debug } from '../third-party'
 
 const mcpDebugNamespace = 'mcp:log'
 

@@ -18,9 +18,6 @@ describe('MCP Controller Bookmark Tools', () => {
           arguments: {},
         })
 
-        console.log('\n=== Get All Bookmarks Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
 
@@ -44,9 +41,6 @@ describe('MCP Controller Bookmark Tools', () => {
           arguments: { folderId: '1' },
         })
 
-        console.log('\n=== Get Bookmarks from Folder Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -60,9 +54,6 @@ describe('MCP Controller Bookmark Tools', () => {
           name: 'browser_get_bookmarks',
           arguments: { folderId: '999999' },
         })
-
-        console.log('\n=== Get Empty Bookmarks Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(textContent, 'Should have text content')
@@ -80,9 +71,6 @@ describe('MCP Controller Bookmark Tools', () => {
             url: 'https://example.com',
           },
         })
-
-        console.log('\n=== Create Bookmark Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
 
@@ -111,9 +99,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Create Bookmark with Parent Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -134,9 +119,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Create Bookmark Special Chars Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -150,9 +132,6 @@ describe('MCP Controller Bookmark Tools', () => {
             url: 'https://unicode.example.com',
           },
         })
-
-        console.log('\n=== Create Bookmark Unicode Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -168,9 +147,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Create Bookmark Localhost Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -185,9 +161,6 @@ describe('MCP Controller Bookmark Tools', () => {
             url: 'https://example.com',
           },
         })
-
-        console.log('\n=== Create Bookmark Missing Title Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -209,9 +182,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Create Bookmark Missing URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -232,9 +202,6 @@ describe('MCP Controller Bookmark Tools', () => {
             url: 'https://example.com',
           },
         })
-
-        console.log('\n=== Create Bookmark Empty Title Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should either succeed or return error
         assert.ok(result, 'Should return a result')
@@ -263,9 +230,6 @@ describe('MCP Controller Bookmark Tools', () => {
           name: 'browser_remove_bookmark',
           arguments: { bookmarkId },
         })
-
-        console.log('\n=== Remove Bookmark Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
 
@@ -318,10 +282,6 @@ describe('MCP Controller Bookmark Tools', () => {
           arguments: { bookmarkId: id2 },
         })
 
-        console.log('\n=== Remove Multiple Bookmarks Response ===')
-        console.log('First removal:', JSON.stringify(remove1, null, 2))
-        console.log('Second removal:', JSON.stringify(remove2, null, 2))
-
         assert.ok(!remove1.isError, 'First removal should succeed')
         assert.ok(!remove2.isError, 'Second removal should succeed')
       })
@@ -335,9 +295,6 @@ describe('MCP Controller Bookmark Tools', () => {
           name: 'browser_remove_bookmark',
           arguments: {},
         })
-
-        console.log('\n=== Remove Bookmark Missing ID Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -356,9 +313,6 @@ describe('MCP Controller Bookmark Tools', () => {
           name: 'browser_remove_bookmark',
           arguments: { bookmarkId: '999999999' },
         })
-
-        console.log('\n=== Remove Invalid Bookmark Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should either error or succeed gracefully
         assert.ok(result, 'Should return a result')
@@ -390,9 +344,6 @@ describe('MCP Controller Bookmark Tools', () => {
             title: 'Updated Title',
           },
         })
-
-        console.log('\n=== Update Bookmark Title Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
 
@@ -439,9 +390,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Update Bookmark URL Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -484,9 +432,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Update Bookmark Both Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
 
         const textContent = result.content.find((c) => c.type === 'text')
@@ -517,9 +462,6 @@ describe('MCP Controller Bookmark Tools', () => {
           arguments: { title: 'Test' },
         })
 
-        console.log('\n=== Update Bookmark Missing ID Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -540,9 +482,6 @@ describe('MCP Controller Bookmark Tools', () => {
             title: 'Test',
           },
         })
-
-        console.log('\n=== Update Invalid Bookmark Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should error with invalid ID
         assert.ok(result, 'Should return a result')
@@ -614,9 +553,6 @@ describe('MCP Controller Bookmark Tools', () => {
           },
         })
 
-        console.log('\n=== Workflow: Create Bookmark ===')
-        console.log(JSON.stringify(createResult, null, 2))
-
         assert.ok(!createResult.isError, 'Create should succeed')
 
         const createText = createResult.content.find((c) => c.type === 'text')
@@ -628,9 +564,6 @@ describe('MCP Controller Bookmark Tools', () => {
           name: 'browser_get_bookmarks',
           arguments: {},
         })
-
-        console.log('\n=== Workflow: Get Bookmarks ===')
-        console.log(JSON.stringify(getResult, null, 2))
 
         assert.ok(!getResult.isError, 'Get should succeed')
 
@@ -645,9 +578,6 @@ describe('MCP Controller Bookmark Tools', () => {
           name: 'browser_remove_bookmark',
           arguments: { bookmarkId },
         })
-
-        console.log('\n=== Workflow: Remove Bookmark ===')
-        console.log(JSON.stringify(removeResult, null, 2))
 
         assert.ok(!removeResult.isError, 'Remove should succeed')
       })
@@ -682,9 +612,6 @@ describe('MCP Controller Bookmark Tools', () => {
           }
         }
 
-        console.log('\n=== Batch Workflow: Created Bookmarks ===')
-        console.log('IDs:', bookmarkIds)
-
         // Get all bookmarks
         const getAllResult = await client.callTool({
           name: 'browser_get_bookmarks',
@@ -702,8 +629,6 @@ describe('MCP Controller Bookmark Tools', () => {
 
           assert.ok(!removeResult.isError, `Removing ${id} should succeed`)
         }
-
-        console.log('\n=== Batch Workflow: Completed ===')
       })
     }, 30000)
   })

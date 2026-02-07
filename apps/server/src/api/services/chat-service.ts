@@ -68,7 +68,10 @@ export class ChatService {
       hasUpstreamProvider: !!providerConfig.upstreamProvider,
     })
 
-    const mcpServers = await this.buildMcpServers(request.browserContext)
+    const mcpServers = await this.buildMcpServers(
+      request.conversationId,
+      request.browserContext,
+    )
     logger.debug('MCP servers built', {
       serverCount: Object.keys(mcpServers).length,
       servers: Object.keys(mcpServers),
@@ -96,8 +99,11 @@ export class ChatService {
       isScheduledTask: request.isScheduledTask,
     }
 
-    const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)
-    await agent.execute(
+    const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
+    if (request.browserContext?.windowId != null) {
+      session.browserState.windowId = request.browserContext.windowId
+    }
+    await session.agent.execute(
       request.message,
       rawStream,
       abortSignal,
@@ -157,6 +163,7 @@ export class ChatService {
   }
 
   private async buildMcpServers(
+    conversationId: string,
     browserContext?: BrowserContext,
   ): Promise<Record<string, MCPServerConfig>> {
     const { klavisClient, mcpServerUrl, browserosId } = this.deps
@@ -167,10 +174,7 @@ export class ChatService {
         httpUrl: mcpServerUrl,
         headers: {
           Accept: 'application/json, text/event-stream',
-          'X-BrowserOS-Source': 'gemini-agent',
-          ...(browserContext?.windowId != null && {
-            'X-BrowserOS-Window-Id': String(browserContext.windowId),
-          }),
+          'X-BrowserOS-Scope-Id': conversationId,
         },
         trust: true,
       })

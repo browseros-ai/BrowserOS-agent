@@ -29,9 +29,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 100, y: 100 },
         })
 
-        console.log('\n=== Click Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
         assert.ok(Array.isArray(result.content), 'Content should be array')
 
@@ -64,9 +61,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 10, y: 10 },
         })
 
-        console.log('\n=== Click Top-Left Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -86,9 +80,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_click_coordinates',
           arguments: { tabId, x: 500, y: 400 },
         })
-
-        console.log('\n=== Click Center Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -110,9 +101,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 0, y: 0 },
         })
 
-        console.log('\n=== Click Zero Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -132,9 +120,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_click_coordinates',
           arguments: { tabId, x: 2000, y: 1500 },
         })
-
-        console.log('\n=== Click Large Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
       })
@@ -156,9 +141,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 100.5, y: 200.7 },
         })
 
-        console.log('\n=== Click Decimal Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should reject decimal coordinates')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -176,9 +158,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_click_coordinates',
           arguments: { x: 100, y: 100 },
         })
-
-        console.log('\n=== Click Coordinates Missing TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -198,9 +177,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId: 1 },
         })
 
-        console.log('\n=== Click Coordinates Missing XY Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -218,9 +194,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_click_coordinates',
           arguments: { tabId: 1, x: 'invalid', y: 100 },
         })
-
-        console.log('\n=== Click Coordinates Invalid Type Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -249,9 +222,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: -10, y: -20 },
         })
 
-        console.log('\n=== Click Negative Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         // Should either succeed or error gracefully
         assert.ok(result, 'Should return a result')
       })
@@ -263,9 +233,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_click_coordinates',
           arguments: { tabId: 999999, x: 100, y: 100 },
         })
-
-        console.log('\n=== Click Coordinates Invalid TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should error
         assert.ok(result.isError || result.content, 'Should handle invalid tab')
@@ -289,9 +256,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_type_at_coordinates',
           arguments: { tabId, x: 200, y: 200, text: 'Hello World' },
         })
-
-        console.log('\n=== Type at Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(!result.isError, 'Should succeed')
 
@@ -329,9 +293,6 @@ describe('MCP Controller Coordinates Tools', () => {
           },
         })
 
-        console.log('\n=== Type Special Chars at Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -351,9 +312,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_type_at_coordinates',
           arguments: { tabId, x: 100, y: 100, text: '' },
         })
-
-        console.log('\n=== Type Empty String at Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should reject empty string')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -381,9 +339,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 100, y: 100, text: '你好世界 🌍 テスト' },
         })
 
-        console.log('\n=== Type Unicode at Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -406,9 +361,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 100, y: 100, text: longText },
         })
 
-        console.log('\n=== Type Long Text at Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -429,9 +381,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 100, y: 100, text: 'Line 1\nLine 2\nLine 3' },
         })
 
-        console.log('\n=== Type Multiline at Coordinates Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(!result.isError, 'Should succeed')
       })
     }, 30000)
@@ -444,9 +393,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_type_at_coordinates',
           arguments: { tabId: 1, x: 100, y: 100 },
         })
-
-        console.log('\n=== Type at Coordinates Missing Text Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
@@ -466,9 +412,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId: 1, text: 'test' },
         })
 
-        console.log('\n=== Type at Coordinates Missing XY Response ===')
-        console.log(JSON.stringify(result, null, 2))
-
         assert.ok(result.isError, 'Should be an error')
         const textContent = result.content.find((c) => c.type === 'text')
         assert.ok(
@@ -486,9 +429,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_type_at_coordinates',
           arguments: { tabId: 999999, x: 100, y: 100, text: 'test' },
         })
-
-        console.log('\n=== Type at Coordinates Invalid TabId Response ===')
-        console.log(JSON.stringify(result, null, 2))
 
         // Should error
         assert.ok(result.isError || result.content, 'Should handle invalid tab')
@@ -585,9 +525,6 @@ describe('MCP Controller Coordinates Tools', () => {
           arguments: { tabId, x: 300, y: 300 },
         })
 
-        console.log('\n=== Workflow: Click Coordinates ===')
-        console.log(JSON.stringify(clickResult, null, 2))
-
         assert.ok(!clickResult.isError, 'Click should succeed')
 
         // Type at coordinates
@@ -595,9 +532,6 @@ describe('MCP Controller Coordinates Tools', () => {
           name: 'browser_type_at_coordinates',
           arguments: { tabId, x: 350, y: 350, text: 'Workflow test' },
         })
-
-        console.log('\n=== Workflow: Type at Coordinates ===')
-        console.log(JSON.stringify(typeResult, null, 2))
 
         assert.ok(!typeResult.isError, 'Type should succeed')
       })
@@ -632,8 +566,6 @@ describe('MCP Controller Coordinates Tools', () => {
             `Click at (${coord.x}, ${coord.y}) should succeed`,
           )
         }
-
-        console.log('\n=== Workflow: Multiple Coordinate Clicks Complete ===')
       })
     }, 30000)
   })

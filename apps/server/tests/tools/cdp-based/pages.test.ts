@@ -5,7 +5,7 @@
 
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-
+import { CdpResponse } from '../../../src/tools/cdp-based/response/cdp-response'
 import {
   closePage,
   handleDialog,
@@ -14,8 +14,7 @@ import {
   newPage,
   resizePage,
   selectPage,
-} from '../../../src/tools/cdp-based/pages'
-import { CdpResponse } from '../../../src/tools/cdp-based/response'
+} from '../../../src/tools/cdp-based/tools/pages'
 
 import { withCdpBrowser } from '../../__helpers__/utils'
 

@@ -124,10 +124,6 @@ export class GeminiAgent {
       )
       logger.info('Model does not support images, excluding screenshot tools')
     }
-    if (config.evalMode !== true) {
-      excludedTools.push('browser_create_window', 'browser_close_window')
-    }
-
     // Chat mode: restrict to read-only tools only (no browser automation)
     if (config.chatMode === true) {
       const allToolNames = [
