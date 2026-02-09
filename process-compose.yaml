@@ -1,0 +1,19 @@
+version: "0.5"
+
+processes:
+  build-ext:
+    command: bun --cwd apps/controller-ext build
+    availability:
+      restart: no
+
+  server:
+    command: bun --cwd apps/server start
+    depends_on:
+      build-ext:
+        condition: process_completed_successfully
+
+  agent:
+    command: bun --cwd apps/agent dev
+    depends_on:
+      build-ext:
+        condition: process_completed_successfully
