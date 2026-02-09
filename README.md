@@ -72,21 +72,26 @@ packages/
 
 ### Setup
 
+Requires [process-compose](https://github.com/F1bonacc1/process-compose):
+
+```bash
+brew install process-compose
+```
+
 ```bash
 # Copy environment files for each package
 cp apps/server/.env.example apps/server/.env.development
 cp apps/agent/.env.example apps/agent/.env.development
 
-# Start the full dev environment (installs deps, builds extension, starts server + agent)
+# Start the full dev environment
 process-compose up
 ```
-
-This uses [process-compose](https://github.com/F1bonacc1/process-compose) to run the full dev stack. Install it with `brew install process-compose`.
 
 The `process-compose up` command runs the following in order:
 1. `bun install` — installs dependencies
 2. `bun --cwd apps/controller-ext build` — builds the controller extension
-3. `bun --cwd apps/server start` and `bun --cwd apps/agent dev` — starts server and agent in parallel
+3. `bun --cwd apps/agent codegen` — generates agent code
+4. `bun --cwd apps/server start` and `bun --cwd apps/agent dev` — starts server and agent in parallel
 
 ### Environment Variables
 
