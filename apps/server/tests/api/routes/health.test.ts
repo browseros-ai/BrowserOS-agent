@@ -14,7 +14,9 @@ describe('createHealthRoute', () => {
     const response = await route.request('/')
 
     assert.strictEqual(response.status, 200)
-    const body = await response.json()
-    assert.deepStrictEqual(body, { status: 'ok' })
+    const body = (await response.json()) as { status: string; uptime: number }
+    assert.strictEqual(body.status, 'ok')
+    assert.strictEqual(typeof body.uptime, 'number')
+    assert.ok(body.uptime >= 0)
   })
 })

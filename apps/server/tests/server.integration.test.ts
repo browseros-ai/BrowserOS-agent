@@ -63,8 +63,10 @@ describe('HTTP Server Integration Tests', () => {
       const response = await fetch(`${getBaseUrl()}/health`)
       assert.strictEqual(response.status, 200)
 
-      const json = await response.json()
+      const json = (await response.json()) as { status: string; uptime: number }
       assert.strictEqual(json.status, 'ok')
+      assert.strictEqual(typeof json.uptime, 'number')
+      assert.ok(json.uptime >= 0)
     })
   })
 
