@@ -105,6 +105,53 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         apiKeyUrl: result.apiKeyUrls?.[serverName],
       })
     })
+    .post(
+      '/servers/submit-api-key',
+      zValidator(
+        'json',
+        z.object({
+          serverName: z.string().min(1),
+          apiKey: z.string().min(1),
+        }),
+      ),
+      async (c) => {
+        if (!browserosId) {
+          return c.json({ error: 'browserosId not configured' }, 500)
+        }
+
+        const { serverName, apiKey } = c.req.valid('json')
+
+        const validServer = OAUTH_MCP_SERVERS.find((s) => s.name === serverName)
+        if (!validServer) {
+          return c.json({ error: `Invalid server: ${serverName}` }, 400)
+        }
+
+        try {
+          const strata = await klavisClient.createStrata(browserosId, [
+            serverName,
+          ])
+          const apiKeyUrl = strata.apiKeyUrls?.[serverName]
+          if (!apiKeyUrl) {
+            return c.json(
+              { error: `No API key URL for server: ${serverName}` },
+              400,
+            )
+          }
+
+          await klavisClient.submitApiKey(apiKeyUrl, apiKey)
+
+          logger.info('Submitted API key for server', { serverName })
+
+          return c.json({ success: true, serverName })
+        } catch (error) {
+          logger.error('Error submitting API key', {
+            serverName,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return c.json({ error: 'Failed to submit API key' }, 500)
+        }
+      },
+    )
     .delete(
       '/servers/remove',
       zValidator('json', ServerNameSchema),

@@ -11,12 +11,14 @@ import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
+import { ApiKeyDialog } from './ApiKeyDialog'
 import { AvailableManagedServers } from './AvailableManagedServers'
 import { McpServerIcon } from './McpServerIcon'
 import { useAddManagedServer } from './useAddManagedServer'
 import { useGetMCPServersList } from './useGetMCPServersList'
 import { useGetUserMCPIntegrations } from './useGetUserMCPIntegrations'
 import { useRemoveManagedServer } from './useRemoveManagedServer'
+import { useSubmitApiKey } from './useSubmitApiKey'
 
 const failedToAddMcp = (serverName: string, e: unknown) => {
   toast.error(`Failed to add app: ${serverName}`)
@@ -36,9 +38,15 @@ export const ConnectMCP: FC = () => {
   const [addingManagedMcp, setAddingManagedMcp] = useState(false)
   const [addingCustomMcp, setAddingCustomMcp] = useState(false)
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null)
+  const [apiKeyServer, setApiKeyServer] = useState<{
+    name: string
+    description: string
+  } | null>(null)
 
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const { trigger: removeManagedServerMutation } = useRemoveManagedServer()
+  const { trigger: submitApiKeyMutation, isMutating: isSubmittingApiKey } =
+    useSubmitApiKey()
 
   const { data: serversList } = useGetMCPServersList()
 
@@ -50,13 +58,18 @@ export const ConnectMCP: FC = () => {
       const response = await addManagedServerMutation({
         serverName: mcpName,
       })
-      const authUrl = response.oauthUrl || response.apiKeyUrl
-      if (!authUrl) {
+
+      if (response.apiKeyUrl) {
+        setApiKeyServer({ name: mcpName, description: '' })
+        return
+      }
+
+      if (!response.oauthUrl) {
         failedToAddMcp(mcpName, 'No auth URL returned')
         return
       }
 
-      window.open(authUrl, '_blank')?.focus()
+      window.open(response.oauthUrl, '_blank')?.focus()
     } catch (e) {
       failedToAddMcp(mcpName, e)
     }
@@ -73,13 +86,6 @@ export const ConnectMCP: FC = () => {
       const response = await addManagedServerMutation({
         serverName: name,
       })
-      const authUrl = response.oauthUrl || response.apiKeyUrl
-      if (!authUrl) {
-        failedToAddMcp(name, 'No auth URL returned')
-        return
-      }
-
-      window.open(authUrl, '_blank')?.focus()
 
       addServer({
         id: Date.now().toString(),
@@ -89,8 +95,37 @@ export const ConnectMCP: FC = () => {
         managedServerDescription: description,
       })
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
+
+      if (response.apiKeyUrl) {
+        setApiKeyServer({ name, description })
+        return
+      }
+
+      if (!response.oauthUrl) {
+        failedToAddMcp(name, 'No auth URL returned')
+        return
+      }
+
+      window.open(response.oauthUrl, '_blank')?.focus()
     } catch (e) {
       failedToAddMcp(name, e)
+    }
+  }
+
+  const handleSubmitApiKey = async (apiKey: string) => {
+    if (!apiKeyServer) return
+    try {
+      await submitApiKeyMutation({
+        serverName: apiKeyServer.name,
+        apiKey,
+      })
+      toast.success(`${apiKeyServer.name} connected successfully`)
+      setApiKeyServer(null)
+    } catch (e) {
+      toast.error(
+        `Failed to connect ${apiKeyServer.name}: ${e instanceof Error ? e.message : 'Unknown error'}`,
+      )
+      sentry.captureException(e)
     }
   }
 
@@ -304,6 +339,16 @@ export const ConnectMCP: FC = () => {
         open={addingCustomMcp}
         onOpenChange={setAddingCustomMcp}
         onAddServer={addCustomServer}
+      />
+
+      <ApiKeyDialog
+        open={!!apiKeyServer}
+        onOpenChange={(open) => {
+          if (!open) setApiKeyServer(null)
+        }}
+        serverName={apiKeyServer?.name ?? ''}
+        onSubmit={handleSubmitApiKey}
+        isSubmitting={isSubmittingApiKey}
       />
     </div>
   )

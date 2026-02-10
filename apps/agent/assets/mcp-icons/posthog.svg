@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <path d="M64 128C99.3462 128 128 99.3462 128 64C128 28.6538 99.3462 0 64 0C28.6538 0 0 28.6538 0 64C0 99.3462 28.6538 128 64 128Z" fill="#1D4AFF"/>
+  <path d="M43.2 89.6H32L48 73.6H59.2L43.2 89.6Z" fill="white"/>
+  <path d="M59.2 89.6H48L64 73.6H75.2L59.2 89.6Z" fill="white"/>
+  <path d="M75.2 89.6H64L80 73.6H91.2L75.2 89.6Z" fill="white"/>
+  <path d="M43.2 73.6H32L48 57.6H59.2L43.2 73.6Z" fill="white"/>
+  <path d="M59.2 73.6H48L64 57.6H75.2L59.2 73.6Z" fill="white"/>
+  <path d="M75.2 73.6H64L80 57.6H91.2L75.2 73.6Z" fill="white"/>
+  <path d="M43.2 57.6H32L48 41.6H59.2L43.2 57.6Z" fill="white"/>
+  <path d="M59.2 57.6H48L64 41.6H75.2L59.2 57.6Z" fill="white"/>
+  <path d="M43.2 41.6H32L48 25.6H59.2L43.2 41.6Z" fill="white"/>
+  <circle cx="92.8" cy="83.2" r="6.4" fill="white"/>
+  <circle cx="92.8" cy="67.2" r="6.4" fill="white"/>
+  <circle cx="76.8" cy="51.2" r="6.4" fill="white"/>
+  <circle cx="92.8" cy="51.2" r="6.4" fill="white"/>
+  <circle cx="60.8" cy="35.2" r="6.4" fill="white"/>
+  <circle cx="76.8" cy="35.2" r="6.4" fill="white"/>
+  <circle cx="92.8" cy="35.2" r="6.4" fill="white"/>
+</svg>

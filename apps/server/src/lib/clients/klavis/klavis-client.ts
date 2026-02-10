@@ -91,6 +91,53 @@ export class KlavisClient {
   }
 
   /**
+   * Submit an API key to a Klavis apiKeyUrl endpoint.
+   * Uses fetch directly since apiKeyUrl is a full external URL.
+   * Tries `access_token` field first (Klavis AUTH_DATA format), falls back to `api_key`.
+   */
+  async submitApiKey(apiKeyUrl: string, apiKey: string): Promise<void> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      TIMEOUTS.KLAVIS_FETCH,
+    )
+
+    try {
+      let response = await fetch(apiKeyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: apiKey }),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        response = await fetch(apiKeyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: apiKey }),
+          signal: controller.signal,
+        })
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(
+          `Klavis API key submission failed: ${response.status} ${response.statusText} - ${errorText}`,
+        )
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(
+          `Klavis API key submission timed out after ${TIMEOUTS.KLAVIS_FETCH}ms`,
+        )
+      }
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  /**
    * Remove a server from a Strata instance
    * Flow: createStrata(server) to get strataId → DELETE /strata/{strataId}/servers?servers=X
    */
