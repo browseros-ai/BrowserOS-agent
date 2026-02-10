@@ -17,11 +17,9 @@ export interface StrataCreateResponse {
 
 export class KlavisClient {
   private baseUrl: string
-  private apiKey?: string
 
-  constructor(baseUrl?: string, apiKey?: string) {
+  constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || EXTERNAL_URLS.KLAVIS_PROXY
-    this.apiKey = apiKey
   }
 
   private async request<T>(
@@ -93,64 +91,25 @@ export class KlavisClient {
   }
 
   /**
-   * Submit an API key to Klavis's set-auth endpoint.
-   * Calls api.klavis.ai directly with Bearer auth since this path
-   * isn't available through the proxy.
+   * Submit an API key to Klavis's set-auth endpoint via the proxy.
+   * Extracts instanceId from the apiKeyUrl and routes through the proxy.
    * Docs: POST /mcp-server/instance/set-auth with { instanceId, authData }
    */
   async submitApiKey(apiKeyUrl: string, apiKey: string): Promise<void> {
-    if (!this.apiKey) {
-      throw new Error('Klavis API key required for API key submission')
-    }
-
     const parsedUrl = new URL(apiKeyUrl)
     const instanceId = parsedUrl.searchParams.get('instance_id')
     if (!instanceId) {
       throw new Error('Missing instance_id in apiKeyUrl')
     }
 
-    const baseEndpoint = `${parsedUrl.origin}${parsedUrl.pathname}`
-
-    const controller = new AbortController()
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      TIMEOUTS.KLAVIS_FETCH,
+    const data = await this.request<{ success: boolean; message?: string }>(
+      'POST',
+      '/mcp-server/instance/set-auth',
+      { instanceId, authData: { api_key: apiKey } },
     )
 
-    try {
-      const response = await fetch(baseEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          instanceId,
-          authData: { api_key: apiKey },
-        }),
-        signal: controller.signal,
-      })
-
-      const data = (await response.json()) as {
-        success: boolean
-        message?: string
-      }
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message ||
-            `Klavis API key submission failed: ${response.status}`,
-        )
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(
-          `Klavis API key submission timed out after ${TIMEOUTS.KLAVIS_FETCH}ms`,
-        )
-      }
-      throw error
-    } finally {
-      clearTimeout(timeoutId)
+    if (!data.success) {
+      throw new Error(data.message || 'Klavis API key submission failed')
     }
   }
 

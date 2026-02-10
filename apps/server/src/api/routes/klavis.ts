@@ -21,7 +21,7 @@ interface KlavisRouteDeps {
 
 export function createKlavisRoutes(deps: KlavisRouteDeps) {
   const { browserosId } = deps
-  const klavisClient = new KlavisClient(undefined, process.env.KLAVIS_API_KEY)
+  const klavisClient = new KlavisClient()
 
   // Chain route definitions for proper Hono RPC type inference
   return new Hono()
