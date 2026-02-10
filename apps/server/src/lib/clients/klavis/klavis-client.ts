@@ -131,10 +131,15 @@ export class KlavisClient {
         signal: controller.signal,
       })
 
-      if (!response.ok) {
-        const errorText = await response.text()
+      const data = (await response.json()) as {
+        success: boolean
+        message?: string
+      }
+
+      if (!response.ok || !data.success) {
         throw new Error(
-          `Klavis API key submission failed: ${response.status} ${response.statusText} - ${errorText}`,
+          data.message ||
+            `Klavis API key submission failed: ${response.status}`,
         )
       }
     } catch (error) {
