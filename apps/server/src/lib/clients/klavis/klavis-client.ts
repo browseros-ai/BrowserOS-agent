@@ -12,6 +12,7 @@ export interface StrataCreateResponse {
   strataId: string
   addedServers: string[]
   oauthUrls?: Record<string, string>
+  apiKeyUrls?: Record<string, string>
 }
 
 export class KlavisClient {

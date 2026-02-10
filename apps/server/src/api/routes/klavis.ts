@@ -102,6 +102,7 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         strataId: result.strataId,
         addedServers: result.addedServers,
         oauthUrl: result.oauthUrls?.[serverName],
+        apiKeyUrl: result.apiKeyUrls?.[serverName],
       })
     })
     .delete(

@@ -50,7 +50,7 @@ export const ConnectMCP: FC = () => {
       const response = await addManagedServerMutation({
         serverName: mcpName,
       })
-      const authUrl = response.oauthUrl
+      const authUrl = response.oauthUrl || response.apiKeyUrl
       if (!authUrl) {
         failedToAddMcp(mcpName, 'No auth URL returned')
         return
@@ -73,7 +73,7 @@ export const ConnectMCP: FC = () => {
       const response = await addManagedServerMutation({
         serverName: name,
       })
-      const authUrl = response.oauthUrl
+      const authUrl = response.oauthUrl || response.apiKeyUrl
       if (!authUrl) {
         failedToAddMcp(name, 'No auth URL returned')
         return
