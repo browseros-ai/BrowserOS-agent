@@ -397,8 +397,7 @@ ${message}
 
     // Inject previous conversation if resuming (no server-side history)
     let fullMessage = userQuery
-    const hasHistory = this.client.getHistory().length > 0
-    if (previousConversation && !hasHistory) {
+    if (previousConversation) {
       fullMessage = `<previous_conversation>
 The user is resuming a previous conversation. Here is the conversation history for context:
 
