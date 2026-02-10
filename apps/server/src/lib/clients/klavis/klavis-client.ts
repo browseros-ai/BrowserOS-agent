@@ -17,9 +17,11 @@ export interface StrataCreateResponse {
 
 export class KlavisClient {
   private baseUrl: string
+  private apiKey?: string
 
-  constructor(baseUrl?: string) {
+  constructor(baseUrl?: string, apiKey?: string) {
     this.baseUrl = baseUrl || EXTERNAL_URLS.KLAVIS_PROXY
+    this.apiKey = apiKey
   }
 
   private async request<T>(
@@ -91,11 +93,24 @@ export class KlavisClient {
   }
 
   /**
-   * Submit an API key to a Klavis apiKeyUrl endpoint.
-   * Uses fetch directly since apiKeyUrl is a full external URL.
-   * Tries `access_token` field first (Klavis AUTH_DATA format), falls back to `api_key`.
+   * Submit an API key to Klavis's set-auth endpoint.
+   * Calls api.klavis.ai directly with Bearer auth since this path
+   * isn't available through the proxy.
+   * Docs: POST /mcp-server/instance/set-auth with { instanceId, authData }
    */
   async submitApiKey(apiKeyUrl: string, apiKey: string): Promise<void> {
+    if (!this.apiKey) {
+      throw new Error('Klavis API key required for API key submission')
+    }
+
+    const parsedUrl = new URL(apiKeyUrl)
+    const instanceId = parsedUrl.searchParams.get('instance_id')
+    if (!instanceId) {
+      throw new Error('Missing instance_id in apiKeyUrl')
+    }
+
+    const baseEndpoint = `${parsedUrl.origin}${parsedUrl.pathname}`
+
     const controller = new AbortController()
     const timeoutId = setTimeout(
       () => controller.abort(),
@@ -103,21 +118,18 @@ export class KlavisClient {
     )
 
     try {
-      let response = await fetch(apiKeyUrl, {
+      const response = await fetch(baseEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: apiKey }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          instanceId,
+          authData: { api_key: apiKey },
+        }),
         signal: controller.signal,
       })
-
-      if (!response.ok) {
-        response = await fetch(apiKeyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: apiKey }),
-          signal: controller.signal,
-        })
-      }
 
       if (!response.ok) {
         const errorText = await response.text()
