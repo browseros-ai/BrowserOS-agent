@@ -8,7 +8,7 @@
     "browseros-server": "./src/index.ts"
   },
   "scripts": {
-    "start": "bun --env-file=.env.development src/index.ts",
+    "start": "bun --watch --env-file=.env.development src/index.ts",
     "build": "bun ../../scripts/build/server.ts --mode=prod --target=all",
     "test": "bun run test:cleanup && bun --env-file=.env.development test tests/tools tests/common",
     "test:all": "bun run test:cleanup && bun --env-file=.env.development test",
