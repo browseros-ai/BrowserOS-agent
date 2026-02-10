@@ -22,6 +22,7 @@ import { MagicLinkCallback } from './login/MagicLinkCallback'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
+import { SupportPage } from './support/SupportPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
 function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
@@ -77,6 +78,7 @@ export const App: FC = () => {
           {/* Primary nav routes */}
           <Route path="workflows" element={<WorkflowsPageWrapper />} />
           <Route path="scheduled" element={<ScheduledTasksPage />} />
+          <Route path="support" element={<SupportPage />} />
         </Route>
 
         {/* Settings with dedicated sidebar */}

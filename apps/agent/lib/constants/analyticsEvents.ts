@@ -154,3 +154,9 @@ export const SCHEDULED_TASK_RETRIED_EVENT = 'settings.scheduled_task.retried'
 
 /** @public */
 export const JTBD_POPUP_DISMISSED_EVENT = 'ui.jtbd_popup.dismissed'
+
+/** @public */
+export const SUPPORT_PAGE_VIEWED_EVENT = 'settings.support.viewed'
+
+/** @public */
+export const SUPPORT_CHAT_OPENED_EVENT = 'settings.support.chat_opened'
