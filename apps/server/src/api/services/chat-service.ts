@@ -99,13 +99,14 @@ export class ChatService {
       isScheduledTask: request.isScheduledTask,
     }
 
+    const isNewSession = !sessionManager.has(request.conversationId)
     const agent = await sessionManager.getOrCreate(agentConfig, mcpServers)
     await agent.execute(
       request.message,
       rawStream,
       abortSignal,
       request.browserContext,
-      request.previousConversation,
+      isNewSession ? request.previousConversation : undefined,
     )
   }
 
