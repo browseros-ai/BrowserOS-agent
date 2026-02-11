@@ -50,8 +50,11 @@ export const ConnectMCP: FC = () => {
 
   const { data: serversList } = useGetMCPServersList()
 
-  const { data: userMCPIntegrations, isLoading: isUserMCPIntegrationsLoading } =
-    useGetUserMCPIntegrations()
+  const {
+    data: userMCPIntegrations,
+    isLoading: isUserMCPIntegrationsLoading,
+    mutate: mutateUserIntegrations,
+  } = useGetUserMCPIntegrations()
 
   const openAuthUrlForMCP = async (mcpName: string) => {
     try {
@@ -121,6 +124,7 @@ export const ConnectMCP: FC = () => {
       })
       toast.success(`${apiKeyServer.name} connected successfully`)
       setApiKeyServer(null)
+      mutateUserIntegrations()
     } catch (e) {
       toast.error(
         `Failed to connect ${apiKeyServer.name}: ${e instanceof Error ? e.message : 'Unknown error'}`,
