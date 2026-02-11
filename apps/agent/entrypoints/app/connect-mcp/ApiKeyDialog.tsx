@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod/v3'
 import { Button } from '@/components/ui/button'
@@ -51,19 +51,17 @@ export const ApiKeyDialog: FC<ApiKeyDialogProps> = ({
     },
   })
 
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      form.reset()
-    }
-    onOpenChange(isOpen)
-  }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We only want to reset the form when the dialog is closed, not on every render
+  useEffect(() => {
+    if (!open) form.reset()
+  }, [open])
 
   const handleSubmit = (values: FormValues) => {
     onSubmit(values.apiKey)
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -111,7 +109,7 @@ export const ApiKeyDialog: FC<ApiKeyDialogProps> = ({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleOpenChange(false)}
+                onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
                 Cancel

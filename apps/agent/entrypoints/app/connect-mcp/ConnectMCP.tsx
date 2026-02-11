@@ -41,6 +41,7 @@ export const ConnectMCP: FC = () => {
   const [apiKeyServer, setApiKeyServer] = useState<{
     name: string
     description: string
+    apiKeyUrl: string
   } | null>(null)
 
   const { trigger: addManagedServerMutation } = useAddManagedServer()
@@ -63,7 +64,11 @@ export const ConnectMCP: FC = () => {
       })
 
       if (response.apiKeyUrl) {
-        setApiKeyServer({ name: mcpName, description: '' })
+        setApiKeyServer({
+          name: mcpName,
+          description: '',
+          apiKeyUrl: response.apiKeyUrl,
+        })
         return
       }
 
@@ -105,7 +110,7 @@ export const ConnectMCP: FC = () => {
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
       if (response.apiKeyUrl) {
-        setApiKeyServer({ name, description })
+        setApiKeyServer({ name, description, apiKeyUrl: response.apiKeyUrl })
         return
       }
 
@@ -121,6 +126,7 @@ export const ConnectMCP: FC = () => {
       await submitApiKeyMutation({
         serverName: apiKeyServer.name,
         apiKey,
+        apiKeyUrl: apiKeyServer.apiKeyUrl,
       })
       toast.success(`${apiKeyServer.name} connected successfully`)
       setApiKeyServer(null)

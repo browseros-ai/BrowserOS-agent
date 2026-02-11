@@ -112,6 +112,7 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         z.object({
           serverName: z.string().min(1),
           apiKey: z.string().min(1),
+          apiKeyUrl: z.string().url(),
         }),
       ),
       async (c) => {
@@ -119,25 +120,9 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
           return c.json({ error: 'browserosId not configured' }, 500)
         }
 
-        const { serverName, apiKey } = c.req.valid('json')
-
-        const validServer = OAUTH_MCP_SERVERS.find((s) => s.name === serverName)
-        if (!validServer) {
-          return c.json({ error: `Invalid server: ${serverName}` }, 400)
-        }
+        const { serverName, apiKey, apiKeyUrl } = c.req.valid('json')
 
         try {
-          const strata = await klavisClient.createStrata(browserosId, [
-            serverName,
-          ])
-          const apiKeyUrl = strata.apiKeyUrls?.[serverName]
-          if (!apiKeyUrl) {
-            return c.json(
-              { error: `No API key URL for server: ${serverName}` },
-              400,
-            )
-          }
-
           await klavisClient.submitApiKey(apiKeyUrl, apiKey)
 
           logger.info('Submitted API key for server', { serverName })

@@ -37,7 +37,10 @@ export const AppSelector: FC<AppSelectorProps> = ({
 }) => {
   const [open, setOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
-  const [apiKeyServer, setApiKeyServer] = useState<string | null>(null)
+  const [apiKeyServer, setApiKeyServer] = useState<{
+    name: string
+    apiKeyUrl: string
+  } | null>(null)
 
   const { servers: createdServers, addServer } = useMcpServers()
   const { trigger: addManagedServerMutation } = useAddManagedServer()
@@ -103,7 +106,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
     try {
       const response = await addManagedServerMutation({ serverName })
       if (response.apiKeyUrl) {
-        setApiKeyServer(serverName)
+        setApiKeyServer({ name: serverName, apiKeyUrl: response.apiKeyUrl })
         return
       }
       if (!response.oauthUrl) {
@@ -130,7 +133,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
       if (response.apiKeyUrl) {
-        setApiKeyServer(name)
+        setApiKeyServer({ name, apiKeyUrl: response.apiKeyUrl })
         return
       }
       if (!response.oauthUrl) {
@@ -147,13 +150,17 @@ export const AppSelector: FC<AppSelectorProps> = ({
   const handleSubmitApiKey = async (apiKey: string) => {
     if (!apiKeyServer) return
     try {
-      await submitApiKeyMutation({ serverName: apiKeyServer, apiKey })
-      toast.success(`${apiKeyServer} connected successfully`)
+      await submitApiKeyMutation({
+        serverName: apiKeyServer.name,
+        apiKey,
+        apiKeyUrl: apiKeyServer.apiKeyUrl,
+      })
+      toast.success(`${apiKeyServer.name} connected successfully`)
       setApiKeyServer(null)
       mutateUserIntegrations()
     } catch (e) {
       toast.error(
-        `Failed to connect ${apiKeyServer}: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        `Failed to connect ${apiKeyServer.name}: ${e instanceof Error ? e.message : 'Unknown error'}`,
       )
       sentry.captureException(e)
     }
@@ -294,7 +301,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
         onOpenChange={(isOpen) => {
           if (!isOpen) setApiKeyServer(null)
         }}
-        serverName={apiKeyServer ?? ''}
+        serverName={apiKeyServer?.name ?? ''}
         onSubmit={handleSubmitApiKey}
         isSubmitting={isSubmittingApiKey}
       />

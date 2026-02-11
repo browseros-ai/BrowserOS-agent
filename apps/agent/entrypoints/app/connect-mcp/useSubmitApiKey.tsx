@@ -12,7 +12,7 @@ interface SubmitApiKeyError {
 
 const submitApiKey = async (
   url: string,
-  { arg }: { arg: { serverName: string; apiKey: string } },
+  { arg }: { arg: { serverName: string; apiKey: string; apiKeyUrl: string } },
 ): Promise<SubmitApiKeyResponse> => {
   const response = await fetch(url, {
     method: 'POST',
@@ -22,6 +22,7 @@ const submitApiKey = async (
     body: JSON.stringify({
       serverName: arg.serverName,
       apiKey: arg.apiKey,
+      apiKeyUrl: arg.apiKeyUrl,
     }),
   })
 
