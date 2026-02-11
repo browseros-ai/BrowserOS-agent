@@ -22,7 +22,14 @@ import type { ResolvedLLMConfig } from './types'
 type ProviderFactory = (config: ResolvedLLMConfig) => LanguageModel
 
 function createAnthropicModel(config: ResolvedLLMConfig): LanguageModel {
-  if (!config.apiKey) throw new Error('Anthropic provider requires apiKey')
+  if (!config.apiKey && !config.authToken) {
+    throw new Error('Anthropic provider requires apiKey or authToken')
+  }
+  if (config.authToken) {
+    return createAnthropic({
+      headers: { 'Authorization': `Bearer ${config.authToken}` },
+    })(config.model)
+  }
   return createAnthropic({ apiKey: config.apiKey })(config.model)
 }
 
@@ -88,8 +95,17 @@ function createBedrockModel(config: ResolvedLLMConfig): LanguageModel {
 }
 
 function createBrowserOSModel(config: ResolvedLLMConfig): LanguageModel {
-  if (!config.baseUrl) throw new Error('BrowserOS provider requires baseUrl')
-  const { baseUrl, apiKey, model, upstreamProvider } = config
+  const { baseUrl, apiKey, model, upstreamProvider, authToken } = config
+
+  // OAuth token with Anthropic upstream: call Anthropic directly
+  if (authToken && (!upstreamProvider || upstreamProvider === LLM_PROVIDERS.ANTHROPIC)) {
+    return createAnthropic({
+      ...(baseUrl && { baseURL: baseUrl }),
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    })(model)
+  }
+
+  if (!baseUrl) throw new Error('BrowserOS provider requires baseUrl')
 
   if (upstreamProvider === LLM_PROVIDERS.OPENROUTER) {
     return createOpenRouter({

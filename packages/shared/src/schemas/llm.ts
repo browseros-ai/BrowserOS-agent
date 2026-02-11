@@ -64,6 +64,7 @@ export const LLMConfigSchema: z.ZodObject<{
   provider: typeof LLMProviderSchema
   model: z.ZodOptional<z.ZodString>
   apiKey: z.ZodOptional<z.ZodString>
+  authToken: z.ZodOptional<z.ZodString>
   baseUrl: z.ZodOptional<z.ZodString>
   resourceName: z.ZodOptional<z.ZodString>
   region: z.ZodOptional<z.ZodString>
@@ -74,6 +75,7 @@ export const LLMConfigSchema: z.ZodObject<{
   provider: LLMProviderSchema,
   model: z.string().optional(),
   apiKey: z.string().optional(),
+  authToken: z.string().optional(),
   baseUrl: z.string().optional(),
   // Azure-specific
   resourceName: z.string().optional(),

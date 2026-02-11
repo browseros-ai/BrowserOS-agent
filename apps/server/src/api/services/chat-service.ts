@@ -84,6 +84,7 @@ export class ChatService {
       provider: providerConfig.provider,
       model: providerConfig.model,
       apiKey: providerConfig.apiKey,
+      authToken: providerConfig.authToken,
       baseUrl: providerConfig.baseUrl,
       upstreamProvider: providerConfig.upstreamProvider,
       resourceName: providerConfig.resourceName,
@@ -142,6 +143,7 @@ export class ChatService {
         provider: request.provider,
         model: llmConfig.modelName,
         apiKey: llmConfig.apiKey,
+        authToken: request.authToken,
         baseUrl: llmConfig.baseUrl,
         upstreamProvider: llmConfig.providerType,
       }
@@ -151,6 +153,7 @@ export class ChatService {
       provider: request.provider,
       model: request.model,
       apiKey: request.apiKey,
+      authToken: request.authToken,
       baseUrl: request.baseUrl,
       resourceName: request.resourceName,
       region: request.region,

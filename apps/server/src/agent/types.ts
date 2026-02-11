@@ -9,6 +9,7 @@ export interface ProviderConfig {
   provider: LLMProvider
   model: string
   apiKey?: string
+  authToken?: string
   baseUrl?: string
   upstreamProvider?: string
   resourceName?: string
@@ -23,6 +24,7 @@ export interface ResolvedAgentConfig {
   provider: LLMProvider
   model: string
   apiKey?: string
+  authToken?: string
   baseUrl?: string
   upstreamProvider?: string
   resourceName?: string

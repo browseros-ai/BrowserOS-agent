@@ -42,7 +42,14 @@ type ProviderFactory = (config: VercelAIConfig) => (modelId: string) => unknown
 function createAnthropicFactory(
   config: VercelAIConfig,
 ): (modelId: string) => unknown {
-  if (!config.apiKey) throw new Error('Anthropic provider requires apiKey')
+  if (!config.apiKey && !config.authToken) {
+    throw new Error('Anthropic provider requires apiKey or authToken')
+  }
+  if (config.authToken) {
+    return createAnthropic({
+      headers: { 'Authorization': `Bearer ${config.authToken}` },
+    })
+  }
   return createAnthropic({ apiKey: config.apiKey })
 }
 
@@ -124,8 +131,17 @@ function createBedrockFactory(
 function createBrowserOSFactory(
   config: VercelAIConfig,
 ): (modelId: string) => unknown {
-  if (!config.baseUrl) throw new Error('BrowserOS provider requires baseUrl')
-  const { baseUrl, apiKey, upstreamProvider } = config
+  const { baseUrl, apiKey, upstreamProvider, authToken } = config
+
+  // OAuth token with Anthropic upstream: call Anthropic directly
+  if (authToken && (!upstreamProvider || upstreamProvider === AIProvider.ANTHROPIC)) {
+    return createAnthropic({
+      ...(baseUrl && { baseURL: baseUrl }),
+      headers: { 'Authorization': `Bearer ${authToken}` },
+    })
+  }
+
+  if (!baseUrl) throw new Error('BrowserOS provider requires baseUrl')
 
   if (upstreamProvider === AIProvider.OPENROUTER) {
     return createOpenRouter({
