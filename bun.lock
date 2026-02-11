@@ -167,6 +167,7 @@
         "debug": "4.4.3",
         "eventsource-parser": "^3.0.0",
         "hono": "^4.6.0",
+        "klavis": "^2.15.0",
         "pino": "^9.6.0",
         "posthog-node": "^4.17.0",
         "puppeteer-core": "24.23.0",
@@ -1740,7 +1741,7 @@
 
     "chroma-js": ["chroma-js@3.2.0", "", {}, "sha512-os/OippSlX1RlWWr+QDPcGUZs0uoqr32urfxESG9U93lhUfbnlyckte84Q8P1UQY/qth983AS1JONKmLS4T0nw=="],
 
-    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.15.1", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-tuVDg+uNtjXuCUiI+lA+SFxJ7OaXmdq7n+Ug/XNEra1Y/FVRfLaqNGKJJgHeJHWYdonm7HXAmdyBbg9Rd7uzmQ=="],
+    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.17.0", "", { "bin": { "chrome-devtools-mcp": "build/src/index.js" } }, "sha512-vMi2zXq2ph2EG6amyyApcvuKJcEFj4cGK1XQVb6x8vQYHk8D9ZnSxdtFqD0cRnG7SbUOrg3GhjOZEJAD1dZWSQ=="],
 
     "chrome-launcher": ["chrome-launcher@1.2.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^2.0.1" }, "bin": { "print-chrome-path": "bin/print-chrome-path.cjs" } }, "sha512-JbuGuBNss258bvGil7FT4HKdC3SC2K7UAEUqiPy3ACS3Yxo3hAW6bvFpCu2HsIJLgTqxgEX6BkujvzZfLpUD0Q=="],
 

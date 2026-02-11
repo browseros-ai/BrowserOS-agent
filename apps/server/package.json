@@ -63,6 +63,7 @@
     "core-js": "3.45.1",
     "debug": "4.4.3",
     "hono": "^4.6.0",
+    "klavis": "^2.15.0",
     "@hono/mcp": "^0.2.3",
     "@hono/zod-validator": "^0.4.3",
     "posthog-node": "^4.17.0",
