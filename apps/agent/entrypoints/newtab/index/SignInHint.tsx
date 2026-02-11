@@ -13,7 +13,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 
-const DISMISS_DURATION = 24 * 60 * 60 * 1000
+const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000
 const LONG_DISMISS_DURATION = 90 * 24 * 60 * 60 * 1000
 
 const signInHintDismissedAtStorage = storage.defineItem<number | null>(
