@@ -8,7 +8,7 @@
     "browseros-server": "./src/index.ts"
   },
   "scripts": {
-    "start": "bun --env-file=.env.development src/index.ts",
+    "start": "bun --watch --env-file=.env.development src/index.ts",
     "build": "bun ../../scripts/build/server.ts --mode=prod --target=all",
     "test": "bun run test:cleanup && bun --env-file=.env.development test tests/tools tests/common",
     "test:all": "bun run test:cleanup && bun --env-file=.env.development test",
@@ -63,6 +63,7 @@
     "core-js": "3.45.1",
     "debug": "4.4.3",
     "hono": "^4.6.0",
+    "klavis": "^2.15.0",
     "@hono/mcp": "^0.2.3",
     "@hono/zod-validator": "^0.4.3",
     "posthog-node": "^4.17.0",

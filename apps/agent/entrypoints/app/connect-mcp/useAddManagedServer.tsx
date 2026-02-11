@@ -7,6 +7,7 @@ interface AddServerResponse {
   strataId: string
   addedServers: string[]
   oauthUrl?: string
+  apiKeyUrl?: string
 }
 
 interface AddServerError {

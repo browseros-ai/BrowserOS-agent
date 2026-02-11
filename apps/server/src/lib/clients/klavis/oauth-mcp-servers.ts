@@ -30,4 +30,5 @@ export const OAUTH_MCP_SERVERS: OAuthMcpServer[] = [
   { name: 'Figma', description: 'Access and manage design files' },
   { name: 'Canva', description: 'Create and manage designs' },
   { name: 'Salesforce', description: 'Manage leads, contacts, opportunities' },
+  { name: 'PostHog', description: 'Query analytics, manage feature flags' },
 ]
