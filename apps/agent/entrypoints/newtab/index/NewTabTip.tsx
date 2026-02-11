@@ -1,13 +1,23 @@
-import { Lightbulb, X } from 'lucide-react'
+import { ChevronRight, Lightbulb, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { type FC, useMemo, useState } from 'react'
+import { type FC, useState } from 'react'
 import { NEWTAB_TIP_DISMISSED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
-import { dismissTip, getRandomTip, shouldShowTip } from './tips'
+import { dismissTip, shouldShowTip, TIPS } from './tips'
 
 export const NewTabTip: FC = () => {
-  const tip = useMemo(() => getRandomTip(), [])
-  const [visible, setVisible] = useState(() => tip !== null && shouldShowTip())
+  const [index, setIndex] = useState(() =>
+    Math.floor(Math.random() * TIPS.length),
+  )
+  const [visible, setVisible] = useState(
+    () => TIPS.length > 0 && shouldShowTip(),
+  )
+
+  const tip = TIPS[index]
+
+  const handleNext = () => {
+    setIndex((prev) => (prev + 1) % TIPS.length)
+  }
 
   const handleDismiss = () => {
     setVisible(false)
@@ -35,8 +45,17 @@ export const NewTabTip: FC = () => {
             </p>
             <button
               type="button"
+              onClick={handleNext}
+              className="flex-shrink-0 rounded-sm p-0.5 text-muted-foreground/50 opacity-0 transition-all hover:text-muted-foreground group-hover:opacity-100"
+              title="Next tip"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
               onClick={handleDismiss}
               className="flex-shrink-0 rounded-sm p-0.5 text-muted-foreground/50 opacity-0 transition-all hover:text-muted-foreground group-hover:opacity-100"
+              title="Dismiss"
             >
               <X className="h-3 w-3" />
             </button>

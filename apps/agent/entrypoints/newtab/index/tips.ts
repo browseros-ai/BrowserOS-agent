@@ -11,18 +11,13 @@ const TIP_DISMISSED_KEY = 'tip-dismissed-session'
 export const TIPS: Tip[] = [
   {
     id: 'chat-any-page',
-    text: 'Press Option+K to open the AI Chat panel on any webpage — it includes full page context.',
-    shortcut: '⌥K',
-  },
-  {
-    id: 'compare-models',
-    text: 'Press Cmd+Shift+U to open LLM Hub and query multiple AI models side-by-side.',
-    shortcut: '⌘⇧U',
+    text: 'Press Ctrl+Shift+K (Cmd+Shift+K on Mac) to open the AI Chat panel on any webpage.',
+    shortcut: '⌃⇧K',
   },
   {
     id: 'switch-models',
-    text: 'Press Option+L to cycle between AI providers without closing the chat panel.',
-    shortcut: '⌥L',
+    text: 'Press Ctrl+Shift+L (Cmd+Shift+L on Mac) to cycle between AI providers without closing the chat panel.',
+    shortcut: '⌃⇧L',
   },
   {
     id: 'screenshot-chat',
@@ -42,7 +37,7 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'background-tasks',
-    text: 'Scheduled tasks run in a hidden window so they never interrupt your browsing.',
+    text: 'Scheduled tasks run in a seperate window so they never interrupt your browsing.',
   },
   {
     id: 'claude-code-mcp',
@@ -58,7 +53,7 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'ad-blocking',
-    text: 'BrowserOS comes with uBlock Origin pre-enabled — blocking 10x more ads than Chrome out of the box.',
+    text: 'BrowserOS supports uBlock Origin for ad blocking — install it from the Chrome Web Store or GitHub.',
   },
   {
     id: 'at-mention-tabs',
@@ -69,8 +64,8 @@ export const TIPS: Tip[] = [
     text: 'For complex repeatable tasks, build visual Workflows instead of one-off prompts for consistent results.',
   },
   {
-    id: 'model-selection',
-    text: 'Use Gemini Flash for quick questions and Claude Opus for complex multi-step agent tasks.',
+    id: 'mode-selection',
+    text: 'Use Chat mode for read-only operations like questions and summaries, and Agent mode for multi-step browser tasks.',
   },
 ]
 
