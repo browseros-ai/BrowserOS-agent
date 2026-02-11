@@ -65,6 +65,7 @@ describe('HTTP Server Integration Tests', () => {
 
       const json = await response.json()
       assert.strictEqual(json.status, 'ok')
+      assert.strictEqual(typeof json.uptime, 'number')
     })
   })
 
