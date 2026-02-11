@@ -16,6 +16,8 @@ processes:
 
   server:
     command: bun --cwd apps/server start
+    availability:
+      restart: always
     depends_on:
       build-ext:
         condition: process_completed_successfully
