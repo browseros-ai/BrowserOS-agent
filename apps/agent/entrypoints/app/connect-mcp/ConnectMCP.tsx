@@ -90,6 +90,11 @@ export const ConnectMCP: FC = () => {
         serverName: name,
       })
 
+      if (!response.apiKeyUrl && !response.oauthUrl) {
+        failedToAddMcp(name, 'No auth URL returned')
+        return
+      }
+
       addServer({
         id: Date.now().toString(),
         displayName: name,
@@ -101,11 +106,6 @@ export const ConnectMCP: FC = () => {
 
       if (response.apiKeyUrl) {
         setApiKeyServer({ name, description })
-        return
-      }
-
-      if (!response.oauthUrl) {
-        failedToAddMcp(name, 'No auth URL returned')
         return
       }
 
