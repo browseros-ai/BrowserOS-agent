@@ -23,9 +23,9 @@ processes:
         condition: process_completed_successfully
 
   agent-codegen:
-    command: bun --cwd apps/agent codegen
+    command: bun --cwd apps/agent codegen --watch
     availability:
-      restart: no
+      restart: always
     depends_on:
       install:
         condition: process_completed_successfully
