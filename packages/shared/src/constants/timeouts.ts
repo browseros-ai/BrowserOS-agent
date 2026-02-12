@@ -25,6 +25,12 @@ export const TIMEOUTS = {
   // External API calls
   KLAVIS_FETCH: 30_000,
 
+  // Upstream MCP proxy (Klavis Strata)
+  MCP_UPSTREAM_CONNECT: 10_000,
+  MCP_UPSTREAM_TOOL_CALL: 60_000,
+  MCP_UPSTREAM_LIST_TOOLS: 10_000,
+  MCP_UPSTREAM_REFRESH_INTERVAL: 300_000, // 5 minutes
+
   // Navigation/DOM
   NAVIGATION: 10_000,
   PAGE_LOAD_WAIT: 30_000,
