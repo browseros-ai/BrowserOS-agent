@@ -88,6 +88,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         controllerContext,
         mutexPool,
         allowRemote,
+        browserosId,
       }),
     )
     .route(

@@ -28,6 +28,12 @@ import { ControllerResponse } from '../../tools/controller-based/response/contro
 import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
+import type { CustomMcpServer } from '../utils/external-mcp-proxy'
+import {
+  discoverExternalTools,
+  registerProxyTools,
+  resolveExternalServers,
+} from '../utils/external-mcp-proxy'
 import { isLocalhostRequest } from '../utils/security'
 
 interface McpRouteDeps {
@@ -37,10 +43,13 @@ interface McpRouteDeps {
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean
+  browserosId?: string
 }
 
 const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
 const MCP_WINDOW_ID_HEADER = 'X-BrowserOS-Window-Id'
+const MCP_ENABLED_SERVERS_HEADER = 'X-BrowserOS-Enabled-Servers'
+const MCP_CUSTOM_SERVERS_HEADER = 'X-BrowserOS-Custom-Servers'
 
 const windowIdStore = new AsyncLocalStorage<number | undefined>()
 
@@ -167,10 +176,47 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
   return server
 }
 
-export function createMcpRoutes(deps: McpRouteDeps) {
-  const { allowRemote } = deps
+function parseExternalServerHeaders(c: {
+  req: { header: (name: string) => string | undefined }
+}): {
+  enabledServers: string[]
+  customServers: CustomMcpServer[]
+} {
+  const enabledRaw = c.req.header(MCP_ENABLED_SERVERS_HEADER)
+  const customRaw = c.req.header(MCP_CUSTOM_SERVERS_HEADER)
 
-  // Create MCP server once with all tools registered
+  const enabledServers = enabledRaw
+    ? enabledRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
+
+  let customServers: CustomMcpServer[] = []
+  if (customRaw) {
+    try {
+      const parsed = JSON.parse(customRaw)
+      if (Array.isArray(parsed)) {
+        customServers = parsed.filter(
+          (s: unknown): s is CustomMcpServer =>
+            typeof s === 'object' &&
+            s !== null &&
+            typeof (s as CustomMcpServer).name === 'string' &&
+            typeof (s as CustomMcpServer).url === 'string',
+        )
+      }
+    } catch {
+      logger.warn('Invalid JSON in custom servers header')
+    }
+  }
+
+  return { enabledServers, customServers }
+}
+
+export function createMcpRoutes(deps: McpRouteDeps) {
+  const { allowRemote, browserosId } = deps
+
+  // Create static MCP server once with all BrowserOS tools registered
   const mcpServer = createMcpServerWithTools(deps)
 
   return new Hono<Env>().all('/', async (c) => {
@@ -187,8 +233,47 @@ export function createMcpRoutes(deps: McpRouteDeps) {
 
     metrics.log('mcp.request', { source })
 
+    const { enabledServers, customServers } = parseExternalServerHeaders(c)
+    const hasExternalServers =
+      enabledServers.length > 0 || customServers.length > 0
+
     return windowIdStore.run(requestWindowId, async () => {
       try {
+        // Choose which McpServer to use: enhanced (with external tools) or static
+        let activeServer = mcpServer
+
+        if (hasExternalServers && browserosId) {
+          const resolvedServers = await resolveExternalServers({
+            enabledServers,
+            customServers,
+            browserosId,
+          })
+
+          if (resolvedServers.length > 0) {
+            const cacheKey = [
+              ...enabledServers.map((s) => `klavis:${s}`),
+              ...customServers.map((s) => `custom:${s.name}:${s.url}`),
+            ]
+              .sort()
+              .join(',')
+
+            const externalTools = await discoverExternalTools(
+              resolvedServers,
+              cacheKey,
+            )
+
+            if (externalTools.length > 0) {
+              activeServer = createMcpServerWithTools(deps)
+              registerProxyTools(activeServer, externalTools)
+
+              logger.info('Enhanced MCP server with external tools', {
+                externalToolCount: externalTools.length,
+                servers: resolvedServers.map((s) => s.name),
+              })
+            }
+          }
+        }
+
         // Create a new transport for EACH request to prevent request ID collisions.
         // Different clients may use the same JSON-RPC request IDs, which would cause
         // responses to be routed to the wrong HTTP connections if transport state is shared.
@@ -198,7 +283,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
         })
 
         // Connect the server to this transport
-        await mcpServer.connect(transport)
+        await activeServer.connect(transport)
 
         // Handle the request and return response
         return transport.handleRequest(c)
