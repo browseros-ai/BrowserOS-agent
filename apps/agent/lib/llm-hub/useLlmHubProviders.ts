@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   DEFAULT_PROVIDERS,
   type LlmHubProvider,
@@ -34,36 +34,34 @@ export function useLlmHubProviders(): UseLlmHubProvidersReturn {
     load()
   }, [])
 
-  const saveProvider = useCallback(
-    async (provider: LlmHubProvider, editIndex?: number) => {
-      const isEdit = editIndex !== undefined && editIndex >= 0
-      const updatedProviders = isEdit
-        ? providers.map((p, i) => (i === editIndex ? provider : p))
-        : [...providers, provider]
+  const saveProvider = async (provider: LlmHubProvider, editIndex?: number) => {
+    const currentProviders = await loadProviders()
+    const isEdit = editIndex !== undefined && editIndex >= 0
+    const updatedProviders = isEdit
+      ? currentProviders.map((p, i) => (i === editIndex ? provider : p))
+      : [...currentProviders, provider]
 
-      const prev = providers
-      setProviders(updatedProviders)
+    setProviders(updatedProviders)
+    const success = await saveProviders(updatedProviders)
+    if (!success) {
+      const reloaded = await loadProviders()
+      setProviders(reloaded)
+    }
+  }
 
-      const success = await saveProviders(updatedProviders)
-      if (!success) setProviders(prev)
-    },
-    [providers],
-  )
+  const deleteProvider = async (index: number) => {
+    const currentProviders = await loadProviders()
+    if (currentProviders.length <= 1) return
 
-  const deleteProvider = useCallback(
-    async (index: number) => {
-      if (providers.length <= 1) return
+    const updatedProviders = currentProviders.filter((_, i) => i !== index)
 
-      const updatedProviders = providers.filter((_, i) => i !== index)
-      const prev = providers
-
-      setProviders(updatedProviders)
-
-      const success = await saveProviders(updatedProviders)
-      if (!success) setProviders(prev)
-    },
-    [providers],
-  )
+    setProviders(updatedProviders)
+    const success = await saveProviders(updatedProviders)
+    if (!success) {
+      const reloaded = await loadProviders()
+      setProviders(reloaded)
+    }
+  }
 
   return {
     providers,
