@@ -152,6 +152,60 @@ bun run lint:fix              # Auto-fix
 bun run typecheck             # TypeScript check
 ```
 
+## Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Prerequisites
+
+- [Bun](https://bun.sh/) v1.3.6 or later
+- [process-compose](https://github.com/F1bonacc1/process-compose) (for full dev environment)
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/browseros-ai/BrowserOS-agent.git
+cd BrowserOS-agent
+
+# Install dependencies
+bun install
+
+# Copy environment files
+cp apps/server/.env.example apps/server/.env.development
+cp apps/agent/.env.example apps/agent/.env.development
+
+# Start development environment
+process-compose up
+```
+
+### Development Workflow
+
+```bash
+# Run tests
+bun run test                  # Standard tests
+bun run test:all              # All tests
+
+# Linting and type checking
+bun run lint                  # Check code style with Biome
+bun run lint:fix              # Auto-fix linting issues
+bun run typecheck             # TypeScript type checking
+
+# Build packages
+bun run build:server          # Build server
+bun run build:agent           # Build agent extension
+bun run build:ext             # Build controller extension
+```
+
+### Pull Requests
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Make your changes
+4. Run tests and linting (`bun run test && bun run lint`)
+5. Commit your changes
+6. Push to your fork and open a pull request
+
 ## License
 
 AGPL-3.0
