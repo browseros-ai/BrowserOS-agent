@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+<!-- Maintained by the BrowserOS team -->
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Coding guidelines
