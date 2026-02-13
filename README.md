@@ -152,6 +152,49 @@ bun run lint:fix              # Auto-fix
 bun run typecheck             # TypeScript check
 ```
 
+## Contributing
+
+### Prerequisites
+
+- [Bun](https://bun.sh) v1.3.6 or later
+- [process-compose](https://github.com/F1bonacc1/process-compose) (for full dev environment)
+
+### Getting Started
+
+```bash
+# Clone the repository
+git clone https://github.com/browseros-ai/BrowserOS-agent.git
+cd BrowserOS-agent
+
+# Install dependencies
+bun install
+
+# Copy environment files
+cp apps/server/.env.example apps/server/.env.development
+cp apps/agent/.env.example apps/agent/.env.development
+
+# Start the development environment
+process-compose up
+```
+
+### Development Workflow
+
+```bash
+# Run tests before submitting changes
+bun run test
+
+# Check code quality
+bun run lint
+bun run typecheck
+
+# Auto-fix linting issues
+bun run lint:fix
+```
+
+### Code Style
+
+This project uses [Biome](https://biomejs.dev/) for linting and formatting. Run `bun run lint:fix` to automatically fix style issues before committing.
+
 ## License
 
 AGPL-3.0
