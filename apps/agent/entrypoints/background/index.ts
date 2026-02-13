@@ -16,6 +16,7 @@ import {
   syncScheduledJobs,
 } from '@/lib/schedules/scheduleStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
 export default defineBackground(() => {
@@ -67,6 +68,13 @@ export default defineBackground(() => {
     if (message?.type === 'AUTH_SUCCESS' && sender.tab?.id) {
       chrome.tabs.update(sender.tab.id, {
         url: chrome.runtime.getURL('app.html#/home'),
+      })
+    }
+
+    if (message?.type === 'stop-agent' && message?.conversationId) {
+      stopAgentStorage.setValue({
+        conversationId: message.conversationId,
+        timestamp: Date.now(),
       })
     }
   })
