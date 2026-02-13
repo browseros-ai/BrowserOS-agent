@@ -15,6 +15,19 @@ export interface StrataCreateResponse {
   apiKeyUrls?: Record<string, string>
 }
 
+interface KlavisIntegrationObject {
+  name?: string
+  isAuthenticated?: boolean
+  is_authenticated?: boolean
+}
+
+type KlavisIntegrationItem = string | KlavisIntegrationObject
+
+export interface UserIntegration {
+  name: string
+  isAuthenticated: boolean
+}
+
 export class KlavisClient {
   private baseUrl: string
 
@@ -81,13 +94,37 @@ export class KlavisClient {
   /**
    * Get user integrations with authentication status
    */
-  async getUserIntegrations(
-    userId: string,
-  ): Promise<Array<{ name: string; isAuthenticated: boolean }>> {
+  async getUserIntegrations(userId: string): Promise<UserIntegration[]> {
     const data = await this.request<{
-      integrations: Array<{ name: string; isAuthenticated: boolean }>
+      integrations?: KlavisIntegrationItem[]
     }>('GET', `/user/${userId}/integrations`)
-    return data.integrations || []
+    const integrations = Array.isArray(data.integrations)
+      ? data.integrations
+      : []
+    return integrations
+      .map((integration) => this.normalizeIntegration(integration))
+      .filter((integration): integration is UserIntegration =>
+        Boolean(integration),
+      )
+  }
+
+  private normalizeIntegration(
+    integration: KlavisIntegrationItem,
+  ): UserIntegration | null {
+    if (typeof integration === 'string') {
+      return { name: integration, isAuthenticated: true }
+    }
+    const name = integration.name
+    if (!name || typeof name !== 'string') {
+      return null
+    }
+    const isAuthenticated =
+      typeof integration.isAuthenticated === 'boolean'
+        ? integration.isAuthenticated
+        : typeof integration.is_authenticated === 'boolean'
+          ? integration.is_authenticated
+          : false
+    return { name, isAuthenticated }
   }
 
   /**
