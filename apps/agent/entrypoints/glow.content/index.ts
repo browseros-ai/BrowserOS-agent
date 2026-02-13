@@ -2,6 +2,7 @@ import type { GlowMessage } from './GlowMessage'
 
 const GLOW_OVERLAY_ID = 'browseros-glow-overlay'
 const GLOW_STYLES_ID = 'browseros-glow-styles'
+const STOP_BUTTON_ID = 'browseros-stop-button'
 
 const GLOW_THICKNESS = 1.0
 const GLOW_OPACITY = 0.6
@@ -45,6 +46,11 @@ function injectStyles(): void {
       to { opacity: ${GLOW_OPACITY}; }
     }
 
+    @keyframes browseros-stop-fade-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
     #${GLOW_OVERLAY_ID} {
       position: fixed !important;
       top: 0 !important;
@@ -59,6 +65,47 @@ function injectStyles(): void {
         browseros-glow-pulse 3s ease-in-out infinite,
         browseros-glow-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
     }
+
+    #${STOP_BUTTON_ID} {
+      position: fixed !important;
+      bottom: 32px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      z-index: 2147483647 !important;
+      pointer-events: auto !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 6px !important;
+      padding: 8px 16px !important;
+      border: none !important;
+      border-radius: 20px !important;
+      background: rgba(0, 0, 0, 0.75) !important;
+      color: #fff !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      line-height: 1 !important;
+      letter-spacing: 0.01em !important;
+      cursor: pointer !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+      opacity: 0;
+      animation: browseros-stop-fade-in 300ms cubic-bezier(0.22, 1, 0.36, 1) 200ms forwards !important;
+      transition: background 150ms ease !important;
+    }
+
+    #${STOP_BUTTON_ID}:hover {
+      background: rgba(0, 0, 0, 0.9) !important;
+    }
+
+    #${STOP_BUTTON_ID}:active {
+      transform: translateX(-50%) scale(0.97) !important;
+    }
+
+    #${STOP_BUTTON_ID} svg {
+      flex-shrink: 0 !important;
+    }
   `
   const appendStyle = () => document.head.appendChild(style)
 
@@ -69,27 +116,52 @@ function injectStyles(): void {
   }
 }
 
-function startGlow(): void {
+function createStopButton(conversationId: string): HTMLButtonElement {
+  const button = document.createElement('button')
+  button.id = STOP_BUTTON_ID
+  // Inline SVG stop icon (rounded square)
+  button.innerHTML =
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="3"/></svg><span>Stop</span>'
+
+  button.onclick = () => {
+    chrome.runtime
+      .sendMessage({
+        type: 'BROWSEROS_STOP_AGENT',
+        conversationId,
+      })
+      .catch(() => {})
+  }
+  return button
+}
+
+function startGlow(conversationId: string): void {
   stopGlow()
   injectStyles()
 
+  // Glow overlay
   const overlay = document.createElement('div')
   overlay.id = GLOW_OVERLAY_ID
 
-  const appendOverlay = () => document.body.appendChild(overlay)
+  // Stop button
+  const stopButton = createStopButton(conversationId)
+
+  const appendElements = () => {
+    document.body.appendChild(overlay)
+    document.body.appendChild(stopButton)
+  }
 
   if (document.body) {
-    appendOverlay()
+    appendElements()
   } else {
-    document.addEventListener('DOMContentLoaded', appendOverlay, { once: true })
+    document.addEventListener('DOMContentLoaded', appendElements, {
+      once: true,
+    })
   }
 }
 
 function stopGlow(): void {
-  const overlay = document.getElementById(GLOW_OVERLAY_ID)
-  if (overlay) {
-    overlay.remove()
-  }
+  document.getElementById(GLOW_OVERLAY_ID)?.remove()
+  document.getElementById(STOP_BUTTON_ID)?.remove()
 }
 
 export default defineContentScript({
@@ -110,7 +182,7 @@ export default defineContentScript({
 
         if (message.isActive) {
           activeConversationId = message.conversationId
-          startGlow()
+          startGlow(activeConversationId)
         } else if (message.conversationId === activeConversationId) {
           activeConversationId = null
           stopGlow()
@@ -124,7 +196,6 @@ export default defineContentScript({
     window.addEventListener('beforeunload', stopGlow)
 
     document.addEventListener('visibilitychange', () => {
-      // If user navigates away from the tab, remove the glow overlay - no need to re-enable it when they return
       if (document.hidden) {
         stopGlow()
       }

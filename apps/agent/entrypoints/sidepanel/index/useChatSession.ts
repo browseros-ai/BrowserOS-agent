@@ -29,6 +29,7 @@ import { GetConversationWithMessagesDocument } from './graphql/chatSessionDocume
 import { useChatRefs } from './useChatRefs'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
 import { useRemoteConversationSave } from './useRemoteConversationSave'
+import { useStopFromContentScript } from './useStopFromContentScript'
 
 const getLastMessageText = (messages: UIMessage[]) => {
   const lastMessage = messages[messages.length - 1]
@@ -297,6 +298,11 @@ export const useChatSession = () => {
     messages,
     status,
     conversationId: conversationIdRef.current,
+  })
+
+  useStopFromContentScript({
+    conversationId: conversationIdRef.current,
+    stop,
   })
 
   const {
