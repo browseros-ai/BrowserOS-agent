@@ -48,7 +48,6 @@ interface McpRouteDeps {
 
 const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
 const MCP_WINDOW_ID_HEADER = 'X-BrowserOS-Window-Id'
-const MCP_ENABLED_SERVERS_HEADER = 'X-BrowserOS-Enabled-Servers'
 const MCP_CUSTOM_SERVERS_HEADER = 'X-BrowserOS-Custom-Servers'
 
 const windowIdStore = new AsyncLocalStorage<number | undefined>()
@@ -176,41 +175,28 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
   return server
 }
 
-function parseExternalServerHeaders(c: {
+function parseCustomServersHeader(c: {
   req: { header: (name: string) => string | undefined }
-}): {
-  enabledServers: string[]
-  customServers: CustomMcpServer[]
-} {
-  const enabledRaw = c.req.header(MCP_ENABLED_SERVERS_HEADER)
+}): CustomMcpServer[] {
   const customRaw = c.req.header(MCP_CUSTOM_SERVERS_HEADER)
+  if (!customRaw) return []
 
-  const enabledServers = enabledRaw
-    ? enabledRaw
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : []
-
-  let customServers: CustomMcpServer[] = []
-  if (customRaw) {
-    try {
-      const parsed = JSON.parse(customRaw)
-      if (Array.isArray(parsed)) {
-        customServers = parsed.filter(
-          (s: unknown): s is CustomMcpServer =>
-            typeof s === 'object' &&
-            s !== null &&
-            typeof (s as CustomMcpServer).name === 'string' &&
-            typeof (s as CustomMcpServer).url === 'string',
-        )
-      }
-    } catch {
-      logger.warn('Invalid JSON in custom servers header')
+  try {
+    const parsed = JSON.parse(customRaw)
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (s: unknown): s is CustomMcpServer =>
+          typeof s === 'object' &&
+          s !== null &&
+          typeof (s as CustomMcpServer).name === 'string' &&
+          typeof (s as CustomMcpServer).url === 'string',
+      )
     }
+  } catch {
+    logger.warn('Invalid JSON in custom servers header')
   }
 
-  return { enabledServers, customServers }
+  return []
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {
@@ -233,25 +219,28 @@ export function createMcpRoutes(deps: McpRouteDeps) {
 
     metrics.log('mcp.request', { source })
 
-    const { enabledServers, customServers } = parseExternalServerHeaders(c)
-    const hasExternalServers =
-      enabledServers.length > 0 || customServers.length > 0
+    const customServers = parseCustomServersHeader(c)
 
     return windowIdStore.run(requestWindowId, async () => {
       try {
-        // Choose which McpServer to use: enhanced (with external tools) or static
         let activeServer = mcpServer
 
-        if (hasExternalServers && browserosId) {
+        // When browserosId is available, always resolve Klavis integrations + any custom servers
+        if (browserosId) {
           const resolvedServers = await resolveExternalServers({
-            enabledServers,
+            enableIntegrations: true,
             customServers,
             browserosId,
           })
 
+          logger.debug('Resolved external servers', {
+            count: resolvedServers.length,
+            servers: resolvedServers.map((s) => s.name),
+          })
+
           if (resolvedServers.length > 0) {
             const cacheKey = [
-              ...enabledServers.map((s) => `klavis:${s}`),
+              'klavis:integrations',
               ...customServers.map((s) => `custom:${s.name}:${s.url}`),
             ]
               .sort()
@@ -261,6 +250,11 @@ export function createMcpRoutes(deps: McpRouteDeps) {
               resolvedServers,
               cacheKey,
             )
+
+            logger.debug('Discovered external tools', {
+              count: externalTools.length,
+              tools: externalTools.map((t) => t.prefixedName),
+            })
 
             if (externalTools.length > 0) {
               activeServer = createMcpServerWithTools(deps)
@@ -272,6 +266,8 @@ export function createMcpRoutes(deps: McpRouteDeps) {
               })
             }
           }
+        } else {
+          logger.debug('No browserosId, skipping external MCP servers')
         }
 
         // Create a new transport for EACH request to prevent request ID collisions.

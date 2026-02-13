@@ -62,33 +62,64 @@ function createClientTransport(
 }
 
 /**
- * Resolve external server configurations (Klavis strata + custom servers).
+ * Fetch authenticated Klavis integrations and create a strata server for them.
+ */
+async function resolveKlavisServers(
+  browserosId: string,
+): Promise<ResolvedServer[]> {
+  const klavisClient = new KlavisClient()
+
+  const integrations = await klavisClient.getUserIntegrations(browserosId)
+  const authenticated = integrations
+    .filter((i) => i.isAuthenticated)
+    .map((i) => i.name)
+
+  logger.debug('Klavis user integrations', {
+    total: integrations.length,
+    authenticated,
+  })
+
+  if (authenticated.length === 0) {
+    return []
+  }
+
+  const strata = await klavisClient.createStrata(browserosId, authenticated)
+
+  logger.debug('Klavis strata created', {
+    strataServerUrl: strata.strataServerUrl,
+    addedServers: strata.addedServers,
+  })
+
+  return [
+    {
+      name: 'klavis-strata',
+      url: strata.strataServerUrl,
+      transport: 'streamable-http',
+      prefix: 'ext_klavis',
+    },
+  ]
+}
+
+/**
+ * Resolve external server configurations.
+ * Fetches authenticated Klavis integrations when enableIntegrations is true,
+ * and resolves custom servers by detecting their transport type.
  */
 export async function resolveExternalServers(opts: {
-  enabledServers: string[]
+  enableIntegrations: boolean
   customServers: CustomMcpServer[]
   browserosId: string
 }): Promise<ResolvedServer[]> {
-  const { enabledServers, customServers, browserosId } = opts
+  const { enableIntegrations, customServers, browserosId } = opts
   const servers: ResolvedServer[] = []
 
-  if (enabledServers.length > 0) {
+  if (enableIntegrations) {
     try {
-      const klavisClient = new KlavisClient()
-      const strata = await klavisClient.createStrata(
-        browserosId,
-        enabledServers,
-      )
-      servers.push({
-        name: 'klavis-strata',
-        url: strata.strataServerUrl,
-        transport: 'streamable-http',
-        prefix: 'ext_klavis',
-      })
+      const klavisServers = await resolveKlavisServers(browserosId)
+      servers.push(...klavisServers)
     } catch (error) {
-      logger.warn('Failed to create Klavis strata for MCP proxy', {
+      logger.warn('Failed to resolve Klavis integrations for MCP proxy', {
         error: error instanceof Error ? error.message : String(error),
-        servers: enabledServers,
       })
     }
   }
@@ -148,8 +179,19 @@ export async function discoverExternalTools(
       const transport = createClientTransport(server.url, server.transport)
 
       try {
+        logger.debug('Connecting to external MCP server', {
+          name: server.name,
+          url: server.url,
+          transport: server.transport,
+        })
         await client.connect(transport)
+
         const response = await client.listTools()
+        logger.debug('Listed tools from external server', {
+          name: server.name,
+          toolCount: response.tools.length,
+          tools: response.tools.map((t) => t.name),
+        })
 
         return response.tools.map((tool) => ({
           originalName: tool.name,
@@ -179,10 +221,13 @@ export async function discoverExternalTools(
     }
   }
 
-  discoveryCache.set(cacheKey, {
-    tools: allTools,
-    expiresAt: Date.now() + DISCOVERY_CACHE_TTL_MS,
-  })
+  // Only cache successful discoveries — don't cache empty results from failures
+  if (allTools.length > 0) {
+    discoveryCache.set(cacheKey, {
+      tools: allTools,
+      expiresAt: Date.now() + DISCOVERY_CACHE_TTL_MS,
+    })
+  }
 
   return allTools
 }
