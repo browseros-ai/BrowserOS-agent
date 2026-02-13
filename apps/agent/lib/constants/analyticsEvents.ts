@@ -123,6 +123,9 @@ export const SIDEPANEL_MODE_CHANGED_EVENT = 'sidepanel.mode.changed'
 export const SIDEPANEL_STOP_CLICKED_EVENT = 'sidepanel.generation.stopped'
 
 /** @public */
+export const GLOW_STOP_CLICKED_EVENT = 'glow.generation.stopped'
+
+/** @public */
 export const SIDEPANEL_MESSAGE_COPIED_EVENT = 'sidepanel.message.copied'
 
 /** @public */

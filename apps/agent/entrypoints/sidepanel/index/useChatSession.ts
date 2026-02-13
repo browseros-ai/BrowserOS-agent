@@ -9,6 +9,7 @@ import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import {
   CONVERSATION_RESET_EVENT,
+  GLOW_STOP_CLICKED_EVENT,
   MESSAGE_DISLIKE_EVENT,
   MESSAGE_LIKE_EVENT,
   MESSAGE_SENT_EVENT,
@@ -23,6 +24,7 @@ import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
 import { GetConversationWithMessagesDocument } from './graphql/chatSessionDocument'
@@ -395,6 +397,17 @@ export const useChatSession = () => {
       if (storageAction) {
         setMode(storageAction.mode)
         sendMessage({ text: storageAction.query, action: storageAction.action })
+      }
+    })
+    return () => unwatch()
+  }, [])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
+  useEffect(() => {
+    const unwatch = stopAgentStorage.watch((signal) => {
+      if (signal && signal.conversationId === conversationIdRef.current) {
+        stop()
+        track(GLOW_STOP_CLICKED_EVENT)
       }
     })
     return () => unwatch()
