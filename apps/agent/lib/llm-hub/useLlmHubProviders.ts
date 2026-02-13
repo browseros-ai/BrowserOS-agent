@@ -43,7 +43,10 @@ export function useLlmHubProviders(): UseLlmHubProvidersReturn {
 
     setProviders(updatedProviders)
     const success = await saveProviders(updatedProviders)
-    if (!success) setProviders(currentProviders)
+    if (!success) {
+      const reloaded = await loadProviders()
+      setProviders(reloaded)
+    }
   }
 
   const deleteProvider = async (index: number) => {
@@ -54,7 +57,10 @@ export function useLlmHubProviders(): UseLlmHubProvidersReturn {
 
     setProviders(updatedProviders)
     const success = await saveProviders(updatedProviders)
-    if (!success) setProviders(currentProviders)
+    if (!success) {
+      const reloaded = await loadProviders()
+      setProviders(reloaded)
+    }
   }
 
   return {
