@@ -28,11 +28,10 @@ import { ControllerResponse } from '../../tools/controller-based/response/contro
 import { McpResponse } from '../../tools/response/mcp-response'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import type { Env } from '../types'
-import type { CustomMcpServer } from '../utils/external-mcp-proxy'
 import {
   discoverExternalTools,
   registerProxyTools,
-  resolveExternalServers,
+  resolveKlavisStrata,
 } from '../utils/external-mcp-proxy'
 import { isLocalhostRequest } from '../utils/security'
 
@@ -48,7 +47,6 @@ interface McpRouteDeps {
 
 const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
 const MCP_WINDOW_ID_HEADER = 'X-BrowserOS-Window-Id'
-const MCP_CUSTOM_SERVERS_HEADER = 'X-BrowserOS-Custom-Servers'
 
 const windowIdStore = new AsyncLocalStorage<number | undefined>()
 
@@ -175,30 +173,6 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
   return server
 }
 
-function parseCustomServersHeader(c: {
-  req: { header: (name: string) => string | undefined }
-}): CustomMcpServer[] {
-  const customRaw = c.req.header(MCP_CUSTOM_SERVERS_HEADER)
-  if (!customRaw) return []
-
-  try {
-    const parsed = JSON.parse(customRaw)
-    if (Array.isArray(parsed)) {
-      return parsed.filter(
-        (s: unknown): s is CustomMcpServer =>
-          typeof s === 'object' &&
-          s !== null &&
-          typeof (s as CustomMcpServer).name === 'string' &&
-          typeof (s as CustomMcpServer).url === 'string',
-      )
-    }
-  } catch {
-    logger.warn('Invalid JSON in custom servers header')
-  }
-
-  return []
-}
-
 export function createMcpRoutes(deps: McpRouteDeps) {
   const { allowRemote, browserosId } = deps
 
@@ -219,55 +193,38 @@ export function createMcpRoutes(deps: McpRouteDeps) {
 
     metrics.log('mcp.request', { source })
 
-    const customServers = parseCustomServersHeader(c)
-
     return windowIdStore.run(requestWindowId, async () => {
       try {
         let activeServer = mcpServer
 
-        // When browserosId is available, always resolve Klavis integrations + any custom servers
+        // When browserosId is available, include authenticated Klavis integration tools
         if (browserosId) {
-          const resolvedServers = await resolveExternalServers({
-            enableIntegrations: true,
-            customServers,
-            browserosId,
-          })
+          try {
+            const strata = await resolveKlavisStrata(browserosId)
 
-          logger.debug('Resolved external servers', {
-            count: resolvedServers.length,
-            servers: resolvedServers.map((s) => s.name),
-          })
+            if (strata) {
+              const externalTools = await discoverExternalTools(
+                strata.url,
+                `klavis:${strata.servers.sort().join(',')}`,
+              )
 
-          if (resolvedServers.length > 0) {
-            const cacheKey = [
-              'klavis:integrations',
-              ...customServers.map((s) => `custom:${s.name}:${s.url}`),
-            ]
-              .sort()
-              .join(',')
+              console.log({ externalTools })
 
-            const externalTools = await discoverExternalTools(
-              resolvedServers,
-              cacheKey,
-            )
+              if (externalTools.length > 0) {
+                activeServer = createMcpServerWithTools(deps)
+                registerProxyTools(activeServer, externalTools)
 
-            logger.debug('Discovered external tools', {
-              count: externalTools.length,
-              tools: externalTools.map((t) => t.prefixedName),
-            })
-
-            if (externalTools.length > 0) {
-              activeServer = createMcpServerWithTools(deps)
-              registerProxyTools(activeServer, externalTools)
-
-              logger.info('Enhanced MCP server with external tools', {
-                externalToolCount: externalTools.length,
-                servers: resolvedServers.map((s) => s.name),
-              })
+                logger.info('Enhanced MCP server with Klavis tools', {
+                  toolCount: externalTools.length,
+                  servers: strata.servers,
+                })
+              }
             }
+          } catch (error) {
+            logger.warn('Failed to resolve Klavis integrations', {
+              error: error instanceof Error ? error.message : String(error),
+            })
           }
-        } else {
-          logger.debug('No browserosId, skipping external MCP servers')
         }
 
         // Create a new transport for EACH request to prevent request ID collisions.
