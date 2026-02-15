@@ -14,12 +14,13 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
-import type { z } from 'zod'
+import { z } from 'zod'
 import type { McpContext } from '../../browser/cdp/context'
 import {
   type ControllerContext,
   ScopedControllerContext,
 } from '../../browser/extension/context'
+import type { KlavisMcpProxy } from '../../lib/klavis-mcp-proxy'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { MutexPool } from '../../lib/mutex'
@@ -37,6 +38,7 @@ interface McpRouteDeps {
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean
+  klavisMcpProxy?: KlavisMcpProxy
 }
 
 const MCP_SOURCE_HEADER = 'X-BrowserOS-Source'
@@ -60,7 +62,14 @@ function getMcpRequestSource(
  * Reuses the same logic from the old mcp/server.ts
  */
 function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
-  const { version, tools, cdpContext, controllerContext, mutexPool } = deps
+  const {
+    version,
+    tools,
+    cdpContext,
+    controllerContext,
+    mutexPool,
+    klavisMcpProxy,
+  } = deps
 
   const server = new McpServer(
     {
@@ -164,6 +173,23 @@ function createMcpServerWithTools(deps: McpRouteDeps): McpServer {
     )
   }
 
+  // Register upstream Klavis tools (proxied through Strata)
+  if (klavisMcpProxy?.isConnected()) {
+    for (const tool of klavisMcpProxy.getTools()) {
+      server.registerTool(
+        tool.name,
+        {
+          description: tool.description ?? '',
+          inputSchema: z.object({}).passthrough() as unknown as z.ZodRawShape,
+          annotations: tool.annotations,
+        },
+        async (params: Record<string, unknown>): Promise<CallToolResult> => {
+          return klavisMcpProxy.callTool(tool.name, params)
+        },
+      )
+    }
+  }
+
   return server
 }
 
@@ -171,7 +197,14 @@ export function createMcpRoutes(deps: McpRouteDeps) {
   const { allowRemote } = deps
 
   // Create MCP server once with all tools registered
-  const mcpServer = createMcpServerWithTools(deps)
+  let mcpServer = createMcpServerWithTools(deps)
+
+  if (deps.klavisMcpProxy) {
+    deps.klavisMcpProxy.onToolsChanged = () => {
+      mcpServer = createMcpServerWithTools(deps)
+      logger.info('MCP server rebuilt with updated Klavis tools')
+    }
+  }
 
   return new Hono<Env>().all('/', async (c) => {
     // Security check: localhost only (unless allowRemote is enabled)

@@ -181,3 +181,6 @@ log.txt
 
 # Testing iteration temp files
 tmp/
+
+# Coding agent artifacts
+.agent/

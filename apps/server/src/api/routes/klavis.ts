@@ -9,6 +9,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../lib/clients/klavis/oauth-mcp-servers'
+import type { KlavisMcpProxy } from '../../lib/klavis-mcp-proxy'
 import { logger } from '../../lib/logger'
 
 const ServerNameSchema = z.object({
@@ -17,10 +18,11 @@ const ServerNameSchema = z.object({
 
 interface KlavisRouteDeps {
   browserosId: string
+  klavisMcpProxy?: KlavisMcpProxy
 }
 
 export function createKlavisRoutes(deps: KlavisRouteDeps) {
-  const { browserosId } = deps
+  const { browserosId, klavisMcpProxy } = deps
   const klavisClient = new KlavisClient()
 
   // Chain route definitions for proper Hono RPC type inference
@@ -96,6 +98,12 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
       const result = await klavisClient.createStrata(browserosId, [serverName])
 
+      klavisMcpProxy?.refresh().catch((e) => {
+        logger.warn('Failed to refresh Klavis MCP proxy after add', {
+          error: e instanceof Error ? e.message : String(e),
+        })
+      })
+
       return c.json({
         success: true,
         serverName,
@@ -127,6 +135,15 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
           logger.info('Submitted API key for server', { serverName })
 
+          klavisMcpProxy?.refresh().catch((e) => {
+            logger.warn(
+              'Failed to refresh Klavis MCP proxy after api-key submit',
+              {
+                error: e instanceof Error ? e.message : String(e),
+              },
+            )
+          })
+
           return c.json({ success: true, serverName })
         } catch (error) {
           logger.error('Error submitting API key', {
@@ -155,6 +172,12 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         logger.info('Removing server from strata', { serverName })
 
         await klavisClient.removeServer(browserosId, serverName)
+
+        klavisMcpProxy?.refresh().catch((e) => {
+          logger.warn('Failed to refresh Klavis MCP proxy after remove', {
+            error: e instanceof Error ? e.message : String(e),
+          })
+        })
 
         return c.json({
           success: true,

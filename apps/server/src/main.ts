@@ -20,9 +20,10 @@ import { ControllerBridge } from './browser/extension/bridge'
 import { ControllerContext } from './browser/extension/context'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
+import { KlavisClient } from './lib/clients/klavis/klavis-client'
 import { initializeDb } from './lib/db'
-
 import { identity } from './lib/identity'
+import { KlavisMcpProxy } from './lib/klavis-mcp-proxy'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
 import { MutexPool } from './lib/mutex'
@@ -72,6 +73,18 @@ export class Application {
     const tools = createToolRegistry(cdpContext)
     const mutexPool = new MutexPool()
 
+    const klavisClient = new KlavisClient()
+    const klavisMcpProxy = new KlavisMcpProxy(
+      klavisClient,
+      identity.getBrowserOSId(),
+    )
+
+    klavisMcpProxy.connect().catch((error) => {
+      logger.warn('Failed initial Klavis MCP proxy connection', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
+
     try {
       await createHttpServer({
         port: this.config.serverPort,
@@ -86,6 +99,7 @@ export class Application {
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
+        klavisMcpProxy,
 
         onShutdown: () => this.stop(),
       })

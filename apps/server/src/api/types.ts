@@ -18,6 +18,7 @@ import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
 import type { McpContext } from '../browser/cdp/context'
 import type { ControllerContext } from '../browser/extension/context'
 
+import type { KlavisMcpProxy } from '../lib/klavis-mcp-proxy'
 import type { MutexPool } from '../lib/mutex'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { ToolDefinition } from '../tools/types/tool-definition'
@@ -73,6 +74,9 @@ export interface HttpServerConfig {
   controllerContext: ControllerContext
   mutexPool: MutexPool
   allowRemote: boolean
+
+  // For Klavis MCP proxy
+  klavisMcpProxy?: KlavisMcpProxy
 
   // For Chat/Klavis routes
   browserosId?: string

@@ -9,7 +9,6 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { SessionManager } from '../../agent/session'
-import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
@@ -33,11 +32,9 @@ export function createChatRoutes(deps: ChatRouteDeps) {
   const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
 
   const sessionManager = new SessionManager()
-  const klavisClient = new KlavisClient()
 
   const chatService = new ChatService({
     sessionManager,
-    klavisClient,
     executionDir,
     mcpServerUrl,
     browserosId,
