@@ -2,9 +2,12 @@ import type { GlowMessage } from './GlowMessage'
 
 const GLOW_OVERLAY_ID = 'browseros-glow-overlay'
 const GLOW_STYLES_ID = 'browseros-glow-styles'
+const GLOW_STOP_BTN_ID = 'browseros-glow-stop-btn'
 
 const GLOW_THICKNESS = 1.0
 const GLOW_OPACITY = 0.6
+
+let activeConversationId: string | null = null
 
 function injectStyles(): void {
   if (document.getElementById(GLOW_STYLES_ID)) {
@@ -45,6 +48,11 @@ function injectStyles(): void {
       to { opacity: ${GLOW_OPACITY}; }
     }
 
+    @keyframes browseros-glow-btn-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     #${GLOW_OVERLAY_ID} {
       position: fixed !important;
       top: 0 !important;
@@ -58,6 +66,34 @@ function injectStyles(): void {
       animation:
         browseros-glow-pulse 3s ease-in-out infinite,
         browseros-glow-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+    }
+
+    #${GLOW_STOP_BTN_ID} {
+      position: fixed !important;
+      bottom: 24px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      width: 48px !important;
+      height: 48px !important;
+      border-radius: 50% !important;
+      background: rgba(220, 38, 38, 0.95) !important;
+      color: white !important;
+      border: none !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      z-index: 2147483647 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important;
+      padding: 0 !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+      opacity: 0;
+      animation: browseros-glow-btn-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+    }
+
+    #${GLOW_STOP_BTN_ID}:hover {
+      background: rgba(185, 28, 28, 1) !important;
     }
   `
   const appendStyle = () => document.head.appendChild(style)
@@ -75,6 +111,21 @@ function startGlow(): void {
 
   const overlay = document.createElement('div')
   overlay.id = GLOW_OVERLAY_ID
+
+  const button = document.createElement('button')
+  button.id = GLOW_STOP_BTN_ID
+  button.innerHTML =
+    '<svg width="16" height="16" viewBox="0 0 16 16" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="14" rx="2"/></svg>'
+  button.addEventListener('click', () => {
+    if (activeConversationId) {
+      browser.runtime.sendMessage({
+        type: 'stop-agent',
+        conversationId: activeConversationId,
+      })
+    }
+  })
+
+  overlay.appendChild(button)
 
   const appendOverlay = () => document.body.appendChild(overlay)
 
@@ -96,8 +147,6 @@ export default defineContentScript({
   matches: ['*://*/*'],
   runAt: 'document_start',
   main() {
-    let activeConversationId: string | null = null
-
     browser.runtime.onMessage.addListener(
       (message: GlowMessage, _sender, sendResponse) => {
         if (

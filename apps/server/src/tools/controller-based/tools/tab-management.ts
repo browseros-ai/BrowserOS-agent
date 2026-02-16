@@ -218,6 +218,10 @@ export const getLoadStatus = defineTool<
     response.addStructuredContent('isDOMContentLoaded', data.isDOMContentLoaded)
     response.addStructuredContent('isResourcesLoading', data.isResourcesLoading)
     response.addStructuredContent('isPageComplete', data.isPageComplete)
+
+    if (data.isPageComplete) {
+      response.setIncludeSnapshot?.(tabId)
+    }
   },
 })
 

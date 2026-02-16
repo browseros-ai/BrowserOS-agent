@@ -12,6 +12,7 @@ export interface StrataCreateResponse {
   strataId: string
   addedServers: string[]
   oauthUrls?: Record<string, string>
+  apiKeyUrls?: Record<string, string>
 }
 
 export class KlavisClient {
@@ -87,6 +88,29 @@ export class KlavisClient {
       integrations: Array<{ name: string; isAuthenticated: boolean }>
     }>('GET', `/user/${userId}/integrations`)
     return data.integrations || []
+  }
+
+  /**
+   * Submit an API key to Klavis's set-auth endpoint via the proxy.
+   * Extracts instanceId from the apiKeyUrl and routes through the proxy.
+   * Docs: POST /mcp-server/instance/set-auth with { instanceId, authData }
+   */
+  async submitApiKey(apiKeyUrl: string, apiKey: string): Promise<void> {
+    const parsedUrl = new URL(apiKeyUrl)
+    const instanceId = parsedUrl.searchParams.get('instance_id')
+    if (!instanceId) {
+      throw new Error('Missing instance_id in apiKeyUrl')
+    }
+
+    const data = await this.request<{ success: boolean; message?: string }>(
+      'POST',
+      '/mcp-server/instance/set-auth',
+      { instanceId, authData: { api_key: apiKey } },
+    )
+
+    if (!data.success) {
+      throw new Error(data.message || 'Klavis API key submission failed')
+    }
   }
 
   /**

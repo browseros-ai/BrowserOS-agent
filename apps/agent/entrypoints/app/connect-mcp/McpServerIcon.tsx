@@ -15,6 +15,7 @@ import JiraSvg from '@/assets/mcp-icons/jira.svg'
 import LinearSvg from '@/assets/mcp-icons/linear.svg'
 import LinkedinSvg from '@/assets/mcp-icons/linkedin.svg'
 import NotionSvg from '@/assets/mcp-icons/notion.svg'
+import PostHogSvg from '@/assets/mcp-icons/posthog.svg'
 import SalesforceSvg from '@/assets/mcp-icons/salesforce.svg'
 import SlackSvg from '@/assets/mcp-icons/slack.svg'
 
@@ -36,6 +37,7 @@ const mcpIconMap: Record<string, string> = {
   Figma: FigmaSvg,
   Canva: CanvaSvg,
   Salesforce: SalesforceSvg,
+  PostHog: PostHogSvg,
 }
 
 interface McpServerIconProps {

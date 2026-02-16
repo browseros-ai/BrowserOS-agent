@@ -102,8 +102,41 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         strataId: result.strataId,
         addedServers: result.addedServers,
         oauthUrl: result.oauthUrls?.[serverName],
+        apiKeyUrl: result.apiKeyUrls?.[serverName],
       })
     })
+    .post(
+      '/servers/submit-api-key',
+      zValidator(
+        'json',
+        z.object({
+          serverName: z.string().min(1),
+          apiKey: z.string().min(1),
+          apiKeyUrl: z.string().url(),
+        }),
+      ),
+      async (c) => {
+        if (!browserosId) {
+          return c.json({ error: 'browserosId not configured' }, 500)
+        }
+
+        const { serverName, apiKey, apiKeyUrl } = c.req.valid('json')
+
+        try {
+          await klavisClient.submitApiKey(apiKeyUrl, apiKey)
+
+          logger.info('Submitted API key for server', { serverName })
+
+          return c.json({ success: true, serverName })
+        } catch (error) {
+          logger.error('Error submitting API key', {
+            serverName,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return c.json({ error: 'Failed to submit API key' }, 500)
+        }
+      },
+    )
     .delete(
       '/servers/remove',
       zValidator('json', ServerNameSchema),

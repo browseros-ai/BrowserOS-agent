@@ -22,6 +22,8 @@ export {
   removeBookmarkTree,
   updateBookmark,
 } from './tools/bookmarks'
+// BrowserOS Info
+export { browserosInfo } from './tools/browseros-info'
 // Content Extraction
 export { getPageContent } from './tools/content'
 // Coordinate-based
@@ -73,6 +75,7 @@ import {
   removeBookmarkTree,
   updateBookmark,
 } from './tools/bookmarks'
+import { browserosInfo } from './tools/browseros-info'
 import { getPageContent } from './tools/content'
 import { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
 import { getRecentHistory, searchHistory } from './tools/history'
@@ -100,7 +103,7 @@ import {
   updateTabGroup,
 } from './tools/tab-management'
 
-// Array export for convenience (36 tools total)
+// Array export for convenience (37 tools total)
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -139,4 +142,5 @@ export const allControllerTools = [
   updateBookmark,
   searchHistory,
   getRecentHistory,
+  browserosInfo,
 ]

@@ -1,6 +1,6 @@
 {
   "name": "@browseros/server",
-  "version": "0.0.51",
+  "version": "0.0.52",
   "description": "BrowserOS server",
   "type": "module",
   "main": "./src/index.ts",
@@ -8,7 +8,7 @@
     "browseros-server": "./src/index.ts"
   },
   "scripts": {
-    "start": "bun --env-file=.env.development src/index.ts",
+    "start": "bun --watch --env-file=.env.development src/index.ts",
     "build": "bun ../../scripts/build/server.ts --mode=prod --target=all",
     "test": "bun run test:cleanup && bun --env-file=.env.development test tests/tools tests/common",
     "test:all": "bun run test:cleanup && bun --env-file=.env.development test",
@@ -67,6 +67,7 @@
     "debug": "4.4.3",
     "eventsource-parser": "^3.0.0",
     "hono": "^4.6.0",
+    "klavis": "^2.15.0",
     "pino": "^9.6.0",
     "posthog-node": "^4.17.0",
     "puppeteer-core": "24.23.0",

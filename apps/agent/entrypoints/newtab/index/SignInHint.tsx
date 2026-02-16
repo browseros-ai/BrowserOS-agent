@@ -10,9 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 
-const DISMISS_DURATION = 24 * 60 * 60 * 1000
+const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000
+const LONG_DISMISS_DURATION = 90 * 24 * 60 * 60 * 1000
 
 const signInHintDismissedAtStorage = storage.defineItem<number | null>(
   'local:signInHintDismissedAt',
@@ -25,6 +27,7 @@ export const SignInHint = () => {
   const navigate = useNavigate()
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [dontAskAgain, setDontAskAgain] = useState(false)
 
   useEffect(() => {
     if (isLoading || isLoggedIn) return
@@ -49,7 +52,10 @@ export const SignInHint = () => {
 
   const handleDismiss = async () => {
     setDismissed(true)
-    await signInHintDismissedAtStorage.setValue(Date.now())
+    const dismissUntil = dontAskAgain
+      ? Date.now() + LONG_DISMISS_DURATION - DISMISS_DURATION
+      : Date.now()
+    await signInHintDismissedAtStorage.setValue(dismissUntil)
   }
 
   const show = visible && !dismissed && !isLoggedIn
@@ -83,6 +89,19 @@ export const SignInHint = () => {
               <CardDescription>
                 Sign in to sync conversation history to the cloud.
               </CardDescription>
+              <label
+                htmlFor="sync-dont-ask-again"
+                className="flex items-center gap-2 text-muted-foreground text-sm"
+              >
+                <Checkbox
+                  id="sync-dont-ask-again"
+                  checked={dontAskAgain}
+                  onCheckedChange={(checked) =>
+                    setDontAskAgain(checked === true)
+                  }
+                />
+                Don't ask again
+              </label>
               <Button className="w-full" onClick={() => navigate('/login')}>
                 Sign in
               </Button>

@@ -38,7 +38,7 @@
   },
   "homepage": "https://github.com/browseros-ai/BrowserOS#readme",
   "devDependencies": {
-    "@biomejs/biome": "2.3.11",
+    "@biomejs/biome": "2.3.14",
     "@sentry/cli": "^2.42.2",
     "@types/node": "^24.3.3",
     "dotenv": "^17.2.3",
