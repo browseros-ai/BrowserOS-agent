@@ -11,5 +11,9 @@ export interface StopAgentStorage {
 /**
  * @public
  */
-export const stopAgentStorage =
-  storage.defineItem<StopAgentStorage>('local:stop-agent')
+export const stopAgentStorage = storage.defineItem<StopAgentStorage | null>(
+  'local:stop-agent',
+  {
+    fallback: null,
+  },
+)
