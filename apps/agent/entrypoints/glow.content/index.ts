@@ -73,10 +73,10 @@ function injectStyles(): void {
       bottom: 24px !important;
       left: 50% !important;
       transform: translateX(-50%) !important;
-      width: 32px !important;
-      height: 32px !important;
+      width: 48px !important;
+      height: 48px !important;
       border-radius: 50% !important;
-      background: rgba(251, 102, 24, 0.9) !important;
+      background: rgba(220, 38, 38, 0.95) !important;
       color: white !important;
       border: none !important;
       pointer-events: auto !important;
@@ -85,16 +85,15 @@ function injectStyles(): void {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      font-size: 10px !important;
       line-height: 1 !important;
       padding: 0 !important;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
       opacity: 0;
       animation: browseros-glow-btn-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
     }
 
     #${GLOW_STOP_BTN_ID}:hover {
-      background: rgba(251, 102, 24, 1) !important;
+      background: rgba(185, 28, 28, 1) !important;
     }
   `
   const appendStyle = () => document.head.appendChild(style)
@@ -115,7 +114,8 @@ function startGlow(): void {
 
   const button = document.createElement('button')
   button.id = GLOW_STOP_BTN_ID
-  button.textContent = '\u25A0'
+  button.innerHTML =
+    '<svg width="16" height="16" viewBox="0 0 16 16" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="14" rx="2"/></svg>'
   button.addEventListener('click', () => {
     if (activeConversationId) {
       browser.runtime.sendMessage({
