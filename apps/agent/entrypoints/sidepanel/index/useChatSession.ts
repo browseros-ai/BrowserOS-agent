@@ -408,6 +408,7 @@ export const useChatSession = () => {
       if (signal && signal.conversationId === conversationIdRef.current) {
         stop()
         track(GLOW_STOP_CLICKED_EVENT)
+        stopAgentStorage.setValue(null)
       }
     })
     return () => unwatch()
