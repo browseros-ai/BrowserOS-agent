@@ -137,7 +137,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="styled-scrollbar max-h-[80vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? 'Edit Scheduled Task' : 'Create Scheduled Task'}
