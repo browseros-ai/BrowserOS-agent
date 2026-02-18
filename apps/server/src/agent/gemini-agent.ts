@@ -19,8 +19,8 @@ import type { Content, Part } from '@google/genai'
 import type { BrowserContext } from '../api/types'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
-import { allCdpTools } from '../tools/cdp-based/registry'
-import { allControllerTools } from '../tools/controller-based/registry'
+import { allCdpTools } from '../tools/cdp/registry'
+import { allControllerTools } from '../tools/controller/registry'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
 import { VercelAIContentGenerator } from './provider-adapter/index'
@@ -29,14 +29,14 @@ import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
 
 const CHAT_MODE_ALLOWED_TOOLS = new Set([
-  'browser_get_active_tab',
-  'browser_list_tabs',
-  'browser_get_page_content',
-  'browser_scroll_down',
-  'browser_scroll_up',
-  'browser_get_screenshot',
-  'browser_get_interactive_elements',
-  'browser_execute_javascript',
+  'list_pages',
+  'take_snapshot',
+  'take_screenshot',
+  'wait_for',
+  'search_history',
+  'get_recent_history',
+  'get_bookmarks',
+  'list_tab_groups',
 ])
 
 export interface ToolExecutionResult {
@@ -118,10 +118,7 @@ export class GeminiAgent {
     // In chat mode, only allow read-only tools for page content extraction
     const excludedTools = ['save_memory', 'google_web_search']
     if (config.supportsImages === false) {
-      excludedTools.push(
-        'browser_get_screenshot',
-        'browser_get_screenshot_pointer',
-      )
+      excludedTools.push('take_screenshot')
       logger.info('Model does not support images, excluding screenshot tools')
     }
     // Chat mode: restrict to read-only tools only (no browser automation)

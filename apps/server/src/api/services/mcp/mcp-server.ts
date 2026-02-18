@@ -8,10 +8,11 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { z } from 'zod'
+import type { CdpClient } from '../../../browser/cdp/cdp-client'
 import type { ControllerBridge } from '../../../browser/extension/bridge'
+import type { PageRegistry } from '../../../browser/page-registry'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
-import type { CdpContext } from '../../../tools/cdp-based/context/cdp-context'
 import type { ToolResult } from '../../../tools/types/response'
 import type { ToolDefinition } from '../../../tools/types/tool-definition'
 import { CDP_UNAVAILABLE_RESULT, dispatchCdpTool } from './dispatch-cdp'
@@ -22,15 +23,16 @@ import { scopeIdStore } from './scope-manager'
 export interface McpServiceDeps {
   version: string
   tools: ToolDefinition[]
-  ensureCdpContext: () => Promise<CdpContext | null>
+  ensureCdpClient: () => Promise<CdpClient | null>
   controllerBridge: ControllerBridge
+  pageRegistry: PageRegistry
 }
 
 export function createMcpServer(
   deps: McpServiceDeps,
   scopeManager: McpScopeManager,
 ): McpServer {
-  const { version, tools, controllerBridge } = deps
+  const { version, tools, controllerBridge, pageRegistry } = deps
 
   const server = new McpServer(
     {
@@ -70,11 +72,17 @@ export function createMcpServer(
             let result: ToolResult
 
             if (tool.kind === 'cdp') {
-              const cdpContext = await deps.ensureCdpContext()
-              if (!cdpContext) {
+              const cdpClient = await deps.ensureCdpClient()
+              if (!cdpClient) {
                 return CDP_UNAVAILABLE_RESULT
               }
-              result = await dispatchCdpTool(tool, params, state, cdpContext)
+              result = await dispatchCdpTool(
+                tool,
+                params,
+                state,
+                cdpClient,
+                pageRegistry,
+              )
             } else {
               result = await dispatchControllerTool(
                 tool,
@@ -82,6 +90,7 @@ export function createMcpServer(
                 state,
                 controllerBridge,
                 windowId,
+                pageRegistry,
               )
             }
 

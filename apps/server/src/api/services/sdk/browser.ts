@@ -21,35 +21,101 @@ import type {
 } from './types'
 import { SdkError } from './types'
 
+type ListedPage = {
+  id: number
+  url: string
+  selected: boolean
+  tabId?: number
+  windowId?: number
+}
+
+function parseJsonFromToolText(text: string | undefined): unknown {
+  if (!text) {
+    return undefined
+  }
+
+  const match = text.match(/```json\n([\s\S]*?)\n```/)
+  if (!match?.[1]) {
+    return undefined
+  }
+
+  try {
+    return JSON.parse(match[1])
+  } catch {
+    return undefined
+  }
+}
+
 export class BrowserService {
   constructor(private mcpServerUrl: string) {}
 
-  async getActiveTab(windowId?: number): Promise<ActiveTab> {
-    const result = await callMcpTool<ActiveTab>(
-      this.mcpServerUrl,
-      'browser_get_active_tab',
-      windowId ? { windowId } : {},
-    )
-
-    if (result.isError || !result.structuredContent?.tabId) {
-      throw new SdkError('Failed to get active tab')
+  private async listPages(): Promise<ListedPage[]> {
+    const result = await callMcpTool(this.mcpServerUrl, 'list_pages', {})
+    if (result.isError) {
+      throw new SdkError(getTextContent(result) || 'Failed to list pages')
     }
 
-    return result.structuredContent
+    const pages =
+      (result.structuredContent?.pages as ListedPage[] | undefined) ?? []
+    return pages
+  }
+
+  private async resolvePage(options?: {
+    tabId?: number
+    windowId?: number
+  }): Promise<ListedPage> {
+    const pages = await this.listPages()
+    if (pages.length === 0) {
+      throw new SdkError('No tracked pages available')
+    }
+
+    if (options?.tabId != null) {
+      const page = pages.find((candidate) => candidate.tabId === options.tabId)
+      if (!page) {
+        throw new SdkError(`Tab ${options.tabId} is not tracked`)
+      }
+      return page
+    }
+
+    const scoped =
+      options?.windowId != null
+        ? pages.filter((candidate) => candidate.windowId === options.windowId)
+        : pages
+
+    const active = scoped.find((candidate) => candidate.selected)
+    if (active) {
+      return active
+    }
+
+    return scoped[0] ?? pages[0]
+  }
+
+  async getActiveTab(windowId?: number): Promise<ActiveTab> {
+    const page = await this.resolvePage({ windowId })
+    return {
+      tabId: page.tabId ?? page.id,
+      url: page.url,
+      title: page.url,
+      windowId: page.windowId ?? windowId ?? 0,
+    }
   }
 
   async getPageContent(tabId: number): Promise<string> {
+    const page = await this.resolvePage({ tabId })
     const result = await callMcpTool<PageContent>(
       this.mcpServerUrl,
-      'browser_get_page_content',
-      { tabId, type: 'text' },
+      'take_snapshot',
+      {
+        pageId: page.id,
+        verbose: false,
+      },
     )
 
     if (result.isError) {
-      throw new SdkError('Failed to get page content')
+      throw new SdkError(getTextContent(result) || 'Failed to get page content')
     }
 
-    const content = result.structuredContent?.content || getTextContent(result)
+    const content = getTextContent(result)
     if (!content) {
       throw new SdkError('No content found on page', 400)
     }
@@ -58,11 +124,10 @@ export class BrowserService {
   }
 
   async getScreenshot(tabId: number): Promise<Screenshot> {
-    const result = await callMcpTool(
-      this.mcpServerUrl,
-      'browser_get_screenshot',
-      { tabId, size: 'medium' },
-    )
+    const page = await this.resolvePage({ tabId })
+    const result = await callMcpTool(this.mcpServerUrl, 'take_screenshot', {
+      pageId: page.id,
+    })
 
     if (result.isError) {
       throw new SdkError('Failed to capture screenshot')
@@ -81,37 +146,56 @@ export class BrowserService {
     tabId?: number,
     windowId?: number,
   ): Promise<NavigateResult> {
+    const page = await this.resolvePage({ tabId, windowId })
     const result = await callMcpTool<NavigateResult>(
       this.mcpServerUrl,
-      'browser_navigate',
+      'navigate_page',
       {
+        pageId: page.id,
+        type: 'url',
         url,
-        ...(tabId && { tabId }),
-        ...(windowId && { windowId }),
       },
     )
 
-    if (result.isError || !result.structuredContent?.tabId) {
+    if (result.isError) {
       throw new SdkError(getTextContent(result) || 'Navigation failed')
     }
 
-    return result.structuredContent
+    return {
+      tabId: page.tabId ?? page.id,
+      windowId: page.windowId ?? windowId ?? 0,
+    }
   }
 
   async getPageLoadStatus(tabId: number): Promise<PageLoadStatus> {
-    const result = await callMcpTool<PageLoadStatus>(
-      this.mcpServerUrl,
-      'browser_get_load_status',
-      { tabId },
-    )
+    const page = await this.resolvePage({ tabId })
+    const result = await callMcpTool(this.mcpServerUrl, 'evaluate_script', {
+      pageId: page.id,
+      function:
+        '() => ({ readyState: document.readyState, isComplete: document.readyState === "complete" })',
+    })
 
-    if (result.isError || result.structuredContent?.tabId === undefined) {
+    if (result.isError) {
       throw new SdkError(
         getTextContent(result) || 'Failed to get page load status',
       )
     }
 
-    return result.structuredContent
+    const text = getTextContent(result)
+    const parsed = parseJsonFromToolText(text) as
+      | { readyState?: string; isComplete?: boolean }
+      | undefined
+
+    const isPageComplete = Boolean(parsed?.isComplete)
+    const isDOMContentLoaded =
+      parsed?.readyState === 'interactive' || parsed?.readyState === 'complete'
+
+    return {
+      tabId,
+      isDOMContentLoaded,
+      isResourcesLoading: !isPageComplete,
+      isPageComplete,
+    }
   }
 
   async getInteractiveElements(
@@ -119,13 +203,13 @@ export class BrowserService {
     simplified = false,
     windowId?: number,
   ): Promise<InteractiveElements> {
+    const page = await this.resolvePage({ tabId, windowId })
     const result = await callMcpTool<InteractiveElements>(
       this.mcpServerUrl,
-      'browser_get_interactive_elements',
+      'take_snapshot',
       {
-        tabId,
-        simplified,
-        ...(windowId && { windowId }),
+        pageId: page.id,
+        verbose: !simplified,
       },
     )
 

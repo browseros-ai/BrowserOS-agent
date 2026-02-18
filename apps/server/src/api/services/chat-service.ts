@@ -11,6 +11,7 @@ import { MCPServerConfig } from '@google/gemini-cli-core'
 import type { HonoSSEStream } from '../../agent/provider-adapter/types'
 import type { SessionManager } from '../../agent/session'
 import type { ProviderConfig, ResolvedAgentConfig } from '../../agent/types'
+import type { PageRegistry } from '../../browser/page-registry'
 import { INLINED_ENV } from '../../env'
 import {
   fetchBrowserOSConfig,
@@ -48,6 +49,7 @@ export interface ChatServiceDeps {
   klavisClient: KlavisClient
   executionDir: string
   mcpServerUrl: string
+  pageRegistry: PageRegistry
   browserosId?: string
 }
 
@@ -101,7 +103,22 @@ export class ChatService {
 
     const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
     if (request.browserContext?.windowId != null) {
-      session.browserState.windowId = request.browserContext.windowId
+      session.state.windowId = request.browserContext.windowId
+    }
+
+    if (request.browserContext?.activeTab) {
+      const tab = request.browserContext.activeTab
+      const resolvedWindowId =
+        request.browserContext.windowId ?? session.state.windowId
+
+      if (resolvedWindowId != null) {
+        const pageId = this.deps.pageRegistry.register({
+          tabId: tab.id,
+          windowId: resolvedWindowId,
+          url: tab.url,
+        })
+        session.state.setActive(pageId)
+      }
     }
     await session.agent.execute(
       request.message,

@@ -61,9 +61,9 @@ export async function createHttpServer(config: HttpServerConfig) {
     rateLimiter,
     version,
     tools,
-    ensureCdpContext,
+    ensureCdpClient,
     controllerBridge,
-    controllerContext,
+    pageRegistry,
   } = config
 
   const { onShutdown } = config
@@ -76,7 +76,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       '/shutdown',
       createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
     )
-    .route('/status', createStatusRoute({ controllerContext }))
+    .route('/status', createStatusRoute({ controllerBridge }))
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(
@@ -84,8 +84,9 @@ export async function createHttpServer(config: HttpServerConfig) {
       createMcpRoutes({
         version,
         tools,
-        ensureCdpContext,
+        ensureCdpClient,
         controllerBridge,
+        pageRegistry,
         sessionManager,
       }),
     )
@@ -97,6 +98,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         browserosId,
         rateLimiter,
         sessionManager,
+        pageRegistry,
       }),
     )
     .route(

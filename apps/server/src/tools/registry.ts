@@ -8,8 +8,8 @@
 
 import { logger } from '../lib/logger'
 
-import { allCdpTools } from './cdp-based/registry'
-import { allControllerTools } from './controller-based/registry'
+import { allCdpTools } from './cdp/registry'
+import { allControllerTools } from './controller/registry'
 import type { ToolDefinition } from './types/tool-definition'
 
 export function createToolRegistry(
