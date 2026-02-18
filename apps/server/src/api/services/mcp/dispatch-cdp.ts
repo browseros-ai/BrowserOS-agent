@@ -13,7 +13,7 @@ import type { ToolDefinition } from '../../../tools/types/tool-definition'
 
 export async function resolveCdpPage(
   params: Record<string, unknown>,
-  _state: SessionState,
+  state: SessionState,
   cdpClient: CdpClient,
 ) {
   if (params.pageId != null) {
@@ -24,8 +24,22 @@ export async function resolveCdpPage(
     return page
   }
 
-  // Fall through to create a new page if no active page
+  const activePageId = state.activePageId
+  if (activePageId !== undefined) {
+    try {
+      const page = cdpClient.getPageById(activePageId)
+      if (page && !page.isClosed()) return page
+    } catch {
+      // stale — page closed or removed, fall through
+    }
+    state.activePageId = undefined
+  }
+
   const page = await cdpClient.newPage()
+  const pageId = cdpClient.getPageId(page)
+  if (pageId !== undefined) {
+    state.activePageId = pageId
+  }
   return page
 }
 
@@ -36,6 +50,10 @@ export async function dispatchCdpTool(
   cdpClient: CdpClient,
 ): Promise<ToolResult> {
   const page = await resolveCdpPage(params, state, cdpClient)
+  const resolvedPageId = cdpClient.getPageId(page)
+  if (resolvedPageId !== undefined) {
+    state.activePageId = resolvedPageId
+  }
   const { pageId: _, ...cleanParams } = params
 
   const response = new CdpResponse()
