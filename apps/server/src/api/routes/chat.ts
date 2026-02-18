@@ -8,7 +8,7 @@ import { PATHS } from '@browseros/shared/constants/paths'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
-import { SessionManager } from '../../agent/session'
+import { type AgentRuntime, SessionManager } from '../../agent/session'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
@@ -31,8 +31,12 @@ export function createChatRoutes(deps: ChatRouteDeps) {
 
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
   const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
+  const agentRuntime: AgentRuntime =
+    process.env.BROWSEROS_AGENT_RUNTIME === 'vercel-tool-loop'
+      ? 'vercel-tool-loop'
+      : 'gemini'
 
-  const sessionManager = new SessionManager()
+  const sessionManager = new SessionManager(agentRuntime)
   const klavisClient = new KlavisClient()
 
   const chatService = new ChatService({
@@ -41,11 +45,13 @@ export function createChatRoutes(deps: ChatRouteDeps) {
     executionDir,
     mcpServerUrl,
     browserosId,
+    agentRuntime,
   })
 
   logger.debug('Chat routes initialized', {
     browserosId,
     mcpServerUrl,
+    agentRuntime,
   })
 
   // Chain route definitions for proper Hono RPC type inference

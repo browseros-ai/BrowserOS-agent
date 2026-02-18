@@ -7,10 +7,13 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
-import { MCPServerConfig } from '@google/gemini-cli-core'
 import type { HonoSSEStream } from '../../agent/provider-adapter/types'
 import type { SessionManager } from '../../agent/session'
-import type { ProviderConfig, ResolvedAgentConfig } from '../../agent/types'
+import type {
+  McpServerSpec,
+  ProviderConfig,
+  ResolvedAgentConfig,
+} from '../../agent/types'
 import { INLINED_ENV } from '../../env'
 import {
   fetchBrowserOSConfig,
@@ -18,33 +21,8 @@ import {
 } from '../../lib/clients/gateway'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
-import {
-  detectMcpTransport,
-  type McpTransportType,
-} from '../../lib/mcp-transport-detect'
+import { detectMcpTransport } from '../../lib/mcp-transport-detect'
 import type { BrowserContext, ChatRequest } from '../types'
-
-interface McpServerOptions {
-  url: string
-  transport: McpTransportType
-  headers?: Record<string, string>
-  trust?: boolean
-}
-
-function createMcpServerConfig(options: McpServerOptions): MCPServerConfig {
-  return new MCPServerConfig(
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    options.transport === 'sse' ? options.url : undefined,
-    options.transport === 'streamable-http' ? options.url : undefined,
-    options.headers,
-    undefined,
-    undefined,
-    options.trust,
-  )
-}
 
 export interface ChatServiceDeps {
   sessionManager: SessionManager
@@ -52,6 +30,7 @@ export interface ChatServiceDeps {
   executionDir: string
   mcpServerUrl: string
   browserosId?: string
+  agentRuntime: 'gemini' | 'vercel-tool-loop'
 }
 
 export class ChatService {
@@ -162,23 +141,26 @@ export class ChatService {
 
   private async buildMcpServers(
     browserContext?: BrowserContext,
-  ): Promise<Record<string, MCPServerConfig>> {
+  ): Promise<Record<string, McpServerSpec>> {
     const { klavisClient, mcpServerUrl, browserosId } = this.deps
-    const servers: Record<string, MCPServerConfig> = {}
+    const servers: Record<string, McpServerSpec> = {}
 
     if (mcpServerUrl) {
-      servers['browseros-mcp'] = createMcpServerConfig({
+      servers['browseros-mcp'] = {
         url: mcpServerUrl,
         transport: 'streamable-http',
         headers: {
           Accept: 'application/json, text/event-stream',
-          'X-BrowserOS-Source': 'gemini-agent',
+          'X-BrowserOS-Source':
+            this.deps.agentRuntime === 'vercel-tool-loop'
+              ? 'sdk-internal'
+              : 'gemini-agent',
           ...(browserContext?.windowId != null && {
             'X-BrowserOS-Window-Id': String(browserContext.windowId),
           }),
         },
         trust: true,
-      })
+      }
     }
 
     if (browserosId && browserContext?.enabledMcpServers?.length) {
@@ -187,11 +169,11 @@ export class ChatService {
           browserosId,
           browserContext.enabledMcpServers,
         )
-        servers['klavis-strata'] = createMcpServerConfig({
+        servers['klavis-strata'] = {
           url: result.strataServerUrl,
           transport: 'streamable-http',
           trust: true,
-        })
+        }
         logger.info('Added Klavis Strata MCP server', {
           browserosId: browserosId.slice(0, 12),
           servers: browserContext.enabledMcpServers,
@@ -213,11 +195,11 @@ export class ChatService {
       for (let i = 0; i < customServers.length; i++) {
         const server = customServers[i]
         const transport = transports[i]
-        servers[`custom-${server.name}`] = createMcpServerConfig({
+        servers[`custom-${server.name}`] = {
           url: server.url,
           transport,
           trust: true,
-        })
+        }
         logger.info('Added custom MCP server', {
           name: server.name,
           url: server.url,

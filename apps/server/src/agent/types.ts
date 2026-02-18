@@ -42,3 +42,12 @@ export interface ResolvedAgentConfig {
   /** Scheduled task mode - disables tab grouping. Defaults to false. */
   isScheduledTask?: boolean
 }
+
+export type McpTransportType = 'sse' | 'streamable-http'
+
+export interface McpServerSpec {
+  url: string
+  transport: McpTransportType
+  headers?: Record<string, string>
+  trust?: boolean
+}

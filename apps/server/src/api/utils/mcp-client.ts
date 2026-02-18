@@ -23,21 +23,48 @@ export interface McpToolResult<T = Record<string, unknown>> {
   isError?: boolean
 }
 
+interface McpClientOptions {
+  headers?: Record<string, string>
+  source?: string
+}
+
+export interface McpToolDescriptor {
+  name: string
+  description?: string
+  inputSchema: {
+    [x: string]: unknown
+    type: 'object'
+    properties?: Record<string, object>
+    required?: string[]
+  }
+}
+
+function createTransport(
+  serverUrl: string,
+  options?: McpClientOptions,
+): StreamableHTTPClientTransport {
+  return new StreamableHTTPClientTransport(new URL(serverUrl), {
+    requestInit: {
+      headers: {
+        'X-BrowserOS-Source': options?.source ?? 'sdk-internal',
+        ...(options?.headers ?? {}),
+      },
+    },
+  })
+}
+
 export async function callMcpTool<T = Record<string, unknown>>(
   serverUrl: string,
   name: string,
   args: Record<string, unknown> = {},
+  options?: McpClientOptions,
 ): Promise<McpToolResult<T>> {
   const client = new Client({
     name: 'browseros-sdk-internal',
     version: '1.0.0',
   })
 
-  const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
-    requestInit: {
-      headers: { 'X-BrowserOS-Source': 'sdk-internal' },
-    },
-  })
+  const transport = createTransport(serverUrl, options)
 
   try {
     await client.connect(transport)
@@ -45,6 +72,25 @@ export async function callMcpTool<T = Record<string, unknown>>(
       name,
       arguments: args,
     })) as McpToolResult<T>
+  } finally {
+    await transport.close()
+  }
+}
+
+export async function listMcpTools(
+  serverUrl: string,
+  options?: McpClientOptions,
+): Promise<McpToolDescriptor[]> {
+  const client = new Client({
+    name: 'browseros-sdk-internal',
+    version: '1.0.0',
+  })
+  const transport = createTransport(serverUrl, options)
+
+  try {
+    await client.connect(transport)
+    const result = await client.listTools()
+    return result.tools as McpToolDescriptor[]
   } finally {
     await transport.close()
   }
