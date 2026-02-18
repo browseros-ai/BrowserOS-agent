@@ -10,11 +10,9 @@ import os from 'node:os'
 import path from 'node:path'
 import type {
   Browser,
-  ConsoleMessage,
   Debugger,
   Dialog,
   ElementHandle,
-  HTTPRequest,
   Page,
   PredefinedNetworkConditions,
   SerializedAXNode,
@@ -25,18 +23,11 @@ import { listPages } from '../tools/pages'
 import { takeSnapshot } from '../tools/snapshot'
 import type { Context, DevToolsData } from '../types/cdp-tool-definition'
 import { CLOSE_PAGE_ERROR } from '../types/cdp-tool-definition'
-import type { TargetUniverse } from './devtools-utils'
 import {
   extractUrlLikeFromDevToolsTitle,
   UniverseManager,
   urlsEqual,
 } from './devtools-utils'
-import {
-  ExtensionRegistry,
-  type InstalledExtension,
-} from './extension-registry'
-import type { ListenerMap } from './page-collector'
-import { ConsoleCollector, NetworkCollector } from './page-collector'
 import { WaitForHelper } from './wait-for-helper'
 
 export interface TextSnapshotNode extends SerializedAXNode {
@@ -109,10 +100,7 @@ export class CdpContext implements Context {
   #pageToDevToolsPage = new Map<Page, Page>()
   #pageScope = new AsyncLocalStorage<{ page: Page }>()
   #textSnapshots = new WeakMap<Page, TextSnapshot>()
-  #networkCollector: NetworkCollector
-  #consoleCollector: ConsoleCollector
   #devtoolsUniverseManager: UniverseManager
-  #extensionRegistry = new ExtensionRegistry()
 
   #networkConditionsMap = new WeakMap<Page, string>()
   #cpuThrottlingRateMap = new WeakMap<Page, number>()
@@ -143,41 +131,15 @@ export class CdpContext implements Context {
     this.logger = logger
     this.#locatorClass = locatorClass
     this.#options = options
-
-    this.#networkCollector = new NetworkCollector(this.browser)
-
-    this.#consoleCollector = new ConsoleCollector(this.browser, (collect) => {
-      return {
-        console: (event) => {
-          collect(event)
-        },
-        pageerror: (event) => {
-          if (event instanceof Error) {
-            collect(event)
-          } else {
-            const error = new Error(`${event}`)
-            error.stack = undefined
-            collect(error)
-          }
-        },
-        issue: (event) => {
-          collect(event)
-        },
-      } as ListenerMap
-    })
     this.#devtoolsUniverseManager = new UniverseManager()
   }
 
   async #init() {
     const pages = await this.createPagesSnapshot()
-    await this.#networkCollector.init(pages)
-    await this.#consoleCollector.init(pages)
     await this.#devtoolsUniverseManager.init(pages)
   }
 
   dispose() {
-    this.#networkCollector.dispose()
-    this.#consoleCollector.dispose()
     this.#devtoolsUniverseManager.dispose()
   }
 
@@ -191,24 +153,6 @@ export class CdpContext implements Context {
     const context = new CdpContext(browser, logger, opts, locatorClass)
     await context.#init()
     return context
-  }
-
-  resolveCdpRequestId(cdpRequestId: string): number | undefined {
-    const selectedPage = this.getSelectedPage()
-    if (!cdpRequestId) {
-      this.logger('no network request')
-      return
-    }
-    const request = this.#networkCollector.find(selectedPage, (request) => {
-      // @ts-expect-error id is internal.
-      return request.id === cdpRequestId
-    })
-    if (!request) {
-      // biome-ignore lint/style/useTemplate: upstream code
-      this.logger('no network request for ' + cdpRequestId)
-      return
-    }
-    return this.#networkCollector.getIdForResource(request)
   }
 
   resolveCdpElementId(cdpBackendNodeId: number): string | undefined {
@@ -237,31 +181,6 @@ export class CdpContext implements Context {
     return
   }
 
-  getNetworkRequests(includePreservedRequests?: boolean): HTTPRequest[] {
-    const page = this.getSelectedPage()
-    return this.#networkCollector.getData(page, includePreservedRequests)
-  }
-
-  getConsoleData(
-    includePreservedMessages?: boolean,
-  ): Array<ConsoleMessage | Error | unknown> {
-    const page = this.getSelectedPage()
-    return this.#consoleCollector.getData(page, includePreservedMessages)
-  }
-
-  getDevToolsUniverse(): TargetUniverse | null {
-    return this.#devtoolsUniverseManager.get(this.getSelectedPage())
-  }
-
-  getConsoleMessageStableId(message: ConsoleMessage | Error | unknown): number {
-    // biome-ignore lint/suspicious/noExplicitAny: upstream code
-    return this.#consoleCollector.getIdForResource(message as any)
-  }
-
-  getConsoleMessageById(id: number): ConsoleMessage | Error | unknown {
-    return this.#consoleCollector.getById(this.getSelectedPage(), id)
-  }
-
   async newPage(background?: boolean): Promise<Page> {
     const page = await this.browser.newPage()
     await this.createPagesSnapshot()
@@ -272,8 +191,6 @@ export class CdpContext implements Context {
     if (!background) {
       await page.bringToFront().catch(() => {})
     }
-    this.#networkCollector.addPage(page)
-    this.#consoleCollector.addPage(page)
     return page
   }
   async closePage(pageId: number): Promise<void> {
@@ -282,10 +199,6 @@ export class CdpContext implements Context {
     }
     const page = this.getPageById(pageId)
     await page.close({ runBeforeUnload: false })
-  }
-
-  getNetworkRequestById(reqid: number): HTTPRequest {
-    return this.#networkCollector.getById(this.getSelectedPage(), reqid)
   }
 
   setNetworkConditions(conditions: string | null): void {
@@ -735,10 +648,6 @@ export class CdpContext implements Context {
     return waitForHelper.waitForEventsAfterAction(action, options)
   }
 
-  getNetworkRequestStableId(request: HTTPRequest): number {
-    return this.#networkCollector.getIdForResource(request)
-  }
-
   waitForTextOnPage(text: string, timeout?: number): Promise<Element> {
     const page = this.getSelectedPage()
     const frames = page.frames()
@@ -755,41 +664,5 @@ export class CdpContext implements Context {
     }
 
     return locator.wait()
-  }
-
-  /**
-   * We need to ignore favicon request as they make our test flaky
-   */
-  async setUpNetworkCollectorForTesting() {
-    this.#networkCollector = new NetworkCollector(this.browser, (collect) => {
-      return {
-        request: (req) => {
-          if (req.url().includes('favicon.ico')) {
-            return
-          }
-          collect(req)
-        },
-      } as ListenerMap
-    })
-    await this.#networkCollector.init(await this.browser.pages())
-  }
-
-  async installExtension(extensionPath: string): Promise<string> {
-    const id = await this.browser.installExtension(extensionPath)
-    await this.#extensionRegistry.registerExtension(id, extensionPath)
-    return id
-  }
-
-  async uninstallExtension(id: string): Promise<void> {
-    await this.browser.uninstallExtension(id)
-    this.#extensionRegistry.remove(id)
-  }
-
-  listExtensions(): InstalledExtension[] {
-    return this.#extensionRegistry.list()
-  }
-
-  getExtension(id: string): InstalledExtension | undefined {
-    return this.#extensionRegistry.getById(id)
   }
 }

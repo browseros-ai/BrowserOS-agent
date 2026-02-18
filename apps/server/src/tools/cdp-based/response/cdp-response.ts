@@ -6,13 +6,7 @@
 
 import type { ToolResult } from '../../types/response'
 import type { CdpContext } from '../context/cdp-context'
-import type { InstalledExtension } from '../context/extension-registry'
-import type {
-  ConsoleMessage,
-  ImageContent,
-  ResourceType,
-  TextContent,
-} from '../third-party'
+import type { ImageContent, TextContent } from '../third-party'
 import { handleDialog } from '../tools/pages'
 import type {
   DevToolsData,
@@ -20,37 +14,13 @@ import type {
   Response,
   SnapshotParams,
 } from '../types/cdp-tool-definition'
-import { paginate } from '../utils/pagination'
-import type { PaginationOptions } from '../utils/types'
-import { ConsoleFormatter } from './console-formatter'
-import { NetworkFormatter } from './network-formatter'
 import { SnapshotFormatter } from './snapshot-formatter'
 
 export class CdpResponse implements Response {
   #includePages = false
   #snapshotParams?: SnapshotParams
-  #attachedNetworkRequestId?: number
-  #attachedNetworkRequestOptions?: {
-    requestFilePath?: string
-    responseFilePath?: string
-  }
-  #attachedConsoleMessageId?: number
   #textResponseLines: string[] = []
   #images: ImageContentData[] = []
-  #networkRequestsOptions?: {
-    include: boolean
-    pagination?: PaginationOptions
-    resourceTypes?: ResourceType[]
-    includePreservedRequests?: boolean
-    networkRequestIdInDevToolsUI?: number
-  }
-  #consoleDataOptions?: {
-    include: boolean
-    pagination?: PaginationOptions
-    types?: string[]
-    includePreservedMessages?: boolean
-  }
-  #listExtensions?: boolean
   #devToolsData?: DevToolsData
   #tabId?: string
 
@@ -72,98 +42,8 @@ export class CdpResponse implements Response {
     }
   }
 
-  setListExtensions(): void {
-    this.#listExtensions = true
-  }
-
-  setIncludeNetworkRequests(
-    value: boolean,
-    options?: PaginationOptions & {
-      resourceTypes?: ResourceType[]
-      includePreservedRequests?: boolean
-      networkRequestIdInDevToolsUI?: number
-    },
-  ): void {
-    if (!value) {
-      this.#networkRequestsOptions = undefined
-      return
-    }
-
-    this.#networkRequestsOptions = {
-      include: value,
-      pagination:
-        options?.pageSize || options?.pageIdx
-          ? {
-              pageSize: options.pageSize,
-              pageIdx: options.pageIdx,
-            }
-          : undefined,
-      resourceTypes: options?.resourceTypes,
-      includePreservedRequests: options?.includePreservedRequests,
-      networkRequestIdInDevToolsUI: options?.networkRequestIdInDevToolsUI,
-    }
-  }
-
-  setIncludeConsoleData(
-    value: boolean,
-    options?: PaginationOptions & {
-      types?: string[]
-      includePreservedMessages?: boolean
-    },
-  ): void {
-    if (!value) {
-      this.#consoleDataOptions = undefined
-      return
-    }
-
-    this.#consoleDataOptions = {
-      include: value,
-      pagination:
-        options?.pageSize || options?.pageIdx
-          ? {
-              pageSize: options.pageSize,
-              pageIdx: options.pageIdx,
-            }
-          : undefined,
-      types: options?.types,
-      includePreservedMessages: options?.includePreservedMessages,
-    }
-  }
-
-  attachNetworkRequest(
-    reqid: number,
-    options?: { requestFilePath?: string; responseFilePath?: string },
-  ): void {
-    this.#attachedNetworkRequestId = reqid
-    this.#attachedNetworkRequestOptions = options
-  }
-
-  attachConsoleMessage(msgid: number): void {
-    this.#attachedConsoleMessageId = msgid
-  }
-
   get includePages(): boolean {
     return this.#includePages
-  }
-
-  get includeNetworkRequests(): boolean {
-    return this.#networkRequestsOptions?.include ?? false
-  }
-
-  get includeConsoleData(): boolean {
-    return this.#consoleDataOptions?.include ?? false
-  }
-  get attachedNetworkRequestId(): number | undefined {
-    return this.#attachedNetworkRequestId
-  }
-  get networkRequestsPageIdx(): number | undefined {
-    return this.#networkRequestsOptions?.pagination?.pageIdx
-  }
-  get consoleMessagesPageIdx(): number | undefined {
-    return this.#consoleDataOptions?.pagination?.pageIdx
-  }
-  get consoleMessagesTypes(): string[] | undefined {
-    return this.#consoleDataOptions?.types
   }
 
   appendResponseLine(value: string): void {
@@ -212,142 +92,16 @@ export class CdpResponse implements Response {
       }
     }
 
-    let detailedNetworkRequest: NetworkFormatter | undefined
-    if (this.#attachedNetworkRequestId) {
-      const request = context.getNetworkRequestById(
-        this.#attachedNetworkRequestId,
-      )
-      const formatter = await NetworkFormatter.from(request, {
-        requestId: this.#attachedNetworkRequestId,
-        requestIdResolver: (req) => context.getNetworkRequestStableId(req),
-        fetchData: true,
-        requestFilePath: this.#attachedNetworkRequestOptions?.requestFilePath,
-        responseFilePath: this.#attachedNetworkRequestOptions?.responseFilePath,
-        saveFile: (data, filename) => context.saveFile(data, filename),
-      })
-      detailedNetworkRequest = formatter
-    }
-
-    let detailedConsoleMessage: ConsoleFormatter | undefined
-
-    if (this.#attachedConsoleMessageId) {
-      const message = context.getConsoleMessageById(
-        this.#attachedConsoleMessageId,
-        // biome-ignore lint/suspicious/noExplicitAny: upstream code
-      ) as any
-      const consoleMessageStableId = this.#attachedConsoleMessageId
-      if ('args' in message) {
-        const consoleMessage = message as ConsoleMessage
-        const devTools = context.getDevToolsUniverse()
-        detailedConsoleMessage = await ConsoleFormatter.from(consoleMessage, {
-          id: consoleMessageStableId,
-          fetchDetailedData: true,
-          devTools: devTools ?? undefined,
-        })
-      } else {
-        detailedConsoleMessage = await ConsoleFormatter.from(message as Error, {
-          id: consoleMessageStableId,
-        })
-      }
-    }
-
-    let extensions: InstalledExtension[] | undefined
-    if (this.#listExtensions) {
-      extensions = context.listExtensions()
-    }
-    let consoleMessages: ConsoleFormatter[] | undefined
-    if (this.#consoleDataOptions?.include) {
-      let messages = context.getConsoleData(
-        this.#consoleDataOptions.includePreservedMessages,
-        // biome-ignore lint/suspicious/noExplicitAny: upstream code
-      ) as any[]
-
-      if (this.#consoleDataOptions.types?.length) {
-        const normalizedTypes = new Set(this.#consoleDataOptions.types)
-        messages = messages.filter((message) => {
-          if ('type' in message) {
-            return normalizedTypes.has(message.type())
-          }
-          return normalizedTypes.has('error')
-        })
-      }
-
-      consoleMessages = (
-        await Promise.all(
-          messages.map(async (item): Promise<ConsoleFormatter | null> => {
-            const consoleMessageStableId =
-              context.getConsoleMessageStableId(item)
-            if ('args' in item) {
-              const consoleMessage = item as ConsoleMessage
-              const devTools = context.getDevToolsUniverse()
-              return await ConsoleFormatter.from(consoleMessage, {
-                id: consoleMessageStableId,
-                fetchDetailedData: false,
-                devTools: devTools ?? undefined,
-              })
-            }
-            return await ConsoleFormatter.from(item as Error, {
-              id: consoleMessageStableId,
-            })
-          }),
-        )
-      ).filter((item) => item !== null)
-    }
-
-    let networkRequests: NetworkFormatter[] | undefined
-    if (this.#networkRequestsOptions?.include) {
-      let requests = context.getNetworkRequests(
-        this.#networkRequestsOptions?.includePreservedRequests,
-      )
-
-      // Apply resource type filtering if specified
-      if (this.#networkRequestsOptions.resourceTypes?.length) {
-        const normalizedTypes = new Set(
-          this.#networkRequestsOptions.resourceTypes,
-        )
-        requests = requests.filter((request) => {
-          const type = request.resourceType()
-          return normalizedTypes.has(type)
-        })
-      }
-
-      if (requests.length) {
-        networkRequests = await Promise.all(
-          requests.map((request) =>
-            NetworkFormatter.from(request, {
-              requestId: context.getNetworkRequestStableId(request),
-              selectedInDevToolsUI:
-                context.getNetworkRequestStableId(request) ===
-                this.#networkRequestsOptions?.networkRequestIdInDevToolsUI,
-              fetchData: false,
-              saveFile: (data, filename) => context.saveFile(data, filename),
-            }),
-          ),
-        )
-      }
-    }
-
     return this.format(toolName, context, {
-      detailedConsoleMessage,
-      consoleMessages,
       snapshot,
-      detailedNetworkRequest,
-      networkRequests,
-      extensions,
     })
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: upstream code
   format(
     toolName: string,
     context: CdpContext,
     data: {
-      detailedConsoleMessage: ConsoleFormatter | undefined
-      consoleMessages: ConsoleFormatter[] | undefined
       snapshot: SnapshotFormatter | string | undefined
-      detailedNetworkRequest?: NetworkFormatter
-      networkRequests?: NetworkFormatter[]
-      extensions?: InstalledExtension[]
     },
   ): ToolResult {
     const structuredContent: Record<string, unknown> = {}
@@ -445,92 +199,6 @@ Call ${handleDialog.name} to handle it before continuing.`)
       }
     }
 
-    if (data.detailedNetworkRequest) {
-      response.push(data.detailedNetworkRequest.toStringDetailed())
-      structuredContent.networkRequest =
-        data.detailedNetworkRequest.toJSONDetailed()
-    }
-
-    if (data.detailedConsoleMessage) {
-      response.push(data.detailedConsoleMessage.toStringDetailed())
-      structuredContent.consoleMessage =
-        data.detailedConsoleMessage.toJSONDetailed()
-    }
-
-    if (data.extensions) {
-      structuredContent.extensions = data.extensions
-      response.push('## Extensions')
-      if (data.extensions.length === 0) {
-        response.push('No extensions installed.')
-      } else {
-        const extensionsMessage = data.extensions
-          .map((extension) => {
-            return `id=${extension.id} "${extension.name}" v${extension.version} ${extension.isEnabled ? 'Enabled' : 'Disabled'}`
-          })
-          .join('\n')
-        response.push(extensionsMessage)
-      }
-    }
-
-    if (this.#networkRequestsOptions?.include) {
-      let requests = context.getNetworkRequests(
-        this.#networkRequestsOptions?.includePreservedRequests,
-      )
-
-      // Apply resource type filtering if specified
-      if (this.#networkRequestsOptions.resourceTypes?.length) {
-        const normalizedTypes = new Set(
-          this.#networkRequestsOptions.resourceTypes,
-        )
-        requests = requests.filter((request) => {
-          const type = request.resourceType()
-          return normalizedTypes.has(type)
-        })
-      }
-
-      response.push('## Network requests')
-      if (requests.length) {
-        const paginationData = this.#dataWithPagination(
-          requests,
-          this.#networkRequestsOptions.pagination,
-        )
-        structuredContent.pagination = paginationData.pagination
-        response.push(...paginationData.info)
-        if (data.networkRequests) {
-          const networkRequests: unknown[] = []
-          for (const formatter of data.networkRequests) {
-            response.push(formatter.toString())
-            networkRequests.push(formatter.toJSON())
-          }
-          structuredContent.networkRequests = networkRequests
-        }
-      } else {
-        response.push('No requests found.')
-      }
-    }
-
-    if (this.#consoleDataOptions?.include) {
-      const messages = data.consoleMessages ?? []
-
-      response.push('## Console messages')
-      if (messages.length) {
-        const paginationData = this.#dataWithPagination(
-          messages,
-          this.#consoleDataOptions.pagination,
-        )
-        structuredContent.pagination = paginationData.pagination
-        response.push(...paginationData.info)
-        response.push(
-          ...paginationData.items.map((message) => message.toString()),
-        )
-        structuredContent.consoleMessages = paginationData.items.map(
-          (message) => message.toJSON(),
-        )
-      } else {
-        response.push('<no console messages found>')
-      }
-    }
-
     const text: TextContent = {
       type: 'text',
       text: response.join('\n'),
@@ -545,41 +213,6 @@ Call ${handleDialog.name} to handle it before continuing.`)
     return {
       content: [text, ...images],
       structuredContent,
-    }
-  }
-
-  #dataWithPagination<T>(data: T[], pagination?: PaginationOptions) {
-    const response = []
-    const paginationResult = paginate<T>(data, pagination)
-    if (paginationResult.invalidPage) {
-      response.push('Invalid page number provided. Showing first page.')
-    }
-
-    const { startIndex, endIndex, currentPage, totalPages } = paginationResult
-    response.push(
-      `Showing ${startIndex + 1}-${endIndex} of ${data.length} (Page ${currentPage + 1} of ${totalPages}).`,
-    )
-    if (pagination) {
-      if (paginationResult.hasNextPage) {
-        response.push(`Next page: ${currentPage + 1}`)
-      }
-      if (paginationResult.hasPreviousPage) {
-        response.push(`Previous page: ${currentPage - 1}`)
-      }
-    }
-
-    return {
-      info: response,
-      items: paginationResult.items,
-      pagination: {
-        currentPage: paginationResult.currentPage,
-        totalPages: paginationResult.totalPages,
-        hasNextPage: paginationResult.hasNextPage,
-        hasPreviousPage: paginationResult.hasPreviousPage,
-        startIndex: paginationResult.startIndex,
-        endIndex: paginationResult.endIndex,
-        invalidPage: paginationResult.invalidPage,
-      },
     }
   }
 

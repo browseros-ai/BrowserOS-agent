@@ -15,9 +15,7 @@ import type {
   GeolocationOptions,
   TextSnapshotNode,
 } from '../context/cdp-context'
-import type { InstalledExtension } from '../context/extension-registry'
 import type { Dialog, ElementHandle, Page, Viewport, zod } from '../third-party'
-import type { PaginationOptions } from '../utils/types'
 
 export { type Request, commonSchemas, ERRORS }
 
@@ -40,31 +38,10 @@ export interface DevToolsData {
 export interface Response {
   appendResponseLine(value: string): void
   setIncludePages(value: boolean): void
-  setIncludeNetworkRequests(
-    value: boolean,
-    options?: PaginationOptions & {
-      resourceTypes?: string[]
-      includePreservedRequests?: boolean
-      networkRequestIdInDevToolsUI?: number
-    },
-  ): void
-  setIncludeConsoleData(
-    value: boolean,
-    options?: PaginationOptions & {
-      types?: string[]
-      includePreservedMessages?: boolean
-    },
-  ): void
   includeSnapshot(params?: SnapshotParams): void
   attachImage(value: ImageContentData): void
-  attachNetworkRequest(
-    reqid: number,
-    options?: { requestFilePath?: string; responseFilePath?: string },
-  ): void
-  attachConsoleMessage(msgid: number): void
   attachDevToolsData(data: DevToolsData): void
   setTabId(tabId: string): void
-  setListExtensions(): void
 }
 
 export type Context = Readonly<{
@@ -100,12 +77,7 @@ export type Context = Readonly<{
   ): Promise<void>
   waitForTextOnPage(text: string, timeout?: number): Promise<Element>
   getDevToolsData(): Promise<DevToolsData>
-  resolveCdpRequestId(cdpRequestId: string): number | undefined
   resolveCdpElementId(cdpBackendNodeId: number): string | undefined
-  installExtension(path: string): Promise<string>
-  uninstallExtension(id: string): Promise<void>
-  listExtensions(): InstalledExtension[]
-  getExtension(id: string): InstalledExtension | undefined
 }>
 
 export function defineTool<Schema extends zod.ZodRawShape>(

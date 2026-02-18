@@ -3,8 +3,6 @@
  * Copyright 2025 BrowserOS
  */
 
-import * as emulationTools from './tools/emulation'
-import * as extensionTools from './tools/extensions'
 import * as inputTools from './tools/input'
 import * as pagesTools from './tools/pages'
 import * as screenshotTools from './tools/screenshot'
@@ -17,8 +15,6 @@ import type { CdpToolDefinition } from './types/cdp-tool-definition'
  */
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool registry requires any
 export const allCdpTools: Array<CdpToolDefinition<any>> = [
-  ...Object.values(emulationTools),
-  ...Object.values(extensionTools),
   ...Object.values(inputTools),
   ...Object.values(pagesTools),
   ...Object.values(screenshotTools),
