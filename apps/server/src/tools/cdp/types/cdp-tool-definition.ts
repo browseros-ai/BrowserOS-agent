@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { PageEntry } from '../../../browser/page-registry'
 import type { ImageContentData } from '../../types/response'
 import {
   type ToolDefinition as BaseToolDefinition,
@@ -53,6 +54,9 @@ export type Context = Readonly<{
   isPageSelected(page: Page): boolean
   newPage(background?: boolean): Promise<Page>
   closePage(pageId: number): Promise<void>
+  closePageByTabId(tabId: number): Promise<void>
+  getPageByTabId(tabId: number): Page | undefined
+  getPageEntry(page: Page): PageEntry | undefined
   getElementByUid(uid: string): Promise<ElementHandle<Element>>
   getAXNodeByUid(uid: string): TextSnapshotNode | undefined
   setNetworkConditions(conditions: string | null): void

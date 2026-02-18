@@ -5,11 +5,12 @@
  */
 
 import { ToolCategories } from '../../types/tool-categories'
-import type { CdpContext, TextSnapshotNode } from '../context/cdp-context'
+import type { TextSnapshotNode } from '../context/cdp-context'
 import { logger } from '../context/logger'
 import type { ElementHandle } from '../third-party'
 import { zod } from '../third-party'
-import { defineTool } from '../types/cdp-tool-definition'
+import type { Context } from '../types/cdp-tool-definition'
+import { commonSchemas, defineTool } from '../types/cdp-tool-definition'
 import { parseKey } from '../utils/keyboard'
 
 const dblClickSchema = zod
@@ -41,6 +42,7 @@ export const click = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     uid: zod
       .string()
       .describe(
@@ -84,6 +86,7 @@ export const clickAt = defineTool({
     conditions: ['computerVision'],
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     x: zod.number().describe('The x coordinate'),
     y: zod.number().describe('The y coordinate'),
     dblClick: dblClickSchema,
@@ -116,6 +119,7 @@ export const hover = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     uid: zod
       .string()
       .describe(
@@ -179,11 +183,7 @@ async function selectOption(
   }
 }
 
-async function fillFormElement(
-  uid: string,
-  value: string,
-  context: CdpContext,
-) {
+async function fillFormElement(uid: string, value: string, context: Context) {
   const handle = await context.getElementByUid(uid)
   try {
     const aXNode = context.getAXNodeByUid(uid)
@@ -213,6 +213,7 @@ export const fill = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     uid: zod
       .string()
       .describe(
@@ -224,11 +225,7 @@ export const fill = defineTool({
   handler: async (request, response, context) => {
     await context.waitForEventsAfterAction(async () => {
       await context.getSelectedPage().keyboard.type(request.params.value)
-      await fillFormElement(
-        request.params.uid,
-        request.params.value,
-        context as CdpContext,
-      )
+      await fillFormElement(request.params.uid, request.params.value, context)
     })
     response.appendResponseLine(`Successfully filled out the element`)
     if (request.params.includeSnapshot) {
@@ -246,6 +243,7 @@ export const drag = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     from_uid: zod.string().describe('The uid of the element to drag'),
     to_uid: zod.string().describe('The uid of the element to drop into'),
     includeSnapshot: includeSnapshotSchema,
@@ -279,6 +277,7 @@ export const fillForm = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     elements: zod
       .array(
         zod.object({
@@ -292,7 +291,7 @@ export const fillForm = defineTool({
   handler: async (request, response, context) => {
     for (const element of request.params.elements) {
       await context.waitForEventsAfterAction(async () => {
-        await fillFormElement(element.uid, element.value, context as CdpContext)
+        await fillFormElement(element.uid, element.value, context)
       })
     }
     response.appendResponseLine(`Successfully filled out the form`)
@@ -311,6 +310,7 @@ export const uploadFile = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     uid: zod
       .string()
       .describe(
@@ -363,6 +363,7 @@ export const pressKey = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     key: zod
       .string()
       .describe(

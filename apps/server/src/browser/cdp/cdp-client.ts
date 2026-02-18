@@ -37,7 +37,7 @@ import type {
   DevToolsData,
 } from '../../tools/cdp/types/cdp-tool-definition'
 import { CLOSE_PAGE_ERROR } from '../../tools/cdp/types/cdp-tool-definition'
-import type { PageRegistry } from '../page-registry'
+import type { PageEntry, PageRegistry } from '../page-registry'
 import type { SessionState } from '../session-state'
 
 export type { TextSnapshot, TextSnapshotNode, GeolocationOptions }
@@ -190,6 +190,27 @@ export class CdpClient implements Context {
     }
     const page = this.getPageById(pageId)
     await page.close({ runBeforeUnload: false })
+  }
+
+  async closePageByTabId(tabId: number): Promise<void> {
+    if (this.#pages.length === 1) {
+      throw new Error(CLOSE_PAGE_ERROR)
+    }
+    const page = this.#registry.getPageByTabId(tabId)
+    if (!page) {
+      throw new Error(`No page found for tabId: ${tabId}`)
+    }
+    await page.close({ runBeforeUnload: false })
+  }
+
+  getPageByTabId(tabId: number): Page | undefined {
+    return this.#registry.getPageByTabId(tabId)
+  }
+
+  getPageEntry(page: Page): PageEntry | undefined {
+    const pageId = this.#registry.getPageId(page)
+    if (pageId === undefined) return undefined
+    return this.#registry.getEntry(pageId)
   }
 
   setNetworkConditions(conditions: string | null): void {
@@ -390,8 +411,42 @@ export class CdpClient implements Context {
   async createPagesSnapshot(): Promise<Page[]> {
     const allPages = await this.browser.pages()
 
+    // Batch-fetch tabId/windowId for all targets in one CDP call
+    const targetInfoMap = new Map<
+      string,
+      { tabId?: number; windowId?: number }
+    >()
+    try {
+      const browserSession = await this.browser.target().createCDPSession()
+      try {
+        const { targetInfos } = await browserSession.send('Target.getTargets')
+        // Forked Chromium adds tabId/windowId to TargetInfo
+        for (const info of targetInfos as Array<{
+          targetId: string
+          tabId?: number
+          windowId?: number
+        }>) {
+          targetInfoMap.set(info.targetId, {
+            tabId: info.tabId,
+            windowId: info.windowId,
+          })
+        }
+      } finally {
+        await browserSession.detach().catch(() => {})
+      }
+    } catch {
+      // Non-forked Chromium — tabId mappings will be undefined
+    }
+
     for (const page of allPages) {
-      this.#registry.register(page)
+      // @ts-expect-error puppeteer internal: _targetId on Target
+      const targetId = page.target()._targetId as string | undefined
+      const info = targetId ? targetInfoMap.get(targetId) : undefined
+      this.#registry.register(page, {
+        targetId,
+        tabId: info?.tabId,
+        windowId: info?.windowId,
+      })
     }
 
     this.#pages = allPages.filter((page) => {

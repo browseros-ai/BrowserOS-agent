@@ -12,7 +12,9 @@ import { Mutex } from 'async-mutex'
 import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-import { CdpContext } from '../../src/tools/cdp/context/cdp-context'
+import { CdpClient } from '../../src/browser/cdp/cdp-client'
+import { PageRegistry } from '../../src/browser/page-registry'
+import { SessionState } from '../../src/browser/session-state'
 import { logger as cdpLogger } from '../../src/tools/cdp/context/logger'
 import { CdpResponse } from '../../src/tools/cdp/response/cdp-response'
 
@@ -64,7 +66,7 @@ const envMutex = new Mutex()
 let cachedBrowser: Browser | undefined
 
 export async function withCdpBrowser(
-  cb: (response: CdpResponse, context: CdpContext) => Promise<void>,
+  cb: (response: CdpResponse, context: CdpClient) => Promise<void>,
   _options: { debug?: boolean } = {},
 ): Promise<void> {
   return await envMutex.runExclusive(async () => {
@@ -77,15 +79,20 @@ export async function withCdpBrowser(
     }
 
     const response = new CdpResponse()
-    const context = await CdpContext.from(cachedBrowser, cdpLogger, {
-      experimentalDevToolsDebugging: false,
-    })
+    const registry = new PageRegistry()
+    const context = await CdpClient.from(
+      cachedBrowser,
+      cdpLogger,
+      {
+        experimentalDevToolsDebugging: false,
+      },
+      registry,
+    )
 
     try {
-      // Use a fresh page for each test without closing pages that may be used by
-      // the running MCP server in the same BrowserOS instance.
       const page = await context.newPage(true)
-      await context.withPage(page, () => cb(response, context))
+      const state = new SessionState()
+      await context.withPage(page, state, () => cb(response, context))
     } finally {
       context.dispose()
     }

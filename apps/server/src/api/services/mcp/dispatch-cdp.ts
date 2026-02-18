@@ -11,50 +11,26 @@ import { CdpResponse } from '../../../tools/cdp/response/cdp-response'
 import type { ToolResult } from '../../../tools/types/response'
 import type { ToolDefinition } from '../../../tools/types/tool-definition'
 
-export async function resolveCdpPage(
-  params: Record<string, unknown>,
-  state: SessionState,
-  cdpClient: CdpClient,
-) {
-  if (params.pageId != null) {
-    const page = cdpClient.getPageById(params.pageId as number)
-    if (!page) {
-      throw new Error(`Unknown pageId: ${params.pageId}`)
-    }
-    return page
-  }
-
-  const activePageId = state.activePageId
-  if (activePageId !== undefined) {
-    try {
-      const page = cdpClient.getPageById(activePageId)
-      if (page && !page.isClosed()) return page
-    } catch {
-      // stale — page closed or removed, fall through
-    }
-    state.activePageId = undefined
-  }
-
-  const page = await cdpClient.newPage()
-  const pageId = cdpClient.getPageId(page)
-  if (pageId !== undefined) {
-    state.activePageId = pageId
-  }
-  return page
-}
-
 export async function dispatchCdpTool(
   tool: ToolDefinition,
   params: Record<string, unknown>,
   state: SessionState,
   cdpClient: CdpClient,
 ): Promise<ToolResult> {
-  const page = await resolveCdpPage(params, state, cdpClient)
-  const resolvedPageId = cdpClient.getPageId(page)
-  if (resolvedPageId !== undefined) {
-    state.activePageId = resolvedPageId
+  const { tabId, ...cleanParams } = params
+
+  const page =
+    tabId != null
+      ? cdpClient.getPageByTabId(tabId as number)
+      : cdpClient.getPages()[0]
+
+  if (!page) {
+    throw new Error(
+      tabId != null
+        ? `No page found for tabId: ${tabId}. Use list_pages to see available tabs.`
+        : 'No pages available.',
+    )
   }
-  const { pageId: _, ...cleanParams } = params
 
   const response = new CdpResponse()
   return cdpClient.withPage(page, state, async () => {

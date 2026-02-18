@@ -74,10 +74,10 @@ export const commonSchemas = {
       }),
   },
   cdpTarget: {
-    pageId: z.coerce
+    tabId: z.coerce
       .number()
       .optional()
-      .describe('Page ID to target (defaults to active page in session)'),
+      .describe('Tab ID to target. Use list_pages to see available tabs.'),
   },
 } as const
 

@@ -20,7 +20,6 @@ export class PageRegistry {
   #entries = new Map<number, PageEntry>()
   #pageToId = new WeakMap<Page, number>()
   #tabIndex = new Map<number, number>()
-  #activePageId: number | undefined
 
   register(
     page: Page,
@@ -61,10 +60,6 @@ export class PageRegistry {
     if (entry.tabId !== undefined) {
       this.#tabIndex.delete(entry.tabId)
     }
-
-    if (this.#activePageId === pageId) {
-      this.#activePageId = undefined
-    }
   }
 
   getPage(pageId: number): Page | undefined {
@@ -85,16 +80,12 @@ export class PageRegistry {
     return this.#entries.get(pageId)
   }
 
+  getPageByTabId(tabId: number): Page | undefined {
+    return this.getByTabId(tabId)?.page
+  }
+
   entries(): IterableIterator<PageEntry> {
     return this.#entries.values()
-  }
-
-  get activePageId(): number | undefined {
-    return this.#activePageId
-  }
-
-  set activePageId(value: number | undefined) {
-    this.#activePageId = value
   }
 
   get size(): number {

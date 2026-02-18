@@ -7,11 +7,11 @@
 import { ToolCategories } from '../../types/tool-categories'
 import type { Frame, JSHandle, Page } from '../third-party'
 import { zod } from '../third-party'
-import { defineTool } from '../types/cdp-tool-definition'
+import { commonSchemas, defineTool } from '../types/cdp-tool-definition'
 
 export const evaluateScript = defineTool({
   name: 'evaluate_script',
-  description: `Evaluate a JavaScript function inside the currently selected page. Returns the response as JSON
+  description: `Evaluate a JavaScript function inside a page. Returns the response as JSON
 so returned values have to JSON-serializable.`,
   kind: 'cdp' as const,
   annotations: {
@@ -19,6 +19,7 @@ so returned values have to JSON-serializable.`,
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     function: zod.string().describe(
       `A JavaScript function declaration to be executed by the tool in the currently selected page.
 Example without arguments: \`() => {

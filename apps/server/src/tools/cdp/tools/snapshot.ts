@@ -6,11 +6,15 @@
 
 import { ToolCategories } from '../../types/tool-categories'
 import { zod } from '../third-party'
-import { defineTool, timeoutSchema } from '../types/cdp-tool-definition'
+import {
+  commonSchemas,
+  defineTool,
+  timeoutSchema,
+} from '../types/cdp-tool-definition'
 
 export const takeSnapshot = defineTool({
   name: 'take_snapshot',
-  description: `Take a text snapshot of the currently selected page based on the a11y tree. The snapshot lists page elements along with a unique
+  description: `Take a text snapshot of a page based on the a11y tree. The snapshot lists page elements along with a unique
 identifier (uid). Always use the latest snapshot. Prefer taking a snapshot over taking a screenshot. The snapshot indicates the element selected
 in the DevTools Elements panel (if any).`,
   kind: 'cdp' as const,
@@ -20,6 +24,7 @@ in the DevTools Elements panel (if any).`,
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     verbose: zod
       .boolean()
       .optional()
@@ -43,13 +48,14 @@ in the DevTools Elements panel (if any).`,
 
 export const waitFor = defineTool({
   name: 'wait_for',
-  description: `Wait for the specified text to appear on the selected page.`,
+  description: `Wait for the specified text to appear on a page.`,
   kind: 'cdp' as const,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: true,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     text: zod.string().describe('Text to appear on the page'),
     ...timeoutSchema,
   },

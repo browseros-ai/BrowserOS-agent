@@ -152,14 +152,20 @@ Call ${handleDialog.name} to handle it before continuing.`)
     if (this.#includePages) {
       const parts = [`## Pages`]
       for (const page of context.getPages()) {
+        const entry = context.getPageEntry(page)
+        const tabLabel =
+          entry?.tabId != null
+            ? `[tab:${entry.tabId}]`
+            : `[page:${context.getPageId(page)}]`
         parts.push(
-          `${context.getPageId(page)}: ${page.url()}${context.isPageSelected(page) ? ' [selected]' : ''}`,
+          `${tabLabel} ${page.url()}${context.isPageSelected(page) ? ' [selected]' : ''}`,
         )
       }
       response.push(...parts)
       structuredContent.pages = context.getPages().map((page) => {
+        const entry = context.getPageEntry(page)
         return {
-          id: context.getPageId(page),
+          tabId: entry?.tabId,
           url: page.url(),
           selected: context.isPageSelected(page),
         }

@@ -7,11 +7,11 @@
 import { ToolCategories } from '../../types/tool-categories'
 import type { ElementHandle, Page } from '../third-party'
 import { zod } from '../third-party'
-import { defineTool } from '../types/cdp-tool-definition'
+import { commonSchemas, defineTool } from '../types/cdp-tool-definition'
 
 export const screenshot = defineTool({
   name: 'take_screenshot',
-  description: `Take a screenshot of the page or element.`,
+  description: `Take a screenshot of a page or element.`,
   kind: 'cdp' as const,
   annotations: {
     category: ToolCategories.DEBUGGING,
@@ -19,6 +19,7 @@ export const screenshot = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     format: zod
       .enum(['png', 'jpeg', 'webp'])
       .default('png')

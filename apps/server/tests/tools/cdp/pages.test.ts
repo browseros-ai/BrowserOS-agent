@@ -13,7 +13,6 @@ import {
   navigatePage,
   newPage,
   resizePage,
-  selectPage,
 } from '../../../src/tools/cdp/tools/pages'
 
 import { withCdpBrowser } from '../../__helpers__/utils'
@@ -21,7 +20,7 @@ import { withCdpBrowser } from '../../__helpers__/utils'
 function pagesFromStructured(structuredContent: Record<string, unknown>) {
   const pages = structuredContent.pages
   assert.ok(Array.isArray(pages), 'Expected pages array in structuredContent')
-  return pages as Array<{ id: number; url: string; selected: boolean }>
+  return pages as Array<{ tabId?: number; url: string; selected: boolean }>
 }
 
 describe('pages', () => {
@@ -61,39 +60,23 @@ describe('pages', () => {
     })
   })
 
-  it('close_page - closes a page', async () => {
+  it('close_page - closes a page by tabId', async () => {
     await withCdpBrowser(async (_response, context) => {
       const page = await context.newPage()
-      const pageId = context.getPageId(page)
-      assert.ok(typeof pageId === 'number')
-
-      const response = new CdpResponse()
-      await closePage.handler({ params: { pageId } }, response, context)
-      await response.handle(closePage.name, context)
-      assert.ok(page.isClosed())
-    })
-  })
-
-  it('select_page - selects a page', async () => {
-    await withCdpBrowser(async (_response, context) => {
-      const second = await context.newPage()
-      const pages = context.getPages()
-      assert.ok(pages.length >= 2)
-      const firstId = context.getPageId(pages[0])
-      assert.ok(typeof firstId === 'number')
-
-      assert.ok(context.isPageSelected(second))
-
-      const response = new CdpResponse()
-      await selectPage.handler(
-        { params: { pageId: firstId } },
-        response,
-        context,
-      )
-      const result = await response.handle(selectPage.name, context)
-      // biome-ignore lint/suspicious/noExplicitAny: test code
-      const pageData = pagesFromStructured(result.structuredContent as any)
-      assert.ok(pageData.find((p) => p.id === firstId)?.selected)
+      const entry = context.getPageEntry(page)
+      const tabId = entry?.tabId
+      // tabId may be undefined on non-forked Chromium; fall back to pageId-based close
+      if (tabId != null) {
+        const response = new CdpResponse()
+        await closePage.handler({ params: { tabId } }, response, context)
+        await response.handle(closePage.name, context)
+        assert.ok(page.isClosed())
+      } else {
+        const pageId = context.getPageId(page)
+        assert.ok(typeof pageId === 'number')
+        await context.closePage(pageId)
+        assert.ok(page.isClosed())
+      }
     })
   })
 

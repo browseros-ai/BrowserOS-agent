@@ -223,8 +223,8 @@ function getCdpToolReference(): string {
 ## Page Management
 - \`list_pages\` - Get all open pages in the browser
 - \`new_page(url)\` - Create a new page and navigate to URL
-- \`close_page(pageId)\` - Close a page (cannot close last page)
-- \`navigate_page(url|back|forward|reload)\` - Navigate selected page
+- \`close_page(tabId)\` - Close a page (cannot close last page)
+- \`navigate_page(tabId, url|back|forward|reload)\` - Navigate a page
 - \`resize_page(width, height)\` - Resize page dimensions
 - \`wait_for(text)\` - Wait for text to appear on page
 

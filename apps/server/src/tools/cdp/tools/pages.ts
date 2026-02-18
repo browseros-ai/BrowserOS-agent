@@ -10,6 +10,7 @@ import type { Dialog } from '../third-party'
 import { zod } from '../third-party'
 import {
   CLOSE_PAGE_ERROR,
+  commonSchemas,
   defineTool,
   timeoutSchema,
 } from '../types/cdp-tool-definition'
@@ -30,20 +31,20 @@ export const listPages = defineTool({
 
 export const closePage = defineTool({
   name: 'close_page',
-  description: `Closes the page by its index. The last open page cannot be closed.`,
+  description: `Closes a tab by its tab ID. The last open tab cannot be closed.`,
   kind: 'cdp' as const,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
-    pageId: zod
+    tabId: zod.coerce
       .number()
-      .describe('The ID of the page to close. Call list_pages to list pages.'),
+      .describe('Tab ID of the page to close. Call list_pages to list pages.'),
   },
   handler: async (request, response, context) => {
     try {
-      await context.closePage(request.params.pageId)
+      await context.closePageByTabId(request.params.tabId)
     } catch (err) {
       if (err instanceof Error && err.message === CLOSE_PAGE_ERROR) {
         response.appendResponseLine(err.message)
@@ -91,13 +92,14 @@ export const newPage = defineTool({
 
 export const navigatePage = defineTool({
   name: 'navigate_page',
-  description: `Navigates the currently selected page to a URL.`,
+  description: `Navigates a page to a URL.`,
   kind: 'cdp' as const,
   annotations: {
     category: ToolCategories.NAVIGATION_AUTOMATION,
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     type: zod
       .enum(['url', 'back', 'forward', 'reload'])
       .optional()
@@ -254,13 +256,14 @@ export const navigatePage = defineTool({
 
 export const resizePage = defineTool({
   name: 'resize_page',
-  description: `Resizes the selected page's window so that the page has specified dimension`,
+  description: `Resizes a page's window so that the page has specified dimension`,
   kind: 'cdp' as const,
   annotations: {
     category: ToolCategories.EMULATION,
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     width: zod.number().describe('Page width'),
     height: zod.number().describe('Page height'),
   },
@@ -284,6 +287,7 @@ export const handleDialog = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    ...commonSchemas.cdpTarget,
     action: zod
       .enum(['accept', 'dismiss'])
       .describe('Whether to dismiss or accept the dialog'),

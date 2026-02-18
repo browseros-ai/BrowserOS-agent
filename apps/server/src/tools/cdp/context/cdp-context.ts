@@ -21,7 +21,7 @@ import type {
 import { Locator } from '../third-party'
 import { listPages } from '../tools/pages'
 import { takeSnapshot } from '../tools/snapshot'
-import type { Context, DevToolsData } from '../types/cdp-tool-definition'
+import type { DevToolsData } from '../types/cdp-tool-definition'
 import { CLOSE_PAGE_ERROR } from '../types/cdp-tool-definition'
 import {
   extractUrlLikeFromDevToolsTitle,
@@ -92,7 +92,7 @@ function getExtensionFromMimeType(mimeType: string) {
   throw new Error(`No mapping for Mime type ${mimeType}.`)
 }
 
-export class CdpContext implements Context {
+export class CdpContext {
   browser: Browser
   logger: Debugger
 

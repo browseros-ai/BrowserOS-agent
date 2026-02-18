@@ -9,7 +9,6 @@ import type { TextSnapshot } from '../tools/cdp/context/cdp-context'
 
 export class SessionState {
   #windowId: number | undefined
-  #activePageId: number | undefined
   #textSnapshots = new WeakMap<Page, TextSnapshot>()
   #uniqueBackendNodeIdToMcpId = new Map<string, string>()
   #nextSnapshotId = 1
@@ -20,14 +19,6 @@ export class SessionState {
 
   set windowId(value: number | undefined) {
     this.#windowId = value
-  }
-
-  get activePageId(): number | undefined {
-    return this.#activePageId
-  }
-
-  set activePageId(value: number | undefined) {
-    this.#activePageId = value
   }
 
   getTextSnapshot(page: Page): TextSnapshot | undefined {
