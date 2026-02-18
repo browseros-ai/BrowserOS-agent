@@ -58,7 +58,7 @@
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@openrouter/ai-sdk-provider": "^1.5.2",
     "@sentry/bun": "^10.31.0",
-    "ai": "^5.0.101",
+    "ai": "^6.0.91",
     "commander": "^14.0.1",
     "core-js": "3.45.1",
     "debug": "4.4.3",

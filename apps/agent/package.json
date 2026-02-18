@@ -51,7 +51,7 @@
     "@webext-core/messaging": "^2.3.0",
     "@wxt-dev/storage": "^1.2.6",
     "@xyflow/react": "^12.9.3",
-    "ai": "^5.0.95",
+    "ai": "^6.0.91",
     "better-auth": "^1.4.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
