@@ -5,19 +5,19 @@
  */
 
 import { Hono } from 'hono'
-import type { ControllerContext } from '../../browser/extension/context'
+import type { ControllerBridge } from '../../browser/extension/bridge'
 
 interface StatusDeps {
-  controllerContext: ControllerContext
+  controllerBridge: ControllerBridge
 }
 
 export function createStatusRoute(deps: StatusDeps) {
-  const { controllerContext } = deps
+  const { controllerBridge } = deps
 
   return new Hono().get('/', (c) =>
     c.json({
       status: 'ok',
-      extensionConnected: controllerContext.isConnected(),
+      extensionConnected: controllerBridge.isConnected(),
     }),
   )
 }

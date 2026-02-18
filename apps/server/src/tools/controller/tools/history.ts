@@ -13,7 +13,7 @@ export const searchHistory = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_search_history',
+  name: 'search_history',
   description: 'Search browser history by text query',
   kind: 'controller' as const,
   annotations: {
@@ -74,7 +74,7 @@ export const getRecentHistory = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_get_recent_history',
+  name: 'get_recent_history',
   description: 'Get most recent browser history items',
   kind: 'controller' as const,
   annotations: {

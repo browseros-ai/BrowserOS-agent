@@ -10,11 +10,11 @@ import assert from 'node:assert'
 import { withMcpServer } from '../../__helpers__/utils'
 
 describe('MCP Controller Bookmark Tools', () => {
-  describe('browser_get_bookmarks - Success Cases', () => {
+  describe('get_bookmarks - Success Cases', () => {
     it('tests that getting all bookmarks succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_bookmarks',
+          name: 'get_bookmarks',
           arguments: {},
         })
 
@@ -37,7 +37,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that getting bookmarks from specific folder succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_bookmarks',
+          name: 'get_bookmarks',
           arguments: { folderId: '1' },
         })
 
@@ -51,7 +51,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that empty bookmarks list is handled', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_bookmarks',
+          name: 'get_bookmarks',
           arguments: { folderId: '999999' },
         })
 
@@ -61,11 +61,11 @@ describe('MCP Controller Bookmark Tools', () => {
     }, 30000)
   })
 
-  describe('browser_create_bookmark - Success Cases', () => {
+  describe('create_bookmark - Success Cases', () => {
     it('tests that creating bookmark with title and URL succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Test Bookmark',
             url: 'https://example.com',
@@ -91,7 +91,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that creating bookmark with parentId succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Nested Bookmark',
             url: 'https://nested.example.com',
@@ -112,7 +112,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that creating bookmark with special characters succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Test & Special <Characters>',
             url: 'https://example.com/path?query=value&foo=bar',
@@ -126,7 +126,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that creating bookmark with unicode title succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: '测试书签 📚 テスト',
             url: 'https://unicode.example.com',
@@ -140,7 +140,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that creating bookmark with localhost URL succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Localhost',
             url: 'http://localhost:3000',
@@ -152,11 +152,11 @@ describe('MCP Controller Bookmark Tools', () => {
     }, 30000)
   })
 
-  describe('browser_create_bookmark - Error Handling', () => {
+  describe('create_bookmark - Error Handling', () => {
     it('tests that missing title is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             url: 'https://example.com',
           },
@@ -176,7 +176,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that missing URL is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Test',
           },
@@ -196,7 +196,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that empty title is handled', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: '',
             url: 'https://example.com',
@@ -209,12 +209,12 @@ describe('MCP Controller Bookmark Tools', () => {
     }, 30000)
   })
 
-  describe('browser_remove_bookmark - Success Cases', () => {
+  describe('remove_bookmark - Success Cases', () => {
     it('tests that removing bookmark by ID succeeds', async () => {
       await withMcpServer(async (client) => {
         // First create a bookmark
         const createResult = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'To Be Deleted',
             url: 'https://delete.example.com',
@@ -227,7 +227,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Remove it
         const result = await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId },
         })
 
@@ -246,7 +246,7 @@ describe('MCP Controller Bookmark Tools', () => {
       await withMcpServer(async (client) => {
         // Create two bookmarks
         const create1 = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'First',
             url: 'https://first.example.com',
@@ -254,7 +254,7 @@ describe('MCP Controller Bookmark Tools', () => {
         })
 
         const create2 = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Second',
             url: 'https://second.example.com',
@@ -273,12 +273,12 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Remove both
         const remove1 = await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId: id1 },
         })
 
         const remove2 = await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId: id2 },
         })
 
@@ -288,11 +288,11 @@ describe('MCP Controller Bookmark Tools', () => {
     }, 30000)
   })
 
-  describe('browser_remove_bookmark - Error Handling', () => {
+  describe('remove_bookmark - Error Handling', () => {
     it('tests that missing bookmarkId is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: {},
         })
 
@@ -310,7 +310,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that invalid bookmarkId is handled', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId: '999999999' },
         })
 
@@ -320,12 +320,12 @@ describe('MCP Controller Bookmark Tools', () => {
     }, 30000)
   })
 
-  describe('browser_update_bookmark - Success Cases', () => {
+  describe('update_bookmark - Success Cases', () => {
     it('tests that updating bookmark title succeeds', async () => {
       await withMcpServer(async (client) => {
         // First create a bookmark
         const createResult = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Original Title',
             url: 'https://update.example.com',
@@ -338,7 +338,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Update the title
         const result = await client.callTool({
-          name: 'browser_update_bookmark',
+          name: 'update_bookmark',
           arguments: {
             bookmarkId,
             title: 'Updated Title',
@@ -360,7 +360,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Cleanup
         await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId },
         })
       })
@@ -370,7 +370,7 @@ describe('MCP Controller Bookmark Tools', () => {
       await withMcpServer(async (client) => {
         // First create a bookmark
         const createResult = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'URL Test',
             url: 'https://old-url.example.com',
@@ -383,7 +383,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Update the URL
         const result = await client.callTool({
-          name: 'browser_update_bookmark',
+          name: 'update_bookmark',
           arguments: {
             bookmarkId,
             url: 'https://new-url.example.com',
@@ -401,7 +401,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Cleanup
         await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId },
         })
       })
@@ -411,7 +411,7 @@ describe('MCP Controller Bookmark Tools', () => {
       await withMcpServer(async (client) => {
         // First create a bookmark
         const createResult = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Original',
             url: 'https://original.example.com',
@@ -424,7 +424,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Update both
         const result = await client.callTool({
-          name: 'browser_update_bookmark',
+          name: 'update_bookmark',
           arguments: {
             bookmarkId,
             title: 'New Title',
@@ -447,18 +447,18 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Cleanup
         await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId },
         })
       })
     }, 30000)
   })
 
-  describe('browser_update_bookmark - Error Handling', () => {
+  describe('update_bookmark - Error Handling', () => {
     it('tests that missing bookmarkId is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_update_bookmark',
+          name: 'update_bookmark',
           arguments: { title: 'Test' },
         })
 
@@ -476,7 +476,7 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that invalid bookmarkId is handled', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_update_bookmark',
+          name: 'update_bookmark',
           arguments: {
             bookmarkId: '999999999',
             title: 'Test',
@@ -493,9 +493,9 @@ describe('MCP Controller Bookmark Tools', () => {
     it('tests that bookmark tools return valid MCP response structure', async () => {
       await withMcpServer(async (client) => {
         const tools = [
-          { name: 'browser_get_bookmarks', args: {} },
+          { name: 'get_bookmarks', args: {} },
           {
-            name: 'browser_create_bookmark',
+            name: 'create_bookmark',
             args: { title: 'Test', url: 'https://test.com' },
           },
         ]
@@ -546,7 +546,7 @@ describe('MCP Controller Bookmark Tools', () => {
       await withMcpServer(async (client) => {
         // Create bookmark
         const createResult = await client.callTool({
-          name: 'browser_create_bookmark',
+          name: 'create_bookmark',
           arguments: {
             title: 'Workflow Test',
             url: 'https://workflow.example.com',
@@ -561,7 +561,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Get all bookmarks
         const getResult = await client.callTool({
-          name: 'browser_get_bookmarks',
+          name: 'get_bookmarks',
           arguments: {},
         })
 
@@ -575,7 +575,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Remove bookmark
         const removeResult = await client.callTool({
-          name: 'browser_remove_bookmark',
+          name: 'remove_bookmark',
           arguments: { bookmarkId },
         })
 
@@ -596,7 +596,7 @@ describe('MCP Controller Bookmark Tools', () => {
         // Create multiple bookmarks
         for (const bookmark of bookmarks) {
           const result = await client.callTool({
-            name: 'browser_create_bookmark',
+            name: 'create_bookmark',
             arguments: bookmark,
           })
 
@@ -614,7 +614,7 @@ describe('MCP Controller Bookmark Tools', () => {
 
         // Get all bookmarks
         const getAllResult = await client.callTool({
-          name: 'browser_get_bookmarks',
+          name: 'get_bookmarks',
           arguments: {},
         })
 
@@ -623,7 +623,7 @@ describe('MCP Controller Bookmark Tools', () => {
         // Remove all created bookmarks
         for (const id of bookmarkIds) {
           const removeResult = await client.callTool({
-            name: 'browser_remove_bookmark',
+            name: 'remove_bookmark',
             arguments: { bookmarkId: id },
           })
 

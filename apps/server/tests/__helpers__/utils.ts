@@ -12,9 +12,9 @@ import { Mutex } from 'async-mutex'
 import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-import { CdpContext } from '../../src/tools/cdp-based/context/cdp-context'
-import { logger as cdpLogger } from '../../src/tools/cdp-based/context/logger'
-import { CdpResponse } from '../../src/tools/cdp-based/response/cdp-response'
+import { CdpContext } from '../../src/tools/cdp/context/cdp-context'
+import { logger as cdpLogger } from '../../src/tools/cdp/context/logger'
+import { CdpResponse } from '../../src/tools/cdp/response/cdp-response'
 
 import { ensureBrowserOS } from './setup'
 

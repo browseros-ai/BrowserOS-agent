@@ -101,7 +101,7 @@ export class ChatService {
 
     const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
     if (request.browserContext?.windowId != null) {
-      session.browserState.windowId = request.browserContext.windowId
+      session.sessionState.windowId = request.browserContext.windowId
     }
     await session.agent.execute(
       request.message,

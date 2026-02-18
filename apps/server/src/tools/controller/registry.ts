@@ -57,7 +57,6 @@ export {
   updateTabGroup,
 } from './tools/tab-management'
 
-// Import all tools for the array export
 // Disabled controller tools are intentionally commented to preserve for future re-enable.
 // import {
 //   checkAvailability,
@@ -101,53 +100,14 @@ import {
   updateTabGroup,
 } from './tools/tab-management'
 
-// Array export for convenience (36 tools total)
-// export const allControllerTools = [
-//   getActiveTab,
-//   listTabs,
-//   openTab,
-//   closeTab,
-//   switchTab,
-//   getLoadStatus,
-//   listTabGroups,
-//   groupTabs,
-//   updateTabGroup,
-//   ungroupTabs,
-//   navigate,
-//   getInteractiveElements,
-//   grepInteractiveElements,
-//   clickElement,
-//   typeText,
-//   clearInput,
-//   scrollToElement,
-//   scrollDown,
-//   scrollUp,
-//   getScreenshot,
-//   getScreenshotPointer,
-//   getPageContent,
-//   executeJavaScript,
-//   sendKeys,
-//   checkAvailability,
-//   clickCoordinates,
-//   typeAtCoordinates,
-//   getBookmarks,
-//   createBookmark,
-//   removeBookmark,
-//   createBookmarkFolder,
-//   getBookmarkChildren,
-//   moveBookmark,
-//   removeBookmarkTree,
-//   updateBookmark,
-//   searchHistory,
-//   getRecentHistory,
-// ]
-
+// Slim controller tool set: excludes tools that overlap with CDP (list_pages, new_page, etc.)
 export const allControllerTools = [
-  getActiveTab,
-  listTabs,
-  openTab,
-  closeTab,
-  switchTab,
+  // Overlapping tab tools commented out — CDP tools handle these when CDP is enabled.
+  // getActiveTab,
+  // listTabs,
+  // openTab,
+  // closeTab,
+  // switchTab,
   getLoadStatus,
   listTabGroups,
   groupTabs,
@@ -180,4 +140,14 @@ export const allControllerTools = [
   updateBookmark,
   searchHistory,
   getRecentHistory,
+]
+
+// Full controller tool set: includes overlapping tab tools for when CDP is disabled.
+export const allControllerToolsFull = [
+  getActiveTab,
+  listTabs,
+  openTab,
+  closeTab,
+  switchTab,
+  ...allControllerTools,
 ]

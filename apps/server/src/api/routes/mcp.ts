@@ -7,11 +7,11 @@
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
 import type { SessionManager } from '../../agent/session'
+import type { CdpClient } from '../../browser/cdp/cdp-client'
 import type { ControllerBridge } from '../../browser/extension/bridge'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
-import type { CdpContext } from '../../tools/cdp-based/context/cdp-context'
 import type { ToolDefinition } from '../../tools/types/tool-definition'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import {
@@ -24,7 +24,7 @@ import type { Env } from '../types'
 interface McpRouteDeps {
   version: string
   tools: ToolDefinition[]
-  ensureCdpContext: () => Promise<CdpContext | null>
+  ensureCdpClient: () => Promise<CdpClient | null>
   controllerBridge: ControllerBridge
   sessionManager: SessionManager
 }

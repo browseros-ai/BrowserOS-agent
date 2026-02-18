@@ -5,23 +5,23 @@
  */
 
 import type { ControllerBridge } from '../../../browser/extension/bridge'
-import { ScopedControllerContext } from '../../../browser/extension/context'
-import { ControllerResponse } from '../../../tools/controller-based/response/controller-response'
-import type { SessionBrowserState } from '../../../tools/session-browser-state'
+import { ControllerClient } from '../../../browser/extension/controller-client'
+import type { SessionState } from '../../../browser/session-state'
+import { ControllerResponse } from '../../../tools/controller/response/controller-response'
 import type { ToolResult } from '../../../tools/types/response'
 import type { ToolDefinition } from '../../../tools/types/tool-definition'
 
 export async function dispatchControllerTool(
   tool: ToolDefinition,
   params: Record<string, unknown>,
-  state: SessionBrowserState,
+  state: SessionState,
   controllerBridge: ControllerBridge,
   windowId: number | undefined,
 ): Promise<ToolResult> {
   const { windowId: _, ...cleanParams } = params
-  const scopedContext = new ScopedControllerContext(controllerBridge, windowId)
-  const controllerToolContext = { controller: scopedContext, state }
+  const client = new ControllerClient(controllerBridge, windowId)
+  const controllerToolContext = { controller: client, state }
   const response = new ControllerResponse()
   await tool.handler({ params: cleanParams }, response, controllerToolContext)
-  return response.handle(scopedContext)
+  return response.handle(client)
 }

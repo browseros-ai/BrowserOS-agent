@@ -5,66 +5,49 @@
  */
 
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import type { CdpContext } from '../../../tools/cdp-based/context/cdp-context'
-import { CdpResponse } from '../../../tools/cdp-based/response/cdp-response'
-import type { SessionBrowserState } from '../../../tools/session-browser-state'
+import type { CdpClient } from '../../../browser/cdp/cdp-client'
+import type { SessionState } from '../../../browser/session-state'
+import { CdpResponse } from '../../../tools/cdp/response/cdp-response'
 import type { ToolResult } from '../../../tools/types/response'
 import type { ToolDefinition } from '../../../tools/types/tool-definition'
 
 export async function resolveCdpPage(
   params: Record<string, unknown>,
-  state: SessionBrowserState,
-  cdpContext: CdpContext,
+  _state: SessionState,
+  cdpClient: CdpClient,
 ) {
   if (params.pageId != null) {
-    const page = cdpContext.getPageById(params.pageId as number)
+    const page = cdpClient.getPageById(params.pageId as number)
     if (!page) {
       throw new Error(`Unknown pageId: ${params.pageId}`)
     }
     return page
   }
 
-  const activePageId = state.activePageId
-  if (activePageId !== undefined) {
-    try {
-      const page = cdpContext.getPageById(activePageId)
-      if (page) return page
-    } catch {
-      // stale — page closed, fall through
-    }
-    state.setActiveByPageId(undefined)
-  }
-
-  const page = await cdpContext.newPage()
-  const pageId = cdpContext.getPageId(page)
-  // @ts-expect-error _tabId is internal
-  const tabId = page._tabId as number | undefined
-  if (pageId !== undefined) {
-    state.register({ pageId, tabId })
-    state.setActiveByPageId(pageId)
-  }
+  // Fall through to create a new page if no active page
+  const page = await cdpClient.newPage()
   return page
 }
 
 export async function dispatchCdpTool(
   tool: ToolDefinition,
   params: Record<string, unknown>,
-  state: SessionBrowserState,
-  cdpContext: CdpContext,
+  state: SessionState,
+  cdpClient: CdpClient,
 ): Promise<ToolResult> {
-  const page = await resolveCdpPage(params, state, cdpContext)
+  const page = await resolveCdpPage(params, state, cdpClient)
   const { pageId: _, ...cleanParams } = params
 
   const response = new CdpResponse()
-  return cdpContext.withPage(page, async () => {
+  return cdpClient.withPage(page, state, async () => {
     await tool.handler(
       { params: cleanParams },
       // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
       response as any,
       // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool handler signatures
-      cdpContext as any,
+      cdpClient as any,
     )
-    return await response.handle(tool.name, cdpContext)
+    return await response.handle(tool.name, cdpClient)
   })
 }
 

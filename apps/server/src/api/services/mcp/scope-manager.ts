@@ -6,8 +6,8 @@
 
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { SessionManager } from '../../../agent/session'
+import { SessionState } from '../../../browser/session-state'
 import { logger } from '../../../lib/logger'
-import { SessionBrowserState } from '../../../tools/session-browser-state'
 
 export const MCP_SCOPE_HEADER = 'X-BrowserOS-Scope-Id'
 
@@ -17,7 +17,7 @@ const MCP_SCOPE_SWEEP_MS = 5 * 60 * 1000
 export const scopeIdStore = new AsyncLocalStorage<string | undefined>()
 
 interface McpScopeEntry {
-  state: SessionBrowserState
+  state: SessionState
   lastAccess: number
 }
 
@@ -30,12 +30,12 @@ export class McpScopeManager {
     this.#sessionManager = sessionManager
   }
 
-  resolve(scopeId: string | undefined): SessionBrowserState {
+  resolve(scopeId: string | undefined): SessionState {
     if (!scopeId) {
-      return new SessionBrowserState()
+      return new SessionState()
     }
 
-    const conversationState = this.#sessionManager.getBrowserState(scopeId)
+    const conversationState = this.#sessionManager.getSessionState(scopeId)
     if (conversationState) {
       return conversationState
     }
@@ -46,7 +46,7 @@ export class McpScopeManager {
       return existing.state
     }
 
-    const state = new SessionBrowserState()
+    const state = new SessionState()
     this.#scopes.set(scopeId, { state, lastAccess: Date.now() })
     return state
   }

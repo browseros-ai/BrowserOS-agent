@@ -15,10 +15,9 @@ import {
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
+import type { CdpClient } from '../browser/cdp/cdp-client'
 import type { ControllerBridge } from '../browser/extension/bridge'
-import type { ControllerContext } from '../browser/extension/context'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
-import type { CdpContext } from '../tools/cdp-based/context/cdp-context'
 import type { ToolDefinition } from '../tools/types/tool-definition'
 
 // Re-export browser context types for consumers
@@ -65,9 +64,8 @@ export interface HttpServerConfig {
 
   version: string
   tools: ToolDefinition[]
-  ensureCdpContext: () => Promise<CdpContext | null>
+  ensureCdpClient: () => Promise<CdpClient | null>
   controllerBridge: ControllerBridge
-  controllerContext: ControllerContext
 
   browserosId?: string
   executionDir?: string

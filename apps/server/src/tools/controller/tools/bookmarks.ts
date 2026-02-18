@@ -13,7 +13,7 @@ export const getBookmarks = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_get_bookmarks',
+  name: 'get_bookmarks',
   description: 'Get all bookmarks from the browser',
   kind: 'controller' as const,
   annotations: {
@@ -62,7 +62,7 @@ export const createBookmark = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_create_bookmark',
+  name: 'create_bookmark',
   description:
     'Create a new bookmark. Use parentId to place it inside an existing folder or a newly created one.',
   kind: 'controller' as const,
@@ -77,7 +77,7 @@ export const createBookmark = defineTool<
       .string()
       .optional()
       .describe(
-        'Folder ID to create bookmark in (from browser_get_bookmarks or browser_create_bookmark_folder)',
+        'Folder ID to create bookmark in (from get_bookmarks or create_bookmark_folder)',
       ),
   },
   handler: async (request, response, context) => {
@@ -105,7 +105,7 @@ export const removeBookmark = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_remove_bookmark',
+  name: 'remove_bookmark',
   description: 'Remove a bookmark by ID',
   kind: 'controller' as const,
   annotations: {
@@ -129,7 +129,7 @@ export const updateBookmark = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_update_bookmark',
+  name: 'update_bookmark',
   description: 'Update a bookmark title or URL',
   kind: 'controller' as const,
   annotations: {
@@ -168,7 +168,7 @@ export const createBookmarkFolder = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_create_bookmark_folder',
+  name: 'create_bookmark_folder',
   description:
     'Create a new bookmark folder. Returns folderId to use as parentId when creating or moving bookmarks into this folder.',
   kind: 'controller' as const,
@@ -215,7 +215,7 @@ export const getBookmarkChildren = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_get_bookmark_children',
+  name: 'get_bookmark_children',
   description: 'Get direct children of a bookmark folder',
   kind: 'controller' as const,
   annotations: {
@@ -265,7 +265,7 @@ export const moveBookmark = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_move_bookmark',
+  name: 'move_bookmark',
   description:
     'Move a bookmark or folder into a different folder (existing or newly created).',
   kind: 'controller' as const,
@@ -279,7 +279,7 @@ export const moveBookmark = defineTool<
       .string()
       .optional()
       .describe(
-        'Destination folder ID (from browser_get_bookmarks or browser_create_bookmark_folder)',
+        'Destination folder ID (from get_bookmarks or create_bookmark_folder)',
       ),
     index: z
       .number()
@@ -322,7 +322,7 @@ export const removeBookmarkTree = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_remove_bookmark_tree',
+  name: 'remove_bookmark_tree',
   description:
     'Remove a bookmark folder and all its contents recursively. Requires confirm: true.',
   kind: 'controller' as const,

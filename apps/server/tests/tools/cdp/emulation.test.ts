@@ -5,8 +5,8 @@
 
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { CdpResponse } from '../../../src/tools/cdp-based/response/cdp-response'
-import { emulate } from '../../../src/tools/cdp-based/tools/emulation'
+import { CdpResponse } from '../../../src/tools/cdp/response/cdp-response'
+import { emulate } from '../../../src/tools/cdp/tools/emulation'
 
 import { withCdpBrowser } from '../../__helpers__/utils'
 

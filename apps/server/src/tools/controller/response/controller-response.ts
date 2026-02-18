@@ -2,39 +2,14 @@
  * @license
  * Copyright 2025 BrowserOS
  */
-import type {
-  ImageContent,
-  TextContent,
-} from '@modelcontextprotocol/sdk/types.js'
 
+import { BaseResponse } from '../../types/base-response'
 import type { ToolResult } from '../../types/response'
 import type { Context } from '../types/context'
-import type { ImageContentData, Response } from '../types/response'
+import type { Response } from '../types/response'
 
-/**
- * Response builder for controller tools.
- * Collects text lines and images, then converts to MCP content format.
- */
-export class ControllerResponse implements Response {
-  #textResponseLines: string[] = []
-  #images: ImageContentData[] = []
+export class ControllerResponse extends BaseResponse implements Response {
   #structuredContent: Record<string, unknown> = {}
-
-  appendResponseLine(value: string): void {
-    this.#textResponseLines.push(value)
-  }
-
-  attachImage(value: ImageContentData): void {
-    this.#images.push(value)
-  }
-
-  get responseLines(): readonly string[] {
-    return this.#textResponseLines
-  }
-
-  get images(): ImageContentData[] {
-    return this.#images
-  }
 
   addStructuredContent(key: string, value: unknown): void {
     if (!key || typeof key !== 'string') {
@@ -98,35 +73,9 @@ export class ControllerResponse implements Response {
     }
 
     return {
-      content,
+      content:
+        content.length > 0 ? content : [{ type: 'text', text: 'Success' }],
       structuredContent: this.#structuredContent,
     }
-  }
-
-  /**
-   * Convert collected data to MCP content format
-   */
-  toContent(): Array<TextContent | ImageContent> {
-    const content: Array<TextContent | ImageContent> = []
-
-    // Add text if any
-    if (this.#textResponseLines.length > 0) {
-      content.push({
-        type: 'text',
-        text: this.#textResponseLines.join('\n'),
-      })
-    }
-
-    // Add images if any
-    for (const image of this.#images) {
-      content.push({
-        type: 'image',
-        data: image.data,
-        mimeType: image.mimeType,
-      })
-    }
-
-    // Default to success message if no content
-    return content.length > 0 ? content : [{ type: 'text', text: 'Success' }]
   }
 }

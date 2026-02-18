@@ -8,8 +8,11 @@
 
 import { logger } from '../lib/logger'
 
-import { allCdpTools } from './cdp-based/registry'
-import { allControllerTools } from './controller-based/registry'
+import { allCdpTools } from './cdp/registry'
+import {
+  allControllerTools,
+  allControllerToolsFull,
+} from './controller/registry'
 import type { ToolDefinition } from './types/tool-definition'
 
 export function createToolRegistry(
@@ -17,11 +20,14 @@ export function createToolRegistry(
   // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool registry requires any
 ): Array<ToolDefinition<any, any, any>> {
   const cdpTools = cdpEnabled ? allCdpTools : []
+  const controllerTools = cdpEnabled
+    ? allControllerTools
+    : allControllerToolsFull
 
   logger.info(
-    `Total tools available: ${cdpTools.length + allControllerTools.length} ` +
-      `(${cdpTools.length} CDP + ${allControllerTools.length} extension)`,
+    `Total tools available: ${cdpTools.length + controllerTools.length} ` +
+      `(${cdpTools.length} CDP + ${controllerTools.length} extension)`,
   )
 
-  return [...cdpTools, ...allControllerTools]
+  return [...cdpTools, ...controllerTools]
 }

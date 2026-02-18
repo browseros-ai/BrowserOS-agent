@@ -5,11 +5,8 @@
 
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { CdpResponse } from '../../../src/tools/cdp-based/response/cdp-response'
-import {
-  takeSnapshot,
-  waitFor,
-} from '../../../src/tools/cdp-based/tools/snapshot'
+import { CdpResponse } from '../../../src/tools/cdp/response/cdp-response'
+import { takeSnapshot, waitFor } from '../../../src/tools/cdp/tools/snapshot'
 
 import { html, withCdpBrowser } from '../../__helpers__/utils'
 

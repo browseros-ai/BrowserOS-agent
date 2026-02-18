@@ -10,11 +10,11 @@ import assert from 'node:assert'
 import { withMcpServer } from '../../__helpers__/utils'
 
 describe('MCP Controller History Tools', () => {
-  describe('browser_search_history - Success Cases', () => {
+  describe('search_history - Success Cases', () => {
     it('tests that history search with query succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'example' },
         })
 
@@ -37,7 +37,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that history search with maxResults limit succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'test', maxResults: 10 },
         })
 
@@ -52,7 +52,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that history search with empty query succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: '' },
         })
 
@@ -66,7 +66,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that history search with special characters succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'test@example.com' },
         })
 
@@ -77,7 +77,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that history search with large maxResults succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'test', maxResults: 1000 },
         })
 
@@ -86,11 +86,11 @@ describe('MCP Controller History Tools', () => {
     }, 30000)
   })
 
-  describe('browser_search_history - Error Handling', () => {
+  describe('search_history - Error Handling', () => {
     it('tests that non-numeric maxResults is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'test', maxResults: 'invalid' },
         })
 
@@ -108,7 +108,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that zero maxResults is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'test', maxResults: 0 },
         })
 
@@ -126,7 +126,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that negative maxResults is handled', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'test', maxResults: -1 },
         })
 
@@ -136,11 +136,11 @@ describe('MCP Controller History Tools', () => {
     }, 30000)
   })
 
-  describe('browser_get_recent_history - Success Cases', () => {
+  describe('get_recent_history - Success Cases', () => {
     it('tests that getting recent history with default count succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: {},
         })
 
@@ -163,7 +163,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that getting recent history with specific count succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 10 },
         })
 
@@ -177,7 +177,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that getting recent history with large count succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 500 },
         })
 
@@ -188,7 +188,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that getting recent history with count 1 succeeds', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 1 },
         })
 
@@ -197,11 +197,11 @@ describe('MCP Controller History Tools', () => {
     }, 30000)
   })
 
-  describe('browser_get_recent_history - Error Handling', () => {
+  describe('get_recent_history - Error Handling', () => {
     it('tests that non-numeric count is rejected', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 'invalid' },
         })
 
@@ -219,7 +219,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that zero count returns all items', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 0 },
         })
 
@@ -236,7 +236,7 @@ describe('MCP Controller History Tools', () => {
     it('tests that negative count is handled', async () => {
       await withMcpServer(async (client) => {
         const result = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: -1 },
         })
 
@@ -250,8 +250,8 @@ describe('MCP Controller History Tools', () => {
     it('tests that history tools return valid MCP response structure', async () => {
       await withMcpServer(async (client) => {
         const tools = [
-          { name: 'browser_search_history', args: { query: 'test' } },
-          { name: 'browser_get_recent_history', args: {} },
+          { name: 'search_history', args: { query: 'test' } },
+          { name: 'get_recent_history', args: {} },
         ]
 
         for (const tool of tools) {
@@ -300,7 +300,7 @@ describe('MCP Controller History Tools', () => {
       await withMcpServer(async (client) => {
         // Get recent history
         const recentResult = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 5 },
         })
 
@@ -308,7 +308,7 @@ describe('MCP Controller History Tools', () => {
 
         // Search history
         const searchResult = await client.callTool({
-          name: 'browser_search_history',
+          name: 'search_history',
           arguments: { query: 'browseros', maxResults: 10 },
         })
 
@@ -320,7 +320,7 @@ describe('MCP Controller History Tools', () => {
       await withMcpServer(async (client) => {
         // Get recent history first time
         const result1 = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 20 },
         })
 
@@ -328,13 +328,13 @@ describe('MCP Controller History Tools', () => {
 
         // Navigate to add to history
         await client.callTool({
-          name: 'browser_navigate',
+          name: 'navigate_page',
           arguments: { url: 'https://example.com' },
         })
 
         // Get recent history second time
         const result2 = await client.callTool({
-          name: 'browser_get_recent_history',
+          name: 'get_recent_history',
           arguments: { count: 20 },
         })
 

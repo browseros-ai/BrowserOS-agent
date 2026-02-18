@@ -4,23 +4,21 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { CdpClient } from '../../../browser/cdp/cdp-client'
+import { BaseResponse } from '../../types/base-response'
 import type { ToolResult } from '../../types/response'
-import type { CdpContext } from '../context/cdp-context'
 import type { ImageContent, TextContent } from '../third-party'
 import { handleDialog } from '../tools/pages'
 import type {
   DevToolsData,
-  ImageContentData,
   Response,
   SnapshotParams,
 } from '../types/cdp-tool-definition'
 import { SnapshotFormatter } from './snapshot-formatter'
 
-export class CdpResponse implements Response {
+export class CdpResponse extends BaseResponse implements Response {
   #includePages = false
   #snapshotParams?: SnapshotParams
-  #textResponseLines: string[] = []
-  #images: ImageContentData[] = []
   #devToolsData?: DevToolsData
   #tabId?: string
 
@@ -46,27 +44,11 @@ export class CdpResponse implements Response {
     return this.#includePages
   }
 
-  appendResponseLine(value: string): void {
-    this.#textResponseLines.push(value)
-  }
-
-  attachImage(value: ImageContentData): void {
-    this.#images.push(value)
-  }
-
-  get responseLines(): readonly string[] {
-    return this.#textResponseLines
-  }
-
-  get images(): ImageContentData[] {
-    return this.#images
-  }
-
   get snapshotParams(): SnapshotParams | undefined {
     return this.#snapshotParams
   }
 
-  async handle(toolName: string, context: CdpContext): Promise<ToolResult> {
+  async handle(toolName: string, context: CdpClient): Promise<ToolResult> {
     if (this.#includePages) {
       await context.createPagesSnapshot()
     }
@@ -99,7 +81,7 @@ export class CdpResponse implements Response {
 
   format(
     toolName: string,
-    context: CdpContext,
+    context: CdpClient,
     data: {
       snapshot: SnapshotFormatter | string | undefined
     },
@@ -107,9 +89,9 @@ export class CdpResponse implements Response {
     const structuredContent: Record<string, unknown> = {}
 
     const response = [`# ${toolName} response`]
-    if (this.#textResponseLines.length) {
-      structuredContent.message = this.#textResponseLines.join('\n')
-      response.push(...this.#textResponseLines)
+    if (this.textResponseLines.length) {
+      structuredContent.message = this.textResponseLines.join('\n')
+      response.push(...this.textResponseLines)
     }
 
     const networkConditions = context.getNetworkConditions()
@@ -203,7 +185,7 @@ Call ${handleDialog.name} to handle it before continuing.`)
       type: 'text',
       text: response.join('\n'),
     }
-    const images: ImageContent[] = this.#images.map((imageData) => {
+    const images: ImageContent[] = this.images.map((imageData) => {
       return {
         type: 'image',
         ...imageData,
@@ -217,6 +199,6 @@ Call ${handleDialog.name} to handle it before continuing.`)
   }
 
   resetResponseLineForTesting() {
-    this.#textResponseLines = []
+    this.textResponseLines = []
   }
 }

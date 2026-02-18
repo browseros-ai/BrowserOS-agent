@@ -180,7 +180,7 @@ export const getLoadStatus = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_get_load_status',
+  name: 'get_load_status',
   description: 'Check if a page has finished loading',
   kind: 'controller' as const,
   annotations: {
@@ -226,7 +226,7 @@ export const listTabGroups = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_list_tab_groups',
+  name: 'list_tab_groups',
   description: 'List all tab groups in the browser',
   kind: 'controller' as const,
   annotations: {
@@ -274,7 +274,7 @@ export const groupTabs = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_group_tabs',
+  name: 'group_tabs',
   description:
     'Group tabs together with an optional title and color. Use this to organize related tabs.',
   kind: 'controller' as const,
@@ -347,7 +347,7 @@ export const updateTabGroup = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_update_tab_group',
+  name: 'update_tab_group',
   description: "Update a tab group's title, color, or collapsed state",
   kind: 'controller' as const,
   annotations: {
@@ -413,7 +413,7 @@ export const ungroupTabs = defineTool<
   ControllerToolContext,
   Response
 >({
-  name: 'browser_ungroup_tabs',
+  name: 'ungroup_tabs',
   description: 'Remove tabs from their groups',
   kind: 'controller' as const,
   annotations: {
