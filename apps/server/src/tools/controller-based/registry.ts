@@ -58,11 +58,25 @@ export {
 } from './tools/tab-management'
 
 // Import all tools for the array export
-import {
-  checkAvailability,
-  executeJavaScript,
-  sendKeys,
-} from './tools/advanced'
+// Disabled controller tools are intentionally commented to preserve for future re-enable.
+// import {
+//   checkAvailability,
+//   executeJavaScript,
+//   sendKeys,
+// } from './tools/advanced'
+// import { getPageContent } from './tools/content'
+// import { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
+// import {
+//   clearInput,
+//   clickElement,
+//   getInteractiveElements,
+//   grepInteractiveElements,
+//   scrollToElement,
+//   typeText,
+// } from './tools/interaction'
+// import { navigate } from './tools/navigation'
+// import { getScreenshot, getScreenshotPointer } from './tools/screenshot'
+// import { scrollDown, scrollUp } from './tools/scrolling'
 import {
   createBookmark,
   createBookmarkFolder,
@@ -73,20 +87,7 @@ import {
   removeBookmarkTree,
   updateBookmark,
 } from './tools/bookmarks'
-import { getPageContent } from './tools/content'
-import { clickCoordinates, typeAtCoordinates } from './tools/coordinates'
 import { getRecentHistory, searchHistory } from './tools/history'
-import {
-  clearInput,
-  clickElement,
-  getInteractiveElements,
-  grepInteractiveElements,
-  scrollToElement,
-  typeText,
-} from './tools/interaction'
-import { navigate } from './tools/navigation'
-import { getScreenshot, getScreenshotPointer } from './tools/screenshot'
-import { scrollDown, scrollUp } from './tools/scrolling'
 import {
   closeTab,
   getActiveTab,
@@ -101,6 +102,46 @@ import {
 } from './tools/tab-management'
 
 // Array export for convenience (36 tools total)
+// export const allControllerTools = [
+//   getActiveTab,
+//   listTabs,
+//   openTab,
+//   closeTab,
+//   switchTab,
+//   getLoadStatus,
+//   listTabGroups,
+//   groupTabs,
+//   updateTabGroup,
+//   ungroupTabs,
+//   navigate,
+//   getInteractiveElements,
+//   grepInteractiveElements,
+//   clickElement,
+//   typeText,
+//   clearInput,
+//   scrollToElement,
+//   scrollDown,
+//   scrollUp,
+//   getScreenshot,
+//   getScreenshotPointer,
+//   getPageContent,
+//   executeJavaScript,
+//   sendKeys,
+//   checkAvailability,
+//   clickCoordinates,
+//   typeAtCoordinates,
+//   getBookmarks,
+//   createBookmark,
+//   removeBookmark,
+//   createBookmarkFolder,
+//   getBookmarkChildren,
+//   moveBookmark,
+//   removeBookmarkTree,
+//   updateBookmark,
+//   searchHistory,
+//   getRecentHistory,
+// ]
+
 export const allControllerTools = [
   getActiveTab,
   listTabs,
@@ -112,23 +153,23 @@ export const allControllerTools = [
   groupTabs,
   updateTabGroup,
   ungroupTabs,
-  navigate,
-  getInteractiveElements,
-  grepInteractiveElements,
-  clickElement,
-  typeText,
-  clearInput,
-  scrollToElement,
-  scrollDown,
-  scrollUp,
-  getScreenshot,
-  getScreenshotPointer,
-  getPageContent,
-  executeJavaScript,
-  sendKeys,
-  checkAvailability,
-  clickCoordinates,
-  typeAtCoordinates,
+  // navigate,
+  // getInteractiveElements,
+  // grepInteractiveElements,
+  // clickElement,
+  // typeText,
+  // clearInput,
+  // scrollToElement,
+  // scrollDown,
+  // scrollUp,
+  // getScreenshot,
+  // getScreenshotPointer,
+  // getPageContent,
+  // executeJavaScript,
+  // sendKeys,
+  // checkAvailability,
+  // clickCoordinates,
+  // typeAtCoordinates,
   getBookmarks,
   createBookmark,
   removeBookmark,

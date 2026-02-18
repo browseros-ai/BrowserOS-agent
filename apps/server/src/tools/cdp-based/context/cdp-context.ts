@@ -23,7 +23,6 @@ import type {
 import { Locator } from '../third-party'
 import { listPages } from '../tools/pages'
 import { takeSnapshot } from '../tools/snapshot'
-import type { TraceResult } from '../trace-processing/parse'
 import type { Context, DevToolsData } from '../types/cdp-tool-definition'
 import { CLOSE_PAGE_ERROR } from '../types/cdp-tool-definition'
 import type { TargetUniverse } from './devtools-utils'
@@ -115,7 +114,6 @@ export class CdpContext implements Context {
   #devtoolsUniverseManager: UniverseManager
   #extensionRegistry = new ExtensionRegistry()
 
-  #isRunningTrace = false
   #networkConditionsMap = new WeakMap<Page, string>()
   #cpuThrottlingRateMap = new WeakMap<Page, number>()
   #geolocationMap = new WeakMap<Page, GeolocationOptions>()
@@ -129,7 +127,6 @@ export class CdpContext implements Context {
   #nextPageId = 1
 
   #nextSnapshotId = 1
-  #traceResults: TraceResult[] = []
 
   #locatorClass: typeof Locator
   #options: McpContextOptions
@@ -371,14 +368,6 @@ export class CdpContext implements Context {
   getColorScheme(): 'dark' | 'light' | null {
     const page = this.getSelectedPage()
     return this.#colorSchemeMap.get(page) ?? null
-  }
-
-  setIsRunningPerformanceTrace(x: boolean): void {
-    this.#isRunningTrace = x
-  }
-
-  isRunningPerformanceTrace(): boolean {
-    return this.#isRunningTrace
   }
 
   getDialog(): Dialog | undefined {
@@ -719,16 +708,6 @@ export class CdpContext implements Context {
       this.logger(err)
       throw new Error('Could not save a screenshot to a file', { cause: err })
     }
-  }
-
-  storeTraceRecording(result: TraceResult): void {
-    // Clear the trace results because we only consume the latest trace currently.
-    this.#traceResults = []
-    this.#traceResults.push(result)
-  }
-
-  recordedTraces(): TraceResult[] {
-    return this.#traceResults
   }
 
   getWaitForHelper(

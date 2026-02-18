@@ -14,8 +14,6 @@ import type {
   TextContent,
 } from '../third-party'
 import { handleDialog } from '../tools/pages'
-import type { InsightName, TraceResult } from '../trace-processing/parse'
-import { getInsightOutput, getTraceSummary } from '../trace-processing/parse'
 import type {
   DevToolsData,
   ImageContentData,
@@ -28,12 +26,6 @@ import { ConsoleFormatter } from './console-formatter'
 import { NetworkFormatter } from './network-formatter'
 import { SnapshotFormatter } from './snapshot-formatter'
 
-interface TraceInsightData {
-  trace: TraceResult
-  insightSetId: string
-  insightName: InsightName
-}
-
 export class CdpResponse implements Response {
   #includePages = false
   #snapshotParams?: SnapshotParams
@@ -43,8 +35,6 @@ export class CdpResponse implements Response {
     responseFilePath?: string
   }
   #attachedConsoleMessageId?: number
-  #attachedTraceSummary?: TraceResult
-  #attachedTraceInsight?: TraceInsightData
   #textResponseLines: string[] = []
   #images: ImageContentData[] = []
   #networkRequestsOptions?: {
@@ -152,32 +142,8 @@ export class CdpResponse implements Response {
     this.#attachedConsoleMessageId = msgid
   }
 
-  attachTraceSummary(result: TraceResult): void {
-    this.#attachedTraceSummary = result
-  }
-
-  attachTraceInsight(
-    trace: TraceResult,
-    insightSetId: string,
-    insightName: InsightName,
-  ): void {
-    this.#attachedTraceInsight = {
-      trace,
-      insightSetId,
-      insightName,
-    }
-  }
-
   get includePages(): boolean {
     return this.#includePages
-  }
-
-  get attachedTraceSummary(): TraceResult | undefined {
-    return this.#attachedTraceSummary
-  }
-
-  get attachedTracedInsight(): TraceInsightData | undefined {
-    return this.#attachedTraceInsight
   }
 
   get includeNetworkRequests(): boolean {
@@ -367,8 +333,6 @@ export class CdpResponse implements Response {
       snapshot,
       detailedNetworkRequest,
       networkRequests,
-      traceInsight: this.#attachedTraceInsight,
-      traceSummary: this.#attachedTraceSummary,
       extensions,
     })
   }
@@ -383,8 +347,6 @@ export class CdpResponse implements Response {
       snapshot: SnapshotFormatter | string | undefined
       detailedNetworkRequest?: NetworkFormatter
       networkRequests?: NetworkFormatter[]
-      traceSummary?: TraceResult
-      traceInsight?: TraceInsightData
       extensions?: InstalledExtension[]
     },
   ): ToolResult {
@@ -470,39 +432,6 @@ Call ${handleDialog.name} to handle it before continuing.`)
 
     if (this.#tabId) {
       structuredContent.tabId = this.#tabId
-    }
-
-    if (data.traceSummary) {
-      const summary = getTraceSummary(data.traceSummary)
-      response.push(summary)
-      structuredContent.traceSummary = summary
-      const traceInsights: Array<{ insightName: string; insightKey: string }> =
-        []
-      for (const insightSet of data.traceSummary.insights?.values() ?? []) {
-        for (const [insightName, model] of Object.entries(
-          // biome-ignore lint/suspicious/noExplicitAny: upstream code
-          insightSet.model as Record<string, any>,
-        )) {
-          traceInsights.push({
-            insightName,
-            insightKey: model.insightKey,
-          })
-        }
-      }
-      structuredContent.traceInsights = traceInsights
-    }
-
-    if (data.traceInsight) {
-      const insightOutput = getInsightOutput(
-        data.traceInsight.trace,
-        data.traceInsight.insightSetId,
-        data.traceInsight.insightName,
-      )
-      if ('error' in insightOutput) {
-        response.push(insightOutput.error)
-      } else {
-        response.push(insightOutput.output)
-      }
     }
 
     if (data.snapshot) {

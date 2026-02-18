@@ -17,7 +17,6 @@ import type {
 } from '../context/cdp-context'
 import type { InstalledExtension } from '../context/extension-registry'
 import type { Dialog, ElementHandle, Page, Viewport, zod } from '../third-party'
-import type { InsightName, TraceResult } from '../trace-processing/parse'
 import type { PaginationOptions } from '../utils/types'
 
 export { type Request, commonSchemas, ERRORS }
@@ -65,20 +64,10 @@ export interface Response {
   attachConsoleMessage(msgid: number): void
   attachDevToolsData(data: DevToolsData): void
   setTabId(tabId: string): void
-  attachTraceSummary(trace: TraceResult): void
-  attachTraceInsight(
-    trace: TraceResult,
-    insightSetId: string,
-    insightName: InsightName,
-  ): void
   setListExtensions(): void
 }
 
 export type Context = Readonly<{
-  isRunningPerformanceTrace(): boolean
-  setIsRunningPerformanceTrace(x: boolean): void
-  recordedTraces(): TraceResult[]
-  storeTraceRecording(result: TraceResult): void
   getSelectedPage(): Page
   getDialog(): Dialog | undefined
   clearDialog(): void
