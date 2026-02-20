@@ -10,6 +10,7 @@ import { useChat } from './useSurveyChat'
 interface SurveyPageProps {
   maxTurns?: number
   experimentId?: string
+  direction?: string
 }
 
 const ThankYouCard: FC<{ onReset: () => void }> = ({ onReset }) => (
@@ -48,8 +49,12 @@ const ErrorCard: FC<{ error: Error; onRetry: () => void }> = ({
   </div>
 )
 
-export const SurveyPage: FC<SurveyPageProps> = ({ maxTurns, experimentId }) => {
-  const chat = useChat({ maxTurns, experimentId })
+export const SurveyPage: FC<SurveyPageProps> = ({
+  maxTurns,
+  experimentId,
+  direction,
+}) => {
+  const chat = useChat({ maxTurns, experimentId, direction })
 
   const handleStart = async () => {
     const current = await jtbdPopupStorage.getValue()
