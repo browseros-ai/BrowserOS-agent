@@ -100,9 +100,6 @@ export class ChatService {
     }
 
     const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
-    if (request.browserContext?.windowId != null) {
-      session.sessionState.windowId = request.browserContext.windowId
-    }
     await session.agent.execute(
       request.message,
       rawStream,

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core'
-import { SessionState } from '../browser/session-state'
 import { logger } from '../lib/logger'
 
 import { GeminiAgent } from './gemini-agent'
@@ -12,7 +11,6 @@ import type { ResolvedAgentConfig } from './types'
 
 export interface Session {
   agent: GeminiAgent
-  sessionState: SessionState
 }
 
 export class SessionManager {
@@ -33,8 +31,7 @@ export class SessionManager {
     }
 
     const agent = await GeminiAgent.create(config, mcpServers)
-    const sessionState = new SessionState()
-    const session: Session = { agent, sessionState }
+    const session: Session = { agent }
     this.sessions.set(config.conversationId, session)
 
     logger.info('Session added to manager', {
@@ -43,10 +40,6 @@ export class SessionManager {
     })
 
     return session
-  }
-
-  getSessionState(conversationId: string): SessionState | undefined {
-    return this.sessions.get(conversationId)?.sessionState
   }
 
   delete(conversationId: string): boolean {

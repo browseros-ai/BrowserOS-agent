@@ -19,8 +19,7 @@ import type { Content, Part } from '@google/genai'
 import type { BrowserContext } from '../api/types'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
-import { allCdpTools } from '../tools/cdp/registry'
-import { allControllerTools } from '../tools/controller/registry'
+import { registry } from '../tools/registry'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
 import { VercelAIContentGenerator } from './provider-adapter/index'
@@ -29,14 +28,13 @@ import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
 
 const CHAT_MODE_ALLOWED_TOOLS = new Set([
-  'browser_get_active_tab',
-  'browser_list_tabs',
-  'browser_get_page_content',
-  'browser_scroll_down',
-  'browser_scroll_up',
-  'browser_get_screenshot',
-  'browser_get_interactive_elements',
-  'browser_execute_javascript',
+  'list_pages',
+  'get_page_content',
+  'scroll',
+  'take_snapshot',
+  'take_enhanced_snapshot',
+  'take_screenshot',
+  'evaluate_script',
 ])
 
 export interface ToolExecutionResult {
@@ -126,10 +124,7 @@ export class GeminiAgent {
     }
     // Chat mode: restrict to read-only tools only (no browser automation)
     if (config.chatMode === true) {
-      const allToolNames = [
-        ...allControllerTools.map((t) => t.name),
-        ...allCdpTools.map((t) => t.name),
-      ]
+      const allToolNames = registry.names()
       const chatModeExcludedTools = allToolNames.filter(
         (name) => !CHAT_MODE_ALLOWED_TOOLS.has(name),
       )
