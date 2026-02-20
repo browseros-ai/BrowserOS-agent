@@ -138,15 +138,11 @@ export class KlavisClient {
       throw new Error('Missing instance_id in apiKeyUrl')
     }
 
-    const data = await this.request<{ success: boolean; message?: string }>(
-      'POST',
-      '/mcp-server/instance/set-auth',
-      { instanceId, authData: { api_key: apiKey } },
-    )
-
-    if (!data.success) {
-      throw new Error(data.message || 'Klavis API key submission failed')
-    }
+    // request() already throws on non-2xx responses
+    await this.request('POST', '/mcp-server/instance/set-auth', {
+      instanceId,
+      authData: { api_key: apiKey },
+    })
   }
 
   /**
