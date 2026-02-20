@@ -8,6 +8,18 @@ import { track } from '@/lib/metrics/track'
 import { JTBD_POPUP_CONSTANTS } from './constants'
 import { type JtbdPopupState, jtbdPopupStorage } from './storage'
 
+// Round 2 directions for random assignment (churn excluded — manual links only)
+const R2_DIRECTIONS = [
+  'competitor',
+  'switching',
+  'workflow',
+  'activation',
+] as const
+
+function pickRandomDirection(): string {
+  return R2_DIRECTIONS[Math.floor(Math.random() * R2_DIRECTIONS.length)]
+}
+
 const isEligible = (state: JtbdPopupState): boolean => {
   if (state.surveyTaken) return false
   if (state.messageCount < JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD) return false
@@ -45,12 +57,23 @@ export function useJtbdPopup() {
   }, [])
 
   const onTakeSurvey = useCallback(
-    async ({ maxTurns = 20, experimentId = 'popup_survey' } = {}) => {
+    async ({
+      maxTurns = 20,
+      experimentId,
+    }: {
+      maxTurns?: number
+      experimentId?: string
+    } = {}) => {
+      // Direction is encoded in experimentId (e.g., "r2_competitor")
+      const expId = experimentId ?? `r2_${pickRandomDirection()}`
       const current = await jtbdPopupStorage.getValue()
-      track(JTBD_POPUP_CLICKED_EVENT, { messageCount: current.messageCount })
+      track(JTBD_POPUP_CLICKED_EVENT, {
+        messageCount: current.messageCount,
+        experimentId: expId,
+      })
       setPopupVisible(false)
       window.open(
-        `/app.html?page=survey&maxTurns=${maxTurns}&experimentId=${experimentId}#/settings/survey`,
+        `/app.html?page=survey&maxTurns=${maxTurns}&experimentId=${expId}#/settings/survey`,
         '_blank',
       )
     },
