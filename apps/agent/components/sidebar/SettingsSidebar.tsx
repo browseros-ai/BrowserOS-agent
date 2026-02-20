@@ -5,7 +5,6 @@ import {
   Info,
   MessageSquare,
   Palette,
-  PlugZap,
   RotateCcw,
   Server,
 } from 'lucide-react'
@@ -26,12 +25,6 @@ type NavItem = {
 const settingsNavItems: NavItem[] = [
   { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
   { name: 'LLM Chat & Hub', to: '/settings/chat', icon: MessageSquare },
-  {
-    name: 'Connect Apps',
-    to: '/settings/connect-mcp',
-    icon: PlugZap,
-    feature: Feature.MANAGED_MCP_SUPPORT,
-  },
   { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
   {
     name: 'Customization',

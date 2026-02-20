@@ -39,7 +39,7 @@ const OptionsRedirect: FC = () => {
   const routeMap: Record<string, string> = {
     ai: '/settings/ai',
     chat: '/settings/chat',
-    'connect-mcp': '/settings/connect-mcp',
+    'connect-mcp': '/connect-apps',
     mcp: '/settings/mcp',
     customization: '/settings/customization',
     'jtbd-agent': '/settings/survey',
@@ -75,6 +75,7 @@ export const App: FC = () => {
           </Route>
 
           {/* Primary nav routes */}
+          <Route path="connect-apps" element={<ConnectMCP />} />
           <Route path="workflows" element={<WorkflowsPageWrapper />} />
           <Route path="scheduled" element={<ScheduledTasksPage />} />
         </Route>
@@ -85,7 +86,6 @@ export const App: FC = () => {
             <Route index element={<Navigate to="/settings/ai" replace />} />
             <Route path="ai" element={<AISettingsPage key="ai" />} />
             <Route path="chat" element={<LlmHubPage />} />
-            <Route path="connect-mcp" element={<ConnectMCP />} />
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="survey" element={<SurveyPage {...surveyParams} />} />
@@ -107,6 +107,10 @@ export const App: FC = () => {
         <Route
           path="/personalize"
           element={<Navigate to="/home/personalize" replace />}
+        />
+        <Route
+          path="/settings/connect-mcp"
+          element={<Navigate to="/connect-apps" replace />}
         />
         <Route path="/options/*" element={<OptionsRedirect />} />
 
