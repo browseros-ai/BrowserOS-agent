@@ -1,0 +1,61 @@
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { logger } from '../../lib/logger'
+import { metrics } from '../../lib/metrics'
+import { executeTool, type ToolContext } from './framework'
+import type { ToolRegistry } from './tool-registry'
+
+export function registerTools(
+  mcpServer: McpServer,
+  registry: ToolRegistry,
+  ctx: ToolContext,
+): void {
+  for (const tool of registry.all()) {
+    const handler = async (args: Record<string, unknown>) => {
+      const startTime = performance.now()
+
+      try {
+        logger.info(`${tool.name} request: ${JSON.stringify(args, null, '  ')}`)
+
+        const result = await executeTool(tool, args, ctx)
+
+        metrics.log('tool_executed', {
+          tool_name: tool.name,
+          duration_ms: Math.round(performance.now() - startTime),
+          success: !result.isError,
+        })
+
+        return {
+          content: result.content,
+          isError: result.isError,
+        }
+      } catch (error) {
+        const errorText = error instanceof Error ? error.message : String(error)
+
+        metrics.log('tool_executed', {
+          tool_name: tool.name,
+          duration_ms: Math.round(performance.now() - startTime),
+          success: false,
+          error_message: errorText,
+        })
+
+        return {
+          content: [{ type: 'text' as const, text: errorText }],
+          isError: true,
+        }
+      }
+    }
+
+    mcpServer.registerTool(
+      tool.name,
+      {
+        description: tool.description,
+        inputSchema: tool.input as unknown as Record<string, never>,
+      },
+      handler,
+    )
+  }
+
+  logger.info(
+    `Registered ${registry.names().length} tools: ${registry.names().join(', ')}`,
+  )
+}

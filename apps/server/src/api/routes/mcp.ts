@@ -6,65 +6,50 @@
 
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
-import type { SessionManager } from '../../agent/session'
-import type { CdpClient } from '../../browser/cdp/cdp-client'
-import type { ControllerBridge } from '../../browser/extension/bridge'
+import type { Browser } from '../../browser/browser'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
-import type { ToolDefinition } from '../../tools/types/tool-definition'
+import type { ToolRegistry } from '../../tools/core/tool-registry'
 import { createMcpServer } from '../services/mcp/mcp-server'
-import {
-  MCP_SCOPE_HEADER,
-  McpScopeManager,
-  scopeIdStore,
-} from '../services/mcp/scope-manager'
 import type { Env } from '../types'
 
 interface McpRouteDeps {
   version: string
-  tools: ToolDefinition[]
-  ensureCdpClient: () => Promise<CdpClient | null>
-  controllerBridge: ControllerBridge
-  sessionManager: SessionManager
+  registry: ToolRegistry
+  browser: Browser
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {
-  const scopeManager = new McpScopeManager(deps.sessionManager)
-  scopeManager.startSweep()
-
-  const mcpServer = createMcpServer(deps, scopeManager)
+  const mcpServer = createMcpServer(deps)
 
   return new Hono<Env>().all('/', async (c) => {
-    const scopeId = c.req.header(MCP_SCOPE_HEADER) || undefined
+    const scopeId = c.req.header('X-BrowserOS-Scope-Id') || 'ephemeral'
+    metrics.log('mcp.request', { scopeId })
 
-    metrics.log('mcp.request', { scopeId: scopeId ?? 'ephemeral' })
+    try {
+      const transport = new StreamableHTTPTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: true,
+      })
 
-    return scopeIdStore.run(scopeId, async () => {
-      try {
-        const transport = new StreamableHTTPTransport({
-          sessionIdGenerator: undefined,
-          enableJsonResponse: true,
-        })
+      await mcpServer.connect(transport)
 
-        await mcpServer.connect(transport)
+      return transport.handleRequest(c)
+    } catch (error) {
+      Sentry.captureException(error)
+      logger.error('Error handling MCP request', {
+        error: error instanceof Error ? error.message : String(error),
+      })
 
-        return transport.handleRequest(c)
-      } catch (error) {
-        Sentry.captureException(error)
-        logger.error('Error handling MCP request', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-
-        return c.json(
-          {
-            jsonrpc: '2.0',
-            error: { code: -32603, message: 'Internal server error' },
-            id: null,
-          },
-          500,
-        )
-      }
-    })
+      return c.json(
+        {
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null,
+        },
+        500,
+      )
+    }
   })
 }
