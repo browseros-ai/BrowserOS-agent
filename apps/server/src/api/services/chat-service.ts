@@ -107,6 +107,11 @@ export class ChatService {
     if (request.browserContext?.windowId != null) {
       session.browserState.windowId = request.browserContext.windowId
     }
+    if (request.browserContext?.activeTab?.id != null) {
+      const tabId = request.browserContext.activeTab.id
+      session.browserState.register({ tabId })
+      session.browserState.setActiveByTabId(tabId)
+    }
     await session.agent.execute(
       request.message,
       rawStream,

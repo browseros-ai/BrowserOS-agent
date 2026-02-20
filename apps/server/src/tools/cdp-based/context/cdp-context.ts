@@ -126,6 +126,8 @@ export class CdpContext implements Context {
   #dialogHandlerPages = new WeakSet<Page>()
 
   #pageIdMap = new WeakMap<Page, number>()
+  #tabIdMap = new WeakMap<Page, number>()
+  #windowIdMap = new WeakMap<Page, number>()
   #nextPageId = 1
 
   #nextSnapshotId = 1
@@ -420,6 +422,18 @@ export class CdpContext implements Context {
     return this.#pageIdMap.get(page)
   }
 
+  getPageByTabId(tabId: number): Page | undefined {
+    return this.#pages.find((p) => this.#tabIdMap.get(p) === tabId)
+  }
+
+  getTabId(page: Page): number | undefined {
+    return this.#tabIdMap.get(page)
+  }
+
+  getWindowIdForPage(page: Page): number | undefined {
+    return this.#windowIdMap.get(page)
+  }
+
   #setupDialogHandler(page: Page): void {
     if (this.#dialogHandlerPages.has(page)) return
     this.#dialogHandlerPages.add(page)
@@ -493,6 +507,58 @@ export class CdpContext implements Context {
     }
   }
 
+  async #fetchTabInfo(page: Page): Promise<void> {
+    if (this.#tabIdMap.has(page)) return
+    try {
+      // @ts-expect-error _client() is internal Puppeteer API
+      const client = page._client()
+      const { targetInfo } = await client.send('Target.getTargetInfo')
+      const targetId = targetInfo?.targetId as string | undefined
+
+      let result:
+        | {
+            tabId?: number
+            windowId?: number
+          }
+        | undefined
+
+      if (targetId) {
+        result = await client
+          .send('Browser.getTabForTarget', { targetId })
+          .catch(() => undefined)
+      }
+
+      if (!result) {
+        result = await client.send('Browser.getTabForTarget').catch(() => {
+          return undefined
+        })
+      }
+
+      if (!result && targetId) {
+        const browserSession = await this.browser.target().createCDPSession()
+        try {
+          result = await browserSession.send('Browser.getTabForTarget', {
+            targetId,
+          })
+        } finally {
+          await browserSession.detach().catch(() => {})
+        }
+      }
+
+      if (!result) return
+
+      if (result.tabId !== undefined) this.#tabIdMap.set(page, result.tabId)
+      if (result.windowId !== undefined)
+        this.#windowIdMap.set(page, result.windowId)
+    } catch (error) {
+      this.logger('Unable to resolve tab info for page', {
+        url: page.url(),
+        error: error instanceof Error ? error.message : String(error),
+      })
+      // Not available on standard Chromium — silently skip
+    }
+  }
+
   /**
    * Creates a snapshot of the pages.
    */
@@ -516,6 +582,7 @@ export class CdpContext implements Context {
       this.#setupDialogHandler(page)
     }
 
+    await Promise.all(this.#pages.map((page) => this.#fetchTabInfo(page)))
     await this.detectOpenDevToolsWindows()
 
     return this.#pages

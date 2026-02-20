@@ -25,7 +25,7 @@ const includeSnapshotSchema = zod
 function handleActionError(error: unknown, uid: string) {
   logger('failed to act using a locator', error)
   throw new Error(
-    `Failed to interact with the element with uid ${uid}. The element did not become interactive within the configured timeout.`,
+    `Failed to interact with the element with uid ${uid}. The element did not become interactive within the configured timeout with the error: ${error}`,
     {
       cause: error,
     },

@@ -84,6 +84,8 @@ export type Context = Readonly<{
   clearDialog(): void
   getPageById(pageId: number): Page
   getPageId(page: Page): number | undefined
+  getTabId(page: Page): number | undefined
+  getWindowIdForPage(page: Page): number | undefined
   isPageSelected(page: Page): boolean
   newPage(background?: boolean): Promise<Page>
   closePage(pageId: number): Promise<void>

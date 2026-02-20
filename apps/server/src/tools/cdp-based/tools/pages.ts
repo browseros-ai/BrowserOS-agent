@@ -344,8 +344,9 @@ export const getTabId = defineTool({
   },
   handler: async (request, response, context) => {
     const page = context.getPageById(request.params.pageId)
-    // @ts-expect-error _tabId is internal.
-    const tabId = page._tabId
-    response.setTabId(tabId)
+    const tabId = context.getTabId(page)
+    if (tabId !== undefined) {
+      response.setTabId(String(tabId))
+    }
   },
 })

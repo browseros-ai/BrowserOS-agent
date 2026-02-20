@@ -23,5 +23,5 @@ export function createToolRegistry(
       `(${cdpTools.length} CDP + ${allControllerTools.length} extension)`,
   )
 
-  return [...cdpTools, ...allControllerTools]
+  return [...cdpTools]
 }
