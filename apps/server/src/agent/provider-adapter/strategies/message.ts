@@ -14,7 +14,7 @@ import type {
   LanguageModelV2ToolResultOutput,
 } from '@ai-sdk/provider'
 import type { Content, ContentUnion } from '@google/genai'
-import type { CoreMessage } from 'ai'
+import type { ModelMessage } from 'ai'
 
 import type { ProviderAdapter } from '../adapters/base'
 import type {
@@ -78,7 +78,7 @@ export class MessageConversionStrategy {
     role: 'user' | 'assistant',
     textContent: string,
     imageParts: Array<{ mimeType: string; data: string }>,
-  ): CoreMessage | null {
+  ): ModelMessage | null {
     if (imageParts.length > 0) {
       const contentParts: VercelContentPart[] = []
       if (textContent) {
@@ -91,7 +91,7 @@ export class MessageConversionStrategy {
           mediaType: img.mimeType,
         })
       }
-      return { role, content: contentParts } as CoreMessage
+      return { role, content: contentParts } as ModelMessage
     }
     if (textContent) {
       return { role, content: textContent }
@@ -110,8 +110,8 @@ export class MessageConversionStrategy {
     seenToolResultIds: Set<string>,
     idMapping: Map<string, string>,
     globalResultIndex: { value: number },
-  ): CoreMessage[] {
-    const messages: CoreMessage[] = []
+  ): ModelMessage[] {
+    const messages: ModelMessage[] = []
 
     const uniqueResponses: Array<{
       id?: string
@@ -142,7 +142,7 @@ export class MessageConversionStrategy {
     messages.push({
       role: 'tool',
       content: toolResultParts,
-    } as unknown as CoreMessage)
+    } as unknown as ModelMessage)
 
     if (imageParts.length > 0) {
       const userContentParts: VercelContentPart[] = [
@@ -158,7 +158,7 @@ export class MessageConversionStrategy {
           mediaType: img.mimeType,
         })
       }
-      messages.push({ role: 'user', content: userContentParts } as CoreMessage)
+      messages.push({ role: 'user', content: userContentParts } as ModelMessage)
     }
 
     return messages
@@ -170,7 +170,7 @@ export class MessageConversionStrategy {
     pairedToolCallIds: Set<string>,
     idMapping: Map<string, string>,
     globalCallIndex: { value: number },
-  ): CoreMessage | null {
+  ): ModelMessage | null {
     const contentParts: VercelContentPart[] = []
 
     if (textContent) {
@@ -204,7 +204,7 @@ export class MessageConversionStrategy {
     }
 
     if (contentParts.length === 0) return null
-    return { role: 'assistant' as const, content: contentParts } as CoreMessage
+    return { role: 'assistant' as const, content: contentParts } as ModelMessage
   }
 
   /**
@@ -213,8 +213,8 @@ export class MessageConversionStrategy {
    * @param contents - Array of Gemini Content objects
    * @returns Array of Vercel CoreMessage objects
    */
-  geminiToVercel(contents: readonly Content[]): CoreMessage[] {
-    const messages: CoreMessage[] = []
+  geminiToVercel(contents: readonly Content[]): ModelMessage[] {
+    const messages: ModelMessage[] = []
     const seenToolResultIds = new Set<string>()
     const { pairedToolCallIds, pairedToolResultIds, idMapping } =
       this.buildToolPairs(contents)
@@ -548,12 +548,14 @@ export class MessageConversionStrategy {
    *
    * This method merges consecutive tool messages so all tool_results are grouped together.
    */
-  private mergeConsecutiveToolMessages(messages: CoreMessage[]): CoreMessage[] {
+  private mergeConsecutiveToolMessages(
+    messages: ModelMessage[],
+  ): ModelMessage[] {
     if (messages.length === 0) {
       return messages
     }
 
-    const merged: CoreMessage[] = []
+    const merged: ModelMessage[] = []
     let currentToolParts: VercelContentPart[] | null = null
 
     for (const msg of messages) {
@@ -573,7 +575,7 @@ export class MessageConversionStrategy {
           merged.push({
             role: 'tool',
             content: currentToolParts,
-          } as unknown as CoreMessage)
+          } as unknown as ModelMessage)
           currentToolParts = null
         }
         merged.push(msg)
@@ -585,14 +587,14 @@ export class MessageConversionStrategy {
       merged.push({
         role: 'tool',
         content: currentToolParts,
-      } as unknown as CoreMessage)
+      } as unknown as ModelMessage)
     }
 
     return merged
   }
 
   private extractToolCallIdsFromMessage(
-    msg: CoreMessage | undefined,
+    msg: ModelMessage | undefined,
   ): Set<string> {
     const ids = new Set<string>()
     if (!msg || !Array.isArray(msg.content)) return ids
@@ -607,7 +609,7 @@ export class MessageConversionStrategy {
   }
 
   private extractToolResultIdsFromMessage(
-    msg: CoreMessage | undefined,
+    msg: ModelMessage | undefined,
   ): Set<string> {
     const ids = new Set<string>()
     if (!msg || msg.role !== 'tool' || !Array.isArray(msg.content)) return ids
@@ -624,7 +626,7 @@ export class MessageConversionStrategy {
   private processAssistantWithToolCalls(
     content: VercelContentPart[],
     nextToolResultIds: Set<string>,
-  ): CoreMessage | null {
+  ): ModelMessage | null {
     const toolCallParts = content.filter(
       (p) =>
         typeof p === 'object' &&
@@ -633,7 +635,7 @@ export class MessageConversionStrategy {
     )
 
     if (toolCallParts.length === 0)
-      return { role: 'assistant', content } as CoreMessage
+      return { role: 'assistant', content } as ModelMessage
 
     const validToolCalls = toolCallParts.filter((p) => {
       const id = (p as { toolCallId?: string }).toolCallId
@@ -650,13 +652,13 @@ export class MessageConversionStrategy {
     const newContent = [...nonToolCallParts, ...validToolCalls]
     if (newContent.length === 0) return null
 
-    return { role: 'assistant', content: newContent } as CoreMessage
+    return { role: 'assistant', content: newContent } as ModelMessage
   }
 
   private processToolMessageAdjacency(
     content: VercelContentPart[],
     prevToolUseIds: Set<string>,
-  ): CoreMessage | null {
+  ): ModelMessage | null {
     const validToolResults = content.filter((part) => {
       if ((part as { type?: string }).type !== 'tool-result') return true
       const id = (part as { toolCallId?: string }).toolCallId
@@ -664,16 +666,19 @@ export class MessageConversionStrategy {
     })
 
     if (validToolResults.length === 0) return null
-    return { role: 'tool', content: validToolResults } as unknown as CoreMessage
+    return {
+      role: 'tool',
+      content: validToolResults,
+    } as unknown as ModelMessage
   }
 
   /**
    * Validate tool_use/tool_result adjacency and remove non-adjacent pairs
    */
-  private validateToolAdjacency(messages: CoreMessage[]): CoreMessage[] {
+  private validateToolAdjacency(messages: ModelMessage[]): ModelMessage[] {
     if (messages.length === 0) return messages
 
-    const result: CoreMessage[] = []
+    const result: ModelMessage[] = []
 
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i]
