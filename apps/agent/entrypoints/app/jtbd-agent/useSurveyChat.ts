@@ -10,7 +10,6 @@ const DEFAULT_EXPERIMENT_ID = 'default'
 export interface SurveyChatOptions {
   maxTurns?: number
   experimentId?: string
-  direction?: string
 }
 
 async function getInstallId(): Promise<string> {
@@ -87,7 +86,6 @@ async function* streamSSE(
 export function useChat(options: SurveyChatOptions = {}) {
   const maxTurns = options.maxTurns ?? DEFAULT_MAX_TURNS
   const experimentId = options.experimentId ?? DEFAULT_EXPERIMENT_ID
-  const direction = options.direction
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [messages, setMessages] = useState<Message[]>([])
@@ -127,7 +125,7 @@ export function useChat(options: SurveyChatOptions = {}) {
       const response = await fetch(`${JTBD_API_URL}/api/interview/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ installId, experimentId, maxTurns, direction }),
+        body: JSON.stringify({ installId, experimentId, maxTurns }),
         signal: abortControllerRef.current.signal,
       })
 

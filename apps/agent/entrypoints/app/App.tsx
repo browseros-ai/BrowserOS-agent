@@ -24,17 +24,12 @@ import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
-function getSurveyParams(): {
-  maxTurns?: number
-  experimentId?: string
-  direction?: string
-} {
+function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
   const params = new URLSearchParams(window.location.search)
   const maxTurnsStr = params.get('maxTurns')
   const experimentId = params.get('experimentId') ?? 'default'
-  const direction = params.get('direction') ?? undefined
   const maxTurns = maxTurnsStr ? Number.parseInt(maxTurnsStr, 10) : 7
-  return { maxTurns, experimentId, direction }
+  return { maxTurns, experimentId }
 }
 
 const OptionsRedirect: FC = () => {

@@ -60,22 +60,20 @@ export function useJtbdPopup() {
     async ({
       maxTurns = 20,
       experimentId,
-      direction,
     }: {
       maxTurns?: number
       experimentId?: string
-      direction?: string
     } = {}) => {
-      const dir = direction ?? pickRandomDirection()
-      const expId = experimentId ?? `r2_${dir}`
+      // Direction is encoded in experimentId (e.g., "r2_competitor")
+      const expId = experimentId ?? `r2_${pickRandomDirection()}`
       const current = await jtbdPopupStorage.getValue()
       track(JTBD_POPUP_CLICKED_EVENT, {
         messageCount: current.messageCount,
-        direction: dir,
+        experimentId: expId,
       })
       setPopupVisible(false)
       window.open(
-        `/app.html?page=survey&maxTurns=${maxTurns}&experimentId=${expId}&direction=${dir}#/settings/survey`,
+        `/app.html?page=survey&maxTurns=${maxTurns}&experimentId=${expId}#/settings/survey`,
         '_blank',
       )
     },
