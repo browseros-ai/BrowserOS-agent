@@ -8,16 +8,18 @@ const isTextPart = (
   part: MessagePart,
 ): part is MessagePart & { type: 'text' } => part.type === 'text'
 
-const isTidbitText = (text: string): boolean => {
-  const trimmed = text.trim()
+const isTidbitLine = (line: string): boolean => {
+  const trimmed = line.trim()
+  if (trimmed.length === 0) return false
   return TIDBIT_SUFFIXES.some((suffix) => trimmed.endsWith(suffix))
 }
 
-const getTextFromMessage = (message: UIMessage): string => {
-  return message.parts
-    .filter((part) => isTextPart(part))
-    .map((part) => part.text)
-    .join('')
+const getNonEmptyLines = (text: string): string[] =>
+  text.split('\n').filter((line) => line.trim().length > 0)
+
+const isAllTidbitText = (text: string): boolean => {
+  const lines = getNonEmptyLines(text)
+  return lines.length > 0 && lines.every((line) => isTidbitLine(line))
 }
 
 export const isWorkflowTidbitMessage = (message: UIMessage): boolean => {
@@ -25,20 +27,33 @@ export const isWorkflowTidbitMessage = (message: UIMessage): boolean => {
   if (message.parts.length === 0) return false
   if (message.parts.some((part) => !isTextPart(part))) return false
 
-  // every non-empty line must end with a tidbit suffix
-  return getTextFromMessage(message)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .every((line) => isTidbitText(line))
+  const fullText = message.parts
+    .filter((part) => isTextPart(part))
+    .map((part) => part.text)
+    .join('')
+
+  return isAllTidbitText(fullText)
+}
+
+// within a text part that has multiple tidbit lines, keep only the last line
+const compactTidbitLinesInPart = (part: MessagePart): MessagePart => {
+  if (!isTextPart(part)) return part
+
+  const lines = getNonEmptyLines(part.text)
+  if (lines.length <= 1) return part
+  if (!lines.every((line) => isTidbitLine(line))) return part
+
+  return { ...part, text: lines[lines.length - 1] }
 }
 
 // collapse consecutive tidbit text parts within a single message
 const compactTidbitPartsInMessage = (message: UIMessage): UIMessage => {
-  if (message.role !== 'assistant' || message.parts.length < 2) {
-    return message
-  }
+  if (message.role !== 'assistant') return message
 
+  // first compact multi-line tidbit text within each part
+  const lineCompactedParts = message.parts.map(compactTidbitLinesInPart)
+
+  // then collapse consecutive tidbit parts to just the last one
   const compactedParts: UIMessage['parts'] = []
   let pendingTidbitPart: (MessagePart & { type: 'text' }) | null = null
 
@@ -48,9 +63,8 @@ const compactTidbitPartsInMessage = (message: UIMessage): UIMessage => {
     pendingTidbitPart = null
   }
 
-  for (const part of message.parts) {
-    // keep only the latest consecutive tidbit part
-    if (isTextPart(part) && isTidbitText(part.text)) {
+  for (const part of lineCompactedParts) {
+    if (isTextPart(part) && isAllTidbitText(part.text)) {
       pendingTidbitPart = part
       continue
     }
@@ -61,14 +75,13 @@ const compactTidbitPartsInMessage = (message: UIMessage): UIMessage => {
 
   flushPendingTidbitPart()
 
-  if (compactedParts.length === message.parts.length) {
-    return message
-  }
+  const partsChanged =
+    compactedParts.length !== message.parts.length ||
+    compactedParts.some((p, i) => p !== message.parts[i])
 
-  return {
-    ...message,
-    parts: compactedParts,
-  }
+  if (!partsChanged) return message
+
+  return { ...message, parts: compactedParts }
 }
 
 export const getWorkflowDisplayMessages = (
