@@ -13,6 +13,7 @@ import {
 } from 'ai'
 import { Hono } from 'hono'
 import { buildSystemPrompt } from '../../agent/prompt'
+import { createCompactionPrepareStep } from '../../agent/runtime/compaction'
 import { createLanguageModel } from '../../agent/runtime/provider-factory'
 import {
   type AgentSession,
@@ -218,11 +219,20 @@ async function createAgentSession(
     exclude: excludeSections,
   })
 
+  const contextWindow =
+    config.contextWindowSize ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+  const compactionStep = createCompactionPrepareStep({
+    contextWindow,
+    compactionThreshold: 0.6,
+    toolOutputMaxChars: 15_000,
+  })
+
   const agent = new ToolLoopAgent({
     model,
     instructions,
     tools: mcpTools,
     stopWhen: [stepCountIs(AGENT_LIMITS.MAX_TURNS)],
+    prepareStep: compactionStep,
   })
 
   logger.info('Agent session created (v2)', {
