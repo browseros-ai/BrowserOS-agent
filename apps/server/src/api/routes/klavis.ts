@@ -19,6 +19,29 @@ interface KlavisRouteDeps {
   browserosId: string
 }
 
+const normalizeServerKey = (value: string): string =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, '')
+
+const getAuthUrlForServer = (
+  authUrlMap: Record<string, string> | undefined,
+  serverName: string,
+): string | undefined => {
+  if (!authUrlMap) {
+    return undefined
+  }
+  const directMatch = authUrlMap[serverName]
+  if (directMatch) {
+    return directMatch
+  }
+  const targetKey = normalizeServerKey(serverName)
+  for (const [key, value] of Object.entries(authUrlMap)) {
+    if (normalizeServerKey(key) === targetKey) {
+      return value
+    }
+  }
+  return undefined
+}
+
 export function createKlavisRoutes(deps: KlavisRouteDeps) {
   const { browserosId } = deps
   const klavisClient = new KlavisClient()
@@ -67,11 +90,18 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
       try {
         const integrations = await klavisClient.getUserIntegrations(browserosId)
+        const normalizedIntegrations = integrations.map((integration) => ({
+          name: integration.name,
+          is_authenticated: integration.isAuthenticated,
+        }))
         logger.info('Fetched user integrations', {
           browserosId: browserosId.slice(0, 12),
-          count: integrations.length,
+          count: normalizedIntegrations.length,
         })
-        return c.json({ integrations, count: integrations.length })
+        return c.json({
+          integrations: normalizedIntegrations,
+          count: normalizedIntegrations.length,
+        })
       } catch (error) {
         logger.error('Error fetching user integrations', {
           browserosId: browserosId?.slice(0, 12),
@@ -101,8 +131,8 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
         serverName,
         strataId: result.strataId,
         addedServers: result.addedServers,
-        oauthUrl: result.oauthUrls?.[serverName],
-        apiKeyUrl: result.apiKeyUrls?.[serverName],
+        oauthUrl: getAuthUrlForServer(result.oauthUrls, serverName),
+        apiKeyUrl: getAuthUrlForServer(result.apiKeyUrls, serverName),
       })
     })
     .post(

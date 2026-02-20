@@ -3,6 +3,9 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
+import { OAUTH_MCP_SERVERS } from '../lib/clients/klavis/oauth-mcp-servers'
+
 /**
  * BrowserOS Agent System Prompt v5
  *
@@ -251,10 +254,13 @@ Use \`browser_get_bookmarks\` to find existing folder IDs, or create new folders
 // -----------------------------------------------------------------------------
 
 function getExternalIntegrations(): string {
+  const serverNames = OAUTH_MCP_SERVERS.map((s) => s.name).join(', ')
+  const serverCount = OAUTH_MCP_SERVERS.length
+
   return `<external_integrations>
 ## External Integrations (Klavis Strata)
 
-You have access to 15+ external services, including Gmail, Slack, Google Calendar, Notion, GitHub, and Jira, via Strata tools. Use progressive discovery.
+You have access to ${serverCount}+ external services (Gmail, Slack, Google Calendar, Notion, GitHub, Jira, etc.) via Strata tools. Use progressive discovery.
 
 <discovery_flow>
 1. \`discover_server_categories_or_actions(user_query, server_names[])\` - **Start here**. Returns categories or actions for specified servers.
@@ -281,7 +287,7 @@ When \`execute_action\` fails with an authentication error:
 </critical_rule>
 
 ## Available Servers
-Gmail, Google Calendar, Google Docs, Google Sheets, Google Drive, Slack, LinkedIn, Notion, Airtable, Confluence, GitHub, GitLab, Linear, Jira, Figma, Canva, Salesforce.
+${serverNames}.
 
 ## Usage Guidelines
 - Always discover before executing, do not guess action names
