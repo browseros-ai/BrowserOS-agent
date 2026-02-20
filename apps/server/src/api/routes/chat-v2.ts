@@ -10,11 +10,14 @@ import {
   stepCountIs,
   ToolLoopAgent,
   type ToolSet,
-  type UIMessage,
 } from 'ai'
 import { Hono } from 'hono'
 import { buildSystemPrompt } from '../../agent/prompt'
 import { createLanguageModel } from '../../agent/runtime/provider-factory'
+import {
+  type AgentSession,
+  SessionStore,
+} from '../../agent/runtime/session-store'
 import type { ProviderConfig, ResolvedAgentConfig } from '../../agent/types'
 import { INLINED_ENV } from '../../env'
 import {
@@ -42,12 +45,6 @@ interface McpServerSpec {
   headers?: Record<string, string>
 }
 
-interface AgentSession {
-  agent: ToolLoopAgent
-  messages: UIMessage[]
-  mcpClients: Array<{ close(): Promise<void> }>
-}
-
 interface ChatV2RouteDeps {
   port: number
   executionDir?: string
@@ -55,13 +52,12 @@ interface ChatV2RouteDeps {
   rateLimiter?: RateLimiter
 }
 
-const sessions = new Map<string, AgentSession>()
-
 export function createChatV2Routes(deps: ChatV2RouteDeps) {
   const { port, browserosId, rateLimiter } = deps
   const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
   const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
   const klavisClient = new KlavisClient()
+  const sessionStore = new SessionStore()
 
   return new Hono()
     .post(
@@ -115,8 +111,8 @@ export function createChatV2Routes(deps: ChatV2RouteDeps) {
           isScheduledTask: request.isScheduledTask,
         }
 
-        const isNewSession = !sessions.has(request.conversationId)
-        let session = sessions.get(request.conversationId)
+        const isNewSession = !sessionStore.has(request.conversationId)
+        let session = sessionStore.get(request.conversationId)
 
         if (!session) {
           session = await createAgentSession(
@@ -126,7 +122,7 @@ export function createChatV2Routes(deps: ChatV2RouteDeps) {
             klavisClient,
             browserosId,
           )
-          sessions.set(request.conversationId, session)
+          sessionStore.set(request.conversationId, session)
         }
 
         const userContent = formatUserMessage(
@@ -164,17 +160,13 @@ export function createChatV2Routes(deps: ChatV2RouteDeps) {
       zValidator('param', ConversationIdParamSchema),
       async (c) => {
         const { conversationId } = c.req.valid('param')
-        const session = sessions.get(conversationId)
+        const deleted = await sessionStore.delete(conversationId)
 
-        if (session) {
-          for (const client of session.mcpClients) {
-            client.close().catch(() => {})
-          }
-          sessions.delete(conversationId)
+        if (deleted) {
           return c.json({
             success: true,
             message: `Session ${conversationId} deleted`,
-            sessionCount: sessions.size,
+            sessionCount: sessionStore.count(),
           })
         }
 
