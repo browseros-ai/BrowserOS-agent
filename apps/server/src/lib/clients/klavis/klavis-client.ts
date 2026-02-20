@@ -130,7 +130,6 @@ export class KlavisClient {
   /**
    * Submit an API key to Klavis's set-auth endpoint via the proxy.
    * Extracts instanceId from the apiKeyUrl and routes through the proxy.
-   * Docs: POST /mcp-server/instance/set-auth with { instanceId, authData }
    */
   async submitApiKey(apiKeyUrl: string, apiKey: string): Promise<void> {
     const parsedUrl = new URL(apiKeyUrl)
