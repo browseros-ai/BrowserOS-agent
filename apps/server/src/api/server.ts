@@ -17,6 +17,7 @@ import { HttpAgentError } from '../agent/errors'
 import { logger } from '../lib/logger'
 
 import { createChatRoutes } from './routes/chat'
+import { createChatV2Routes } from './routes/chat-v2'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
@@ -93,6 +94,15 @@ export async function createHttpServer(config: HttpServerConfig) {
     .route(
       '/chat',
       createChatRoutes({
+        port,
+        executionDir,
+        browserosId,
+        rateLimiter,
+      }),
+    )
+    .route(
+      '/chat-v2',
+      createChatV2Routes({
         port,
         executionDir,
         browserosId,

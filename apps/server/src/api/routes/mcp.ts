@@ -44,12 +44,20 @@ const MCP_WINDOW_ID_HEADER = 'X-BrowserOS-Window-Id'
 
 const windowIdStore = new AsyncLocalStorage<number | undefined>()
 
-type McpRequestSource = 'gemini-agent' | 'sdk-internal' | 'third-party'
+type McpRequestSource =
+  | 'gemini-agent'
+  | 'agent-runtime'
+  | 'sdk-internal'
+  | 'third-party'
 
 function getMcpRequestSource(
   headerValue: string | undefined,
 ): McpRequestSource {
-  if (headerValue === 'gemini-agent' || headerValue === 'sdk-internal') {
+  if (
+    headerValue === 'gemini-agent' ||
+    headerValue === 'agent-runtime' ||
+    headerValue === 'sdk-internal'
+  ) {
     return headerValue
   }
   return 'third-party'
