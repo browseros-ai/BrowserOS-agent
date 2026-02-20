@@ -18,7 +18,7 @@
     "codegen:watch": "graphql-codegen --config codegen.ts --watch"
   },
   "dependencies": {
-    "@ai-sdk/react": "^2.0.95",
+    "@ai-sdk/react": "^3.0.96",
     "@browseros/server": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@lobehub/icons": "^2.44.0",
@@ -51,7 +51,7 @@
     "@webext-core/messaging": "^2.3.0",
     "@wxt-dev/storage": "^1.2.6",
     "@xyflow/react": "^12.9.3",
-    "ai": "^5.0.95",
+    "ai": "^6.0.94",
     "better-auth": "^1.4.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
