@@ -51,7 +51,7 @@ export const ApiKeyDialog: FC<ApiKeyDialogProps> = ({
     },
   })
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: We only want to reset the form when the dialog is closed, not on every render
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset form when dialog closes
   useEffect(() => {
     if (!open) form.reset()
   }, [open])
