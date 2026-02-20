@@ -1,33 +1,90 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- * SPDX-License-Identifier: AGPL-3.0-or-later
- *
- * Tool Registry - Combines CDP and controller tools into a unified registry.
- */
-
-import { logger } from '../lib/logger'
-
-import { allCdpTools } from './cdp/registry'
 import {
-  allControllerTools,
-  allControllerToolsFull,
-} from './controller/registry'
-import type { ToolDefinition } from './types/tool-definition'
+  create_bookmark,
+  create_bookmark_folder,
+  get_bookmark_children,
+  get_bookmarks,
+  move_bookmark,
+  remove_bookmark,
+  remove_bookmark_tree,
+  update_bookmark,
+} from './bookmarks'
+import { createRegistry } from './core/tool-registry'
+import { get_recent_history, search_history } from './history'
+import {
+  click,
+  click_at,
+  drag,
+  fill,
+  handle_dialog,
+  hover,
+  press_key,
+  scroll,
+  select_option,
+} from './input'
+import {
+  close_page,
+  list_pages,
+  navigate_page,
+  new_page,
+  wait_for,
+} from './navigation'
+import {
+  evaluate_script,
+  get_page_content,
+  take_enhanced_snapshot,
+  take_screenshot,
+  take_snapshot,
+} from './snapshot'
+import {
+  group_tabs,
+  list_tab_groups,
+  ungroup_tabs,
+  update_tab_group,
+} from './tab-groups'
 
-export function createToolRegistry(
-  cdpEnabled: boolean,
-  // biome-ignore lint/suspicious/noExplicitAny: heterogeneous tool registry requires any
-): Array<ToolDefinition<any, any, any>> {
-  const cdpTools = cdpEnabled ? allCdpTools : []
-  const controllerTools = cdpEnabled
-    ? allControllerTools
-    : allControllerToolsFull
+export const registry = createRegistry([
+  // Navigation (5)
+  list_pages,
+  navigate_page,
+  new_page,
+  close_page,
+  wait_for,
 
-  logger.info(
-    `Total tools available: ${cdpTools.length + controllerTools.length} ` +
-      `(${cdpTools.length} CDP + ${controllerTools.length} extension)`,
-  )
+  // Observation (5)
+  take_snapshot,
+  take_enhanced_snapshot,
+  get_page_content,
+  take_screenshot,
+  evaluate_script,
 
-  return [...cdpTools, ...controllerTools]
-}
+  // Input (9)
+  click,
+  click_at,
+  hover,
+  fill,
+  press_key,
+  drag,
+  scroll,
+  handle_dialog,
+  select_option,
+
+  // Bookmarks (8)
+  get_bookmarks,
+  create_bookmark,
+  remove_bookmark,
+  update_bookmark,
+  create_bookmark_folder,
+  get_bookmark_children,
+  move_bookmark,
+  remove_bookmark_tree,
+
+  // History (2)
+  search_history,
+  get_recent_history,
+
+  // Tab Groups (4)
+  list_tab_groups,
+  group_tabs,
+  update_tab_group,
+  ungroup_tabs,
+])

@@ -13,10 +13,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { createHttpServer } from './api/server'
-import { CdpClient } from './browser/cdp/cdp-client'
-import { ensureBrowserConnected } from './browser/cdp/connection'
-import { ControllerBridge } from './browser/extension/bridge'
-import { PageRegistry } from './browser/page-registry'
+import { CdpBackend } from './browser/backends/cdp'
+import { ControllerBackend } from './browser/backends/controller'
+import { Browser } from './browser/browser'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
 import { initializeDb } from './lib/db'
@@ -28,16 +27,12 @@ import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
-import { logger as cdpDebugLogger } from './tools/cdp/context/logger'
-import { createToolRegistry } from './tools/registry'
+import { registry } from './tools/registry'
 import { VERSION } from './version'
 
 export class Application {
   private config: ServerConfig
   private db: Database | null = null
-  private cdpClient: CdpClient | null = null
-  private cdpClientInit: Promise<CdpClient | null> | null = null
-  private pageRegistry = new PageRegistry()
 
   constructor(config: ServerConfig) {
     this.config = config
@@ -54,9 +49,10 @@ export class Application {
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-    let controllerBridge: ControllerBridge
+    let controller: ControllerBackend
     try {
-      controllerBridge = await this.createControllerBridge()
+      controller = new ControllerBackend({ port: this.config.extensionPort })
+      await controller.start()
     } catch (error) {
       return this.handleStartupError(
         'WebSocket server',
@@ -65,21 +61,40 @@ export class Application {
       )
     }
 
-    const cdpEnabled = !!this.config.cdpPort
+    const cdp = new CdpBackend({ port: this.config.cdpPort ?? 0 })
+    if (this.config.cdpPort) {
+      try {
+        await cdp.connect()
+        logger.info(
+          `Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+        )
+      } catch (error) {
+        logger.warn(
+          `Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+          { error: error instanceof Error ? error.message : String(error) },
+        )
+        logger.warn(
+          'CDP tools will not be available. Only extension tools will work.',
+        )
+      }
+    } else {
+      logger.info(
+        'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
+      )
+    }
 
-    logger.info(
-      `Loaded ${(await import('./tools/controller/registry')).allControllerTools.length} controller (extension) tools`,
-    )
-    const tools = createToolRegistry(cdpEnabled)
+    const browser = new Browser(cdp, controller)
+
+    logger.info(`Loaded ${registry.names().length} unified tools`)
 
     try {
       await createHttpServer({
         port: this.config.serverPort,
         host: '0.0.0.0',
         version: VERSION,
-        tools,
-        ensureCdpClient: () => this.ensureCdpClient(),
-        controllerBridge,
+        browser,
+        controller,
+        registry,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
@@ -174,15 +189,6 @@ export class Application {
     }
   }
 
-  private async createControllerBridge(): Promise<ControllerBridge> {
-    const port = this.config.extensionPort
-    logger.info(`Controller server starting on ws://127.0.0.1:${port}`)
-
-    const bridge = new ControllerBridge(port, logger)
-    await bridge.waitForReady()
-    return bridge
-  }
-
   private handleStartupError(
     serverName: string,
     port: number,
@@ -202,59 +208,6 @@ export class Application {
     }
 
     process.exit(EXIT_CODES.GENERAL_ERROR)
-  }
-
-  private async connectToCdp(): Promise<CdpClient | null> {
-    if (!this.config.cdpPort) {
-      logger.info(
-        'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
-      )
-      return null
-    }
-
-    try {
-      const browser = await ensureBrowserConnected(
-        `http://127.0.0.1:${this.config.cdpPort}`,
-      )
-      logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
-      const client = await CdpClient.from(
-        browser,
-        cdpDebugLogger,
-        { experimentalDevToolsDebugging: false },
-        this.pageRegistry,
-      )
-      const { allCdpTools } = await import('./tools/cdp/registry')
-      logger.info(`Loaded ${allCdpTools.length} CDP tools`)
-      return client
-    } catch (error) {
-      logger.warn(
-        `Warning: Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
-        { error: error instanceof Error ? error.message : String(error) },
-      )
-      logger.warn(
-        'CDP tools will not be available. Only extension tools will work.',
-      )
-      return null
-    }
-  }
-
-  private async ensureCdpClient(): Promise<CdpClient | null> {
-    if (this.cdpClient) {
-      return this.cdpClient
-    }
-    if (!this.config.cdpPort) {
-      return null
-    }
-    if (!this.cdpClientInit) {
-      this.cdpClientInit = this.connectToCdp()
-    }
-    const client = await this.cdpClientInit
-    if (client) {
-      this.cdpClient = client
-    }
-    // Allow retries if connection failed (client is null).
-    this.cdpClientInit = null
-    return client
   }
 
   private logStartupSummary(): void {
