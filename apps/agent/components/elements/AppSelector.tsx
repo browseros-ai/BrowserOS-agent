@@ -212,7 +212,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
                       type="button"
                       onClick={() => {
                         const appUrl = chrome.runtime.getURL(
-                          '/app.html#/settings/connect-mcp',
+                          '/app.html#/connect-apps',
                         )
                         window.open(appUrl, '_blank')
                         setOpen(false)
