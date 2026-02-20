@@ -13,7 +13,6 @@ import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { GraphEmptyState } from './GraphEmptyState'
-import { getWorkflowDisplayMessages } from './workflow-tidbit-messages'
 
 interface GraphChatProps {
   onSubmit: FormEventHandler<HTMLFormElement>
@@ -42,7 +41,6 @@ export const GraphChat: FC<GraphChatProps> = ({
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [mounted, setMounted] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const displayMessages = getWorkflowDisplayMessages(messages)
 
   useEffect(() => {
     setMounted(true)
@@ -130,7 +128,7 @@ export const GraphChat: FC<GraphChatProps> = ({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
-        {displayMessages.length === 0 ? (
+        {messages.length === 0 ? (
           <GraphEmptyState
             mounted={mounted}
             onSuggestionClick={onSuggestionClick}
@@ -141,7 +139,7 @@ export const GraphChat: FC<GraphChatProps> = ({
             disliked={disliked}
             onClickDislike={onClickDislike}
             onClickLike={onClickLike}
-            messages={displayMessages}
+            messages={messages}
             status={status}
             messagesEndRef={messagesEndRef}
             showJtbdPopup={popupVisible}
