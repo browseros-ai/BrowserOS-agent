@@ -16,7 +16,6 @@ import {
   fetchBrowserOSConfig,
   getLLMConfigFromProvider,
 } from '../../lib/clients/gateway'
-import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import {
   detectMcpTransport,
@@ -48,7 +47,6 @@ function createMcpServerConfig(options: McpServerOptions): MCPServerConfig {
 
 export interface ChatServiceDeps {
   sessionManager: SessionManager
-  klavisClient: KlavisClient
   executionDir: string
   mcpServerUrl: string
   browserosId?: string
@@ -163,7 +161,7 @@ export class ChatService {
   private async buildMcpServers(
     browserContext?: BrowserContext,
   ): Promise<Record<string, MCPServerConfig>> {
-    const { klavisClient, mcpServerUrl, browserosId } = this.deps
+    const { mcpServerUrl } = this.deps
     const servers: Record<string, MCPServerConfig> = {}
 
     if (mcpServerUrl) {
@@ -179,30 +177,6 @@ export class ChatService {
         },
         trust: true,
       })
-    }
-
-    if (browserosId && browserContext?.enabledMcpServers?.length) {
-      try {
-        const result = await klavisClient.createStrata(
-          browserosId,
-          browserContext.enabledMcpServers,
-        )
-        servers['klavis-strata'] = createMcpServerConfig({
-          url: result.strataServerUrl,
-          transport: 'streamable-http',
-          trust: true,
-        })
-        logger.info('Added Klavis Strata MCP server', {
-          browserosId: browserosId.slice(0, 12),
-          servers: browserContext.enabledMcpServers,
-        })
-      } catch (error) {
-        logger.error('Failed to create Klavis Strata MCP server', {
-          browserosId: browserosId?.slice(0, 12),
-          servers: browserContext.enabledMcpServers,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
     }
 
     if (browserContext?.customMcpServers?.length) {

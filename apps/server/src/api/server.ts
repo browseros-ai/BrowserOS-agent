@@ -64,6 +64,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     controllerContext,
     mutexPool,
     allowRemote,
+    klavisMcpProxy,
   } = config
 
   const { onShutdown } = config
@@ -78,7 +79,10 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
     .route('/status', createStatusRoute({ controllerContext }))
     .route('/test-provider', createProviderRoutes())
-    .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
+    .route(
+      '/klavis',
+      createKlavisRoutes({ browserosId: browserosId || '', klavisMcpProxy }),
+    )
     .route(
       '/mcp',
       createMcpRoutes({
@@ -88,6 +92,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         controllerContext,
         mutexPool,
         allowRemote,
+        klavisMcpProxy,
       }),
     )
     .route(
