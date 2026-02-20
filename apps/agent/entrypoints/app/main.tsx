@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { AnalyticsProvider } from '@/lib/analytics/AnalyticsProvider.tsx'
 import { AuthProvider } from '@/lib/auth/AuthProvider'
 import { QueryProvider } from '@/lib/graphql/QueryProvider'
+import { IntercomProvider } from '@/lib/intercom/IntercomProvider'
 import { sentryRootErrorHandler } from '@/lib/sentry/sentryRootErrorHandler.ts'
 import { App } from './App'
 
@@ -17,10 +18,12 @@ if ($root) {
       <AuthProvider>
         <QueryProvider>
           <AnalyticsProvider>
-            <ThemeProvider>
-              <App />
-              <Toaster />
-            </ThemeProvider>
+            <IntercomProvider>
+              <ThemeProvider>
+                <App />
+                <Toaster />
+              </ThemeProvider>
+            </IntercomProvider>
           </AnalyticsProvider>
         </QueryProvider>
       </AuthProvider>

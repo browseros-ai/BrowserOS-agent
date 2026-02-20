@@ -67,6 +67,17 @@ export default defineConfig({
       'https://duckduckgo.com/*',
       'https://suggest.yandex.com/*',
     ],
+    content_security_policy: {
+      sandbox:
+        "sandbox allow-scripts allow-forms allow-popups allow-modals; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://widget.intercom.io https://js.intercomcdn.com https://app.intercom.io; " +
+        "connect-src 'self' https://*.intercom.io https://*.intercomcdn.com https://*.intercom-messenger.com wss://*.intercom-messenger.com wss://*.intercom.io https://uploads.intercomusercontent.com; " +
+        "frame-src 'self' https://share.intercom.io https://intercom-sheets.com https://www.youtube.com https://player.vimeo.com; " +
+        "img-src 'self' blob: data: https://*.intercomcdn.com https://static.intercomassets.com https://uploads.intercomusercontent.com https://gifs.intercomcdn.com; " +
+        "font-src 'self' https://js.intercomcdn.com https://fonts.intercomcdn.com; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "media-src 'self' https://js.intercomcdn.com",
+    },
   },
   vite: () => ({
     build: {
