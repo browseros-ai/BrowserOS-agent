@@ -32,7 +32,7 @@ export const take_enhanced_snapshot = defineTool({
 export const get_page_content = defineTool({
   name: 'get_page_content',
   description:
-    'Extract the visible text content of the page. Use for reading articles, understanding page content, or extracting data. Not for automation — use take_snapshot for that.',
+    'Extract page content as clean markdown with headers, links, lists, tables, and formatting preserved. Use for reading articles, understanding page content, or extracting data. Not for automation — use take_snapshot for that.',
   input: z.object({
     page: pageParam,
     selector: z
@@ -41,9 +41,26 @@ export const get_page_content = defineTool({
       .describe(
         "CSS selector to scope extraction (e.g. 'main', '.article-body')",
       ),
+    viewportOnly: z
+      .boolean()
+      .default(false)
+      .describe('Only extract content visible in the current viewport'),
+    includeLinks: z
+      .boolean()
+      .default(true)
+      .describe('Render links as [text](url) instead of plain text'),
+    includeImages: z
+      .boolean()
+      .default(false)
+      .describe('Include image references as ![alt](src)'),
   }),
   handler: async (args, ctx, response) => {
-    const text = await ctx.browser.content(args.page, args.selector)
+    const text = await ctx.browser.contentAsMarkdown(args.page, {
+      selector: args.selector,
+      viewportOnly: args.viewportOnly,
+      includeLinks: args.includeLinks,
+      includeImages: args.includeImages,
+    })
     response.text(text || 'No text content found.')
   },
 })

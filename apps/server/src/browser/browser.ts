@@ -2,6 +2,10 @@ import { logger } from '../lib/logger'
 import type { CdpBackend, ControllerBackend } from './backends/types'
 import type { BookmarkNode } from './bookmarks'
 import * as bookmarks from './bookmarks'
+import {
+  buildContentMarkdownExpression,
+  type ContentMarkdownOptions,
+} from './content-markdown'
 import * as elements from './elements'
 import type { HistoryEntry } from './history'
 import * as history from './history'
@@ -372,6 +376,27 @@ export class Browser {
     const expression = selector
       ? `(document.querySelector(${JSON.stringify(selector)})?.innerText ?? '')`
       : `(document.body?.innerText ?? '')`
+
+    const result = (await this.cdp.send(
+      'Runtime.evaluate',
+      { expression, returnByValue: true },
+      sessionId,
+    )) as { result?: { value?: string } }
+
+    return result.result?.value ?? ''
+  }
+
+  async contentAsMarkdown(
+    page: number,
+    opts?: Omit<ContentMarkdownOptions, 'selector'> & { selector?: string },
+  ): Promise<string> {
+    const sessionId = await this.resolvePage(page)
+    const expression = buildContentMarkdownExpression({
+      selector: opts?.selector,
+      viewportOnly: opts?.viewportOnly,
+      includeLinks: opts?.includeLinks,
+      includeImages: opts?.includeImages,
+    })
 
     const result = (await this.cdp.send(
       'Runtime.evaluate',

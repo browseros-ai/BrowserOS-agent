@@ -136,7 +136,7 @@ function getCdpToolReference(): string {
 ## Content Capture
 - \`take_snapshot(page)\` - Get interactive elements with IDs (e.g. [47]). **Always take before interacting.**
 - \`take_enhanced_snapshot(page)\` - Detailed accessibility tree with structural context
-- \`get_page_content(page, selector?)\` - Extract visible text content. **Prefer for data extraction.**
+- \`get_page_content(page, selector?, viewportOnly?, includeLinks?, includeImages?)\` - Extract page as clean markdown with headers, links, lists, tables. **Prefer for data extraction.**
 - \`take_screenshot(page, format?, quality?, fullPage?)\` - Capture page image
 - \`evaluate_script(page, expression)\` - Run JavaScript in page context
 
