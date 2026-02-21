@@ -67,6 +67,20 @@ export const hover = defineTool({
   },
 })
 
+export const clear = defineTool({
+  name: 'clear',
+  description: 'Clear the text content of an input or textarea element',
+  input: z.object({
+    page: pageParam,
+    element: elementParam,
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.fill(args.page, args.element, '', true)
+    response.text(`Cleared [${args.element}]`)
+    response.includeSnapshot(0)
+  },
+})
+
 export const fill = defineTool({
   name: 'fill',
   description:

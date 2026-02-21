@@ -11,6 +11,7 @@ import {
 import { createRegistry } from './core/tool-registry'
 import { get_recent_history, search_history } from './history'
 import {
+  clear,
   click,
   click_at,
   drag,
@@ -57,10 +58,11 @@ export const registry = createRegistry([
   take_screenshot,
   evaluate_script,
 
-  // Input (9)
+  // Input (10)
   click,
   click_at,
   hover,
+  clear,
   fill,
   press_key,
   drag,
