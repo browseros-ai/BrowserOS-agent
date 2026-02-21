@@ -15,12 +15,10 @@ import {
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
-import type { McpContext } from '../browser/cdp/context'
-import type { ControllerContext } from '../browser/extension/context'
-
-import type { MutexPool } from '../lib/mutex'
+import type { ControllerBackend } from '../browser/backends/controller'
+import type { Browser } from '../browser/browser'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
-import type { ToolDefinition } from '../tools/types/tool-definition'
+import type { ToolRegistry } from '../tools/tool-registry'
 
 // Re-export browser context types for consumers
 export {
@@ -49,7 +47,6 @@ export type ChatRequest = z.infer<typeof ChatRequestSchema>
 
 /**
  * Hono environment bindings for Bun.serve integration.
- * The server binding is required for security checks (isLocalhostRequest).
  */
 export type Env = {
   Bindings: {
@@ -62,27 +59,20 @@ export type Env = {
  * This server handles all routes: health, klavis, chat, mcp, provider
  */
 export interface HttpServerConfig {
-  // Server basics
   port: number
   host?: string
 
-  // For MCP routes - server will create McpServer internally
   version: string
-  tools: ToolDefinition[]
-  cdpContext: McpContext | null
-  controllerContext: ControllerContext
-  mutexPool: MutexPool
-  allowRemote: boolean
+  browser: Browser
+  controller: ControllerBackend
+  registry: ToolRegistry
 
-  // For Chat/Klavis routes
   browserosId?: string
   executionDir?: string
   rateLimiter?: RateLimiter
 
-  // For Graph routes
   codegenServiceUrl?: string
 
-  // For shutdown route
   onShutdown?: () => void
 }
 
