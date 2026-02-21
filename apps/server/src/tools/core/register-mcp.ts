@@ -10,13 +10,16 @@ export function registerTools(
   ctx: ToolContext,
 ): void {
   for (const tool of registry.all()) {
-    const handler = async (args: Record<string, unknown>) => {
+    const handler = async (
+      args: Record<string, unknown>,
+      extra: { signal: AbortSignal },
+    ) => {
       const startTime = performance.now()
 
       try {
         logger.info(`${tool.name} request: ${JSON.stringify(args, null, '  ')}`)
 
-        const result = await executeTool(tool, args, ctx)
+        const result = await executeTool(tool, args, ctx, extra.signal)
 
         metrics.log('tool_executed', {
           tool_name: tool.name,

@@ -36,8 +36,14 @@ export async function executeTool(
   tool: ToolDefinition,
   args: unknown,
   ctx: ToolContext,
+  signal: AbortSignal,
 ): Promise<ToolResult> {
   const response = new ToolResponse()
+
+  if (signal.aborted) {
+    response.error('Request was aborted')
+    return response.toResult()
+  }
 
   try {
     await tool.handler(args, ctx, response)
