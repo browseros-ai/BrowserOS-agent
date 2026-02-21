@@ -1,10 +1,8 @@
-import type { ToolLoopAgent, UIMessage } from 'ai'
 import { logger } from '../../lib/logger'
+import type { AiSdkAgent } from './ai-sdk-agent'
 
 export interface AgentSession {
-  agent: ToolLoopAgent
-  messages: UIMessage[]
-  mcpClients: Array<{ close(): Promise<void> }>
+  agent: AiSdkAgent
 }
 
 export class SessionStore {
@@ -30,10 +28,7 @@ export class SessionStore {
     const session = this.sessions.get(conversationId)
     if (!session) return false
 
-    for (const client of session.mcpClients) {
-      await client.close().catch(() => {})
-    }
-
+    await session.agent.dispose()
     this.sessions.delete(conversationId)
     logger.info('Session deleted', {
       conversationId,

@@ -78,9 +78,23 @@ export const ProviderCard: FC<ProviderCardProps> = ({
           )}
         </div>
         <p className="truncate text-muted-foreground text-sm">
-          {isBuiltIn
-            ? 'Model hosted on the cloud by BrowserOS, has strict rate limits'
-            : `${provider.modelId} • ${provider.baseUrl}`}
+          {isBuiltIn ? (
+            <>
+              BrowserOS-hosted model with strict rate limits.{' '}
+              <a
+                href="https://docs.browseros.com/features/bring-your-own-llm"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Bring your own key
+              </a>{' '}
+              for better performance.
+            </>
+          ) : (
+            `${provider.modelId} • ${provider.baseUrl}`
+          )}
         </p>
       </div>
       {!isBuiltIn && (
