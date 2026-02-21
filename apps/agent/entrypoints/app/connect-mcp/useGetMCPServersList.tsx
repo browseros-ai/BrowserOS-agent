@@ -10,7 +10,9 @@ interface McpServerResponse {
 }
 
 const getAllManagedServers = async ([hostUrl]: [hostUrl: string]) => {
-  const response = await fetch(`${hostUrl}/klavis/servers`)
+  const response = await fetch(`${hostUrl}/klavis/servers`, {
+    cache: 'no-store',
+  })
   const servers = (await response.json()) as McpServerResponse
   return servers
 }
@@ -23,6 +25,7 @@ export const useGetMCPServersList = () => {
     getAllManagedServers,
     {
       keepPreviousData: true,
+      revalidateOnFocus: true,
     },
   )
 }
