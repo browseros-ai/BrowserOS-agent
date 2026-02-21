@@ -12,12 +12,10 @@ import type { Database } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
-import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { createHttpServer } from './api/server'
-import { ensureBrowserConnected } from './browser/cdp/connection'
-import { McpContext } from './browser/cdp/context'
-import { ControllerBridge } from './browser/extension/bridge'
-import { ControllerContext } from './browser/extension/context'
+import { CdpBackend } from './browser/backends/cdp'
+import { ControllerBackend } from './browser/backends/controller'
+import { Browser } from './browser/browser'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
 import { initializeDb } from './lib/db'
@@ -25,12 +23,11 @@ import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
-import { MutexPool } from './lib/mutex'
 import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
-import { createToolRegistry } from './tools/registry'
+import { registry } from './tools/registry'
 import { VERSION } from './version'
 
 export class Application {
@@ -52,10 +49,13 @@ export class Application {
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-    let controllerContext: ControllerContext
+    let controller: ControllerBackend
     try {
-      const result = await this.createController()
-      controllerContext = result.controllerContext
+      logger.debug(
+        `Starting WebSocket server on port ${this.config.extensionPort}`,
+      )
+      controller = new ControllerBackend({ port: this.config.extensionPort })
+      await controller.start()
     } catch (error) {
       return this.handleStartupError(
         'WebSocket server',
@@ -64,24 +64,34 @@ export class Application {
       )
     }
 
-    const cdpContext = await this.connectToCdp()
+    if (!this.config.cdpPort) {
+      logger.error('CDP port is required (--cdp-port)')
+      process.exit(EXIT_CODES.GENERAL_ERROR)
+    }
 
-    logger.info(
-      `Loaded ${(await import('./tools/controller-based/registry')).allControllerTools.length} controller (extension) tools`,
-    )
-    const tools = createToolRegistry(cdpContext)
-    const mutexPool = new MutexPool()
+    const cdp = new CdpBackend({ port: this.config.cdpPort })
+    try {
+      logger.debug(
+        `Connecting to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+      )
+      await cdp.connect()
+      logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
+    } catch (error) {
+      return this.handleStartupError('CDP', this.config.cdpPort, error)
+    }
+
+    const browser = new Browser(cdp, controller)
+
+    logger.info(`Loaded ${registry.names().length} unified tools`)
 
     try {
       await createHttpServer({
         port: this.config.serverPort,
         host: '0.0.0.0',
         version: VERSION,
-        tools,
-        cdpContext,
-        controllerContext,
-        mutexPool,
-        allowRemote: this.config.mcpAllowRemote,
+        browser,
+        controller,
+        registry,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
@@ -176,81 +186,26 @@ export class Application {
     }
   }
 
-  private async createController(): Promise<{
-    controllerContext: ControllerContext
-  }> {
-    const port = this.config.extensionPort
-    logger.info(`Controller server starting on ws://127.0.0.1:${port}`)
-
-    const controllerBridge = new ControllerBridge(port, logger)
-    await controllerBridge.waitForReady()
-    return { controllerContext: new ControllerContext(controllerBridge) }
-  }
-
   private handleStartupError(
     serverName: string,
     port: number,
     error: unknown,
   ): never {
-    logger.error(`Failed to start ${serverName}`, {
-      port,
-      error: error instanceof Error ? error.message : String(error),
-    })
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    logger.error(`Failed to start ${serverName}`, { port, error: errorMsg })
+    console.error(
+      `[FATAL] Failed to start ${serverName} on port ${port}: ${errorMsg}`,
+    )
     Sentry.captureException(error)
 
     if (isPortInUseError(error)) {
-      logger.error(
-        `Port ${port} is already in use. Chromium should try a different port.`,
+      console.error(
+        `[FATAL] Port ${port} is already in use. Chromium should try a different port.`,
       )
       process.exit(EXIT_CODES.PORT_CONFLICT)
     }
 
     process.exit(EXIT_CODES.GENERAL_ERROR)
-  }
-
-  private async connectToCdp(): Promise<McpContext | null> {
-    if (!this.config.cdpPort) {
-      logger.info(
-        'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
-      )
-      return null
-    }
-
-    const cdpUrl = `http://127.0.0.1:${this.config.cdpPort}`
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-
-    try {
-      const browser = await Promise.race([
-        ensureBrowserConnected(cdpUrl),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(
-              new Error(
-                `CDP connection timed out after ${TIMEOUTS.CDP_CONNECT}ms`,
-              ),
-            )
-          }, TIMEOUTS.CDP_CONNECT)
-        }),
-      ])
-
-      logger.info(`Connected to CDP at ${cdpUrl}`)
-      const context = await McpContext.from(browser, logger)
-      const { allCdpTools } = await import('./tools/cdp-based/registry')
-      logger.info(`Loaded ${allCdpTools.length} CDP tools`)
-      return context
-    } catch (error) {
-      logger.warn(`Warning: Could not connect to CDP at ${cdpUrl}`, {
-        error: error instanceof Error ? error.message : String(error),
-      })
-      logger.warn(
-        'CDP tools will not be available. Only extension tools will work.',
-      )
-      return null
-    } finally {
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-    }
   }
 
   private logStartupSummary(): void {

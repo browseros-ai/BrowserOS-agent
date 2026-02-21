@@ -52,6 +52,7 @@ export const AISettingsPage: FC = () => {
 
   const { data: profileData } = useGraphqlQuery(
     GetProfileIdByUserIdDocument,
+    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
     { userId: userId! },
     { enabled: !!userId },
   )
@@ -59,6 +60,7 @@ export const AISettingsPage: FC = () => {
 
   const { data: remoteProvidersData } = useGraphqlQuery(
     GetRemoteLlmProvidersDocument,
+    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
     { profileId: profileId! },
     { enabled: !!profileId },
   )

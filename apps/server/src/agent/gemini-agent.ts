@@ -19,8 +19,7 @@ import type { Content, Part } from '@google/genai'
 import type { BrowserContext } from '../api/types'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
-import { allCdpTools } from '../tools/cdp-based/registry'
-import { allControllerTools } from '../tools/controller-based/registry'
+import { registry } from '../tools/registry'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
 import { VercelAIContentGenerator } from './provider-adapter/index'
@@ -29,14 +28,12 @@ import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
 
 const CHAT_MODE_ALLOWED_TOOLS = new Set([
-  'browser_get_active_tab',
-  'browser_list_tabs',
-  'browser_get_page_content',
-  'browser_scroll_down',
-  'browser_scroll_up',
-  'browser_get_screenshot',
-  'browser_get_interactive_elements',
-  'browser_execute_javascript',
+  'list_pages',
+  'get_page_content',
+  'scroll',
+  'take_snapshot',
+  'take_enhanced_snapshot',
+  'evaluate_script',
 ])
 
 export interface ToolExecutionResult {
@@ -118,22 +115,12 @@ export class GeminiAgent {
     // In chat mode, only allow read-only tools for page content extraction
     const excludedTools = ['save_memory', 'google_web_search']
     if (config.supportsImages === false) {
-      excludedTools.push(
-        'browser_get_screenshot',
-        'browser_get_screenshot_pointer',
-      )
+      excludedTools.push('take_screenshot')
       logger.info('Model does not support images, excluding screenshot tools')
     }
-    if (config.evalMode !== true) {
-      excludedTools.push('browser_create_window', 'browser_close_window')
-    }
-
     // Chat mode: restrict to read-only tools only (no browser automation)
     if (config.chatMode === true) {
-      const allToolNames = [
-        ...allControllerTools.map((t) => t.name),
-        ...allCdpTools.map((t) => t.name),
-      ]
+      const allToolNames = registry.names()
       const chatModeExcludedTools = allToolNames.filter(
         (name) => !CHAT_MODE_ALLOWED_TOOLS.has(name),
       )
@@ -205,8 +192,16 @@ export class GeminiAgent {
       return ''
     }
 
-    const formatTab = (tab: { id: number; url?: string; title?: string }) =>
-      `Tab ${tab.id}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
+    const formatTab = (tab: {
+      id: number
+      url?: string
+      title?: string
+      pageId?: number
+    }) => {
+      const pageLabel =
+        tab.pageId !== undefined ? `Page ${tab.pageId}` : `Tab ${tab.id}`
+      return `${pageLabel}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
+    }
 
     const contextLines: string[] = ['## Browser Context']
 

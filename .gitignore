@@ -61,6 +61,7 @@ web_modules/
 .claude/*
 !.claude/skills/
 !.claude/commands/
+.worktrees/
 
 # Build unpublished docs
 # docs/
