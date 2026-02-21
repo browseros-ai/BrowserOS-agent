@@ -78,7 +78,7 @@ export const navigate_page = defineTool({
       reload: 'Page reloaded',
     }
     response.text(messages[args.action] ?? 'Done')
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -136,7 +136,7 @@ export const wait_for = defineTool({
         ? `text "${args.text}"`
         : `selector "${args.selector}"`
       response.text(`Found ${target} on page.`)
-      response.includeSnapshot(0)
+      response.includeSnapshot(args.page)
     } else {
       const target = args.text
         ? `text "${args.text}"`

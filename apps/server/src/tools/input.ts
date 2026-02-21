@@ -27,7 +27,7 @@ export const click = defineTool({
       clickCount: args.clickCount,
     })
     response.text(`Clicked [${args.element}]`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -50,7 +50,7 @@ export const click_at = defineTool({
       clickCount: args.clickCount,
     })
     response.text(`Clicked at (${args.x}, ${args.y})`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -77,7 +77,7 @@ export const clear = defineTool({
   handler: async (args, ctx, response) => {
     await ctx.browser.fill(args.page, args.element, '', true)
     response.text(`Cleared [${args.element}]`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -97,7 +97,7 @@ export const fill = defineTool({
   handler: async (args, ctx, response) => {
     await ctx.browser.fill(args.page, args.element, args.text, args.clear)
     response.text(`Typed ${args.text.length} characters into [${args.element}]`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -145,7 +145,7 @@ export const drag = defineTool({
         ? `[${args.targetElement}]`
         : `(${args.targetX}, ${args.targetY})`
     response.text(`Dragged [${args.sourceElement}] \u2192 ${target}`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -172,7 +172,7 @@ export const scroll = defineTool({
       args.element,
     )
     response.text(`Scrolled ${args.direction} by ${args.amount}`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })
 
@@ -215,6 +215,6 @@ export const select_option = defineTool({
       return
     }
     response.text(`Selected "${selected}" in [${args.element}]`)
-    response.includeSnapshot(0)
+    response.includeSnapshot(args.page)
   },
 })

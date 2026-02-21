@@ -52,5 +52,5 @@ export async function executeTool(
     response.error(`Internal error in ${tool.name}: ${message}`)
   }
 
-  return response.toResult()
+  return response.build(ctx.browser)
 }
