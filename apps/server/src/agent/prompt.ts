@@ -85,7 +85,8 @@ function getCompleteTasks(): string {
 
 function getObserveActVerify(): string {
   return `## Observe → Act → Verify
-- **Before acting**: Retrieve current tab, verify page loaded, fetch interactive elements
+- **Always operate on the current page** unless the user explicitly asks to open a new page
+- **Before acting**: Verify page loaded, fetch interactive elements
 - **After navigation**: Re-fetch elements (nodeIds become invalid after page changes)
 - **After actions**: Confirm successful execution before continuing`
 }
