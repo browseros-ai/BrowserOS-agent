@@ -3,6 +3,20 @@ import { defineTool } from './core/framework'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 
+export const get_active_page = defineTool({
+  name: 'get_active_page',
+  description: 'Get the currently active (focused) page in the browser',
+  input: z.object({}),
+  handler: async (_args, ctx, response) => {
+    const page = await ctx.browser.getActivePage()
+    if (!page) {
+      response.error('No active page found.')
+      return
+    }
+    response.text(`Active page: ${page.pageId}\n${page.title}\n${page.url}`)
+  },
+})
+
 export const list_pages = defineTool({
   name: 'list_pages',
   description: 'List all pages (tabs) currently open in the browser',

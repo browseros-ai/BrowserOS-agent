@@ -24,6 +24,7 @@ import {
 } from './input'
 import {
   close_page,
+  get_active_page,
   list_pages,
   navigate_page,
   new_page,
@@ -44,7 +45,8 @@ import {
 } from './tab-groups'
 
 export const registry = createRegistry([
-  // Navigation (5)
+  // Navigation (6)
+  get_active_page,
   list_pages,
   navigate_page,
   new_page,

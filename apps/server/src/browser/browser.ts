@@ -149,6 +149,20 @@ export class Browser {
     return [...this.pages.values()].sort((a, b) => a.pageId - b.pageId)
   }
 
+  async getActivePage(): Promise<PageInfo | null> {
+    const result = (await this.controller.send('getActiveTab')) as {
+      tabId: number
+    }
+
+    await this.listPages()
+
+    for (const info of this.pages.values()) {
+      if (info.tabId === result.tabId) return info
+    }
+
+    return null
+  }
+
   async newPage(url: string): Promise<number> {
     const result = (await this.cdp.send('Target.createTarget', {
       url,
