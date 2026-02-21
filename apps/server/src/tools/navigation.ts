@@ -58,7 +58,7 @@ export const navigate_page = defineTool({
 
     switch (args.action) {
       case 'url':
-        await ctx.browser.goto(args.page, args.url!)
+        await ctx.browser.goto(args.page, args.url as string)
         break
       case 'back':
         await ctx.browser.goBack(args.page)
