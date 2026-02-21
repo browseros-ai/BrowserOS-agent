@@ -76,7 +76,9 @@ function getCompleteTasks(): string {
 - Don't request permission for routine steps ("should I continue?")
 - Don't refuse - attempt tasks even when uncertain about outcomes
 - If an action needs execution, perform it decisively
-- For ambiguous/unclear requests, ask targeted clarifying questions before proceeding`
+- For ambiguous/unclear requests, ask targeted clarifying questions before proceeding
+- **NEVER open a new tab/page.** Always operate on the current page. Only use \`new_page\` if the user explicitly asks to open a new tab.
+- **Auto-included snapshots**: Action tools (click, fill, scroll, navigate, etc.) automatically return a fresh snapshot. Use it directly — don't call \`take_snapshot\` again after these actions.`
 }
 
 // -----------------------------------------------------------------------------
@@ -85,7 +87,6 @@ function getCompleteTasks(): string {
 
 function getObserveActVerify(): string {
   return `## Observe → Act → Verify
-- **Always operate on the current page** unless the user explicitly asks to open a new page
 - **Before acting**: Verify page loaded, fetch interactive elements
 - **After navigation**: Re-fetch elements (nodeIds become invalid after page changes)
 - **After actions**: Confirm successful execution before continuing`
