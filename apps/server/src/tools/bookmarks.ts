@@ -5,11 +5,11 @@ import { defineTool } from './framework'
 function formatBookmarkTree(nodes: BookmarkNode[]): string {
   const lines: string[] = []
   for (const node of nodes) {
-    if (node.url) {
+    if (node.type === 'folder') {
+      lines.push(`[${node.id}] ${node.title} (folder)`)
+    } else {
       lines.push(`[${node.id}] ${node.title}`)
       lines.push(`    ${node.url}`)
-    } else {
-      lines.push(`[${node.id}] ${node.title} (folder)`)
     }
   }
   return lines.join('\n')

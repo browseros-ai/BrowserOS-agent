@@ -6,6 +6,7 @@ import {
   search_bookmarks,
   update_bookmark,
 } from './bookmarks'
+import { browseros_info } from './browseros-info'
 import {
   delete_history_range,
   delete_history_url,
@@ -121,4 +122,7 @@ export const registry = createRegistry([
   update_tab_group,
   ungroup_tabs,
   close_tab_group,
+
+  // Info (1)
+  browseros_info,
 ])

@@ -2,11 +2,11 @@ import type { CdpBackend } from './backends/types'
 
 export interface HistoryEntry {
   id: string
-  url?: string
-  title?: string
-  lastVisitTime?: number
-  visitCount?: number
-  typedCount?: number
+  url: string
+  title: string
+  lastVisitTime: number
+  visitCount: number
+  typedCount: number
 }
 
 export async function searchHistory(
@@ -18,8 +18,8 @@ export async function searchHistory(
     query,
     ...(maxResults !== undefined && { maxResults }),
   })
-  const data = result as { items: HistoryEntry[] }
-  return data.items
+  const data = result as { entries: HistoryEntry[] }
+  return data.entries
 }
 
 export async function getRecentHistory(
@@ -29,8 +29,8 @@ export async function getRecentHistory(
   const result = await cdp.send('History.getRecent', {
     ...(maxResults !== undefined && { maxResults }),
   })
-  const data = result as { items: HistoryEntry[] }
-  return data.items
+  const data = result as { entries: HistoryEntry[] }
+  return data.entries
 }
 
 export async function deleteUrl(cdp: CdpBackend, url: string): Promise<void> {

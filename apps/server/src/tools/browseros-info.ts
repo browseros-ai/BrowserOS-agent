@@ -1,12 +1,5 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- */
 import { z } from 'zod'
-
-import { defineTool } from '../../types/tool-definition'
-import type { Context } from '../types/context'
-import type { Response } from '../types/response'
+import { defineTool } from './framework'
 
 const BROWSEROS_INFO = `# BrowserOS — The Open-Source AI Browser
 
@@ -111,15 +104,11 @@ function getTopicContent(topic: string): string {
     : BROWSEROS_INFO.slice(startIdx).trim()
 }
 
-export const browserosInfo = defineTool<z.ZodRawShape, Context, Response>({
-  name: 'browser_browseros_info',
+export const browseros_info = defineTool({
+  name: 'browseros_info',
   description:
     'Get information about BrowserOS features, capabilities, and documentation links. Use when users ask "What is BrowserOS?", "What can BrowserOS do?", or about specific features.',
-  annotations: {
-    category: 'Information',
-    readOnlyHint: true,
-  },
-  schema: {
+  input: z.object({
     topic: z
       .enum(VALID_TOPICS)
       .optional()
@@ -127,10 +116,9 @@ export const browserosInfo = defineTool<z.ZodRawShape, Context, Response>({
       .describe(
         'Specific topic to get info about. Use "overview" for general questions.',
       ),
-  },
-  handler: async (request, response, _context) => {
-    const { topic } = request.params as { topic?: string }
-    const content = topic ? getTopicContent(topic) : BROWSEROS_INFO
-    response.appendResponseLine(content)
+  }),
+  handler: async (args, _ctx, response) => {
+    const content = args.topic ? getTopicContent(args.topic) : BROWSEROS_INFO
+    response.text(content)
   },
 })

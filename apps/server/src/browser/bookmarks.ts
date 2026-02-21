@@ -5,14 +5,16 @@ export interface BookmarkNode {
   title: string
   url?: string
   parentId?: string
-  isFolder?: boolean
+  type: 'url' | 'folder'
   index?: number
+  dateAdded: number
+  dateLastUsed?: number
 }
 
 export async function getBookmarks(cdp: CdpBackend): Promise<BookmarkNode[]> {
   const result = await cdp.send('Bookmarks.getBookmarks')
-  const data = result as { bookmarks: BookmarkNode[] }
-  return data.bookmarks
+  const data = result as { nodes: BookmarkNode[] }
+  return data.nodes
 }
 
 export async function createBookmark(
@@ -24,7 +26,8 @@ export async function createBookmark(
     ...(params.url !== undefined && { url: params.url }),
     ...(params.parentId !== undefined && { parentId: params.parentId }),
   })
-  return result as BookmarkNode
+  const data = result as { node: BookmarkNode }
+  return data.node
 }
 
 export async function removeBookmark(
@@ -40,7 +43,8 @@ export async function updateBookmark(
   changes: { url?: string; title?: string },
 ): Promise<BookmarkNode> {
   const result = await cdp.send('Bookmarks.updateBookmark', { id, ...changes })
-  return result as BookmarkNode
+  const data = result as { node: BookmarkNode }
+  return data.node
 }
 
 export async function moveBookmark(
@@ -52,7 +56,8 @@ export async function moveBookmark(
     id,
     ...destination,
   })
-  return result as BookmarkNode
+  const data = result as { node: BookmarkNode }
+  return data.node
 }
 
 export async function searchBookmarks(
@@ -60,6 +65,6 @@ export async function searchBookmarks(
   query: string,
 ): Promise<BookmarkNode[]> {
   const result = await cdp.send('Bookmarks.searchBookmarks', { query })
-  const data = result as { bookmarks: BookmarkNode[] }
-  return data.bookmarks
+  const data = result as { results: BookmarkNode[] }
+  return data.results
 }
