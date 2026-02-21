@@ -16,10 +16,12 @@ export const TabSchema: z.ZodObject<{
   id: z.ZodNumber
   url: z.ZodOptional<z.ZodString>
   title: z.ZodOptional<z.ZodString>
+  pageId: z.ZodOptional<z.ZodNumber>
 }> = z.object({
   id: z.number(),
   url: z.string().optional(),
   title: z.string().optional(),
+  pageId: z.number().optional(),
 })
 
 export type Tab = z.infer<typeof TabSchema>

@@ -11,6 +11,7 @@ import { MCPServerConfig } from '@google/gemini-cli-core'
 import type { HonoSSEStream } from '../../agent/provider-adapter/types'
 import type { SessionManager } from '../../agent/session'
 import type { ProviderConfig, ResolvedAgentConfig } from '../../agent/types'
+import type { Browser } from '../../browser/browser'
 import { INLINED_ENV } from '../../env'
 import {
   fetchBrowserOSConfig,
@@ -49,6 +50,7 @@ export interface ChatServiceDeps {
   executionDir: string
   mcpServerUrl: string
   browserosId?: string
+  browser: Browser
 }
 
 export class ChatService {
@@ -99,12 +101,14 @@ export class ChatService {
       isScheduledTask: request.isScheduledTask,
     }
 
+    const browserContext = await this.resolvePageIds(request.browserContext)
+
     const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
     await session.agent.execute(
       request.message,
       rawStream,
       abortSignal,
-      request.browserContext,
+      browserContext,
       request.previousConversation,
     )
   }
@@ -237,5 +241,44 @@ export class ChatService {
     logger.info('Session directory resolved', { dir, userProvided })
 
     return dir
+  }
+
+  // Browser context arrives with Chrome tab IDs, but tools expect internal page IDs.
+  // Resolve the mapping upfront so the agent's first navigation doesn't fail.
+  private async resolvePageIds(
+    browserContext?: BrowserContext,
+  ): Promise<BrowserContext | undefined> {
+    if (!browserContext) return undefined
+
+    const tabIds: number[] = []
+    if (browserContext.activeTab) tabIds.push(browserContext.activeTab.id)
+    if (browserContext.selectedTabs) {
+      for (const tab of browserContext.selectedTabs) tabIds.push(tab.id)
+    }
+    if (browserContext.tabs) {
+      for (const tab of browserContext.tabs) tabIds.push(tab.id)
+    }
+
+    if (tabIds.length === 0) return browserContext
+
+    const tabToPage = await this.deps.browser.resolveTabIds(tabIds)
+
+    const addPageId = (tab: { id: number; url?: string; title?: string }) => ({
+      ...tab,
+      pageId: tabToPage.get(tab.id),
+    })
+
+    logger.debug('Resolved tab IDs to page IDs', {
+      mapping: Object.fromEntries(tabToPage),
+    })
+
+    return {
+      ...browserContext,
+      activeTab: browserContext.activeTab
+        ? addPageId(browserContext.activeTab)
+        : undefined,
+      selectedTabs: browserContext.selectedTabs?.map(addPageId),
+      tabs: browserContext.tabs?.map(addPageId),
+    }
   }
 }

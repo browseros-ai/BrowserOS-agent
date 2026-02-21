@@ -30,7 +30,8 @@ export interface LoadStatus {
 
 const EXCLUDED_URL_PREFIXES = [
   'chrome-extension://',
-  'chrome://',
+  // chrome://new-tab comes in this let's keep it
+  // 'chrome://',
   'chrome-untrusted://',
   'chrome-search://',
   'devtools://',
@@ -147,6 +148,17 @@ export class Browser {
     }
 
     return [...this.pages.values()].sort((a, b) => a.pageId - b.pageId)
+  }
+
+  async resolveTabIds(tabIds: number[]): Promise<Map<number, number>> {
+    await this.listPages()
+    const tabToPage = new Map<number, number>()
+    for (const info of this.pages.values()) {
+      if (info.tabId !== undefined && tabIds.includes(info.tabId)) {
+        tabToPage.set(info.tabId, info.pageId)
+      }
+    }
+    return tabToPage
   }
 
   async getActivePage(): Promise<PageInfo | null> {

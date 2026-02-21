@@ -94,6 +94,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         browserosId,
         rateLimiter,
         sessionManager,
+        browser,
       }),
     )
     .route(

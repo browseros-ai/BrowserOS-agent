@@ -33,7 +33,6 @@ const CHAT_MODE_ALLOWED_TOOLS = new Set([
   'scroll',
   'take_snapshot',
   'take_enhanced_snapshot',
-  'take_screenshot',
   'evaluate_script',
 ])
 
@@ -116,10 +115,7 @@ export class GeminiAgent {
     // In chat mode, only allow read-only tools for page content extraction
     const excludedTools = ['save_memory', 'google_web_search']
     if (config.supportsImages === false) {
-      excludedTools.push(
-        'browser_get_screenshot',
-        'browser_get_screenshot_pointer',
-      )
+      excludedTools.push('take_screenshot')
       logger.info('Model does not support images, excluding screenshot tools')
     }
     // Chat mode: restrict to read-only tools only (no browser automation)
@@ -196,8 +192,16 @@ export class GeminiAgent {
       return ''
     }
 
-    const formatTab = (tab: { id: number; url?: string; title?: string }) =>
-      `Tab ${tab.id}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
+    const formatTab = (tab: {
+      id: number
+      url?: string
+      title?: string
+      pageId?: number
+    }) => {
+      const pageLabel =
+        tab.pageId !== undefined ? `Page ${tab.pageId}` : `Tab ${tab.id}`
+      return `${pageLabel}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
+    }
 
     const contextLines: string[] = ['## Browser Context']
 
