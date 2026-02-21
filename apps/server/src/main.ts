@@ -61,26 +61,17 @@ export class Application {
       )
     }
 
-    const cdp = new CdpBackend({ port: this.config.cdpPort ?? 0 })
-    if (this.config.cdpPort) {
-      try {
-        await cdp.connect()
-        logger.info(
-          `Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`,
-        )
-      } catch (error) {
-        logger.warn(
-          `Could not connect to CDP at http://127.0.0.1:${this.config.cdpPort}`,
-          { error: error instanceof Error ? error.message : String(error) },
-        )
-        logger.warn(
-          'CDP tools will not be available. Only extension tools will work.',
-        )
-      }
-    } else {
-      logger.info(
-        'CDP disabled (no --cdp-port specified). Only extension tools will be available.',
-      )
+    if (!this.config.cdpPort) {
+      logger.error('CDP port is required (--cdp-port)')
+      process.exit(EXIT_CODES.GENERAL_ERROR)
+    }
+
+    const cdp = new CdpBackend({ port: this.config.cdpPort })
+    try {
+      await cdp.connect()
+      logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
+    } catch (error) {
+      return this.handleStartupError('CDP', this.config.cdpPort, error)
     }
 
     const browser = new Browser(cdp, controller)
