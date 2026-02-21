@@ -28,6 +28,14 @@ export interface LoadStatus {
   isPageComplete: boolean
 }
 
+const EXCLUDED_URL_PREFIXES = [
+  'chrome-extension://',
+  'chrome://',
+  'chrome-untrusted://',
+  'chrome-search://',
+  'devtools://',
+]
+
 export class Browser {
   private cdp: CdpBackend
   private controller: ControllerBackend
@@ -96,7 +104,11 @@ export class Browser {
 
   async listPages(): Promise<PageInfo[]> {
     const targets = await this.cdp.getTargets()
-    const pages = targets.filter((t) => t.type === 'page')
+    const pages = targets.filter(
+      (t) =>
+        t.type === 'page' &&
+        !EXCLUDED_URL_PREFIXES.some((prefix) => t.url.startsWith(prefix)),
+    )
 
     const seenTargetIds = new Set<string>()
 
