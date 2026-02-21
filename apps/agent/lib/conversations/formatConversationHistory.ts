@@ -1,16 +1,24 @@
 import type { UIMessage } from 'ai'
 
 const MAX_MESSAGES = 10
-const MAX_MESSAGE_CHARS = 65536 // 16K context window size
+const MAX_MESSAGE_CHARS = 65536
 
-export function formatConversationHistory(messages: UIMessage[]): string {
-  if (messages.length === 0) return ''
+interface ConversationMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export function formatConversationHistory(
+  messages: UIMessage[],
+): ConversationMessage[] {
+  if (messages.length === 0) return []
 
   const recentMessages = messages.slice(-MAX_MESSAGES)
 
-  const formatted = recentMessages
+  return recentMessages
     .map((msg) => {
-      const role = msg.role === 'user' ? 'user' : 'assistant'
+      const role: 'user' | 'assistant' =
+        msg.role === 'user' ? 'user' : 'assistant'
       const textContent = msg.parts
         .filter((part) => part.type === 'text')
         .map((part) => part.text)
@@ -18,15 +26,12 @@ export function formatConversationHistory(messages: UIMessage[]): string {
 
       if (!textContent.trim()) return null
 
-      const truncatedContent =
+      const content =
         textContent.length > MAX_MESSAGE_CHARS
           ? `${textContent.slice(0, MAX_MESSAGE_CHARS)}... [truncated]`
           : textContent
 
-      return `<${role}>${truncatedContent}</${role}>`
+      return { role, content }
     })
-    .filter(Boolean)
-    .join('\n\n')
-
-  return formatted
+    .filter((msg): msg is ConversationMessage => msg !== null)
 }
