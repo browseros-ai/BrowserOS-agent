@@ -51,6 +51,9 @@ export class Application {
 
     let controller: ControllerBackend
     try {
+      logger.debug(
+        `Starting WebSocket server on port ${this.config.extensionPort}`,
+      )
       controller = new ControllerBackend({ port: this.config.extensionPort })
       await controller.start()
     } catch (error) {
@@ -68,6 +71,9 @@ export class Application {
 
     const cdp = new CdpBackend({ port: this.config.cdpPort })
     try {
+      logger.debug(
+        `Connecting to CDP at http://127.0.0.1:${this.config.cdpPort}`,
+      )
       await cdp.connect()
       logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
     } catch (error) {
@@ -185,15 +191,16 @@ export class Application {
     port: number,
     error: unknown,
   ): never {
-    logger.error(`Failed to start ${serverName}`, {
-      port,
-      error: error instanceof Error ? error.message : String(error),
-    })
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    logger.error(`Failed to start ${serverName}`, { port, error: errorMsg })
+    console.error(
+      `[FATAL] Failed to start ${serverName} on port ${port}: ${errorMsg}`,
+    )
     Sentry.captureException(error)
 
     if (isPortInUseError(error)) {
-      logger.error(
-        `Port ${port} is already in use. Chromium should try a different port.`,
+      console.error(
+        `[FATAL] Port ${port} is already in use. Chromium should try a different port.`,
       )
       process.exit(EXIT_CODES.PORT_CONFLICT)
     }
