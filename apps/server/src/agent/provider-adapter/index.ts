@@ -27,6 +27,7 @@ import type {
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateText, streamText } from 'ai'
 import { logger } from '../../lib/logger'
+import { createOpenRouterCompatibleFetch } from '../../lib/openrouter-fetch'
 import type { ProviderAdapter } from './adapters/base'
 import { createProviderAdapter } from './adapters/factory'
 import { MessageConversionStrategy } from './strategies/message'
@@ -35,7 +36,6 @@ import { ToolConversionStrategy } from './strategies/tool'
 import type { VercelAIConfig } from './types'
 import { AIProvider } from './types'
 import type { UIMessageStreamWriter } from './ui-message-stream'
-import { createOpenRouterCompatibleFetch } from './utils/fetch'
 
 type ProviderFactory = (config: VercelAIConfig) => (modelId: string) => unknown
 

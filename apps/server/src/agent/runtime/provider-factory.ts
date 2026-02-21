@@ -4,11 +4,11 @@ import { createAzure } from '@ai-sdk/azure'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import { logger } from '../../lib/logger'
-import { AIProvider } from '../provider-adapter/types'
-import { createOpenRouterCompatibleFetch } from '../provider-adapter/utils/fetch'
+import { createOpenRouterCompatibleFetch } from '../../lib/openrouter-fetch'
 import type { ResolvedAgentConfig } from '../types'
 
 type ProviderFactory = (
@@ -103,17 +103,17 @@ function createBrowserOSFactory(
   if (!config.baseUrl) throw new Error('BrowserOS provider requires baseUrl')
   const { baseUrl, apiKey, upstreamProvider } = config
 
-  if (upstreamProvider === AIProvider.OPENROUTER) {
+  if (upstreamProvider === LLM_PROVIDERS.OPENROUTER) {
     return createOpenRouter({
       baseURL: baseUrl,
       ...(apiKey && { apiKey }),
       fetch: createOpenRouterCompatibleFetch(),
     })
   }
-  if (upstreamProvider === AIProvider.ANTHROPIC) {
+  if (upstreamProvider === LLM_PROVIDERS.ANTHROPIC) {
     return createAnthropic({ baseURL: baseUrl, ...(apiKey && { apiKey }) })
   }
-  if (upstreamProvider === AIProvider.AZURE) {
+  if (upstreamProvider === LLM_PROVIDERS.AZURE) {
     return createAzure({ baseURL: baseUrl, ...(apiKey && { apiKey }) })
   }
   logger.info('creating openai-compatible')
@@ -137,16 +137,16 @@ function createOpenAICompatibleFactory(
 }
 
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
-  [AIProvider.ANTHROPIC]: createAnthropicFactory,
-  [AIProvider.OPENAI]: createOpenAIFactory,
-  [AIProvider.GOOGLE]: createGoogleFactory,
-  [AIProvider.OPENROUTER]: createOpenRouterFactory,
-  [AIProvider.AZURE]: createAzureFactory,
-  [AIProvider.LMSTUDIO]: createLMStudioFactory,
-  [AIProvider.OLLAMA]: createOllamaFactory,
-  [AIProvider.BEDROCK]: createBedrockFactory,
-  [AIProvider.BROWSEROS]: createBrowserOSFactory,
-  [AIProvider.OPENAI_COMPATIBLE]: createOpenAICompatibleFactory,
+  [LLM_PROVIDERS.ANTHROPIC]: createAnthropicFactory,
+  [LLM_PROVIDERS.OPENAI]: createOpenAIFactory,
+  [LLM_PROVIDERS.GOOGLE]: createGoogleFactory,
+  [LLM_PROVIDERS.OPENROUTER]: createOpenRouterFactory,
+  [LLM_PROVIDERS.AZURE]: createAzureFactory,
+  [LLM_PROVIDERS.LMSTUDIO]: createLMStudioFactory,
+  [LLM_PROVIDERS.OLLAMA]: createOllamaFactory,
+  [LLM_PROVIDERS.BEDROCK]: createBedrockFactory,
+  [LLM_PROVIDERS.BROWSEROS]: createBrowserOSFactory,
+  [LLM_PROVIDERS.OPENAI_COMPATIBLE]: createOpenAICompatibleFactory,
 }
 
 export function createLanguageModel(
