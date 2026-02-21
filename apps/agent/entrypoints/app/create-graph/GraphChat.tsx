@@ -13,7 +13,7 @@ import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { GraphEmptyState } from './GraphEmptyState'
-import { getWorkflowDisplayMessages } from './workflow-tidbit-messages'
+import { getWorkflowDisplayState } from './workflow-tidbit-messages'
 
 interface GraphChatProps {
   onSubmit: FormEventHandler<HTMLFormElement>
@@ -42,7 +42,9 @@ export const GraphChat: FC<GraphChatProps> = ({
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [mounted, setMounted] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const displayMessages = getWorkflowDisplayMessages(messages)
+  const { messages: displayMessages, latestTidbit } =
+    getWorkflowDisplayState(messages)
+  const isActive = status === 'streaming' || status === 'submitted'
 
   useEffect(() => {
     setMounted(true)
@@ -130,24 +132,38 @@ export const GraphChat: FC<GraphChatProps> = ({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="styled-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
-        {displayMessages.length === 0 ? (
+        {messages.length === 0 ? (
           <GraphEmptyState
             mounted={mounted}
             onSuggestionClick={onSuggestionClick}
           />
         ) : (
-          <ChatMessages
-            liked={liked}
-            disliked={disliked}
-            onClickDislike={onClickDislike}
-            onClickLike={onClickLike}
-            messages={displayMessages}
-            status={status}
-            messagesEndRef={messagesEndRef}
-            showJtbdPopup={popupVisible}
-            onTakeSurvey={onTakeSurvey}
-            onDismissJtbdPopup={onDismissJtbdPopup}
-          />
+          <>
+            {displayMessages.length > 0 && (
+              <ChatMessages
+                liked={liked}
+                disliked={disliked}
+                onClickDislike={onClickDislike}
+                onClickLike={onClickLike}
+                messages={displayMessages}
+                status={status}
+                messagesEndRef={messagesEndRef}
+                showJtbdPopup={popupVisible}
+                onTakeSurvey={onTakeSurvey}
+                onDismissJtbdPopup={onDismissJtbdPopup}
+              />
+            )}
+            {isActive && latestTidbit && (
+              <div className="fade-in-0 flex animate-in items-center gap-2 px-3 py-2 text-muted-foreground text-sm duration-300">
+                <span className="inline-flex gap-0.5">
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.3s]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.15s]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent-orange)]" />
+                </span>
+                <span className="truncate italic">{latestTidbit}</span>
+              </div>
+            )}
+          </>
         )}
       </div>
       {agentUrlError && <ChatError error={agentUrlError} />}

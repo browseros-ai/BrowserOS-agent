@@ -14,98 +14,86 @@ const isTidbitLine = (line: string): boolean => {
   return TIDBIT_SUFFIXES.some((suffix) => trimmed.endsWith(suffix))
 }
 
-const getNonEmptyLines = (text: string): string[] =>
-  text.split('\n').filter((line) => line.trim().length > 0)
-
-const isAllTidbitText = (text: string): boolean => {
-  const lines = getNonEmptyLines(text)
-  return lines.length > 0 && lines.every((line) => isTidbitLine(line))
+export interface WorkflowDisplayState {
+  messages: UIMessage[]
+  latestTidbit: string | null
 }
 
-export const isWorkflowTidbitMessage = (message: UIMessage): boolean => {
-  if (message.role !== 'assistant') return false
-  if (message.parts.length === 0) return false
-  if (message.parts.some((part) => !isTextPart(part))) return false
+// strip tidbit lines from a text part, return cleaned text and last tidbit found
+const stripTidbitLines = (
+  text: string,
+): { cleaned: string; lastTidbit: string | null } => {
+  const lines = text.split('\n')
+  const cleanedLines: string[] = []
+  let lastTidbit: string | null = null
 
-  const fullText = message.parts
-    .filter((part) => isTextPart(part))
-    .map((part) => part.text)
-    .join('')
+  for (const line of lines) {
+    if (isTidbitLine(line)) {
+      lastTidbit = line.trim()
+    } else {
+      cleanedLines.push(line)
+    }
+  }
 
-  return isAllTidbitText(fullText)
+  return { cleaned: cleanedLines.join('\n'), lastTidbit }
 }
 
-// within a text part that has multiple tidbit lines, keep only the last line
-const compactTidbitLinesInPart = (part: MessagePart): MessagePart => {
-  if (!isTextPart(part)) return part
-
-  const lines = getNonEmptyLines(part.text)
-  if (lines.length <= 1) return part
-  if (!lines.every((line) => isTidbitLine(line))) return part
-
-  return { ...part, text: lines[lines.length - 1] }
-}
-
-// collapse consecutive tidbit text parts within a single message
-const compactTidbitPartsInMessage = (message: UIMessage): UIMessage => {
+// remove tidbit lines from a message's text parts
+const stripTidbitsFromMessage = (
+  message: UIMessage,
+  tidbitState: { lastTidbit: string | null },
+): UIMessage | null => {
   if (message.role !== 'assistant') return message
 
-  // first compact multi-line tidbit text within each part
-  const lineCompactedParts = message.parts.map(compactTidbitLinesInPart)
+  const newParts: UIMessage['parts'] = []
 
-  // then collapse consecutive tidbit parts to just the last one
-  const compactedParts: UIMessage['parts'] = []
-  let pendingTidbitPart: (MessagePart & { type: 'text' }) | null = null
-
-  const flushPendingTidbitPart = () => {
-    if (!pendingTidbitPart) return
-    compactedParts.push(pendingTidbitPart)
-    pendingTidbitPart = null
-  }
-
-  for (const part of lineCompactedParts) {
-    if (isTextPart(part) && isAllTidbitText(part.text)) {
-      pendingTidbitPart = part
+  for (const part of message.parts) {
+    if (!isTextPart(part)) {
+      newParts.push(part)
       continue
     }
 
-    flushPendingTidbitPart()
-    compactedParts.push(part)
+    const { cleaned, lastTidbit } = stripTidbitLines(part.text)
+    if (lastTidbit) tidbitState.lastTidbit = lastTidbit
+
+    // keep the part only if there's non-tidbit content left
+    const trimmed = cleaned.trim()
+    if (trimmed.length > 0) {
+      newParts.push({ ...part, text: trimmed })
+    }
   }
 
-  flushPendingTidbitPart()
+  // drop the message entirely if no parts remain
+  if (newParts.length === 0) return null
 
-  const partsChanged =
-    compactedParts.length !== message.parts.length ||
-    compactedParts.some((p, i) => p !== message.parts[i])
+  if (
+    newParts.length === message.parts.length &&
+    newParts.every((p, i) => p === message.parts[i])
+  ) {
+    return message
+  }
 
-  if (!partsChanged) return message
-
-  return { ...message, parts: compactedParts }
+  return { ...message, parts: newParts }
 }
 
-export const getWorkflowDisplayMessages = (
+/**
+ * Process messages for display: strip all tidbit lines from message content
+ * and extract the latest tidbit as a separate status string.
+ * Tidbits are rendered as a compact status indicator, not as chat content.
+ */
+export const getWorkflowDisplayState = (
   messages: UIMessage[],
-): UIMessage[] => {
-  // first compact tidbit parts within each message
-  const normalizedMessages = messages.map(compactTidbitPartsInMessage)
-  const compactedMessages: UIMessage[] = []
+): WorkflowDisplayState => {
+  const tidbitState = { lastTidbit: null as string | null }
+  const displayMessages: UIMessage[] = []
 
-  // then collapse consecutive tidbit-only messages
-  for (const message of normalizedMessages) {
-    const previousMessage = compactedMessages[compactedMessages.length - 1]
-    const shouldReplacePreviousTidbit =
-      previousMessage &&
-      isWorkflowTidbitMessage(previousMessage) &&
-      isWorkflowTidbitMessage(message)
-
-    if (shouldReplacePreviousTidbit) {
-      compactedMessages[compactedMessages.length - 1] = message
-      continue
-    }
-
-    compactedMessages.push(message)
+  for (const message of messages) {
+    const stripped = stripTidbitsFromMessage(message, tidbitState)
+    if (stripped) displayMessages.push(stripped)
   }
 
-  return compactedMessages
+  return {
+    messages: displayMessages,
+    latestTidbit: tidbitState.lastTidbit,
+  }
 }
