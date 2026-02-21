@@ -144,13 +144,21 @@ function getCdpToolReference(): string {
 - \`click(page, element)\` - Click element by ID from snapshot
 - \`click_at(page, x, y)\` - Click at specific coordinates
 - \`hover(page, element)\` - Hover over element
+- \`focus(page, element)\` - Focus an element (scrolls into view first)
 - \`clear(page, element)\` - Clear text from input or textarea
 - \`fill(page, element, text, clear?)\` - Type into input/textarea (clears first by default)
+- \`check(page, element)\` - Check a checkbox or radio button (no-op if already checked)
+- \`uncheck(page, element)\` - Uncheck a checkbox (no-op if already unchecked)
+- \`upload_file(page, element, files)\` - Set file(s) on a file input (absolute paths)
 - \`select_option(page, element, value)\` - Select dropdown option by value or text
 - \`press_key(page, key)\` - Press key or combo (e.g., "Enter", "Control+A", "ArrowDown")
 - \`drag(page, sourceElement, targetElement?, targetX?, targetY?)\` - Drag element to another element or coordinates
 - \`scroll(page, direction?, amount?, element?)\` - Scroll page or element (up/down/left/right)
 - \`handle_dialog(page, accept, promptText?)\` - Handle browser dialogs (alert, confirm, prompt)
+
+## Page Actions
+- \`save_pdf(page, path, cwd?)\` - Save page as PDF to disk
+- \`download_file(page, element, path, cwd?)\` - Click element to trigger download, save to directory
 
 ## Tab Groups
 - \`list_tab_groups\` - Get all tab groups with IDs, titles, colors, and tab IDs

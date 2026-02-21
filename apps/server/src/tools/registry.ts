@@ -10,16 +10,20 @@ import {
 } from './bookmarks'
 import { get_recent_history, search_history } from './history'
 import {
+  check,
   clear,
   click,
   click_at,
   drag,
   fill,
+  focus,
   handle_dialog,
   hover,
   press_key,
   scroll,
   select_option,
+  uncheck,
+  upload_file,
 } from './input'
 import {
   close_page,
@@ -29,6 +33,7 @@ import {
   new_page,
   wait_for,
 } from './navigation'
+import { download_file, save_pdf } from './page-actions'
 import {
   evaluate_script,
   get_page_content,
@@ -60,17 +65,25 @@ export const registry = createRegistry([
   take_screenshot,
   evaluate_script,
 
-  // Input (10)
+  // Input (14)
   click,
   click_at,
   hover,
+  focus,
   clear,
   fill,
+  check,
+  uncheck,
+  upload_file,
   press_key,
   drag,
   scroll,
   handle_dialog,
   select_option,
+
+  // Page Actions (2)
+  save_pdf,
+  download_file,
 
   // Bookmarks (8)
   get_bookmarks,

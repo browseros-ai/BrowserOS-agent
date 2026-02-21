@@ -193,6 +193,65 @@ export const handle_dialog = defineTool({
   },
 })
 
+export const focus = defineTool({
+  name: 'focus',
+  description: 'Focus an element by its ID. Scrolls into view first.',
+  input: z.object({
+    page: pageParam,
+    element: elementParam,
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.focus(args.page, args.element)
+    response.text(`Focused [${args.element}]`)
+  },
+})
+
+export const check = defineTool({
+  name: 'check',
+  description: 'Check a checkbox or radio button. No-op if already checked.',
+  input: z.object({
+    page: pageParam,
+    element: elementParam,
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.check(args.page, args.element)
+    response.text(`Checked [${args.element}]`)
+    response.includeSnapshot(args.page)
+  },
+})
+
+export const uncheck = defineTool({
+  name: 'uncheck',
+  description: 'Uncheck a checkbox. No-op if already unchecked.',
+  input: z.object({
+    page: pageParam,
+    element: elementParam,
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.uncheck(args.page, args.element)
+    response.text(`Unchecked [${args.element}]`)
+    response.includeSnapshot(args.page)
+  },
+})
+
+export const upload_file = defineTool({
+  name: 'upload_file',
+  description:
+    'Set file(s) on a file input element. Files must be absolute paths on disk.',
+  input: z.object({
+    page: pageParam,
+    element: elementParam.describe(
+      'Element ID of the <input type="file"> element',
+    ),
+    files: z.array(z.string()).describe('Absolute file paths to upload'),
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.uploadFile(args.page, args.element, args.files)
+    response.text(`Set ${args.files.length} file(s) on [${args.element}]`)
+    response.includeSnapshot(args.page)
+  },
+})
+
 export const select_option = defineTool({
   name: 'select_option',
   description:

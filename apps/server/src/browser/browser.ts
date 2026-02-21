@@ -215,18 +215,29 @@ export class Browser {
 
   // --- Navigation ---
 
+  private async waitForLoad(sessionId: string, timeout = 30000): Promise<void> {
+    const deadline = Date.now() + timeout
+    await new Promise((r) => setTimeout(r, 50))
+
+    while (Date.now() < deadline) {
+      try {
+        const result = (await this.cdp.send(
+          'Runtime.evaluate',
+          { expression: 'document.readyState', returnByValue: true },
+          sessionId,
+        )) as { result?: { value?: string } }
+        if (result.result?.value === 'complete') return
+      } catch {
+        // Context torn down during navigation — expected
+      }
+      await new Promise((r) => setTimeout(r, 150))
+    }
+  }
+
   async goto(page: number, url: string): Promise<void> {
     const sessionId = await this.resolvePage(page)
     await this.cdp.send('Page.navigate', { url }, sessionId)
-    try {
-      await this.cdp.send(
-        'Page.setLifecycleEventsEnabled',
-        { enabled: true },
-        sessionId,
-      )
-    } catch {
-      // not critical
-    }
+    await this.waitForLoad(sessionId)
   }
 
   async goBack(page: number): Promise<void> {
@@ -236,6 +247,7 @@ export class Browser {
       { expression: 'history.back()', awaitPromise: true },
       sessionId,
     )
+    await this.waitForLoad(sessionId)
   }
 
   async goForward(page: number): Promise<void> {
@@ -245,11 +257,13 @@ export class Browser {
       { expression: 'history.forward()', awaitPromise: true },
       sessionId,
     )
+    await this.waitForLoad(sessionId)
   }
 
   async reload(page: number): Promise<void> {
     const sessionId = await this.resolvePage(page)
     await this.cdp.send('Page.reload', {}, sessionId)
+    await this.waitForLoad(sessionId)
   }
 
   async waitFor(
@@ -639,6 +653,133 @@ export class Browser {
     )
 
     return selected as string | null
+  }
+
+  // --- Form helpers ---
+
+  async focus(page: number, element: number): Promise<void> {
+    const sessionId = await this.resolvePage(page)
+    await elements.scrollIntoView(this.cdp, element, sessionId)
+    await elements.focusElement(this.cdp, element, sessionId)
+  }
+
+  async check(page: number, element: number): Promise<boolean> {
+    const sessionId = await this.resolvePage(page)
+    const checked = await elements.callOnElement(
+      this.cdp,
+      element,
+      sessionId,
+      'function(){return this.checked}',
+    )
+    if (!checked) await this.click(page, element)
+    return true
+  }
+
+  async uncheck(page: number, element: number): Promise<boolean> {
+    const sessionId = await this.resolvePage(page)
+    const checked = await elements.callOnElement(
+      this.cdp,
+      element,
+      sessionId,
+      'function(){return this.checked}',
+    )
+    if (checked) await this.click(page, element)
+    return false
+  }
+
+  async uploadFile(
+    page: number,
+    element: number,
+    files: string[],
+  ): Promise<void> {
+    const sessionId = await this.resolvePage(page)
+    await this.cdp.send(
+      'DOM.setFileInputFiles',
+      { files, backendNodeId: element },
+      sessionId,
+    )
+  }
+
+  // --- File operations ---
+
+  async printToPDF(
+    page: number,
+    opts?: { landscape?: boolean; printBackground?: boolean },
+  ): Promise<{ data: string }> {
+    const sessionId = await this.resolvePage(page)
+    const result = (await this.cdp.send(
+      'Page.printToPDF',
+      {
+        landscape: opts?.landscape ?? false,
+        printBackground: opts?.printBackground ?? true,
+      },
+      sessionId,
+    )) as { data: string }
+    return { data: result.data }
+  }
+
+  async downloadViaClick(
+    page: number,
+    element: number,
+    downloadPath: string,
+  ): Promise<{ filePath: string; suggestedFilename: string }> {
+    await this.cdp.send('Browser.setDownloadBehavior', {
+      behavior: 'allowAndName',
+      downloadPath,
+      eventsEnabled: true,
+    })
+
+    return new Promise<{ filePath: string; suggestedFilename: string }>(
+      (resolve, reject) => {
+        let guid = ''
+        let suggestedFilename = ''
+        const timeout = setTimeout(() => {
+          cleanUp()
+          reject(new Error('Download timed out after 60s'))
+        }, 60000)
+
+        const unsubBegin = this.cdp.on(
+          'Browser.downloadWillBegin',
+          (params: unknown) => {
+            const p = params as { guid: string; suggestedFilename: string }
+            guid = p.guid
+            suggestedFilename = p.suggestedFilename
+          },
+        )
+
+        const unsubProgress = this.cdp.on(
+          'Browser.downloadProgress',
+          (params: unknown) => {
+            const p = params as { guid: string; state: string }
+            if (p.guid === guid && p.state === 'completed') {
+              cleanUp()
+              resolve({
+                filePath: `${downloadPath}/${guid}`,
+                suggestedFilename,
+              })
+            }
+            if (p.guid === guid && p.state === 'canceled') {
+              cleanUp()
+              reject(new Error('Download was canceled'))
+            }
+          },
+        )
+
+        const cleanUp = () => {
+          clearTimeout(timeout)
+          unsubBegin()
+          unsubProgress()
+          this.cdp
+            .send('Browser.setDownloadBehavior', { behavior: 'default' })
+            .catch(() => {})
+        }
+
+        this.click(page, element).catch((err) => {
+          cleanUp()
+          reject(err)
+        })
+      },
+    )
   }
 
   // --- Controller: Bookmarks ---
