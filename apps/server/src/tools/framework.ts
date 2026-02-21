@@ -1,5 +1,5 @@
 import type { z } from 'zod'
-import type { Browser } from '../../browser/browser'
+import type { Browser } from '../browser/browser'
 import { ToolResponse, type ToolResult } from './response'
 
 export interface ToolDefinition {

@@ -1,8 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { logger } from '../../lib/logger'
-import { metrics } from '../../lib/metrics'
-import { executeTool, type ToolContext } from './framework'
-import type { ToolRegistry } from './tool-registry'
+import { logger } from '../../../lib/logger'
+import { metrics } from '../../../lib/metrics'
+import { executeTool, type ToolContext } from '../../../tools/framework'
+import type { ToolRegistry } from '../../../tools/tool-registry'
 
 export function registerTools(
   mcpServer: McpServer,

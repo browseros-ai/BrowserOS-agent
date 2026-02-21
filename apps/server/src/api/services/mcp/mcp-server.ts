@@ -7,8 +7,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Browser } from '../../../browser/browser'
-import { registerTools } from '../../../tools/core/register-mcp'
-import type { ToolRegistry } from '../../../tools/core/tool-registry'
+import type { ToolRegistry } from '../../../tools/tool-registry'
+import { registerTools } from './register-mcp'
 
 export interface McpServiceDeps {
   version: string

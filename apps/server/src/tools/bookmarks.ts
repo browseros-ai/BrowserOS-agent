@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { BookmarkNode } from '../browser/bookmarks'
-import { defineTool } from './core/framework'
+import { defineTool } from './framework'
 
 function formatBookmarkTree(nodes: BookmarkNode[]): string {
   const lines: string[] = []

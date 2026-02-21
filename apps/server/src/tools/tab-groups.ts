@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineTool } from './core/framework'
+import { defineTool } from './framework'
 
 const TAB_GROUP_COLORS = [
   'grey',

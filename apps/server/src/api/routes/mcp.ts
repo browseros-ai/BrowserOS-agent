@@ -10,7 +10,7 @@ import type { Browser } from '../../browser/browser'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
-import type { ToolRegistry } from '../../tools/core/tool-registry'
+import type { ToolRegistry } from '../../tools/tool-registry'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { Env } from '../types'
 

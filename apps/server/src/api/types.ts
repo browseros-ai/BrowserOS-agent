@@ -18,7 +18,7 @@ import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
 import type { ControllerBackend } from '../browser/backends/controller'
 import type { Browser } from '../browser/browser'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
-import type { ToolRegistry } from '../tools/core/tool-registry'
+import type { ToolRegistry } from '../tools/tool-registry'
 
 // Re-export browser context types for consumers
 export {

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineTool } from './core/framework'
+import { defineTool } from './framework'
 
 export const search_history = defineTool({
   name: 'search_history',

@@ -8,7 +8,6 @@ import {
   remove_bookmark_tree,
   update_bookmark,
 } from './bookmarks'
-import { createRegistry } from './core/tool-registry'
 import { get_recent_history, search_history } from './history'
 import {
   clear,
@@ -43,6 +42,7 @@ import {
   ungroup_tabs,
   update_tab_group,
 } from './tab-groups'
+import { createRegistry } from './tool-registry'
 
 export const registry = createRegistry([
   // Navigation (6)
