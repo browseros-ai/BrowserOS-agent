@@ -48,7 +48,7 @@ export const group_tabs = defineTool({
     tabIds: z.array(z.number()).describe('Array of tab IDs to group together'),
     title: z.string().optional().describe('Title for the group'),
     color: z.enum(TAB_GROUP_COLORS).optional().describe('Color for the group'),
-    groupId: z.number().optional().describe('Existing group ID to add tabs to'),
+    groupId: z.string().optional().describe('Existing group ID to add tabs to'),
   }),
   handler: async (args, ctx, response) => {
     const group = await ctx.browser.groupTabs(args.tabIds, {
@@ -66,7 +66,7 @@ export const update_tab_group = defineTool({
   name: 'update_tab_group',
   description: "Update a tab group's title, color, or collapsed state",
   input: z.object({
-    groupId: z.number().describe('ID of the group to update'),
+    groupId: z.string().describe('ID of the group to update'),
     title: z.string().optional().describe('New title for the group'),
     color: z
       .enum(TAB_GROUP_COLORS)
@@ -100,5 +100,19 @@ export const ungroup_tabs = defineTool({
   handler: async (args, ctx, response) => {
     const result = await ctx.browser.ungroupTabs(args.tabIds)
     response.text(`Ungrouped ${result.ungroupedCount} tabs`)
+  },
+})
+
+export const close_tab_group = defineTool({
+  name: 'close_tab_group',
+  description: 'Close a tab group and all its tabs',
+  input: z.object({
+    groupId: z
+      .string()
+      .describe('ID of the group to close (closes all tabs in group)'),
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.closeTabGroup(args.groupId)
+    response.text(`Closed tab group ${args.groupId} and all its tabs`)
   },
 })

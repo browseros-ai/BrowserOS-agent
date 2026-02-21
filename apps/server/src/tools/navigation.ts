@@ -13,7 +13,9 @@ export const get_active_page = defineTool({
       response.error('No active page found.')
       return
     }
-    response.text(`Active page: ${page.pageId}\n${page.title}\n${page.url}`)
+    response.text(
+      `Active page: ${page.pageId} (tab ${page.tabId})\n${page.title}\n${page.url}`,
+    )
   },
 })
 
@@ -29,7 +31,9 @@ export const list_pages = defineTool({
       return
     }
 
-    const lines = pages.map((p) => `${p.pageId}. ${p.title}\n   ${p.url}`)
+    const lines = pages.map(
+      (p) => `${p.pageId}. ${p.title} (tab ${p.tabId})\n   ${p.url}`,
+    )
     response.text(lines.join('\n\n'))
   },
 })
@@ -87,9 +91,19 @@ export const new_page = defineTool({
   description: 'Open a new page (tab) and navigate to a URL',
   input: z.object({
     url: z.string().describe('URL to open'),
+    hidden: z.boolean().default(false).describe('Create as hidden tab'),
+    background: z
+      .boolean()
+      .default(false)
+      .describe('Open in background without activating'),
+    windowId: z.number().optional().describe('Window ID to create tab in'),
   }),
   handler: async (args, ctx, response) => {
-    const pageId = await ctx.browser.newPage(args.url)
+    const pageId = await ctx.browser.newPage(args.url, {
+      hidden: args.hidden || undefined,
+      background: args.background || undefined,
+      windowId: args.windowId,
+    })
     response.text(`Opened new page: ${args.url}\nPage ID: ${pageId}`)
   },
 })

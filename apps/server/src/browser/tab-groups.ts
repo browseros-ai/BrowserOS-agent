@@ -1,7 +1,7 @@
-import type { ControllerBackend } from './backends/types'
+import type { CdpBackend } from './backends/types'
 
 export interface TabGroup {
-  id: number
+  id: string
   windowId: number
   title: string
   color: string
@@ -9,32 +9,39 @@ export interface TabGroup {
   tabIds: number[]
 }
 
-export async function listTabGroups(
-  controller: ControllerBackend,
-): Promise<TabGroup[]> {
-  const result = await controller.send('listTabGroups', {})
+export async function listTabGroups(cdp: CdpBackend): Promise<TabGroup[]> {
+  const result = await cdp.send('Browser.getTabGroups')
   const data = result as { groups: TabGroup[] }
   return data.groups
 }
 
 export async function groupTabs(
-  controller: ControllerBackend,
+  cdp: CdpBackend,
   tabIds: number[],
-  opts?: { title?: string; color?: string; groupId?: number },
+  opts?: { title?: string; color?: string; groupId?: string },
 ): Promise<TabGroup> {
-  const result = await controller.send('groupTabs', {
+  if (opts?.groupId) {
+    const result = await cdp.send('Browser.addTabsToGroup', {
+      groupId: opts.groupId,
+      tabIds,
+    })
+    return result as TabGroup
+  }
+
+  const result = await cdp.send('Browser.createTabGroup', {
     tabIds,
-    ...opts,
+    ...(opts?.title !== undefined && { title: opts.title }),
+    ...(opts?.color !== undefined && { color: opts.color }),
   })
   return result as TabGroup
 }
 
 export async function updateTabGroup(
-  controller: ControllerBackend,
-  groupId: number,
+  cdp: CdpBackend,
+  groupId: string,
   opts: { title?: string; color?: string; collapsed?: boolean },
 ): Promise<TabGroup> {
-  const result = await controller.send('updateTabGroup', {
+  const result = await cdp.send('Browser.updateTabGroup', {
     groupId,
     ...opts,
   })
@@ -42,9 +49,16 @@ export async function updateTabGroup(
 }
 
 export async function ungroupTabs(
-  controller: ControllerBackend,
+  cdp: CdpBackend,
   tabIds: number[],
 ): Promise<{ ungroupedCount: number }> {
-  const result = await controller.send('ungroupTabs', { tabIds })
+  const result = await cdp.send('Browser.removeTabsFromGroup', { tabIds })
   return result as { ungroupedCount: number }
+}
+
+export async function closeTabGroup(
+  cdp: CdpBackend,
+  groupId: string,
+): Promise<void> {
+  await cdp.send('Browser.closeTabGroup', { groupId })
 }

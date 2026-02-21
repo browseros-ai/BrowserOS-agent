@@ -79,3 +79,30 @@ export const get_recent_history = defineTool({
     response.text(lines.join('\n'))
   },
 })
+
+export const delete_history_url = defineTool({
+  name: 'delete_history_url',
+  description: 'Delete a specific URL from browser history',
+  input: z.object({
+    url: z.string().describe('URL to delete from history'),
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.deleteHistoryUrl(args.url)
+    response.text(`Deleted ${args.url} from history`)
+  },
+})
+
+export const delete_history_range = defineTool({
+  name: 'delete_history_range',
+  description: 'Delete browser history within a time range',
+  input: z.object({
+    startTime: z.number().describe('Start time as epoch ms'),
+    endTime: z.number().describe('End time as epoch ms'),
+  }),
+  handler: async (args, ctx, response) => {
+    await ctx.browser.deleteHistoryRange(args.startTime, args.endTime)
+    const start = new Date(args.startTime).toISOString()
+    const end = new Date(args.endTime).toISOString()
+    response.text(`Deleted history from ${start} to ${end}`)
+  },
+})

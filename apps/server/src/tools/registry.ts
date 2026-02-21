@@ -1,14 +1,17 @@
 import {
   create_bookmark,
-  create_bookmark_folder,
-  get_bookmark_children,
   get_bookmarks,
   move_bookmark,
   remove_bookmark,
-  remove_bookmark_tree,
+  search_bookmarks,
   update_bookmark,
 } from './bookmarks'
-import { get_recent_history, search_history } from './history'
+import {
+  delete_history_range,
+  delete_history_url,
+  get_recent_history,
+  search_history,
+} from './history'
 import {
   check,
   clear,
@@ -42,12 +45,19 @@ import {
   take_snapshot,
 } from './snapshot'
 import {
+  close_tab_group,
   group_tabs,
   list_tab_groups,
   ungroup_tabs,
   update_tab_group,
 } from './tab-groups'
 import { createRegistry } from './tool-registry'
+import {
+  activate_window,
+  close_window,
+  create_window,
+  list_windows,
+} from './windows'
 
 export const registry = createRegistry([
   // Navigation (6)
@@ -85,23 +95,30 @@ export const registry = createRegistry([
   save_pdf,
   download_file,
 
-  // Bookmarks (8)
+  // Windows (4)
+  list_windows,
+  create_window,
+  close_window,
+  activate_window,
+
+  // Bookmarks (6)
   get_bookmarks,
   create_bookmark,
   remove_bookmark,
   update_bookmark,
-  create_bookmark_folder,
-  get_bookmark_children,
   move_bookmark,
-  remove_bookmark_tree,
+  search_bookmarks,
 
-  // History (2)
+  // History (4)
   search_history,
   get_recent_history,
+  delete_history_url,
+  delete_history_range,
 
-  // Tab Groups (4)
+  // Tab Groups (5)
   list_tab_groups,
   group_tabs,
   update_tab_group,
   ungroup_tabs,
+  close_tab_group,
 ])

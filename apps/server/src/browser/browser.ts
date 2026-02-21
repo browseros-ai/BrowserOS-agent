@@ -19,17 +19,35 @@ import * as tabGroups from './tab-groups'
 export interface PageInfo {
   pageId: number
   targetId: string
-  tabId?: number
-  windowId?: number
+  tabId: number
+  windowId: number
   title: string
   url: string
+  isActive?: boolean
+  isLoading?: boolean
+  isPinned?: boolean
+  isHidden?: boolean
+  groupId?: string
+  index?: number
 }
 
-export interface LoadStatus {
+export interface WindowInfo {
+  windowId: number
+  isHidden?: boolean
+}
+
+interface TabInfo {
   tabId: number
-  isResourcesLoading: boolean
-  isDOMContentLoaded: boolean
-  isPageComplete: boolean
+  targetId: string
+  windowId: number
+  title: string
+  url: string
+  isActive?: boolean
+  isLoading?: boolean
+  isPinned?: boolean
+  isHidden?: boolean
+  groupId?: string
+  index?: number
 }
 
 const EXCLUDED_URL_PREFIXES = [
@@ -43,6 +61,7 @@ const EXCLUDED_URL_PREFIXES = [
 
 export class Browser {
   private cdp: CdpBackend
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: kept for later removal
   private controller: ControllerBackend
   private pages = new Map<number, PageInfo>()
   private sessions = new Map<string, string>()
@@ -108,25 +127,31 @@ export class Browser {
   // --- Pages ---
 
   async listPages(): Promise<PageInfo[]> {
-    const targets = await this.cdp.getTargets()
-    const pages = targets.filter(
-      (t) =>
-        t.type === 'page' &&
-        !EXCLUDED_URL_PREFIXES.some((prefix) => t.url.startsWith(prefix)),
+    const result = (await this.cdp.send('Browser.getTabs', {
+      includeHidden: true,
+    })) as { tabs: TabInfo[] }
+    const tabs = result.tabs.filter(
+      (t) => !EXCLUDED_URL_PREFIXES.some((prefix) => t.url.startsWith(prefix)),
     )
 
     const seenTargetIds = new Set<string>()
 
-    for (const target of pages) {
-      seenTargetIds.add(target.id)
+    for (const tab of tabs) {
+      seenTargetIds.add(tab.targetId)
 
       let found = false
       for (const info of this.pages.values()) {
-        if (info.targetId === target.id) {
-          info.title = target.title
-          info.url = target.url
-          info.tabId = target.tabId
-          info.windowId = target.windowId
+        if (info.targetId === tab.targetId) {
+          info.title = tab.title
+          info.url = tab.url
+          info.tabId = tab.tabId
+          info.windowId = tab.windowId
+          info.isActive = tab.isActive
+          info.isLoading = tab.isLoading
+          info.isPinned = tab.isPinned
+          info.isHidden = tab.isHidden
+          info.groupId = tab.groupId
+          info.index = tab.index
           found = true
           break
         }
@@ -136,11 +161,17 @@ export class Browser {
         const pageId = this.nextPageId++
         this.pages.set(pageId, {
           pageId,
-          targetId: target.id,
-          tabId: target.tabId,
-          windowId: target.windowId,
-          title: target.title,
-          url: target.url,
+          targetId: tab.targetId,
+          tabId: tab.tabId,
+          windowId: tab.windowId,
+          title: tab.title,
+          url: tab.url,
+          isActive: tab.isActive,
+          isLoading: tab.isLoading,
+          isPinned: tab.isPinned,
+          isHidden: tab.isHidden,
+          groupId: tab.groupId,
+          index: tab.index,
         })
       }
     }
@@ -158,7 +189,7 @@ export class Browser {
     await this.listPages()
     const tabToPage = new Map<number, number>()
     for (const info of this.pages.values()) {
-      if (info.tabId !== undefined && tabIds.includes(info.tabId)) {
+      if (tabIds.includes(info.tabId)) {
         tabToPage.set(info.tabId, info.pageId)
       }
     }
@@ -166,40 +197,49 @@ export class Browser {
   }
 
   async getActivePage(): Promise<PageInfo | null> {
-    const result = (await this.controller.send('getActiveTab')) as {
+    const result = (await this.cdp.send('Browser.getActiveTab')) as {
       tabId: number
-    }
-
-    await this.listPages()
-
-    for (const info of this.pages.values()) {
-      if (info.tabId === result.tabId) return info
-    }
-
-    return null
-  }
-
-  async newPage(url: string): Promise<number> {
-    const result = (await this.cdp.send('Target.createTarget', {
-      url,
-    })) as {
       targetId: string
     }
 
     await this.listPages()
 
-    for (const [pageId, info] of this.pages) {
-      if (info.targetId === result.targetId) {
-        return pageId
-      }
+    for (const info of this.pages.values()) {
+      if (info.targetId === result.targetId) return info
     }
+
+    return null
+  }
+
+  async newPage(
+    url: string,
+    opts?: { hidden?: boolean; background?: boolean; windowId?: number },
+  ): Promise<number> {
+    const result = (await this.cdp.send('Browser.createTab', {
+      url,
+      ...(opts?.hidden !== undefined && { hidden: opts.hidden }),
+      ...(opts?.background !== undefined && { background: opts.background }),
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+    })) as { tabId: number }
+
+    const tabInfo = (await this.cdp.send('Browser.getTabInfo', {
+      tabId: result.tabId,
+    })) as TabInfo
 
     const pageId = this.nextPageId++
     this.pages.set(pageId, {
       pageId,
-      targetId: result.targetId,
-      title: '',
-      url,
+      targetId: tabInfo.targetId,
+      tabId: tabInfo.tabId,
+      windowId: tabInfo.windowId,
+      title: tabInfo.title || '',
+      url: tabInfo.url || url,
+      isHidden: tabInfo.isHidden,
+      isPinned: tabInfo.isPinned,
+      isActive: tabInfo.isActive,
+      isLoading: tabInfo.isLoading,
+      groupId: tabInfo.groupId,
+      index: tabInfo.index,
     })
     return pageId
   }
@@ -210,9 +250,7 @@ export class Browser {
       throw new Error(
         `Unknown page ${page}. Use list_pages to see available pages.`,
       )
-    await this.cdp.send('Target.closeTarget', {
-      targetId: info.targetId,
-    })
+    await this.cdp.send('Browser.closeTab', { tabId: info.tabId })
     this.pages.delete(page)
     this.sessions.delete(info.targetId)
   }
@@ -807,96 +845,112 @@ export class Browser {
     )
   }
 
-  // --- Controller: Bookmarks ---
+  // --- Windows ---
 
-  async getBookmarks(folderId?: string): Promise<BookmarkNode[]> {
-    return bookmarks.getBookmarks(this.controller, folderId)
+  async listWindows(): Promise<WindowInfo[]> {
+    const result = (await this.cdp.send('Browser.getWindows')) as {
+      windows: WindowInfo[]
+    }
+    return result.windows
+  }
+
+  async createWindow(opts?: { hidden?: boolean }): Promise<WindowInfo> {
+    const result = (await this.cdp.send('Browser.createWindow', {
+      ...(opts?.hidden !== undefined && { hidden: opts.hidden }),
+    })) as WindowInfo
+    return result
+  }
+
+  async closeWindow(windowId: number): Promise<void> {
+    await this.cdp.send('Browser.closeWindow', { windowId })
+  }
+
+  async activateWindow(windowId: number): Promise<void> {
+    await this.cdp.send('Browser.activateWindow', { windowId })
+  }
+
+  // --- Bookmarks ---
+
+  async getBookmarks(): Promise<BookmarkNode[]> {
+    return bookmarks.getBookmarks(this.cdp)
   }
 
   async createBookmark(params: {
-    url: string
     title: string
+    url?: string
     parentId?: string
   }): Promise<BookmarkNode> {
-    return bookmarks.createBookmark(this.controller, params)
+    return bookmarks.createBookmark(this.cdp, params)
   }
 
   async removeBookmark(id: string): Promise<void> {
-    return bookmarks.removeBookmark(this.controller, id)
+    return bookmarks.removeBookmark(this.cdp, id)
   }
 
   async updateBookmark(
     id: string,
     changes: { url?: string; title?: string },
   ): Promise<BookmarkNode> {
-    return bookmarks.updateBookmark(this.controller, id, changes)
-  }
-
-  async createBookmarkFolder(params: {
-    title: string
-    parentId?: string
-  }): Promise<BookmarkNode> {
-    return bookmarks.createBookmarkFolder(this.controller, params)
-  }
-
-  async getBookmarkChildren(id: string): Promise<BookmarkNode[]> {
-    return bookmarks.getBookmarkChildren(this.controller, id)
+    return bookmarks.updateBookmark(this.cdp, id, changes)
   }
 
   async moveBookmark(
     id: string,
     destination: { parentId?: string; index?: number },
   ): Promise<BookmarkNode> {
-    return bookmarks.moveBookmark(this.controller, id, destination)
+    return bookmarks.moveBookmark(this.cdp, id, destination)
   }
 
-  async removeBookmarkTree(id: string): Promise<void> {
-    return bookmarks.removeBookmarkTree(this.controller, id)
+  async searchBookmarks(query: string): Promise<BookmarkNode[]> {
+    return bookmarks.searchBookmarks(this.cdp, query)
   }
 
-  // --- Controller: History ---
+  // --- History ---
 
   async searchHistory(
     query: string,
     maxResults?: number,
   ): Promise<HistoryEntry[]> {
-    return history.searchHistory(this.controller, query, maxResults)
+    return history.searchHistory(this.cdp, query, maxResults)
   }
 
   async getRecentHistory(maxResults?: number): Promise<HistoryEntry[]> {
-    return history.getRecentHistory(this.controller, maxResults)
+    return history.getRecentHistory(this.cdp, maxResults)
   }
 
-  // --- Controller: Tab Groups ---
+  async deleteHistoryUrl(url: string): Promise<void> {
+    return history.deleteUrl(this.cdp, url)
+  }
+
+  async deleteHistoryRange(startTime: number, endTime: number): Promise<void> {
+    return history.deleteRange(this.cdp, startTime, endTime)
+  }
+
+  // --- Tab Groups ---
 
   async listTabGroups(): Promise<TabGroup[]> {
-    return tabGroups.listTabGroups(this.controller)
+    return tabGroups.listTabGroups(this.cdp)
   }
 
   async groupTabs(
     tabIds: number[],
-    opts?: { title?: string; color?: string; groupId?: number },
+    opts?: { title?: string; color?: string; groupId?: string },
   ): Promise<TabGroup> {
-    return tabGroups.groupTabs(this.controller, tabIds, opts)
+    return tabGroups.groupTabs(this.cdp, tabIds, opts)
   }
 
   async updateTabGroup(
-    groupId: number,
+    groupId: string,
     opts: { title?: string; color?: string; collapsed?: boolean },
   ): Promise<TabGroup> {
-    return tabGroups.updateTabGroup(this.controller, groupId, opts)
+    return tabGroups.updateTabGroup(this.cdp, groupId, opts)
   }
 
   async ungroupTabs(tabIds: number[]): Promise<{ ungroupedCount: number }> {
-    return tabGroups.ungroupTabs(this.controller, tabIds)
+    return tabGroups.ungroupTabs(this.cdp, tabIds)
   }
 
-  // --- Controller: Status ---
-
-  async getLoadStatus(tabId: number): Promise<LoadStatus> {
-    const result = await this.controller.send('getPageLoadStatus', {
-      tabId,
-    })
-    return result as LoadStatus
+  async closeTabGroup(groupId: string): Promise<void> {
+    return tabGroups.closeTabGroup(this.cdp, groupId)
   }
 }

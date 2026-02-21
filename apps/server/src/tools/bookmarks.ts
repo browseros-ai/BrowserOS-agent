@@ -18,14 +18,9 @@ function formatBookmarkTree(nodes: BookmarkNode[]): string {
 export const get_bookmarks = defineTool({
   name: 'get_bookmarks',
   description: 'List all bookmarks in the browser',
-  input: z.object({
-    folderId: z
-      .string()
-      .optional()
-      .describe('Optional folder ID to get bookmarks from (omit for all)'),
-  }),
-  handler: async (args, ctx, response) => {
-    const bookmarks = await ctx.browser.getBookmarks(args.folderId)
+  input: z.object({}),
+  handler: async (_args, ctx, response) => {
+    const bookmarks = await ctx.browser.getBookmarks()
     if (bookmarks.length === 0) {
       response.text('No bookmarks found.')
       return
@@ -38,26 +33,32 @@ export const get_bookmarks = defineTool({
 
 export const create_bookmark = defineTool({
   name: 'create_bookmark',
-  description:
-    'Create a new bookmark. Use parentId to place it inside an existing folder.',
+  description: 'Create a new bookmark or folder. Omit url to create a folder.',
   input: z.object({
     title: z.string().describe('Bookmark title'),
-    url: z.string().describe('URL to bookmark'),
+    url: z
+      .string()
+      .optional()
+      .describe('URL to bookmark (omit to create a folder)'),
     parentId: z.string().optional().describe('Folder ID to create bookmark in'),
   }),
   handler: async (args, ctx, response) => {
     const bookmark = await ctx.browser.createBookmark(args)
-    response.text(
-      `Created bookmark: ${bookmark.title}\nURL: ${bookmark.url ?? args.url}\nID: ${bookmark.id}`,
-    )
+    if (bookmark.url) {
+      response.text(
+        `Created bookmark: ${bookmark.title}\nURL: ${bookmark.url}\nID: ${bookmark.id}`,
+      )
+    } else {
+      response.text(`Created folder: ${bookmark.title}\nID: ${bookmark.id}`)
+    }
   },
 })
 
 export const remove_bookmark = defineTool({
   name: 'remove_bookmark',
-  description: 'Remove a bookmark by ID',
+  description: 'Remove a bookmark or folder by ID (recursive)',
   input: z.object({
-    id: z.string().describe('Bookmark ID to remove'),
+    id: z.string().describe('Bookmark or folder ID to remove'),
   }),
   handler: async (args, ctx, response) => {
     await ctx.browser.removeBookmark(args.id)
@@ -79,41 +80,6 @@ export const update_bookmark = defineTool({
       url: args.url,
     })
     response.text(`Updated bookmark: ${bookmark.title}\nID: ${bookmark.id}`)
-  },
-})
-
-export const create_bookmark_folder = defineTool({
-  name: 'create_bookmark_folder',
-  description:
-    'Create a new bookmark folder. Returns folderId to use as parentId when creating bookmarks.',
-  input: z.object({
-    title: z.string().describe('Folder name'),
-    parentId: z
-      .string()
-      .optional()
-      .describe('Parent folder ID (defaults to Bookmarks Bar)'),
-  }),
-  handler: async (args, ctx, response) => {
-    const folder = await ctx.browser.createBookmarkFolder(args)
-    response.text(`Created folder: ${folder.title}\nID: ${folder.id}`)
-  },
-})
-
-export const get_bookmark_children = defineTool({
-  name: 'get_bookmark_children',
-  description: 'Get direct children of a bookmark folder',
-  input: z.object({
-    id: z.string().describe('Folder ID to get children from'),
-  }),
-  handler: async (args, ctx, response) => {
-    const children = await ctx.browser.getBookmarkChildren(args.id)
-    if (children.length === 0) {
-      response.text('Folder is empty.')
-      return
-    }
-    response.text(
-      `Folder contains ${children.length} items:\n\n${formatBookmarkTree(children)}`,
-    )
   },
 })
 
@@ -139,14 +105,22 @@ export const move_bookmark = defineTool({
   },
 })
 
-export const remove_bookmark_tree = defineTool({
-  name: 'remove_bookmark_tree',
-  description: 'Remove a bookmark folder and all its contents recursively',
+export const search_bookmarks = defineTool({
+  name: 'search_bookmarks',
+  description: 'Search bookmarks by title or URL',
   input: z.object({
-    id: z.string().describe('Folder ID to remove'),
+    query: z
+      .string()
+      .describe('Search query to find bookmarks by title or URL'),
   }),
   handler: async (args, ctx, response) => {
-    await ctx.browser.removeBookmarkTree(args.id)
-    response.text(`Removed folder ${args.id} and all contents`)
+    const bookmarks = await ctx.browser.searchBookmarks(args.query)
+    if (bookmarks.length === 0) {
+      response.text(`No bookmarks found matching "${args.query}".`)
+      return
+    }
+    response.text(
+      `Found ${bookmarks.length} bookmarks matching "${args.query}":\n\n${formatBookmarkTree(bookmarks)}`,
+    )
   },
 })

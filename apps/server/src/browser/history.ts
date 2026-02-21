@@ -1,4 +1,4 @@
-import type { ControllerBackend } from './backends/types'
+import type { CdpBackend } from './backends/types'
 
 export interface HistoryEntry {
   id: string
@@ -10,11 +10,11 @@ export interface HistoryEntry {
 }
 
 export async function searchHistory(
-  controller: ControllerBackend,
+  cdp: CdpBackend,
   query: string,
   maxResults?: number,
 ): Promise<HistoryEntry[]> {
-  const result = await controller.send('searchHistory', {
+  const result = await cdp.send('History.search', {
     query,
     ...(maxResults !== undefined && { maxResults }),
   })
@@ -23,12 +23,24 @@ export async function searchHistory(
 }
 
 export async function getRecentHistory(
-  controller: ControllerBackend,
+  cdp: CdpBackend,
   maxResults?: number,
 ): Promise<HistoryEntry[]> {
-  const result = await controller.send('getRecentHistory', {
-    ...(maxResults !== undefined && { count: maxResults }),
+  const result = await cdp.send('History.getRecent', {
+    ...(maxResults !== undefined && { maxResults }),
   })
   const data = result as { items: HistoryEntry[] }
   return data.items
+}
+
+export async function deleteUrl(cdp: CdpBackend, url: string): Promise<void> {
+  await cdp.send('History.deleteUrl', { url })
+}
+
+export async function deleteRange(
+  cdp: CdpBackend,
+  startTime: number,
+  endTime: number,
+): Promise<void> {
+  await cdp.send('History.deleteRange', { startTime, endTime })
 }

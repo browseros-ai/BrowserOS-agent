@@ -127,8 +127,8 @@ function getCdpToolReference(): string {
 
 ## Page Management
 - \`get_active_page\` - Get the currently active (focused) page
-- \`list_pages\` - Get all open pages with IDs, titles, and URLs
-- \`new_page(url)\` - Open a new page and navigate to URL
+- \`list_pages\` - Get all open pages with IDs, titles, tab IDs, and URLs
+- \`new_page(url, hidden?, background?, windowId?)\` - Open a new page. Use hidden for background processing, background to avoid activating.
 - \`close_page(page)\` - Close a page by its page ID
 - \`navigate_page(page, action, url?)\` - Navigate: action is "url", "back", "forward", or "reload"
 - \`wait_for(page, text?, selector?, timeout?)\` - Wait for text or CSS selector to appear
@@ -160,27 +160,34 @@ function getCdpToolReference(): string {
 - \`save_pdf(page, path, cwd?)\` - Save page as PDF to disk
 - \`download_file(page, element, path, cwd?)\` - Click element to trigger download, save to directory
 
+## Window Management
+- \`list_windows\` - Get all browser windows
+- \`create_window(hidden?)\` - Create a new browser window
+- \`close_window(windowId)\` - Close a browser window
+- \`activate_window(windowId)\` - Activate (focus) a browser window
+
 ## Tab Groups
 - \`list_tab_groups\` - Get all tab groups with IDs, titles, colors, and tab IDs
-- \`group_tabs(tabIds, title?, color?, groupId?)\` - Create group or add tabs to existing group
+- \`group_tabs(tabIds, title?, color?, groupId?)\` - Create group or add tabs to existing group (groupId is a string)
 - \`update_tab_group(groupId, title?, color?, collapsed?)\` - Update group properties
 - \`ungroup_tabs(tabIds)\` - Remove tabs from their groups
+- \`close_tab_group(groupId)\` - Close a tab group and all its tabs
 
 **Colors**: grey, blue, red, yellow, green, pink, purple, cyan, orange
 
 ## Bookmarks
-- \`get_bookmarks(folderId?)\` - Get all bookmarks or from specific folder
-- \`create_bookmark(title, url, parentId?)\` - Create bookmark
+- \`get_bookmarks\` - Get all bookmarks
+- \`create_bookmark(title, url?, parentId?)\` - Create bookmark or folder (omit url for folder)
 - \`update_bookmark(id, title?, url?)\` - Edit bookmark
-- \`remove_bookmark(id)\` - Delete bookmark
-- \`create_bookmark_folder(title, parentId?)\` - Create folder (returns ID for parentId)
-- \`get_bookmark_children(id)\` - Get folder contents
+- \`remove_bookmark(id)\` - Delete bookmark or folder (recursive)
 - \`move_bookmark(id, parentId?, index?)\` - Move bookmark or folder
-- \`remove_bookmark_tree(id)\` - Delete folder and all contents
+- \`search_bookmarks(query)\` - Search bookmarks by title or URL
 
 ## History
 - \`search_history(query, maxResults?)\` - Search browser history
 - \`get_recent_history(maxResults?)\` - Get recent history items
+- \`delete_history_url(url)\` - Delete a specific URL from history
+- \`delete_history_range(startTime, endTime)\` - Delete history within a time range (epoch ms)
 
 ---`
 }
