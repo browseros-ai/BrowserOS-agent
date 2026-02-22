@@ -15,8 +15,13 @@ export const list_windows = defineTool({
 
     const lines: string[] = [`Found ${windows.length} windows:`, '']
     for (const w of windows) {
-      const hiddenMarker = w.isHidden ? ' [HIDDEN]' : ''
-      lines.push(`Window ${w.windowId}${hiddenMarker}`)
+      const markers: string[] = []
+      if (!w.isVisible) markers.push('HIDDEN')
+      if (w.isActive) markers.push('ACTIVE')
+      const suffix = markers.length > 0 ? ` [${markers.join(', ')}]` : ''
+      lines.push(
+        `Window ${w.windowId} (${w.windowType}, ${w.tabCount} tabs)${suffix}`,
+      )
     }
 
     response.text(lines.join('\n'))
@@ -31,7 +36,7 @@ export const create_window = defineTool({
   }),
   handler: async (args, ctx, response) => {
     const window = await ctx.browser.createWindow(args)
-    const hiddenMarker = window.isHidden ? ' (hidden)' : ''
+    const hiddenMarker = !window.isVisible ? ' (hidden)' : ''
     response.text(`Created window ${window.windowId}${hiddenMarker}`)
   },
 })

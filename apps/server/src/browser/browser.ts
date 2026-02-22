@@ -20,34 +20,53 @@ export interface PageInfo {
   pageId: number
   targetId: string
   tabId: number
-  windowId: number
-  title: string
   url: string
-  isActive?: boolean
-  isLoading?: boolean
-  isPinned?: boolean
-  isHidden?: boolean
-  groupId?: string
+  title: string
+  isActive: boolean
+  isLoading: boolean
+  loadProgress: number
+  isPinned: boolean
+  isHidden: boolean
+  windowId?: number
   index?: number
+  groupId?: string
 }
 
 export interface WindowInfo {
   windowId: number
-  isHidden?: boolean
+  windowType:
+    | 'normal'
+    | 'popup'
+    | 'app'
+    | 'devtools'
+    | 'app_popup'
+    | 'picture_in_picture'
+  bounds: {
+    left?: number
+    top?: number
+    width?: number
+    height?: number
+    windowState?: 'normal' | 'minimized' | 'maximized' | 'fullscreen'
+  }
+  isActive: boolean
+  isVisible: boolean
+  tabCount: number
+  activeTabId?: number
 }
 
 interface TabInfo {
   tabId: number
   targetId: string
-  windowId: number
-  title: string
   url: string
-  isActive?: boolean
-  isLoading?: boolean
-  isPinned?: boolean
-  isHidden?: boolean
-  groupId?: string
+  title: string
+  isActive: boolean
+  isLoading: boolean
+  loadProgress: number
+  isPinned: boolean
+  isHidden: boolean
+  windowId?: number
   index?: number
+  groupId?: string
 }
 
 const EXCLUDED_URL_PREFIXES = [
@@ -142,16 +161,17 @@ export class Browser {
       let found = false
       for (const info of this.pages.values()) {
         if (info.targetId === tab.targetId) {
-          info.title = tab.title
           info.url = tab.url
+          info.title = tab.title
           info.tabId = tab.tabId
-          info.windowId = tab.windowId
           info.isActive = tab.isActive
           info.isLoading = tab.isLoading
+          info.loadProgress = tab.loadProgress
           info.isPinned = tab.isPinned
           info.isHidden = tab.isHidden
-          info.groupId = tab.groupId
+          info.windowId = tab.windowId
           info.index = tab.index
+          info.groupId = tab.groupId
           found = true
           break
         }
@@ -163,15 +183,16 @@ export class Browser {
           pageId,
           targetId: tab.targetId,
           tabId: tab.tabId,
-          windowId: tab.windowId,
-          title: tab.title,
           url: tab.url,
+          title: tab.title,
           isActive: tab.isActive,
           isLoading: tab.isLoading,
+          loadProgress: tab.loadProgress,
           isPinned: tab.isPinned,
           isHidden: tab.isHidden,
-          groupId: tab.groupId,
+          windowId: tab.windowId,
           index: tab.index,
+          groupId: tab.groupId,
         })
       }
     }
@@ -216,31 +237,33 @@ export class Browser {
     url: string,
     opts?: { hidden?: boolean; background?: boolean; windowId?: number },
   ): Promise<number> {
-    const result = (await this.cdp.send('Browser.createTab', {
+    const createResult = (await this.cdp.send('Browser.createTab', {
       url,
       ...(opts?.hidden !== undefined && { hidden: opts.hidden }),
       ...(opts?.background !== undefined && { background: opts.background }),
       ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
-    })) as { tabId: number }
+    })) as { tab: TabInfo }
 
-    const tabInfo = (await this.cdp.send('Browser.getTabInfo', {
-      tabId: result.tabId,
-    })) as TabInfo
+    const infoResult = (await this.cdp.send('Browser.getTabInfo', {
+      tabId: createResult.tab.tabId,
+    })) as { tab: TabInfo }
+    const tabInfo = infoResult.tab
 
     const pageId = this.nextPageId++
     this.pages.set(pageId, {
       pageId,
       targetId: tabInfo.targetId,
       tabId: tabInfo.tabId,
-      windowId: tabInfo.windowId,
-      title: tabInfo.title || '',
       url: tabInfo.url || url,
-      isHidden: tabInfo.isHidden,
-      isPinned: tabInfo.isPinned,
+      title: tabInfo.title || '',
       isActive: tabInfo.isActive,
       isLoading: tabInfo.isLoading,
-      groupId: tabInfo.groupId,
+      loadProgress: tabInfo.loadProgress,
+      isPinned: tabInfo.isPinned,
+      isHidden: tabInfo.isHidden,
+      windowId: tabInfo.windowId,
       index: tabInfo.index,
+      groupId: tabInfo.groupId,
     })
     return pageId
   }
@@ -858,8 +881,8 @@ export class Browser {
   async createWindow(opts?: { hidden?: boolean }): Promise<WindowInfo> {
     const result = (await this.cdp.send('Browser.createWindow', {
       ...(opts?.hidden !== undefined && { hidden: opts.hidden }),
-    })) as WindowInfo
-    return result
+    })) as { window: WindowInfo }
+    return result.window
   }
 
   async closeWindow(windowId: number): Promise<void> {
