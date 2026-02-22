@@ -68,7 +68,6 @@ function getStrictRules(): string {
 // section: tab-grouping
 // -----------------------------------------------------------------------------
 
-// biome-ignore lint/correctness/noUnusedVariables: temporarily disabled
 function getTabGrouping(): string {
   return `<tab_grouping>
 <critical_rule>
