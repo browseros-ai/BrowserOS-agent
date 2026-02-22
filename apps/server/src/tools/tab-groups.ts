@@ -30,7 +30,7 @@ export const list_tab_groups = defineTool({
     for (const group of groups) {
       const collapsedMarker = group.collapsed ? ' [COLLAPSED]' : ''
       lines.push(
-        `[${group.id}] "${group.title || '(unnamed)'}" (${group.color})${collapsedMarker}`,
+        `[${group.groupId}] "${group.title || '(unnamed)'}" (${group.color})${collapsedMarker}`,
       )
       lines.push(`    Tabs: ${group.tabIds.join(', ')}`)
       lines.push(`    Window: ${group.windowId}`)
@@ -43,21 +43,19 @@ export const list_tab_groups = defineTool({
 export const group_tabs = defineTool({
   name: 'group_tabs',
   description:
-    'Group tabs together with an optional title and color. Use this to organize related tabs.',
+    'Group tabs together with an optional title. Color is auto-assigned; use update_tab_group to change it.',
   input: z.object({
     tabIds: z.array(z.number()).describe('Array of tab IDs to group together'),
     title: z.string().optional().describe('Title for the group'),
-    color: z.enum(TAB_GROUP_COLORS).optional().describe('Color for the group'),
     groupId: z.string().optional().describe('Existing group ID to add tabs to'),
   }),
   handler: async (args, ctx, response) => {
     const group = await ctx.browser.groupTabs(args.tabIds, {
       title: args.title,
-      color: args.color,
       groupId: args.groupId,
     })
     response.text(
-      `Grouped ${args.tabIds.length} tabs into "${group.title || '(unnamed)'}" (${group.color})\nGroup ID: ${group.id}`,
+      `Grouped ${args.tabIds.length} tabs into "${group.title || '(unnamed)'}" (${group.color})\nGroup ID: ${group.groupId}`,
     )
   },
 })
@@ -84,7 +82,7 @@ export const update_tab_group = defineTool({
       collapsed: args.collapsed,
     })
     response.text(
-      `Updated group ${group.id}: "${group.title || '(unnamed)'}" (${group.color})${group.collapsed ? ' [COLLAPSED]' : ''}`,
+      `Updated group ${group.groupId}: "${group.title || '(unnamed)'}" (${group.color})${group.collapsed ? ' [COLLAPSED]' : ''}`,
     )
   },
 })
@@ -98,8 +96,8 @@ export const ungroup_tabs = defineTool({
       .describe('Array of tab IDs to remove from their groups'),
   }),
   handler: async (args, ctx, response) => {
-    const result = await ctx.browser.ungroupTabs(args.tabIds)
-    response.text(`Ungrouped ${result.ungroupedCount} tabs`)
+    await ctx.browser.ungroupTabs(args.tabIds)
+    response.text(`Ungrouped ${args.tabIds.length} tabs`)
   },
 })
 

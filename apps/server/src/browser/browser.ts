@@ -198,14 +198,15 @@ export class Browser {
 
   async getActivePage(): Promise<PageInfo | null> {
     const result = (await this.cdp.send('Browser.getActiveTab')) as {
-      tabId: number
-      targetId: string
+      tab?: TabInfo
     }
+
+    if (!result.tab) return null
 
     await this.listPages()
 
     for (const info of this.pages.values()) {
-      if (info.targetId === result.targetId) return info
+      if (info.targetId === result.tab.targetId) return info
     }
 
     return null
@@ -934,7 +935,7 @@ export class Browser {
 
   async groupTabs(
     tabIds: number[],
-    opts?: { title?: string; color?: string; groupId?: string },
+    opts?: { title?: string; groupId?: string },
   ): Promise<TabGroup> {
     return tabGroups.groupTabs(this.cdp, tabIds, opts)
   }
@@ -946,7 +947,7 @@ export class Browser {
     return tabGroups.updateTabGroup(this.cdp, groupId, opts)
   }
 
-  async ungroupTabs(tabIds: number[]): Promise<{ ungroupedCount: number }> {
+  async ungroupTabs(tabIds: number[]): Promise<void> {
     return tabGroups.ungroupTabs(this.cdp, tabIds)
   }
 
