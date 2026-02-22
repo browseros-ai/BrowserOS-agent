@@ -41,13 +41,21 @@ export const ChatRequestSchema = VercelAIConfigSchema.extend({
   supportsImages: z.boolean().optional().default(true),
   mode: z.enum(['chat', 'agent']).optional().default('agent'),
   previousConversation: z
-    .array(
-      z.object({
-        role: z.enum(['user', 'assistant']),
-        content: z.string(),
-      }),
-    )
-    .optional(),
+    .union([
+      z.array(
+        z.object({
+          role: z.enum(['user', 'assistant']),
+          content: z.string(),
+        }),
+      ),
+      z.string(),
+    ])
+    .optional()
+    .transform((val) => {
+      if (typeof val !== 'string') return val
+      if (!val.trim()) return undefined
+      return [{ role: 'user' as const, content: val }]
+    }),
 })
 
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
