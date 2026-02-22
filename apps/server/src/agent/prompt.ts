@@ -305,7 +305,7 @@ const promptSections: Record<string, () => string> = {
   intro: getIntro,
   'security-boundary': getSecurityBoundary,
   'strict-rules': getStrictRules,
-  // 'tab-grouping': getTabGrouping,
+  'tab-grouping': getTabGrouping,
   'complete-tasks': getCompleteTasks,
   'observe-act-verify': getObserveActVerify,
   'handle-obstacles': getHandleObstacles,
