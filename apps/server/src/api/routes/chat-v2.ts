@@ -3,20 +3,20 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { ChatV2Service } from '../../agent/tool-loop/service'
 import { SessionStore } from '../../agent/tool-loop/session-store'
-import type { ControllerContext } from '../../browser/extension/context'
+import type { Browser } from '../../browser/browser'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
-import type { MutexPool } from '../../lib/mutex'
 import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
 import { Sentry } from '../../lib/sentry'
+import type { ToolRegistry } from '../../tools/tool-registry'
 import { createBrowserosRateLimitMiddleware } from '../middleware/rate-limit'
 import { ChatRequestSchema } from '../types'
 import { ConversationIdParamSchema } from '../utils/validation'
 
 interface ChatV2RouteDeps {
-  controllerContext: ControllerContext
-  mutexPool?: MutexPool
+  browser: Browser
+  registry: ToolRegistry
   executionDir?: string
   browserosId?: string
   rateLimiter?: RateLimiter
@@ -33,8 +33,8 @@ export function createChatV2Routes(deps: ChatV2RouteDeps) {
     sessionStore,
     klavisClient,
     executionDir,
-    controllerBridge: deps.controllerContext.bridge,
-    mutexPool: deps.mutexPool,
+    browser: deps.browser,
+    registry: deps.registry,
     browserosId,
   })
 

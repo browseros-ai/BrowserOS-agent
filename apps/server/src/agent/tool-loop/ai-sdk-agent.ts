@@ -1,23 +1,22 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import { stepCountIs, ToolLoopAgent, type UIMessage } from 'ai'
-import type { ControllerBridge } from '../../browser/extension/bridge'
+import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
-import type { MutexPool } from '../../lib/mutex'
-import { allControllerTools } from '../../tools/controller-based/registry'
+import type { ToolRegistry } from '../../tools/tool-registry'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
 import { createCompactionPrepareStep } from './compaction'
 import { buildFilesystemToolSet } from './filesystem-tools/pi-tool-adapter'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import { createLanguageModel } from './provider-factory'
-import { buildControllerToolSet } from './tool-adapter'
+import { buildBrowserToolSet } from './tool-adapter'
 
 export interface AiSdkAgentConfig {
   resolvedConfig: ResolvedAgentConfig
-  controllerBridge: ControllerBridge
-  mutexPool?: MutexPool
+  browser: Browser
+  registry: ToolRegistry
   browserContext?: BrowserContext
   klavisClient?: KlavisClient
   browserosId?: string
@@ -35,13 +34,8 @@ export class AiSdkAgent {
     // Build language model from provider config
     const model = createLanguageModel(config.resolvedConfig)
 
-    // Build local controller tools (direct invocation, no MCP round-trip)
-    const controllerTools = buildControllerToolSet(
-      allControllerTools,
-      config.controllerBridge,
-      config.browserContext?.windowId,
-      config.mutexPool,
-    )
+    // Build browser tools from the unified tool registry
+    const browserTools = buildBrowserToolSet(config.registry, config.browser)
 
     // Build external MCP server specs (Klavis, custom) and connect clients
     const specs = await buildMcpServerSpecs({
@@ -56,7 +50,7 @@ export class AiSdkAgent {
       ? {}
       : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
     const tools = {
-      ...controllerTools,
+      ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
     }

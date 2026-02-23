@@ -1,34 +1,26 @@
 import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
-import type {
-  ImageContent,
-  TextContent,
-} from '@modelcontextprotocol/sdk/types.js'
 import { type ToolSet, tool } from 'ai'
-import { z } from 'zod'
-import type { ControllerBridge } from '../../browser/extension/bridge'
-import { ScopedControllerContext } from '../../browser/extension/context'
+import type { Browser } from '../../browser/browser'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
-import type { MutexPool } from '../../lib/mutex'
-import { ControllerResponse } from '../../tools/controller-based/response/controller-response'
-import type { ToolDefinition } from '../../tools/types/tool-definition'
+import { executeTool } from '../../tools/framework'
+import type { ContentItem } from '../../tools/response'
+import type { ToolRegistry } from '../../tools/tool-registry'
 
-type McpContent = Array<TextContent | ImageContent>
-
-function mcpContentToModelOutput(
-  content: McpContent,
+function contentToModelOutput(
+  content: ContentItem[],
 ): LanguageModelV2ToolResultOutput {
   const hasImages = content.some((c) => c.type === 'image')
 
   if (!hasImages) {
     const text = content
-      .filter((c): c is TextContent => c.type === 'text')
+      .filter((c): c is ContentItem & { type: 'text' } => c.type === 'text')
       .map((c) => c.text)
       .join('\n')
     return { type: 'text', value: text || 'Success' }
   }
 
-  const parts: LanguageModelV2ToolResultOutput & { type: 'content' } = {
+  return {
     type: 'content',
     value: content.map((c) => {
       if (c.type === 'text') {
@@ -41,44 +33,41 @@ function mcpContentToModelOutput(
       }
     }),
   }
-
-  return parts
 }
 
-export function buildControllerToolSet(
-  tools: ToolDefinition[],
-  bridge: ControllerBridge,
-  windowId?: number,
-  mutexPool?: MutexPool,
+export function buildBrowserToolSet(
+  registry: ToolRegistry,
+  browser: Browser,
 ): ToolSet {
   const toolSet: ToolSet = {}
+  const ctx = { browser }
 
-  for (const def of tools) {
+  for (const def of registry.all()) {
     toolSet[def.name] = tool({
       description: def.description,
-      inputSchema: z.object(def.schema),
+      inputSchema: def.input,
       execute: async (params) => {
         const startTime = performance.now()
-        const mutex = mutexPool?.getMutex(windowId)
-        const guard = mutex ? await mutex.acquire() : undefined
         try {
-          const context = new ScopedControllerContext(bridge, windowId)
-          const response = new ControllerResponse()
-          await def.handler({ params }, response, context)
-          const content = await response.handle(context)
+          const result = await executeTool(
+            def,
+            params,
+            ctx,
+            AbortSignal.timeout(120_000),
+          )
 
           metrics.log('tool_executed', {
             tool_name: def.name,
             duration_ms: Math.round(performance.now() - startTime),
-            success: true,
+            success: !result.isError,
           })
 
-          return { content, isError: false }
+          return { content: result.content, isError: result.isError ?? false }
         } catch (error) {
           const errorText =
             error instanceof Error ? error.message : String(error)
 
-          logger.error('Controller tool execution failed', {
+          logger.error('Tool execution failed', {
             tool: def.name,
             error: errorText,
           })
@@ -94,18 +83,18 @@ export function buildControllerToolSet(
             content: [{ type: 'text' as const, text: errorText }],
             isError: true,
           }
-        } finally {
-          guard?.dispose()
         }
       },
       toModelOutput: ({ output }) => {
         const result = output as {
-          content: McpContent
+          content: ContentItem[]
           isError: boolean
         }
         if (result.isError) {
           const text = result.content
-            .filter((c): c is TextContent => c.type === 'text')
+            .filter(
+              (c): c is ContentItem & { type: 'text' } => c.type === 'text',
+            )
             .map((c) => c.text)
             .join('\n')
           return { type: 'error-text', value: text }
@@ -113,7 +102,7 @@ export function buildControllerToolSet(
         if (!result.content?.length) {
           return { type: 'text', value: 'Success' }
         }
-        return mcpContentToModelOutput(result.content)
+        return contentToModelOutput(result.content)
       },
     })
   }
