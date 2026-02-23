@@ -54,7 +54,7 @@ export function buildControllerToolSet(
   const toolSet: ToolSet = {}
 
   for (const def of tools) {
-    toolSet[`browser_${def.name}`] = tool({
+    toolSet[def.name] = tool({
       description: def.description,
       inputSchema: z.object(def.schema),
       execute: async (params) => {
@@ -98,8 +98,8 @@ export function buildControllerToolSet(
           guard?.dispose()
         }
       },
-      toModelOutput: (output) => {
-        const result = output as unknown as {
+      toModelOutput: ({ output }) => {
+        const result = output as {
           content: McpContent
           isError: boolean
         }
