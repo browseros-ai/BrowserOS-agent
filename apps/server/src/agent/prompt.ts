@@ -157,6 +157,8 @@ function getErrorRecovery(): string {
 
 // -----------------------------------------------------------------------------
 // section: cdp-tool-reference
+// Skipped by ToolLoopAgent — the AI SDK already injects tool schemas into the
+// LLM call. Kept for MCP prompt serving where clients lack tool definitions.
 // -----------------------------------------------------------------------------
 
 function getCdpToolReference(): string {
