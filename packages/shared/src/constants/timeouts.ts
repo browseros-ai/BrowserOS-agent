@@ -21,6 +21,7 @@ export const TIMEOUTS = {
 
   // CDP connection
   CDP_CONNECT: 10_000,
+  CDP_CONNECT_RETRY_DELAY: 1_000,
 
   // External API calls
   KLAVIS_FETCH: 30_000,

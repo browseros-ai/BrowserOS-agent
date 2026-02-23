@@ -25,6 +25,10 @@ export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 20,
 } as const
 
+export const CDP_LIMITS = {
+  CONNECT_MAX_RETRIES: 3,
+} as const
+
 export const CONTENT_LIMITS = {
   BODY_CONTEXT_SIZE: 10_000,
   MAX_QUEUE_SIZE: 1_000,
