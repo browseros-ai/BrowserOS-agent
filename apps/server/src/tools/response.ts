@@ -7,6 +7,7 @@ export type ContentItem =
 export type PostAction =
   | { type: 'snapshot'; page: number }
   | { type: 'screenshot'; page: number }
+  | { type: 'pages' }
 
 export interface ToolResult {
   content: ContentItem[]
@@ -39,25 +40,43 @@ export class ToolResponse {
     this.postActions.push({ type: 'screenshot', page })
   }
 
-  // Resolve post-actions and append additional context to the response
+  includePages(): void {
+    this.postActions.push({ type: 'pages' })
+  }
+
   async build(browser: Browser): Promise<ToolResult> {
+    if (this.postActions.length > 0) {
+      this.text('\n--- Additional context (auto-included) ---')
+    }
+
     for (const action of this.postActions) {
       try {
         switch (action.type) {
           case 'snapshot': {
-            // Accessibility tree for the page
             const tree = await browser.snapshot(action.page)
             if (tree) this.text(`[Page ${action.page} snapshot]\n${tree}`)
             break
           }
           case 'screenshot': {
-            // PNG screenshot of the visible viewport
             const result = await browser.screenshot(action.page, {
               format: 'png',
               fullPage: false,
             })
             this.text(`[Page ${action.page} screenshot]`)
             this.image(result.data, result.mimeType)
+            break
+          }
+          case 'pages': {
+            const pages = await browser.listPages()
+            if (pages.length === 0) {
+              this.text('[Open pages] None')
+            } else {
+              const lines = pages.map(
+                (p) =>
+                  `  ${p.pageId}. ${p.title || '(untitled)'} — ${p.url}${p.isActive ? ' [ACTIVE]' : ''}`,
+              )
+              this.text(`[Open pages]\n${lines.join('\n')}`)
+            }
             break
           }
         }

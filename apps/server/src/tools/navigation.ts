@@ -105,6 +105,7 @@ export const new_page = defineTool({
       windowId: args.windowId,
     })
     response.text(`Opened new page: ${args.url}\nPage ID: ${pageId}`)
+    response.includePages()
   },
 })
 
@@ -117,6 +118,7 @@ export const close_page = defineTool({
   handler: async (args, ctx, response) => {
     await ctx.browser.closePage(args.page)
     response.text(`Closed page ${args.page}`)
+    response.includePages()
   },
 })
 

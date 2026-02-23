@@ -50,6 +50,7 @@ export const close_window = defineTool({
   handler: async (args, ctx, response) => {
     await ctx.browser.closeWindow(args.windowId)
     response.text(`Closed window ${args.windowId}`)
+    response.includePages()
   },
 })
 

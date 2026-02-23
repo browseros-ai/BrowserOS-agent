@@ -35,6 +35,7 @@ import {
   list_pages,
   navigate_page,
   new_page,
+  // biome-ignore lint/correctness/noUnusedImports: temporarily disabled
   wait_for,
 } from './navigation'
 import { download_file, save_pdf } from './page-actions'
@@ -61,13 +62,13 @@ import {
 } from './windows'
 
 export const registry = createRegistry([
-  // Navigation (6)
+  // Navigation (5)
   get_active_page,
   list_pages,
   navigate_page,
   new_page,
   close_page,
-  wait_for,
+  // wait_for, // temporarily disabled
 
   // Observation (5)
   take_snapshot,
