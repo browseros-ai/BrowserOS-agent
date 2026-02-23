@@ -1,17 +1,22 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import { stepCountIs, ToolLoopAgent, type UIMessage } from 'ai'
+import type { ControllerBridge } from '../../browser/extension/bridge'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
+import type { MutexPool } from '../../lib/mutex'
+import { allControllerTools } from '../../tools/controller-based/registry'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
 import { createCompactionPrepareStep } from './compaction'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import { createLanguageModel } from './provider-factory'
+import { buildControllerToolSet } from './tool-adapter'
 
 export interface AiSdkAgentConfig {
   resolvedConfig: ResolvedAgentConfig
-  mcpServerUrl: string
+  controllerBridge: ControllerBridge
+  mutexPool?: MutexPool
   browserContext?: BrowserContext
   klavisClient?: KlavisClient
   browserosId?: string
@@ -29,14 +34,22 @@ export class AiSdkAgent {
     // Build language model from provider config
     const model = createLanguageModel(config.resolvedConfig)
 
-    // Build MCP server specs and connect clients
+    // Build local controller tools (direct invocation, no MCP round-trip)
+    const controllerTools = buildControllerToolSet(
+      allControllerTools,
+      config.controllerBridge,
+      config.browserContext?.windowId,
+      config.mutexPool,
+    )
+
+    // Build external MCP server specs (Klavis, custom) and connect clients
     const specs = await buildMcpServerSpecs({
-      mcpServerUrl: config.mcpServerUrl,
       browserContext: config.browserContext,
       klavisClient: config.klavisClient,
       browserosId: config.browserosId,
     })
-    const { clients, tools } = await createMcpClients(specs)
+    const { clients, tools: externalMcpTools } = await createMcpClients(specs)
+    const tools = { ...controllerTools, ...externalMcpTools }
 
     // Build system prompt with optional section exclusions
     const excludeSections: string[] = []

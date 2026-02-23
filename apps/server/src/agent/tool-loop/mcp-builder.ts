@@ -16,7 +16,6 @@ export interface McpServerSpec {
 }
 
 export interface McpServerSpecDeps {
-  mcpServerUrl: string
   browserContext?: BrowserContext
   klavisClient?: KlavisClient
   browserosId?: string
@@ -32,22 +31,6 @@ export async function buildMcpServerSpecs(
   deps: McpServerSpecDeps,
 ): Promise<McpServerSpec[]> {
   const specs: McpServerSpec[] = []
-
-  // BrowserOS self-hosted MCP server
-  if (deps.mcpServerUrl) {
-    specs.push({
-      name: 'browseros-mcp',
-      url: deps.mcpServerUrl,
-      transport: 'streamable-http',
-      headers: {
-        Accept: 'application/json, text/event-stream',
-        'X-BrowserOS-Source': 'agent-runtime',
-        ...(deps.browserContext?.windowId != null && {
-          'X-BrowserOS-Window-Id': String(deps.browserContext.windowId),
-        }),
-      },
-    })
-  }
 
   // Klavis Strata MCP servers
   if (

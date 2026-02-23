@@ -2,9 +2,11 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
 import type { ChatRequest } from '../../api/types'
+import type { ControllerBridge } from '../../browser/extension/bridge'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
+import type { MutexPool } from '../../lib/mutex'
 import type { ResolvedAgentConfig } from '../types'
 import { AiSdkAgent } from './ai-sdk-agent'
 import { formatUserMessage } from './format-message'
@@ -14,7 +16,8 @@ export interface ChatV2ServiceDeps {
   sessionStore: SessionStore
   klavisClient: KlavisClient
   executionDir: string
-  mcpServerUrl: string
+  controllerBridge: ControllerBridge
+  mutexPool?: MutexPool
   browserosId?: string
 }
 
@@ -61,7 +64,8 @@ export class ChatV2Service {
     if (!session) {
       const agent = await AiSdkAgent.create({
         resolvedConfig: agentConfig,
-        mcpServerUrl: this.deps.mcpServerUrl,
+        controllerBridge: this.deps.controllerBridge,
+        mutexPool: this.deps.mutexPool,
         browserContext: request.browserContext,
         klavisClient: this.deps.klavisClient,
         browserosId: this.deps.browserosId,
