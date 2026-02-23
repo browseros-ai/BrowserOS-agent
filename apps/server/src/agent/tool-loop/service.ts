@@ -1,14 +1,14 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
-import { AiSdkAgent } from '../../agent/runtime/ai-sdk-agent'
-import { formatUserMessage } from '../../agent/runtime/format-message'
-import type { SessionStore } from '../../agent/runtime/session-store'
-import type { ResolvedAgentConfig } from '../../agent/types'
+import type { ChatRequest } from '../../api/types'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
-import type { ChatRequest } from '../types'
+import type { ResolvedAgentConfig } from '../types'
+import { AiSdkAgent } from './ai-sdk-agent'
+import { formatUserMessage } from './format-message'
+import type { SessionStore } from './session-store'
 
 export interface ChatV2ServiceDeps {
   sessionStore: SessionStore
