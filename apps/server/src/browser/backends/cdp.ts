@@ -4,12 +4,17 @@ import {
   type RawSend,
 } from '@browseros/cdp-protocol/create-api'
 import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
+import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
+import { logger } from '../../lib/logger'
 import type { CdpTarget, CdpBackend as ICdpBackend } from './types'
 
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
 }
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // biome-ignore lint/correctness/noUnusedVariables: declaration merging adds ProtocolApi properties to the class
 interface CdpBackend extends ProtocolApi {}
@@ -20,6 +25,7 @@ class CdpBackend implements ICdpBackend {
   private messageId = 0
   private pending = new Map<number, PendingRequest>()
   private connected = false
+  private disconnecting = false
   private eventHandlers = new Map<string, ((params: unknown) => void)[]>()
   private sessionCache = new Map<string, ProtocolApi>()
 
@@ -32,37 +38,99 @@ class CdpBackend implements ICdpBackend {
   }
 
   async connect(): Promise<void> {
-    const versionResponse = await fetch(
-      `http://localhost:${this.port}/json/version`,
-    )
-    const version = (await versionResponse.json()) as {
-      webSocketDebuggerUrl: string
+    const maxRetries = TIMEOUTS.CDP_CONNECT_MAX_RETRIES
+    const retryDelay = TIMEOUTS.CDP_CONNECT_RETRY_DELAY
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.attemptConnect()
+        return
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (attempt < maxRetries) {
+          logger.warn(
+            `CDP connection attempt ${attempt}/${maxRetries} failed: ${msg}. Retrying in ${retryDelay}ms...`,
+          )
+          await sleep(retryDelay)
+        } else {
+          throw new Error(
+            `CDP connection failed after ${maxRetries} attempts: ${msg}`,
+          )
+        }
+      }
     }
-    const wsUrl = version.webSocketDebuggerUrl
+  }
 
+  private attemptConnect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.ws = new WebSocket(wsUrl)
+      fetch(`http://localhost:${this.port}/json/version`)
+        .then((res) => res.json())
+        .then((version) => {
+          const wsUrl = (version as { webSocketDebuggerUrl: string })
+            .webSocketDebuggerUrl
+          const ws = new WebSocket(wsUrl)
 
-      this.ws.onopen = () => {
-        this.connected = true
-        resolve()
-      }
+          ws.onopen = () => {
+            this.ws = ws
+            this.connected = true
+            this.disconnecting = false
+            resolve()
+          }
 
-      this.ws.onerror = (event) => {
-        reject(new Error(`CDP WebSocket error: ${event}`))
-      }
+          ws.onerror = (event) => {
+            reject(new Error(`CDP WebSocket error: ${event}`))
+          }
 
-      this.ws.onclose = () => {
-        this.connected = false
-      }
+          ws.onclose = () => {
+            this.connected = false
+            this.ws = null
+            this.handleUnexpectedClose()
+          }
 
-      this.ws.onmessage = (event) => {
-        this.handleMessage(event.data as string)
-      }
+          ws.onmessage = (event) => {
+            this.handleMessage(event.data as string)
+          }
+        })
+        .catch(reject)
     })
   }
 
+  private handleUnexpectedClose(): void {
+    if (this.disconnecting) return
+
+    logger.error(
+      'CDP WebSocket closed unexpectedly, attempting reconnection...',
+    )
+    this.reconnectOrCrash()
+  }
+
+  private async reconnectOrCrash(): Promise<void> {
+    const maxRetries = TIMEOUTS.CDP_CONNECT_MAX_RETRIES
+    const retryDelay = TIMEOUTS.CDP_CONNECT_RETRY_DELAY
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(`CDP reconnection attempt ${attempt}/${maxRetries}...`)
+        await sleep(retryDelay)
+        await this.attemptConnect()
+        logger.info('CDP reconnected successfully')
+        return
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        logger.warn(
+          `CDP reconnection attempt ${attempt}/${maxRetries} failed: ${msg}`,
+        )
+      }
+    }
+
+    logger.error(
+      `CDP reconnection failed after ${maxRetries} attempts, exiting for restart`,
+    )
+    process.exit(EXIT_CODES.GENERAL_ERROR)
+  }
+
   async disconnect(): Promise<void> {
+    this.disconnecting = true
     if (this.ws) {
       this.ws.close()
       this.ws = null
