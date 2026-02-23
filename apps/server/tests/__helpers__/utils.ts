@@ -12,9 +12,11 @@ import { Mutex } from 'async-mutex'
 import type { Browser } from 'puppeteer'
 import puppeteer from 'puppeteer'
 import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-import { McpContext } from '../../src/browser/cdp/context'
-import { logger } from '../../src/lib/logger'
-import { McpResponse } from '../../src/tools/response/mcp-response'
+import { CdpClient } from '../../src/browser/cdp/cdp-client'
+import { PageRegistry } from '../../src/browser/page-registry'
+import { SessionState } from '../../src/browser/session-state'
+import { logger as cdpLogger } from '../../src/tools/cdp/context/logger'
+import { CdpResponse } from '../../src/tools/cdp/response/cdp-response'
 
 import { ensureBrowserOS } from './setup'
 
@@ -60,25 +62,14 @@ export async function killProcessOnPort(port: number): Promise<void> {
 // Test Wrappers
 // =============================================================================
 
-const browserMutex = new Mutex()
+const envMutex = new Mutex()
 let cachedBrowser: Browser | undefined
 
-/**
- * Test helper that provides an isolated browser context for each test.
- *
- * Lifecycle:
- * - First test: Starts full environment (~15-20s)
- * - Subsequent tests: Reuses existing environment (fast)
- * - After suite exits: Environment stays running (ready for next run)
- *
- * Cleanup:
- * - Run `bun run test:cleanup` when you need to kill processes
- */
-export async function withBrowser(
-  cb: (response: McpResponse, context: McpContext) => Promise<void>,
+export async function withCdpBrowser(
+  cb: (response: CdpResponse, context: CdpClient) => Promise<void>,
   _options: { debug?: boolean } = {},
 ): Promise<void> {
-  return await browserMutex.runExclusive(async () => {
+  return await envMutex.runExclusive(async () => {
     const config = await ensureBrowserOS({ skipExtension: true })
 
     if (!cachedBrowser || !cachedBrowser.connected) {
@@ -87,27 +78,26 @@ export async function withBrowser(
       })
     }
 
-    const existingPages = await cachedBrowser.pages()
-    for (const page of existingPages) {
-      try {
-        if (!page.isClosed()) {
-          await page.close()
-        }
-      } catch {
-        // Ignore errors when closing pages that are already closed
-      }
+    const response = new CdpResponse()
+    const registry = new PageRegistry()
+    const context = await CdpClient.from(
+      cachedBrowser,
+      cdpLogger,
+      {
+        experimentalDevToolsDebugging: false,
+      },
+      registry,
+    )
+
+    try {
+      const page = await context.newPage(true)
+      const state = new SessionState()
+      await context.withPage(page, state, () => cb(response, context))
+    } finally {
+      context.dispose()
     }
-
-    await cachedBrowser.newPage()
-
-    const response = new McpResponse()
-    const context = await McpContext.from(cachedBrowser, logger)
-
-    await cb(response, context)
   })
 }
-
-const mcpMutex = new Mutex()
 
 /**
  * Test helper that provides an MCP client connected to the BrowserOS server.
@@ -123,7 +113,7 @@ const mcpMutex = new Mutex()
 export async function withMcpServer(
   cb: (client: Client) => Promise<void>,
 ): Promise<void> {
-  return await mcpMutex.runExclusive(async () => {
+  return await envMutex.runExclusive(async () => {
     const config = await ensureBrowserOS()
 
     const client = new Client({
