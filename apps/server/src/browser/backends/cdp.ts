@@ -25,6 +25,7 @@ class CdpBackend implements ICdpBackend {
   private pending = new Map<number, PendingRequest>()
   private connected = false
   private disconnecting = false
+  private reconnecting = false
   private eventHandlers = new Map<string, ((params: unknown) => void)[]>()
   private sessionCache = new Map<string, ProtocolApi>()
 
@@ -97,12 +98,25 @@ class CdpBackend implements ICdpBackend {
   }
 
   private handleUnexpectedClose(): void {
-    if (this.disconnecting) return
+    if (this.disconnecting || this.reconnecting) return
+
+    this.rejectPendingRequests()
 
     logger.error(
       'CDP WebSocket closed unexpectedly, attempting reconnection...',
     )
-    this.reconnectOrCrash()
+    this.reconnecting = true
+    this.reconnectOrCrash().finally(() => {
+      this.reconnecting = false
+    })
+  }
+
+  private rejectPendingRequests(): void {
+    const error = new Error('CDP connection lost')
+    for (const request of this.pending.values()) {
+      request.reject(error)
+    }
+    this.pending.clear()
   }
 
   private async reconnectOrCrash(): Promise<void> {
