@@ -59,9 +59,11 @@ export function emitCreateApiFile(domains: ProtocolDomain[]): string {
   lines.push(
     '        return (event: string, handler: (params: unknown) => void) =>',
   )
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: emitting template literal source code
   lines.push('          on(`${domain}.${event}`, handler)')
   lines.push('      }')
   lines.push('      return (params?: Record<string, unknown>) =>')
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: emitting template literal source code
   lines.push('        send(`${domain}.${method}`, params)')
   lines.push('    },')
   lines.push('  })')

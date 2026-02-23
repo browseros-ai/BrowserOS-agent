@@ -7,6 +7,7 @@ import {
   type RefResolver,
 } from './type-emitter'
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: codegen — linear iteration over types/commands/events
 export function emitDomainFile(domain: ProtocolDomain): string {
   const lines: string[] = []
   const localTypeNames = new Set((domain.types ?? []).map((t) => t.id))
@@ -52,7 +53,7 @@ export function emitDomainFile(domain: ProtocolDomain): string {
   if (allImports.size > 0) {
     const sortedDomains = [...allImports.keys()].sort()
     for (const dep of sortedDomains) {
-      const types = [...allImports.get(dep)!].sort()
+      const types = [...(allImports.get(dep) ?? [])].sort()
       const file = domainToKebab(dep)
       const specs = types.map((t) => {
         const alias = aliases.get(`${dep}.${t}`)

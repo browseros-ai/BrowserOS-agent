@@ -6,6 +6,7 @@ function allParamsOptional(cmd: ProtocolCommand): boolean {
   return cmd.parameters.every((p) => p.optional === true)
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: codegen — linear iteration over commands/events
 export function emitDomainApiFile(domain: ProtocolDomain): string {
   const lines: string[] = []
   const imports = new Set<string>()
