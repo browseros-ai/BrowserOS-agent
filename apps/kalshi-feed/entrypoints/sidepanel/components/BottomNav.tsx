@@ -13,7 +13,7 @@ export const BottomNav: FC = () => {
   return (
     <div className="flex h-16 items-center justify-around border-white/10 border-t bg-black/95 px-2 backdrop-blur-md">
       {NAV_ITEMS.map((item) =>
-        item.isCenter ? (
+        'isCenter' in item && item.isCenter ? (
           <button
             key="center"
             type="button"
