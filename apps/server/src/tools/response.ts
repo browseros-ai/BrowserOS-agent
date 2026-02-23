@@ -39,19 +39,20 @@ export class ToolResponse {
     this.postActions.push({ type: 'screenshot', page })
   }
 
-  // Resolve post-actions and append additional context to the response
   async build(browser: Browser): Promise<ToolResult> {
+    if (this.postActions.length > 0) {
+      this.text('\n--- Additional context (auto-included) ---')
+    }
+
     for (const action of this.postActions) {
       try {
         switch (action.type) {
           case 'snapshot': {
-            // Accessibility tree for the page
             const tree = await browser.snapshot(action.page)
             if (tree) this.text(`[Page ${action.page} snapshot]\n${tree}`)
             break
           }
           case 'screenshot': {
-            // PNG screenshot of the visible viewport
             const result = await browser.screenshot(action.page, {
               format: 'png',
               fullPage: false,
