@@ -56,7 +56,9 @@ export class AiSdkAgent {
     }
 
     // Build system prompt with optional section exclusions
-    const excludeSections: string[] = []
+    // Tool definitions are already injected by the AI SDK via tool schemas,
+    // so skip the redundant tool-reference section.
+    const excludeSections: string[] = ['tool-reference']
     if (config.resolvedConfig.isScheduledTask) {
       excludeSections.push('tab-grouping')
     }
