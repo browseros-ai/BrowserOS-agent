@@ -1,4 +1,5 @@
 import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
+import type { AgentTool, AgentToolResult } from '@mariozechner/pi-agent-core'
 import {
   createBashTool,
   createEditTool,
@@ -12,21 +13,7 @@ import { jsonSchema, type ToolSet, tool } from 'ai'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
 
-type PiContent = Array<
-  | { type: 'text'; text: string }
-  | { type: 'image'; data: string; mimeType: string }
->
-
-interface PiTool {
-  name: string
-  description: string
-  parameters: Record<string, unknown>
-  execute: (
-    toolCallId: string,
-    params: Record<string, unknown>,
-    signal?: AbortSignal,
-  ) => Promise<{ content: PiContent; details: unknown }>
-}
+type PiContent = AgentToolResult<unknown>['content']
 
 function piContentToModelOutput(
   content: PiContent,
@@ -58,15 +45,16 @@ function piContentToModelOutput(
   }
 }
 
-function createAllTools(cwd: string): Record<string, PiTool> {
+// biome-ignore lint/suspicious/noExplicitAny: AgentTool is contravariant on TParameters — each createXxxTool returns a specific generic that can't assign to AgentTool<TSchema> without widening
+function createAllTools(cwd: string): Record<string, AgentTool<any>> {
   return {
-    read: createReadTool(cwd) as unknown as PiTool,
-    bash: createBashTool(cwd) as unknown as PiTool,
-    edit: createEditTool(cwd) as unknown as PiTool,
-    write: createWriteTool(cwd) as unknown as PiTool,
-    grep: createGrepTool(cwd) as unknown as PiTool,
-    find: createFindTool(cwd) as unknown as PiTool,
-    ls: createLsTool(cwd) as unknown as PiTool,
+    read: createReadTool(cwd),
+    bash: createBashTool(cwd),
+    edit: createEditTool(cwd),
+    write: createWriteTool(cwd),
+    grep: createGrepTool(cwd),
+    find: createFindTool(cwd),
+    ls: createLsTool(cwd),
   }
 }
 
@@ -87,10 +75,7 @@ export function buildFilesystemToolSet(cwd: string): ToolSet {
       execute: async (params) => {
         const startTime = performance.now()
         try {
-          const result = await piTool.execute(
-            crypto.randomUUID(),
-            params as Record<string, unknown>,
-          )
+          const result = await piTool.execute(crypto.randomUUID(), params)
 
           metrics.log('tool_executed', {
             tool_name: prefixedName,
