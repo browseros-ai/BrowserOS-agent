@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #111111;
+  --card-foreground: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #888888;
+  --border: #222222;
+  --yes-green: #00c853;
+  --yes-green-dark: #00a844;
+  --no-red: #ff1744;
+  --no-red-dark: #d50000;
+  --accent-blue: #2979ff;
+  --accent-purple: #7c4dff;
+  --accent-orange: #ff6d00;
+  --accent-cyan: #00e5ff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-yes-green: var(--yes-green);
+  --color-yes-green-dark: var(--yes-green-dark);
+  --color-no-red: var(--no-red);
+  --color-no-red-dark: var(--no-red-dark);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-cyan: var(--accent-cyan);
+
+  --animate-slide-up: slide-up 0.3s ease-out;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-pulse-green: pulse-green 0.6s ease-out;
+  --animate-pulse-red: pulse-red 0.6s ease-out;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    width: 100%;
+    height: 100vh;
+  }
+
+  html {
+    overflow: hidden;
+  }
+
+  @keyframes slide-up {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse-green {
+    0% {
+      box-shadow: 0 0 0 0 rgba(0, 200, 83, 0.6);
+    }
+    100% {
+      box-shadow: 0 0 0 20px rgba(0, 200, 83, 0);
+    }
+  }
+
+  @keyframes pulse-red {
+    0% {
+      box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.6);
+    }
+    100% {
+      box-shadow: 0 0 0 20px rgba(255, 23, 68, 0);
+    }
+  }
+}
