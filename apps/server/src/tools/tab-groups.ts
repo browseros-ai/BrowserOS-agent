@@ -114,5 +114,6 @@ export const close_tab_group = defineTool({
   handler: async (args, ctx, response) => {
     await ctx.browser.closeTabGroup(args.groupId)
     response.text(`Closed tab group ${args.groupId} and all its tabs`)
+    response.includePages()
   },
 })
