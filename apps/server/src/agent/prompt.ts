@@ -75,16 +75,16 @@ function getTabGrouping(): string {
 </critical_rule>
 
 1. **Get Active Page**: Call \`get_active_page\` to get the current page ID
-2. **Create Group Immediately**: Call \`group_tabs([tabId], title, color)\` with a short title (3-4 words max) based on user intent (e.g., "Hotel Research", "Gift Shopping", "Flight Booking")
+2. **Create Group Immediately**: Call \`group_tabs([pageId], title)\` with a short title (3-4 words max) based on user intent (e.g., "Hotel Research", "Gift Shopping", "Flight Booking")
 3. **Store the Group ID**: The response returns a \`groupId\` - remember it for the entire task
-4. **Add Every New Tab**: When calling \`new_page(url)\`, immediately follow with \`group_tabs([newTabId], groupId=storedGroupId)\` to add it to the existing group
+4. **Add Every New Tab**: When calling \`new_page(url)\`, immediately follow with \`group_tabs([newPageId], groupId=storedGroupId)\` to add it to the existing group
 
-Example flow, given Browser Context shows Tab 42:
+Example flow:
 \`\`\`
-1. get_active_page → pageId: 1, tabId: 42
-2. group_tabs([42], "Hotel Research", "blue") → groupId: 7
+1. get_active_page → pageId: 1
+2. group_tabs([1], "Hotel Research") → groupId: 7
 3. new_page("booking.com") → pageId: 2
-4. group_tabs([43], groupId=7) → adds to existing group
+4. group_tabs([2], groupId=7) → adds to existing group
 \`\`\`
 
 This keeps the user's workspace organized and all task-related tabs contained.
@@ -195,10 +195,10 @@ function getCdpToolReference(): string {
 - \`activate_window(windowId)\` - Activate (focus) a browser window
 
 ## Tab Groups
-- \`list_tab_groups\` - Get all tab groups with IDs, titles, colors, and tab IDs
-- \`group_tabs(tabIds, title?, color?, groupId?)\` - Create group or add tabs to existing group (groupId is a string)
+- \`list_tab_groups\` - Get all tab groups with IDs, titles, colors, and page IDs
+- \`group_tabs(pageIds, title?, groupId?)\` - Create group or add pages to existing group (groupId is a string)
 - \`update_tab_group(groupId, title?, color?, collapsed?)\` - Update group properties
-- \`ungroup_tabs(tabIds)\` - Remove tabs from their groups
+- \`ungroup_tabs(pageIds)\` - Remove pages from their groups
 - \`close_tab_group(groupId)\` - Close a tab group and all its tabs
 
 **Colors**: grey, blue, red, yellow, green, pink, purple, cyan, orange

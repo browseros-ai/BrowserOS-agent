@@ -869,15 +869,59 @@ export class Browser {
 
   // --- Tab Groups ---
 
-  async listTabGroups(): Promise<TabGroup[]> {
-    return tabGroups.listTabGroups(this.cdp)
+  private resolvePageIdsToTabIds(pageIds: number[]): number[] {
+    return pageIds.map((pageId) => {
+      const info = this.pages.get(pageId)
+      if (!info)
+        throw new Error(
+          `Unknown page ${pageId}. Use list_pages to see available pages.`,
+        )
+      return info.tabId
+    })
+  }
+
+  async listTabGroups(): Promise<
+    (Omit<TabGroup, 'tabIds'> & { pageIds: number[] })[]
+  > {
+    await this.listPages()
+    const groups = await tabGroups.listTabGroups(this.cdp)
+
+    const tabToPage = new Map<number, number>()
+    for (const info of this.pages.values()) {
+      tabToPage.set(info.tabId, info.pageId)
+    }
+
+    return groups.map((group) => {
+      const { tabIds, ...rest } = group
+      return {
+        ...rest,
+        pageIds: tabIds
+          .map((tabId) => tabToPage.get(tabId))
+          .filter((id): id is number => id !== undefined),
+      }
+    })
   }
 
   async groupTabs(
-    tabIds: number[],
+    pageIds: number[],
     opts?: { title?: string; groupId?: string },
-  ): Promise<TabGroup> {
-    return tabGroups.groupTabs(this.cdp, tabIds, opts)
+  ): Promise<Omit<TabGroup, 'tabIds'> & { pageIds: number[] }> {
+    await this.listPages()
+    const tabIds = this.resolvePageIdsToTabIds(pageIds)
+    const group = await tabGroups.groupTabs(this.cdp, tabIds, opts)
+
+    const tabToPage = new Map<number, number>()
+    for (const info of this.pages.values()) {
+      tabToPage.set(info.tabId, info.pageId)
+    }
+
+    const { tabIds: groupTabIds, ...rest } = group
+    return {
+      ...rest,
+      pageIds: groupTabIds
+        .map((tabId) => tabToPage.get(tabId))
+        .filter((id): id is number => id !== undefined),
+    }
   }
 
   async updateTabGroup(
@@ -887,7 +931,9 @@ export class Browser {
     return tabGroups.updateTabGroup(this.cdp, groupId, opts)
   }
 
-  async ungroupTabs(tabIds: number[]): Promise<void> {
+  async ungroupTabs(pageIds: number[]): Promise<void> {
+    await this.listPages()
+    const tabIds = this.resolvePageIdsToTabIds(pageIds)
     return tabGroups.ungroupTabs(this.cdp, tabIds)
   }
 
