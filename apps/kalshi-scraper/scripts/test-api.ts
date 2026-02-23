@@ -43,7 +43,7 @@ async function main() {
       isInTrendingList: false,
     })
     const hot = isHotMarket(market as any)
-    const engagement = generateEngagementCounts(m.volume_24h)
+    const engagement = generateEngagementCounts(m.volume_24h, m.ticker)
 
     console.log(`${m.ticker}`)
     console.log(`  Title: ${m.title}`)

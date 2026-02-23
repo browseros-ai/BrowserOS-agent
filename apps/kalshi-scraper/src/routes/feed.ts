@@ -1,11 +1,14 @@
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, lt } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { db, markets } from '../db'
 
 export const feedRoute = new Hono().get('/', async (c) => {
   const category = c.req.query('category') ?? 'trending'
   const cursor = c.req.query('cursor') ?? null
-  const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10), 100)
+  const limit = Math.min(
+    Number.parseInt(c.req.query('limit') ?? '20', 10) || 20,
+    100,
+  )
 
   // Build where conditions
   const conditions = [eq(markets.status, 'open')]
@@ -19,7 +22,7 @@ export const feedRoute = new Hono().get('/', async (c) => {
 
   // Cursor-based pagination (cursor = feed_score of last item)
   if (cursor) {
-    conditions.push(gt(markets.feedScore, parseInt(cursor, 10)))
+    conditions.push(lt(markets.feedScore, Number.parseInt(cursor, 10)))
   }
 
   const rows = await db

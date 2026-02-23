@@ -12,6 +12,7 @@ import {
   dollarsToCents,
   fetchAllMarkets,
   fetchEvents,
+  type KalshiEvent,
   type KalshiMarket,
 } from '../services/kalshi-api'
 import {
@@ -96,7 +97,7 @@ function buildTrendingTitles(rankings: ScrapedRanking[]): Set<string> {
 
 function transformMarket(
   km: KalshiMarket,
-  eventMap: Map<string, import('../services/kalshi-api').KalshiEvent>,
+  eventMap: Map<string, KalshiEvent>,
   trendingTitles: Set<string>,
 ): NewMarket {
   const event = eventMap.get(km.event_ticker)
@@ -116,7 +117,7 @@ function transformMarket(
   // Check if this market appears in scraped trending list
   const isInTrendingList = trendingTitles.has(km.title.toLowerCase())
 
-  const engagement = generateEngagementCounts(km.volume_24h)
+  const engagement = generateEngagementCounts(km.volume_24h, km.ticker)
 
   const market: NewMarket = {
     ticker: km.ticker,
@@ -147,11 +148,7 @@ function transformMarket(
   // Compute ranking fields
   market.feedScore = computeFeedScore({ market, isInTrendingList })
   market.isHot = isHotMarket(market)
-  market.isTrending = isTrendingMarket(
-    market,
-    isInTrendingList,
-    market.feedScore ?? 0,
-  )
+  market.isTrending = isTrendingMarket(isInTrendingList, market.feedScore ?? 0)
 
   return market
 }

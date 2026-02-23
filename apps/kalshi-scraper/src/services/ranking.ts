@@ -64,19 +64,28 @@ export function isHotMarket(market: NewMarket): boolean {
 
 // Determine if a market should be flagged as "trending"
 export function isTrendingMarket(
-  _market: NewMarket,
   isInTrendingList: boolean,
   feedScore: number,
 ): boolean {
   return isInTrendingList || feedScore > 500
 }
 
-// Generate synthetic engagement counts based on volume
-export function generateEngagementCounts(volume24h: number) {
+// Simple deterministic hash for a string, returns value between 0 and 1
+function deterministicHash(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash % 1000) / 1000
+}
+
+// Generate synthetic engagement counts based on volume and ticker
+export function generateEngagementCounts(volume24h: number, ticker: string) {
   const base = Math.max(100, volume24h / 10)
+  const h = deterministicHash(ticker)
   return {
-    likesCount: Math.round(base * (0.8 + Math.random() * 0.4)),
-    commentsCount: Math.round(base * (0.3 + Math.random() * 0.2)),
-    sharesCount: Math.round(base * (0.2 + Math.random() * 0.15)),
+    likesCount: Math.round(base * (0.8 + h * 0.4)),
+    commentsCount: Math.round(base * (0.3 + h * 0.2)),
+    sharesCount: Math.round(base * (0.2 + h * 0.15)),
   }
 }
