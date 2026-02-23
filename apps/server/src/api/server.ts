@@ -103,7 +103,8 @@ export async function createHttpServer(config: HttpServerConfig) {
     .route(
       '/chat-v2',
       createChatV2Routes({
-        port,
+        controllerContext,
+        mutexPool,
         executionDir,
         browserosId,
         rateLimiter,

@@ -3,9 +3,11 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { ChatV2Service } from '../../agent/tool-loop/service'
 import { SessionStore } from '../../agent/tool-loop/session-store'
+import type { ControllerContext } from '../../browser/extension/context'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
+import type { MutexPool } from '../../lib/mutex'
 import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
 import { Sentry } from '../../lib/sentry'
 import { createBrowserosRateLimitMiddleware } from '../middleware/rate-limit'
@@ -13,15 +15,15 @@ import { ChatRequestSchema } from '../types'
 import { ConversationIdParamSchema } from '../utils/validation'
 
 interface ChatV2RouteDeps {
-  port: number
+  controllerContext: ControllerContext
+  mutexPool?: MutexPool
   executionDir?: string
   browserosId?: string
   rateLimiter?: RateLimiter
 }
 
 export function createChatV2Routes(deps: ChatV2RouteDeps) {
-  const { port, browserosId, rateLimiter } = deps
-  const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
+  const { browserosId, rateLimiter } = deps
   const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
 
   // Initialize service dependencies
@@ -31,7 +33,8 @@ export function createChatV2Routes(deps: ChatV2RouteDeps) {
     sessionStore,
     klavisClient,
     executionDir,
-    mcpServerUrl,
+    controllerBridge: deps.controllerContext.bridge,
+    mutexPool: deps.mutexPool,
     browserosId,
   })
 
