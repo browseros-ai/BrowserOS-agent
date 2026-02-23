@@ -1,6 +1,18 @@
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import type { FC } from 'react'
+import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+
+const SURVEY_DIRECTIONS = [
+  'competitor',
+  'switching',
+  'workflow',
+  'activation',
+] as const
+
+function pickRandomDirection(): string {
+  return SURVEY_DIRECTIONS[Math.floor(Math.random() * SURVEY_DIRECTIONS.length)]
+}
 
 interface ChatErrorProps {
   error: Error
@@ -55,6 +67,12 @@ export const ChatError: FC<ChatErrorProps> = ({ error, onRetry }) => {
     error.message,
   )
 
+  const surveyUrl = useMemo(
+    () =>
+      `/app.html?page=survey&maxTurns=20&experimentId=daily_limit_${pickRandomDirection()}#/settings/survey`,
+    [],
+  )
+
   const getTitle = () => {
     if (isRateLimit) return 'Daily limit reached'
     if (isConnectionError) return 'Connection failed'
@@ -90,7 +108,7 @@ export const ChatError: FC<ChatErrorProps> = ({ error, onRetry }) => {
           </a>
           {' or '}
           <a
-            href="/app.html?page=survey&maxTurns=20&experimentId=daily_limit#/settings/survey"
+            href={surveyUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-foreground"
