@@ -187,8 +187,8 @@ export class Logger implements LoggerInterface {
     const logFn = this.consoleLogger[level].bind(this.consoleLogger)
     const fileLogFn = this.fileLogger?.[level].bind(this.fileLogger)
 
-    // Console: truncate large values in dev
-    if (meta && isDev) {
+    // Console: truncate large values in dev (skip for error/warn so full context is visible)
+    if (meta && isDev && level !== 'error' && level !== 'warn') {
       const truncated = truncateForConsole(
         meta,
         CONTENT_LIMITS.CONSOLE_META_CHAR,

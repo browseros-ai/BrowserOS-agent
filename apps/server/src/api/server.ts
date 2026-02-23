@@ -14,6 +14,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
+import { SessionManager } from '../agent/session'
 import { logger } from '../lib/logger'
 
 import { createChatRoutes } from './routes/chat'
@@ -59,16 +60,14 @@ export async function createHttpServer(config: HttpServerConfig) {
     executionDir,
     rateLimiter,
     version,
-    tools,
-    cdpContext,
-    controllerContext,
-    mutexPool,
-    allowRemote,
+    browser,
+    controller,
+    registry,
   } = config
 
   const { onShutdown } = config
+  const sessionManager = new SessionManager()
 
-  // DECLARATIVE route composition - chain .route() calls for type inference
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute())
@@ -76,18 +75,15 @@ export async function createHttpServer(config: HttpServerConfig) {
       '/shutdown',
       createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
     )
-    .route('/status', createStatusRoute({ controllerContext }))
+    .route('/status', createStatusRoute({ controller }))
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(
       '/mcp',
       createMcpRoutes({
         version,
-        tools,
-        cdpContext,
-        controllerContext,
-        mutexPool,
-        allowRemote,
+        registry,
+        browser,
       }),
     )
     .route(
@@ -97,6 +93,8 @@ export async function createHttpServer(config: HttpServerConfig) {
         executionDir,
         browserosId,
         rateLimiter,
+        sessionManager,
+        browser,
       }),
     )
     .route(

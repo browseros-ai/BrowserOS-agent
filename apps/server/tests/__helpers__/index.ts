@@ -22,6 +22,5 @@ export {
   getMockResponse,
   html,
   killProcessOnPort,
-  withBrowser,
   withMcpServer,
 } from './utils'
