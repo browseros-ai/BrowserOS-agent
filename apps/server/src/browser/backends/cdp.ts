@@ -1,3 +1,9 @@
+import {
+  createProtocolApi,
+  type RawOn,
+  type RawSend,
+} from '@browseros/cdp-protocol/create-api'
+import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 import type { CdpTarget, CdpBackend as ICdpBackend } from './types'
 
 interface PendingRequest {
@@ -5,16 +11,24 @@ interface PendingRequest {
   reject: (reason: Error) => void
 }
 
-export class CdpBackend implements ICdpBackend {
+// biome-ignore lint/correctness/noUnusedVariables: declaration merging adds ProtocolApi properties to the class
+interface CdpBackend extends ProtocolApi {}
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: intentional — Object.assign fills these at runtime
+class CdpBackend implements ICdpBackend {
   private port: number
   private ws: WebSocket | null = null
   private messageId = 0
   private pending = new Map<number, PendingRequest>()
   private connected = false
   private eventHandlers = new Map<string, ((params: unknown) => void)[]>()
+  private sessionCache = new Map<string, ProtocolApi>()
 
   constructor(config: { port: number }) {
     this.port = config.port
+
+    const rawSend: RawSend = (method, params) => this.rawSend(method, params)
+    const rawOn: RawOn = (event, handler) => this.rawOn(event, handler)
+    Object.assign(this, createProtocolApi(rawSend, rawOn))
   }
 
   async connect(): Promise<void> {
@@ -60,7 +74,32 @@ export class CdpBackend implements ICdpBackend {
     return this.connected
   }
 
-  async send(
+  session(sessionId: string): ProtocolApi {
+    let cached = this.sessionCache.get(sessionId)
+    if (!cached) {
+      cached = createProtocolApi(
+        (method, params) => this.rawSend(method, params, sessionId),
+        (event, handler) => this.rawOn(event, handler),
+      )
+      this.sessionCache.set(sessionId, cached)
+    }
+    return cached
+  }
+
+  async getTargets(): Promise<CdpTarget[]> {
+    const result = await this.Target.getTargets()
+
+    return result.targetInfos.map((t) => ({
+      id: t.targetId,
+      type: t.type,
+      title: t.title,
+      url: t.url,
+      tabId: t.tabId,
+      windowId: t.windowId,
+    }))
+  }
+
+  private async rawSend(
     method: string,
     params?: Record<string, unknown>,
     sessionId?: string,
@@ -86,29 +125,7 @@ export class CdpBackend implements ICdpBackend {
     })
   }
 
-  async getTargets(): Promise<CdpTarget[]> {
-    const result = (await this.send('Target.getTargets')) as {
-      targetInfos: Array<{
-        targetId: string
-        type: string
-        title: string
-        url: string
-        tabId?: number
-        windowId?: number
-      }>
-    }
-
-    return result.targetInfos.map((t) => ({
-      id: t.targetId,
-      type: t.type,
-      title: t.title,
-      url: t.url,
-      tabId: t.tabId,
-      windowId: t.windowId,
-    }))
-  }
-
-  on(event: string, handler: (params: unknown) => void): () => void {
+  private rawOn(event: string, handler: (params: unknown) => void): () => void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, [])
     }
@@ -154,3 +171,5 @@ export class CdpBackend implements ICdpBackend {
     }
   }
 }
+
+export { CdpBackend }

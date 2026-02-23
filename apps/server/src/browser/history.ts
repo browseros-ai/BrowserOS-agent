@@ -14,27 +14,25 @@ export async function searchHistory(
   query: string,
   maxResults?: number,
 ): Promise<HistoryEntry[]> {
-  const result = await cdp.send('History.search', {
+  const result = await cdp.History.search({
     query,
     ...(maxResults !== undefined && { maxResults }),
   })
-  const data = result as { entries: HistoryEntry[] }
-  return data.entries
+  return result.entries as HistoryEntry[]
 }
 
 export async function getRecentHistory(
   cdp: CdpBackend,
   maxResults?: number,
 ): Promise<HistoryEntry[]> {
-  const result = await cdp.send('History.getRecent', {
+  const result = await cdp.History.getRecent({
     ...(maxResults !== undefined && { maxResults }),
   })
-  const data = result as { entries: HistoryEntry[] }
-  return data.entries
+  return result.entries as HistoryEntry[]
 }
 
 export async function deleteUrl(cdp: CdpBackend, url: string): Promise<void> {
-  await cdp.send('History.deleteUrl', { url })
+  await cdp.History.deleteUrl({ url })
 }
 
 export async function deleteRange(
@@ -42,5 +40,5 @@ export async function deleteRange(
   startTime: number,
   endTime: number,
 ): Promise<void> {
-  await cdp.send('History.deleteRange', { startTime, endTime })
+  await cdp.History.deleteRange({ startTime, endTime })
 }

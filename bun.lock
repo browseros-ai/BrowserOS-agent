@@ -152,6 +152,7 @@
         "@ai-sdk/openai-compatible": "^2.0.30",
         "@ai-sdk/provider": "^3.0.8",
         "@browseros-ai/agent-sdk": "workspace:*",
+        "@browseros/cdp-protocol": "workspace:*",
         "@browseros/shared": "workspace:*",
         "@google/gemini-cli-core": "^0.16.0",
         "@google/genai": "1.30.0",
@@ -208,6 +209,10 @@
       "peerDependencies": {
         "zod": "^3.x",
       },
+    },
+    "packages/cdp-protocol": {
+      "name": "@browseros/cdp-protocol",
+      "version": "0.0.1",
     },
     "packages/shared": {
       "name": "@browseros/shared",
@@ -419,6 +424,8 @@
     "@browseros-ai/agent-sdk": ["@browseros-ai/agent-sdk@workspace:packages/agent-sdk"],
 
     "@browseros/agent": ["@browseros/agent@workspace:apps/agent"],
+
+    "@browseros/cdp-protocol": ["@browseros/cdp-protocol@workspace:packages/cdp-protocol"],
 
     "@browseros/server": ["@browseros/server@workspace:apps/server"],
 

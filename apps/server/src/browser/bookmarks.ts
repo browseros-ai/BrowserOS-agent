@@ -12,29 +12,27 @@ export interface BookmarkNode {
 }
 
 export async function getBookmarks(cdp: CdpBackend): Promise<BookmarkNode[]> {
-  const result = await cdp.send('Bookmarks.getBookmarks')
-  const data = result as { nodes: BookmarkNode[] }
-  return data.nodes
+  const result = await cdp.Bookmarks.getBookmarks()
+  return result.nodes as BookmarkNode[]
 }
 
 export async function createBookmark(
   cdp: CdpBackend,
   params: { title: string; url?: string; parentId?: string },
 ): Promise<BookmarkNode> {
-  const result = await cdp.send('Bookmarks.createBookmark', {
+  const result = await cdp.Bookmarks.createBookmark({
     title: params.title,
     ...(params.url !== undefined && { url: params.url }),
     ...(params.parentId !== undefined && { parentId: params.parentId }),
   })
-  const data = result as { node: BookmarkNode }
-  return data.node
+  return result.node as BookmarkNode
 }
 
 export async function removeBookmark(
   cdp: CdpBackend,
   id: string,
 ): Promise<void> {
-  await cdp.send('Bookmarks.removeBookmark', { id })
+  await cdp.Bookmarks.removeBookmark({ id })
 }
 
 export async function updateBookmark(
@@ -42,9 +40,8 @@ export async function updateBookmark(
   id: string,
   changes: { url?: string; title?: string },
 ): Promise<BookmarkNode> {
-  const result = await cdp.send('Bookmarks.updateBookmark', { id, ...changes })
-  const data = result as { node: BookmarkNode }
-  return data.node
+  const result = await cdp.Bookmarks.updateBookmark({ id, ...changes })
+  return result.node as BookmarkNode
 }
 
 export async function moveBookmark(
@@ -52,19 +49,14 @@ export async function moveBookmark(
   id: string,
   destination: { parentId?: string; index?: number },
 ): Promise<BookmarkNode> {
-  const result = await cdp.send('Bookmarks.moveBookmark', {
-    id,
-    ...destination,
-  })
-  const data = result as { node: BookmarkNode }
-  return data.node
+  const result = await cdp.Bookmarks.moveBookmark({ id, ...destination })
+  return result.node as BookmarkNode
 }
 
 export async function searchBookmarks(
   cdp: CdpBackend,
   query: string,
 ): Promise<BookmarkNode[]> {
-  const result = await cdp.send('Bookmarks.searchBookmarks', { query })
-  const data = result as { results: BookmarkNode[] }
-  return data.results
+  const result = await cdp.Bookmarks.searchBookmarks({ query })
+  return result.results as BookmarkNode[]
 }

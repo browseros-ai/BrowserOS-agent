@@ -10,9 +10,8 @@ export interface TabGroup {
 }
 
 export async function listTabGroups(cdp: CdpBackend): Promise<TabGroup[]> {
-  const result = await cdp.send('Browser.getTabGroups')
-  const data = result as { groups: TabGroup[] }
-  return data.groups
+  const result = await cdp.Browser.getTabGroups()
+  return result.groups as TabGroup[]
 }
 
 export async function groupTabs(
@@ -21,20 +20,18 @@ export async function groupTabs(
   opts?: { title?: string; groupId?: string },
 ): Promise<TabGroup> {
   if (opts?.groupId) {
-    const result = await cdp.send('Browser.addTabsToGroup', {
+    const result = await cdp.Browser.addTabsToGroup({
       groupId: opts.groupId,
       tabIds,
     })
-    const data = result as { group: TabGroup }
-    return data.group
+    return result.group as TabGroup
   }
 
-  const result = await cdp.send('Browser.createTabGroup', {
+  const result = await cdp.Browser.createTabGroup({
     tabIds,
     ...(opts?.title !== undefined && { title: opts.title }),
   })
-  const data = result as { group: TabGroup }
-  return data.group
+  return result.group as TabGroup
 }
 
 export async function updateTabGroup(
@@ -42,24 +39,20 @@ export async function updateTabGroup(
   groupId: string,
   opts: { title?: string; color?: string; collapsed?: boolean },
 ): Promise<TabGroup> {
-  const result = await cdp.send('Browser.updateTabGroup', {
-    groupId,
-    ...opts,
-  })
-  const data = result as { group: TabGroup }
-  return data.group
+  const result = await cdp.Browser.updateTabGroup({ groupId, ...opts })
+  return result.group as TabGroup
 }
 
 export async function ungroupTabs(
   cdp: CdpBackend,
   tabIds: number[],
 ): Promise<void> {
-  await cdp.send('Browser.removeTabsFromGroup', { tabIds })
+  await cdp.Browser.removeTabsFromGroup({ tabIds })
 }
 
 export async function closeTabGroup(
   cdp: CdpBackend,
   groupId: string,
 ): Promise<void> {
-  await cdp.send('Browser.closeTabGroup', { groupId })
+  await cdp.Browser.closeTabGroup({ groupId })
 }
