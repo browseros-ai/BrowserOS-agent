@@ -7,6 +7,7 @@ export type MarketCategory =
   | 'science'
   | 'weather'
   | 'tech'
+  | 'conspiracy'
 
 export interface Market {
   id: string
@@ -26,6 +27,11 @@ export interface Market {
   last_price: number
   price_change_24h: number
   traders_count: number
+  likes_count: number
+  comments_count: number
+  shares_count: number
+  is_hot: boolean
+  is_trending: boolean
   created_at: string
 }
 
@@ -42,4 +48,5 @@ export type FeedCategory =
   | 'crypto'
   | 'economics'
   | 'entertainment'
+  | 'conspiracy'
   | 'all'

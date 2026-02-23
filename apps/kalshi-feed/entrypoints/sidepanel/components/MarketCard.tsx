@@ -1,151 +1,132 @@
 import {
-  ArrowDown,
-  ArrowUp,
+  Bookmark,
+  CheckCircle,
   Clock,
-  ExternalLink,
+  Flame,
+  Heart,
+  MessageCircle,
+  Share2,
   TrendingUp,
   Users,
+  XCircle,
 } from 'lucide-react'
 import type { FC } from 'react'
 import type { Market } from '@/lib/types/market'
-import { cn } from '@/lib/utils/cn'
-import {
-  formatTimeRemaining,
-  formatTraders,
-  formatVolume,
-} from '@/lib/utils/format'
-import { getCategoryEmoji, getCategoryGradient } from '@/lib/utils/gradients'
+import { formatCompact, formatDaysRemaining } from '@/lib/utils/format'
 
 interface MarketCardProps {
   market: Market
 }
 
 export const MarketCard: FC<MarketCardProps> = ({ market }) => {
-  const timeRemaining = formatTimeRemaining(market.close_time)
-  const isClosingSoon =
-    timeRemaining.includes('h ') || timeRemaining.includes('m ')
-  const gradient = getCategoryGradient(market.category)
-  const emoji = getCategoryEmoji(market.category)
-
-  const handleBuyYes = () => {
-    window.open(market.kalshi_url, '_blank')
-  }
-
-  const handleBuyNo = () => {
+  const handleBet = () => {
     window.open(market.kalshi_url, '_blank')
   }
 
   return (
-    <div className="relative flex h-screen w-full shrink-0 snap-start flex-col overflow-hidden">
-      <div className={cn('absolute inset-0 bg-gradient-to-b', gradient)} />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent_0%,rgba(0,0,0,0.4)_100%)]" />
+    <div className="relative flex h-full w-full shrink-0 snap-start flex-col overflow-hidden bg-black">
+      {market.image_url && (
+        <img
+          src={market.image_url}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
 
-      <div className="relative z-10 flex flex-1 flex-col justify-between p-4 pt-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-white/10 px-3 py-1 font-medium text-xs capitalize backdrop-blur-sm">
-              {emoji} {market.category}
+      {/* Right side action bar */}
+      <div className="absolute right-4 bottom-36 z-20 flex flex-col items-center gap-3">
+        {market.is_hot && (
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/20">
+              <Flame className="h-5 w-5 text-orange-400" />
+            </div>
+            <span className="font-semibold text-[9px] text-orange-400">
+              HOT
             </span>
-            {isClosingSoon && (
-              <span className="flex items-center gap-1 rounded-full bg-red-500/20 px-3 py-1 font-medium text-red-300 text-xs backdrop-blur-sm">
-                <Clock className="h-3 w-3" />
-                Closing soon
-              </span>
-            )}
           </div>
-          <span className="flex items-center gap-1 text-white/60 text-xs">
-            <Clock className="h-3 w-3" />
-            {timeRemaining}
+        )}
+        <div className="flex flex-col items-center gap-0.5">
+          <Heart className="h-6 w-6 text-white" />
+          <span className="font-medium text-[10px] text-white">
+            {formatCompact(market.likes_count)}
           </span>
         </div>
+        <div className="flex flex-col items-center gap-0.5">
+          <MessageCircle className="h-6 w-6 text-white" />
+          <span className="font-medium text-[10px] text-white">
+            {formatCompact(market.comments_count)}
+          </span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5">
+          <Share2 className="h-6 w-6 text-white" />
+          <span className="font-medium text-[10px] text-white">
+            {formatCompact(market.shares_count)}
+          </span>
+        </div>
+        <div className="flex flex-col items-center gap-0.5">
+          <Bookmark className="h-6 w-6 text-white" />
+          <span className="font-medium text-[10px] text-white">Save</span>
+        </div>
+      </div>
 
-        <div className="my-auto space-y-6">
-          <div className="space-y-2">
-            <h2 className="font-bold text-2xl text-white leading-tight drop-shadow-lg">
-              {market.title}
-            </h2>
-            <p className="text-sm text-white/60">{market.subtitle}</p>
+      {/* Bottom content overlay */}
+      <div className="absolute right-0 bottom-3 left-0 z-10 px-4 pb-3">
+        {/* Trending badge */}
+        {market.is_trending && (
+          <div className="mb-2 inline-flex items-center gap-1 rounded bg-emerald-500/90 px-2.5 py-1">
+            <TrendingUp className="h-3 w-3 text-white" />
+            <span className="font-bold text-[11px] text-white tracking-wide">
+              TRENDING
+            </span>
           </div>
+        )}
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-sm text-white/80">
-                Probability
-              </span>
-              <div className="flex items-center gap-1">
-                {market.price_change_24h > 0 ? (
-                  <ArrowUp className="h-3 w-3 text-yes-green" />
-                ) : market.price_change_24h < 0 ? (
-                  <ArrowDown className="h-3 w-3 text-no-red" />
-                ) : null}
-                <span
-                  className={cn(
-                    'font-medium text-xs',
-                    market.price_change_24h > 0
-                      ? 'text-yes-green'
-                      : 'text-no-red',
-                  )}
-                >
-                  {market.price_change_24h > 0 ? '+' : ''}
-                  {market.price_change_24h}%
-                </span>
-              </div>
-            </div>
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="rounded-l-full bg-yes-green transition-all duration-500"
-                style={{ width: `${market.yes_price}%` }}
-              />
-              <div
-                className="rounded-r-full bg-no-red transition-all duration-500"
-                style={{ width: `${market.no_price}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="font-semibold text-yes-green">
-                Yes {market.yes_price}¢
-              </span>
-              <span className="font-semibold text-no-red">
-                No {market.no_price}¢
-              </span>
-            </div>
+        {/* Title */}
+        <h2 className="mb-3 pr-16 font-bold text-white text-xl leading-tight drop-shadow-lg">
+          {market.title}
+        </h2>
+
+        {/* Stats row */}
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 backdrop-blur-sm">
+            <TrendingUp className="h-3 w-3 text-red-400" />
+            <span className="font-semibold text-white text-xs">
+              {market.yes_price}% YES
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-white/60">
+            <Clock className="h-3 w-3" />
+            <span className="text-xs">
+              {formatDaysRemaining(market.close_time)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-white/60">
+            <Users className="h-3 w-3" />
+            <span className="text-xs">
+              {formatCompact(market.traders_count)}
+            </span>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-center gap-6 text-white/50 text-xs">
-            <span className="flex items-center gap-1">
-              <TrendingUp className="h-3.5 w-3.5" />
-              {formatVolume(market.volume_24h)} 24h vol
-            </span>
-            <span className="flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" />
-              {formatTraders(market.traders_count)} traders
-            </span>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleBuyYes}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-yes-green py-4 font-bold text-base text-white shadow-lg transition-all active:scale-95 active:bg-yes-green-dark"
-            >
-              Buy Yes {market.yes_price}¢
-              <ExternalLink className="h-4 w-4 opacity-60" />
-            </button>
-            <button
-              type="button"
-              onClick={handleBuyNo}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-no-red py-4 font-bold text-base text-white shadow-lg transition-all active:scale-95 active:bg-no-red-dark"
-            >
-              Buy No {market.no_price}¢
-              <ExternalLink className="h-4 w-4 opacity-60" />
-            </button>
-          </div>
-
-          <p className="text-center text-[10px] text-white/30">
-            Tap to place trade on Kalshi
-          </p>
+        {/* YES / NO buttons */}
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={handleBet}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 font-bold text-[15px] text-white transition-all active:scale-[0.97] active:brightness-90"
+          >
+            <CheckCircle className="h-5 w-5" />
+            YES &middot; {market.yes_price}%
+          </button>
+          <button
+            type="button"
+            onClick={handleBet}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-rose-900/80 py-3.5 font-bold text-[15px] text-white transition-all active:scale-[0.97] active:brightness-90"
+          >
+            <XCircle className="h-5 w-5" />
+            NO &middot; {market.no_price}%
+          </button>
         </div>
       </div>
     </div>
