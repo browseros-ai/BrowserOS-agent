@@ -17,8 +17,8 @@ const chromiumArgs = [
 ]
 
 if (env.BROWSEROS_CDP_PORT) {
-  // chromiumArgs.push(`--remote-debugging-port=${env.BROWSEROS_CDP_PORT}`)
-  chromiumArgs.push(`--browseros-cdp-port=${env.BROWSEROS_CDP_PORT}`)
+  // TODO: replace with --browseros-cdp-port once we fix the browseros bug
+  chromiumArgs.push(`--remote-debugging-port=${env.BROWSEROS_CDP_PORT}`)
 }
 if (env.BROWSEROS_SERVER_PORT) {
   chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
