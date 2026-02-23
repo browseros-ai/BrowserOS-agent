@@ -53,6 +53,8 @@ async function assertPortAvailable(port: number): Promise<void> {
   })
 }
 
+const USE_TOOL_AGENT = true
+
 export async function createHttpServer(config: HttpServerConfig) {
   const {
     port,
@@ -89,14 +91,22 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
     .route(
       '/chat',
-      createChatRoutes({
-        port,
-        executionDir,
-        browserosId,
-        rateLimiter,
-        sessionManager,
-        browser,
-      }),
+      USE_TOOL_AGENT
+        ? createChatV2Routes({
+            browser,
+            registry,
+            executionDir,
+            browserosId,
+            rateLimiter,
+          })
+        : createChatRoutes({
+            port,
+            executionDir,
+            browserosId,
+            rateLimiter,
+            sessionManager,
+            browser,
+          }),
     )
     .route(
       '/chat-v2',
