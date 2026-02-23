@@ -383,35 +383,28 @@ export class GeminiAgent {
     honoStream: HonoSSEStream,
     signal?: AbortSignal,
     browserContext?: BrowserContext,
-    previousConversation?: string,
+    previousConversation?: { role: 'user' | 'assistant'; content: string }[],
   ): Promise<void> {
     const abortSignal = signal || new AbortController().signal
     const promptId = `${this.conversationId}-${Date.now()}`
 
     const contextPrefix = this.formatBrowserContext(browserContext)
 
-    // User query
-    const userQuery = `<USER_QUERY>
-${message}
-</USER_QUERY>`
-
-    // Inject previous conversation if resuming (no server-side history)
-    let fullMessage = userQuery
-    if (previousConversation) {
-      fullMessage = `<previous_conversation>
-The user is resuming a previous conversation. Here is the conversation history for context:
-
-${previousConversation}
-</previous_conversation>
-
-Continue the conversation based on the above context. Here is the user's new message:
-
-${userQuery}`
-      logger.info('Injecting previous conversation for resume', {
+    if (previousConversation?.length) {
+      const historyContents: Content[] = previousConversation.map((msg) => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }],
+      }))
+      this.client.setHistory(historyContents)
+      logger.info('Restored conversation history for resume', {
         conversationId: this.conversationId,
-        historyLength: previousConversation.length,
+        messageCount: previousConversation.length,
       })
     }
+
+    const fullMessage = `<USER_QUERY>
+${message}
+</USER_QUERY>`
 
     let currentParts: Part[] = [{ text: contextPrefix + fullMessage }]
     let turnCount = 0
