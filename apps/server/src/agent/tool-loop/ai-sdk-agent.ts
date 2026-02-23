@@ -9,6 +9,7 @@ import { allControllerTools } from '../../tools/controller-based/registry'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
 import { createCompactionPrepareStep } from './compaction'
+import { buildFilesystemToolSet } from './filesystem-tools/pi-tool-adapter'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import { createLanguageModel } from './provider-factory'
 import { buildControllerToolSet } from './tool-adapter'
@@ -49,7 +50,16 @@ export class AiSdkAgent {
       browserosId: config.browserosId,
     })
     const { clients, tools: externalMcpTools } = await createMcpClients(specs)
-    const tools = { ...controllerTools, ...externalMcpTools }
+
+    // Add filesystem tools (Pi coding agent) — skip in chat mode (read-only)
+    const filesystemTools = config.resolvedConfig.chatMode
+      ? {}
+      : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
+    const tools = {
+      ...controllerTools,
+      ...externalMcpTools,
+      ...filesystemTools,
+    }
 
     // Build system prompt with optional section exclusions
     const excludeSections: string[] = []
