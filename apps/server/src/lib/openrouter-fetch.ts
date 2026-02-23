@@ -1,12 +1,3 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- */
-
-/**
- * Custom fetch utilities for provider-specific error handling
- */
-
 import { APICallError } from '@ai-sdk/provider'
 
 /**
@@ -19,11 +10,6 @@ import { APICallError } from '@ai-sdk/provider'
  * IMPORTANT: Throws APICallError (not plain Error) so the Vercel AI SDK's retry mechanism
  * works correctly. The SDK's APICallError automatically calculates `isRetryable` from
  * the statusCode (408, 409, 429, 500+ are retryable) - we don't override this default.
- *
- * @example
- * // OpenRouter error format:
- * // { "error": { "message": "Provider returned error", "code": 429, "metadata": { "raw": "Rate limited..." } } }
- * // Extracted as: "[429] Provider returned error (Rate limited...)"
  */
 export function createOpenRouterCompatibleFetch(): typeof fetch {
   return (async (url: RequestInfo | URL, options?: RequestInit) => {
@@ -50,9 +36,6 @@ export function createOpenRouterCompatibleFetch(): typeof fetch {
         // Keep default error message if parsing fails
       }
 
-      // Throw APICallError so SDK retry mechanism works.
-      // isRetryable is automatically calculated by APICallError from statusCode:
-      // (408, 409, 429, 500+) are retryable by default
       throw new APICallError({
         message: errorMessage,
         url: typeof url === 'string' ? url : url.toString(),

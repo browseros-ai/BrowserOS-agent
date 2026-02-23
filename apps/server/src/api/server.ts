@@ -18,6 +18,7 @@ import { SessionManager } from '../agent/session'
 import { logger } from '../lib/logger'
 
 import { createChatRoutes } from './routes/chat'
+import { createChatV2Routes } from './routes/chat-v2'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
@@ -95,6 +96,16 @@ export async function createHttpServer(config: HttpServerConfig) {
         rateLimiter,
         sessionManager,
         browser,
+      }),
+    )
+    .route(
+      '/chat-v2',
+      createChatV2Routes({
+        browser,
+        registry,
+        executionDir,
+        browserosId,
+        rateLimiter,
       }),
     )
     .route(
