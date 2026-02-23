@@ -7,7 +7,6 @@ export type MarketCategory =
   | 'science'
   | 'weather'
   | 'tech'
-  | 'conspiracy'
 
 export interface Market {
   id: string
@@ -48,5 +47,4 @@ export type FeedCategory =
   | 'crypto'
   | 'economics'
   | 'entertainment'
-  | 'conspiracy'
   | 'all'

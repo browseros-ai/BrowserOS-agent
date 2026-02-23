@@ -10,7 +10,6 @@ export function getCategoryLabel(category: MarketCategory): string {
     science: 'Science',
     weather: 'Weather',
     tech: 'Tech',
-    conspiracy: 'Conspiracy',
   }
   return labels[category] ?? category
 }
