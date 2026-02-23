@@ -9,8 +9,11 @@ import {
 } from './lib/protocol-api-emitter'
 import { parseProtocol } from './lib/protocol-parser'
 
-const PROTOCOL_PATH =
-  '/Users/shadowfax/code/chromium-checkouts/chromium-1/src/.llm/ref/browser_protocol.json'
+const PROTOCOL_PATH = process.env.CDP_PROTOCOL_JSON
+if (!PROTOCOL_PATH) {
+  console.error('Set CDP_PROTOCOL_JSON to the path of browser_protocol.json')
+  process.exit(1)
+}
 const OUT_DIR = join(import.meta.dir, '../../packages/cdp-protocol')
 const GEN_DIR = join(OUT_DIR, 'src/generated')
 const DOMAINS_DIR = join(GEN_DIR, 'domains')
