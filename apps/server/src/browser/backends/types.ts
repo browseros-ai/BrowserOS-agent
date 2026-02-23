@@ -1,14 +1,11 @@
-export interface CdpBackend {
+import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
+
+export interface CdpBackend extends ProtocolApi {
   connect(): Promise<void>
   disconnect(): Promise<void>
   isConnected(): boolean
-  send(
-    method: string,
-    params?: Record<string, unknown>,
-    sessionId?: string,
-  ): Promise<unknown>
   getTargets(): Promise<CdpTarget[]>
-  on(event: string, handler: (params: unknown) => void): () => void
+  session(sessionId: string): ProtocolApi
 }
 
 export interface ControllerBackend {

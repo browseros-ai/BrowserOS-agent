@@ -1,4 +1,4 @@
-import type { CdpBackend } from './backends/types'
+import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 
 interface AXValue {
   type: string
@@ -214,46 +214,32 @@ export interface CursorInteractiveElement {
 }
 
 export async function findCursorInteractiveElements(
-  cdp: CdpBackend,
-  sessionId: string,
+  session: ProtocolApi,
 ): Promise<CursorInteractiveElement[]> {
-  const findResult = (await cdp.send(
-    'Runtime.evaluate',
-    { expression: CURSOR_INTERACTIVE_JS, returnByValue: true },
-    sessionId,
-  )) as {
-    result?: {
-      value?: Array<{
-        marker: string
-        text: string
-        reasons: string[]
-      }>
-    }
-  }
+  const findResult = await session.Runtime.evaluate({
+    expression: CURSOR_INTERACTIVE_JS,
+    returnByValue: true,
+  })
 
-  const found = findResult.result?.value
+  const found = findResult.result?.value as
+    | Array<{ marker: string; text: string; reasons: string[] }>
+    | undefined
   if (!found?.length) return []
 
   const results: CursorInteractiveElement[] = []
 
   for (const el of found) {
     try {
-      const queryResult = (await cdp.send(
-        'Runtime.evaluate',
-        {
-          expression: `document.querySelector('[data-__cid="${el.marker}"]')`,
-          returnByValue: false,
-        },
-        sessionId,
-      )) as { result?: { objectId?: string } }
+      const queryResult = await session.Runtime.evaluate({
+        expression: `document.querySelector('[data-__cid="${el.marker}"]')`,
+        returnByValue: false,
+      })
 
       if (!queryResult.result?.objectId) continue
 
-      const desc = (await cdp.send(
-        'DOM.describeNode',
-        { objectId: queryResult.result.objectId },
-        sessionId,
-      )) as { node?: { backendNodeId?: number } }
+      const desc = await session.DOM.describeNode({
+        objectId: queryResult.result.objectId,
+      })
 
       if (desc.node?.backendNodeId) {
         results.push({
@@ -267,14 +253,10 @@ export async function findCursorInteractiveElements(
     }
   }
 
-  await cdp.send(
-    'Runtime.evaluate',
-    {
-      expression: `document.querySelectorAll('[data-__cid]').forEach(function(el){el.removeAttribute('data-__cid')})`,
-      returnByValue: true,
-    },
-    sessionId,
-  )
+  await session.Runtime.evaluate({
+    expression: `document.querySelectorAll('[data-__cid]').forEach(function(el){el.removeAttribute('data-__cid')})`,
+    returnByValue: true,
+  })
 
   return results
 }

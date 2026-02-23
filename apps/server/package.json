@@ -51,6 +51,7 @@
     "@ai-sdk/openai-compatible": "^2.0.30",
     "@ai-sdk/provider": "^3.0.8",
     "@browseros-ai/agent-sdk": "workspace:*",
+    "@browseros/cdp-protocol": "workspace:*",
     "@browseros/shared": "workspace:*",
     "@google/gemini-cli-core": "^0.16.0",
     "@google/genai": "1.30.0",

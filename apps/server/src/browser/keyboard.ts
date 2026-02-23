@@ -1,4 +1,4 @@
-import type { CdpBackend } from './backends/types'
+import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 
 type KeyInfo = { code: string; keyCode: number | undefined }
 
@@ -71,119 +71,82 @@ export function modifierBitmask(modifiers: string[]): number {
 }
 
 export async function typeText(
-  cdp: CdpBackend,
-  sessionId: string,
+  session: ProtocolApi,
   text: string,
 ): Promise<void> {
   for (const char of text) {
     if (char === '\n') {
-      await cdp.send(
-        'Input.dispatchKeyEvent',
-        {
-          type: 'keyDown',
-          key: 'Enter',
-          code: 'Enter',
-          windowsVirtualKeyCode: 13,
-        },
-        sessionId,
-      )
-      await cdp.send(
-        'Input.dispatchKeyEvent',
-        { type: 'char', text: '\r', key: 'Enter' },
-        sessionId,
-      )
-      await cdp.send(
-        'Input.dispatchKeyEvent',
-        {
-          type: 'keyUp',
-          key: 'Enter',
-          code: 'Enter',
-          windowsVirtualKeyCode: 13,
-        },
-        sessionId,
-      )
+      await session.Input.dispatchKeyEvent({
+        type: 'keyDown',
+        key: 'Enter',
+        code: 'Enter',
+        windowsVirtualKeyCode: 13,
+      })
+      await session.Input.dispatchKeyEvent({
+        type: 'char',
+        text: '\r',
+        key: 'Enter',
+      })
+      await session.Input.dispatchKeyEvent({
+        type: 'keyUp',
+        key: 'Enter',
+        code: 'Enter',
+        windowsVirtualKeyCode: 13,
+      })
     } else {
       const info = getKeyInfo(char)
-      await cdp.send(
-        'Input.dispatchKeyEvent',
-        {
-          type: 'keyDown',
-          key: char,
-          code: info.code,
-          windowsVirtualKeyCode: info.keyCode,
-        },
-        sessionId,
-      )
-      await cdp.send(
-        'Input.dispatchKeyEvent',
-        { type: 'char', text: char, key: char },
-        sessionId,
-      )
-      await cdp.send(
-        'Input.dispatchKeyEvent',
-        {
-          type: 'keyUp',
-          key: char,
-          code: info.code,
-          windowsVirtualKeyCode: info.keyCode,
-        },
-        sessionId,
-      )
+      await session.Input.dispatchKeyEvent({
+        type: 'keyDown',
+        key: char,
+        code: info.code,
+        windowsVirtualKeyCode: info.keyCode,
+      })
+      await session.Input.dispatchKeyEvent({
+        type: 'char',
+        text: char,
+        key: char,
+      })
+      await session.Input.dispatchKeyEvent({
+        type: 'keyUp',
+        key: char,
+        code: info.code,
+        windowsVirtualKeyCode: info.keyCode,
+      })
     }
   }
 }
 
-export async function clearField(
-  cdp: CdpBackend,
-  sessionId: string,
-): Promise<void> {
-  await cdp.send(
-    'Input.dispatchKeyEvent',
-    {
-      type: 'keyDown',
-      key: 'a',
-      code: 'KeyA',
-      modifiers: 2,
-      windowsVirtualKeyCode: 65,
-    },
-    sessionId,
-  )
-  await cdp.send(
-    'Input.dispatchKeyEvent',
-    {
-      type: 'keyUp',
-      key: 'a',
-      code: 'KeyA',
-      modifiers: 2,
-      windowsVirtualKeyCode: 65,
-    },
-    sessionId,
-  )
-  await cdp.send(
-    'Input.dispatchKeyEvent',
-    {
-      type: 'keyDown',
-      key: 'Delete',
-      code: 'Delete',
-      windowsVirtualKeyCode: 46,
-    },
-    sessionId,
-  )
-  await cdp.send(
-    'Input.dispatchKeyEvent',
-    {
-      type: 'keyUp',
-      key: 'Delete',
-      code: 'Delete',
-      windowsVirtualKeyCode: 46,
-    },
-    sessionId,
-  )
+export async function clearField(session: ProtocolApi): Promise<void> {
+  await session.Input.dispatchKeyEvent({
+    type: 'keyDown',
+    key: 'a',
+    code: 'KeyA',
+    modifiers: 2,
+    windowsVirtualKeyCode: 65,
+  })
+  await session.Input.dispatchKeyEvent({
+    type: 'keyUp',
+    key: 'a',
+    code: 'KeyA',
+    modifiers: 2,
+    windowsVirtualKeyCode: 65,
+  })
+  await session.Input.dispatchKeyEvent({
+    type: 'keyDown',
+    key: 'Delete',
+    code: 'Delete',
+    windowsVirtualKeyCode: 46,
+  })
+  await session.Input.dispatchKeyEvent({
+    type: 'keyUp',
+    key: 'Delete',
+    code: 'Delete',
+    windowsVirtualKeyCode: 46,
+  })
 }
 
 export async function pressCombo(
-  cdp: CdpBackend,
-  sessionId: string,
+  session: ProtocolApi,
   key: string,
 ): Promise<void> {
   const parts = key.split('+')
@@ -193,53 +156,37 @@ export async function pressCombo(
 
   for (const mod of modifiers) {
     const info = getKeyInfo(mod)
-    await cdp.send(
-      'Input.dispatchKeyEvent',
-      {
-        type: 'keyDown',
-        key: mod,
-        code: info.code,
-        windowsVirtualKeyCode: info.keyCode,
-      },
-      sessionId,
-    )
+    await session.Input.dispatchKeyEvent({
+      type: 'keyDown',
+      key: mod,
+      code: info.code,
+      windowsVirtualKeyCode: info.keyCode,
+    })
   }
 
   const mainInfo = getKeyInfo(mainKey)
-  await cdp.send(
-    'Input.dispatchKeyEvent',
-    {
-      type: 'keyDown',
-      key: mainKey,
-      code: mainInfo.code,
-      modifiers: modBitmask,
-      windowsVirtualKeyCode: mainInfo.keyCode,
-    },
-    sessionId,
-  )
-  await cdp.send(
-    'Input.dispatchKeyEvent',
-    {
-      type: 'keyUp',
-      key: mainKey,
-      code: mainInfo.code,
-      modifiers: modBitmask,
-      windowsVirtualKeyCode: mainInfo.keyCode,
-    },
-    sessionId,
-  )
+  await session.Input.dispatchKeyEvent({
+    type: 'keyDown',
+    key: mainKey,
+    code: mainInfo.code,
+    modifiers: modBitmask,
+    windowsVirtualKeyCode: mainInfo.keyCode,
+  })
+  await session.Input.dispatchKeyEvent({
+    type: 'keyUp',
+    key: mainKey,
+    code: mainInfo.code,
+    modifiers: modBitmask,
+    windowsVirtualKeyCode: mainInfo.keyCode,
+  })
 
   for (const mod of modifiers.reverse()) {
     const info = getKeyInfo(mod)
-    await cdp.send(
-      'Input.dispatchKeyEvent',
-      {
-        type: 'keyUp',
-        key: mod,
-        code: info.code,
-        windowsVirtualKeyCode: info.keyCode,
-      },
-      sessionId,
-    )
+    await session.Input.dispatchKeyEvent({
+      type: 'keyUp',
+      key: mod,
+      code: info.code,
+      windowsVirtualKeyCode: info.keyCode,
+    })
   }
 }
