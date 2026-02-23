@@ -5,6 +5,7 @@ import {
 } from '@browseros/cdp-protocol/create-api'
 import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
+import { CDP_LIMITS } from '@browseros/shared/constants/limits'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { logger } from '../../lib/logger'
 import type { CdpTarget, CdpBackend as ICdpBackend } from './types'
@@ -13,8 +14,6 @@ interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // biome-ignore lint/correctness/noUnusedVariables: declaration merging adds ProtocolApi properties to the class
 interface CdpBackend extends ProtocolApi {}
@@ -38,7 +37,7 @@ class CdpBackend implements ICdpBackend {
   }
 
   async connect(): Promise<void> {
-    const maxRetries = TIMEOUTS.CDP_CONNECT_MAX_RETRIES
+    const maxRetries = CDP_LIMITS.CONNECT_MAX_RETRIES
     const retryDelay = TIMEOUTS.CDP_CONNECT_RETRY_DELAY
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -51,7 +50,7 @@ class CdpBackend implements ICdpBackend {
           logger.warn(
             `CDP connection attempt ${attempt}/${maxRetries} failed: ${msg}. Retrying in ${retryDelay}ms...`,
           )
-          await sleep(retryDelay)
+          await Bun.sleep(retryDelay)
         } else {
           throw new Error(
             `CDP connection failed after ${maxRetries} attempts: ${msg}`,
@@ -68,9 +67,11 @@ class CdpBackend implements ICdpBackend {
         .then((version) => {
           const wsUrl = (version as { webSocketDebuggerUrl: string })
             .webSocketDebuggerUrl
+          let opened = false
           const ws = new WebSocket(wsUrl)
 
           ws.onopen = () => {
+            opened = true
             this.ws = ws
             this.connected = true
             this.disconnecting = false
@@ -78,13 +79,13 @@ class CdpBackend implements ICdpBackend {
           }
 
           ws.onerror = (event) => {
-            reject(new Error(`CDP WebSocket error: ${event}`))
+            if (!opened) reject(new Error(`CDP WebSocket error: ${event}`))
           }
 
           ws.onclose = () => {
             this.connected = false
             this.ws = null
-            this.handleUnexpectedClose()
+            if (opened) this.handleUnexpectedClose()
           }
 
           ws.onmessage = (event) => {
@@ -105,13 +106,13 @@ class CdpBackend implements ICdpBackend {
   }
 
   private async reconnectOrCrash(): Promise<void> {
-    const maxRetries = TIMEOUTS.CDP_CONNECT_MAX_RETRIES
+    const maxRetries = CDP_LIMITS.CONNECT_MAX_RETRIES
     const retryDelay = TIMEOUTS.CDP_CONNECT_RETRY_DELAY
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         logger.info(`CDP reconnection attempt ${attempt}/${maxRetries}...`)
-        await sleep(retryDelay)
+        await Bun.sleep(retryDelay)
         await this.attemptConnect()
         logger.info('CDP reconnected successfully')
         return
