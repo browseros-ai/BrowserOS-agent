@@ -51,7 +51,10 @@ export const ScheduledTasksPage: FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null)
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null)
-  const [viewingRun, setViewingRun] = useState<ScheduledJobRun | null>(null)
+  const [viewingRunId, setViewingRunId] = useState<string | null>(null)
+  const viewingRun = viewingRunId
+    ? (jobRuns.find((r) => r.id === viewingRunId) ?? null)
+    : null
 
   const handleAdd = () => {
     setEditingJob(null)
@@ -118,19 +121,9 @@ export const ScheduledTasksPage: FC = () => {
   }
 
   const handleViewRun = (run: ScheduledJobRun) => {
-    setViewingRun(run)
+    setViewingRunId(run.id)
     track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
   }
-
-  // Keep the viewed run in sync with storage updates so the dialog
-  // reflects the latest status/result while open.
-  useEffect(() => {
-    if (!viewingRun) return
-    const updated = jobRuns.find((r) => r.id === viewingRun.id)
-    if (updated && updated !== viewingRun) {
-      setViewingRun(updated)
-    }
-  }, [jobRuns, viewingRun])
 
   useEffect(() => {
     scheduledJobRunStorage.getValue().then((runs) => {
@@ -190,11 +183,11 @@ export const ScheduledTasksPage: FC = () => {
             ? jobs.find((j) => j.id === viewingRun.jobId)?.name
             : undefined
         }
-        onOpenChange={(open) => !open && setViewingRun(null)}
+        onOpenChange={(open) => !open && setViewingRunId(null)}
         onCancelRun={handleCancelRun}
         onRetryRun={(jobId) => {
           handleRetryRun(jobId)
-          setViewingRun(null)
+          setViewingRunId(null)
         }}
       />
 
