@@ -1,26 +1,13 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- *
- * Test helpers public API.
- */
-
-// Setup & lifecycle
 export {
   cleanupBrowserOS,
   ensureBrowserOS,
   type TestEnvironmentConfig,
 } from './setup'
-// Types
 export type { McpContentItem, TypedCallToolResult } from './utils'
-// Test wrappers
-// Port management
-// Mocks
 export {
   asToolResult,
-  getMockRequest,
-  getMockResponse,
   html,
   killProcessOnPort,
   withMcpServer,
 } from './utils'
+export { type WithBrowserContext, withBrowser } from './with-browser'

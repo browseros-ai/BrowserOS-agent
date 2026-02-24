@@ -1,22 +1,8 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- *
- * Test utilities: wrappers, mocks, and port management.
- */
 import { execSync } from 'node:child_process'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { Mutex } from 'async-mutex'
-import type { Browser } from 'puppeteer'
-import puppeteer from 'puppeteer'
-import type { HTTPRequest, HTTPResponse } from 'puppeteer-core'
-import { CdpClient } from '../../src/browser/cdp/cdp-client'
-import { PageRegistry } from '../../src/browser/page-registry'
-import { SessionState } from '../../src/browser/session-state'
-import { logger as cdpLogger } from '../../src/tools/cdp/context/logger'
-import { CdpResponse } from '../../src/tools/cdp/response/cdp-response'
 
 import { ensureBrowserOS } from './setup'
 
@@ -63,53 +49,7 @@ export async function killProcessOnPort(port: number): Promise<void> {
 // =============================================================================
 
 const envMutex = new Mutex()
-let cachedBrowser: Browser | undefined
 
-export async function withCdpBrowser(
-  cb: (response: CdpResponse, context: CdpClient) => Promise<void>,
-  _options: { debug?: boolean } = {},
-): Promise<void> {
-  return await envMutex.runExclusive(async () => {
-    const config = await ensureBrowserOS({ skipExtension: true })
-
-    if (!cachedBrowser || !cachedBrowser.connected) {
-      cachedBrowser = await puppeteer.connect({
-        browserURL: `http://127.0.0.1:${config.cdpPort}`,
-      })
-    }
-
-    const response = new CdpResponse()
-    const registry = new PageRegistry()
-    const context = await CdpClient.from(
-      cachedBrowser,
-      cdpLogger,
-      {
-        experimentalDevToolsDebugging: false,
-      },
-      registry,
-    )
-
-    try {
-      const page = await context.newPage(true)
-      const state = new SessionState()
-      await context.withPage(page, state, () => cb(response, context))
-    } finally {
-      context.dispose()
-    }
-  })
-}
-
-/**
- * Test helper that provides an MCP client connected to the BrowserOS server.
- *
- * Lifecycle:
- * - First test: Starts full environment (~15-20s)
- * - Subsequent tests: Reuses existing environment (fast)
- * - After suite exits: Environment stays running (ready for next run)
- *
- * Cleanup:
- * - Run `bun run test:cleanup` when you need to kill processes
- */
 export async function withMcpServer(
   cb: (client: Client) => Promise<void>,
 ): Promise<void> {
@@ -134,65 +74,8 @@ export async function withMcpServer(
 }
 
 // =============================================================================
-// Mock Helpers
+// HTML Helper
 // =============================================================================
-
-export function getMockRequest(
-  options: {
-    method?: string
-    response?: HTTPResponse
-    failure?: HTTPRequest['failure']
-    resourceType?: string
-    hasPostData?: boolean
-    postData?: string
-    fetchPostData?: Promise<string>
-  } = {},
-): HTTPRequest {
-  return {
-    url() {
-      return 'http://example.com'
-    },
-    method() {
-      return options.method ?? 'GET'
-    },
-    fetchPostData() {
-      return options.fetchPostData ?? Promise.reject()
-    },
-    hasPostData() {
-      return options.hasPostData ?? false
-    },
-    postData() {
-      return options.postData
-    },
-    response() {
-      return options.response ?? null
-    },
-    failure() {
-      return options.failure?.() ?? null
-    },
-    resourceType() {
-      return options.resourceType ?? 'document'
-    },
-    headers(): Record<string, string> {
-      return {
-        'content-size': '10',
-      }
-    },
-    redirectChain(): HTTPRequest[] {
-      return []
-    },
-  } as HTTPRequest
-}
-
-export function getMockResponse(
-  options: { status?: number } = {},
-): HTTPResponse {
-  return {
-    status() {
-      return options.status ?? 200
-    },
-  } as HTTPResponse
-}
 
 export function html(
   strings: TemplateStringsArray,

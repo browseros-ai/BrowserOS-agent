@@ -15,6 +15,7 @@ const getOperationName = <T, V>(
 
 export const getQueryKeyFromDocument = <
   TResult,
+  // biome-ignore lint/suspicious/noExplicitAny: TODO(dani) type GraphQL variables properly
   TVariables extends Record<string, any> | undefined = undefined,
 >(
   doc: TypedDocumentString<TResult, TVariables>,

@@ -75,6 +75,7 @@ function getRemoteUpdatedAt(remote: RemoteScheduledJob): Date {
   return new Date(normalizeTimestamp(remote.updatedAt))
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: TODO(dani) refactor to reduce complexity
 export async function syncSchedulesToBackend(
   localJobs: ScheduledJob[],
   userId: string,
