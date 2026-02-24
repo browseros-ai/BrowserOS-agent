@@ -25,7 +25,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { parse } from 'dotenv'
@@ -297,6 +297,9 @@ async function build(config: BuildConfig): Promise<void> {
   }
 
   mkdirSync('dist/server', { recursive: true })
+
+  // Bun compiled binaries require a package.json next to the executable
+  writeFileSync('dist/server/package.json', JSON.stringify({ type: 'module' }))
 
   if (shouldUploadSourceMaps) {
     log.step('Building source maps...')
