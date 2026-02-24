@@ -1,8 +1,12 @@
+import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import { logger } from '../../lib/logger'
 import type { AiSdkAgent } from './ai-sdk-agent'
 
 export interface AgentSession {
   agent: AiSdkAgent
+  hiddenWindowId?: number
+  /** Browser context scoped to the hidden window (scheduled tasks only) */
+  browserContext?: BrowserContext
 }
 
 export class SessionStore {

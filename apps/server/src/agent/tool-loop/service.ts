@@ -62,15 +62,48 @@ export class ChatV2Service {
     let session = sessionStore.get(request.conversationId)
 
     if (!session) {
+      // For scheduled tasks, create a hidden window so automation
+      // doesn't interfere with the user's visible browser.
+      let hiddenWindowId: number | undefined
+      let browserContext = request.browserContext
+      if (request.isScheduledTask) {
+        try {
+          const win = await this.deps.browser.createWindow({ hidden: true })
+          hiddenWindowId = win.windowId
+          const pageId = await this.deps.browser.newPage('about:blank', {
+            windowId: hiddenWindowId,
+          })
+          browserContext = {
+            ...browserContext,
+            windowId: hiddenWindowId,
+            activeTab: {
+              id: pageId,
+              pageId,
+              url: 'about:blank',
+              title: 'Scheduled Task',
+            },
+          }
+          logger.info('Created hidden window for scheduled task', {
+            conversationId: request.conversationId,
+            windowId: hiddenWindowId,
+            pageId,
+          })
+        } catch (error) {
+          logger.warn('Failed to create hidden window, using default', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+
       const agent = await AiSdkAgent.create({
         resolvedConfig: agentConfig,
         browser: this.deps.browser,
         registry: this.deps.registry,
-        browserContext: request.browserContext,
+        browserContext,
         klavisClient: this.deps.klavisClient,
         browserosId: this.deps.browserosId,
       })
-      session = { agent }
+      session = { agent, hiddenWindowId, browserContext }
       sessionStore.set(request.conversationId, session)
     }
 
@@ -89,11 +122,10 @@ export class ChatV2Service {
       })
     }
 
-    // Format and append the current user message
-    const userContent = formatUserMessage(
-      request.message,
-      request.browserContext,
-    )
+    // For scheduled tasks, use the hidden window's browser context so the model
+    // knows the correct pageId and windowId to operate in.
+    const messageContext = session.browserContext ?? request.browserContext
+    const userContent = formatUserMessage(request.message, messageContext)
     session.agent.appendUserMessage(userContent)
 
     // Stream the agent response
@@ -101,7 +133,7 @@ export class ChatV2Service {
       agent: session.agent.toolLoopAgent,
       uiMessages: session.agent.messages,
       abortSignal,
-      onFinish: ({ messages }: { messages: UIMessage[] }) => {
+      onFinish: async ({ messages }: { messages: UIMessage[] }) => {
         if (session) {
           session.agent.messages = messages
         }
@@ -109,6 +141,12 @@ export class ChatV2Service {
           conversationId: request.conversationId,
           totalMessages: messages.length,
         })
+
+        if (session?.hiddenWindowId) {
+          const windowId = session.hiddenWindowId
+          session.hiddenWindowId = undefined
+          this.closeHiddenWindow(windowId, request.conversationId)
+        }
       },
     })
   }
@@ -116,8 +154,24 @@ export class ChatV2Service {
   async deleteSession(
     conversationId: string,
   ): Promise<{ deleted: boolean; sessionCount: number }> {
+    const session = this.deps.sessionStore.get(conversationId)
+    if (session?.hiddenWindowId) {
+      const windowId = session.hiddenWindowId
+      session.hiddenWindowId = undefined
+      this.closeHiddenWindow(windowId, conversationId)
+    }
     const deleted = await this.deps.sessionStore.delete(conversationId)
     return { deleted, sessionCount: this.deps.sessionStore.count() }
+  }
+
+  private closeHiddenWindow(windowId: number, conversationId: string): void {
+    this.deps.browser.closeWindow(windowId).catch((error) => {
+      logger.warn('Failed to close hidden window', {
+        windowId,
+        conversationId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
   }
 
   private async resolveSessionDir(request: ChatRequest): Promise<string> {
