@@ -66,6 +66,7 @@ export function buildInteractiveTree(nodes: AXNode[]): string[] {
 
   const lines: string[] = []
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tree-walking with multiple node types is inherently complex
   function walk(nodeId: string): void {
     const node = nodeMap.get(nodeId)
     if (!node) return
@@ -113,6 +114,7 @@ export function buildEnhancedTree(nodes: AXNode[]): string[] {
 
   const lines: string[] = []
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: tree-walking with multiple node types is inherently complex
   function walk(nodeId: string, depth: number): void {
     const node = nodeMap.get(nodeId)
     if (!node) return

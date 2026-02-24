@@ -242,10 +242,18 @@ export class Browser {
       ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
     })
 
-    const infoResult = await this.cdp.Browser.getTabInfo({
-      tabId: (createResult.tab as TabInfo).tabId,
-    })
-    const tabInfo = infoResult.tab as TabInfo
+    const tabId = (createResult.tab as TabInfo).tabId
+    let tabInfo: TabInfo | undefined
+    for (let i = 0; i < 10; i++) {
+      try {
+        const infoResult = await this.cdp.Browser.getTabInfo({ tabId })
+        tabInfo = infoResult.tab as TabInfo
+        break
+      } catch {
+        await new Promise((r) => setTimeout(r, 100))
+      }
+    }
+    if (!tabInfo) throw new Error(`Tab ${tabId} not found after creation`)
 
     const pageId = this.nextPageId++
     this.pages.set(pageId, {
