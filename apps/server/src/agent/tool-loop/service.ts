@@ -142,9 +142,10 @@ export class ChatV2Service {
           totalMessages: messages.length,
         })
 
-        // Clean up hidden window after scheduled task finishes
         if (session?.hiddenWindowId) {
-          this.closeHiddenWindow(session.hiddenWindowId, request.conversationId)
+          const windowId = session.hiddenWindowId
+          session.hiddenWindowId = undefined
+          this.closeHiddenWindow(windowId, request.conversationId)
         }
       },
     })
@@ -155,7 +156,9 @@ export class ChatV2Service {
   ): Promise<{ deleted: boolean; sessionCount: number }> {
     const session = this.deps.sessionStore.get(conversationId)
     if (session?.hiddenWindowId) {
-      this.closeHiddenWindow(session.hiddenWindowId, conversationId)
+      const windowId = session.hiddenWindowId
+      session.hiddenWindowId = undefined
+      this.closeHiddenWindow(windowId, conversationId)
     }
     const deleted = await this.deps.sessionStore.delete(conversationId)
     return { deleted, sessionCount: this.deps.sessionStore.count() }
