@@ -43,7 +43,7 @@ import type { ScheduledJob } from './types'
 export const ScheduledTasksPage: FC = () => {
   const { jobs, addJob, editJob, toggleJob, removeJob, runJob } =
     useScheduledJobs()
-  const { cancelJobRun } = useScheduledJobRuns()
+  const { jobRuns, cancelJobRun } = useScheduledJobRuns()
 
   const deleteRemoteJobMutation = useGraphqlMutation(DeleteScheduledJobDocument)
 
@@ -121,6 +121,16 @@ export const ScheduledTasksPage: FC = () => {
     setViewingRun(run)
     track(SCHEDULED_TASK_VIEW_RESULTS_EVENT)
   }
+
+  // Keep the viewed run in sync with storage updates so the dialog
+  // reflects the latest status/result while open.
+  useEffect(() => {
+    if (!viewingRun) return
+    const updated = jobRuns.find((r) => r.id === viewingRun.id)
+    if (updated && updated !== viewingRun) {
+      setViewingRun(updated)
+    }
+  }, [jobRuns, viewingRun])
 
   useEffect(() => {
     scheduledJobRunStorage.getValue().then((runs) => {
