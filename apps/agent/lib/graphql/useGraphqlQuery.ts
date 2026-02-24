@@ -8,6 +8,7 @@ import { getQueryKeyFromDocument } from './getQueryKeyFromDocument'
  */
 export const useGraphqlQuery = <
   TResult,
+  // biome-ignore lint/suspicious/noExplicitAny: TODO(dani) type GraphQL variables properly
   TVariables extends Record<string, any> | undefined = undefined,
 >(
   query: TypedDocumentString<TResult, TVariables>,
