@@ -5,19 +5,31 @@ export function formatBrowserContext(browserContext?: BrowserContext): string {
     return ''
   }
 
-  const formatTab = (tab: { id: number; url?: string; title?: string }) =>
-    `Tab ${tab.id}${tab.title ? ` - "${tab.title}"` : ''}${tab.url ? ` (${tab.url})` : ''}`
+  const formatTab = (tab: {
+    id: number
+    url?: string
+    title?: string
+    pageId?: number
+  }) => {
+    let line = `Tab ${tab.id}`
+    if (tab.pageId !== undefined) line += ` (Page ID: ${tab.pageId})`
+    if (tab.title) line += ` - "${tab.title}"`
+    if (tab.url) line += ` (${tab.url})`
+    return line
+  }
 
   const lines: string[] = ['## Browser Context']
 
+  if (browserContext.windowId !== undefined) {
+    lines.push(`**Window ID:** ${browserContext.windowId}`)
+  }
+
   if (browserContext.activeTab) {
-    lines.push(`**User's Active Tab:** ${formatTab(browserContext.activeTab)}`)
+    lines.push(`**Active Tab:** ${formatTab(browserContext.activeTab)}`)
   }
 
   if (browserContext.selectedTabs?.length) {
-    lines.push(
-      `**User's Selected Tabs (${browserContext.selectedTabs.length}):**`,
-    )
+    lines.push(`**Selected Tabs (${browserContext.selectedTabs.length}):**`)
     browserContext.selectedTabs.forEach((tab, i) => {
       lines.push(`  ${i + 1}. ${formatTab(tab)}`)
     })

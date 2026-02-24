@@ -65,6 +65,8 @@ export class AiSdkAgent {
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
+      isScheduledTask: config.resolvedConfig.isScheduledTask,
+      scheduledTaskWindowId: config.browserContext?.windowId,
     })
 
     // Configure compaction for context window management
