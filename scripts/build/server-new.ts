@@ -127,7 +127,7 @@ async function bundleServer(envVars: Record<string, string>): Promise<void> {
     outdir: DIST_DIR,
     target: 'bun',
     minify: true,
-    sourcemap: 'linked',
+    sourcemap: 'none',
     define: defines,
     external: ['node-pty'],
     plugins: [wasmBinaryPlugin()],
