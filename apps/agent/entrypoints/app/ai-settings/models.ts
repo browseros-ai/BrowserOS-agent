@@ -22,6 +22,7 @@ export interface ModelsData {
   lmstudio: ModelInfo[]
   bedrock: ModelInfo[]
   browseros: ModelInfo[]
+  morpheus: ModelInfo[]
 }
 
 /**
@@ -88,6 +89,14 @@ export const MODELS_DATA: ModelsData = {
   ],
   bedrock: [],
   browseros: [],
+  morpheus: [
+    { modelId: 'glm-5', contextLength: 131072 },
+    { modelId: 'kimi-k2.5', contextLength: 131072 },
+    { modelId: 'hermes-3-llama-3.1-405b', contextLength: 131072 },
+    { modelId: 'qwen3-235b', contextLength: 131072 },
+    { modelId: 'deepseek-r1-0528', contextLength: 131072 },
+    { modelId: 'llama-4-maverick', contextLength: 131072 },
+  ],
 }
 
 /**
