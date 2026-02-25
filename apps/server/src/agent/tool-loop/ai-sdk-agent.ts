@@ -4,11 +4,11 @@ import { stepCountIs, ToolLoopAgent, type UIMessage } from 'ai'
 import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
+import { buildFilesystemToolSet } from '../../tools/filesystem/build-toolset'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
 import { createCompactionPrepareStep } from './compaction'
-import { buildFilesystemToolSet } from './filesystem-tools/pi-tool-adapter'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import { createLanguageModel } from './provider-factory'
 import { buildBrowserToolSet } from './tool-adapter'
@@ -45,7 +45,7 @@ export class AiSdkAgent {
     })
     const { clients, tools: externalMcpTools } = await createMcpClients(specs)
 
-    // Add filesystem tools (Pi coding agent) — skip in chat mode (read-only)
+    // Add filesystem tools — skip in chat mode (read-only)
     const filesystemTools = config.resolvedConfig.chatMode
       ? {}
       : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
