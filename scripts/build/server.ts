@@ -209,6 +209,14 @@ async function bundleWithPlugins(
     for (const entry of result.logs) log.error(String(entry))
     throw new Error('Bundle with plugins failed')
   }
+
+  // Write package.json into the bundle directory so it's available at runtime.
+  // Required by @mariozechner/pi-coding-agent which reads package.json at module
+  // load time via getPackageDir() to extract version and config.
+  writeFileSync(
+    join(BUNDLE_DIR, 'package.json'),
+    JSON.stringify({ type: 'module', version }),
+  )
 }
 
 async function compileTarget(
@@ -299,7 +307,10 @@ async function build(config: BuildConfig): Promise<void> {
   mkdirSync('dist/server', { recursive: true })
 
   // Bun compiled binaries require a package.json next to the executable
-  writeFileSync('dist/server/package.json', JSON.stringify({ type: 'module' }))
+  writeFileSync(
+    'dist/server/package.json',
+    JSON.stringify({ type: 'module', version }),
+  )
 
   if (shouldUploadSourceMaps) {
     log.step('Building source maps...')
