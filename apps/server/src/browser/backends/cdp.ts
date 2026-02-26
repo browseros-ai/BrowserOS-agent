@@ -13,6 +13,7 @@ import type { CdpTarget, CdpBackend as ICdpBackend } from './types'
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
+  timer: ReturnType<typeof setTimeout>
 }
 
 // biome-ignore lint/correctness/noUnusedVariables: declaration merging adds ProtocolApi properties to the class
@@ -28,6 +29,7 @@ class CdpBackend implements ICdpBackend {
   private reconnecting = false
   private eventHandlers = new Map<string, ((params: unknown) => void)[]>()
   private sessionCache = new Map<string, ProtocolApi>()
+  private keepaliveTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(config: { port: number }) {
     this.port = config.port
@@ -44,6 +46,7 @@ class CdpBackend implements ICdpBackend {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         await this.attemptConnect()
+        this.startKeepalive()
         return
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error)
@@ -97,16 +100,82 @@ class CdpBackend implements ICdpBackend {
     })
   }
 
-  private handleUnexpectedClose(): void {
+  private startKeepalive(): void {
+    this.stopKeepalive()
+
+    const interval = TIMEOUTS.CDP_KEEPALIVE_INTERVAL
+    const timeout = TIMEOUTS.CDP_KEEPALIVE_TIMEOUT
+
+    this.keepaliveTimer = setInterval(async () => {
+      if (!this.ws || !this.connected || this.disconnecting) return
+
+      try {
+        await Promise.race([
+          this.rawSend('Browser.getVersion'),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('CDP keepalive timeout')),
+              timeout,
+            ),
+          ),
+        ])
+      } catch {
+        logger.warn('CDP keepalive failed, connection may be dead')
+        this.handleDeadConnection()
+      }
+    }, interval)
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepaliveTimer) {
+      clearInterval(this.keepaliveTimer)
+      this.keepaliveTimer = null
+    }
+  }
+
+  /**
+   * Force-close a zombie WebSocket that stopped responding but never
+   * fired onclose. This triggers the normal reconnection path.
+   */
+  private handleDeadConnection(): void {
     if (this.disconnecting || this.reconnecting) return
 
+    this.stopKeepalive()
+
+    if (this.ws) {
+      try {
+        this.ws.close()
+      } catch {
+        // Already dead, ignore
+      }
+      this.ws = null
+    }
+    this.connected = false
+    this.handleUnexpectedClose()
+  }
+
+  private handleUnexpectedClose(): void {
+    if (this.disconnecting) return
+
+    // Allow re-entry if a previous reconnection already finished.
+    // The old guard `if (this.reconnecting) return` caused permanent
+    // death when a freshly reconnected socket closed again before
+    // the .finally() callback reset the flag.
+    if (this.reconnecting) {
+      logger.warn(
+        'CDP closed again while reconnecting — will retry after current attempt',
+      )
+      return
+    }
+
+    this.stopKeepalive()
     this.rejectPendingRequests()
 
     logger.error(
       'CDP WebSocket closed unexpectedly, attempting reconnection...',
     )
     this.reconnecting = true
-    this.reconnectOrCrash().finally(() => {
+    this.reconnectWithRetries().finally(() => {
       this.reconnecting = false
     })
   }
@@ -114,20 +183,24 @@ class CdpBackend implements ICdpBackend {
   private rejectPendingRequests(): void {
     const error = new Error('CDP connection lost')
     for (const request of this.pending.values()) {
+      clearTimeout(request.timer)
       request.reject(error)
     }
     this.pending.clear()
   }
 
-  private async reconnectOrCrash(): Promise<void> {
-    const maxRetries = CDP_LIMITS.CONNECT_MAX_RETRIES
-    const retryDelay = TIMEOUTS.CDP_CONNECT_RETRY_DELAY
+  private async reconnectWithRetries(): Promise<void> {
+    const maxRetries = CDP_LIMITS.RECONNECT_MAX_RETRIES
+    const delay = TIMEOUTS.CDP_RECONNECT_DELAY
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      if (this.disconnecting) return
+
       try {
         logger.info(`CDP reconnection attempt ${attempt}/${maxRetries}...`)
-        await Bun.sleep(retryDelay)
+        await Bun.sleep(delay)
         await this.attemptConnect()
+        this.startKeepalive()
         logger.info('CDP reconnected successfully')
         return
       } catch (error) {
@@ -146,11 +219,13 @@ class CdpBackend implements ICdpBackend {
 
   async disconnect(): Promise<void> {
     this.disconnecting = true
+    this.stopKeepalive()
     if (this.ws) {
       this.ws.close()
       this.ws = null
       this.connected = false
     }
+    this.rejectPendingRequests()
   }
 
   isConnected(): boolean {
@@ -203,8 +278,24 @@ class CdpBackend implements ICdpBackend {
 
     const ws = this.ws
     return new Promise<unknown>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
-      ws.send(JSON.stringify(message))
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`CDP request timeout: ${method} (id=${id})`))
+      }, TIMEOUTS.CDP_REQUEST_TIMEOUT)
+
+      this.pending.set(id, { resolve, reject, timer })
+
+      try {
+        ws.send(JSON.stringify(message))
+      } catch (err) {
+        clearTimeout(timer)
+        this.pending.delete(id)
+        const msg = err instanceof Error ? err.message : String(err)
+        reject(new Error(`CDP send failed: ${msg}`))
+
+        // send() failure likely means the socket is dead
+        this.handleDeadConnection()
+      }
     })
   }
 
@@ -237,6 +328,7 @@ class CdpBackend implements ICdpBackend {
     if (message.id !== undefined) {
       const pending = this.pending.get(message.id)
       if (pending) {
+        clearTimeout(pending.timer)
         this.pending.delete(message.id)
         if (message.error) {
           pending.reject(new Error(`CDP error: ${message.error.message}`))

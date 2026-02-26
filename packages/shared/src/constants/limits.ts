@@ -27,6 +27,7 @@ export const PAGINATION = {
 
 export const CDP_LIMITS = {
   CONNECT_MAX_RETRIES: 3,
+  RECONNECT_MAX_RETRIES: 3,
 } as const
 
 export const CONTENT_LIMITS = {

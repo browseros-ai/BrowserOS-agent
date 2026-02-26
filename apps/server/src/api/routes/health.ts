@@ -5,9 +5,15 @@
  */
 
 import { Hono } from 'hono'
+import type { Browser } from '../../browser/browser'
 
-export function createHealthRoute() {
+interface HealthDeps {
+  browser?: Browser
+}
+
+export function createHealthRoute(deps: HealthDeps = {}) {
   return new Hono().get('/', (c) => {
-    return c.json({ status: 'ok' })
+    const cdpConnected = deps.browser?.isCdpConnected() ?? true
+    return c.json({ status: 'ok', cdpConnected })
   })
 }

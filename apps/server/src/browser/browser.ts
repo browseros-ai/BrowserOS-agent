@@ -93,6 +93,10 @@ export class Browser {
     this.setupEventHandlers()
   }
 
+  isCdpConnected(): boolean {
+    return this.cdp.isConnected()
+  }
+
   private setupEventHandlers(): void {
     this.cdp.Target.on('detachedFromTarget', (params) => {
       if (params.sessionId) {
