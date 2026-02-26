@@ -3,7 +3,9 @@ schema {
   mutation: Mutation
 }
 
-"""All input for the `bulkCreateConversationMessages` mutation."""
+"""
+All input for the `bulkCreateConversationMessages` mutation.
+"""
 input BulkCreateConversationMessagesInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -14,7 +16,9 @@ input BulkCreateConversationMessagesInput {
   pMessages: [ConversationMessageInputRecordInput]
 }
 
-"""The output of our `bulkCreateConversationMessages` mutation."""
+"""
+The output of our `bulkCreateConversationMessages` mutation.
+"""
 type BulkCreateConversationMessagesPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
@@ -29,11 +33,17 @@ type BulkCreateConversationMessagesPayload {
 }
 
 type Conversation implements Node {
-  """Reads and enables pagination through a set of `ConversationMessage`."""
+  """
+  Reads and enables pagination through a set of `ConversationMessage`.
+  """
   conversationMessages(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -54,7 +64,9 @@ type Conversation implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `ConversationMessage`."""
+    """
+    The method to use when ordering `ConversationMessage`.
+    """
     orderBy: [ConversationMessageOrderBy!] = [PRIMARY_KEY_ASC]
   ): ConversationMessageConnection!
   createdAt: Datetime!
@@ -63,7 +75,9 @@ type Conversation implements Node {
   """
   id: ID!
   lastMessagedAt: Datetime!
-  """Reads a single `Profile` that is related to this `Conversation`."""
+  """
+  Reads a single `Profile` that is related to this `Conversation`.
+  """
   profile: Profile
   profileId: String!
   rowId: String!
@@ -74,37 +88,59 @@ A condition to be used against `Conversation` object types. All fields are
 tested for equality and combined with a logical ‘and.’
 """
 input ConversationCondition {
-  """Checks for equality with the object’s `lastMessagedAt` field."""
+  """
+  Checks for equality with the object’s `lastMessagedAt` field.
+  """
   lastMessagedAt: Datetime
-  """Checks for equality with the object’s `profileId` field."""
+  """
+  Checks for equality with the object’s `profileId` field.
+  """
   profileId: String
-  """Checks for equality with the object’s `rowId` field."""
+  """
+  Checks for equality with the object’s `rowId` field.
+  """
   rowId: String
 }
 
-"""A connection to a list of `Conversation` values."""
+"""
+A connection to a list of `Conversation` values.
+"""
 type ConversationConnection {
   """
   A list of edges which contains the `Conversation` and cursor to aid in pagination.
   """
   edges: [ConversationEdge]!
-  """A list of `Conversation` objects."""
+  """
+  A list of `Conversation` objects.
+  """
   nodes: [Conversation]!
-  """Information to aid in pagination."""
+  """
+  Information to aid in pagination.
+  """
   pageInfo: PageInfo!
-  """The count of *all* `Conversation` you could get from the connection."""
+  """
+  The count of *all* `Conversation` you could get from the connection.
+  """
   totalCount: Int!
 }
 
-"""A `Conversation` edge in the connection."""
+"""
+A `Conversation` edge in the connection.
+"""
 type ConversationEdge {
-  """A cursor for use in pagination."""
+  """
+  A cursor for use in pagination.
+  """
   cursor: Cursor
-  """The `Conversation` at the end of the edge."""
+  """
+  The `Conversation` at the end of the edge.
+  """
   node: Conversation
 }
 
-"""An input for mutations affecting `Conversation`"""
+"""
+An input for mutations affecting `Conversation`
+"""
 input ConversationInput {
   createdAt: Datetime
   lastMessagedAt: Datetime
@@ -133,23 +169,35 @@ A condition to be used against `ConversationMessage` object types. All fields
 are tested for equality and combined with a logical ‘and.’
 """
 input ConversationMessageCondition {
-  """Checks for equality with the object’s `conversationId` field."""
+  """
+  Checks for equality with the object’s `conversationId` field.
+  """
   conversationId: String
-  """Checks for equality with the object’s `orderIndex` field."""
+  """
+  Checks for equality with the object’s `orderIndex` field.
+  """
   orderIndex: Int
-  """Checks for equality with the object’s `rowId` field."""
+  """
+  Checks for equality with the object’s `rowId` field.
+  """
   rowId: String
 }
 
-"""A connection to a list of `ConversationMessage` values."""
+"""
+A connection to a list of `ConversationMessage` values.
+"""
 type ConversationMessageConnection {
   """
   A list of edges which contains the `ConversationMessage` and cursor to aid in pagination.
   """
   edges: [ConversationMessageEdge]!
-  """A list of `ConversationMessage` objects."""
+  """
+  A list of `ConversationMessage` objects.
+  """
   nodes: [ConversationMessage]!
-  """Information to aid in pagination."""
+  """
+  Information to aid in pagination.
+  """
   pageInfo: PageInfo!
   """
   The count of *all* `ConversationMessage` you could get from the connection.
@@ -157,15 +205,23 @@ type ConversationMessageConnection {
   totalCount: Int!
 }
 
-"""A `ConversationMessage` edge in the connection."""
+"""
+A `ConversationMessage` edge in the connection.
+"""
 type ConversationMessageEdge {
-  """A cursor for use in pagination."""
+  """
+  A cursor for use in pagination.
+  """
   cursor: Cursor
-  """The `ConversationMessage` at the end of the edge."""
+  """
+  The `ConversationMessage` at the end of the edge.
+  """
   node: ConversationMessage
 }
 
-"""An input for mutations affecting `ConversationMessage`"""
+"""
+An input for mutations affecting `ConversationMessage`
+"""
 input ConversationMessageInput {
   conversationId: String!
   createdAt: Datetime
@@ -174,13 +230,17 @@ input ConversationMessageInput {
   rowId: String!
 }
 
-"""An input for mutations affecting `ConversationMessageInputRecord`"""
+"""
+An input for mutations affecting `ConversationMessageInputRecord`
+"""
 input ConversationMessageInputRecordInput {
   message: JSON
   orderIndex: Int
 }
 
-"""Methods to use when ordering `ConversationMessage`."""
+"""
+Methods to use when ordering `ConversationMessage`.
+"""
 enum ConversationMessageOrderBy {
   CONVERSATION_ID_ASC
   CONVERSATION_ID_DESC
@@ -193,7 +253,9 @@ enum ConversationMessageOrderBy {
   ROW_ID_DESC
 }
 
-"""Methods to use when ordering `Conversation`."""
+"""
+Methods to use when ordering `Conversation`.
+"""
 enum ConversationOrderBy {
   LAST_MESSAGED_AT_ASC
   LAST_MESSAGED_AT_DESC
@@ -216,40 +278,56 @@ input ConversationPatch {
   rowId: String
 }
 
-"""All input for the create `Conversation` mutation."""
+"""
+All input for the create `Conversation` mutation.
+"""
 input CreateConversationInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
-  """The `Conversation` to be created by this mutation."""
+  """
+  The `Conversation` to be created by this mutation.
+  """
   conversation: ConversationInput!
 }
 
-"""All input for the create `ConversationMessage` mutation."""
+"""
+All input for the create `ConversationMessage` mutation.
+"""
 input CreateConversationMessageInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
-  """The `ConversationMessage` to be created by this mutation."""
+  """
+  The `ConversationMessage` to be created by this mutation.
+  """
   conversationMessage: ConversationMessageInput!
 }
 
-"""The output of our create `ConversationMessage` mutation."""
+"""
+The output of our create `ConversationMessage` mutation.
+"""
 type CreateConversationMessagePayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `ConversationMessage` that was created by this mutation."""
+  """
+  The `ConversationMessage` that was created by this mutation.
+  """
   conversationMessage: ConversationMessage
-  """An edge for our `ConversationMessage`. May be used by Relay 1."""
+  """
+  An edge for our `ConversationMessage`. May be used by Relay 1.
+  """
   conversationMessageEdge(
-    """The method to use when ordering `ConversationMessage`."""
+    """
+    The method to use when ordering `ConversationMessage`.
+    """
     orderBy: [ConversationMessageOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ConversationMessageEdge
   """
@@ -258,18 +336,26 @@ type CreateConversationMessagePayload {
   query: Query
 }
 
-"""The output of our create `Conversation` mutation."""
+"""
+The output of our create `Conversation` mutation.
+"""
 type CreateConversationPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `Conversation` that was created by this mutation."""
+  """
+  The `Conversation` that was created by this mutation.
+  """
   conversation: Conversation
-  """An edge for our `Conversation`. May be used by Relay 1."""
+  """
+  An edge for our `Conversation`. May be used by Relay 1.
+  """
   conversationEdge(
-    """The method to use when ordering `Conversation`."""
+    """
+    The method to use when ordering `Conversation`.
+    """
     orderBy: [ConversationOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ConversationEdge
   """
@@ -278,29 +364,41 @@ type CreateConversationPayload {
   query: Query
 }
 
-"""All input for the create `LlmProvider` mutation."""
+"""
+All input for the create `LlmProvider` mutation.
+"""
 input CreateLlmProviderInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
-  """The `LlmProvider` to be created by this mutation."""
+  """
+  The `LlmProvider` to be created by this mutation.
+  """
   llmProvider: LlmProviderInput!
 }
 
-"""The output of our create `LlmProvider` mutation."""
+"""
+The output of our create `LlmProvider` mutation.
+"""
 type CreateLlmProviderPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `LlmProvider` that was created by this mutation."""
+  """
+  The `LlmProvider` that was created by this mutation.
+  """
   llmProvider: LlmProvider
-  """An edge for our `LlmProvider`. May be used by Relay 1."""
+  """
+  An edge for our `LlmProvider`. May be used by Relay 1.
+  """
   llmProviderEdge(
-    """The method to use when ordering `LlmProvider`."""
+    """
+    The method to use when ordering `LlmProvider`.
+    """
     orderBy: [LlmProviderOrderBy!]! = [PRIMARY_KEY_ASC]
   ): LlmProviderEdge
   """
@@ -309,18 +407,24 @@ type CreateLlmProviderPayload {
   query: Query
 }
 
-"""All input for the create `ScheduledJob` mutation."""
+"""
+All input for the create `ScheduledJob` mutation.
+"""
 input CreateScheduledJobInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
   payload verbatim. May be used to track mutations by the client.
   """
   clientMutationId: String
-  """The `ScheduledJob` to be created by this mutation."""
+  """
+  The `ScheduledJob` to be created by this mutation.
+  """
   scheduledJob: ScheduledJobInput!
 }
 
-"""The output of our create `ScheduledJob` mutation."""
+"""
+The output of our create `ScheduledJob` mutation.
+"""
 type CreateScheduledJobPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
@@ -331,16 +435,24 @@ type CreateScheduledJobPayload {
   Our root query field type. Allows us to run any query from our mutation payload.
   """
   query: Query
-  """The `ScheduledJob` that was created by this mutation."""
+  """
+  The `ScheduledJob` that was created by this mutation.
+  """
   scheduledJob: ScheduledJob
-  """An edge for our `ScheduledJob`. May be used by Relay 1."""
+  """
+  An edge for our `ScheduledJob`. May be used by Relay 1.
+  """
   scheduledJobEdge(
-    """The method to use when ordering `ScheduledJob`."""
+    """
+    The method to use when ordering `ScheduledJob`.
+    """
     orderBy: [ScheduledJobOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ScheduledJobEdge
 }
 
-"""A location in a connection that can be used for resuming pagination."""
+"""
+A location in a connection that can be used for resuming pagination.
+"""
 scalar Cursor
 
 """
@@ -352,7 +464,9 @@ to unexpected results.
 """
 scalar Datetime
 
-"""All input for the `deleteConversation` mutation."""
+"""
+All input for the `deleteConversation` mutation.
+"""
 input DeleteConversationInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -362,18 +476,26 @@ input DeleteConversationInput {
   rowId: String!
 }
 
-"""The output of our delete `Conversation` mutation."""
+"""
+The output of our delete `Conversation` mutation.
+"""
 type DeleteConversationPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `Conversation` that was deleted by this mutation."""
+  """
+  The `Conversation` that was deleted by this mutation.
+  """
   conversation: Conversation
-  """An edge for our `Conversation`. May be used by Relay 1."""
+  """
+  An edge for our `Conversation`. May be used by Relay 1.
+  """
   conversationEdge(
-    """The method to use when ordering `Conversation`."""
+    """
+    The method to use when ordering `Conversation`.
+    """
     orderBy: [ConversationOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ConversationEdge
   deletedConversationId: ID
@@ -383,7 +505,9 @@ type DeleteConversationPayload {
   query: Query
 }
 
-"""All input for the `deleteLlmProvider` mutation."""
+"""
+All input for the `deleteLlmProvider` mutation.
+"""
 input DeleteLlmProviderInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -393,7 +517,9 @@ input DeleteLlmProviderInput {
   rowId: String!
 }
 
-"""The output of our delete `LlmProvider` mutation."""
+"""
+The output of our delete `LlmProvider` mutation.
+"""
 type DeleteLlmProviderPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
@@ -401,11 +527,17 @@ type DeleteLlmProviderPayload {
   """
   clientMutationId: String
   deletedLlmProviderId: ID
-  """The `LlmProvider` that was deleted by this mutation."""
+  """
+  The `LlmProvider` that was deleted by this mutation.
+  """
   llmProvider: LlmProvider
-  """An edge for our `LlmProvider`. May be used by Relay 1."""
+  """
+  An edge for our `LlmProvider`. May be used by Relay 1.
+  """
   llmProviderEdge(
-    """The method to use when ordering `LlmProvider`."""
+    """
+    The method to use when ordering `LlmProvider`.
+    """
     orderBy: [LlmProviderOrderBy!]! = [PRIMARY_KEY_ASC]
   ): LlmProviderEdge
   """
@@ -414,7 +546,9 @@ type DeleteLlmProviderPayload {
   query: Query
 }
 
-"""All input for the `deleteScheduledJob` mutation."""
+"""
+All input for the `deleteScheduledJob` mutation.
+"""
 input DeleteScheduledJobInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -424,7 +558,9 @@ input DeleteScheduledJobInput {
   rowId: String!
 }
 
-"""The output of our delete `ScheduledJob` mutation."""
+"""
+The output of our delete `ScheduledJob` mutation.
+"""
 type DeleteScheduledJobPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
@@ -436,11 +572,17 @@ type DeleteScheduledJobPayload {
   Our root query field type. Allows us to run any query from our mutation payload.
   """
   query: Query
-  """The `ScheduledJob` that was deleted by this mutation."""
+  """
+  The `ScheduledJob` that was deleted by this mutation.
+  """
   scheduledJob: ScheduledJob
-  """An edge for our `ScheduledJob`. May be used by Relay 1."""
+  """
+  An edge for our `ScheduledJob`. May be used by Relay 1.
+  """
   scheduledJobEdge(
-    """The method to use when ordering `ScheduledJob`."""
+    """
+    The method to use when ordering `ScheduledJob`.
+    """
     orderBy: [ScheduledJobOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ScheduledJobEdge
 }
@@ -460,7 +602,9 @@ type LlmProvider implements Node {
   id: ID!
   modelId: String!
   name: String!
-  """Reads a single `Profile` that is related to this `LlmProvider`."""
+  """
+  Reads a single `Profile` that is related to this `LlmProvider`.
+  """
   profile: Profile
   profileId: String!
   region: String
@@ -477,35 +621,55 @@ A condition to be used against `LlmProvider` object types. All fields are tested
 for equality and combined with a logical ‘and.’
 """
 input LlmProviderCondition {
-  """Checks for equality with the object’s `profileId` field."""
+  """
+  Checks for equality with the object’s `profileId` field.
+  """
   profileId: String
-  """Checks for equality with the object’s `rowId` field."""
+  """
+  Checks for equality with the object’s `rowId` field.
+  """
   rowId: String
 }
 
-"""A connection to a list of `LlmProvider` values."""
+"""
+A connection to a list of `LlmProvider` values.
+"""
 type LlmProviderConnection {
   """
   A list of edges which contains the `LlmProvider` and cursor to aid in pagination.
   """
   edges: [LlmProviderEdge]!
-  """A list of `LlmProvider` objects."""
+  """
+  A list of `LlmProvider` objects.
+  """
   nodes: [LlmProvider]!
-  """Information to aid in pagination."""
+  """
+  Information to aid in pagination.
+  """
   pageInfo: PageInfo!
-  """The count of *all* `LlmProvider` you could get from the connection."""
+  """
+  The count of *all* `LlmProvider` you could get from the connection.
+  """
   totalCount: Int!
 }
 
-"""A `LlmProvider` edge in the connection."""
+"""
+A `LlmProvider` edge in the connection.
+"""
 type LlmProviderEdge {
-  """A cursor for use in pagination."""
+  """
+  A cursor for use in pagination.
+  """
   cursor: Cursor
-  """The `LlmProvider` at the end of the edge."""
+  """
+  The `LlmProvider` at the end of the edge.
+  """
   node: LlmProvider
 }
 
-"""An input for mutations affecting `LlmProvider`"""
+"""
+An input for mutations affecting `LlmProvider`
+"""
 input LlmProviderInput {
   baseUrl: String
   contextWindow: Int
@@ -522,7 +686,9 @@ input LlmProviderInput {
   updatedAt: Datetime
 }
 
-"""Methods to use when ordering `LlmProvider`."""
+"""
+Methods to use when ordering `LlmProvider`.
+"""
 enum LlmProviderOrderBy {
   NATURAL
   PRIMARY_KEY_ASC
@@ -565,77 +731,99 @@ type Mutation {
     """
     input: BulkCreateConversationMessagesInput!
   ): BulkCreateConversationMessagesPayload
-  """Creates a single `Conversation`."""
+  """
+  Creates a single `Conversation`.
+  """
   createConversation(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: CreateConversationInput!
   ): CreateConversationPayload
-  """Creates a single `ConversationMessage`."""
+  """
+  Creates a single `ConversationMessage`.
+  """
   createConversationMessage(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: CreateConversationMessageInput!
   ): CreateConversationMessagePayload
-  """Creates a single `LlmProvider`."""
+  """
+  Creates a single `LlmProvider`.
+  """
   createLlmProvider(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: CreateLlmProviderInput!
   ): CreateLlmProviderPayload
-  """Creates a single `ScheduledJob`."""
+  """
+  Creates a single `ScheduledJob`.
+  """
   createScheduledJob(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: CreateScheduledJobInput!
   ): CreateScheduledJobPayload
-  """Deletes a single `Conversation` using a unique key."""
+  """
+  Deletes a single `Conversation` using a unique key.
+  """
   deleteConversation(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: DeleteConversationInput!
   ): DeleteConversationPayload
-  """Deletes a single `LlmProvider` using a unique key."""
+  """
+  Deletes a single `LlmProvider` using a unique key.
+  """
   deleteLlmProvider(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: DeleteLlmProviderInput!
   ): DeleteLlmProviderPayload
-  """Deletes a single `ScheduledJob` using a unique key."""
+  """
+  Deletes a single `ScheduledJob` using a unique key.
+  """
   deleteScheduledJob(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: DeleteScheduledJobInput!
   ): DeleteScheduledJobPayload
-  """Updates a single `Conversation` using a unique key and a patch."""
+  """
+  Updates a single `Conversation` using a unique key and a patch.
+  """
   updateConversation(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: UpdateConversationInput!
   ): UpdateConversationPayload
-  """Updates a single `LlmProvider` using a unique key and a patch."""
+  """
+  Updates a single `LlmProvider` using a unique key and a patch.
+  """
   updateLlmProvider(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: UpdateLlmProviderInput!
   ): UpdateLlmProviderPayload
-  """Updates a single `Profile` using a unique key and a patch."""
+  """
+  Updates a single `Profile` using a unique key and a patch.
+  """
   updateProfileByUserId(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
     """
     input: UpdateProfileByUserIdInput!
   ): UpdateProfilePayload
-  """Updates a single `ScheduledJob` using a unique key and a patch."""
+  """
+  Updates a single `ScheduledJob` using a unique key and a patch.
+  """
   updateScheduledJob(
     """
     The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
@@ -644,7 +832,9 @@ type Mutation {
   ): UpdateScheduledJobPayload
 }
 
-"""An object with a globally unique `ID`."""
+"""
+An object with a globally unique `ID`.
+"""
 interface Node {
   """
   A globally unique identifier. Can be used in various places throughout the system to identify this single value.
@@ -652,25 +842,41 @@ interface Node {
   id: ID!
 }
 
-"""Information about pagination in a connection."""
+"""
+Information about pagination in a connection.
+"""
 type PageInfo {
-  """When paginating forwards, the cursor to continue."""
+  """
+  When paginating forwards, the cursor to continue.
+  """
   endCursor: Cursor
-  """When paginating forwards, are there more items?"""
+  """
+  When paginating forwards, are there more items?
+  """
   hasNextPage: Boolean!
-  """When paginating backwards, are there more items?"""
+  """
+  When paginating backwards, are there more items?
+  """
   hasPreviousPage: Boolean!
-  """When paginating backwards, the cursor to continue."""
+  """
+  When paginating backwards, the cursor to continue.
+  """
   startCursor: Cursor
 }
 
 type Profile implements Node {
   avatarUrl: String
-  """Reads and enables pagination through a set of `Conversation`."""
+  """
+  Reads and enables pagination through a set of `Conversation`.
+  """
   conversations(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -691,7 +897,9 @@ type Profile implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `Conversation`."""
+    """
+    The method to use when ordering `Conversation`.
+    """
     orderBy: [ConversationOrderBy!] = [PRIMARY_KEY_ASC]
   ): ConversationConnection!
   createdAt: Datetime!
@@ -701,11 +909,17 @@ type Profile implements Node {
   """
   id: ID!
   lastName: String
-  """Reads and enables pagination through a set of `LlmProvider`."""
+  """
+  Reads and enables pagination through a set of `LlmProvider`.
+  """
   llmProviders(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -726,16 +940,24 @@ type Profile implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `LlmProvider`."""
+    """
+    The method to use when ordering `LlmProvider`.
+    """
     orderBy: [LlmProviderOrderBy!] = [PRIMARY_KEY_ASC]
   ): LlmProviderConnection!
   preferences: JSON
   rowId: String!
-  """Reads and enables pagination through a set of `ScheduledJob`."""
+  """
+  Reads and enables pagination through a set of `ScheduledJob`.
+  """
   scheduledJobs(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -756,22 +978,32 @@ type Profile implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `ScheduledJob`."""
+    """
+    The method to use when ordering `ScheduledJob`.
+    """
     orderBy: [ScheduledJobOrderBy!] = [PRIMARY_KEY_ASC]
   ): ScheduledJobConnection!
   updatedAt: Datetime!
   userId: String!
 }
 
-"""A `Profile` edge in the connection."""
+"""
+A `Profile` edge in the connection.
+"""
 type ProfileEdge {
-  """A cursor for use in pagination."""
+  """
+  A cursor for use in pagination.
+  """
   cursor: Cursor
-  """The `Profile` at the end of the edge."""
+  """
+  The `Profile` at the end of the edge.
+  """
   node: Profile
 }
 
-"""Methods to use when ordering `Profile`."""
+"""
+Methods to use when ordering `Profile`.
+"""
 enum ProfileOrderBy {
   NATURAL
   PRIMARY_KEY_ASC
@@ -796,17 +1028,29 @@ input ProfilePatch {
   userId: String
 }
 
-"""The root query type which gives access points into the data universe."""
+"""
+The root query type which gives access points into the data universe.
+"""
 type Query implements Node {
-  """Get a single `Conversation`."""
+  """
+  Get a single `Conversation`.
+  """
   conversation(rowId: String!): Conversation
-  """Check if a conversation exists and is accessible to the current user."""
+  """
+  Check if a conversation exists and is accessible to the current user.
+  """
   conversationExists(pConversationId: String): Boolean
-  """Reads and enables pagination through a set of `ConversationMessage`."""
+  """
+  Reads and enables pagination through a set of `ConversationMessage`.
+  """
   conversationMessages(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -827,14 +1071,22 @@ type Query implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `ConversationMessage`."""
+    """
+    The method to use when ordering `ConversationMessage`.
+    """
     orderBy: [ConversationMessageOrderBy!] = [PRIMARY_KEY_ASC]
   ): ConversationMessageConnection
-  """Reads and enables pagination through a set of `Conversation`."""
+  """
+  Reads and enables pagination through a set of `Conversation`.
+  """
   conversations(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -855,18 +1107,26 @@ type Query implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `Conversation`."""
+    """
+    The method to use when ordering `Conversation`.
+    """
     orderBy: [ConversationOrderBy!] = [PRIMARY_KEY_ASC]
   ): ConversationConnection
   """
   The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
   """
   id: ID!
-  """Reads and enables pagination through a set of `LlmProvider`."""
+  """
+  Reads and enables pagination through a set of `LlmProvider`.
+  """
   llmProviders(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -887,26 +1147,40 @@ type Query implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `LlmProvider`."""
+    """
+    The method to use when ordering `LlmProvider`.
+    """
     orderBy: [LlmProviderOrderBy!] = [PRIMARY_KEY_ASC]
   ): LlmProviderConnection
-  """Fetches an object given its globally unique `ID`."""
+  """
+  Fetches an object given its globally unique `ID`.
+  """
   node(
-    """The globally unique `ID`."""
+    """
+    The globally unique `ID`.
+    """
     id: ID!
   ): Node
-  """Get a single `Profile`."""
+  """
+  Get a single `Profile`.
+  """
   profileByUserId(userId: String!): Profile
   """
   Exposes the root query type nested one level down. This is helpful for Relay 1
   which can only query top level fields if they are in a particular form.
   """
   query: Query!
-  """Reads and enables pagination through a set of `ScheduledJob`."""
+  """
+  Reads and enables pagination through a set of `ScheduledJob`.
+  """
   scheduledJobs(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -927,7 +1201,9 @@ type Query implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `ScheduledJob`."""
+    """
+    The method to use when ordering `ScheduledJob`.
+    """
     orderBy: [ScheduledJobOrderBy!] = [PRIMARY_KEY_ASC]
   ): ScheduledJobConnection
 }
@@ -941,7 +1217,9 @@ type ScheduledJob implements Node {
   id: ID!
   lastRunAt: Datetime
   name: String!
-  """Reads a single `Profile` that is related to this `ScheduledJob`."""
+  """
+  Reads a single `Profile` that is related to this `ScheduledJob`.
+  """
   profile: Profile
   profileId: String!
   query: String!
@@ -949,11 +1227,17 @@ type ScheduledJob implements Node {
   scheduleInterval: Int
   scheduleTime: String
   scheduleType: String!
-  """Reads and enables pagination through a set of `ScheduledJobRun`."""
+  """
+  Reads and enables pagination through a set of `ScheduledJobRun`.
+  """
   scheduledJobRunsByJobId(
-    """Read all values in the set after (below) this cursor."""
+    """
+    Read all values in the set after (below) this cursor.
+    """
     after: Cursor
-    """Read all values in the set before (above) this cursor."""
+    """
+    Read all values in the set before (above) this cursor.
+    """
     before: Cursor
     """
     A condition to be used in determining which values should be returned by the collection.
@@ -974,7 +1258,9 @@ type ScheduledJob implements Node {
     based pagination. May not be used with `last`.
     """
     offset: Int
-    """The method to use when ordering `ScheduledJobRun`."""
+    """
+    The method to use when ordering `ScheduledJobRun`.
+    """
     orderBy: [ScheduledJobRunOrderBy!] = [PRIMARY_KEY_ASC]
   ): ScheduledJobRunConnection!
   updatedAt: Datetime!
@@ -985,35 +1271,55 @@ A condition to be used against `ScheduledJob` object types. All fields are
 tested for equality and combined with a logical ‘and.’
 """
 input ScheduledJobCondition {
-  """Checks for equality with the object’s `profileId` field."""
+  """
+  Checks for equality with the object’s `profileId` field.
+  """
   profileId: String
-  """Checks for equality with the object’s `rowId` field."""
+  """
+  Checks for equality with the object’s `rowId` field.
+  """
   rowId: String
 }
 
-"""A connection to a list of `ScheduledJob` values."""
+"""
+A connection to a list of `ScheduledJob` values.
+"""
 type ScheduledJobConnection {
   """
   A list of edges which contains the `ScheduledJob` and cursor to aid in pagination.
   """
   edges: [ScheduledJobEdge]!
-  """A list of `ScheduledJob` objects."""
+  """
+  A list of `ScheduledJob` objects.
+  """
   nodes: [ScheduledJob]!
-  """Information to aid in pagination."""
+  """
+  Information to aid in pagination.
+  """
   pageInfo: PageInfo!
-  """The count of *all* `ScheduledJob` you could get from the connection."""
+  """
+  The count of *all* `ScheduledJob` you could get from the connection.
+  """
   totalCount: Int!
 }
 
-"""A `ScheduledJob` edge in the connection."""
+"""
+A `ScheduledJob` edge in the connection.
+"""
 type ScheduledJobEdge {
-  """A cursor for use in pagination."""
+  """
+  A cursor for use in pagination.
+  """
   cursor: Cursor
-  """The `ScheduledJob` at the end of the edge."""
+  """
+  The `ScheduledJob` at the end of the edge.
+  """
   node: ScheduledJob
 }
 
-"""An input for mutations affecting `ScheduledJob`"""
+"""
+An input for mutations affecting `ScheduledJob`
+"""
 input ScheduledJobInput {
   createdAt: Datetime
   enabled: Boolean
@@ -1028,7 +1334,9 @@ input ScheduledJobInput {
   updatedAt: Datetime
 }
 
-"""Methods to use when ordering `ScheduledJob`."""
+"""
+Methods to use when ordering `ScheduledJob`.
+"""
 enum ScheduledJobOrderBy {
   NATURAL
   PRIMARY_KEY_ASC
@@ -1082,21 +1390,31 @@ A condition to be used against `ScheduledJobRun` object types. All fields are
 tested for equality and combined with a logical ‘and.’
 """
 input ScheduledJobRunCondition {
-  """Checks for equality with the object’s `jobId` field."""
+  """
+  Checks for equality with the object’s `jobId` field.
+  """
   jobId: String
-  """Checks for equality with the object’s `rowId` field."""
+  """
+  Checks for equality with the object’s `rowId` field.
+  """
   rowId: String
 }
 
-"""A connection to a list of `ScheduledJobRun` values."""
+"""
+A connection to a list of `ScheduledJobRun` values.
+"""
 type ScheduledJobRunConnection {
   """
   A list of edges which contains the `ScheduledJobRun` and cursor to aid in pagination.
   """
   edges: [ScheduledJobRunEdge]!
-  """A list of `ScheduledJobRun` objects."""
+  """
+  A list of `ScheduledJobRun` objects.
+  """
   nodes: [ScheduledJobRun]!
-  """Information to aid in pagination."""
+  """
+  Information to aid in pagination.
+  """
   pageInfo: PageInfo!
   """
   The count of *all* `ScheduledJobRun` you could get from the connection.
@@ -1104,15 +1422,23 @@ type ScheduledJobRunConnection {
   totalCount: Int!
 }
 
-"""A `ScheduledJobRun` edge in the connection."""
+"""
+A `ScheduledJobRun` edge in the connection.
+"""
 type ScheduledJobRunEdge {
-  """A cursor for use in pagination."""
+  """
+  A cursor for use in pagination.
+  """
   cursor: Cursor
-  """The `ScheduledJobRun` at the end of the edge."""
+  """
+  The `ScheduledJobRun` at the end of the edge.
+  """
   node: ScheduledJobRun
 }
 
-"""Methods to use when ordering `ScheduledJobRun`."""
+"""
+Methods to use when ordering `ScheduledJobRun`.
+"""
 enum ScheduledJobRunOrderBy {
   JOB_ID_ASC
   JOB_ID_DESC
@@ -1123,7 +1449,9 @@ enum ScheduledJobRunOrderBy {
   ROW_ID_DESC
 }
 
-"""All input for the `updateConversation` mutation."""
+"""
+All input for the `updateConversation` mutation.
+"""
 input UpdateConversationInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -1137,18 +1465,26 @@ input UpdateConversationInput {
   rowId: String!
 }
 
-"""The output of our update `Conversation` mutation."""
+"""
+The output of our update `Conversation` mutation.
+"""
 type UpdateConversationPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `Conversation` that was updated by this mutation."""
+  """
+  The `Conversation` that was updated by this mutation.
+  """
   conversation: Conversation
-  """An edge for our `Conversation`. May be used by Relay 1."""
+  """
+  An edge for our `Conversation`. May be used by Relay 1.
+  """
   conversationEdge(
-    """The method to use when ordering `Conversation`."""
+    """
+    The method to use when ordering `Conversation`.
+    """
     orderBy: [ConversationOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ConversationEdge
   """
@@ -1157,7 +1493,9 @@ type UpdateConversationPayload {
   query: Query
 }
 
-"""All input for the `updateLlmProvider` mutation."""
+"""
+All input for the `updateLlmProvider` mutation.
+"""
 input UpdateLlmProviderInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -1171,18 +1509,26 @@ input UpdateLlmProviderInput {
   rowId: String!
 }
 
-"""The output of our update `LlmProvider` mutation."""
+"""
+The output of our update `LlmProvider` mutation.
+"""
 type UpdateLlmProviderPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `LlmProvider` that was updated by this mutation."""
+  """
+  The `LlmProvider` that was updated by this mutation.
+  """
   llmProvider: LlmProvider
-  """An edge for our `LlmProvider`. May be used by Relay 1."""
+  """
+  An edge for our `LlmProvider`. May be used by Relay 1.
+  """
   llmProviderEdge(
-    """The method to use when ordering `LlmProvider`."""
+    """
+    The method to use when ordering `LlmProvider`.
+    """
     orderBy: [LlmProviderOrderBy!]! = [PRIMARY_KEY_ASC]
   ): LlmProviderEdge
   """
@@ -1191,7 +1537,9 @@ type UpdateLlmProviderPayload {
   query: Query
 }
 
-"""All input for the `updateProfileByUserId` mutation."""
+"""
+All input for the `updateProfileByUserId` mutation.
+"""
 input UpdateProfileByUserIdInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -1205,18 +1553,26 @@ input UpdateProfileByUserIdInput {
   userId: String!
 }
 
-"""The output of our update `Profile` mutation."""
+"""
+The output of our update `Profile` mutation.
+"""
 type UpdateProfilePayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
   unchanged and unused. May be used by a client to track mutations.
   """
   clientMutationId: String
-  """The `Profile` that was updated by this mutation."""
+  """
+  The `Profile` that was updated by this mutation.
+  """
   profile: Profile
-  """An edge for our `Profile`. May be used by Relay 1."""
+  """
+  An edge for our `Profile`. May be used by Relay 1.
+  """
   profileEdge(
-    """The method to use when ordering `Profile`."""
+    """
+    The method to use when ordering `Profile`.
+    """
     orderBy: [ProfileOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ProfileEdge
   """
@@ -1225,7 +1581,9 @@ type UpdateProfilePayload {
   query: Query
 }
 
-"""All input for the `updateScheduledJob` mutation."""
+"""
+All input for the `updateScheduledJob` mutation.
+"""
 input UpdateScheduledJobInput {
   """
   An arbitrary string value with no semantic meaning. Will be included in the
@@ -1239,7 +1597,9 @@ input UpdateScheduledJobInput {
   rowId: String!
 }
 
-"""The output of our update `ScheduledJob` mutation."""
+"""
+The output of our update `ScheduledJob` mutation.
+"""
 type UpdateScheduledJobPayload {
   """
   The exact same `clientMutationId` that was provided in the mutation input,
@@ -1250,11 +1610,17 @@ type UpdateScheduledJobPayload {
   Our root query field type. Allows us to run any query from our mutation payload.
   """
   query: Query
-  """The `ScheduledJob` that was updated by this mutation."""
+  """
+  The `ScheduledJob` that was updated by this mutation.
+  """
   scheduledJob: ScheduledJob
-  """An edge for our `ScheduledJob`. May be used by Relay 1."""
+  """
+  An edge for our `ScheduledJob`. May be used by Relay 1.
+  """
   scheduledJobEdge(
-    """The method to use when ordering `ScheduledJob`."""
+    """
+    The method to use when ordering `ScheduledJob`.
+    """
     orderBy: [ScheduledJobOrderBy!]! = [PRIMARY_KEY_ASC]
   ): ScheduledJobEdge
 }
