@@ -21,12 +21,6 @@ function getShellCommand(): { shell: string; args: string[] } {
   return { shell: process.env.SHELL || '/bin/bash', args: ['-lc'] }
 }
 
-function assertNotAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw new Error('Operation aborted')
-  }
-}
-
 async function runCommand(
   command: string,
   cwd: string,
@@ -81,8 +75,6 @@ export const bashTool: FilesystemTool<BashInput> = {
     'Execute a shell command in the session directory. Returns combined stdout and stderr.',
   inputSchema: bashInputSchema,
   execute: async ({ command, timeout }, cwd) => {
-    assertNotAborted()
-
     const { exitCode, output, timedOut } = await runCommand(
       command,
       cwd,
