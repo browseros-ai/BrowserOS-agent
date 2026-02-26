@@ -67,4 +67,34 @@ describe('filesystem find tool', () => {
       'No files found matching pattern',
     )
   })
+
+  it('rejects symlink targets outside session directory', async () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const outsideDir = fs.mkdtempSync(
+      path.join(tmpdir(), 'browseros-find-tool-outside-'),
+    )
+
+    try {
+      const outsideFile = path.join(outsideDir, 'secret.txt')
+      fs.writeFileSync(outsideFile, 'secret')
+      fs.symlinkSync(outsideFile, path.join(tempDir, 'escape.txt'))
+
+      await assert.rejects(
+        () =>
+          findTool.execute(
+            {
+              path: '.',
+              pattern: '**/*',
+            },
+            tempDir,
+          ),
+        /outside the session directory/,
+      )
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true })
+    }
+  })
 })

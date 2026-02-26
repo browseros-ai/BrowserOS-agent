@@ -44,4 +44,27 @@ describe('filesystem ls tool', () => {
 
     assert.match(text, /1 entries limit reached/)
   })
+
+  it('rejects symlink targets outside session directory', async () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const outsideDir = fs.mkdtempSync(
+      path.join(tmpdir(), 'browseros-ls-tool-outside-'),
+    )
+
+    try {
+      const outsideFile = path.join(outsideDir, 'secret.txt')
+      fs.writeFileSync(outsideFile, 'secret')
+      fs.symlinkSync(outsideFile, path.join(tempDir, 'escape.txt'))
+
+      await assert.rejects(
+        () => lsTool.execute({ path: '.' }, tempDir),
+        /outside the session directory/,
+      )
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true })
+    }
+  })
 })

@@ -57,6 +57,7 @@ export const findTool: FilesystemTool<FindInput> = {
     const results: string[] = []
     for (const entry of entries) {
       if (results.length >= effectiveLimit) break
+      assertPathWithinCwd(entry.absolutePath, cwd)
 
       const relativePath = safeRelativePath(entry.absolutePath, searchPath)
       if (relativePath.length === 0) continue

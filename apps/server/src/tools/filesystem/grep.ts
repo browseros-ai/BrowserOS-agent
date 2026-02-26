@@ -85,16 +85,25 @@ function formatContextLine(
   return `${filePath}-${lineNumber}- ${truncated.text}`
 }
 
-async function collectSearchFiles(searchPath: string): Promise<string[]> {
+async function collectSearchFiles(
+  searchPath: string,
+  cwd: string,
+): Promise<string[]> {
   const searchStats = await stat(searchPath)
   if (!searchStats.isDirectory()) {
     return [searchPath]
   }
 
   const entries = await walkEntries(searchPath)
-  return entries
-    .filter((entry) => !entry.isDirectory)
-    .map((entry) => entry.absolutePath)
+  const files: string[] = []
+
+  for (const entry of entries) {
+    if (entry.isDirectory) continue
+    assertPathWithinCwd(entry.absolutePath, cwd)
+    files.push(entry.absolutePath)
+  }
+
+  return files
 }
 
 function collectContextLines(params: {
@@ -214,7 +223,7 @@ export const grepTool: FilesystemTool<GrepInput> = {
 
     const searchStats = await stat(searchPath)
     const searchRoot = searchStats.isDirectory() ? searchPath : cwd
-    const files = await collectSearchFiles(searchPath)
+    const files = await collectSearchFiles(searchPath, cwd)
 
     const regex = buildPatternRegex({ pattern, ignoreCase, literal })
     const contextLines = context ?? 0

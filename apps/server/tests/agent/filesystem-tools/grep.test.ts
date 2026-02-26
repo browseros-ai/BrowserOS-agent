@@ -65,4 +65,35 @@ describe('filesystem grep tool', () => {
     assert.strictEqual(result.content[0]?.type, 'text')
     assert.strictEqual(result.content[0]?.text, 'No matches found for pattern')
   })
+
+  it('rejects symlink targets outside session directory', async () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const outsideDir = fs.mkdtempSync(
+      path.join(tmpdir(), 'browseros-grep-tool-outside-'),
+    )
+
+    try {
+      const outsideFile = path.join(outsideDir, 'secret.txt')
+      fs.writeFileSync(outsideFile, 'TODO from outside\n')
+      fs.symlinkSync(outsideFile, path.join(tempDir, 'escape.txt'))
+
+      await assert.rejects(
+        () =>
+          grepTool.execute(
+            {
+              path: '.',
+              pattern: 'TODO',
+              literal: true,
+            },
+            tempDir,
+          ),
+        /outside the session directory/,
+      )
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true })
+    }
+  })
 })

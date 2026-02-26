@@ -1,5 +1,7 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import fs from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
   assertPathWithinCwd,
@@ -38,5 +40,30 @@ describe('filesystem path utils', () => {
       '/tmp/workspace',
     )
     assert.strictEqual(relative, 'src/a.ts')
+  })
+
+  it('rejects symlink targets outside cwd', () => {
+    if (process.platform === 'win32') {
+      return
+    }
+
+    const cwd = fs.mkdtempSync(path.join(tmpdir(), 'browseros-path-cwd-'))
+    const outside = fs.mkdtempSync(
+      path.join(tmpdir(), 'browseros-path-outside-'),
+    )
+
+    try {
+      const outsideFile = path.join(outside, 'secret.txt')
+      fs.writeFileSync(outsideFile, 'secret')
+      const symlink = path.join(cwd, 'escape.txt')
+      fs.symlinkSync(outsideFile, symlink)
+
+      assert.throws(() => assertPathWithinCwd(symlink, cwd), {
+        message: /outside the session directory/,
+      })
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+      fs.rmSync(outside, { recursive: true, force: true })
+    }
   })
 })
