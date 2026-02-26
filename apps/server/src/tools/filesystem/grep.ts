@@ -146,8 +146,15 @@ export function createGrepTool(cwd: string) {
           globMatcher = new Bun.Glob(effectiveGlob)
         }
 
-        // Check if searching a single file
-        const pathStat = await stat(searchPath)
+        let pathStat: Awaited<ReturnType<typeof stat>>
+        try {
+          pathStat = await stat(searchPath)
+        } catch {
+          return {
+            text: `Path not found: ${params.path || '.'}`,
+            isError: true,
+          }
+        }
         const allMatches: GrepMatch[] = []
         let totalMatchCount = 0
 
