@@ -87,6 +87,8 @@ class CdpBackend implements ICdpBackend {
           }
 
           ws.onclose = () => {
+            // Guard against stale onclose from a replaced socket
+            if (this.ws !== ws) return
             this.connected = false
             this.ws = null
             if (opened) this.handleUnexpectedClose()
