@@ -10,6 +10,7 @@
   "scripts": {
     "start": "bun --watch --env-file=.env.development src/index.ts",
     "build": "bun ../../scripts/build/server.ts --mode=prod --target=all",
+    "build:new": "bun ../../scripts/build/server-new.ts --mode=prod --target=all",
     "test:tools": "bun run test:cleanup && bun --env-file=.env.development test tests/tools",
     "test:integration": "bun run test:cleanup && bun --env-file=.env.development test tests/server.integration.test.ts",
     "test:sdk": "bun run test:cleanup && bun --env-file=.env.development test tests/sdk",
