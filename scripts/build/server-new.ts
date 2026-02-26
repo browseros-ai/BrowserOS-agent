@@ -199,7 +199,13 @@ function getBunVersion(rootDir: string): string {
       'Root package.json must have packageManager set to bun@{version}',
     )
   }
-  return pm.slice(4)
+  const version = pm.slice(4)
+  if (!version) {
+    throw new Error(
+      'Root package.json packageManager must include version (e.g., bun@1.3.6)',
+    )
+  }
+  return version
 }
 
 function runCommand(
@@ -349,12 +355,11 @@ async function downloadBunRuntime(
   )
 
   const expectedHash = sha256Sums.get(zipName)
-  if (expectedHash) {
-    verifySha256(zipPath, expectedHash)
-    log.info(`Verified: ${target.name}`)
-  } else {
-    log.info(`Warning: no checksum found for ${zipName}, skipping verification`)
+  if (!expectedHash) {
+    throw new Error(`No checksum found for ${zipName} in SHASUMS256.txt`)
   }
+  verifySha256(zipPath, expectedHash)
+  log.info(`Verified: ${target.name}`)
 
   const extractDir = join(CACHE_DIR, `tmp-${target.bunReleaseName}`)
   rmSync(extractDir, { recursive: true, force: true })
