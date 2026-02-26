@@ -109,17 +109,20 @@ class CdpBackend implements ICdpBackend {
     this.keepaliveTimer = setInterval(async () => {
       if (!this.ws || !this.connected || this.disconnecting) return
 
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
       try {
         await Promise.race([
           this.rawSend('Browser.getVersion'),
-          new Promise((_, reject) =>
-            setTimeout(
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(
               () => reject(new Error('CDP keepalive timeout')),
               timeout,
-            ),
-          ),
+            )
+          }),
         ])
+        clearTimeout(timeoutId)
       } catch {
+        clearTimeout(timeoutId)
         logger.warn('CDP keepalive failed, connection may be dead')
         this.handleDeadConnection()
       }
