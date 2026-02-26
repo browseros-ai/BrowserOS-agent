@@ -6,7 +6,7 @@ import {
   matchesGlob,
   resolvePathInCwd,
   safeRelativePath,
-} from '../../../src/agent/tool-loop/filesystem-tools/path-utils'
+} from '../../../src/tools/filesystem/path-utils'
 
 describe('filesystem path utils', () => {
   it('resolves relative paths inside cwd', () => {

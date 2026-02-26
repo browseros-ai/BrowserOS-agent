@@ -3,7 +3,7 @@ import assert from 'node:assert'
 import fs from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { editTool } from '../../../src/agent/tool-loop/filesystem-tools/edit'
+import { editTool } from '../../../src/tools/filesystem/edit'
 
 describe('filesystem edit tool', () => {
   let tempDir: string

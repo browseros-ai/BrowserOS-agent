@@ -4,7 +4,7 @@ import {
   truncateHead,
   truncateLine,
   truncateTail,
-} from '../../../src/agent/tool-loop/filesystem-tools/truncate'
+} from '../../../src/tools/filesystem/truncate'
 
 describe('filesystem truncate helpers', () => {
   it('truncateHead truncates by line count', () => {
