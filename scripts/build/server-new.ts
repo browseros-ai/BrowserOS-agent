@@ -31,6 +31,7 @@
  */
 
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   chmodSync,
   copyFileSync,
@@ -39,6 +40,7 @@ import {
   readFileSync,
   rmSync,
 } from 'node:fs'
+import { platform } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { parse } from 'dotenv'
@@ -268,9 +270,62 @@ async function bundleWithPlugins(
 
 // --- Bun Runtime Download ---
 
+async function fetchSha256Sums(
+  bunVersion: string,
+): Promise<Map<string, string>> {
+  const shasumsPath = join(CACHE_DIR, `bun-v${bunVersion}`, 'SHASUMS256.txt')
+
+  if (existsSync(shasumsPath)) {
+    return parseSha256Sums(readFileSync(shasumsPath, 'utf-8'))
+  }
+
+  const url = `${BUN_GITHUB_URL}/bun-v${bunVersion}/SHASUMS256.txt`
+  const dir = join(CACHE_DIR, `bun-v${bunVersion}`)
+  mkdirSync(dir, { recursive: true })
+
+  await runCommand(
+    'curl',
+    ['-fSL', '--retry', '3', '-o', shasumsPath, url],
+    process.env,
+  )
+  return parseSha256Sums(readFileSync(shasumsPath, 'utf-8'))
+}
+
+function parseSha256Sums(content: string): Map<string, string> {
+  const sums = new Map<string, string>()
+  for (const line of content.split('\n')) {
+    const match = line.match(/^([a-f0-9]{64})\s+(.+)$/)
+    if (match) sums.set(match[2].trim(), match[1])
+  }
+  return sums
+}
+
+function verifySha256(filePath: string, expectedHash: string): void {
+  const data = readFileSync(filePath)
+  const actual = createHash('sha256').update(data).digest('hex')
+  if (actual !== expectedHash) {
+    throw new Error(
+      `SHA256 mismatch for ${filePath}\n  expected: ${expectedHash}\n  actual:   ${actual}`,
+    )
+  }
+}
+
+async function extractZip(zipPath: string, extractDir: string): Promise<void> {
+  if (platform() === 'win32') {
+    await runCommandQuiet('powershell', [
+      '-NoProfile',
+      '-Command',
+      `Expand-Archive -Path '${zipPath}' -DestinationPath '${extractDir}' -Force`,
+    ])
+  } else {
+    await runCommandQuiet('unzip', ['-q', '-o', zipPath, '-d', extractDir])
+  }
+}
+
 async function downloadBunRuntime(
   bunVersion: string,
   target: BuildTarget,
+  sha256Sums: Map<string, string>,
 ): Promise<string> {
   const cacheDir = join(CACHE_DIR, `bun-v${bunVersion}`, target.bunReleaseName)
   const cachedBinary = join(cacheDir, target.bunBinaryName)
@@ -280,11 +335,12 @@ async function downloadBunRuntime(
     return cachedBinary
   }
 
-  const url = `${BUN_GITHUB_URL}/bun-v${bunVersion}/${target.bunReleaseName}.zip`
+  const zipName = `${target.bunReleaseName}.zip`
+  const url = `${BUN_GITHUB_URL}/bun-v${bunVersion}/${zipName}`
   log.info(`Downloading: ${target.name}`)
 
   mkdirSync(CACHE_DIR, { recursive: true })
-  const zipPath = join(CACHE_DIR, `${target.bunReleaseName}.zip`)
+  const zipPath = join(CACHE_DIR, zipName)
 
   await runCommand(
     'curl',
@@ -292,11 +348,19 @@ async function downloadBunRuntime(
     process.env,
   )
 
+  const expectedHash = sha256Sums.get(zipName)
+  if (expectedHash) {
+    verifySha256(zipPath, expectedHash)
+    log.info(`Verified: ${target.name}`)
+  } else {
+    log.info(`Warning: no checksum found for ${zipName}, skipping verification`)
+  }
+
   const extractDir = join(CACHE_DIR, `tmp-${target.bunReleaseName}`)
   rmSync(extractDir, { recursive: true, force: true })
   mkdirSync(extractDir, { recursive: true })
 
-  await runCommandQuiet('unzip', ['-q', '-o', zipPath, '-d', extractDir])
+  await extractZip(zipPath, extractDir)
 
   const extractedBinary = join(
     extractDir,
@@ -420,6 +484,7 @@ async function build(config: BuildConfig): Promise<void> {
   log.success('Bundle created with embedded WASM')
 
   log.step('Fetching bun runtimes...')
+  const sha256Sums = await fetchSha256Sums(bunVersion)
   const bunPaths = new Map<string, string>()
   const seen = new Set<string>()
   const downloads: Promise<void>[] = []
@@ -430,7 +495,7 @@ async function build(config: BuildConfig): Promise<void> {
     seen.add(target.bunReleaseName)
 
     downloads.push(
-      downloadBunRuntime(bunVersion, target).then((path) => {
+      downloadBunRuntime(bunVersion, target, sha256Sums).then((path) => {
         bunPaths.set(target.bunReleaseName, path)
       }),
     )
