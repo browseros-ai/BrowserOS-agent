@@ -188,3 +188,4 @@ tmp/
 # Coding agent artifacts
 .agent/
 .llm/
+.grove/
