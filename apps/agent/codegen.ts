@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { includeIgnoreFile } from '@eslint/compat'
 import type { CodegenConfig } from '@graphql-codegen/cli'
@@ -5,11 +6,12 @@ import type { CodegenConfig } from '@graphql-codegen/cli'
 // biome-ignore lint/style/noProcessEnv: env needed for codegen config
 const env = process.env
 
-const schemaPath = env.GRAPHQL_SCHEMA_PATH
-if (!schemaPath) {
+const schemaPath =
+  env.GRAPHQL_SCHEMA_PATH ?? path.resolve(__dirname, 'schema/schema.graphql')
+if (!existsSync(schemaPath)) {
   throw new Error(
-    'GRAPHQL_SCHEMA_PATH is not set. Set it in .env.development to the local path of:\n' +
-      'https://github.com/browseros-ai/BrowserOS-workers/blob/main/apps/api/src/modules/graphql/schema.graphql',
+    'No schema found. Either set GRAPHQL_SCHEMA_PATH in .env.development ' +
+      'or ensure schema/schema.graphql exists',
   )
 }
 
