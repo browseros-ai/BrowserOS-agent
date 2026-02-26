@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { z } from 'zod'
 import type { FilesystemToolDef } from './build-toolset'
+import { PathTraversalError, resolveAndAssert } from './path-utils'
 import { truncateHead } from './truncate'
 
 const MAX_LINE_LENGTH = 500
@@ -106,7 +107,18 @@ export const grep: FilesystemToolDef = {
       .describe('Maximum number of matches to return (default: 100)'),
   }),
   async execute(args, cwd) {
-    const searchPath = args.path ? resolve(cwd, args.path) : cwd
+    let searchPath: string
+    try {
+      searchPath = args.path ? await resolveAndAssert(args.path, cwd) : cwd
+    } catch (e) {
+      if (e instanceof PathTraversalError) {
+        return {
+          content: [{ type: 'text', text: e.message }],
+          isError: true,
+        }
+      }
+      throw e
+    }
     const matchLimit = args.limit ?? DEFAULT_MATCH_LIMIT
     const contextLines = args.context ?? 0
 

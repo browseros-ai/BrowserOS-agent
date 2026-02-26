@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { z } from 'zod'
 import type { FilesystemToolDef } from './build-toolset'
+import { PathTraversalError, resolveAndAssert } from './path-utils'
 import { truncateHead } from './truncate'
 
 const DEFAULT_RESULT_LIMIT = 1000
@@ -33,7 +34,18 @@ export const find: FilesystemToolDef = {
       .describe('Maximum number of results (default: 1000)'),
   }),
   async execute(args, cwd) {
-    const searchPath = args.path ? resolve(cwd, args.path) : cwd
+    let searchPath: string
+    try {
+      searchPath = args.path ? await resolveAndAssert(args.path, cwd) : cwd
+    } catch (e) {
+      if (e instanceof PathTraversalError) {
+        return {
+          content: [{ type: 'text', text: e.message }],
+          isError: true,
+        }
+      }
+      throw e
+    }
     const limit = args.limit ?? DEFAULT_RESULT_LIMIT
 
     // Ensure pattern searches recursively if it's a simple extension glob

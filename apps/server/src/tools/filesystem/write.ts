@@ -1,7 +1,8 @@
 import { mkdir } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { dirname } from 'node:path'
 import { z } from 'zod'
 import type { FilesystemToolDef } from './build-toolset'
+import { PathTraversalError, resolveAndAssert } from './path-utils'
 
 export const write: FilesystemToolDef = {
   name: 'write',
@@ -15,7 +16,18 @@ export const write: FilesystemToolDef = {
     content: z.string().describe('Content to write to the file'),
   }),
   async execute(args, cwd) {
-    const filePath = resolve(cwd, args.path)
+    let filePath: string
+    try {
+      filePath = await resolveAndAssert(args.path, cwd)
+    } catch (e) {
+      if (e instanceof PathTraversalError) {
+        return {
+          content: [{ type: 'text', text: e.message }],
+          isError: true,
+        }
+      }
+      throw e
+    }
 
     await mkdir(dirname(filePath), { recursive: true })
     await Bun.write(filePath, args.content)

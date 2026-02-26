@@ -84,4 +84,10 @@ describe('ls tool', () => {
     const text = textOf(result)
     expect(text).toContain('Showing first 3 of')
   })
+
+  it('rejects path traversal with ../', async () => {
+    const result = await ls.execute({ path: '../../etc' }, cwd)
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('Path traversal not allowed')
+  })
 })

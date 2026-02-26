@@ -124,4 +124,35 @@ describe('edit tool', () => {
     )
     expect(textOf(result)).toContain('line 4')
   })
+
+  it('preserves BOM in UTF-8 files', async () => {
+    const BOM_BYTES = new Uint8Array([0xef, 0xbb, 0xbf])
+    const content = new TextEncoder().encode('hello world')
+    const withBom = new Uint8Array([...BOM_BYTES, ...content])
+    await Bun.write(join(cwd, 'bom.txt'), withBom)
+
+    const result = await edit.execute(
+      { path: 'bom.txt', old_text: 'hello', new_text: 'goodbye' },
+      cwd,
+    )
+    expect(result.isError).toBeUndefined()
+
+    const rawBytes = new Uint8Array(
+      await Bun.file(join(cwd, 'bom.txt')).arrayBuffer(),
+    )
+    expect(rawBytes[0]).toBe(0xef)
+    expect(rawBytes[1]).toBe(0xbb)
+    expect(rawBytes[2]).toBe(0xbf)
+    const textAfterBom = new TextDecoder().decode(rawBytes.slice(3))
+    expect(textAfterBom).toBe('goodbye world')
+  })
+
+  it('rejects path traversal with ../', async () => {
+    const result = await edit.execute(
+      { path: '../../etc/passwd', old_text: 'a', new_text: 'b' },
+      cwd,
+    )
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('Path traversal not allowed')
+  })
 })

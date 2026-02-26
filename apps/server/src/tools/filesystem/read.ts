@@ -1,6 +1,8 @@
-import { extname, resolve } from 'node:path'
+import { stat } from 'node:fs/promises'
+import { extname } from 'node:path'
 import { z } from 'zod'
 import type { FilesystemToolDef } from './build-toolset'
+import { PathTraversalError, resolveAndAssert } from './path-utils'
 import { truncateHead } from './truncate'
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp'])
@@ -29,17 +31,43 @@ export const read: FilesystemToolDef = {
     limit: z.number().optional().describe('Maximum number of lines to read'),
   }),
   async execute(args, cwd) {
-    const filePath = resolve(cwd, args.path)
-
-    const ext = extname(filePath).toLowerCase()
-    if (IMAGE_EXTENSIONS.has(ext)) {
-      const file = Bun.file(filePath)
-      if (!(await file.exists())) {
+    let filePath: string
+    try {
+      filePath = await resolveAndAssert(args.path, cwd)
+    } catch (e) {
+      if (e instanceof PathTraversalError) {
         return {
-          content: [{ type: 'text', text: `File not found: ${args.path}` }],
+          content: [{ type: 'text', text: e.message }],
           isError: true,
         }
       }
+      throw e
+    }
+
+    try {
+      const s = await stat(filePath)
+      if (s.isDirectory()) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `${args.path} is a directory, not a file. Use the ls tool to list directory contents.`,
+            },
+          ],
+          isError: true,
+        }
+      }
+    } catch {
+      return {
+        content: [{ type: 'text', text: `File not found: ${args.path}` }],
+        isError: true,
+      }
+    }
+
+    const file = Bun.file(filePath)
+
+    const ext = extname(filePath).toLowerCase()
+    if (IMAGE_EXTENSIONS.has(ext)) {
       const buffer = await file.arrayBuffer()
       const data = Buffer.from(buffer).toString('base64')
       const mimeType = MIME_MAP[ext] ?? 'application/octet-stream'
@@ -48,14 +76,6 @@ export const read: FilesystemToolDef = {
           { type: 'text', text: `Image: ${args.path}` },
           { type: 'image', data, mimeType },
         ],
-      }
-    }
-
-    const file = Bun.file(filePath)
-    if (!(await file.exists())) {
-      return {
-        content: [{ type: 'text', text: `File not found: ${args.path}` }],
-        isError: true,
       }
     }
 

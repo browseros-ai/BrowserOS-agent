@@ -1,6 +1,6 @@
-import { resolve } from 'node:path'
 import { z } from 'zod'
 import type { FilesystemToolDef } from './build-toolset'
+import { PathTraversalError, resolveAndAssert } from './path-utils'
 
 function detectLineEnding(text: string): string {
   const crlf = (text.match(/\r\n/g) || []).length
@@ -26,7 +26,19 @@ export const edit: FilesystemToolDef = {
     new_text: z.string().describe('New text to replace the old text with'),
   }),
   async execute(args, cwd) {
-    const filePath = resolve(cwd, args.path)
+    let filePath: string
+    try {
+      filePath = await resolveAndAssert(args.path, cwd)
+    } catch (e) {
+      if (e instanceof PathTraversalError) {
+        return {
+          content: [{ type: 'text', text: e.message }],
+          isError: true,
+        }
+      }
+      throw e
+    }
+
     const file = Bun.file(filePath)
 
     if (!(await file.exists())) {
@@ -36,10 +48,19 @@ export const edit: FilesystemToolDef = {
       }
     }
 
-    const raw = await file.text()
-    const lineEnding = detectLineEnding(raw)
+    const rawBytes = new Uint8Array(await file.arrayBuffer())
+    const hasBom =
+      rawBytes.length >= 3 &&
+      rawBytes[0] === 0xef &&
+      rawBytes[1] === 0xbb &&
+      rawBytes[2] === 0xbf
+    const content = new TextDecoder().decode(
+      hasBom ? rawBytes.slice(3) : rawBytes,
+    )
 
-    const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const lineEnding = detectLineEnding(content)
+
+    const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     const normalizedOld = args.old_text
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
@@ -91,7 +112,16 @@ export const edit: FilesystemToolDef = {
       result = result.replace(/\n/g, lineEnding)
     }
 
-    await Bun.write(filePath, result)
+    if (hasBom) {
+      const BOM = new Uint8Array([0xef, 0xbb, 0xbf])
+      const encoded = new TextEncoder().encode(result)
+      const withBom = new Uint8Array(BOM.length + encoded.length)
+      withBom.set(BOM)
+      withBom.set(encoded, BOM.length)
+      await Bun.write(filePath, withBom)
+    } else {
+      await Bun.write(filePath, result)
+    }
 
     const oldLines = normalizedOld.split('\n')
     const newLines = normalizedNew.split('\n')

@@ -1,7 +1,7 @@
-import { readdir, stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { readdir } from 'node:fs/promises'
 import { z } from 'zod'
 import type { FilesystemToolDef } from './build-toolset'
+import { PathTraversalError, resolveAndAssert } from './path-utils'
 import { truncateHead } from './truncate'
 
 const DEFAULT_ENTRY_LIMIT = 500
@@ -22,12 +22,24 @@ export const ls: FilesystemToolDef = {
       .describe('Maximum number of entries to return (default: 500)'),
   }),
   async execute(args, cwd) {
-    const dirPath = args.path ? resolve(cwd, args.path) : cwd
+    let dirPath: string
+    try {
+      dirPath = args.path ? await resolveAndAssert(args.path, cwd) : cwd
+    } catch (e) {
+      if (e instanceof PathTraversalError) {
+        return {
+          content: [{ type: 'text', text: e.message }],
+          isError: true,
+        }
+      }
+      throw e
+    }
+
     const limit = args.limit ?? DEFAULT_ENTRY_LIMIT
 
-    let entries: string[]
+    let dirents: import('node:fs').Dirent[]
     try {
-      entries = await readdir(dirPath)
+      dirents = await readdir(dirPath, { withFileTypes: true })
     } catch {
       return {
         content: [
@@ -37,17 +49,14 @@ export const ls: FilesystemToolDef = {
       }
     }
 
-    entries.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+    dirents.sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase()),
+    )
 
     const lines: string[] = []
-    for (const entry of entries) {
+    for (const entry of dirents) {
       if (lines.length >= limit) break
-      try {
-        const s = await stat(resolve(dirPath, entry))
-        lines.push(s.isDirectory() ? `${entry}/` : entry)
-      } catch {
-        // skip entries that can't be stat'd
-      }
+      lines.push(entry.isDirectory() ? `${entry.name}/` : entry.name)
     }
 
     if (lines.length === 0) {
@@ -58,8 +67,8 @@ export const ls: FilesystemToolDef = {
     const result = truncateHead(output)
 
     const parts: string[] = []
-    if (entries.length > limit) {
-      parts.push(`[Showing first ${limit} of ${entries.length} entries]`)
+    if (dirents.length > limit) {
+      parts.push(`[Showing first ${limit} of ${dirents.length} entries]`)
     } else if (result.truncated) {
       parts.push(
         `[Output truncated — showing first ${result.outputLines} of ${result.totalLines} lines]`,

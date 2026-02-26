@@ -88,4 +88,10 @@ describe('find tool', () => {
     const sorted = [...lines].sort()
     expect(lines).toEqual(sorted)
   })
+
+  it('rejects path traversal with ../', async () => {
+    const result = await find.execute({ pattern: '*', path: '../../etc' }, cwd)
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('Path traversal not allowed')
+  })
 })

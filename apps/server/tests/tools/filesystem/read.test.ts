@@ -106,4 +106,18 @@ describe('read tool', () => {
     const result = await read.execute({ path: absPath }, cwd)
     expect(textOf(result)).toContain('absolute content')
   })
+
+  it('rejects path traversal with ../', async () => {
+    const result = await read.execute({ path: '../../etc/passwd' }, cwd)
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('Path traversal not allowed')
+  })
+
+  it('returns error when reading a directory', async () => {
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(join(cwd, 'mydir'))
+    const result = await read.execute({ path: 'mydir' }, cwd)
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('is a directory')
+  })
 })

@@ -118,4 +118,13 @@ describe('grep tool', () => {
     expect(text).toContain('const')
     expect(text).not.toContain('readme.md')
   })
+
+  it('rejects path traversal with ../', async () => {
+    const result = await grep.execute(
+      { pattern: 'root', path: '../../etc' },
+      cwd,
+    )
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('Path traversal not allowed')
+  })
 })

@@ -80,4 +80,13 @@ describe('write tool', () => {
     const content = await Bun.file(join(cwd, 'unicode.txt')).text()
     expect(content).toBe(unicode)
   })
+
+  it('rejects path traversal with ../', async () => {
+    const result = await write.execute(
+      { path: '../../etc/evil.txt', content: 'pwned' },
+      cwd,
+    )
+    expect(result.isError).toBe(true)
+    expect(textOf(result)).toContain('Path traversal not allowed')
+  })
 })
