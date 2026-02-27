@@ -136,6 +136,17 @@ function createOpenAICompatibleFactory(
   })
 }
 
+function createMoonshotFactory(
+  config: ResolvedAgentConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('Moonshot provider requires baseUrl')
+  return createOpenAICompatible({
+    name: 'moonshot',
+    baseURL: config.baseUrl,
+    ...(config.apiKey && { apiKey: config.apiKey }),
+  })
+}
+
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.ANTHROPIC]: createAnthropicFactory,
   [LLM_PROVIDERS.OPENAI]: createOpenAIFactory,
@@ -147,6 +158,7 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.BEDROCK]: createBedrockFactory,
   [LLM_PROVIDERS.BROWSEROS]: createBrowserOSFactory,
   [LLM_PROVIDERS.OPENAI_COMPATIBLE]: createOpenAICompatibleFactory,
+  [LLM_PROVIDERS.MOONSHOT]: createMoonshotFactory,
 }
 
 export function createLanguageModel(
