@@ -67,6 +67,25 @@ export function normalizeKey(key: string): string {
   return key
 }
 
+const VALID_NAMED_KEYS = Object.keys(KEY_MAP).filter((k) => k.length > 1)
+
+function isValidKey(key: string): boolean {
+  if (KEY_MAP[key]) return true
+  if (key.length === 1) return true
+  return false
+}
+
+function validateKey(key: string): void {
+  if (isValidKey(key)) return
+  const aliases = Object.entries(KEY_ALIASES)
+    .map(([alias, canonical]) => `${alias} → ${canonical}`)
+    .join(', ')
+  throw new Error(
+    `Unknown key: "${key}". Valid keys: ${VALID_NAMED_KEYS.join(', ')}, ` +
+      `single characters (a-z, A-Z, 0-9, symbols). Aliases: ${aliases}`,
+  )
+}
+
 // Text produced by character-generating keys (matches Playwright's usKeyboardLayout)
 const KEY_TEXT: Record<string, string> = {
   Enter: '\r',
@@ -189,13 +208,38 @@ export async function clearField(session: ProtocolApi): Promise<void> {
   })
 }
 
+function parseKeyCombo(input: string): {
+  key: string
+  modifiers: string[]
+} {
+  const parts: string[] = []
+  let current = ''
+  for (const ch of input) {
+    // Only split on '+' when there's accumulated text (so literal '+' works)
+    if (ch === '+' && current) {
+      parts.push(current)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  if (current) parts.push(current)
+  if (parts.length === 0) throw new Error('Empty key input')
+  const key = parts[parts.length - 1]
+  return { key, modifiers: parts.slice(0, -1) }
+}
+
 export async function pressCombo(
   session: ProtocolApi,
   key: string,
 ): Promise<void> {
-  const parts = key.split('+')
-  const mainKey = normalizeKey(parts.at(-1) ?? key)
-  const modifiers = parts.slice(0, -1).map(normalizeKey)
+  const parsed = parseKeyCombo(key)
+  const mainKey = normalizeKey(parsed.key)
+  const modifiers = parsed.modifiers.map(normalizeKey)
+
+  validateKey(mainKey)
+  for (const mod of modifiers) validateKey(mod)
+
   const modBitmask = modifierBitmask(modifiers)
 
   for (const mod of modifiers) {

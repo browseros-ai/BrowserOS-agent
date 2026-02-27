@@ -3,6 +3,7 @@ import {
   getKeyInfo,
   modifierBitmask,
   normalizeKey,
+  pressCombo,
 } from '../../src/browser/keyboard'
 
 describe('normalizeKey', () => {
@@ -82,5 +83,78 @@ describe('modifierBitmask', () => {
     expect(modifierBitmask(['Meta'])).toBe(4)
     expect(modifierBitmask(['Control', 'Shift'])).toBe(10)
     expect(modifierBitmask(['Control', 'Alt', 'Shift'])).toBe(11)
+  })
+})
+
+describe('pressCombo validation', () => {
+  const fakeSession = {} as Parameters<typeof pressCombo>[0]
+
+  it('throws on unknown key with valid keys list', async () => {
+    await expect(pressCombo(fakeSession, 'center')).rejects.toThrow(
+      /Unknown key: "center"/,
+    )
+  })
+
+  it('error message includes valid keys and aliases', async () => {
+    try {
+      await pressCombo(fakeSession, 'FooBar')
+      throw new Error('Should have thrown')
+    } catch (err) {
+      const msg = (err as Error).message
+      expect(msg).toInclude('Enter')
+      expect(msg).toInclude('Backspace')
+      expect(msg).toInclude('Escape')
+      expect(msg).toInclude('Aliases:')
+      expect(msg).toInclude('Ctrl')
+      expect(msg).toInclude('Cmd')
+    }
+  })
+
+  it('throws on unknown modifier in combo', async () => {
+    await expect(pressCombo(fakeSession, 'Hyper+A')).rejects.toThrow(
+      /Unknown key: "Hyper"/,
+    )
+  })
+
+  it('throws on empty input', async () => {
+    await expect(pressCombo(fakeSession, '')).rejects.toThrow(/Empty key input/)
+  })
+
+  it('accepts case-insensitive key names (rejects only at CDP)', async () => {
+    await expect(pressCombo(fakeSession, 'enter')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+    await expect(pressCombo(fakeSession, 'ESCAPE')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+  })
+
+  it('accepts single characters', async () => {
+    await expect(pressCombo(fakeSession, 'a')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+    await expect(pressCombo(fakeSession, '5')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+  })
+
+  it('accepts alias modifiers in combos', async () => {
+    await expect(pressCombo(fakeSession, 'Ctrl+A')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+    await expect(pressCombo(fakeSession, 'Cmd+c')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+  })
+
+  it('handles literal + key without splitting', async () => {
+    // '+' alone should be treated as a single character, not a separator
+    await expect(pressCombo(fakeSession, '+')).rejects.not.toThrow(
+      /Unknown key/,
+    )
+    // 'Shift++' should parse as Shift modifier + '+' key
+    await expect(pressCombo(fakeSession, 'Shift++')).rejects.not.toThrow(
+      /Unknown key/,
+    )
   })
 })
