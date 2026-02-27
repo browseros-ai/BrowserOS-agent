@@ -28,6 +28,45 @@ export const save_pdf = defineTool({
   },
 })
 
+export const save_screenshot = defineTool({
+  name: 'save_screenshot',
+  description: 'Take a screenshot of a page and save it to a file on disk',
+  input: z.object({
+    page: pageParam,
+    path: z
+      .string()
+      .describe('File path for the screenshot (e.g. "screenshot.png")'),
+    cwd: z
+      .string()
+      .optional()
+      .describe('Working directory to resolve relative paths against'),
+    format: z
+      .enum(['png', 'jpeg', 'webp'])
+      .default('png')
+      .describe('Image format'),
+    quality: z
+      .number()
+      .min(0)
+      .max(100)
+      .optional()
+      .describe('Compression quality (jpeg/webp only)'),
+    fullPage: z
+      .boolean()
+      .default(false)
+      .describe('Capture full scrollable page'),
+  }),
+  handler: async (args, ctx, response) => {
+    const resolvedPath = resolve(args.cwd ?? process.cwd(), args.path)
+    const { data } = await ctx.browser.screenshot(args.page, {
+      format: args.format,
+      quality: args.quality,
+      fullPage: args.fullPage,
+    })
+    await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
+    response.text(`Saved screenshot to ${resolvedPath}`)
+  },
+})
+
 export const download_file = defineTool({
   name: 'download_file',
   description:

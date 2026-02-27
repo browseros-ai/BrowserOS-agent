@@ -38,7 +38,7 @@ import {
   // biome-ignore lint/correctness/noUnusedImports: temporarily disabled
   wait_for,
 } from './navigation'
-import { download_file, save_pdf } from './page-actions'
+import { download_file, save_pdf, save_screenshot } from './page-actions'
 import {
   evaluate_script,
   get_page_content,
@@ -93,8 +93,9 @@ export const registry = createRegistry([
   handle_dialog,
   select_option,
 
-  // Page Actions (2)
+  // Page Actions (3)
   save_pdf,
+  save_screenshot,
   download_file,
 
   // Windows (4)
