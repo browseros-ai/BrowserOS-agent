@@ -62,7 +62,17 @@ export function buildBrowserToolSet(
             success: !result.isError,
           })
 
-          return { content: result.content, isError: result.isError ?? false }
+          const pageId = (params as Record<string, unknown>).page
+          const tabId =
+            typeof pageId === 'number'
+              ? browser.getTabIdForPage(pageId)
+              : undefined
+
+          return {
+            content: result.content,
+            isError: result.isError ?? false,
+            tabId,
+          }
         } catch (error) {
           const errorText =
             error instanceof Error ? error.message : String(error)

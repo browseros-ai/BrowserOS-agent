@@ -2,6 +2,19 @@ import type { ChatStatus, ToolUIPart, UIMessage } from 'ai'
 import { useEffect, useRef } from 'react'
 import type { GlowMessage } from '@/entrypoints/glow.content/GlowMessage'
 
+function extractTabId(toolPart: ToolUIPart | null): number | undefined {
+  if (!toolPart) return undefined
+
+  // CDP tools: server includes tabId in tool output
+  const output = (toolPart as ToolUIPart & { output?: { tabId?: number } })
+    ?.output
+  if (output?.tabId) return output.tabId
+
+  // Legacy controller tools: tabId in input
+  const input = (toolPart as ToolUIPart & { input?: { tabId?: number } })?.input
+  return input?.tabId
+}
+
 export const useNotifyActiveTab = ({
   messages,
   status,
@@ -11,7 +24,6 @@ export const useNotifyActiveTab = ({
   status: ChatStatus
   conversationId: string
 }) => {
-  // Ref to store the last active tab ID
   const lastTabIdRef = useRef<number | null>(null)
 
   const lastMessage = messages?.[messages.length - 1]
@@ -20,52 +32,68 @@ export const useNotifyActiveTab = ({
     lastMessage?.parts?.findLast((part) => part?.type?.startsWith('tool-')) ??
     null
 
-  const latestTabId = (
-    latestTool as ToolUIPart & { input?: { tabId?: number } }
-  )?.input?.tabId
+  const hasToolCalls = !!latestTool
+  const toolTabId = extractTabId(latestTool as ToolUIPart | null)
 
   useEffect(() => {
     const isStreaming = status === 'streaming'
     const previousTabId = lastTabIdRef.current
 
-    // Streaming stopped - turn off glow on the last active tab
-    const stoppedStreaming = !isStreaming && previousTabId
-
-    // Switched to a different tab while streaming - need to turn off glow on old tab
-    const switchedTabs =
-      isStreaming &&
-      latestTabId &&
-      previousTabId &&
-      latestTabId !== previousTabId
-
-    if (stoppedStreaming || switchedTabs) {
+    if (!isStreaming) {
       if (previousTabId) {
         const deactivateMessage: GlowMessage = {
           conversationId,
           isActive: false,
         }
-        chrome.tabs.sendMessage(previousTabId, deactivateMessage).catch(() => {
-          // no action needed if the tab is closed or does not exist
-        })
+        chrome.tabs
+          .sendMessage(previousTabId, deactivateMessage)
+          .catch(() => {})
+        lastTabIdRef.current = null
       }
+      return
     }
 
-    // Activate glow on current tab while streaming
-    if (isStreaming && latestTabId) {
+    if (!hasToolCalls) return
+
+    let cancelled = false
+
+    const activate = async () => {
+      let targetTabId = toolTabId
+
+      if (!targetTabId) {
+        const tabs = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+        })
+        targetTabId = tabs[0]?.id
+      }
+
+      if (cancelled || !targetTabId) return
+
+      if (previousTabId && previousTabId !== targetTabId) {
+        const deactivateMessage: GlowMessage = {
+          conversationId,
+          isActive: false,
+        }
+        chrome.tabs
+          .sendMessage(previousTabId, deactivateMessage)
+          .catch(() => {})
+      }
+
       const activateMessage: GlowMessage = {
         conversationId,
         isActive: true,
       }
-      chrome.tabs.sendMessage(latestTabId, activateMessage).catch(() => {
-        // no action needed if the tab is closed or does not exist
-      })
+      chrome.tabs.sendMessage(targetTabId, activateMessage).catch(() => {})
+      lastTabIdRef.current = targetTabId
     }
 
-    // Track the latest tab for future comparisons
-    if (latestTabId) {
-      lastTabIdRef.current = latestTabId
+    activate()
+
+    return () => {
+      cancelled = true
     }
-  }, [conversationId, status, latestTabId])
+  }, [conversationId, status, hasToolCalls, toolTabId])
 
   return
 }
