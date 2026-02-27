@@ -1,6 +1,6 @@
 import { Upload, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,40 +12,21 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { importHintDismissedAtStorage } from '@/lib/onboarding/onboardingStorage'
 
-const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000
-const LONG_DISMISS_DURATION = 90 * 24 * 60 * 60 * 1000
 const importSettingsURL = 'chrome://settings/importData'
 
 export const ImportDataHint = () => {
-  const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [dontAskAgain, setDontAskAgain] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-
-    importHintDismissedAtStorage.getValue().then((dismissedAt) => {
-      if (cancelled) return
-      if (dismissedAt && Date.now() - dismissedAt < DISMISS_DURATION) return
-
-      timer = setTimeout(() => {
-        if (!cancelled) setVisible(true)
-      }, 3000)
-    })
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [])
-
   const handleDismiss = async () => {
     setDismissed(true)
-    const dismissUntil = dontAskAgain
-      ? Date.now() + LONG_DISMISS_DURATION - DISMISS_DURATION
-      : Date.now()
-    await importHintDismissedAtStorage.setValue(dismissUntil)
+    if (dontAskAgain) {
+      await importHintDismissedAtStorage.setValue(
+        Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+      )
+    } else {
+      await importHintDismissedAtStorage.setValue(Date.now())
+    }
   }
 
   const handleImport = () => {
@@ -58,16 +39,14 @@ export const ImportDataHint = () => {
     toast.success('Copied to clipboard!', { position: 'bottom-center' })
   }
 
-  const show = visible && !dismissed
-
   return (
     <AnimatePresence>
-      {show && (
+      {!dismissed && (
         <motion.div
-          className="fixed bottom-4 left-4 z-50"
-          initial={{ opacity: 0, x: -100 }}
+          className="fixed right-4 bottom-4 z-50"
+          initial={{ opacity: 0, x: 100 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -100 }}
+          exit={{ opacity: 0, x: 100 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         >
           <Card className="w-80 gap-0 py-4">
@@ -107,7 +86,7 @@ export const ImportDataHint = () => {
                     setDontAskAgain(checked === true)
                   }
                 />
-                Don't ask again
+                Don't show this again
               </label>
               <Button className="w-full" onClick={handleImport}>
                 <Upload className="size-4" />

@@ -1,7 +1,6 @@
-import { storage } from '@wxt-dev/storage'
 import { Cloud, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,43 +11,17 @@ import {
 } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { signInHintDismissedAtStorage } from '@/lib/onboarding/onboardingStorage'
 
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000
 const LONG_DISMISS_DURATION = 90 * 24 * 60 * 60 * 1000
 
-const signInHintDismissedAtStorage = storage.defineItem<number | null>(
-  'local:signInHintDismissedAt',
-  { fallback: null },
-)
-
 export const SignInHint = () => {
-  const { sessionInfo, isLoading } = useSessionInfo()
+  const { sessionInfo } = useSessionInfo()
   const isLoggedIn = !!sessionInfo?.user
   const navigate = useNavigate()
-  const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [dontAskAgain, setDontAskAgain] = useState(false)
-
-  useEffect(() => {
-    if (isLoading || isLoggedIn) return
-
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-
-    signInHintDismissedAtStorage.getValue().then((dismissedAt) => {
-      if (cancelled) return
-      if (dismissedAt && Date.now() - dismissedAt < DISMISS_DURATION) return
-
-      timer = setTimeout(() => {
-        if (!cancelled) setVisible(true)
-      }, 2000)
-    })
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [isLoading, isLoggedIn])
 
   const handleDismiss = async () => {
     setDismissed(true)
@@ -58,7 +31,7 @@ export const SignInHint = () => {
     await signInHintDismissedAtStorage.setValue(dismissUntil)
   }
 
-  const show = visible && !dismissed && !isLoggedIn
+  const show = !dismissed && !isLoggedIn
 
   return (
     <AnimatePresence>

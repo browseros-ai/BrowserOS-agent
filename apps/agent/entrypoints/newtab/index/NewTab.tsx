@@ -60,6 +60,7 @@ import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { SignInHint } from './SignInHint'
 import { TopSites } from './TopSites'
+import { useActiveHint } from './useActiveHint'
 
 interface MentionState {
   isOpen: boolean
@@ -71,6 +72,7 @@ interface MentionState {
  * @public
  */
 export const NewTab = () => {
+  const activeHint = useActiveHint()
   const [inputValue, setInputValue] = useState('')
   const [mounted, setMounted] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -612,8 +614,8 @@ export const NewTab = () => {
           onOpenChange={setShortcutsDialogOpen}
         />
       )}
-      <SignInHint />
-      <ImportDataHint />
+      {activeHint === 'signin' && <SignInHint />}
+      {activeHint === 'import' && <ImportDataHint />}
     </div>
   )
 }
