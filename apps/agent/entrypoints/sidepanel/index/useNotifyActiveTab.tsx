@@ -5,10 +5,13 @@ import type { GlowMessage } from '@/entrypoints/glow.content/GlowMessage'
 function extractTabId(toolPart: ToolUIPart | null): number | undefined {
   if (!toolPart) return undefined
 
-  // CDP tools: server includes tabId in tool output
-  const output = (toolPart as ToolUIPart & { output?: { tabId?: number } })
-    ?.output
-  if (output?.tabId) return output.tabId
+  // CDP tools: server includes tabId in tool output metadata
+  const output = (
+    toolPart as ToolUIPart & {
+      output?: { metadata?: { tabId?: number } }
+    }
+  )?.output
+  if (output?.metadata?.tabId) return output.metadata.tabId
 
   // Legacy controller tools: tabId in input
   const input = (toolPart as ToolUIPart & { input?: { tabId?: number } })?.input

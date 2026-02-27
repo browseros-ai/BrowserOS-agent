@@ -9,9 +9,14 @@ export type PostAction =
   | { type: 'screenshot'; page: number }
   | { type: 'pages' }
 
+export interface ToolResultMetadata {
+  tabId?: number
+}
+
 export interface ToolResult {
   content: ContentItem[]
   isError?: boolean
+  metadata?: ToolResultMetadata
 }
 
 export class ToolResponse {

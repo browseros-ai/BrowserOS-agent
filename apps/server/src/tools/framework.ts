@@ -52,5 +52,15 @@ export async function executeTool(
     response.error(`Internal error in ${tool.name}: ${message}`)
   }
 
-  return response.build(ctx.browser)
+  const result = await response.build(ctx.browser)
+
+  const pageId = (args as Record<string, unknown>).page
+  if (typeof pageId === 'number') {
+    const tabId = ctx.browser.getTabIdForPage(pageId)
+    if (tabId !== undefined) {
+      result.metadata = { ...result.metadata, tabId }
+    }
+  }
+
+  return result
 }
