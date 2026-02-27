@@ -626,6 +626,12 @@ export class Browser {
   ): Promise<void> {
     const session = await this.resolveSession(page)
     const pixels = amount * 120
+    const deltaX =
+      direction === 'left' ? -pixels : direction === 'right' ? pixels : 0
+    const deltaY =
+      direction === 'up' ? -pixels : direction === 'down' ? pixels : 0
+
+    if (deltaX === 0 && deltaY === 0) return
 
     let x: number
     let y: number
@@ -639,12 +645,64 @@ export class Browser {
       y = metrics.layoutViewport.clientHeight / 2
     }
 
-    const deltaX =
-      direction === 'left' ? -pixels : direction === 'right' ? pixels : 0
-    const deltaY =
-      direction === 'up' ? -pixels : direction === 'down' ? pixels : 0
+    const beforeWindowPosition =
+      element === undefined
+        ? await this.getWindowScrollPosition(session)
+        : undefined
 
     await mouse.dispatchScroll(session, x, y, deltaX, deltaY)
+
+    if (beforeWindowPosition === undefined) return
+
+    const afterWindowPosition = await this.getWindowScrollPosition(session)
+    const moved = this.didScrollInExpectedDirection(
+      beforeWindowPosition,
+      afterWindowPosition,
+      deltaX,
+      deltaY,
+    )
+    if (moved) return
+
+    await this.fallbackWindowScroll(session, deltaX, deltaY)
+  }
+
+  private async getWindowScrollPosition(
+    session: ProtocolApi,
+  ): Promise<{ x: number; y: number }> {
+    const result = await session.Runtime.evaluate({
+      expression:
+        '({ x: window.scrollX ?? window.pageXOffset ?? 0, y: window.scrollY ?? window.pageYOffset ?? 0 })',
+      returnByValue: true,
+    })
+    const value = (result.result?.value ?? {}) as { x?: number; y?: number }
+    return {
+      x: typeof value.x === 'number' ? value.x : 0,
+      y: typeof value.y === 'number' ? value.y : 0,
+    }
+  }
+
+  private didScrollInExpectedDirection(
+    before: { x: number; y: number },
+    after: { x: number; y: number },
+    deltaX: number,
+    deltaY: number,
+  ): boolean {
+    if (deltaX > 0 && after.x > before.x) return true
+    if (deltaX < 0 && after.x < before.x) return true
+    if (deltaY > 0 && after.y > before.y) return true
+    if (deltaY < 0 && after.y < before.y) return true
+    return false
+  }
+
+  private async fallbackWindowScroll(
+    session: ProtocolApi,
+    deltaX: number,
+    deltaY: number,
+  ): Promise<void> {
+    await session.Runtime.evaluate({
+      expression: `window.scrollBy(${deltaX}, ${deltaY})`,
+      returnByValue: true,
+    })
   }
 
   async handleDialog(

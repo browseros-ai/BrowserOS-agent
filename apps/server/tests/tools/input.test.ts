@@ -298,9 +298,14 @@ describe('input tools', () => {
   it('scroll dispatches without error', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, {
-        url: 'https://example.com',
+        url: FORM_PAGE,
       })
       const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const before = await execute(evaluate_script, {
+        page: pageId,
+        expression: 'window.scrollY',
+      })
 
       const scrollResult = await execute(scroll, {
         page: pageId,
@@ -309,6 +314,15 @@ describe('input tools', () => {
       })
       assert.ok(!scrollResult.isError, textOf(scrollResult))
       assert.ok(textOf(scrollResult).includes('Scrolled down'))
+
+      const after = await execute(evaluate_script, {
+        page: pageId,
+        expression: 'window.scrollY',
+      })
+      assert.ok(
+        Number(textOf(after)) > Number(textOf(before)),
+        `Expected scrollY to increase, before=${textOf(before)} after=${textOf(after)}`,
+      )
 
       await execute(close_page, { page: pageId })
     })
