@@ -37,21 +37,36 @@ function findElementId(snapshotText: string, label: string): number {
 const FORM_PAGE = `data:text/html,${encodeURIComponent(`<!DOCTYPE html>
 <html><body>
   <h1>Test Form</h1>
-  <input id="name" type="text" placeholder="Enter name" />
-  <input id="agree" type="checkbox" />
-  <label for="agree">I agree</label>
-  <select id="color">
-    <option value="red">Red</option>
-    <option value="green">Green</option>
-    <option value="blue">Blue</option>
-  </select>
-  <button id="submit-btn">Submit</button>
+  <form id="test-form">
+    <input id="name" type="text" placeholder="Enter name" />
+    <input id="agree" type="checkbox" />
+    <label for="agree">I agree</label>
+    <select id="color">
+      <option value="red">Red</option>
+      <option value="green">Green</option>
+      <option value="blue">Blue</option>
+    </select>
+    <button id="submit-btn" type="button">Submit</button>
+  </form>
   <div id="output"></div>
+  <div id="key-log"></div>
   <div style="height:3000px"></div>
   <div id="bottom">Bottom of page</div>
   <script>
     document.getElementById('submit-btn').addEventListener('click', function() {
       document.getElementById('output').textContent = 'clicked:' + document.getElementById('name').value;
+    });
+    document.getElementById('name').addEventListener('keydown', function(e) {
+      var log = document.getElementById('key-log');
+      log.textContent = (log.textContent || '') + 'keydown:' + e.key + ' ';
+    });
+    document.getElementById('name').addEventListener('keypress', function(e) {
+      var log = document.getElementById('key-log');
+      log.textContent = (log.textContent || '') + 'keypress:' + e.key + ' ';
+    });
+    document.getElementById('name').addEventListener('keyup', function(e) {
+      var log = document.getElementById('key-log');
+      log.textContent = (log.textContent || '') + 'keyup:' + e.key + ' ';
     });
   </script>
 </body></html>`)}`
@@ -201,6 +216,74 @@ describe('input tools', () => {
       })
       assert.ok(!keyResult.isError, textOf(keyResult))
       assert.ok(textOf(keyResult).includes('Pressed Backspace'))
+
+      const val = await execute(evaluate_script, {
+        page: pageId,
+        expression: 'document.getElementById("name").value',
+      })
+      assert.strictEqual(textOf(val), 'hell')
+
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('press_key Enter fires keypress event', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: FORM_PAGE })
+      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const snap = await execute(take_snapshot, { page: pageId })
+      const inputId = findElementId(textOf(snap), 'Enter name')
+
+      await execute(fill, { page: pageId, element: inputId, text: '' })
+      await execute(evaluate_script, {
+        page: pageId,
+        expression: 'document.getElementById("key-log").textContent = ""',
+      })
+
+      const keyResult = await execute(press_key, {
+        page: pageId,
+        key: 'Enter',
+      })
+      assert.ok(!keyResult.isError, textOf(keyResult))
+
+      const log = await execute(evaluate_script, {
+        page: pageId,
+        expression: 'document.getElementById("key-log").textContent',
+      })
+      const logText = textOf(log)
+      assert.ok(
+        logText.includes('keydown:Enter'),
+        `Expected keydown:Enter in log, got: "${logText}"`,
+      )
+      assert.ok(
+        logText.includes('keypress:Enter'),
+        `Expected keypress:Enter in log, got: "${logText}"`,
+      )
+      assert.ok(
+        logText.includes('keyup:Enter'),
+        `Expected keyup:Enter in log, got: "${logText}"`,
+      )
+
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('press_key normalizes case-insensitive key names', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: FORM_PAGE })
+      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const snap = await execute(take_snapshot, { page: pageId })
+      const inputId = findElementId(textOf(snap), 'Enter name')
+      await execute(fill, { page: pageId, element: inputId, text: 'hello' })
+
+      // "backspace" (lowercase) should work the same as "Backspace"
+      const keyResult = await execute(press_key, {
+        page: pageId,
+        key: 'backspace',
+      })
+      assert.ok(!keyResult.isError, textOf(keyResult))
 
       const val = await execute(evaluate_script, {
         page: pageId,
