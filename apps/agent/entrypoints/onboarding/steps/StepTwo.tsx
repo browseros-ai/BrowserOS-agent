@@ -12,6 +12,7 @@ import {
   ONBOARDING_STEP_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 interface StepTwoProps {
@@ -72,9 +73,10 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
       track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'google' })
       track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
 
+      await authRedirectPathStorage.setValue('/onboarding/demo')
       await signIn.social({
         provider: 'google',
-        callbackURL: chrome.runtime.getURL('app.html#/onboarding/demo'),
+        callbackURL: '/home',
       })
     } catch (err) {
       setState('error')

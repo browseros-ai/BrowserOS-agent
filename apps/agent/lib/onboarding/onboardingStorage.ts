@@ -14,3 +14,8 @@ export const signInHintDismissedAtStorage = storage.defineItem<number | null>(
   'local:signInHintDismissedAt',
   { fallback: null },
 )
+
+export const authRedirectPathStorage = storage.defineItem<string | null>(
+  'local:authRedirectPath',
+  { fallback: null },
+)
