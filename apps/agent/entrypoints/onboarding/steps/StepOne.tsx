@@ -1,5 +1,8 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod/v3'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -9,8 +12,15 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Popover,
   PopoverContent,
@@ -58,33 +68,47 @@ const roles = [
   'Customer Success',
 ]
 
+const formSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  role: z.string().min(1, 'Role is required'),
+  company: z.string().min(1, 'Company is required'),
+  description: z.string().optional(),
+})
+
+type FormValues = z.infer<typeof formSchema>
+
 export const StepOne = ({ direction, onContinue }: StepOneProps) => {
-  const [name, setName] = useState('')
-  const [role, setRole] = useState('')
-  const [company, setCompany] = useState('')
-  const [description, setDescription] = useState('')
   const [roleOpen, setRoleOpen] = useState(false)
   const [roleSearch, setRoleSearch] = useState('')
 
-  const handleContinue = async () => {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      role: '',
+      company: '',
+      description: '',
+    },
+  })
+
+  const handleSubmit = async (values: FormValues) => {
     const parts: string[] = []
-    if (name.trim()) parts.push(`Name: ${name.trim()}`)
-    if (role.trim()) parts.push(`Role: ${role.trim()}`)
-    if (company.trim()) parts.push(`Company: ${company.trim()}`)
-    if (description.trim()) parts.push(`About: ${description.trim()}`)
+    parts.push(`Name: ${values.name.trim()}`)
+    parts.push(`Role: ${values.role.trim()}`)
+    parts.push(`Company: ${values.company.trim()}`)
+    if (values.description?.trim())
+      parts.push(`About: ${values.description.trim()}`)
 
-    if (parts.length > 0) {
-      const markdown = parts.join('\n')
-      await personalizationStorage.setValue(markdown)
+    const markdown = parts.join('\n')
+    await personalizationStorage.setValue(markdown)
 
-      track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
-        fields_filled: parts.length,
-        has_name: !!name.trim(),
-        has_role: !!role.trim(),
-        has_company: !!company.trim(),
-        has_description: !!description.trim(),
-      })
-    }
+    track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
+      fields_filled: parts.length,
+      has_name: true,
+      has_role: true,
+      has_company: true,
+      has_description: !!values.description?.trim(),
+    })
 
     track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })
     onContinue()
@@ -103,121 +127,158 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
             </p>
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="onboarding-name">Your name</Label>
-              <Input
-                id="onboarding-name"
-                placeholder="What should we call you?"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className="space-y-4"
+            >
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="What should we call you?"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label>Your role</Label>
-              <Popover open={roleOpen} onOpenChange={setRoleOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between font-normal"
-                  >
-                    {role || (
-                      <span className="text-muted-foreground">
-                        Select or type a role
-                      </span>
-                    )}
-                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  className="p-0"
-                  style={{ width: 'var(--radix-popover-trigger-width)' }}
-                >
-                  <Command>
-                    <CommandInput
-                      placeholder="Search roles..."
-                      value={roleSearch}
-                      onValueChange={setRoleSearch}
-                    />
-                    <CommandList>
-                      <CommandEmpty className="p-0" />
-                      <CommandGroup>
-                        {roleSearch.trim() &&
-                          !roles.some(
-                            (r) =>
-                              r.toLowerCase() ===
-                              roleSearch.trim().toLowerCase(),
-                          ) && (
-                            <CommandItem
-                              value={roleSearch.trim()}
-                              onSelect={() => {
-                                setRole(roleSearch.trim())
-                                setRoleOpen(false)
-                                setRoleSearch('')
-                              }}
-                            >
-                              <Check className="size-4 opacity-0" />
-                              {roleSearch.trim()}
-                            </CommandItem>
-                          )}
-                        {roles.map((r) => (
-                          <CommandItem
-                            key={r}
-                            value={r}
-                            onSelect={(value) => {
-                              setRole(value === role ? '' : value)
-                              setRoleOpen(false)
-                              setRoleSearch('')
-                            }}
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your role</FormLabel>
+                    <Popover open={roleOpen} onOpenChange={setRoleOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between font-normal"
                           >
-                            <Check
-                              className={cn(
-                                'size-4',
-                                role === r ? 'opacity-100' : 'opacity-0',
-                              )}
-                            />
-                            {r}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="onboarding-company">Company</Label>
-              <Input
-                id="onboarding-company"
-                placeholder="Acme Inc."
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
+                            {field.value || (
+                              <span className="text-muted-foreground">
+                                Select or type a role
+                              </span>
+                            )}
+                            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="p-0"
+                        style={{
+                          width: 'var(--radix-popover-trigger-width)',
+                        }}
+                      >
+                        <Command>
+                          <CommandInput
+                            placeholder="Search roles..."
+                            value={roleSearch}
+                            onValueChange={setRoleSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty className="p-0" />
+                            <CommandGroup>
+                              {roleSearch.trim() &&
+                                !roles.some(
+                                  (r) =>
+                                    r.toLowerCase() ===
+                                    roleSearch.trim().toLowerCase(),
+                                ) && (
+                                  <CommandItem
+                                    value={roleSearch.trim()}
+                                    onSelect={() => {
+                                      field.onChange(roleSearch.trim())
+                                      setRoleOpen(false)
+                                      setRoleSearch('')
+                                    }}
+                                  >
+                                    <Check className="size-4 opacity-0" />
+                                    {roleSearch.trim()}
+                                  </CommandItem>
+                                )}
+                              {roles.map((r) => (
+                                <CommandItem
+                                  key={r}
+                                  value={r}
+                                  onSelect={(value) => {
+                                    field.onChange(
+                                      value === field.value ? '' : value,
+                                    )
+                                    setRoleOpen(false)
+                                    setRoleSearch('')
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'size-4',
+                                      field.value === r
+                                        ? 'opacity-100'
+                                        : 'opacity-0',
+                                    )}
+                                  />
+                                  {r}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="onboarding-description">
-                What does a typical day look like for you?
-              </Label>
-              <Textarea
-                id="onboarding-description"
-                placeholder="I spend most of my day researching competitors, writing specs, and coordinating with engineering..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="field-sizing-fixed"
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Acme Inc." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
 
-          <Button
-            onClick={handleContinue}
-            className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
-          >
-            Continue
-          </Button>
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      What does a typical day look like for you?
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="I spend most of my day researching competitors, writing specs, and coordinating with engineering..."
+                        rows={4}
+                        className="field-sizing-fixed"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+              >
+                Continue
+              </Button>
+            </form>
+          </Form>
         </div>
       </div>
     </StepTransition>
