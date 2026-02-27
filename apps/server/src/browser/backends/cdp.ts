@@ -27,6 +27,7 @@ class CdpBackend implements ICdpBackend {
   private connected = false
   private disconnecting = false
   private reconnecting = false
+  private reconnectRequested = false
   private eventHandlers = new Map<string, ((params: unknown) => void)[]>()
   private sessionCache = new Map<string, ProtocolApi>()
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null
@@ -66,15 +67,46 @@ class CdpBackend implements ICdpBackend {
 
   private attemptConnect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      fetch(`http://localhost:${this.port}/json/version`)
-        .then((res) => res.json())
+      fetch(`http://127.0.0.1:${this.port}/json/version`, {
+        signal: AbortSignal.timeout(TIMEOUTS.CDP_CONNECT),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error(
+              `CDP /json/version failed with HTTP ${res.status}: ${res.statusText}`,
+            )
+          }
+          return res.json()
+        })
         .then((version) => {
           const wsUrl = (version as { webSocketDebuggerUrl: string })
             .webSocketDebuggerUrl
+          if (!wsUrl) {
+            throw new Error('CDP /json/version missing webSocketDebuggerUrl')
+          }
+
           let opened = false
+          let settled = false
           const ws = new WebSocket(wsUrl)
+          const connectTimeout = setTimeout(() => {
+            if (settled) return
+            settled = true
+            try {
+              ws.close()
+            } catch {
+              // Ignore close errors from half-open sockets
+            }
+            reject(
+              new Error(
+                `CDP WebSocket connect timeout after ${TIMEOUTS.CDP_CONNECT}ms`,
+              ),
+            )
+          }, TIMEOUTS.CDP_CONNECT)
 
           ws.onopen = () => {
+            if (settled) return
+            settled = true
+            clearTimeout(connectTimeout)
             opened = true
             this.ws = ws
             this.connected = true
@@ -83,10 +115,15 @@ class CdpBackend implements ICdpBackend {
           }
 
           ws.onerror = (event) => {
-            if (!opened) reject(new Error(`CDP WebSocket error: ${event}`))
+            if (!opened && !settled) {
+              settled = true
+              clearTimeout(connectTimeout)
+              reject(new Error(`CDP WebSocket error: ${event}`))
+            }
           }
 
           ws.onclose = () => {
+            clearTimeout(connectTimeout)
             // Guard against stale onclose from a replaced socket
             if (this.ws !== ws) return
             this.connected = false
@@ -162,27 +199,35 @@ class CdpBackend implements ICdpBackend {
   private handleUnexpectedClose(): void {
     if (this.disconnecting) return
 
-    // Allow re-entry if a previous reconnection already finished.
-    // The old guard `if (this.reconnecting) return` caused permanent
-    // death when a freshly reconnected socket closed again before
-    // the .finally() callback reset the flag.
-    if (this.reconnecting) {
-      logger.warn(
-        'CDP closed again while reconnecting — will retry after current attempt',
-      )
-      return
-    }
-
     this.stopKeepalive()
     this.rejectPendingRequests()
+
+    // If a freshly opened socket closes before the previous reconnect loop
+    // finishes, queue another reconnect instead of dropping into a dead state.
+    if (this.reconnecting) {
+      this.reconnectRequested = true
+      logger.warn('CDP closed while reconnecting, queueing another reconnect')
+      return
+    }
 
     logger.error(
       'CDP WebSocket closed unexpectedly, attempting reconnection...',
     )
     this.reconnecting = true
-    this.reconnectWithRetries().finally(() => {
+    this.reconnectRequested = false
+    this.reconnectLoop().finally(() => {
       this.reconnecting = false
     })
+  }
+
+  private async reconnectLoop(): Promise<void> {
+    do {
+      this.reconnectRequested = false
+      await this.reconnectWithRetries()
+    } while (
+      !this.disconnecting &&
+      (this.reconnectRequested || !this.connected)
+    )
   }
 
   private rejectPendingRequests(): void {
