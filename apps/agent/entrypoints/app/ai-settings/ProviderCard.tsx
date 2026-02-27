@@ -77,7 +77,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
             </Badge>
           )}
         </div>
-        {isBuiltIn && (
+        {isBuiltIn && provider.type === 'browseros' && (
           <span className="mb-1 inline-block rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-3 py-0.5 font-semibold text-white text-xs">
             Free model Sponsored by Kimi K2.5
           </span>
