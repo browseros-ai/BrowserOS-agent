@@ -85,6 +85,7 @@ export class ToolResponse {
           )
           this.text(`[Open pages]\n${lines.join('\n')}`)
         }
+        return
       }
     }
   }
