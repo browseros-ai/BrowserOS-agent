@@ -62,7 +62,11 @@ export function buildBrowserToolSet(
             success: !result.isError,
           })
 
-          return { content: result.content, isError: result.isError ?? false }
+          return {
+            content: result.content,
+            isError: result.isError ?? false,
+            metadata: result.metadata,
+          }
         } catch (error) {
           const errorText =
             error instanceof Error ? error.message : String(error)

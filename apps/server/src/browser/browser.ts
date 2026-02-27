@@ -210,6 +210,10 @@ export class Browser {
     return [...this.pages.values()].sort((a, b) => a.pageId - b.pageId)
   }
 
+  getTabIdForPage(pageId: number): number | undefined {
+    return this.pages.get(pageId)?.tabId
+  }
+
   async resolveTabIds(tabIds: number[]): Promise<Map<number, number>> {
     await this.listPages()
     const tabToPage = new Map<number, number>()
