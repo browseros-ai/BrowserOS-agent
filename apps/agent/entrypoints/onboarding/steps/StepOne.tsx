@@ -32,6 +32,7 @@ import {
   ONBOARDING_STEP_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { onboardingProfileStorage } from '@/lib/onboarding/onboardingStorage'
 import { personalizationStorage } from '@/lib/personalization/personalizationStorage'
 import { cn } from '@/lib/utils'
 import { type StepDirection, StepTransition } from './StepTransition'
@@ -92,22 +93,31 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
   })
 
   const handleSubmit = async (values: FormValues) => {
-    const parts: string[] = []
-    parts.push(`Name: ${values.name.trim()}`)
-    parts.push(`Role: ${values.role.trim()}`)
-    parts.push(`Company: ${values.company.trim()}`)
-    if (values.description?.trim())
-      parts.push(`About: ${values.description.trim()}`)
+    const name = values.name.trim()
+    const role = values.role.trim()
+    const company = values.company.trim()
+    const description = values.description?.trim() || undefined
 
-    const markdown = parts.join('\n')
-    await personalizationStorage.setValue(markdown)
+    await onboardingProfileStorage.setValue({
+      name,
+      role,
+      company,
+      description,
+    })
+
+    const parts: string[] = []
+    parts.push(`Name: ${name}`)
+    parts.push(`Role: ${role}`)
+    parts.push(`Company: ${company}`)
+    if (description) parts.push(`About: ${description}`)
+    await personalizationStorage.setValue(parts.join('\n'))
 
     track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
       fields_filled: parts.length,
       has_name: true,
       has_role: true,
       has_company: true,
-      has_description: !!values.description?.trim(),
+      has_description: !!description,
     })
 
     track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })
