@@ -37,6 +37,50 @@ const KEY_MAP: Record<string, KeyInfo> = {
   F12: { code: 'F12', keyCode: 123 },
 }
 
+const KEY_ALIASES: Record<string, string> = {
+  Return: 'Enter',
+  Esc: 'Escape',
+  Del: 'Delete',
+  Ctrl: 'Control',
+  Cmd: 'Meta',
+  Command: 'Meta',
+  Option: 'Alt',
+  Left: 'ArrowLeft',
+  Right: 'ArrowRight',
+  Up: 'ArrowUp',
+  Down: 'ArrowDown',
+}
+
+// Case-insensitive lookup: lowercase → canonical key name
+const KEY_NORMALIZE = new Map<string, string>()
+for (const key of Object.keys(KEY_MAP)) {
+  KEY_NORMALIZE.set(key.toLowerCase(), key)
+}
+for (const [alias, canonical] of Object.entries(KEY_ALIASES)) {
+  KEY_NORMALIZE.set(alias.toLowerCase(), canonical)
+}
+
+export function normalizeKey(key: string): string {
+  if (KEY_MAP[key]) return key
+  const normalized = KEY_NORMALIZE.get(key.toLowerCase())
+  if (normalized) return normalized
+  return key
+}
+
+// Text produced by character-generating keys (matches Playwright's usKeyboardLayout)
+const KEY_TEXT: Record<string, string> = {
+  Enter: '\r',
+  Tab: '\t',
+  Space: ' ',
+  ' ': ' ',
+}
+
+function getCharText(key: string): string {
+  if (KEY_TEXT[key]) return KEY_TEXT[key]
+  if (key.length === 1) return key
+  return ''
+}
+
 const MODIFIER_BIT: Record<string, number> = {
   Alt: 1,
   Control: 2,
@@ -150,8 +194,8 @@ export async function pressCombo(
   key: string,
 ): Promise<void> {
   const parts = key.split('+')
-  const mainKey = parts.at(-1) ?? key
-  const modifiers = parts.slice(0, -1)
+  const mainKey = normalizeKey(parts.at(-1) ?? key)
+  const modifiers = parts.slice(0, -1).map(normalizeKey)
   const modBitmask = modifierBitmask(modifiers)
 
   for (const mod of modifiers) {
@@ -165,13 +209,24 @@ export async function pressCombo(
   }
 
   const mainInfo = getKeyInfo(mainKey)
+
+  // Control/Alt/Meta suppress character generation (Shift does not)
+  const suppressChar = modifiers.some(
+    (m) => m === 'Control' || m === 'Alt' || m === 'Meta',
+  )
+  const text = suppressChar ? '' : getCharText(mainKey)
+
+  // keyDown with text → Chrome generates both keydown + keypress DOM events
+  // keyDown without text → Chrome generates only keydown
   await session.Input.dispatchKeyEvent({
     type: 'keyDown',
     key: mainKey,
     code: mainInfo.code,
     modifiers: modBitmask,
     windowsVirtualKeyCode: mainInfo.keyCode,
+    ...(text && { text }),
   })
+
   await session.Input.dispatchKeyEvent({
     type: 'keyUp',
     key: mainKey,
