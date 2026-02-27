@@ -627,24 +627,35 @@ export class Browser {
     const session = await this.resolveSession(page)
     const pixels = amount * 120
 
-    let x: number
-    let y: number
-    if (element !== undefined) {
-      const center = await elements.getElementCenter(session, element)
-      x = center.x
-      y = center.y
-    } else {
-      const metrics = await session.Page.getLayoutMetrics()
-      x = metrics.layoutViewport.clientWidth / 2
-      y = metrics.layoutViewport.clientHeight / 2
-    }
-
     const deltaX =
       direction === 'left' ? -pixels : direction === 'right' ? pixels : 0
     const deltaY =
       direction === 'up' ? -pixels : direction === 'down' ? pixels : 0
 
-    await mouse.dispatchScroll(session, x, y, deltaX, deltaY)
+    if (element !== undefined) {
+      await elements.callOnElement(
+        session,
+        element,
+        `function(dx,dy){
+          var el=this;
+          while(el&&el!==document.documentElement){
+            var s=getComputedStyle(el);
+            var oy=s.overflowY,ox=s.overflowX;
+            if(((oy==='auto'||oy==='scroll')&&el.scrollHeight>el.clientHeight)||
+               ((ox==='auto'||ox==='scroll')&&el.scrollWidth>el.clientWidth)){
+              el.scrollBy(dx,dy);return
+            }
+            el=el.parentElement
+          }
+          window.scrollBy(dx,dy)
+        }`,
+        [deltaX, deltaY],
+      )
+    } else {
+      await session.Runtime.evaluate({
+        expression: `window.scrollBy(${deltaX},${deltaY})`,
+      })
+    }
   }
 
   async handleDialog(
