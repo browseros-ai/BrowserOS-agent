@@ -106,7 +106,11 @@ export class ChatService {
 
     const browserContext = await this.resolvePageIds(request.browserContext)
 
-    const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
+    const session = await sessionManager.getOrCreate(
+      agentConfig,
+      mcpServers,
+      this.deps.browser,
+    )
     await session.agent.execute(
       request.message,
       rawStream,

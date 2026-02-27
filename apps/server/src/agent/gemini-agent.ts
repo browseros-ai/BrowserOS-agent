@@ -17,8 +17,10 @@ import {
 } from '@google/gemini-cli-core'
 import type { Content, Part } from '@google/genai'
 import type { BrowserContext } from '../api/types'
+import type { Browser } from '../browser/browser'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
+import { enrichToolInputWithTabId } from '../tools/framework'
 import { registry } from '../tools/registry'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
@@ -63,6 +65,7 @@ export class GeminiAgent {
     private client: GeminiClient,
     private geminiConfig: GeminiConfig,
     private contentGenerator: VercelAIContentGenerator,
+    private browser: Browser,
     private conversationId: string,
   ) {}
 
@@ -77,6 +80,7 @@ export class GeminiAgent {
   static async create(
     config: ResolvedAgentConfig,
     mcpServers: Record<string, MCPServerConfig>,
+    browser: Browser,
   ): Promise<GeminiAgent> {
     // Build model string with upstream provider if available
     const modelString = config.upstreamProvider
@@ -183,6 +187,7 @@ export class GeminiAgent {
       client,
       geminiConfig,
       contentGenerator,
+      browser,
       config.conversationId,
     )
   }
@@ -338,9 +343,22 @@ export class GeminiAgent {
     for (const requestInfo of toolCallRequests) {
       if (abortSignal.aborted) break
 
+      const toolInput = await enrichToolInputWithTabId(
+        requestInfo.args,
+        this.browser,
+      )
+
+      if (uiStream && toolInput !== requestInfo.args) {
+        await uiStream.writeToolCall(
+          requestInfo.callId,
+          requestInfo.name,
+          toolInput,
+        )
+      }
+
       await this.toolHooks?.onBeforeToolCall?.(
         requestInfo.name,
-        requestInfo.args,
+        toolInput,
         browserContext,
       )
 

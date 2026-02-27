@@ -32,6 +32,44 @@ export function defineTool<T extends z.ZodType>(config: {
   return config as ToolDefinition
 }
 
+function getNumberField(
+  value: Record<string, unknown>,
+  key: string,
+): number | undefined {
+  const candidate = value[key]
+  if (typeof candidate !== 'number' || !Number.isFinite(candidate)) {
+    return undefined
+  }
+  return candidate
+}
+
+export async function enrichToolInputWithTabId(
+  args: unknown,
+  browser: Browser,
+): Promise<unknown> {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return args
+  }
+
+  const input = args as Record<string, unknown>
+  if (getNumberField(input, 'tabId') !== undefined) {
+    return args
+  }
+
+  const pageId =
+    getNumberField(input, 'pageId') ?? getNumberField(input, 'page')
+  if (pageId === undefined) {
+    return args
+  }
+
+  const tabId = await browser.resolvePageIdToTabId(pageId)
+  if (tabId === undefined) {
+    return args
+  }
+
+  return { ...input, tabId }
+}
+
 export async function executeTool(
   tool: ToolDefinition,
   args: unknown,
