@@ -64,6 +64,7 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
   const [company, setCompany] = useState('')
   const [description, setDescription] = useState('')
   const [roleOpen, setRoleOpen] = useState(false)
+  const [roleSearch, setRoleSearch] = useState('')
 
   const handleContinue = async () => {
     const parts: string[] = []
@@ -134,27 +135,32 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                   style={{ width: 'var(--radix-popover-trigger-width)' }}
                 >
                   <Command>
-                    <CommandInput placeholder="Search roles..." />
+                    <CommandInput
+                      placeholder="Search roles..."
+                      value={roleSearch}
+                      onValueChange={setRoleSearch}
+                    />
                     <CommandList>
-                      <CommandEmpty>
-                        <button
-                          type="button"
-                          className="cursor-pointer text-muted-foreground text-sm"
-                          onClick={() => {
-                            const input =
-                              document.querySelector<HTMLInputElement>(
-                                '[data-slot="command-input"]',
-                              )
-                            if (input?.value) {
-                              setRole(input.value)
-                              setRoleOpen(false)
-                            }
-                          }}
-                        >
-                          Use custom role
-                        </button>
-                      </CommandEmpty>
+                      <CommandEmpty className="p-0" />
                       <CommandGroup>
+                        {roleSearch.trim() &&
+                          !roles.some(
+                            (r) =>
+                              r.toLowerCase() ===
+                              roleSearch.trim().toLowerCase(),
+                          ) && (
+                            <CommandItem
+                              value={roleSearch.trim()}
+                              onSelect={() => {
+                                setRole(roleSearch.trim())
+                                setRoleOpen(false)
+                                setRoleSearch('')
+                              }}
+                            >
+                              <Check className="size-4 opacity-0" />
+                              {roleSearch.trim()}
+                            </CommandItem>
+                          )}
                         {roles.map((r) => (
                           <CommandItem
                             key={r}
@@ -162,6 +168,7 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                             onSelect={(value) => {
                               setRole(value === role ? '' : value)
                               setRoleOpen(false)
+                              setRoleSearch('')
                             }}
                           >
                             <Check
