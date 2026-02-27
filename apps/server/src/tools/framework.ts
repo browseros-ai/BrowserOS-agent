@@ -54,6 +54,7 @@ export async function executeTool(
 
   const result = await response.build(ctx.browser)
 
+  // TODO: nikhil -- maybe add to tool context instead of ugly args casting
   const pageId = (args as Record<string, unknown>).page
   if (typeof pageId === 'number') {
     const tabId = ctx.browser.getTabIdForPage(pageId)
