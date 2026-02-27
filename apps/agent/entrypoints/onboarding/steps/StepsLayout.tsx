@@ -1,31 +1,31 @@
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { ArrowLeft, Check } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
-import { NavLink, useParams } from 'react-router'
+import { NavLink, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import type { StepDirection } from './StepTransition'
 import { steps } from './steps'
 
-/**
- * @public
- */
 export const StepsLayout = () => {
   const { stepId } = useParams()
-
+  const navigate = useNavigate()
   const [direction, setDirection] = useState<StepDirection>(1)
 
   const currentStep = Number(stepId)
-
+  const isLastStep = currentStep >= steps.length
   const canGoPrevious = currentStep > 1
 
-  const canGoNext = currentStep < steps.length
+  const stepEntry = steps.find((each) => each.id === currentStep)
+  const ActiveStep = stepEntry?.component ?? (() => null)
 
-  const ActiveStep =
-    steps.find((each) => each.id === currentStep)?.component ?? (() => null)
-
-  const onClickNext = () => setDirection(1)
-
-  const onClickPrevious = () => setDirection(-1)
+  const onContinue = () => {
+    setDirection(1)
+    if (isLastStep) {
+      navigate('/onboarding/demo')
+    } else {
+      navigate(`/onboarding/steps/${currentStep + 1}`)
+    }
+  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -42,20 +42,8 @@ export const StepsLayout = () => {
                   key={step.id}
                   className="relative flex flex-1 items-center justify-center"
                 >
-                  {/* Animated progress line */}
-                  <motion.div
-                    className="absolute top-3.5 left-[50%] h-1 bg-accent-orange"
-                    initial={false}
-                    animate={{ width: isCompleted ? '100%' : 0 }}
-                    transition={{
-                      type: 'spring',
-                      stiffness: 300,
-                      damping: 30,
-                    }}
-                  />
                   <div className="relative z-10 flex flex-col items-center gap-2">
                     <div className="relative">
-                      {/* Animated pulsing ring for active step */}
                       {isActive && (
                         <div className="absolute inset-0 animate-ping rounded-full bg-[var(--accent-orange)] opacity-30" />
                       )}
@@ -95,17 +83,17 @@ export const StepsLayout = () => {
         <div className="w-full max-w-4xl">
           <div className="relative h-[550px]">
             <AnimatePresence initial={false} custom={direction}>
-              <ActiveStep key={currentStep} direction={direction} />
+              <ActiveStep
+                key={currentStep}
+                direction={direction}
+                onContinue={onContinue}
+              />
             </AnimatePresence>
           </div>
-          <div className="flex items-center justify-between pt-8">
-            <Button
-              variant="ghost"
-              asChild
-              className="group disabled:cursor-not-allowed disabled:opacity-40"
-            >
+          <div className="pt-8">
+            <Button variant="ghost" asChild className="group">
               <NavLink
-                onClick={onClickPrevious}
+                onClick={() => setDirection(-1)}
                 to={
                   canGoPrevious
                     ? `/onboarding/steps/${currentStep - 1}`
@@ -113,26 +101,9 @@ export const StepsLayout = () => {
                 }
               >
                 <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                Previous
+                Back
               </NavLink>
             </Button>
-
-            {canGoNext ? (
-              <Button
-                asChild
-                className="group bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
-              >
-                <NavLink
-                  onClick={onClickNext}
-                  to={`/onboarding/steps/${currentStep + 1}`}
-                >
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </NavLink>
-              </Button>
-            ) : (
-              <div />
-            )}
           </div>
         </div>
       </main>
