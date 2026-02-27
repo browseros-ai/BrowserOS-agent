@@ -1,7 +1,6 @@
 import { Upload, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -34,11 +33,6 @@ export const ImportDataHint = () => {
     handleDismiss()
   }
 
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(importSettingsURL)
-    toast.success('Copied to clipboard!', { position: 'bottom-center' })
-  }
-
   return (
     <AnimatePresence>
       {!dismissed && (
@@ -66,14 +60,7 @@ export const ImportDataHint = () => {
                 </Button>
               </div>
               <CardDescription>
-                Bring bookmarks, history, and passwords from Chrome.{' '}
-                <button
-                  type="button"
-                  className="cursor-pointer text-[var(--accent-orange)]"
-                  onClick={handleCopyUrl}
-                >
-                  Copy URL
-                </button>
+                Bring bookmarks, history, and passwords from Chrome.
               </CardDescription>
               <label
                 htmlFor="import-dont-ask-again"
