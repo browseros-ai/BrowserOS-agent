@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core'
+import type { Browser } from '../browser/browser'
 import { logger } from '../lib/logger'
 
 import { GeminiAgent } from './gemini-agent'
@@ -19,6 +20,7 @@ export class SessionManager {
   async getOrCreate(
     config: ResolvedAgentConfig,
     mcpServers: Record<string, MCPServerConfig>,
+    browser: Browser,
   ): Promise<Session> {
     const existing = this.sessions.get(config.conversationId)
 
@@ -30,7 +32,7 @@ export class SessionManager {
       return existing
     }
 
-    const agent = await GeminiAgent.create(config, mcpServers)
+    const agent = await GeminiAgent.create(config, mcpServers, browser)
     const session: Session = { agent }
     this.sessions.set(config.conversationId, session)
 

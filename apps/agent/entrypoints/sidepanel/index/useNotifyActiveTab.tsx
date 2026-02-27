@@ -11,8 +11,8 @@ export const useNotifyActiveTab = ({
   status: ChatStatus
   conversationId: string
 }) => {
-  // Ref to store the last active tab ID
   const lastTabIdRef = useRef<number | null>(null)
+  const pageToTabRef = useRef<Map<number, number>>(new Map())
 
   const lastMessage = messages?.[messages.length - 1]
 
@@ -20,11 +20,24 @@ export const useNotifyActiveTab = ({
     lastMessage?.parts?.findLast((part) => part?.type?.startsWith('tool-')) ??
     null
 
-  const latestTabId = (
-    latestTool as ToolUIPart & { input?: { tabId?: number } }
-  )?.input?.tabId
+  const latestInput = (
+    latestTool as ToolUIPart & {
+      input?: { tabId?: number; page?: number; pageId?: number }
+    }
+  )?.input
+
+  const latestPageId = latestInput?.pageId ?? latestInput?.page
+  const latestTabId =
+    latestInput?.tabId ??
+    (latestPageId !== undefined
+      ? pageToTabRef.current.get(latestPageId)
+      : undefined)
 
   useEffect(() => {
+    if (latestInput?.tabId && latestPageId !== undefined) {
+      pageToTabRef.current.set(latestPageId, latestInput.tabId)
+    }
+
     const isStreaming = status === 'streaming'
     const previousTabId = lastTabIdRef.current
 
@@ -65,7 +78,7 @@ export const useNotifyActiveTab = ({
     if (latestTabId) {
       lastTabIdRef.current = latestTabId
     }
-  }, [conversationId, status, latestTabId])
+  }, [conversationId, status, latestInput?.tabId, latestPageId, latestTabId])
 
   return
 }

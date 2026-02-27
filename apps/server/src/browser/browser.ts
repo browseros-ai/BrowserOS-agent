@@ -221,6 +221,11 @@ export class Browser {
     return tabToPage
   }
 
+  async resolvePageIdToTabId(pageId: number): Promise<number | undefined> {
+    await this.listPages()
+    return this.pages.get(pageId)?.tabId
+  }
+
   async getActivePage(): Promise<PageInfo | null> {
     const result = await this.cdp.Browser.getActiveTab()
 
