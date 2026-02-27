@@ -1,7 +1,21 @@
+import { Check, ChevronsUpDown } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import {
   ONBOARDING_ABOUT_SUBMITTED_EVENT,
@@ -9,6 +23,7 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { personalizationStorage } from '@/lib/personalization/personalizationStorage'
+import { cn } from '@/lib/utils'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 interface StepOneProps {
@@ -16,11 +31,39 @@ interface StepOneProps {
   onContinue: () => void
 }
 
+const roles = [
+  'Software Engineer',
+  'Frontend Engineer',
+  'Backend Engineer',
+  'Full Stack Engineer',
+  'DevOps Engineer',
+  'Data Engineer',
+  'ML Engineer',
+  'Engineering Manager',
+  'Tech Lead',
+  'CTO',
+  'VP of Engineering',
+  'Product Manager',
+  'Product Designer',
+  'UX Researcher',
+  'QA Engineer',
+  'Solutions Architect',
+  'Developer Advocate',
+  'Data Scientist',
+  'Founder / Co-Founder',
+  'CEO',
+  'COO',
+  'Growth / Marketing',
+  'Sales Engineer',
+  'Customer Success',
+]
+
 export const StepOne = ({ direction, onContinue }: StepOneProps) => {
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
   const [company, setCompany] = useState('')
   const [description, setDescription] = useState('')
+  const [roleOpen, setRoleOpen] = useState(false)
 
   const handleContinue = async () => {
     const parts: string[] = []
@@ -64,20 +107,77 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
               <Label htmlFor="onboarding-name">Your name</Label>
               <Input
                 id="onboarding-name"
-                placeholder="Jane Doe"
+                placeholder="What should we call you?"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="onboarding-role">Your role</Label>
-              <Input
-                id="onboarding-role"
-                placeholder="Product Manager"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              />
+              <Label>Your role</Label>
+              <Popover open={roleOpen} onOpenChange={setRoleOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                  >
+                    {role || (
+                      <span className="text-muted-foreground">
+                        Select or type a role
+                      </span>
+                    )}
+                    <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="p-0"
+                  style={{ width: 'var(--radix-popover-trigger-width)' }}
+                >
+                  <Command>
+                    <CommandInput placeholder="Search roles..." />
+                    <CommandList>
+                      <CommandEmpty>
+                        <button
+                          type="button"
+                          className="cursor-pointer text-muted-foreground text-sm"
+                          onClick={() => {
+                            const input =
+                              document.querySelector<HTMLInputElement>(
+                                '[data-slot="command-input"]',
+                              )
+                            if (input?.value) {
+                              setRole(input.value)
+                              setRoleOpen(false)
+                            }
+                          }}
+                        >
+                          Use custom role
+                        </button>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {roles.map((r) => (
+                          <CommandItem
+                            key={r}
+                            value={r}
+                            onSelect={(value) => {
+                              setRole(value === role ? '' : value)
+                              setRoleOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                'size-4',
+                                role === r ? 'opacity-100' : 'opacity-0',
+                              )}
+                            />
+                            {r}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
@@ -99,7 +199,8 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                 placeholder="I spend most of my day researching competitors, writing specs, and coordinating with engineering..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
+                rows={4}
+                className="field-sizing-fixed"
               />
             </div>
           </div>
