@@ -8,6 +8,7 @@ export interface LlmHubProvider {
 }
 
 export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
+  { name: 'Kimi', url: 'https://www.kimi.com' },
   { name: 'ChatGPT', url: 'https://chatgpt.com' },
   { name: 'Claude', url: 'https://claude.ai' },
   { name: 'Grok', url: 'https://grok.com' },

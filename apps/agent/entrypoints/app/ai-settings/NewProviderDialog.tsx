@@ -45,6 +45,7 @@ import { track } from '@/lib/metrics/track'
 import { getModelContextLength, getModelOptions } from './models'
 
 const providerTypeEnum = z.enum([
+  'moonshot',
   'anthropic',
   'openai',
   'openai-compatible',

@@ -2,6 +2,7 @@ import { Globe2, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { getFaviconUrl, type LlmHubProvider } from './models'
 
 interface HubProviderRowProps {
@@ -18,9 +19,16 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
   onDelete,
 }) => {
   const iconUrl = useMemo(() => getFaviconUrl(provider.url), [provider.url])
+  const isKimi = provider.name === 'Kimi'
 
   return (
-    <div className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)] hover:shadow-md">
+    <div
+      className={cn(
+        'group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)] hover:shadow-md',
+        isKimi &&
+          'border-orange-400/60 shadow-[0_0_15px_rgba(251,146,60,0.3)] ring-2 ring-orange-400/50',
+      )}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
         {iconUrl ? (
           <img
@@ -34,9 +42,14 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
       </div>
 
       <div className="min-w-0 flex-1">
-        <span className="mb-0.5 block truncate font-semibold">
-          {provider.name}
-        </span>
+        <div className="mb-0.5 flex items-center gap-2">
+          <span className="block truncate font-semibold">{provider.name}</span>
+          {isKimi && (
+            <span className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-0.5 font-medium text-white text-xs">
+              Try Kimi
+            </span>
+          )}
+        </div>
         <p className="truncate text-muted-foreground/70 text-xs">
           {provider.url}
         </p>
