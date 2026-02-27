@@ -1,6 +1,11 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { createAgentUIStreamResponse, type UIMessage } from 'ai'
+import {
+  createAgentUIStream,
+  createUIMessageStreamResponse,
+  type UIMessage,
+  type UIMessageChunk,
+} from 'ai'
 import type { ChatRequest } from '../../api/types'
 import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
@@ -10,6 +15,7 @@ import type { ToolRegistry } from '../../tools/tool-registry'
 import type { ResolvedAgentConfig } from '../types'
 import { AiSdkAgent } from './ai-sdk-agent'
 import { formatUserMessage } from './format-message'
+import { enrichToolInputChunkForGlow } from './glow-enrichment'
 import type { SessionStore } from './session-store'
 
 export interface ChatV2ServiceDeps {
@@ -128,8 +134,7 @@ export class ChatV2Service {
     const userContent = formatUserMessage(request.message, messageContext)
     session.agent.appendUserMessage(userContent)
 
-    // Stream the agent response
-    return createAgentUIStreamResponse({
+    const stream = await createAgentUIStream({
       agent: session.agent.toolLoopAgent,
       uiMessages: session.agent.messages,
       abortSignal,
@@ -148,6 +153,22 @@ export class ChatV2Service {
           this.closeHiddenWindow(windowId, request.conversationId)
         }
       },
+    })
+
+    const enrichedStream = stream.pipeThrough(
+      new TransformStream<UIMessageChunk, UIMessageChunk>({
+        transform: async (chunk, controller) => {
+          const enrichedChunk = await enrichToolInputChunkForGlow(
+            chunk,
+            this.deps.browser,
+          )
+          controller.enqueue(enrichedChunk)
+        },
+      }),
+    )
+
+    return createUIMessageStreamResponse({
+      stream: enrichedStream,
     })
   }
 
