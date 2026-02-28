@@ -8,12 +8,15 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Browser } from '../../../browser/browser'
 import type { ToolRegistry } from '../../../tools/tool-registry'
+import type { KlavisMcpClientManager } from './klavis-mcp-client'
+import { registerKlavisTools } from './register-klavis-tools'
 import { registerTools } from './register-mcp'
 
 export interface McpServiceDeps {
   version: string
   registry: ToolRegistry
   browser: Browser
+  klavisMcpClient?: KlavisMcpClientManager
 }
 
 export function createMcpServer(deps: McpServiceDeps): McpServer {
@@ -31,6 +34,10 @@ export function createMcpServer(deps: McpServiceDeps): McpServer {
   })
 
   registerTools(server, deps.registry, { browser: deps.browser })
+
+  if (deps.klavisMcpClient) {
+    registerKlavisTools(server, deps.klavisMcpClient, deps.registry)
+  }
 
   return server
 }

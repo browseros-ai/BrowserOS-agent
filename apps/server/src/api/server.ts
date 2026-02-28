@@ -15,8 +15,8 @@ import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { SessionManager } from '../agent/session'
+import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
-
 import { createChatRoutes } from './routes/chat'
 import { createChatV2Routes } from './routes/chat-v2'
 import { createGraphRoutes } from './routes/graph'
@@ -27,6 +27,7 @@ import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
 import { createStatusRoute } from './routes/status'
+import { KlavisMcpClientManager } from './services/mcp/klavis-mcp-client'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -71,6 +72,21 @@ export async function createHttpServer(config: HttpServerConfig) {
   const { onShutdown } = config
   const sessionManager = new SessionManager()
 
+  // Eagerly initialize Klavis MCP client to expose Klavis tools via /mcp
+  let klavisMcpClient: KlavisMcpClientManager | undefined
+  if (browserosId) {
+    try {
+      const klavisClient = new KlavisClient()
+      klavisMcpClient = new KlavisMcpClientManager(klavisClient, browserosId)
+      await klavisMcpClient.initialize()
+    } catch (error) {
+      logger.warn('Failed to initialize Klavis MCP client for /mcp endpoint', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      klavisMcpClient = undefined
+    }
+  }
+
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ browser }))
@@ -87,6 +103,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         registry,
         browser,
+        klavisMcpClient,
       }),
     )
     .route(
