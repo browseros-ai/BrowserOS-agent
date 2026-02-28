@@ -71,11 +71,9 @@ export class Application {
 
     const cdp = new CdpBackend({ port: this.config.cdpPort })
     try {
-      logger.debug(
-        `Connecting to CDP at http://127.0.0.1:${this.config.cdpPort}`,
-      )
+      logger.debug(`Connecting to CDP on port ${this.config.cdpPort}`)
       await cdp.connect()
-      logger.info(`Connected to CDP at http://127.0.0.1:${this.config.cdpPort}`)
+      logger.info(`Connected to CDP on port ${this.config.cdpPort}`)
     } catch (error) {
       return this.handleStartupError('CDP', this.config.cdpPort, error)
     }

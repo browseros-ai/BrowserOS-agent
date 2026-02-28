@@ -50,10 +50,14 @@ describe('CdpBackend', () => {
   const originalConnectTimeout = TIMEOUTS.CDP_CONNECT
   const originalReconnectDelay = TIMEOUTS.CDP_RECONNECT_DELAY
   let fetchUrls: string[] = []
+  let failIpv4Discovery = false
+  let wsHost = '127.0.0.1'
 
   beforeEach(() => {
     MockWebSocket.instances = []
     fetchUrls = []
+    failIpv4Discovery = false
+    wsHost = '127.0.0.1'
 
     ;(TIMEOUTS as unknown as { CDP_CONNECT: number }).CDP_CONNECT = 200
     ;(
@@ -61,14 +65,18 @@ describe('CdpBackend', () => {
     ).CDP_RECONNECT_DELAY = 1
 
     globalThis.fetch = (async (input: string | URL | Request) => {
-      fetchUrls.push(String(input))
+      const url = String(input)
+      fetchUrls.push(url)
+      if (failIpv4Discovery && url.includes('127.0.0.1')) {
+        throw new Error('Unable to connect')
+      }
       const id = fetchUrls.length
       return {
         ok: true,
         status: 200,
         statusText: 'OK',
         json: async () => ({
-          webSocketDebuggerUrl: `ws://127.0.0.1:9222/devtools/browser/${id}`,
+          webSocketDebuggerUrl: `ws://${wsHost}:9222/devtools/browser/${id}`,
         }),
       } as Response
     }) as typeof fetch
@@ -86,7 +94,9 @@ describe('CdpBackend', () => {
     ).CDP_RECONNECT_DELAY = originalReconnectDelay
   })
 
-  it('uses 127.0.0.1 for /json/version requests', async () => {
+  it('falls back from 127.0.0.1 to localhost for /json/version', async () => {
+    failIpv4Discovery = true
+    wsHost = 'localhost'
     const cdp = new CdpBackend({ port: 9222 })
     const connectPromise = cdp.connect()
 
@@ -95,6 +105,32 @@ describe('CdpBackend', () => {
     await connectPromise
 
     assert.strictEqual(fetchUrls[0], 'http://127.0.0.1:9222/json/version')
+    assert.strictEqual(fetchUrls[1], 'http://localhost:9222/json/version')
+    assert.strictEqual(
+      MockWebSocket.instances[0]?.url,
+      'ws://localhost:9222/devtools/browser/2',
+    )
+    await cdp.disconnect()
+  })
+
+  it('prefers the last successful discovery host during reconnect', async () => {
+    failIpv4Discovery = true
+    wsHost = 'localhost'
+    const cdp = new CdpBackend({ port: 9222 })
+    const connectPromise = cdp.connect()
+
+    await waitFor(() => MockWebSocket.instances.length === 1)
+    const ws1 = MockWebSocket.instances[0]
+    ws1?.open()
+    await connectPromise
+
+    assert.strictEqual(fetchUrls[0], 'http://127.0.0.1:9222/json/version')
+    assert.strictEqual(fetchUrls[1], 'http://localhost:9222/json/version')
+
+    ws1?.close()
+
+    await waitFor(() => fetchUrls.length >= 3)
+    assert.strictEqual(fetchUrls[2], 'http://localhost:9222/json/version')
     await cdp.disconnect()
   })
 
