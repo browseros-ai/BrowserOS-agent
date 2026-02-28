@@ -16,6 +16,13 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout>
 }
 
+interface CdpVersion {
+  webSocketDebuggerUrl: string
+}
+
+const LOOPBACK_DISCOVERY_HOSTS = ['127.0.0.1', 'localhost', '[::1]'] as const
+type LoopbackDiscoveryHost = (typeof LOOPBACK_DISCOVERY_HOSTS)[number]
+
 // biome-ignore lint/correctness/noUnusedVariables: declaration merging adds ProtocolApi properties to the class
 interface CdpBackend extends ProtocolApi {}
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: intentional — Object.assign fills these at runtime
@@ -31,6 +38,7 @@ class CdpBackend implements ICdpBackend {
   private eventHandlers = new Map<string, ((params: unknown) => void)[]>()
   private sessionCache = new Map<string, ProtocolApi>()
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null
+  private preferredDiscoveryHost: LoopbackDiscoveryHost | null = null
 
   constructor(config: { port: number }) {
     this.port = config.port
@@ -65,78 +73,136 @@ class CdpBackend implements ICdpBackend {
     }
   }
 
-  private attemptConnect(): Promise<void> {
+  private async attemptConnect(): Promise<void> {
+    const { host, version } = await this.discoverVersion()
+    const wsUrl = this.resolveWebSocketUrl(version.webSocketDebuggerUrl, host)
+
     return new Promise<void>((resolve, reject) => {
-      fetch(`http://127.0.0.1:${this.port}/json/version`, {
-        signal: AbortSignal.timeout(TIMEOUTS.CDP_CONNECT),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            throw new Error(
-              `CDP /json/version failed with HTTP ${res.status}: ${res.statusText}`,
-            )
-          }
-          return res.json()
-        })
-        .then((version) => {
-          const wsUrl = (version as { webSocketDebuggerUrl: string })
-            .webSocketDebuggerUrl
-          if (!wsUrl) {
-            throw new Error('CDP /json/version missing webSocketDebuggerUrl')
-          }
+      let opened = false
+      let settled = false
+      const ws = new WebSocket(wsUrl)
+      const connectTimeout = setTimeout(() => {
+        if (settled) return
+        settled = true
+        try {
+          ws.close()
+        } catch {
+          // Ignore close errors from half-open sockets
+        }
+        reject(
+          new Error(
+            `CDP WebSocket connect timeout after ${TIMEOUTS.CDP_CONNECT}ms`,
+          ),
+        )
+      }, TIMEOUTS.CDP_CONNECT)
 
-          let opened = false
-          let settled = false
-          const ws = new WebSocket(wsUrl)
-          const connectTimeout = setTimeout(() => {
-            if (settled) return
-            settled = true
-            try {
-              ws.close()
-            } catch {
-              // Ignore close errors from half-open sockets
-            }
-            reject(
-              new Error(
-                `CDP WebSocket connect timeout after ${TIMEOUTS.CDP_CONNECT}ms`,
-              ),
-            )
-          }, TIMEOUTS.CDP_CONNECT)
+      ws.onopen = () => {
+        if (settled) return
+        settled = true
+        clearTimeout(connectTimeout)
+        opened = true
+        this.ws = ws
+        this.connected = true
+        this.disconnecting = false
+        resolve()
+      }
 
-          ws.onopen = () => {
-            if (settled) return
-            settled = true
-            clearTimeout(connectTimeout)
-            opened = true
-            this.ws = ws
-            this.connected = true
-            this.disconnecting = false
-            resolve()
-          }
+      ws.onerror = (event) => {
+        if (!opened && !settled) {
+          settled = true
+          clearTimeout(connectTimeout)
+          reject(new Error(`CDP WebSocket error: ${event}`))
+        }
+      }
 
-          ws.onerror = (event) => {
-            if (!opened && !settled) {
-              settled = true
-              clearTimeout(connectTimeout)
-              reject(new Error(`CDP WebSocket error: ${event}`))
-            }
-          }
+      ws.onclose = () => {
+        clearTimeout(connectTimeout)
+        // Guard against stale onclose from a replaced socket
+        if (this.ws !== ws) return
+        this.connected = false
+        this.ws = null
+        if (opened) this.handleUnexpectedClose()
+      }
 
-          ws.onclose = () => {
-            clearTimeout(connectTimeout)
-            // Guard against stale onclose from a replaced socket
-            if (this.ws !== ws) return
-            this.connected = false
-            this.ws = null
-            if (opened) this.handleUnexpectedClose()
-          }
-
-          ws.onmessage = (event) => {
-            this.handleMessage(event.data as string)
-          }
-        })
-        .catch(reject)
+      ws.onmessage = (event) => {
+        this.handleMessage(event.data as string)
+      }
     })
+  }
+
+  private getDiscoveryHosts(): LoopbackDiscoveryHost[] {
+    if (!this.preferredDiscoveryHost) {
+      return [...LOOPBACK_DISCOVERY_HOSTS]
+    }
+    return [
+      this.preferredDiscoveryHost,
+      ...LOOPBACK_DISCOVERY_HOSTS.filter(
+        (host) => host !== this.preferredDiscoveryHost,
+      ),
+    ]
+  }
+
+  private async discoverVersion(): Promise<{
+    host: LoopbackDiscoveryHost
+    version: CdpVersion
+  }> {
+    const failures: string[] = []
+
+    for (const host of this.getDiscoveryHosts()) {
+      try {
+        const version = await this.fetchVersionFromHost(host)
+        this.preferredDiscoveryHost = host
+        return { host, version }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        failures.push(`${host}: ${msg}`)
+        logger.debug(`CDP discovery failed via ${host}: ${msg}`)
+      }
+    }
+
+    throw new Error(
+      `CDP /json/version failed on all loopback hosts (${failures.join('; ')})`,
+    )
+  }
+
+  private async fetchVersionFromHost(
+    host: LoopbackDiscoveryHost,
+  ): Promise<CdpVersion> {
+    const response = await fetch(`http://${host}:${this.port}/json/version`, {
+      signal: AbortSignal.timeout(TIMEOUTS.CDP_CONNECT),
+    })
+    if (!response.ok) {
+      throw new Error(
+        `CDP /json/version failed with HTTP ${response.status}: ${response.statusText}`,
+      )
+    }
+
+    const version = (await response.json()) as Partial<CdpVersion>
+    if (typeof version.webSocketDebuggerUrl !== 'string') {
+      throw new Error('CDP /json/version missing webSocketDebuggerUrl')
+    }
+
+    return { webSocketDebuggerUrl: version.webSocketDebuggerUrl }
+  }
+
+  private resolveWebSocketUrl(
+    wsUrl: string,
+    host: LoopbackDiscoveryHost,
+  ): string {
+    try {
+      const parsedUrl = new URL(wsUrl)
+      parsedUrl.hostname = this.normalizeHost(host)
+      return parsedUrl.toString()
+    } catch {
+      return wsUrl
+    }
+  }
+
+  private normalizeHost(host: LoopbackDiscoveryHost): string {
+    if (host === '[::1]') {
+      return '::1'
+    }
+    return host
   }
 
   private startKeepalive(): void {
