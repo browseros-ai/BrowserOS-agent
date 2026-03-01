@@ -7,10 +7,12 @@
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
 import type { Browser } from '../../browser/browser'
+import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
 import type { ToolRegistry } from '../../tools/tool-registry'
+import { KlavisStrataPool } from '../services/mcp/klavis-strata-pool'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { Env } from '../types'
 
@@ -18,14 +20,35 @@ interface McpRouteDeps {
   version: string
   registry: ToolRegistry
   browser: Browser
+  browserosId?: string
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {
   const mcpServer = createMcpServer(deps)
 
+  const browserToolNames = new Set(deps.registry.names())
+  const pool = deps.browserosId
+    ? new KlavisStrataPool(new KlavisClient(), mcpServer, browserToolNames)
+    : undefined
+
   return new Hono<Env>().all('/', async (c) => {
     const scopeId = c.req.header('X-BrowserOS-Scope-Id') || 'ephemeral'
     metrics.log('mcp.request', { scopeId })
+
+    if (pool && deps.browserosId) {
+      try {
+        const headerServers = c.req.header('X-Enabled-MCP-Servers')
+        const enabledServers = headerServers
+          ? headerServers.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined
+
+        await pool.ensureTools(deps.browserosId, enabledServers)
+      } catch (error) {
+        logger.error('Klavis tool registration failed (browser tools unaffected)', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
 
     try {
       const transport = new StreamableHTTPTransport({

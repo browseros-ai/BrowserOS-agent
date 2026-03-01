@@ -87,6 +87,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         registry,
         browser,
+        browserosId,
       }),
     )
     .route(
