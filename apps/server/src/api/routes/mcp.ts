@@ -7,6 +7,7 @@
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
 import type { Browser } from '../../browser/browser'
+import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
@@ -18,16 +19,34 @@ interface McpRouteDeps {
   version: string
   registry: ToolRegistry
   browser: Browser
+  browserosId?: string
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {
-  const mcpServer = createMcpServer(deps)
+  const enabledMcpServers = process.env.BROWSEROS_DEFAULT_MCP_SERVERS?.split(
+    ',',
+  )
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const klavisClient =
+    deps.browserosId && enabledMcpServers?.length
+      ? new KlavisClient()
+      : undefined
+
+  const mcpServerPromise = createMcpServer({
+    ...deps,
+    klavisClient,
+    enabledMcpServers,
+  })
 
   return new Hono<Env>().all('/', async (c) => {
     const scopeId = c.req.header('X-BrowserOS-Scope-Id') || 'ephemeral'
     metrics.log('mcp.request', { scopeId })
 
     try {
+      const mcpServer = await mcpServerPromise
+
       const transport = new StreamableHTTPTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
