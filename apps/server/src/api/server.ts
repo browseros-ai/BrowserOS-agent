@@ -62,6 +62,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     browserosId,
     executionDir,
     rateLimiter,
+    klavisProxy,
     version,
     browser,
     controller,
@@ -87,6 +88,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         registry,
         browser,
+        klavisProxy,
       }),
     )
     .route(

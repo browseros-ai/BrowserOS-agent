@@ -20,6 +20,8 @@ import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
 import { initializeDb } from './lib/db'
 
+import { createKlavisToolProxy } from './api/services/mcp/kalvis-proxy'
+import { KlavisClient } from './lib/clients/klavis/klavis-client'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
@@ -82,6 +84,8 @@ export class Application {
 
     logger.info(`Loaded ${registry.names().length} unified tools`)
 
+    const klavisProxy = await this.initializeKlavisProxy()
+
     try {
       await createHttpServer({
         port: this.config.serverPort,
@@ -93,6 +97,7 @@ export class Application {
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
+        klavisProxy,
         codegenServiceUrl: this.config.codegenServiceUrl,
 
         onShutdown: () => this.stop(),
@@ -164,6 +169,46 @@ export class Application {
       chromium_version: this.config.instanceChromiumVersion,
       server_version: VERSION,
     })
+  }
+
+  private async initializeKlavisProxy() {
+    const klavisMcpEnabled = process.env.BROWSEROS_KLAVIS_MCP_ENABLED !== 'false'
+    const defaultServers = process.env.BROWSEROS_KLAVIS_DEFAULT_SERVERS
+      ? process.env.BROWSEROS_KLAVIS_DEFAULT_SERVERS.split(',').map((s) =>
+          s.trim(),
+        )
+      : []
+
+    if (!klavisMcpEnabled || defaultServers.length === 0) {
+      logger.info('Kalvis MCP integration disabled or no servers configured', {
+        enabled: klavisMcpEnabled,
+        servers: defaultServers,
+      })
+      return undefined
+    }
+
+    const klavisClient = new KlavisClient()
+    const proxy = createKlavisToolProxy(klavisClient)
+
+    try {
+      await proxy.initialize({
+        browserosId: identity.getBrowserOSId(),
+        servers: defaultServers,
+      })
+
+      logger.info('Kalvis MCP proxy initialized', {
+        servers: defaultServers,
+        toolCount: proxy.getToolCount(),
+      })
+
+      return proxy
+    } catch (error) {
+      logger.warn('Failed to initialize Kalvis MCP proxy, continuing without it', {
+        error: error instanceof Error ? error.message : String(error),
+        servers: defaultServers,
+      })
+      return undefined
+    }
   }
 
   private configureLogDirectory(): void {

@@ -11,6 +11,7 @@ import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
 import type { ToolRegistry } from '../../tools/tool-registry'
+import type { KlavisToolProxy } from '../services/mcp/kalvis-proxy'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { Env } from '../types'
 
@@ -18,6 +19,7 @@ interface McpRouteDeps {
   version: string
   registry: ToolRegistry
   browser: Browser
+  klavisProxy?: KlavisToolProxy
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {

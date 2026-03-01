@@ -19,6 +19,7 @@ import type { ControllerBackend } from '../browser/backends/controller'
 import type { Browser } from '../browser/browser'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
 import type { ToolRegistry } from '../tools/tool-registry'
+import type { KlavisToolProxy } from './services/mcp/kalvis-proxy'
 
 // Re-export browser context types for consumers
 export {
@@ -85,6 +86,7 @@ export interface HttpServerConfig {
   browserosId?: string
   executionDir?: string
   rateLimiter?: RateLimiter
+  klavisProxy?: KlavisToolProxy
 
   codegenServiceUrl?: string
 
