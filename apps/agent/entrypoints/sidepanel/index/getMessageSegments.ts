@@ -32,23 +32,24 @@ export type MessageSegment =
 
 const NUDGE_TOOLS = new Set(['suggest_schedule', 'suggest_app_connection'])
 
-function parseNudgeOutput(output: unknown[]): NudgeData | null {
+function parseNudgeOutput(output: unknown): NudgeData | null {
   try {
-    const raw = output?.[0]
-    if (typeof raw === 'string') {
-      const parsed = JSON.parse(raw)
-      if (
-        parsed?.type === 'schedule_suggestion' ||
-        parsed?.type === 'app_connection'
-      ) {
-        return parsed as NudgeData
-      }
+    // output is { content: [{ type: "text", text: "JSON..." }], isError: false }
+    const result = output as {
+      content?: Array<{ type: string; text?: string }>
+      isError?: boolean
     }
-    if (typeof raw === 'object' && raw !== null) {
-      const obj = raw as Record<string, unknown>
-      if (obj.type === 'schedule_suggestion' || obj.type === 'app_connection') {
-        return obj as NudgeData
-      }
+    if (result?.isError) return null
+
+    const text = result?.content?.find((c) => c.type === 'text')?.text
+    if (!text) return null
+
+    const parsed = JSON.parse(text)
+    if (
+      parsed?.type === 'schedule_suggestion' ||
+      parsed?.type === 'app_connection'
+    ) {
+      return parsed as NudgeData
     }
   } catch {
     // ignore parse errors
@@ -104,7 +105,7 @@ export const getMessageSegments = (
         type: string
         state: ToolInvocationState
         input: Record<string, unknown>
-        output: unknown[]
+        output: unknown
       }
       const toolName = toolPart.type?.replace('tool-', '')
 
@@ -125,7 +126,7 @@ export const getMessageSegments = (
           toolCallId: toolPart.toolCallId,
           toolName,
           input: toolPart?.input ?? {},
-          output: toolPart?.output ?? [],
+          output: (toolPart?.output as unknown[]) ?? [],
         })
       }
     }

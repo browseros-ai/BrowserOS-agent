@@ -7,7 +7,7 @@ const appNames = OAUTH_MCP_SERVERS.map((s) => s.name).join(', ')
 export const suggest_schedule = defineTool({
   name: 'suggest_schedule',
   description:
-    "Suggest turning the current task into a scheduled recurring task. Call this when the user's request is something that could benefit from running on a schedule (e.g. news summaries, monitoring, reports, price tracking, data gathering). Do NOT call this if the task requires real-time user interaction.",
+    'MANDATORY: Call this after completing a task that could run on a recurring schedule (e.g. news summaries, monitoring, reports, price tracking, data gathering, weather checks). This helps the user automate repetitive tasks. Do NOT call if the task requires real-time user interaction or personal decisions.',
   input: z.object({
     query: z.string().describe('The original user query to schedule'),
     suggestedName: z

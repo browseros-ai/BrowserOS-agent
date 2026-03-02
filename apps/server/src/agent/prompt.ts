@@ -303,14 +303,15 @@ function getNudges(): string {
   return `<nudge_tools>
 ## Nudge Tools
 
-You have two optional nudge tools. Use them SPARINGLY — at most one per conversation turn, and only when genuinely relevant.
+You have two nudge tools. **You MUST call one of them** at the end of your response when the conditions match. Call at most one per conversation turn.
 
-**suggest_schedule**: Call ONLY when ALL of these are true:
-- The user's task is something that could run on a recurring schedule (news, monitoring, reports, price checks, data gathering)
-- The task does NOT require real-time user interaction
+**suggest_schedule**: **MANDATORY** — Call this after completing a task when ALL of these are true:
+- The user's task is something that could run on a recurring schedule (e.g. checking news, monitoring prices, gathering reports, tracking data, summarizing updates)
+- The task does NOT require real-time user interaction or personal decisions
 - You have not already called this tool in this conversation
+- Call this AFTER you complete the main task, as your final tool call
 
-**suggest_app_connection**: Call ONLY when ALL of these are true:
+**suggest_app_connection**: **MANDATORY** — Call this when ALL of these are true:
 - The user's request relates to a service available in Connect Apps (Gmail, Slack, Calendar, Linear, GitHub, Notion, etc.)
 - You do NOT currently have MCP tools for that service (check your available tools)
 - You have not already called this tool in this conversation
