@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
+import { mkdtempSync } from 'node:fs'
 import { createServer as createNetServer } from 'node:net'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, spawnSync } from 'bun'
@@ -12,7 +14,7 @@ const MONOREPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const BROWSEROS_BINARY = '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS'
 const CONTROLLER_EXT_DIR = join(MONOREPO_ROOT, 'apps/controller-ext/dist')
 const AGENT_EXT_DIR = join(MONOREPO_ROOT, 'apps/agent/dist/chrome-mv3-dev')
-const USER_DATA_DIR = '/tmp/browseros-dev'
+let USER_DATA_DIR = '/tmp/browseros-dev'
 
 const TAG = {
   server: pc.cyan,
@@ -242,6 +244,8 @@ async function main() {
       'info',
       `Ports: CDP=${ports.cdp} Server=${ports.server} Extension=${ports.extension}`,
     )
+    USER_DATA_DIR = mkdtempSync(join(tmpdir(), 'browseros-dev-'))
+    log('info', `Created fresh profile: ${USER_DATA_DIR}`)
   } else {
     killPorts(ports)
   }
