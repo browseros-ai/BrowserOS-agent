@@ -48,4 +48,4 @@ jobs:
       - name: Run Typecheck
         run: bun run typecheck
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=8192
