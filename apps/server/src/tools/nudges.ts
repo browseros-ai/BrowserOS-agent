@@ -40,7 +40,7 @@ export const suggest_schedule = defineTool({
 
 export const suggest_app_connection = defineTool({
   name: 'suggest_app_connection',
-  description: `BLOCKING DECISION — Call as your FIRST action (before any browser work) when the user's request relates to a Connect Apps service but you don't have MCP tools for it. After calling, STOP and end your turn. The appName must be one of: ${appNames}.`,
+  description: `BLOCKING DECISION — Call after tab grouping but before any browser work when the user's request relates to a Connect Apps service but you don't have MCP tools for it. After calling, STOP and end your turn. The appName must be one of: ${appNames}.`,
   input: z.object({
     appName: z
       .string()

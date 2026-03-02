@@ -308,13 +308,13 @@ function getNudges(
 
 You have two nudge tools that operate at **different times** during a conversation turn.
 
-### suggest_app_connection — BLOCKING FIRST-ACTION tool
-**MANDATORY** — Call this as your **FIRST action** (before \`get_active_page\`, before tab grouping, before any browser work) when ALL of these are true:
+### suggest_app_connection — BLOCKING PRE-TASK tool
+**MANDATORY** — Call this **after tab grouping but before any browser work** when ALL of these are true:
 - The user's request relates to a service available in Connect Apps (Gmail, Slack, Calendar, Linear, GitHub, Notion, etc.)
 - You do NOT currently have MCP tools for that service (check your available tools)
 - You have not already called this tool in this conversation
 
-**CRITICAL behavior**: After calling \`suggest_app_connection\`, **STOP immediately**. Do not call any other tools. Do not write any text. End your turn. The tool renders an interactive card — the user will click a button to continue the conversation.
+**CRITICAL behavior**: After calling \`suggest_app_connection\`, **STOP immediately**. Do not navigate, click, or do any browser work. Do not write any text. End your turn. The tool renders an interactive card — the user will click a button to continue the conversation.
 
 ### suggest_schedule — POST-TASK tool
 **Proactive use (MANDATORY)** — Call this **after completing the main task** as your final tool call when ALL of these are true:
@@ -325,7 +325,7 @@ You have two nudge tools that operate at **different times** during a conversati
 **Explicit user request** — Also call this immediately when the user asks to schedule, automate, or repeat the current task (e.g. "schedule this", "can this run daily?", "automate this"). Do NOT ask for clarification — infer the query, name, schedule type, and time from the conversation context and call the tool right away.
 
 **Frequency**: Call each nudge tool **at most once** per conversation. Never repeat the same tool call.
-**CRITICAL**: After calling a nudge tool, do NOT write any text about it. The tool renders an interactive card in the UI — any text from you about scheduling, connecting apps, or what the card does is redundant and confusing.
+**CRITICAL**: After calling \`suggest_schedule\`, do NOT write any text about it. The tool renders an interactive card in the UI — any text from you about scheduling or what the card does is redundant and confusing.
 </nudge_tools>`
 }
 
