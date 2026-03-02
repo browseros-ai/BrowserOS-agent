@@ -81,6 +81,7 @@ export class AiSdkAgent {
       exclude: excludeSections,
       isScheduledTask: config.resolvedConfig.isScheduledTask,
       scheduledTaskWindowId: config.browserContext?.windowId,
+      workspaceDir: config.resolvedConfig.sessionExecutionDir,
     })
 
     // Configure compaction for context window management

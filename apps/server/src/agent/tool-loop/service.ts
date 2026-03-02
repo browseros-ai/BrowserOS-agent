@@ -122,9 +122,12 @@ export class ChatV2Service {
       })
     }
 
-    // For scheduled tasks, use the hidden window's browser context so the model
-    // knows the correct pageId and windowId to operate in.
-    const messageContext = session.browserContext ?? request.browserContext
+    // Scheduled tasks use the session's browser context (hidden window with
+    // correct pageId/windowId). Normal messages use the request's browser
+    // context so that freshly selected tabs are always included.
+    const messageContext = request.isScheduledTask
+      ? (session.browserContext ?? request.browserContext)
+      : request.browserContext
     const userContent = formatUserMessage(request.message, messageContext)
     session.agent.appendUserMessage(userContent)
 

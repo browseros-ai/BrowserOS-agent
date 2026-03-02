@@ -161,6 +161,7 @@ export class GeminiAgent {
       buildSystemPrompt({
         userSystemPrompt: config.userSystemPrompt,
         exclude: excludeSections,
+        workspaceDir: config.sessionExecutionDir,
       }),
     )
     await client.setTools()
