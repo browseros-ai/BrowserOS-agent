@@ -5,7 +5,6 @@ import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { buildFilesystemToolSet } from '../../tools/filesystem/build-toolset'
-import { NUDGE_TOOL_NAMES } from '../../tools/nudges'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
@@ -56,16 +55,12 @@ export class AiSdkAgent {
       ...filesystemTools,
     }
 
-    const skipAllNudges =
-      config.resolvedConfig.isScheduledTask || config.resolvedConfig.chatMode
-    const dismissed = new Set(config.resolvedConfig.dismissedNudges)
-    let hasAnyNudge = false
-    for (const name of NUDGE_TOOL_NAMES) {
-      if (skipAllNudges || dismissed.has(name)) {
-        delete tools[name]
-      } else {
-        hasAnyNudge = true
-      }
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      delete tools.suggest_schedule
+      delete tools.suggest_app_connection
     }
 
     // Build system prompt with optional section exclusions
@@ -75,7 +70,10 @@ export class AiSdkAgent {
     if (config.resolvedConfig.isScheduledTask) {
       excludeSections.push('tab-grouping')
     }
-    if (!hasAnyNudge) {
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
       excludeSections.push('nudges')
     }
     const instructions = buildSystemPrompt({

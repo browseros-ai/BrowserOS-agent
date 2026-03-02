@@ -218,11 +218,10 @@ export const useChatSession = () => {
           scheduleSuggestionDismissedAtStorage.getValue(),
           connectAppSuggestionDismissedAtStorage.getValue(),
         ])
-        const dismissedNudges: string[] = []
-        if (isDismissedWithinCooldown(scheduleDismissedAt))
-          dismissedNudges.push('suggest_schedule')
-        if (isDismissedWithinCooldown(connectAppDismissedAt))
-          dismissedNudges.push('suggest_app_connection')
+        const scheduleDismissed = isDismissedWithinCooldown(scheduleDismissedAt)
+        const connectAppDismissed = isDismissedWithinCooldown(
+          connectAppDismissedAt,
+        )
 
         const browserContext: {
           windowId?: number
@@ -303,7 +302,8 @@ export const useChatSession = () => {
             userSystemPrompt: personalizationRef.current,
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
-            dismissedNudges,
+            scheduleDismissed,
+            connectAppDismissed,
             previousConversation,
           },
         }

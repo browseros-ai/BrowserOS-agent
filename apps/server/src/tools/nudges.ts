@@ -2,11 +2,6 @@ import { z } from 'zod'
 import { OAUTH_MCP_SERVERS } from '../lib/clients/klavis/oauth-mcp-servers'
 import { defineTool } from './framework'
 
-export const NUDGE_TOOL_NAMES = [
-  'suggest_schedule',
-  'suggest_app_connection',
-] as const
-
 const appNames = OAUTH_MCP_SERVERS.map((s) => s.name).join(', ')
 
 export const suggest_schedule = defineTool({
