@@ -252,7 +252,7 @@ export const WebPreviewConsole = ({
                   log.level === 'warn' && 'text-yellow-600',
                   log.level === 'log' && 'text-foreground',
                 )}
-                key={`${log.timestamp.getTime()}-${index}`}
+                key={`${log.timestamp.getTime()}-${index.toString()}`}
               >
                 <span className="text-muted-foreground">
                   {log.timestamp.toLocaleTimeString()}
