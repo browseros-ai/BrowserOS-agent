@@ -41,8 +41,6 @@ export interface ResolvedAgentConfig {
   chatMode?: boolean
   /** Scheduled task mode - disables tab grouping. Defaults to false. */
   isScheduledTask?: boolean
-  /** Whether the schedule suggestion nudge was recently dismissed by the user. */
-  scheduleDismissed?: boolean
-  /** Whether the connect app suggestion nudge was recently dismissed by the user. */
-  connectAppDismissed?: boolean
+  /** Nudge tool names the user has recently dismissed (within cooldown). */
+  dismissedNudges?: string[]
 }
