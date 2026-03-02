@@ -64,7 +64,7 @@
     "core-js": "3.45.1",
     "debug": "4.4.3",
     "eventsource-parser": "^3.0.0",
-    "hono": "^4.6.0",
+    "hono": "^4.12.3",
     "klavis": "^2.15.0",
     "pino": "^9.6.0",
     "posthog-node": "^4.17.0",

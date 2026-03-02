@@ -67,7 +67,7 @@
     "es-toolkit": "^1.42.0",
     "eventsource-parser": "^3.0.6",
     "graphql": "^16.12.0",
-    "hono": "^4.6.0",
+    "hono": "^4.12.3",
     "klavis": "^2.15.0",
     "localforage": "^1.10.0",
     "lucide-react": "^0.562.0",
