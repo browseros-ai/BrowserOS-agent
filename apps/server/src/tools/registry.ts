@@ -38,6 +38,7 @@ import {
   // biome-ignore lint/correctness/noUnusedImports: temporarily disabled
   wait_for,
 } from './navigation'
+import { suggest_app_connection, suggest_schedule } from './nudges'
 import { download_file, save_pdf, save_screenshot } from './page-actions'
 import {
   evaluate_script,
@@ -127,4 +128,8 @@ export const registry = createRegistry([
 
   // Info (1)
   browseros_info,
+
+  // Nudges (2)
+  suggest_schedule,
+  suggest_app_connection,
 ])

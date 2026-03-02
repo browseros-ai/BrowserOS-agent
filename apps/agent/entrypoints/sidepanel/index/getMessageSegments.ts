@@ -17,10 +17,44 @@ export interface ToolInvocationInfo {
   output: unknown[]
 }
 
+export type NudgeType = 'schedule_suggestion' | 'app_connection'
+
+export interface NudgeData {
+  type: NudgeType
+  [key: string]: unknown
+}
+
 export type MessageSegment =
   | { type: 'text'; key: string; text: string }
   | { type: 'reasoning'; key: string; text: string; isStreaming: boolean }
   | { type: 'tool-batch'; key: string; tools: ToolInvocationInfo[] }
+  | { type: 'nudge'; key: string; nudgeType: NudgeType; data: NudgeData }
+
+const NUDGE_TOOLS = new Set(['suggest_schedule', 'suggest_app_connection'])
+
+function parseNudgeOutput(output: unknown[]): NudgeData | null {
+  try {
+    const raw = output?.[0]
+    if (typeof raw === 'string') {
+      const parsed = JSON.parse(raw)
+      if (
+        parsed?.type === 'schedule_suggestion' ||
+        parsed?.type === 'app_connection'
+      ) {
+        return parsed as NudgeData
+      }
+    }
+    if (typeof raw === 'object' && raw !== null) {
+      const obj = raw as Record<string, unknown>
+      if (obj.type === 'schedule_suggestion' || obj.type === 'app_connection') {
+        return obj as NudgeData
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return null
+}
 
 export const getMessageSegments = (
   message: UIMessage,
@@ -72,13 +106,28 @@ export const getMessageSegments = (
         input: Record<string, unknown>
         output: unknown[]
       }
-      currentToolBatch.push({
-        state: toolPart.state,
-        toolCallId: toolPart.toolCallId,
-        toolName: toolPart.type?.replace('tool-', ''),
-        input: toolPart?.input ?? {},
-        output: toolPart?.output ?? [],
-      })
+      const toolName = toolPart.type?.replace('tool-', '')
+
+      if (NUDGE_TOOLS.has(toolName) && toolPart.state === 'output-available') {
+        flushToolBatch()
+        const nudgeData = parseNudgeOutput(toolPart.output)
+        if (nudgeData) {
+          segments.push({
+            type: 'nudge',
+            key: `${message.id}-nudge-${toolPart.toolCallId}`,
+            nudgeType: nudgeData.type,
+            data: nudgeData,
+          })
+        }
+      } else if (!NUDGE_TOOLS.has(toolName)) {
+        currentToolBatch.push({
+          state: toolPart.state,
+          toolCallId: toolPart.toolCallId,
+          toolName,
+          input: toolPart?.input ?? {},
+          output: toolPart?.output ?? [],
+        })
+      }
     }
   }
 

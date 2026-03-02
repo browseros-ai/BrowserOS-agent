@@ -187,3 +187,22 @@ export const ONBOARDING_FEATURE_CLICKED_EVENT = 'onboarding.feature.clicked'
 
 /** @public */
 export const ONBOARDING_COMPLETED_EVENT = 'onboarding.completed'
+
+/** @public */
+export const BREADCRUMB_SCHEDULE_SHOWN_EVENT = 'breadcrumb.schedule.shown'
+
+/** @public */
+export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
+
+/** @public */
+export const BREADCRUMB_SCHEDULE_DISMISSED_EVENT =
+  'breadcrumb.schedule.dismissed'
+
+/** @public */
+export const BREADCRUMB_CONNECT_SHOWN_EVENT = 'breadcrumb.connect.shown'
+
+/** @public */
+export const BREADCRUMB_CONNECT_CLICKED_EVENT = 'breadcrumb.connect.clicked'
+
+/** @public */
+export const BREADCRUMB_CONNECT_DISMISSED_EVENT = 'breadcrumb.connect.dismissed'

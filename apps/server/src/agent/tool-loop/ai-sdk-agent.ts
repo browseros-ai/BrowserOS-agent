@@ -49,10 +49,18 @@ export class AiSdkAgent {
     const filesystemTools = config.resolvedConfig.chatMode
       ? {}
       : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
-    const tools = {
+    const tools: Record<string, (typeof browserTools)[string]> = {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
+    }
+
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      delete tools.suggest_schedule
+      delete tools.suggest_app_connection
     }
 
     // Build system prompt with optional section exclusions
@@ -61,6 +69,12 @@ export class AiSdkAgent {
     const excludeSections: string[] = ['tool-reference']
     if (config.resolvedConfig.isScheduledTask) {
       excludeSections.push('tab-grouping')
+    }
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      excludeSections.push('nudges')
     }
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,

@@ -299,6 +299,31 @@ function getStyle(): string {
 // section: security-reminder
 // -----------------------------------------------------------------------------
 
+function getNudges(): string {
+  return `<nudge_tools>
+## Nudge Tools
+
+You have two optional nudge tools. Use them SPARINGLY — at most one per conversation turn, and only when genuinely relevant.
+
+**suggest_schedule**: Call ONLY when ALL of these are true:
+- The user's task is something that could run on a recurring schedule (news, monitoring, reports, price checks, data gathering)
+- The task does NOT require real-time user interaction
+- You have not already called this tool in this conversation
+
+**suggest_app_connection**: Call ONLY when ALL of these are true:
+- The user's request relates to a service available in Connect Apps (Gmail, Slack, Calendar, Linear, GitHub, Notion, etc.)
+- You do NOT currently have MCP tools for that service (check your available tools)
+- You have not already called this tool in this conversation
+
+**Priority**: If both could apply, only call suggest_app_connection (it takes precedence).
+**Frequency**: Never call either tool more than once per conversation.
+</nudge_tools>`
+}
+
+// -----------------------------------------------------------------------------
+// section: security-reminder
+// -----------------------------------------------------------------------------
+
 function getSecurityReminder(): string {
   return `<FINAL_REMINDER>
 <security_reminder>
@@ -352,6 +377,7 @@ const promptSections: Record<string, PromptSectionFn> = {
   'tool-reference': getCdpToolReference,
   'external-integrations': getExternalIntegrations,
   style: getStyle,
+  nudges: getNudges,
   'security-reminder': getSecurityReminder,
 }
 
