@@ -72,7 +72,7 @@ export const OnboardingDemo = () => {
     })
     await completeOnboarding()
 
-    await chrome.tabs.create({ url: 'about:blank', active: true })
+    await chrome.tabs.create({ active: true })
     await new Promise((resolve) => setTimeout(resolve, 500))
     openSidePanelWithSearch('open', { query, mode })
   }
@@ -88,7 +88,7 @@ export const OnboardingDemo = () => {
     })
     await completeOnboarding()
 
-    await chrome.tabs.create({ url: 'about:blank', active: true })
+    await chrome.tabs.create({ active: true })
     await new Promise((resolve) => setTimeout(resolve, 500))
     openSidePanelWithSearch('open', {
       query: customQuery.trim(),
