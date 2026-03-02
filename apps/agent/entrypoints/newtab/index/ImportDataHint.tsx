@@ -1,7 +1,6 @@
-import { Cloud, X } from 'lucide-react'
+import { Upload, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -10,31 +9,33 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useSessionInfo } from '@/lib/auth/sessionStorage'
-import { signInHintDismissedAtStorage } from '@/lib/onboarding/onboardingStorage'
+import { importHintDismissedAtStorage } from '@/lib/onboarding/onboardingStorage'
 
-const LONG_DISMISS_DURATION = 90 * 24 * 60 * 60 * 1000
+const importSettingsURL = 'chrome://settings/importData'
 
-export const SignInHint = () => {
-  const { sessionInfo } = useSessionInfo()
-  const isLoggedIn = !!sessionInfo?.user
-  const navigate = useNavigate()
+export const ImportDataHint = () => {
   const [dismissed, setDismissed] = useState(false)
   const [dontAskAgain, setDontAskAgain] = useState(false)
 
   const handleDismiss = async () => {
     setDismissed(true)
-    const dismissUntil = dontAskAgain
-      ? Date.now() + LONG_DISMISS_DURATION
-      : Date.now()
-    await signInHintDismissedAtStorage.setValue(dismissUntil)
+    if (dontAskAgain) {
+      await importHintDismissedAtStorage.setValue(
+        Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+      )
+    } else {
+      await importHintDismissedAtStorage.setValue(Date.now())
+    }
   }
 
-  const show = !dismissed && !isLoggedIn
+  const handleImport = () => {
+    chrome.tabs.create({ url: importSettingsURL })
+    handleDismiss()
+  }
 
   return (
     <AnimatePresence>
-      {show && (
+      {!dismissed && (
         <motion.div
           className="fixed right-4 bottom-4 z-50"
           initial={{ opacity: 0, x: 100 }}
@@ -46,8 +47,8 @@ export const SignInHint = () => {
             <CardHeader className="gap-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                  <Cloud className="size-5 text-muted-foreground" />
-                  <CardTitle className="text-base">Sync your data</CardTitle>
+                  <Upload className="size-5 text-muted-foreground" />
+                  <CardTitle className="text-base">Import your data</CardTitle>
                 </div>
                 <Button
                   variant="ghost"
@@ -59,23 +60,24 @@ export const SignInHint = () => {
                 </Button>
               </div>
               <CardDescription>
-                Sign in to sync conversation history to the cloud.
+                Bring bookmarks, history, and passwords from Chrome.
               </CardDescription>
               <label
-                htmlFor="sync-dont-ask-again"
+                htmlFor="import-dont-ask-again"
                 className="flex items-center gap-2 text-muted-foreground text-sm"
               >
                 <Checkbox
-                  id="sync-dont-ask-again"
+                  id="import-dont-ask-again"
                   checked={dontAskAgain}
                   onCheckedChange={(checked) =>
                     setDontAskAgain(checked === true)
                   }
                 />
-                Don't ask again
+                Don't show this again
               </label>
-              <Button className="w-full" onClick={() => navigate('/login')}>
-                Sign in
+              <Button className="w-full" onClick={handleImport}>
+                <Upload className="size-4" />
+                Open Import Settings
               </Button>
             </CardHeader>
           </Card>
