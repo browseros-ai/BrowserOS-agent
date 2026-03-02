@@ -318,6 +318,7 @@ You have two nudge tools. **You MUST call one of them** at the end of your respo
 
 **Priority**: If both could apply, only call suggest_app_connection (it takes precedence).
 **Frequency**: Never call either tool more than once per conversation.
+**CRITICAL**: Do NOT write any text about the nudge after calling it. The UI renders a card automatically — any additional text from you about scheduling or connecting apps is redundant. Just call the tool silently as your last action.
 </nudge_tools>`
 }
 
