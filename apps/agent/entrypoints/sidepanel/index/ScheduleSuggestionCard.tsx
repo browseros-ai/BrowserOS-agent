@@ -3,14 +3,9 @@ import { type FC, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   BREADCRUMB_SCHEDULE_CLICKED_EVENT,
-  BREADCRUMB_SCHEDULE_DISMISSED_EVENT,
   BREADCRUMB_SCHEDULE_SHOWN_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
-import {
-  isDismissedWithinCooldown,
-  scheduleSuggestionDismissedAtStorage,
-} from '@/lib/onboarding/breadcrumbStorage'
 import type { NudgeData } from './getMessageSegments'
 
 interface ScheduleSuggestionCardProps {
@@ -21,27 +16,20 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   data,
 }) => {
   const [dismissed, setDismissed] = useState(false)
-  const [alreadyDismissed, setAlreadyDismissed] = useState(true)
-
-  useEffect(() => {
-    scheduleSuggestionDismissedAtStorage.getValue().then((dismissedAt) => {
-      const cooldownActive = isDismissedWithinCooldown(dismissedAt)
-      setAlreadyDismissed(cooldownActive)
-      if (!cooldownActive) {
-        track(BREADCRUMB_SCHEDULE_SHOWN_EVENT, {
-          suggested_name: data.suggestedName,
-          schedule_type: data.scheduleType,
-        })
-      }
-    })
-  }, [data.suggestedName, data.scheduleType])
-
-  if (dismissed || alreadyDismissed) return null
 
   const suggestedName = (data.suggestedName as string) ?? 'Scheduled Task'
   const scheduleType = (data.scheduleType as string) ?? 'daily'
   const scheduleTime = (data.scheduleTime as string) ?? '09:00'
   const query = (data.query as string) ?? ''
+
+  useEffect(() => {
+    track(BREADCRUMB_SCHEDULE_SHOWN_EVENT, {
+      suggested_name: suggestedName,
+      schedule_type: scheduleType,
+    })
+  }, [suggestedName, scheduleType])
+
+  if (dismissed) return null
 
   const scheduleLabel =
     scheduleType === 'daily' ? `daily at ${scheduleTime}` : 'every hour'
@@ -66,17 +54,11 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
     chrome.tabs.create({ url })
   }
 
-  const handleDismiss = () => {
-    track(BREADCRUMB_SCHEDULE_DISMISSED_EVENT)
-    scheduleSuggestionDismissedAtStorage.setValue(Date.now())
-    setDismissed(true)
-  }
-
   return (
     <div className="relative rounded-lg border border-border/50 bg-card p-4 shadow-sm">
       <button
         type="button"
-        onClick={handleDismiss}
+        onClick={() => setDismissed(true)}
         className="absolute top-2 right-2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         <X className="h-4 w-4" />
@@ -96,7 +78,7 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
         <Button size="sm" onClick={handleSchedule}>
           Schedule this task
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleDismiss}>
+        <Button size="sm" variant="ghost" onClick={() => setDismissed(true)}>
           Maybe later
         </Button>
       </div>

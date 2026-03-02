@@ -195,10 +195,6 @@ export const BREADCRUMB_SCHEDULE_SHOWN_EVENT = 'breadcrumb.schedule.shown'
 export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
 
 /** @public */
-export const BREADCRUMB_SCHEDULE_DISMISSED_EVENT =
-  'breadcrumb.schedule.dismissed'
-
-/** @public */
 export const BREADCRUMB_CONNECT_SHOWN_EVENT = 'breadcrumb.connect.shown'
 
 /** @public */
