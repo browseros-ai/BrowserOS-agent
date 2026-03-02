@@ -124,7 +124,7 @@ Flags:
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sigCh := make(chan os.Signal, 1)
+	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	var wg sync.WaitGroup
@@ -138,9 +138,21 @@ Flags:
 	}
 	log(tagBuild, "controller-ext built")
 
+	// Run agent codegen if generated files don't exist
+	agentDir := filepath.Join(root, "apps/agent")
+	if _, err := os.Stat(filepath.Join(agentDir, "generated/graphql")); os.IsNotExist(err) {
+		log(tagBuild, "Running agent codegen...")
+		if err := runBlocking(ctx, agentDir, tagBuild,
+			"bun", "--env-file=.env.development", "graphql-codegen", "--config", "codegen.ts"); err != nil {
+			logf(tagBuild, "agent codegen failed: %v", err)
+			os.Exit(1)
+		}
+		log(tagBuild, "agent codegen done")
+	}
+
 	if *isManual {
 		log(tagBuild, "Building agent (dev)...")
-		if err := runBlocking(ctx, filepath.Join(root, "apps/agent"), tagBuild,
+		if err := runBlocking(ctx, agentDir, tagBuild,
 			"bun", "--env-file=.env.development", "wxt", "build", "--mode", "development"); err != nil {
 			logf(tagBuild, "agent build failed: %v", err)
 			os.Exit(1)
@@ -156,7 +168,7 @@ Flags:
 	} else {
 		procs = append(procs, startManaged(ctx, &wg, procConfig{
 			tag:     tagAgent,
-			dir:     filepath.Join(root, "apps/agent"),
+			dir:     agentDir,
 			env:     env,
 			restart: true,
 			cmd:     []string{"bun", "--env-file=.env.development", "wxt"},
@@ -182,8 +194,24 @@ Flags:
 
 	<-sigCh
 	fmt.Println()
-	log(tagInfo, "Shutting down...")
+	log(tagInfo, "Shutting down (Ctrl+C again to force)...")
 	cancel()
+
+	// Second signal → force exit
+	go func() {
+		<-sigCh
+		fmt.Println()
+		log(tagInfo, "Force killing all processes...")
+		for _, p := range procs {
+			p.mu.Lock()
+			proc := p.proc
+			p.mu.Unlock()
+			if proc != nil {
+				_ = syscall.Kill(-proc.Pid, syscall.SIGKILL)
+			}
+		}
+		os.Exit(1)
+	}()
 
 	for _, p := range procs {
 		p.stop()
