@@ -1,5 +1,5 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -8,28 +8,51 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
-import { onboardingCompletedStorage } from '@/lib/onboarding/onboardingStorage'
+import {
+  onboardingCompletedStorage,
+  onboardingProfileStorage,
+} from '@/lib/onboarding/onboardingStorage'
 
-const demoSuggestions = [
-  {
-    label: 'Summarize this page',
-    query: 'Summarize this page',
-    mode: 'chat' as const,
-  },
-  {
-    label: 'Find flights to Tokyo next week',
-    query: 'Find flights to Tokyo next week',
-    mode: 'agent' as const,
-  },
-  {
-    label: 'Compare prices for AirPods Pro',
-    query: 'Compare prices for AirPods Pro on Amazon and Best Buy',
-    mode: 'agent' as const,
-  },
-]
+function buildDemoSuggestions(company?: string) {
+  return [
+    company
+      ? {
+          label: `Search for ${company} and summarize the latest news`,
+          query: `Search for ${company} and summarize the latest news about them`,
+          mode: 'agent' as const,
+        }
+      : {
+          label: "What's the top tech news today",
+          query: "What's the top tech news today? Give me a brief summary",
+          mode: 'agent' as const,
+        },
+    {
+      label: "What's the top news today",
+      query:
+        "What's the top news today? Give me a brief summary of the biggest stories",
+      mode: 'agent' as const,
+    },
+    {
+      label: 'Find me a good restaurant nearby',
+      query: 'Find me a good restaurant nearby',
+      mode: 'agent' as const,
+    },
+  ]
+}
 
 export const OnboardingDemo = () => {
   const [customQuery, setCustomQuery] = useState('')
+  const [demoSuggestions, setDemoSuggestions] = useState(() =>
+    buildDemoSuggestions(),
+  )
+
+  useEffect(() => {
+    onboardingProfileStorage.getValue().then((profile) => {
+      if (profile?.company) {
+        setDemoSuggestions(buildDemoSuggestions(profile.company))
+      }
+    })
+  }, [])
 
   const completeOnboarding = async () => {
     await onboardingCompletedStorage.setValue(true)
