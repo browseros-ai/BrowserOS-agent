@@ -22,18 +22,19 @@ interface McpRouteDeps {
 
 export function createMcpRoutes(deps: McpRouteDeps) {
   const mcpServer = createMcpServer(deps)
+  const transport = new StreamableHTTPTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  })
 
   return new Hono<Env>().all('/', async (c) => {
     const scopeId = c.req.header('X-BrowserOS-Scope-Id') || 'ephemeral'
     metrics.log('mcp.request', { scopeId })
 
     try {
-      const transport = new StreamableHTTPTransport({
-        sessionIdGenerator: undefined,
-        enableJsonResponse: true,
-      })
-
-      await mcpServer.connect(transport)
+      if (!mcpServer.isConnected()) {
+        await mcpServer.connect(transport)
+      }
 
       return transport.handleRequest(c)
     } catch (error) {
