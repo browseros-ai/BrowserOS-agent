@@ -13,7 +13,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { signInHintDismissedAtStorage } from '@/lib/onboarding/onboardingStorage'
 
-const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000
 const LONG_DISMISS_DURATION = 90 * 24 * 60 * 60 * 1000
 
 export const SignInHint = () => {
@@ -26,7 +25,7 @@ export const SignInHint = () => {
   const handleDismiss = async () => {
     setDismissed(true)
     const dismissUntil = dontAskAgain
-      ? Date.now() + LONG_DISMISS_DURATION - DISMISS_DURATION
+      ? Date.now() + LONG_DISMISS_DURATION
       : Date.now()
     await signInHintDismissedAtStorage.setValue(dismissUntil)
   }
