@@ -117,6 +117,7 @@ Flags:
 	logf(tagInfo, "Mode: %s", mode)
 	logf(tagInfo, "Ports: CDP=%d Server=%d Extension=%d", p.cdp, p.server, p.extension)
 	logf(tagInfo, "Profile: %s", userDataDir)
+	log(tagInfo, "Press Ctrl+C to stop, double Ctrl+C to force kill")
 	fmt.Println()
 
 	env := buildEnv(p)
