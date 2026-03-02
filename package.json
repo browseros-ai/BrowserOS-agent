@@ -10,9 +10,9 @@
   ],
   "scripts": {
     "postinstall": "bun run build:agent-sdk",
-    "dev:watch": "cd tools/devwatch && go build -o devwatch . && cd ../.. && ./tools/devwatch/devwatch",
-    "dev:watch:new": "cd tools/devwatch && go build -o devwatch . && cd ../.. && ./tools/devwatch/devwatch --new",
-    "dev:manual": "cd tools/devwatch && go build -o devwatch . && cd ../.. && ./tools/devwatch/devwatch --manual",
+    "dev:watch": "./tools/devwatch/run.sh",
+    "dev:watch:new": "./tools/devwatch/run.sh --new",
+    "dev:manual": "./tools/devwatch/run.sh --manual",
     "start:server": "bun run --filter @browseros/server --elide-lines=0 start",
     "start:agent": "bun ./scripts/build/controller-ext.ts && bun run --filter @browseros/agent dev",
     "build:server": "FORCE_COLOR=1 bun run --filter @browseros/server --elide-lines=0 build",
