@@ -294,8 +294,8 @@ function getScheduledTask(
 ): string {
   if (!options?.isScheduledTask) return ''
   const windowLine = options.scheduledTaskWindowId
-    ? `3. When creating new pages with \`new_page\`, always pass \`windowId: ${options.scheduledTaskWindowId}\` to keep tabs in your hidden window.`
-    : '3. When creating new pages with `new_page`, pass the `windowId` from the Browser Context to keep tabs in your hidden window.'
+    ? `2. When creating new pages with \`new_page\`, always pass \`windowId: ${options.scheduledTaskWindowId}\` to keep tabs in your hidden window.`
+    : '2. When creating new pages with `new_page`, pass the `windowId` from the Browser Context to keep tabs in your hidden window.'
 
   return `<scheduled_task>
 You are running as a **scheduled background task** in a dedicated hidden browser window.
@@ -303,7 +303,7 @@ You are running as a **scheduled background task** in a dedicated hidden browser
 **CRITICAL RULES:**
 1. **Do NOT call \`get_active_page\`** — it returns the user's visible page, not yours. Use the **page ID from the Browser Context** as your starting page.
 2. ${windowLine}
-4. Complete the task end-to-end and report results.
+3. Complete the task end-to-end and report results.
 </scheduled_task>`
 }
 
