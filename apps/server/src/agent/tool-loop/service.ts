@@ -60,6 +60,35 @@ export class ChatV2Service {
     // Get or create agent session
     const isNewSession = !sessionStore.has(request.conversationId)
     let session = sessionStore.get(request.conversationId)
+    const mcpServerKey = this.buildMcpServerKey(request)
+
+    // Recreate session if MCP servers changed (e.g. user connected a new app)
+    if (session && session.mcpServerKey !== mcpServerKey) {
+      logger.info('MCP servers changed, recreating agent session', {
+        conversationId: request.conversationId,
+        previousKey: session.mcpServerKey,
+        newKey: mcpServerKey,
+      })
+      const previousMessages = session.agent.messages
+      await session.agent.dispose()
+
+      const agent = await AiSdkAgent.create({
+        resolvedConfig: agentConfig,
+        browser: this.deps.browser,
+        registry: this.deps.registry,
+        browserContext: request.browserContext,
+        klavisClient: this.deps.klavisClient,
+        browserosId: this.deps.browserosId,
+      })
+      agent.messages = previousMessages
+      session = {
+        agent,
+        hiddenWindowId: session.hiddenWindowId,
+        browserContext: session.browserContext,
+        mcpServerKey,
+      }
+      sessionStore.set(request.conversationId, session)
+    }
 
     if (!session) {
       // For scheduled tasks, create a hidden window so automation
@@ -103,7 +132,7 @@ export class ChatV2Service {
         klavisClient: this.deps.klavisClient,
         browserosId: this.deps.browserosId,
       })
-      session = { agent, hiddenWindowId, browserContext }
+      session = { agent, hiddenWindowId, browserContext, mcpServerKey }
       sessionStore.set(request.conversationId, session)
     }
 
@@ -175,6 +204,16 @@ export class ChatV2Service {
         error: error instanceof Error ? error.message : String(error),
       })
     })
+  }
+
+  private buildMcpServerKey(request: ChatRequest): string {
+    const managed =
+      request.browserContext?.enabledMcpServers?.slice().sort() ?? []
+    const custom =
+      request.browserContext?.customMcpServers
+        ?.map((s) => `${s.name}:${s.url}`)
+        .sort() ?? []
+    return [...managed, ...custom].join(',')
   }
 
   private async resolveSessionDir(request: ChatRequest): Promise<string> {

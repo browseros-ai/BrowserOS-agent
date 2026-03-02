@@ -7,6 +7,8 @@ export interface AgentSession {
   hiddenWindowId?: number
   /** Browser context scoped to the hidden window (scheduled tasks only) */
   browserContext?: BrowserContext
+  /** MCP server names used when the session was created, for change detection. */
+  mcpServerKey?: string
 }
 
 export class SessionStore {
