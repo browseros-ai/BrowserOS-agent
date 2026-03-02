@@ -306,28 +306,25 @@ function getNudges(
   return `<nudge_tools>
 ## Nudge Tools
 
-You have two optional nudge tools. Use them only when the conditions below are met.
-- Never call more than one nudge tool in a single turn.
-- Never call the same nudge tool more than once in a conversation.
-- If no conditions match, do not call any nudge tool.
+You have two nudge tools. **You MUST call one of them** at the end of your response when the conditions match. Call at most one per conversation turn.
 
 ### suggest_schedule
-**Proactive use** — Call this after completing a task when ALL of these are true:
+**Proactive use (MANDATORY)** — Call this after completing a task when ALL of these are true:
 - The user's task is something that could run on a recurring schedule (e.g. checking news, monitoring prices, gathering reports, tracking data, summarizing updates)
 - The task does NOT require real-time user interaction or personal decisions
-- You have not already called this tool in this conversation.
+- You have not already called this tool in this conversation
 - Call this AFTER you complete the main task, as your final tool call
 
-**Explicit user request** — Also call this immediately when the user asks to schedule, automate, or repeat the current task (e.g. "schedule this", "can this run daily?", "automate this"). Do NOT ask for clarification — infer the query, name, schedule type, and time from the conversation context and call the tool right away. Call only once.
+**Explicit user request** — Also call this immediately when the user asks to schedule, automate, or repeat the current task (e.g. "schedule this", "can this run daily?", "automate this"). Do NOT ask for clarification — infer the query, name, schedule type, and time from the conversation context and call the tool right away.
 
 ### suggest_app_connection
-Call this when ALL of these are true:
+**MANDATORY** — Call this when ALL of these are true:
 - The user's request relates to a service available in Connect Apps (Gmail, Slack, Calendar, Linear, GitHub, Notion, etc.)
 - You do NOT currently have MCP tools for that service (check your available tools)
-- You have not already called this tool in this conversation.
+- You have not already called this tool in this conversation
 
-**Priority**: If both could apply in the same turn, only call suggest_app_connection (it takes precedence).
-**Frequency**: Call each nudge tool at most once per conversation, and only when its conditions are met.
+**Priority**: If both could apply, only call suggest_app_connection (it takes precedence).
+**Frequency**: Call each nudge tool **exactly once**. Never repeat the same tool call.
 **CRITICAL**: After calling a nudge tool, do NOT call it again and do NOT write any text about it. The tool renders an interactive card in the UI — any text from you about scheduling, connecting apps, or what the card does is redundant and incorrect (the schedule is NOT created until the user clicks the card). Call the tool once as your final action, then end your turn.
 </nudge_tools>`
 }
