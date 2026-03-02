@@ -177,6 +177,7 @@ packages/*/dist
 browseros-server
 browseros-server.exe
 browseros-server-*
+tools/devwatch/devwatch
 
 log.txt
 
