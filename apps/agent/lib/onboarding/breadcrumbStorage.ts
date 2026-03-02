@@ -7,11 +7,6 @@ export const scheduleSuggestionDismissedAtStorage = storage.defineItem<number>(
   { fallback: 0 },
 )
 
-export const connectAppSuggestionDismissedAtStorage =
-  storage.defineItem<number>('local:connectAppSuggestionDismissedAt', {
-    fallback: 0,
-  })
-
 export function isDismissedWithinCooldown(dismissedAt: number): boolean {
   return Date.now() - dismissedAt < DISMISS_COOLDOWN_MS
 }

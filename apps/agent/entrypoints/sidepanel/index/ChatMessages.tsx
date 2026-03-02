@@ -127,6 +127,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                               <ConnectAppCard
                                 key={segment.key}
                                 data={segment.data}
+                                isLastMessage={isLastMessage}
                               />
                             )
                           default:

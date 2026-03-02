@@ -205,4 +205,4 @@ export const BREADCRUMB_CONNECT_SHOWN_EVENT = 'breadcrumb.connect.shown'
 export const BREADCRUMB_CONNECT_CLICKED_EVENT = 'breadcrumb.connect.clicked'
 
 /** @public */
-export const BREADCRUMB_CONNECT_DISMISSED_EVENT = 'breadcrumb.connect.dismissed'
+export const BREADCRUMB_CONNECT_MANUAL_EVENT = 'breadcrumb.connect.manual'

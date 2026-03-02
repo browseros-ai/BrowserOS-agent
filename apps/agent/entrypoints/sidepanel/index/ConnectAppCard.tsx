@@ -1,38 +1,44 @@
-import { Plug, X } from 'lucide-react'
+import { Check, Plug } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   BREADCRUMB_CONNECT_CLICKED_EVENT,
-  BREADCRUMB_CONNECT_DISMISSED_EVENT,
+  BREADCRUMB_CONNECT_MANUAL_EVENT,
   BREADCRUMB_CONNECT_SHOWN_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { track } from '@/lib/metrics/track'
-import {
-  connectAppSuggestionDismissedAtStorage,
-  isDismissedWithinCooldown,
-} from '@/lib/onboarding/breadcrumbStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { ApiKeyDialog } from '../../app/connect-mcp/ApiKeyDialog'
 import { useAddManagedServer } from '../../app/connect-mcp/useAddManagedServer'
 import { useSubmitApiKey } from '../../app/connect-mcp/useSubmitApiKey'
+import { useChatSessionContext } from '../layout/ChatSessionContext'
 import type { NudgeData } from './getMessageSegments'
+
+type CardPhase = 'choosing' | 'oauth-pending' | 'resolved'
 
 interface ConnectAppCardProps {
   data: NudgeData
+  isLastMessage: boolean
 }
 
-export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
-  const [dismissed, setDismissed] = useState(false)
-  const [alreadyDismissed, setAlreadyDismissed] = useState(true)
+export const ConnectAppCard: FC<ConnectAppCardProps> = ({
+  data,
+  isLastMessage,
+}) => {
+  const [phase, setPhase] = useState<CardPhase>(
+    isLastMessage ? 'choosing' : 'resolved',
+  )
   const [connecting, setConnecting] = useState(false)
   const [apiKeyServer, setApiKeyServer] = useState<{
     name: string
     apiKeyUrl: string
   } | null>(null)
+  const [resolvedText, setResolvedText] = useState('')
 
+  const { sendMessage } = useChatSessionContext()
   const { addServer } = useMcpServers()
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const { trigger: submitApiKeyMutation, isMutating: isSubmittingApiKey } =
@@ -42,16 +48,10 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
   const reason = (data.reason as string) ?? ''
 
   useEffect(() => {
-    connectAppSuggestionDismissedAtStorage.getValue().then((dismissedAt) => {
-      const cooldownActive = isDismissedWithinCooldown(dismissedAt)
-      setAlreadyDismissed(cooldownActive)
-      if (!cooldownActive) {
-        track(BREADCRUMB_CONNECT_SHOWN_EVENT, { app_name: appName })
-      }
-    })
-  }, [appName])
-
-  if (dismissed || alreadyDismissed) return null
+    if (phase === 'choosing') {
+      track(BREADCRUMB_CONNECT_SHOWN_EVENT, { app_name: appName })
+    }
+  }, [phase, appName])
 
   const handleConnect = async () => {
     setConnecting(true)
@@ -82,7 +82,8 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
         setConnecting(false)
       } else if (response.oauthUrl) {
         window.open(response.oauthUrl, '_blank')?.focus()
-        setDismissed(true)
+        setConnecting(false)
+        setPhase('oauth-pending')
       }
     } catch (e) {
       toast.error(`Failed to connect ${appName}`)
@@ -101,7 +102,11 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
       })
       toast.success(`${apiKeyServer.name} connected successfully`)
       setApiKeyServer(null)
-      setDismissed(true)
+      setResolvedText(`Connected ${appName}`)
+      setPhase('resolved')
+      sendMessage({
+        text: `I've connected ${appName}, continue with the task`,
+      })
     } catch (e) {
       toast.error(
         `Failed to connect ${apiKeyServer.name}: ${e instanceof Error ? e.message : 'Unknown error'}`,
@@ -110,24 +115,65 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
     }
   }
 
-  const handleDismiss = () => {
-    track(BREADCRUMB_CONNECT_DISMISSED_EVENT, { app_name: appName })
-    connectAppSuggestionDismissedAtStorage.setValue(Date.now())
-    setDismissed(true)
+  const handleOAuthComplete = () => {
+    setResolvedText(`Connected ${appName}`)
+    setPhase('resolved')
+    sendMessage({
+      text: `I've connected ${appName}, continue with the task`,
+    })
+  }
+
+  const handleManual = () => {
+    track(BREADCRUMB_CONNECT_MANUAL_EVENT, { app_name: appName })
+    setResolvedText(`Continuing without ${appName}`)
+    setPhase('resolved')
+    sendMessage({
+      text: `Continue without connecting ${appName}, do it manually with browser automation`,
+    })
+  }
+
+  if (phase === 'resolved') {
+    return (
+      <div className="rounded-lg border border-border/30 bg-muted/30 p-3">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <Check className="h-3.5 w-3.5" />
+          <span>{resolvedText || `${appName} decision made`}</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === 'oauth-pending') {
+    return (
+      <div className="rounded-lg border border-border/50 bg-card p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <Plug className="h-5 w-5 shrink-0 text-[var(--accent-orange)]" />
+          <div>
+            <p className="font-medium text-sm">
+              Authorize {appName} in the opened tab
+            </p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              Complete the sign-in flow, then click the button below.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <Button size="sm" onClick={handleOAuthComplete}>
+            I've authorized {appName}, continue
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleManual}>
+            Skip, do it manually
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
     <>
-      <div className="relative rounded-lg border border-border/50 bg-card p-4 shadow-sm">
-        <button
-          type="button"
-          onClick={handleDismiss}
-          className="absolute top-2 right-2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="flex items-start gap-3 pr-6">
+      <div className="rounded-lg border border-border/50 bg-card p-4 shadow-sm">
+        <div className="flex items-start gap-3">
           <Plug className="h-5 w-5 shrink-0 text-[var(--accent-orange)]" />
           <div>
             <p className="font-medium text-sm">
@@ -143,8 +189,8 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
           <Button size="sm" onClick={handleConnect} disabled={connecting}>
             {connecting ? 'Connecting...' : `Connect ${appName}`}
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleDismiss}>
-            Not now
+          <Button size="sm" variant="ghost" onClick={handleManual}>
+            Do it manually
           </Button>
         </div>
       </div>
