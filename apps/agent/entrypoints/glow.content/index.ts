@@ -1,3 +1,4 @@
+import confetti from 'canvas-confetti'
 import type { GlowMessage } from './GlowMessage'
 
 const GLOW_OVERLAY_ID = 'browseros-glow-overlay'
@@ -136,6 +137,52 @@ function startGlow(): void {
   }
 }
 
+function fireConfetti(): void {
+  const colors = ['#fb6618', '#ff8a4c', '#fbbf24', '#34d399', '#60a5fa']
+  const defaults = { colors, ticks: 200, gravity: 1.2, decay: 0.94 }
+
+  confetti({
+    ...defaults,
+    particleCount: 80,
+    spread: 70,
+    origin: { x: 0.3, y: 0.6 },
+    angle: 60,
+  })
+  confetti({
+    ...defaults,
+    particleCount: 80,
+    spread: 70,
+    origin: { x: 0.7, y: 0.6 },
+    angle: 120,
+  })
+
+  setTimeout(() => {
+    confetti({
+      ...defaults,
+      particleCount: 60,
+      spread: 100,
+      origin: { x: 0.5, y: 0.7 },
+    })
+  }, 150)
+
+  setTimeout(() => {
+    confetti({
+      ...defaults,
+      particleCount: 40,
+      spread: 120,
+      origin: { x: 0.4, y: 0.65 },
+      angle: 75,
+    })
+    confetti({
+      ...defaults,
+      particleCount: 40,
+      spread: 120,
+      origin: { x: 0.6, y: 0.65 },
+      angle: 105,
+    })
+  }, 350)
+}
+
 function stopGlow(): void {
   const overlay = document.getElementById(GLOW_OVERLAY_ID)
   if (overlay) {
@@ -163,6 +210,9 @@ export default defineContentScript({
         } else if (message.conversationId === activeConversationId) {
           activeConversationId = null
           stopGlow()
+          if (message.showConfetti) {
+            fireConfetti()
+          }
         }
 
         sendResponse({ success: true })

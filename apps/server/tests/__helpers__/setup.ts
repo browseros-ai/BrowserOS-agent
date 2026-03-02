@@ -59,7 +59,9 @@ async function isExtensionConnected(port: number): Promise<boolean> {
 
 async function waitForExtensionConnection(
   port: number,
-  maxAttempts = 30,
+  // Extension startup can be slow on a cold BrowserOS profile.
+  // Keep this aligned with typical per-test timeouts (30s).
+  maxAttempts = 60,
 ): Promise<void> {
   for (let i = 0; i < maxAttempts; i++) {
     if (await isExtensionConnected(port)) {
@@ -108,12 +110,25 @@ export async function ensureBrowserOS(
     configsMatch(serverState.config, config) &&
     configsMatch(browserState.config, config)
   ) {
-    if (
-      config.skipExtension ||
-      (await isExtensionConnected(config.serverPort))
-    ) {
+    if (config.skipExtension) {
       console.log('Reusing existing test environment')
       return config
+    }
+
+    if (await isExtensionConnected(config.serverPort)) {
+      console.log('Reusing existing test environment')
+      return config
+    }
+
+    // Same server+browser are already running; we just need the extension.
+    // Avoid restarting processes (which can flake by killing the test runner).
+    console.log('Reusing existing test environment (waiting for extension)...')
+    try {
+      await waitForExtensionConnection(config.serverPort)
+      console.log('Extension connected')
+      return config
+    } catch {
+      // Fall through to full setup below.
     }
   }
 

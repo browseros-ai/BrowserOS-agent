@@ -9,6 +9,7 @@
 export const TIMEOUTS = {
   // Agent/Tool execution
   TOOL_CALL: 120_000,
+  TOOL_POST_ACTION: 2_000,
   TEST_PROVIDER: 15_000,
 
   // Controller communication
@@ -21,6 +22,11 @@ export const TIMEOUTS = {
 
   // CDP connection
   CDP_CONNECT: 10_000,
+  CDP_CONNECT_RETRY_DELAY: 1_000,
+  CDP_RECONNECT_DELAY: 5_000,
+  CDP_KEEPALIVE_INTERVAL: 30_000,
+  CDP_KEEPALIVE_TIMEOUT: 10_000,
+  CDP_REQUEST_TIMEOUT: 60_000,
 
   // External API calls
   KLAVIS_FETCH: 30_000,

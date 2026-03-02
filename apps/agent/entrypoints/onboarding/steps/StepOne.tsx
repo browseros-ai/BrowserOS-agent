@@ -1,117 +1,295 @@
-import { ArrowRight, Clock, Key, Upload } from 'lucide-react'
-import type { FC } from 'react'
-import { toast } from 'sonner'
-import GoogleChromeLogo from '@/assets/google_chrome_logo.svg'
-import ProductLogoSvg from '@/assets/product_logo.svg'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod/v3'
 import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  ONBOARDING_ABOUT_SUBMITTED_EVENT,
+  ONBOARDING_STEP_COMPLETED_EVENT,
+} from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
+import { onboardingProfileStorage } from '@/lib/onboarding/onboardingStorage'
+import { personalizationStorage } from '@/lib/personalization/personalizationStorage'
+import { cn } from '@/lib/utils'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 interface StepOneProps {
   direction: StepDirection
+  onContinue: () => void
 }
 
-const importSettingsURL = 'chrome://settings/importData'
+const roles = [
+  'Software Engineer',
+  'Frontend Engineer',
+  'Backend Engineer',
+  'Full Stack Engineer',
+  'DevOps Engineer',
+  'Data Engineer',
+  'ML Engineer',
+  'Engineering Manager',
+  'Tech Lead',
+  'CTO',
+  'VP of Engineering',
+  'Product Manager',
+  'Product Designer',
+  'UX Researcher',
+  'QA Engineer',
+  'Solutions Architect',
+  'Developer Advocate',
+  'Data Scientist',
+  'Founder / Co-Founder',
+  'CEO',
+  'COO',
+  'Growth / Marketing',
+  'Sales Engineer',
+  'Customer Success',
+]
 
-export const StepOne: FC<StepOneProps> = ({ direction }) => {
-  const openImportSettings = () => {
-    chrome.tabs.create({ url: importSettingsURL })
-  }
+const formSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  role: z.string().min(1, 'Role is required'),
+  company: z.string().min(1, 'Company is required'),
+  description: z.string().optional(),
+})
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(importSettingsURL)
-    toast.success('Copied to clipboard!', {
-      position: 'bottom-center',
+type FormValues = z.infer<typeof formSchema>
+
+export const StepOne = ({ direction, onContinue }: StepOneProps) => {
+  const [roleOpen, setRoleOpen] = useState(false)
+  const [roleSearch, setRoleSearch] = useState('')
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      role: '',
+      company: '',
+      description: '',
+    },
+  })
+
+  const handleSubmit = async (values: FormValues) => {
+    const name = values.name.trim()
+    const role = values.role.trim()
+    const company = values.company.trim()
+    const description = values.description?.trim() || undefined
+
+    await onboardingProfileStorage.setValue({
+      name,
+      role,
+      company,
+      description,
     })
+
+    const parts: string[] = []
+    parts.push(`Name: ${name}`)
+    parts.push(`Role: ${role}`)
+    parts.push(`Company: ${company}`)
+    if (description) parts.push(`About: ${description}`)
+    await personalizationStorage.setValue(parts.join('\n'))
+
+    track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
+      fields_filled: parts.length,
+      has_name: true,
+      has_role: true,
+      has_company: true,
+      has_description: !!description,
+      role,
+    })
+
+    track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })
+    onContinue()
   }
 
   return (
     <StepTransition direction={direction}>
-      <div className="space-y-8">
-        <div className="space-y-2 text-center">
-          <h2 className="font-bold text-3xl tracking-tight md:text-4xl">
-            Seamless Migration
-          </h2>
-          <p className="mx-auto max-w-xl text-base text-muted-foreground">
-            Import bookmarks, history, and passwords from Chrome
-          </p>
-        </div>
-
-        {/* Visual representation */}
-        <div className="flex items-center justify-center gap-6 py-6">
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-card shadow-lg">
-              <img
-                src={GoogleChromeLogo}
-                alt="google-chrome"
-                className="h-10 w-10"
-              />
-            </div>
-            <span className="font-medium text-muted-foreground text-xs">
-              Chrome
-            </span>
+      <div className="flex h-full flex-col items-center justify-center">
+        <div className="w-full max-w-md space-y-6">
+          <div className="space-y-2 text-center">
+            <h2 className="font-bold text-3xl tracking-tight">
+              Tell us about yourself
+            </h2>
+            <p className="text-base text-muted-foreground">
+              Help us personalize your experience
+            </p>
           </div>
 
-          <ArrowRight className="h-5 w-5 animate-pulse text-muted-foreground" />
-
-          <div className="flex flex-col items-center gap-2">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl shadow-xl">
-              <img
-                src={ProductLogoSvg}
-                alt="BrowserOS"
-                className="h-full w-full"
-              />
-            </div>
-            <span className="font-medium text-accent-orange text-xs">
-              BrowserOS
-            </span>
-          </div>
-        </div>
-
-        {/* Compact feature grid */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="group relative overflow-hidden rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:bg-card">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-orange)]/0 to-[var(--accent-orange)]/5 opacity-0 transition-opacity group-hover:opacity-100" />
-            <Upload className="mb-2 h-5 w-5 text-[var(--accent-orange)]" />
-            <h3 className="mb-1 font-semibold text-sm">Bookmarks</h3>
-            <p className="text-muted-foreground text-xs">All saved sites</p>
-          </div>
-
-          <div className="group relative overflow-hidden rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:bg-card">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-orange)]/0 to-[var(--accent-orange)]/5 opacity-0 transition-opacity group-hover:opacity-100" />
-            <Clock className="mb-2 h-5 w-5 text-[var(--accent-orange)]" />
-            <h3 className="mb-1 font-semibold text-sm">History</h3>
-            <p className="text-muted-foreground text-xs">Browse timeline</p>
-          </div>
-
-          <div className="group relative overflow-hidden rounded-lg border border-border bg-card/50 p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:bg-card">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent-orange)]/0 to-[var(--accent-orange)]/5 opacity-0 transition-opacity group-hover:opacity-100" />
-            <Key className="mb-2 h-5 w-5 text-[var(--accent-orange)]" />
-            <h3 className="mb-1 font-semibold text-sm">Passwords</h3>
-            <p className="text-muted-foreground text-xs">Credentials</p>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="flex flex-col items-center gap-3 pt-2">
-          <Button
-            onClick={openImportSettings}
-            className="h-10 bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Open Import Settings
-          </Button>
-          <p className="text-center text-muted-foreground text-xs">
-            Import now or later from{' '}
-            <button
-              type="button"
-              className="cursor-pointer"
-              onClick={copyToClipboard}
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className="space-y-4"
             >
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[var(--accent-orange)]">
-                {importSettingsURL}
-              </code>
-            </button>
-          </p>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="What should we call you?"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your role</FormLabel>
+                    <Popover open={roleOpen} onOpenChange={setRoleOpen}>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between font-normal"
+                          >
+                            {field.value || (
+                              <span className="text-muted-foreground">
+                                Select or type a role
+                              </span>
+                            )}
+                            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="p-0"
+                        style={{
+                          width: 'var(--radix-popover-trigger-width)',
+                        }}
+                      >
+                        <Command>
+                          <CommandInput
+                            placeholder="Search roles..."
+                            value={roleSearch}
+                            onValueChange={setRoleSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty className="p-0" />
+                            <CommandGroup>
+                              {roleSearch.trim() &&
+                                !roles.some(
+                                  (r) =>
+                                    r.toLowerCase() ===
+                                    roleSearch.trim().toLowerCase(),
+                                ) && (
+                                  <CommandItem
+                                    value={roleSearch.trim()}
+                                    onSelect={() => {
+                                      field.onChange(roleSearch.trim())
+                                      setRoleOpen(false)
+                                      setRoleSearch('')
+                                    }}
+                                  >
+                                    <Check className="size-4 opacity-0" />
+                                    {roleSearch.trim()}
+                                  </CommandItem>
+                                )}
+                              {roles.map((r) => (
+                                <CommandItem
+                                  key={r}
+                                  value={r}
+                                  onSelect={(value) => {
+                                    field.onChange(
+                                      value === field.value ? '' : value,
+                                    )
+                                    setRoleOpen(false)
+                                    setRoleSearch('')
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'size-4',
+                                      field.value === r
+                                        ? 'opacity-100'
+                                        : 'opacity-0',
+                                    )}
+                                  />
+                                  {r}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Acme Inc." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      What does a typical day look like for you?
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="I spend most of my day researching competitors, writing specs, and coordinating with engineering..."
+                        rows={4}
+                        className="field-sizing-fixed"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+              >
+                Continue
+              </Button>
+            </form>
+          </Form>
         </div>
       </div>
     </StepTransition>

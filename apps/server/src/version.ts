@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import pkg from '../package.json' with { type: 'json' }
+// Replaced at build time via `define` in scripts/build/server.ts
+declare const __BROWSEROS_VERSION__: string
 
-export const VERSION = pkg.version
+export const VERSION: string =
+  typeof __BROWSEROS_VERSION__ !== 'undefined'
+    ? __BROWSEROS_VERSION__
+    : '0.0.0-dev'

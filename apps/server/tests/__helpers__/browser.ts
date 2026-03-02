@@ -80,6 +80,7 @@ export async function spawnBrowser(
       '--enable-logging=stderr',
       ...(headless ? ['--headless=new'] : []),
       `--user-data-dir=${tempUserDataDir}`,
+      // TODO: replace with --browseros-cdp-port once we fix the browseros bug
       `--remote-debugging-port=${config.cdpPort}`,
       `--browseros-mcp-port=${config.serverPort}`,
       `--browseros-extension-port=${config.extensionPort}`,

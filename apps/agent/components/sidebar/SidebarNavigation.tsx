@@ -1,4 +1,11 @@
-import { CalendarClock, GitBranch, Home, Settings, UserPen } from 'lucide-react'
+import {
+  CalendarClock,
+  GitBranch,
+  Home,
+  PlugZap,
+  Settings,
+  UserPen,
+} from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import {
@@ -30,7 +37,13 @@ const primaryNavItems: NavItem[] = [
     icon: GitBranch,
     feature: Feature.WORKFLOW_SUPPORT,
   },
-  { name: 'Scheduled', to: '/scheduled', icon: CalendarClock },
+  { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
+  {
+    name: 'Connect Apps',
+    to: '/connect-apps',
+    icon: PlugZap,
+    feature: Feature.MANAGED_MCP_SUPPORT,
+  },
   {
     name: 'Personalize',
     to: '/home/personalize',

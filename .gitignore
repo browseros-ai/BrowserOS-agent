@@ -58,7 +58,10 @@ jspm_packages/
 web_modules/
 
 # Claude
-.claude
+.claude/*
+!.claude/skills/
+!.claude/commands/
+.worktrees/
 
 # Build unpublished docs
 # docs/
@@ -184,3 +187,5 @@ tmp/
 
 # Coding agent artifacts
 .agent/
+.llm/
+.grove/

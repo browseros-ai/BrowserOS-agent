@@ -42,8 +42,8 @@ jobs:
       - name: Install dependencies
         run: bun ci
 
-      - name: Build Agent SDK package
-        run: bun run build:agent-sdk
+      - name: Run codegen
+        run: bun run --cwd apps/agent codegen
 
       - name: Run Typecheck
         run: bun run typecheck

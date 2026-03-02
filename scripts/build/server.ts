@@ -25,7 +25,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { parse } from 'dotenv'
@@ -181,6 +181,7 @@ function runCommand(
 
 async function bundleWithPlugins(
   envVars: Record<string, string>,
+  version: string,
 ): Promise<void> {
   rmSync(BUNDLE_DIR, { recursive: true, force: true })
   mkdirSync(BUNDLE_DIR, { recursive: true })
@@ -191,12 +192,15 @@ async function bundleWithPlugins(
     target: 'bun',
     minify: true,
     sourcemap: 'linked',
-    define: Object.fromEntries(
-      Object.entries(envVars).map(([k, v]) => [
-        `process.env.${k}`,
-        JSON.stringify(v),
-      ]),
-    ),
+    define: {
+      ...Object.fromEntries(
+        Object.entries(envVars).map(([k, v]) => [
+          `process.env.${k}`,
+          JSON.stringify(v),
+        ]),
+      ),
+      __BROWSEROS_VERSION__: JSON.stringify(version),
+    },
     external: ['node-pty'],
     plugins: [wasmBinaryPlugin()],
   })
@@ -294,6 +298,9 @@ async function build(config: BuildConfig): Promise<void> {
 
   mkdirSync('dist/server', { recursive: true })
 
+  // Bun compiled binaries require a package.json next to the executable
+  writeFileSync('dist/server/package.json', JSON.stringify({ type: 'module' }))
+
   if (shouldUploadSourceMaps) {
     log.step('Building source maps...')
     await buildSourceMaps(buildEnv)
@@ -301,7 +308,7 @@ async function build(config: BuildConfig): Promise<void> {
   }
 
   log.step('Bundling with WASM plugin...')
-  await bundleWithPlugins(envVars)
+  await bundleWithPlugins(envVars, version)
   log.success('Bundle created with embedded WASM')
 
   for (const targetKey of targets) {
