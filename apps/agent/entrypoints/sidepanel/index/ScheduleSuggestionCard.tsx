@@ -61,7 +61,7 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
     })
 
     const url = chrome.runtime.getURL(
-      `app.html#/settings/scheduled?${params.toString()}`,
+      `app.html#/scheduled?${params.toString()}`,
     )
     chrome.tabs.create({ url })
   }
