@@ -10,7 +10,10 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { track } from '@/lib/metrics/track'
-import { connectAppSuggestionDismissedStorage } from '@/lib/onboarding/breadcrumbStorage'
+import {
+  connectAppSuggestionDismissedAtStorage,
+  isDismissedWithinCooldown,
+} from '@/lib/onboarding/breadcrumbStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { useAddManagedServer } from '../../app/connect-mcp/useAddManagedServer'
 import type { NudgeData } from './getMessageSegments'
@@ -31,9 +34,10 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
   const reason = (data.reason as string) ?? ''
 
   useEffect(() => {
-    connectAppSuggestionDismissedStorage.getValue().then((val) => {
-      setAlreadyDismissed(val)
-      if (!val) {
+    connectAppSuggestionDismissedAtStorage.getValue().then((dismissedAt) => {
+      const cooldownActive = isDismissedWithinCooldown(dismissedAt)
+      setAlreadyDismissed(cooldownActive)
+      if (!cooldownActive) {
         track(BREADCRUMB_CONNECT_SHOWN_EVENT, { app_name: appName })
       }
     })
@@ -81,7 +85,7 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({ data }) => {
 
   const handleDismiss = () => {
     track(BREADCRUMB_CONNECT_DISMISSED_EVENT, { app_name: appName })
-    connectAppSuggestionDismissedStorage.setValue(true)
+    connectAppSuggestionDismissedAtStorage.setValue(Date.now())
     setDismissed(true)
   }
 

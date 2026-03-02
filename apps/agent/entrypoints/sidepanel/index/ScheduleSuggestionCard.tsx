@@ -7,7 +7,10 @@ import {
   BREADCRUMB_SCHEDULE_SHOWN_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
-import { scheduleSuggestionDismissedStorage } from '@/lib/onboarding/breadcrumbStorage'
+import {
+  isDismissedWithinCooldown,
+  scheduleSuggestionDismissedAtStorage,
+} from '@/lib/onboarding/breadcrumbStorage'
 import type { NudgeData } from './getMessageSegments'
 
 interface ScheduleSuggestionCardProps {
@@ -21,9 +24,10 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   const [alreadyDismissed, setAlreadyDismissed] = useState(true)
 
   useEffect(() => {
-    scheduleSuggestionDismissedStorage.getValue().then((val) => {
-      setAlreadyDismissed(val)
-      if (!val) {
+    scheduleSuggestionDismissedAtStorage.getValue().then((dismissedAt) => {
+      const cooldownActive = isDismissedWithinCooldown(dismissedAt)
+      setAlreadyDismissed(cooldownActive)
+      if (!cooldownActive) {
         track(BREADCRUMB_SCHEDULE_SHOWN_EVENT, {
           suggested_name: data.suggestedName,
           schedule_type: data.scheduleType,
@@ -64,7 +68,7 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
 
   const handleDismiss = () => {
     track(BREADCRUMB_SCHEDULE_DISMISSED_EVENT)
-    scheduleSuggestionDismissedStorage.setValue(true)
+    scheduleSuggestionDismissedAtStorage.setValue(Date.now())
     setDismissed(true)
   }
 
