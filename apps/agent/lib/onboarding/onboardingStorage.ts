@@ -31,3 +31,8 @@ export const authRedirectPathStorage = storage.defineItem<string | null>(
   'local:authRedirectPath',
   { fallback: null },
 )
+
+export const firstRunConfettiShownStorage = storage.defineItem<boolean>(
+  'local:firstRunConfettiShown',
+  { fallback: false },
+)
