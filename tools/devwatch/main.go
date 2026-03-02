@@ -15,37 +15,34 @@ import (
 	"sync"
 	"syscall"
 	"time"
-)
 
-const (
-	colorReset   = "\033[0m"
-	colorCyan    = "\033[36m"
-	colorMagenta = "\033[35m"
-	colorYellow  = "\033[33m"
-	colorBlue    = "\033[34m"
-	colorGreen   = "\033[32m"
-	colorRed     = "\033[31m"
+	"github.com/fatih/color"
 )
 
 type tag struct {
 	name  string
-	color string
+	color *color.Color
 }
 
 var (
-	tagBuild   = tag{"build", colorYellow}
-	tagAgent   = tag{"agent", colorMagenta}
-	tagServer  = tag{"server", colorCyan}
-	tagBrowser = tag{"browser", colorBlue}
-	tagInfo    = tag{"info", colorGreen}
+	tagBuild   = tag{"build", color.New(color.FgYellow)}
+	tagAgent   = tag{"agent", color.New(color.FgMagenta)}
+	tagServer  = tag{"server", color.New(color.FgCyan)}
+	tagBrowser = tag{"browser", color.New(color.FgBlue)}
+	tagInfo    = tag{"info", color.New(color.FgGreen)}
+
+	errorColor = color.New(color.FgRed)
+	warnColor  = color.New(color.FgYellow)
+	boldColor  = color.New(color.Bold)
+	dimColor   = color.New(color.Faint)
 )
 
-func log(t tag, msg string) {
-	fmt.Printf("%s[%s]%s %s\n", t.color, t.name, colorReset, msg)
+func logMsg(t tag, msg string) {
+	fmt.Printf("%s %s\n", t.color.Sprintf("[%s]", t.name), msg)
 }
 
-func logf(t tag, format string, args ...any) {
-	log(t, fmt.Sprintf(format, args...))
+func logMsgf(t tag, format string, args ...any) {
+	logMsg(t, fmt.Sprintf(format, args...))
 }
 
 type ports struct {
@@ -66,22 +63,24 @@ func main() {
 	isNew := flag.Bool("new", false, "Find available ports and create a fresh user-data directory")
 	isManual := flag.Bool("manual", false, "Build agent statically instead of WXT HMR mode")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, `Usage: devwatch [flags]
-
-Starts the BrowserOS dev environment with process supervision.
-
-Default mode (watch): Runs agent with WXT HMR, auto-launches BrowserOS.
-Manual mode: Builds agent statically, launches BrowserOS directly.
-
-Flags:
-`)
+		fmt.Fprint(os.Stderr, boldColor.Sprint("devwatch"))
+		fmt.Fprintln(os.Stderr, dimColor.Sprint(" — BrowserOS dev environment"))
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, boldColor.Sprint("Usage:"))
+		fmt.Fprintln(os.Stderr, "  devwatch [flags]")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, boldColor.Sprint("Modes:"))
+		fmt.Fprintln(os.Stderr, dimColor.Sprint("  (default)    Watch mode — agent with WXT HMR, auto-launches BrowserOS"))
+		fmt.Fprintln(os.Stderr, dimColor.Sprint("  --manual     Manual mode — builds agent statically, launches BrowserOS directly"))
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, boldColor.Sprint("Flags:"))
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 
 	root, err := findMonorepoRoot()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		fmt.Fprintln(os.Stderr, errorColor.Sprintf("Error: %v", err))
 		os.Exit(1)
 	}
 
@@ -89,24 +88,24 @@ Flags:
 	userDataDir := "/tmp/browseros-dev"
 
 	if *isNew {
-		log(tagInfo, "Finding available ports...")
+		logMsg(tagInfo, "Finding available ports...")
 		p.cdp = findAvailablePort(p.cdp)
 		p.server = findAvailablePort(p.server)
 		p.extension = findAvailablePort(p.extension)
 
 		dir, err := os.MkdirTemp("", "browseros-dev-")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating temp dir: %v\n", err)
+			fmt.Fprintln(os.Stderr, errorColor.Sprintf("Error creating temp dir: %v", err))
 			os.Exit(1)
 		}
 		userDataDir = dir
-		logf(tagInfo, "Created fresh profile: %s", userDataDir)
+		logMsgf(tagInfo, "Created fresh profile: %s", userDataDir)
 	} else {
-		log(tagInfo, "Killing processes on default ports...")
+		logMsg(tagInfo, "Killing processes on default ports...")
 		killPort(p.cdp)
 		killPort(p.server)
 		killPort(p.extension)
-		log(tagInfo, "Ports cleared")
+		logMsg(tagInfo, "Ports cleared")
 	}
 
 	fmt.Println()
@@ -114,10 +113,10 @@ Flags:
 	if *isManual {
 		mode = "manual"
 	}
-	logf(tagInfo, "Mode: %s", mode)
-	logf(tagInfo, "Ports: CDP=%d Server=%d Extension=%d", p.cdp, p.server, p.extension)
-	logf(tagInfo, "Profile: %s", userDataDir)
-	log(tagInfo, "Press Ctrl+C to stop, double Ctrl+C to force kill")
+	logMsgf(tagInfo, "Mode: %s", boldColor.Sprint(mode))
+	logMsgf(tagInfo, "Ports: CDP=%d Server=%d Extension=%d", p.cdp, p.server, p.extension)
+	logMsgf(tagInfo, "Profile: %s", userDataDir)
+	logMsg(tagInfo, dimColor.Sprint("Press Ctrl+C to stop, double Ctrl+C to force kill"))
 	fmt.Println()
 
 	env := buildEnv(p)
@@ -132,33 +131,33 @@ Flags:
 	var procs []*managedProc
 
 	// Pre-build controller-ext (blocking)
-	log(tagBuild, "Building controller-ext...")
+	logMsg(tagBuild, "Building controller-ext...")
 	if err := runBlocking(ctx, root, tagBuild, "bun", "--cwd", "apps/controller-ext", "build"); err != nil {
-		logf(tagBuild, "controller-ext build failed: %v", err)
+		logMsg(tagBuild, errorColor.Sprintf("controller-ext build failed: %v", err))
 		os.Exit(1)
 	}
-	log(tagBuild, "controller-ext built")
+	logMsg(tagBuild, "controller-ext built")
 
 	// Run agent codegen if generated files don't exist
 	agentDir := filepath.Join(root, "apps/agent")
 	if _, err := os.Stat(filepath.Join(agentDir, "generated/graphql")); os.IsNotExist(err) {
-		log(tagBuild, "Running agent codegen...")
+		logMsg(tagBuild, "Running agent codegen...")
 		if err := runBlocking(ctx, agentDir, tagBuild,
 			"bun", "--env-file=.env.development", "graphql-codegen", "--config", "codegen.ts"); err != nil {
-			logf(tagBuild, "agent codegen failed: %v", err)
+			logMsg(tagBuild, errorColor.Sprintf("agent codegen failed: %v", err))
 			os.Exit(1)
 		}
-		log(tagBuild, "agent codegen done")
+		logMsg(tagBuild, "agent codegen done")
 	}
 
 	if *isManual {
-		log(tagBuild, "Building agent (dev)...")
+		logMsg(tagBuild, "Building agent (dev)...")
 		if err := runBlocking(ctx, agentDir, tagBuild,
 			"bun", "--env-file=.env.development", "wxt", "build", "--mode", "development"); err != nil {
-			logf(tagBuild, "agent build failed: %v", err)
+			logMsg(tagBuild, errorColor.Sprintf("agent build failed: %v", err))
 			os.Exit(1)
 		}
-		log(tagBuild, "agent built")
+		logMsg(tagBuild, "agent built")
 
 		procs = append(procs, startManaged(ctx, &wg, procConfig{
 			tag:     tagBrowser,
@@ -177,11 +176,11 @@ Flags:
 	}
 
 	// Wait for CDP
-	log(tagServer, "Waiting for CDP...")
+	logMsg(tagServer, "Waiting for CDP...")
 	if waitForCDP(ctx, p.cdp, 60) {
-		log(tagServer, "CDP ready")
+		logMsg(tagServer, "CDP ready")
 	} else {
-		log(tagServer, "Warning: CDP not available, starting server anyway")
+		logMsg(tagServer, warnColor.Sprint("CDP not available, starting server anyway"))
 	}
 
 	// Start server
@@ -195,14 +194,14 @@ Flags:
 
 	<-sigCh
 	fmt.Println()
-	log(tagInfo, "Shutting down (Ctrl+C again to force)...")
+	logMsg(tagInfo, warnColor.Sprint("Shutting down (Ctrl+C again to force)..."))
 	cancel()
 
 	// Second signal → force exit
 	go func() {
 		<-sigCh
 		fmt.Println()
-		log(tagInfo, "Force killing all processes...")
+		logMsg(tagInfo, errorColor.Sprint("Force killing all processes..."))
 		for _, p := range procs {
 			p.mu.Lock()
 			proc := p.proc
@@ -218,7 +217,7 @@ Flags:
 		p.stop()
 	}
 	wg.Wait()
-	log(tagInfo, "All processes stopped")
+	logMsg(tagInfo, "All processes stopped")
 }
 
 type managedProc struct {
@@ -226,7 +225,7 @@ type managedProc struct {
 	cancel context.CancelFunc
 	mu     sync.Mutex
 	proc   *os.Process
-	exited chan struct{} // closed each time the current process instance exits
+	exited chan struct{}
 }
 
 func startManaged(ctx context.Context, wg *sync.WaitGroup, cfg procConfig) *managedProc {
@@ -252,7 +251,7 @@ func (mp *managedProc) run(ctx context.Context) {
 			return
 		}
 
-		logf(mp.cfg.tag, "Starting: %s", strings.Join(mp.cfg.cmd, " "))
+		logMsgf(mp.cfg.tag, "Starting: %s", dimColor.Sprint(strings.Join(mp.cfg.cmd, " ")))
 
 		cmd := exec.Command(mp.cfg.cmd[0], mp.cfg.cmd[1:]...)
 		cmd.Dir = mp.cfg.dir
@@ -265,7 +264,7 @@ func (mp *managedProc) run(ctx context.Context) {
 		stderr, _ := cmd.StderrPipe()
 
 		if err := cmd.Start(); err != nil {
-			logf(mp.cfg.tag, "%sError starting: %v%s", colorRed, err, colorReset)
+			logMsg(mp.cfg.tag, errorColor.Sprintf("Error starting: %v", err))
 			if !mp.cfg.restart || ctx.Err() != nil {
 				return
 			}
@@ -295,18 +294,18 @@ func (mp *managedProc) run(ctx context.Context) {
 			return
 		}
 
-		exitErr := cmd.ProcessState.ExitCode()
-		if exitErr != 0 {
-			logf(mp.cfg.tag, "%sProcess exited with code %d%s", colorRed, exitErr, colorReset)
+		exitCode := cmd.ProcessState.ExitCode()
+		if exitCode != 0 {
+			logMsg(mp.cfg.tag, errorColor.Sprintf("Process exited with code %d", exitCode))
 		} else {
-			logf(mp.cfg.tag, "Process exited cleanly")
+			logMsg(mp.cfg.tag, "Process exited cleanly")
 		}
 
 		if !mp.cfg.restart {
 			return
 		}
 
-		log(mp.cfg.tag, "Restarting in 1s...")
+		logMsg(mp.cfg.tag, warnColor.Sprint("Restarting in 1s..."))
 		select {
 		case <-ctx.Done():
 			return
@@ -339,7 +338,7 @@ func streamLines(r interface{ Read([]byte) (int, error) }, t tag) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line != "" {
-			fmt.Printf("%s[%s]%s %s\n", t.color, t.name, colorReset, line)
+			fmt.Printf("%s %s\n", t.color.Sprintf("[%s]", t.name), line)
 		}
 	}
 }
@@ -423,7 +422,7 @@ func findAvailablePort(start int) int {
 			return port
 		}
 	}
-	logf(tagInfo, "%sWarning: could not find available port near %d, using %d%s", colorYellow, start, start, colorReset)
+	logMsg(tagInfo, warnColor.Sprintf("Could not find available port near %d, using %d", start, start))
 	return start
 }
 
