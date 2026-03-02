@@ -118,6 +118,7 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
       has_role: true,
       has_company: true,
       has_description: !!description,
+      role,
     })
 
     track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })

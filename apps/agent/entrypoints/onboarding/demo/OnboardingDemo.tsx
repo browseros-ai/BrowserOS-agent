@@ -59,11 +59,16 @@ export const OnboardingDemo = () => {
     track(ONBOARDING_COMPLETED_EVENT)
   }
 
-  const handleDemoTask = async (query: string, mode: 'chat' | 'agent') => {
+  const handleDemoTask = async (
+    query: string,
+    mode: 'chat' | 'agent',
+    index: number,
+  ) => {
     track(ONBOARDING_DEMO_TRIGGERED_EVENT, {
       query,
       mode,
       source: 'suggestion',
+      suggestion_index: index,
     })
     await completeOnboarding()
 
@@ -113,11 +118,13 @@ export const OnboardingDemo = () => {
         </div>
 
         <div className="space-y-3">
-          {demoSuggestions.map((suggestion) => (
+          {demoSuggestions.map((suggestion, index) => (
             <button
               key={suggestion.label}
               type="button"
-              onClick={() => handleDemoTask(suggestion.query, suggestion.mode)}
+              onClick={() =>
+                handleDemoTask(suggestion.query, suggestion.mode, index)
+              }
               className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-[var(--accent-orange)]/50 hover:bg-accent"
             >
               <span className="font-medium text-sm">{suggestion.label}</span>

@@ -183,4 +183,7 @@ export const ONBOARDING_SIGNIN_SKIPPED_EVENT = 'onboarding.signin.skipped'
 export const ONBOARDING_DEMO_TRIGGERED_EVENT = 'onboarding.demo.triggered'
 
 /** @public */
+export const ONBOARDING_FEATURE_CLICKED_EVENT = 'onboarding.feature.clicked'
+
+/** @public */
 export const ONBOARDING_COMPLETED_EVENT = 'onboarding.completed'

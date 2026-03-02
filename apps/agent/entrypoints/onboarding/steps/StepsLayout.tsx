@@ -1,8 +1,10 @@
 import { ArrowLeft, Check } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { ONBOARDING_STEP_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 import type { StepDirection } from './StepTransition'
 import { steps } from './steps'
 
@@ -17,6 +19,15 @@ export const StepsLayout = () => {
 
   const stepEntry = steps.find((each) => each.id === currentStep)
   const ActiveStep = stepEntry?.component ?? (() => null)
+
+  useEffect(() => {
+    if (stepEntry) {
+      track(ONBOARDING_STEP_VIEWED_EVENT, {
+        step: stepEntry.id,
+        step_name: stepEntry.name,
+      })
+    }
+  }, [currentStep])
 
   const onContinue = () => {
     setDirection(1)
