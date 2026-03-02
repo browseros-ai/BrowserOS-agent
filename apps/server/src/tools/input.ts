@@ -172,7 +172,6 @@ export const scroll = defineTool({
       args.element,
     )
     response.text(`Scrolled ${args.direction} by ${args.amount}`)
-    response.includeSnapshot(args.page)
   },
 })
 
