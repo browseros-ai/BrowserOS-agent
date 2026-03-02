@@ -20,6 +20,7 @@ export const StepsLayout = () => {
   const stepEntry = steps.find((each) => each.id === currentStep)
   const ActiveStep = stepEntry?.component ?? (() => null)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: track on step navigation only, stepEntry is derived from currentStep
   useEffect(() => {
     if (stepEntry) {
       track(ONBOARDING_STEP_VIEWED_EVENT, {
