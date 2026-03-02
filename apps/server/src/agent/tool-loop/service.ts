@@ -55,8 +55,6 @@ export class ChatV2Service {
       supportsImages: request.supportsImages,
       chatMode: request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,
-      scheduleDismissed: request.scheduleDismissed,
-      connectAppDismissed: request.connectAppDismissed,
     }
 
     // Get or create agent session

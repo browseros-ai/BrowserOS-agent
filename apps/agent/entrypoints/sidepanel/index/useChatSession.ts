@@ -23,11 +23,6 @@ import { formatConversationHistory } from '@/lib/conversations/formatConversatio
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
-import {
-  connectAppSuggestionDismissedAtStorage,
-  isDismissedWithinCooldown,
-  scheduleSuggestionDismissedAtStorage,
-} from '@/lib/onboarding/breadcrumbStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
@@ -214,15 +209,6 @@ export const useChatSession = () => {
 
         const action = getActionForMessage(message)
 
-        const [scheduleDismissedAt, connectAppDismissedAt] = await Promise.all([
-          scheduleSuggestionDismissedAtStorage.getValue(),
-          connectAppSuggestionDismissedAtStorage.getValue(),
-        ])
-        const scheduleDismissed = isDismissedWithinCooldown(scheduleDismissedAt)
-        const connectAppDismissed = isDismissedWithinCooldown(
-          connectAppDismissedAt,
-        )
-
         const browserContext: {
           windowId?: number
           activeTab?: {
@@ -302,8 +288,6 @@ export const useChatSession = () => {
             userSystemPrompt: personalizationRef.current,
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
-            scheduleDismissed,
-            connectAppDismissed,
             previousConversation,
           },
         }
