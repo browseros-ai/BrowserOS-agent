@@ -7,6 +7,8 @@ import {
   DialogPortal,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { ONBOARDING_FEATURE_CLICKED_EVENT } from '@/lib/constants/analyticsEvents'
+import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { VideoFrame } from './VideoFrame'
 
@@ -34,7 +36,13 @@ export const BentoCard: FC<BentoCardProps> = ({ feature, mounted, index }) => {
   const { Icon } = feature
 
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(open) => {
+        if (open) {
+          track(ONBOARDING_FEATURE_CLICKED_EVENT, { feature_id: feature.id })
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <div
           className={cn(

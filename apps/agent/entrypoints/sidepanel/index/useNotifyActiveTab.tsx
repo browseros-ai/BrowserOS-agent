@@ -1,6 +1,7 @@
 import type { ChatStatus, ToolUIPart, UIMessage } from 'ai'
 import { useEffect, useRef } from 'react'
 import type { GlowMessage } from '@/entrypoints/glow.content/GlowMessage'
+import { firstRunConfettiShownStorage } from '@/lib/onboarding/onboardingStorage'
 
 function extractTabId(toolPart: ToolUIPart | null): number | undefined {
   if (!toolPart) return undefined
@@ -44,13 +45,21 @@ export const useNotifyActiveTab = ({
 
     if (!isStreaming) {
       if (previousTabId) {
-        const deactivateMessage: GlowMessage = {
-          conversationId,
-          isActive: false,
+        const deactivate = async () => {
+          const alreadyShown = await firstRunConfettiShownStorage.getValue()
+          const deactivateMessage: GlowMessage = {
+            conversationId,
+            isActive: false,
+            showConfetti: !alreadyShown,
+          }
+          chrome.tabs
+            .sendMessage(previousTabId, deactivateMessage)
+            .catch(() => {})
+          if (!alreadyShown) {
+            await firstRunConfettiShownStorage.setValue(true)
+          }
         }
-        chrome.tabs
-          .sendMessage(previousTabId, deactivateMessage)
-          .catch(() => {})
+        deactivate()
         lastTabIdRef.current = null
       }
       return
