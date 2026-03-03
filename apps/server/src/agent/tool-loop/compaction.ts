@@ -649,7 +649,10 @@ function isCompactionState(v: unknown): v is CompactionState {
     typeof v === 'object' &&
     v !== null &&
     'compactionCount' in v &&
-    typeof (v as CompactionState).compactionCount === 'number'
+    typeof (v as CompactionState).compactionCount === 'number' &&
+    'existingSummary' in v &&
+    ((v as CompactionState).existingSummary === null ||
+      typeof (v as CompactionState).existingSummary === 'string')
   )
 }
 
