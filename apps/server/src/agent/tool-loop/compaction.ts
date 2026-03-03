@@ -489,7 +489,7 @@ async function compactMessages(
     historyMessages.length > 0
       ? truncateToolOutputs(historyMessages, config.toolOutputMaxChars)
       : []
-  const truncatedTurnPrefix =
+  let truncatedTurnPrefix =
     turnPrefixMessages.length > 0
       ? truncateToolOutputs(turnPrefixMessages, config.toolOutputMaxChars)
       : []
@@ -504,6 +504,20 @@ async function compactMessages(
         maxSummarizationInput: config.maxSummarizationInput,
       })
       toSummarize = slidingWindow(toSummarize, config.maxSummarizationInput)
+    }
+  }
+
+  if (truncatedTurnPrefix.length > 0) {
+    const prefixTokens = estimateTokens(truncatedTurnPrefix)
+    if (prefixTokens > config.maxSummarizationInput) {
+      logger.info('Capping turn prefix input, dropping oldest messages', {
+        excess: prefixTokens - config.maxSummarizationInput,
+        maxSummarizationInput: config.maxSummarizationInput,
+      })
+      truncatedTurnPrefix = slidingWindow(
+        truncatedTurnPrefix,
+        config.maxSummarizationInput,
+      )
     }
   }
 
