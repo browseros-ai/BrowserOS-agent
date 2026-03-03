@@ -99,7 +99,7 @@ export const getMessageSegments = (
           isStreaming && i === message.parts.length - 1 && isLastMessage,
       })
       reasoningSegmentCount++
-    } else if (part.type.startsWith('tool-')) {
+    } else if (part.type?.startsWith('tool-')) {
       const toolPart = part as {
         toolCallId: string
         type: string

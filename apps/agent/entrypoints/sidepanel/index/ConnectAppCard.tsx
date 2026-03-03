@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import {
   BREADCRUMB_CONNECT_CLICKED_EVENT,
   BREADCRUMB_CONNECT_MANUAL_EVENT,
-  BREADCRUMB_CONNECT_SHOWN_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
@@ -48,12 +47,6 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
 
   const appName = (data.appName as string) ?? 'App'
   const reason = (data.reason as string) ?? ''
-
-  useEffect(() => {
-    if (phase === 'choosing') {
-      track(BREADCRUMB_CONNECT_SHOWN_EVENT, { app_name: appName })
-    }
-  }, [phase, appName])
 
   useEffect(() => {
     if (!isLastMessage && phase === 'choosing') {

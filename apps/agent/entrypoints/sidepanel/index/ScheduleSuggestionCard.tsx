@@ -1,10 +1,7 @@
 import { Clock, X } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import {
-  BREADCRUMB_SCHEDULE_CLICKED_EVENT,
-  BREADCRUMB_SCHEDULE_SHOWN_EVENT,
-} from '@/lib/constants/analyticsEvents'
+import { BREADCRUMB_SCHEDULE_CLICKED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import type { NudgeData } from './getMessageSegments'
 
@@ -29,15 +26,6 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
       setDismissed(true)
     }
   }, [isLastMessage])
-
-  useEffect(() => {
-    if (!dismissed) {
-      track(BREADCRUMB_SCHEDULE_SHOWN_EVENT, {
-        suggested_name: suggestedName,
-        schedule_type: scheduleType,
-      })
-    }
-  }, [suggestedName, scheduleType, dismissed])
 
   if (dismissed) return null
 
