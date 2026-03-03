@@ -44,5 +44,5 @@ try {
   process.exit(EXIT_CODES.GENERAL_ERROR)
 }
 
-process.on('SIGINT', () => app.stop())
-process.on('SIGTERM', () => app.stop())
+process.on('SIGINT', () => app.stop('SIGINT'))
+process.on('SIGTERM', () => app.stop('SIGTERM'))

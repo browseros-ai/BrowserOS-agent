@@ -95,7 +95,7 @@ export class Application {
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
 
-        onShutdown: () => this.stop(),
+        onShutdown: () => this.stop('shutdown-endpoint'),
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)
@@ -113,8 +113,8 @@ export class Application {
     metrics.log('http_server.started', { version: VERSION })
   }
 
-  stop(): void {
-    logger.info('Shutting down server...')
+  stop(reason?: string): void {
+    logger.info('Shutting down server...', { reason })
 
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
