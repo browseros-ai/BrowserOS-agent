@@ -7,6 +7,7 @@ import {
   update_bookmark,
 } from './bookmarks'
 import { browseros_info } from './browseros-info'
+import { get_dom, search_dom } from './dom'
 import {
   delete_history_range,
   delete_history_url,
@@ -78,11 +79,13 @@ export const registry = createRegistry([
   close_page,
   // wait_for, // temporarily disabled
 
-  // Observation (6)
+  // Observation (8)
   take_snapshot,
   take_enhanced_snapshot,
   get_page_content,
   get_page_links,
+  get_dom,
+  search_dom,
   take_screenshot,
   evaluate_script,
 

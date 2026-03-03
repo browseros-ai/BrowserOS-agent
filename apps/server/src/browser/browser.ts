@@ -7,6 +7,7 @@ import {
   buildContentMarkdownExpression,
   type ContentMarkdownOptions,
 } from './content-markdown'
+import { type DomSearchResult, parseNodeAttributes } from './dom'
 import * as elements from './elements'
 import type { HistoryEntry } from './history'
 import * as history from './history'
@@ -548,6 +549,98 @@ export class Browser {
     return {
       value: result.result?.value,
       description: result.result?.description,
+    }
+  }
+
+  async getDom(page: number, opts?: { selector?: string }): Promise<string> {
+    const session = await this.resolveSession(page)
+    const doc = await session.DOM.getDocument({ depth: 0 })
+
+    let nodeId = doc.root.nodeId
+    if (opts?.selector) {
+      const found = await session.DOM.querySelector({
+        nodeId: doc.root.nodeId,
+        selector: opts.selector,
+      })
+      if (!found.nodeId) return ''
+      nodeId = found.nodeId
+    }
+
+    const result = await session.DOM.getOuterHTML({ nodeId })
+    return result.outerHTML
+  }
+
+  async searchDom(
+    page: number,
+    query: string,
+    opts?: { limit?: number },
+  ): Promise<{ results: DomSearchResult[]; totalCount: number }> {
+    const session = await this.resolveSession(page)
+    const limit = opts?.limit ?? 25
+
+    await session.DOM.getDocument({ depth: 0 })
+    const search = await session.DOM.performSearch({ query })
+    const count = Math.min(search.resultCount, limit)
+
+    if (count === 0) {
+      await session.DOM.discardSearchResults({ searchId: search.searchId })
+      return { results: [], totalCount: search.resultCount }
+    }
+
+    try {
+      const matched = await session.DOM.getSearchResults({
+        searchId: search.searchId,
+        fromIndex: 0,
+        toIndex: count,
+      })
+
+      const results: DomSearchResult[] = []
+      const seen = new Set<number>()
+      for (const nodeId of matched.nodeIds) {
+        try {
+          const desc = await session.DOM.describeNode({ nodeId, depth: 0 })
+          let node = desc.node
+          let resolvedNodeId = nodeId
+
+          // Text/comment nodes: resolve to parent element via JS
+          if (node.nodeType !== 1) {
+            const resolved = await session.DOM.resolveNode({ nodeId })
+            if (!resolved.object.objectId) continue
+            const parentResult = await session.Runtime.callFunctionOn({
+              objectId: resolved.object.objectId,
+              functionDeclaration: 'function() { return this.parentElement; }',
+              returnByValue: false,
+            })
+            if (!parentResult.result.objectId) continue
+            const parentNode = await session.DOM.requestNode({
+              objectId: parentResult.result.objectId,
+            })
+            resolvedNodeId = parentNode.nodeId
+            const parentDesc = await session.DOM.describeNode({
+              nodeId: parentNode.nodeId,
+              depth: 0,
+            })
+            node = parentDesc.node
+          }
+
+          if (node.nodeType !== 1) continue
+          if (seen.has(node.backendNodeId)) continue
+          seen.add(node.backendNodeId)
+
+          results.push({
+            tag: node.localName,
+            nodeId: resolvedNodeId,
+            backendNodeId: node.backendNodeId,
+            attributes: parseNodeAttributes(node),
+          })
+        } catch {
+          // node may have been removed between search and describe
+        }
+      }
+
+      return { results, totalCount: search.resultCount }
+    } finally {
+      await session.DOM.discardSearchResults({ searchId: search.searchId })
     }
   }
 
