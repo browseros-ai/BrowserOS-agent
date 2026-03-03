@@ -125,7 +125,12 @@ export class ChatV2Service {
     const messageContext = request.isScheduledTask
       ? (session.browserContext ?? request.browserContext)
       : request.browserContext
-    const resolvedMessageContext = await this.resolvePageIds(messageContext)
+    // Scheduled tasks already have correct internal pageIds from browser.newPage();
+    // calling resolvePageIds would pass those to resolveTabIds (which expects Chrome
+    // tab IDs), corrupting them back to undefined.
+    const resolvedMessageContext = request.isScheduledTask
+      ? messageContext
+      : await this.resolvePageIds(messageContext)
     const userContent = formatUserMessage(
       request.message,
       resolvedMessageContext,
