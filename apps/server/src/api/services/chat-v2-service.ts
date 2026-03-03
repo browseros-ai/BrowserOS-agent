@@ -1,16 +1,16 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
-import type { ChatRequest } from '../../api/types'
+import { AiSdkAgent } from '../../agent/tool-loop/ai-sdk-agent'
+import { formatUserMessage } from '../../agent/tool-loop/format-message'
+import type { SessionStore } from '../../agent/tool-loop/session-store'
+import type { ResolvedAgentConfig } from '../../agent/types'
 import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
 import type { ToolRegistry } from '../../tools/tool-registry'
-import type { ResolvedAgentConfig } from '../types'
-import { AiSdkAgent } from './ai-sdk-agent'
-import { formatUserMessage } from './format-message'
-import type { SessionStore } from './session-store'
+import type { BrowserContext, ChatRequest } from '../types'
 
 export interface ChatV2ServiceDeps {
   sessionStore: SessionStore
@@ -30,13 +30,10 @@ export class ChatV2Service {
   ): Promise<Response> {
     const { sessionStore } = this.deps
 
-    // Resolve LLM provider config (handles BROWSEROS gateway lookup)
     const llmConfig = await resolveLLMConfig(request, this.deps.browserosId)
 
-    // Resolve session working directory
     const sessionExecutionDir = await this.resolveSessionDir(request)
 
-    // Build full agent config
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
       provider: llmConfig.provider,
@@ -57,15 +54,12 @@ export class ChatV2Service {
       isScheduledTask: request.isScheduledTask,
     }
 
-    // Get or create agent session
     const isNewSession = !sessionStore.has(request.conversationId)
     let session = sessionStore.get(request.conversationId)
 
     if (!session) {
-      // For scheduled tasks, create a hidden window so automation
-      // doesn't interfere with the user's visible browser.
       let hiddenWindowId: number | undefined
-      let browserContext = request.browserContext
+      let browserContext = await this.resolvePageIds(request.browserContext)
       if (request.isScheduledTask) {
         try {
           const win = await this.deps.browser.createWindow({ hidden: true })
@@ -107,7 +101,6 @@ export class ChatV2Service {
       sessionStore.set(request.conversationId, session)
     }
 
-    // Inject previous conversation as history for resumed sessions
     if (isNewSession && request.previousConversation?.length) {
       for (const msg of request.previousConversation) {
         session.agent.messages.push({
@@ -122,16 +115,16 @@ export class ChatV2Service {
       })
     }
 
-    // Scheduled tasks use the session's browser context (hidden window with
-    // correct pageId/windowId). Normal messages use the request's browser
-    // context so that freshly selected tabs are always included.
     const messageContext = request.isScheduledTask
       ? (session.browserContext ?? request.browserContext)
       : request.browserContext
-    const userContent = formatUserMessage(request.message, messageContext)
+    const resolvedMessageContext = await this.resolvePageIds(messageContext)
+    const userContent = formatUserMessage(
+      request.message,
+      resolvedMessageContext,
+    )
     session.agent.appendUserMessage(userContent)
 
-    // Stream the agent response
     return createAgentUIStreamResponse({
       agent: session.agent.toolLoopAgent,
       uiMessages: session.agent.messages,
@@ -165,6 +158,45 @@ export class ChatV2Service {
     }
     const deleted = await this.deps.sessionStore.delete(conversationId)
     return { deleted, sessionCount: this.deps.sessionStore.count() }
+  }
+
+  // Browser context arrives with Chrome tab IDs, but tools expect internal page IDs.
+  // Resolve the mapping upfront so the agent's first navigation doesn't fail.
+  private async resolvePageIds(
+    browserContext?: BrowserContext,
+  ): Promise<BrowserContext | undefined> {
+    if (!browserContext) return undefined
+
+    const tabIds: number[] = []
+    if (browserContext.activeTab) tabIds.push(browserContext.activeTab.id)
+    if (browserContext.selectedTabs) {
+      for (const tab of browserContext.selectedTabs) tabIds.push(tab.id)
+    }
+    if (browserContext.tabs) {
+      for (const tab of browserContext.tabs) tabIds.push(tab.id)
+    }
+
+    if (tabIds.length === 0) return browserContext
+
+    const tabToPage = await this.deps.browser.resolveTabIds(tabIds)
+
+    const addPageId = (tab: { id: number; url?: string; title?: string }) => ({
+      ...tab,
+      pageId: tabToPage.get(tab.id),
+    })
+
+    logger.debug('Resolved tab IDs to page IDs', {
+      mapping: Object.fromEntries(tabToPage),
+    })
+
+    return {
+      ...browserContext,
+      activeTab: browserContext.activeTab
+        ? addPageId(browserContext.activeTab)
+        : undefined,
+      selectedTabs: browserContext.selectedTabs?.map(addPageId),
+      tabs: browserContext.tabs?.map(addPageId),
+    }
   }
 
   private closeHiddenWindow(windowId: number, conversationId: string): void {
