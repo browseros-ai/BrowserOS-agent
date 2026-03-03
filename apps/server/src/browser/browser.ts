@@ -391,6 +391,43 @@ export class Browser {
     return snapshot.buildInteractiveTree(nodes).join('\n')
   }
 
+  async getPageLinks(
+    page: number,
+  ): Promise<Array<{ text: string; href: string }>> {
+    const session = await this.resolveSession(page)
+    const nodes = await this.fetchAXTree(session)
+    const linkNodes = snapshot.extractLinkNodes(nodes)
+    if (linkNodes.length === 0) return []
+
+    const results: Array<{ text: string; href: string }> = []
+    const seen = new Set<string>()
+
+    for (const link of linkNodes) {
+      try {
+        const resolved = await session.DOM.resolveNode({
+          backendNodeId: link.backendDOMNodeId,
+        })
+        if (!resolved.object?.objectId) continue
+
+        const hrefResult = await session.Runtime.callFunctionOn({
+          objectId: resolved.object.objectId,
+          functionDeclaration:
+            'function() { return this.href || this.getAttribute("href") || ""; }',
+          returnByValue: true,
+        })
+
+        const href = hrefResult.result?.value as string
+        if (!href || href.startsWith('javascript:') || seen.has(href)) continue
+        seen.add(href)
+        results.push({ text: link.text, href })
+      } catch {
+        // skip unresolvable nodes
+      }
+    }
+
+    return results
+  }
+
   async enhancedSnapshot(page: number): Promise<string> {
     const session = await this.resolveSession(page)
     const nodes = await this.fetchAXTree(session)

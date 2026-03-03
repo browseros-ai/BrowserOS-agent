@@ -3,6 +3,7 @@ import assert from 'node:assert'
 import {
   activate_window,
   close_window,
+  create_hidden_window,
   create_window,
   list_windows,
 } from '../../src/tools/windows'
@@ -53,6 +54,28 @@ describe('window tools', () => {
       const activateResult = await execute(activate_window, { windowId })
       assert.ok(!activateResult.isError, textOf(activateResult))
       assert.ok(textOf(activateResult).includes('Activated'))
+    })
+  }, 60_000)
+
+  it('create_hidden_window creates and closes a hidden window', async () => {
+    await withBrowser(async ({ execute }) => {
+      const createResult = await execute(create_hidden_window, {})
+      assert.ok(!createResult.isError, textOf(createResult))
+      const text = textOf(createResult)
+      assert.ok(text.includes('Created hidden window'))
+
+      const windowIdMatch = text.match(/Created hidden window\s+(\d+)/)
+      assert.ok(windowIdMatch, 'Could not extract window ID')
+      const windowId = Number(windowIdMatch?.[1])
+
+      const listResult = await execute(list_windows, {})
+      assert.ok(
+        textOf(listResult).includes(`Window ${windowId}`),
+        'Hidden window should appear in list',
+      )
+
+      const closeResult = await execute(close_window, { windowId })
+      assert.ok(!closeResult.isError, textOf(closeResult))
     })
   }, 60_000)
 })
