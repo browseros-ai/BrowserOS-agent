@@ -273,7 +273,25 @@ function getSoul(
   options?: BuildSystemPromptOptions,
 ): string {
   if (!options?.soulContent) return ''
-  return `<soul>\n${options.soulContent}\n</soul>`
+
+  const bootstrap = options.isSoulBootstrap
+    ? `\n<soul_bootstrap>
+This is your first time meeting this user. Your SOUL.md is still a template.
+During this conversation, naturally learn about the user:
+- How they'd like you to behave (formal, casual, direct, playful?)
+- Any preferences or boundaries
+- What matters to them
+
+When you have enough signal, use \`soul_update\` to rewrite SOUL.md with a personalized version that reflects what you've learned. Don't interrogate — just pick up cues from the conversation.
+</soul_bootstrap>`
+    : ''
+
+  return `<soul>
+${options.soulContent}
+</soul>
+<soul_evolution>
+SOUL.md is yours to evolve. As you learn more about the user across sessions, update it with \`soul_update\` to refine your personality, tone, and boundaries. If you change it, briefly tell the user.
+</soul_evolution>${bootstrap}`
 }
 
 // -----------------------------------------------------------------------------
@@ -399,6 +417,7 @@ interface BuildSystemPromptOptions {
   scheduledTaskWindowId?: number
   workspaceDir?: string
   soulContent?: string
+  isSoulBootstrap?: boolean
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {

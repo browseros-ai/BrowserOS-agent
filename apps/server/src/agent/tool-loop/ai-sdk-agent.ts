@@ -4,7 +4,7 @@ import { stepCountIs, ToolLoopAgent, type UIMessage } from 'ai'
 import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
-import { readSoul } from '../../lib/soul'
+import { isSoulBootstrap, readSoul } from '../../lib/soul'
 import { buildFilesystemToolSet } from '../../tools/filesystem/build-toolset'
 import { buildMemoryToolSet } from '../../tools/memory/build-toolset'
 import type { ToolRegistry } from '../../tools/tool-registry'
@@ -69,6 +69,7 @@ export class AiSdkAgent {
       excludeSections.push('tab-grouping')
     }
     const soulContent = await readSoul()
+    const isBootstrap = await isSoulBootstrap()
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
@@ -76,6 +77,7 @@ export class AiSdkAgent {
       scheduledTaskWindowId: config.browserContext?.windowId,
       workspaceDir: config.resolvedConfig.sessionExecutionDir,
       soulContent,
+      isSoulBootstrap: isBootstrap,
     })
 
     // Configure compaction for context window management

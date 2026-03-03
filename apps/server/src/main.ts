@@ -27,6 +27,7 @@ import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
+import { seedSoulTemplate } from './lib/soul'
 import { registry } from './tools/registry'
 import { VERSION } from './version'
 
@@ -130,6 +131,7 @@ export class Application {
   private async initCoreServices(): Promise<void> {
     this.configureLogDirectory()
     await ensureBrowserosDir()
+    await seedSoulTemplate()
 
     const dbPath = path.join(
       this.config.executionDir || this.config.resourcesDir,
