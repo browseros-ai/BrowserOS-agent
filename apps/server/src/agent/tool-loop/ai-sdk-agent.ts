@@ -76,8 +76,6 @@ export class AiSdkAgent {
       AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
     const prepareStep = createCompactionPrepareStep({
       contextWindow,
-      compactionThreshold: 0.6,
-      toolOutputMaxChars: 15_000,
     })
 
     // Create the ToolLoopAgent
