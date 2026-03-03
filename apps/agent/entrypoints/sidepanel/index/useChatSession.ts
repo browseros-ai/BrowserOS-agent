@@ -262,10 +262,15 @@ export const useChatSession = () => {
         )
 
         const previousMessages = messagesRef.current
-        const previousConversation =
-          supportsArrayConversation && previousMessages.length > 0
+        const history =
+          previousMessages.length > 0
             ? formatConversationHistory(previousMessages)
             : undefined
+        const previousConversation = history?.length
+          ? supportsArrayConversation
+            ? history
+            : history.map((m) => `${m.role}: ${m.content}`).join('\n')
+          : undefined
 
         return {
           api: `${agentUrlRef.current}/chat`,
