@@ -71,6 +71,7 @@ export class ChatV2Service {
       })
       const previousMessages = session.agent.messages
       await session.agent.dispose()
+      sessionStore.delete(request.conversationId)
 
       const agent = await AiSdkAgent.create({
         resolvedConfig: agentConfig,
