@@ -91,7 +91,6 @@ export const new_page = defineTool({
   description: 'Open a new page (tab) and navigate to a URL',
   input: z.object({
     url: z.string().describe('URL to open'),
-    hidden: z.boolean().default(false).describe('Create as hidden tab'),
     background: z
       .boolean()
       .default(false)
@@ -100,7 +99,6 @@ export const new_page = defineTool({
   }),
   handler: async (args, ctx, response) => {
     const pageId = await ctx.browser.newPage(args.url, {
-      hidden: args.hidden || undefined,
       background: args.background || undefined,
       windowId: args.windowId,
     })

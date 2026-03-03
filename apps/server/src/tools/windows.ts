@@ -31,13 +31,10 @@ export const list_windows = defineTool({
 export const create_window = defineTool({
   name: 'create_window',
   description: 'Create a new browser window',
-  input: z.object({
-    hidden: z.boolean().optional().describe('Create as hidden window'),
-  }),
-  handler: async (args, ctx, response) => {
-    const window = await ctx.browser.createWindow(args)
-    const hiddenMarker = !window.isVisible ? ' (hidden)' : ''
-    response.text(`Created window ${window.windowId}${hiddenMarker}`)
+  input: z.object({}),
+  handler: async (_args, ctx, response) => {
+    const window = await ctx.browser.createWindow()
+    response.text(`Created window ${window.windowId}`)
   },
 })
 

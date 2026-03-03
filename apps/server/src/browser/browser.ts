@@ -399,32 +399,37 @@ export class Browser {
     const linkNodes = snapshot.extractLinkNodes(nodes)
     if (linkNodes.length === 0) return []
 
-    const results: Array<{ text: string; href: string }> = []
+    const resolved = await Promise.all(
+      linkNodes.map(async (link) => {
+        try {
+          const r = await session.DOM.resolveNode({
+            backendNodeId: link.backendDOMNodeId,
+          })
+          if (!r.object?.objectId) return null
+
+          const hrefResult = await session.Runtime.callFunctionOn({
+            objectId: r.object.objectId,
+            functionDeclaration:
+              'function() { return this.href || this.getAttribute("href") || ""; }',
+            returnByValue: true,
+          })
+
+          const href = hrefResult.result?.value as string
+          if (!href || href.startsWith('javascript:')) return null
+          return { text: link.text, href }
+        } catch {
+          return null
+        }
+      }),
+    )
+
     const seen = new Set<string>()
-
-    for (const link of linkNodes) {
-      try {
-        const resolved = await session.DOM.resolveNode({
-          backendNodeId: link.backendDOMNodeId,
-        })
-        if (!resolved.object?.objectId) continue
-
-        const hrefResult = await session.Runtime.callFunctionOn({
-          objectId: resolved.object.objectId,
-          functionDeclaration:
-            'function() { return this.href || this.getAttribute("href") || ""; }',
-          returnByValue: true,
-        })
-
-        const href = hrefResult.result?.value as string
-        if (!href || href.startsWith('javascript:') || seen.has(href)) continue
-        seen.add(href)
-        results.push({ text: link.text, href })
-      } catch {
-        // skip unresolvable nodes
-      }
+    const results: Array<{ text: string; href: string }> = []
+    for (const entry of resolved) {
+      if (!entry || seen.has(entry.href)) continue
+      seen.add(entry.href)
+      results.push(entry)
     }
-
     return results
   }
 
