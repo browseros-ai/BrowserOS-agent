@@ -84,7 +84,7 @@ export class ChatV2Service {
       session = {
         agent,
         hiddenWindowId: session.hiddenWindowId,
-        browserContext: session.browserContext,
+        browserContext: request.browserContext,
         mcpServerKey,
       }
       sessionStore.set(request.conversationId, session)

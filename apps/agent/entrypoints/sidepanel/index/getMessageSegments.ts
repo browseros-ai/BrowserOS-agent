@@ -66,7 +66,6 @@ export const getMessageSegments = (
   let currentToolBatch: ToolInvocationInfo[] = []
   let textSegmentCount = 0
   let reasoningSegmentCount = 0
-  const seenNudgeTypes = new Set<NudgeType>()
 
   const flushToolBatch = () => {
     if (currentToolBatch.length > 0) {
@@ -113,8 +112,7 @@ export const getMessageSegments = (
       if (NUDGE_TOOLS.has(toolName) && toolPart.state === 'output-available') {
         flushToolBatch()
         const nudgeData = parseNudgeOutput(toolPart.output)
-        if (nudgeData && !seenNudgeTypes.has(nudgeData.type)) {
-          seenNudgeTypes.add(nudgeData.type)
+        if (nudgeData) {
           segments.push({
             type: 'nudge',
             key: `${message.id}-nudge-${toolPart.toolCallId}`,

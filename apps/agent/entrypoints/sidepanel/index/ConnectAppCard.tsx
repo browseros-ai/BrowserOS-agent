@@ -53,6 +53,12 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
     }
   }, [phase, appName])
 
+  useEffect(() => {
+    if (!isLastMessage && phase === 'choosing') {
+      setPhase('resolved')
+    }
+  }, [isLastMessage, phase])
+
   const handleConnect = async () => {
     setConnecting(true)
     track(BREADCRUMB_CONNECT_CLICKED_EVENT, { app_name: appName })
@@ -68,19 +74,18 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
         return
       }
 
-      addServer({
-        id: Date.now().toString(),
-        displayName: appName,
-        type: 'managed',
-        managedServerName: appName,
-        managedServerDescription: '',
-      })
-      track(MANAGED_MCP_ADDED_EVENT, { server_name: appName })
-
       if (response.apiKeyUrl) {
         setApiKeyServer({ name: appName, apiKeyUrl: response.apiKeyUrl })
         setConnecting(false)
       } else if (response.oauthUrl) {
+        addServer({
+          id: Date.now().toString(),
+          displayName: appName,
+          type: 'managed',
+          managedServerName: appName,
+          managedServerDescription: '',
+        })
+        track(MANAGED_MCP_ADDED_EVENT, { server_name: appName })
         window.open(response.oauthUrl, '_blank')?.focus()
         setConnecting(false)
         setPhase('oauth-pending')
@@ -100,6 +105,14 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
         apiKey,
         apiKeyUrl: apiKeyServer.apiKeyUrl,
       })
+      addServer({
+        id: Date.now().toString(),
+        displayName: appName,
+        type: 'managed',
+        managedServerName: appName,
+        managedServerDescription: '',
+      })
+      track(MANAGED_MCP_ADDED_EVENT, { server_name: appName })
       toast.success(`${apiKeyServer.name} connected successfully`)
       setApiKeyServer(null)
       setResolvedText(`Connected ${appName}`)
