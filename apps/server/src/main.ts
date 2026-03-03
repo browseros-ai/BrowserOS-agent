@@ -118,7 +118,13 @@ export class Application {
 
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
-    process.exit(EXIT_CODES.SUCCESS)
+    // Exit 0 only for managed shutdowns (POST /shutdown from Chromium).
+    // Signal kills exit non-zero so Chromium's OnProcessExited restarts us.
+    const code =
+      reason === 'SIGTERM' || reason === 'SIGINT'
+        ? EXIT_CODES.SIGNAL_KILL
+        : EXIT_CODES.SUCCESS
+    process.exit(code)
   }
 
   private initCoreServices(): void {
