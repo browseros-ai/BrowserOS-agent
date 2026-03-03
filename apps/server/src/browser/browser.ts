@@ -884,6 +884,61 @@ export class Browser {
     await this.cdp.Browser.activateWindow({ windowId })
   }
 
+  async showPage(
+    page: number,
+    opts?: { windowId?: number; index?: number; activate?: boolean },
+  ): Promise<PageInfo> {
+    const info = this.pages.get(page)
+    if (!info)
+      throw new Error(
+        `Unknown page ${page}. Use list_pages to see available pages.`,
+      )
+
+    const result = await this.cdp.Browser.showTab({
+      tabId: info.tabId,
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(opts?.index !== undefined && { index: opts.index }),
+      ...(opts?.activate !== undefined && { activate: opts.activate }),
+    })
+
+    const tab = result.tab as TabInfo
+    const updated: PageInfo = {
+      ...info,
+      isHidden: tab.isHidden,
+      isActive: tab.isActive,
+      windowId: tab.windowId,
+      index: tab.index,
+    }
+    this.pages.set(page, updated)
+    return updated
+  }
+
+  async movePage(
+    page: number,
+    opts?: { windowId?: number; index?: number },
+  ): Promise<PageInfo> {
+    const info = this.pages.get(page)
+    if (!info)
+      throw new Error(
+        `Unknown page ${page}. Use list_pages to see available pages.`,
+      )
+
+    const result = await this.cdp.Browser.moveTab({
+      tabId: info.tabId,
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(opts?.index !== undefined && { index: opts.index }),
+    })
+
+    const tab = result.tab as TabInfo
+    const updated: PageInfo = {
+      ...info,
+      windowId: tab.windowId,
+      index: tab.index,
+    }
+    this.pages.set(page, updated)
+    return updated
+  }
+
   // --- Bookmarks ---
 
   async getBookmarks(): Promise<BookmarkNode[]> {

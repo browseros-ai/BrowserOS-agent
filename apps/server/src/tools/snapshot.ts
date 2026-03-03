@@ -47,7 +47,7 @@ export const get_page_content = defineTool({
       .describe('Only extract content visible in the current viewport'),
     includeLinks: z
       .boolean()
-      .default(true)
+      .default(false)
       .describe('Render links as [text](url) instead of plain text'),
     includeImages: z
       .boolean()
@@ -92,6 +92,59 @@ export const take_screenshot = defineTool({
       fullPage: args.fullPage,
     })
     response.image(data, mimeType)
+  },
+})
+
+export const get_page_links = defineTool({
+  name: 'get_page_links',
+  description:
+    'Extract all links from the page as a list of [text](url) entries. Use for finding navigation options, discovering URLs, or understanding page structure. Deduplicates by URL.',
+  input: z.object({
+    page: pageParam,
+    selector: z
+      .string()
+      .optional()
+      .describe(
+        "CSS selector to scope extraction (e.g. 'nav', 'main', '.sidebar')",
+      ),
+  }),
+  handler: async (args, ctx, response) => {
+    const scope = args.selector
+      ? `document.querySelector(${JSON.stringify(args.selector)})`
+      : 'document'
+
+    const result = await ctx.browser.evaluate(
+      args.page,
+      `
+      (() => {
+        const root = ${scope};
+        if (!root) return [];
+        const seen = new Set();
+        return Array.from(root.querySelectorAll('a[href]'))
+          .filter(a => !a.href.startsWith('javascript:'))
+          .map(a => ({ text: (a.textContent || '').trim().replace(/\\s+/g, ' '), href: a.href }))
+          .filter(a => {
+            if (seen.has(a.href)) return false;
+            seen.add(a.href);
+            return a.text || a.href;
+          });
+      })()
+    `,
+    )
+
+    if (result.error) {
+      response.error(`Script error: ${result.error}`)
+      return
+    }
+
+    const links = result.value as Array<{ text: string; href: string }>
+    if (!links || links.length === 0) {
+      response.text('No links found on the page.')
+      return
+    }
+
+    const lines = links.map((l) => (l.text ? `[${l.text}](${l.href})` : l.href))
+    response.text(lines.join('\n'))
   },
 })
 
