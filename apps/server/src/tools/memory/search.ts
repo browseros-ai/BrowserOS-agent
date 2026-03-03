@@ -22,7 +22,7 @@ async function loadMemoryEntries(): Promise<MemoryEntry[]> {
     return []
   }
 
-  const mdFiles = files.filter((f) => f.endsWith('.md') && f !== 'CORE.md')
+  const mdFiles = files.filter((f) => f.endsWith('.md'))
 
   const entries: MemoryEntry[] = []
   for (const file of mdFiles) {
@@ -42,7 +42,7 @@ async function loadMemoryEntries(): Promise<MemoryEntry[]> {
 export function createMemorySearchTool() {
   return tool({
     description:
-      'Search through long-term memory entries using fuzzy matching. Returns relevant past memories with their source dates.',
+      'Search all memories (both core and daily) using fuzzy matching. This is the single tool for recalling anything from memory.',
     inputSchema: z.object({
       query: z.string().describe('Search query to find relevant memories'),
     }),
@@ -60,6 +60,7 @@ export function createMemorySearchTool() {
         })
 
         const results = fuse.search(params.query, { limit: 10 })
+
         if (results.length === 0) {
           return { text: `No memories matching "${params.query}" found.` }
         }

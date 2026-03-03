@@ -282,12 +282,15 @@ function getSoul(
 
 function getMemory(): string {
   return `<memory_instructions>
-You have long-term memory tools. Use them proactively:
-- Use \`memory_search\` to recall relevant context before answering questions
-- Use \`memory_write\` to save important information worth remembering across sessions (user preferences, key facts, project details)
-- Use \`memory_read_core\` to check core memories for critical long-term facts
-- Use \`memory_save_core\` to promote frequently referenced or critical memories to core storage
-- Only forget core memories if the user explicitly asks
+You have long-term memory. Use it proactively:
+
+**Recall**: Use \`memory_search\` to recall context before answering — it searches all memories (core + daily) in one call.
+
+**Store**: Two storage tiers:
+- \`memory_write\` — daily memories, auto-expire after 30 days. Use for session notes, recent facts, and observations.
+- \`memory_save_core\` — permanent core memories. Use for critical long-term facts (user identity, strong preferences, key relationships). Promote from daily when referenced repeatedly.
+
+Only delete core memories if the user explicitly asks to forget.
 </memory_instructions>`
 }
 
