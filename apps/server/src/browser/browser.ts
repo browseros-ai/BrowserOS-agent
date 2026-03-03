@@ -7,6 +7,11 @@ import {
   buildContentMarkdownExpression,
   type ContentMarkdownOptions,
 } from './content-markdown'
+import {
+  buildCollectElementsExpression,
+  buildGetDomExpression,
+  type DomElement,
+} from './dom'
 import * as elements from './elements'
 import type { HistoryEntry } from './history'
 import * as history from './history'
@@ -549,6 +554,37 @@ export class Browser {
       value: result.result?.value,
       description: result.result?.description,
     }
+  }
+
+  async getDom(page: number, opts?: { selector?: string }): Promise<string> {
+    const session = await this.resolveSession(page)
+    const expression = buildGetDomExpression({
+      selector: opts?.selector,
+    })
+
+    const result = await session.Runtime.evaluate({
+      expression,
+      returnByValue: true,
+    })
+
+    return (result.result?.value as string) ?? ''
+  }
+
+  async collectDomElements(
+    page: number,
+    opts?: { selector?: string },
+  ): Promise<DomElement[]> {
+    const session = await this.resolveSession(page)
+    const expression = buildCollectElementsExpression({
+      selector: opts?.selector,
+    })
+
+    const result = await session.Runtime.evaluate({
+      expression,
+      returnByValue: true,
+    })
+
+    return (result.result?.value as DomElement[]) ?? []
   }
 
   // --- Input ---
