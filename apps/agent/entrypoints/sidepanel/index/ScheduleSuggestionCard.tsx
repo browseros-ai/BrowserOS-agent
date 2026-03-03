@@ -10,12 +10,14 @@ import type { NudgeData } from './getMessageSegments'
 
 interface ScheduleSuggestionCardProps {
   data: NudgeData
+  isLastMessage: boolean
 }
 
 export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   data,
+  isLastMessage,
 }) => {
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(!isLastMessage)
 
   const suggestedName = (data.suggestedName as string) ?? 'Scheduled Task'
   const scheduleType = (data.scheduleType as string) ?? 'daily'
@@ -23,11 +25,19 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   const query = (data.query as string) ?? ''
 
   useEffect(() => {
-    track(BREADCRUMB_SCHEDULE_SHOWN_EVENT, {
-      suggested_name: suggestedName,
-      schedule_type: scheduleType,
-    })
-  }, [suggestedName, scheduleType])
+    if (!isLastMessage) {
+      setDismissed(true)
+    }
+  }, [isLastMessage])
+
+  useEffect(() => {
+    if (!dismissed) {
+      track(BREADCRUMB_SCHEDULE_SHOWN_EVENT, {
+        suggested_name: suggestedName,
+        schedule_type: scheduleType,
+      })
+    }
+  }, [suggestedName, scheduleType, dismissed])
 
   if (dismissed) return null
 

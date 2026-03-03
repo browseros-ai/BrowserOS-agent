@@ -36,7 +36,9 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
     name: string
     apiKeyUrl: string
   } | null>(null)
-  const [resolvedText, setResolvedText] = useState('')
+  const [resolvedText, setResolvedText] = useState(
+    isLastMessage ? '' : `${(data.appName as string) ?? 'App'} suggested`,
+  )
 
   const { sendMessage } = useChatSessionContext()
   const { addServer } = useMcpServers()
@@ -150,7 +152,7 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
       <div className="rounded-lg border border-border/30 bg-muted/30 p-3">
         <div className="flex items-center gap-2 text-muted-foreground text-xs">
           <Check className="h-3.5 w-3.5" />
-          <span>{resolvedText || `${appName} decision made`}</span>
+          <span>{resolvedText}</span>
         </div>
       </div>
     )

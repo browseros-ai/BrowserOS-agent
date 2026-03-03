@@ -122,6 +122,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                               <ScheduleSuggestionCard
                                 key={segment.key}
                                 data={segment.data}
+                                isLastMessage={isLastMessage}
                               />
                             ) : (
                               <ConnectAppCard
