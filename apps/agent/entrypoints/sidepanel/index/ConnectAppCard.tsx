@@ -49,7 +49,7 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
   const reason = (data.reason as string) ?? ''
 
   useEffect(() => {
-    if (!isLastMessage && phase === 'choosing') {
+    if (!isLastMessage && phase !== 'resolved') {
       setPhase('resolved')
     }
   }, [isLastMessage, phase])
