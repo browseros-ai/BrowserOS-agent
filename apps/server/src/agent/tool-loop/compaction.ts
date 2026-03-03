@@ -446,6 +446,7 @@ export function slidingWindow(
 // Main compaction orchestrator
 // ---------------------------------------------------------------------------
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: multi-step compaction logic with split-turn handling
 async function compactMessages(
   model: LanguageModel,
   messages: ModelMessage[],
