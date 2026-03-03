@@ -33,8 +33,11 @@ import {
   close_page,
   get_active_page,
   list_pages,
+  move_page,
   navigate_page,
+  new_hidden_page,
   new_page,
+  show_page,
   // biome-ignore lint/correctness/noUnusedImports: temporarily disabled
   wait_for,
 } from './navigation'
@@ -42,6 +45,7 @@ import { download_file, save_pdf, save_screenshot } from './page-actions'
 import {
   evaluate_script,
   get_page_content,
+  get_page_links,
   take_enhanced_snapshot,
   take_screenshot,
   take_snapshot,
@@ -57,23 +61,28 @@ import { createRegistry } from './tool-registry'
 import {
   activate_window,
   close_window,
+  create_hidden_window,
   create_window,
   list_windows,
 } from './windows'
 
 export const registry = createRegistry([
-  // Navigation (5)
+  // Navigation (8)
   get_active_page,
   list_pages,
   navigate_page,
   new_page,
+  new_hidden_page,
+  show_page,
+  move_page,
   close_page,
   // wait_for, // temporarily disabled
 
-  // Observation (5)
+  // Observation (6)
   take_snapshot,
   take_enhanced_snapshot,
   get_page_content,
+  get_page_links,
   take_screenshot,
   evaluate_script,
 
@@ -98,9 +107,10 @@ export const registry = createRegistry([
   save_screenshot,
   download_file,
 
-  // Windows (4)
+  // Windows (5)
   list_windows,
   create_window,
+  create_hidden_window,
   close_window,
   activate_window,
 

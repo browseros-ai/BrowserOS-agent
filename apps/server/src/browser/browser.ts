@@ -391,6 +391,43 @@ export class Browser {
     return snapshot.buildInteractiveTree(nodes).join('\n')
   }
 
+  async getPageLinks(
+    page: number,
+  ): Promise<Array<{ text: string; href: string }>> {
+    const session = await this.resolveSession(page)
+    const nodes = await this.fetchAXTree(session)
+    const linkNodes = snapshot.extractLinkNodes(nodes)
+    if (linkNodes.length === 0) return []
+
+    const results: Array<{ text: string; href: string }> = []
+    const seen = new Set<string>()
+
+    for (const link of linkNodes) {
+      try {
+        const resolved = await session.DOM.resolveNode({
+          backendNodeId: link.backendDOMNodeId,
+        })
+        if (!resolved.object?.objectId) continue
+
+        const hrefResult = await session.Runtime.callFunctionOn({
+          objectId: resolved.object.objectId,
+          functionDeclaration:
+            'function() { return this.href || this.getAttribute("href") || ""; }',
+          returnByValue: true,
+        })
+
+        const href = hrefResult.result?.value as string
+        if (!href || href.startsWith('javascript:') || seen.has(href)) continue
+        seen.add(href)
+        results.push({ text: link.text, href })
+      } catch {
+        // skip unresolvable nodes
+      }
+    }
+
+    return results
+  }
+
   async enhancedSnapshot(page: number): Promise<string> {
     const session = await this.resolveSession(page)
     const nodes = await this.fetchAXTree(session)
@@ -882,6 +919,61 @@ export class Browser {
 
   async activateWindow(windowId: number): Promise<void> {
     await this.cdp.Browser.activateWindow({ windowId })
+  }
+
+  async showPage(
+    page: number,
+    opts?: { windowId?: number; index?: number; activate?: boolean },
+  ): Promise<PageInfo> {
+    const info = this.pages.get(page)
+    if (!info)
+      throw new Error(
+        `Unknown page ${page}. Use list_pages to see available pages.`,
+      )
+
+    const result = await this.cdp.Browser.showTab({
+      tabId: info.tabId,
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(opts?.index !== undefined && { index: opts.index }),
+      ...(opts?.activate !== undefined && { activate: opts.activate }),
+    })
+
+    const tab = result.tab as TabInfo
+    const updated: PageInfo = {
+      ...info,
+      isHidden: tab.isHidden,
+      isActive: tab.isActive,
+      windowId: tab.windowId,
+      index: tab.index,
+    }
+    this.pages.set(page, updated)
+    return updated
+  }
+
+  async movePage(
+    page: number,
+    opts?: { windowId?: number; index?: number },
+  ): Promise<PageInfo> {
+    const info = this.pages.get(page)
+    if (!info)
+      throw new Error(
+        `Unknown page ${page}. Use list_pages to see available pages.`,
+      )
+
+    const result = await this.cdp.Browser.moveTab({
+      tabId: info.tabId,
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(opts?.index !== undefined && { index: opts.index }),
+    })
+
+    const tab = result.tab as TabInfo
+    const updated: PageInfo = {
+      ...info,
+      windowId: tab.windowId,
+      index: tab.index,
+    }
+    this.pages.set(page, updated)
+    return updated
   }
 
   // --- Bookmarks ---

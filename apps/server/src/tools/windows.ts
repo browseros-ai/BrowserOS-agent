@@ -41,6 +41,17 @@ export const create_window = defineTool({
   },
 })
 
+export const create_hidden_window = defineTool({
+  name: 'create_hidden_window',
+  description:
+    'Create a new hidden browser window. Hidden windows are not visible to the user and useful for background automation. Note: take_screenshot is not supported on hidden windows.',
+  input: z.object({}),
+  handler: async (_args, ctx, response) => {
+    const window = await ctx.browser.createWindow({ hidden: true })
+    response.text(`Created hidden window ${window.windowId}`)
+  },
+})
+
 export const close_window = defineTool({
   name: 'close_window',
   description: 'Close a browser window',

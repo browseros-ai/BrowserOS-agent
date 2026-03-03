@@ -109,6 +109,84 @@ export const new_page = defineTool({
   },
 })
 
+export const new_hidden_page = defineTool({
+  name: 'new_hidden_page',
+  description:
+    'Open a new hidden page (tab) and navigate to a URL. Hidden pages are not visible to the user and useful for background data fetching or automation. Note: take_screenshot is not supported on hidden tabs — use show_page first to make it visible.',
+  input: z.object({
+    url: z.string().describe('URL to open'),
+    windowId: z.number().optional().describe('Window ID to create tab in'),
+  }),
+  handler: async (args, ctx, response) => {
+    const pageId = await ctx.browser.newPage(args.url, {
+      hidden: true,
+      background: true,
+      windowId: args.windowId,
+    })
+    response.text(`Opened hidden page: ${args.url}\nPage ID: ${pageId}`)
+    response.includePages()
+  },
+})
+
+export const show_page = defineTool({
+  name: 'show_page',
+  description:
+    'Restore a hidden page back into a visible browser window. Use after new_hidden_page when you need to make the page visible (e.g. for screenshots). Errors if the page is already visible.',
+  input: z.object({
+    page: pageParam,
+    windowId: z
+      .number()
+      .optional()
+      .describe('Window ID to place the tab in (defaults to last active)'),
+    index: z
+      .number()
+      .optional()
+      .describe('Tab position index within the window'),
+    activate: z
+      .boolean()
+      .default(true)
+      .describe('Activate (focus) the tab after showing'),
+  }),
+  handler: async (args, ctx, response) => {
+    const updated = await ctx.browser.showPage(args.page, {
+      windowId: args.windowId,
+      index: args.index,
+      activate: args.activate,
+    })
+    response.text(
+      `Page ${args.page} is now visible in window ${updated.windowId}`,
+    )
+    response.includePages()
+  },
+})
+
+export const move_page = defineTool({
+  name: 'move_page',
+  description:
+    'Move a page (tab) to a different window or position within a window.',
+  input: z.object({
+    page: pageParam,
+    windowId: z
+      .number()
+      .optional()
+      .describe('Target window ID to move the tab to'),
+    index: z
+      .number()
+      .optional()
+      .describe('Tab position index within the target window'),
+  }),
+  handler: async (args, ctx, response) => {
+    const updated = await ctx.browser.movePage(args.page, {
+      windowId: args.windowId,
+      index: args.index,
+    })
+    response.text(
+      `Moved page ${args.page} to window ${updated.windowId} at index ${updated.index}`,
+    )
+    response.includePages()
+  },
+})
+
 export const close_page = defineTool({
   name: 'close_page',
   description: 'Close a page (tab)',
