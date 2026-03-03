@@ -56,7 +56,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.WORKSPACE_FOLDER_SUPPORT]: { minBrowserOSVersion: '0.36.4.0' },
   [Feature.PROXY_SUPPORT]: { minBrowserOSVersion: '0.39.0.1' },
   [Feature.WORKFLOW_SUPPORT]: { minServerVersion: '0.0.41' },
-  [Feature.PREVIOUS_CONVERSATION_ARRAY]: { minBrowserOSVersion: '0.41.0.0' },
+  [Feature.PREVIOUS_CONVERSATION_ARRAY]: { minServerVersion: '0.0.64' },
 }
 
 function parseVersion(version: string): number[] {
