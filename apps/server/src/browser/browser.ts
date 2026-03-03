@@ -587,58 +587,61 @@ export class Browser {
       return { results: [], totalCount: search.resultCount }
     }
 
-    const matched = await session.DOM.getSearchResults({
-      searchId: search.searchId,
-      fromIndex: 0,
-      toIndex: count,
-    })
+    try {
+      const matched = await session.DOM.getSearchResults({
+        searchId: search.searchId,
+        fromIndex: 0,
+        toIndex: count,
+      })
 
-    const results: DomSearchResult[] = []
-    const seen = new Set<number>()
-    for (const nodeId of matched.nodeIds) {
-      try {
-        const desc = await session.DOM.describeNode({ nodeId, depth: 0 })
-        let node = desc.node
-        let resolvedNodeId = nodeId
+      const results: DomSearchResult[] = []
+      const seen = new Set<number>()
+      for (const nodeId of matched.nodeIds) {
+        try {
+          const desc = await session.DOM.describeNode({ nodeId, depth: 0 })
+          let node = desc.node
+          let resolvedNodeId = nodeId
 
-        // Text/comment nodes: resolve to parent element via JS
-        if (node.nodeType !== 1) {
-          const resolved = await session.DOM.resolveNode({ nodeId })
-          if (!resolved.object.objectId) continue
-          const parentResult = await session.Runtime.callFunctionOn({
-            objectId: resolved.object.objectId,
-            functionDeclaration: 'function() { return this.parentElement; }',
-            returnByValue: false,
+          // Text/comment nodes: resolve to parent element via JS
+          if (node.nodeType !== 1) {
+            const resolved = await session.DOM.resolveNode({ nodeId })
+            if (!resolved.object.objectId) continue
+            const parentResult = await session.Runtime.callFunctionOn({
+              objectId: resolved.object.objectId,
+              functionDeclaration: 'function() { return this.parentElement; }',
+              returnByValue: false,
+            })
+            if (!parentResult.result.objectId) continue
+            const parentNode = await session.DOM.requestNode({
+              objectId: parentResult.result.objectId,
+            })
+            resolvedNodeId = parentNode.nodeId
+            const parentDesc = await session.DOM.describeNode({
+              nodeId: parentNode.nodeId,
+              depth: 0,
+            })
+            node = parentDesc.node
+          }
+
+          if (node.nodeType !== 1) continue
+          if (seen.has(node.backendNodeId)) continue
+          seen.add(node.backendNodeId)
+
+          results.push({
+            tag: node.localName,
+            nodeId: resolvedNodeId,
+            backendNodeId: node.backendNodeId,
+            attributes: parseNodeAttributes(node),
           })
-          if (!parentResult.result.objectId) continue
-          const parentNode = await session.DOM.requestNode({
-            objectId: parentResult.result.objectId,
-          })
-          resolvedNodeId = parentNode.nodeId
-          const parentDesc = await session.DOM.describeNode({
-            nodeId: parentNode.nodeId,
-            depth: 0,
-          })
-          node = parentDesc.node
+        } catch {
+          // node may have been removed between search and describe
         }
-
-        if (node.nodeType !== 1) continue
-        if (seen.has(node.backendNodeId)) continue
-        seen.add(node.backendNodeId)
-
-        results.push({
-          tag: node.localName,
-          nodeId: resolvedNodeId,
-          backendNodeId: node.backendNodeId,
-          attributes: parseNodeAttributes(node),
-        })
-      } catch {
-        // node may have been removed between search and describe
       }
-    }
 
-    await session.DOM.discardSearchResults({ searchId: search.searchId })
-    return { results, totalCount: search.resultCount }
+      return { results, totalCount: search.resultCount }
+    } finally {
+      await session.DOM.discardSearchResults({ searchId: search.searchId })
+    }
   }
 
   // --- Input ---

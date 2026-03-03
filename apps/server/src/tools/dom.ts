@@ -55,8 +55,11 @@ export const search_dom = defineTool({
       .describe('Search query — plain text, CSS selector, or XPath expression'),
     limit: z
       .number()
+      .int()
+      .min(1)
+      .max(200)
       .default(25)
-      .describe('Maximum number of results to return'),
+      .describe('Maximum number of results to return (1–200)'),
   }),
   handler: async (args, ctx, response) => {
     const { results, totalCount } = await ctx.browser.searchDom(
