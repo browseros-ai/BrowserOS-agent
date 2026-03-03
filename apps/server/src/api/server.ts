@@ -14,10 +14,8 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
-import { SessionManager } from '../agent/session'
 import { logger } from '../lib/logger'
 
-import { createChatRoutes } from './routes/chat'
 import { createChatV2Routes } from './routes/chat-v2'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -53,8 +51,6 @@ async function assertPortAvailable(port: number): Promise<void> {
   })
 }
 
-const USE_TOOL_AGENT = true
-
 export async function createHttpServer(config: HttpServerConfig) {
   const {
     port,
@@ -69,7 +65,6 @@ export async function createHttpServer(config: HttpServerConfig) {
   } = config
 
   const { onShutdown } = config
-  const sessionManager = new SessionManager()
 
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
@@ -91,22 +86,13 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
     .route(
       '/chat',
-      USE_TOOL_AGENT
-        ? createChatV2Routes({
-            browser,
-            registry,
-            executionDir,
-            browserosId,
-            rateLimiter,
-          })
-        : createChatRoutes({
-            port,
-            executionDir,
-            browserosId,
-            rateLimiter,
-            sessionManager,
-            browser,
-          }),
+      createChatV2Routes({
+        browser,
+        registry,
+        executionDir,
+        browserosId,
+        rateLimiter,
+      }),
     )
     .route(
       '/chat-v2',
