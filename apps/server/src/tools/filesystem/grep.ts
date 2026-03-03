@@ -118,6 +118,7 @@ export function createGrepTool(cwd: string) {
         .describe(`Maximum matches to return (default: ${DEFAULT_GREP_LIMIT})`),
     }),
     execute: (params) =>
+      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: grep tool has many output mode and filtering branches
       executeWithMetrics(TOOL_NAME, async () => {
         const searchPath = resolve(cwd, params.path || '.')
         const limit = params.limit || DEFAULT_GREP_LIMIT

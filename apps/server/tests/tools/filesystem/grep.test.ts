@@ -15,6 +15,7 @@ beforeEach(async () => {
   )
   await mkdir(tmpDir, { recursive: true })
   const tool = createGrepTool(tmpDir)
+  // biome-ignore lint/suspicious/noExplicitAny: test helper
   exec = (params) => (tool as any).execute(params)
 })
 
