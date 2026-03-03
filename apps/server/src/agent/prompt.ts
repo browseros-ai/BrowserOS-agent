@@ -265,6 +265,33 @@ function getStyle(): string {
 }
 
 // -----------------------------------------------------------------------------
+// section: soul
+// -----------------------------------------------------------------------------
+
+function getSoul(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  if (!options?.soulContent) return ''
+  return `<soul>\n${options.soulContent}\n</soul>`
+}
+
+// -----------------------------------------------------------------------------
+// section: memory
+// -----------------------------------------------------------------------------
+
+function getMemory(): string {
+  return `<memory_instructions>
+You have long-term memory tools. Use them proactively:
+- Use \`memory_search\` to recall relevant context before answering questions
+- Use \`memory_write\` to save important information worth remembering across sessions (user preferences, key facts, project details)
+- Use \`memory_read_core\` to check core memories for critical long-term facts
+- Use \`memory_save_core\` to promote frequently referenced or critical memories to core storage
+- Only forget core memories if the user explicitly asks
+</memory_instructions>`
+}
+
+// -----------------------------------------------------------------------------
 // section: security-reminder
 // -----------------------------------------------------------------------------
 
@@ -355,6 +382,8 @@ const promptSections: Record<string, PromptSectionFn> = {
   workspace: getWorkspace,
   'scheduled-task': getScheduledTask,
   'user-preferences': getUserPreferences,
+  soul: getSoul,
+  memory: getMemory,
   'security-reminder': getSecurityReminder,
 }
 
@@ -366,6 +395,7 @@ interface BuildSystemPromptOptions {
   isScheduledTask?: boolean
   scheduledTaskWindowId?: number
   workspaceDir?: string
+  soulContent?: string
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
