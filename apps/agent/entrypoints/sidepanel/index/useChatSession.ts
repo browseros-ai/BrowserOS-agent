@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
+import { Capabilities, Feature } from '@/lib/browseros/capabilities'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import {
@@ -256,10 +257,13 @@ export const useChatSession = () => {
           }[]
         }
 
-        // Format previous messages from ref (messagesRef doesn't include current message yet)
+        const supportsArrayConversation = await Capabilities.supports(
+          Feature.PREVIOUS_CONVERSATION_ARRAY,
+        )
+
         const previousMessages = messagesRef.current
         const previousConversation =
-          previousMessages.length > 0
+          supportsArrayConversation && previousMessages.length > 0
             ? formatConversationHistory(previousMessages)
             : undefined
 
