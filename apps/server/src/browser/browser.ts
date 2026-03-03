@@ -7,11 +7,7 @@ import {
   buildContentMarkdownExpression,
   type ContentMarkdownOptions,
 } from './content-markdown'
-import {
-  buildCollectElementsExpression,
-  buildGetDomExpression,
-  type DomElement,
-} from './dom'
+import { type DomSearchResult, parseNodeAttributes } from './dom'
 import * as elements from './elements'
 import type { HistoryEntry } from './history'
 import * as history from './history'
@@ -558,33 +554,64 @@ export class Browser {
 
   async getDom(page: number, opts?: { selector?: string }): Promise<string> {
     const session = await this.resolveSession(page)
-    const expression = buildGetDomExpression({
-      selector: opts?.selector,
-    })
+    const doc = await session.DOM.getDocument({ depth: 0 })
 
-    const result = await session.Runtime.evaluate({
-      expression,
-      returnByValue: true,
-    })
+    let nodeId = doc.root.nodeId
+    if (opts?.selector) {
+      const found = await session.DOM.querySelector({
+        nodeId: doc.root.nodeId,
+        selector: opts.selector,
+      })
+      if (!found.nodeId) return ''
+      nodeId = found.nodeId
+    }
 
-    return (result.result?.value as string) ?? ''
+    const result = await session.DOM.getOuterHTML({ nodeId })
+    return result.outerHTML
   }
 
-  async collectDomElements(
+  async searchDom(
     page: number,
-    opts?: { selector?: string },
-  ): Promise<DomElement[]> {
+    query: string,
+    opts?: { limit?: number },
+  ): Promise<{ results: DomSearchResult[]; totalCount: number }> {
     const session = await this.resolveSession(page)
-    const expression = buildCollectElementsExpression({
-      selector: opts?.selector,
+    const limit = opts?.limit ?? 25
+
+    const search = await session.DOM.performSearch({ query })
+    const count = Math.min(search.resultCount, limit)
+
+    if (count === 0) {
+      await session.DOM.discardSearchResults({ searchId: search.searchId })
+      return { results: [], totalCount: search.resultCount }
+    }
+
+    const matched = await session.DOM.getSearchResults({
+      searchId: search.searchId,
+      fromIndex: 0,
+      toIndex: count,
     })
 
-    const result = await session.Runtime.evaluate({
-      expression,
-      returnByValue: true,
-    })
+    const results: DomSearchResult[] = []
+    for (const nodeId of matched.nodeIds) {
+      try {
+        const desc = await session.DOM.describeNode({ nodeId, depth: 0 })
+        const node = desc.node
+        if (node.nodeType !== 1) continue
 
-    return (result.result?.value as DomElement[]) ?? []
+        results.push({
+          tag: node.localName,
+          nodeId,
+          backendNodeId: node.backendNodeId,
+          attributes: parseNodeAttributes(node),
+        })
+      } catch {
+        // node may have been removed between search and describe
+      }
+    }
+
+    await session.DOM.discardSearchResults({ searchId: search.searchId })
+    return { results, totalCount: search.resultCount }
   }
 
   // --- Input ---
