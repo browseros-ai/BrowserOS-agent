@@ -216,15 +216,15 @@ describe('computeConfig — summarization budgets', () => {
     expect(config.maxSummarizationInput).toBe(2_351)
   })
 
-  it('200K model → max summarization input is trigger minus keep-recent', () => {
+  it('200K model → max summarization input is capped at 100K', () => {
     const config = computeConfig(200_000)
-    expect(config.maxSummarizationInput).toBe(163_616)
+    expect(config.maxSummarizationInput).toBe(100_000)
     expect(config.summarizerMaxOutputTokens).toBe(13_107)
   })
 
-  it('1M model → large summarization input budget', () => {
+  it('1M model → max summarization input is capped at 100K', () => {
     const config = computeConfig(1_000_000)
-    expect(config.maxSummarizationInput).toBe(963_616)
+    expect(config.maxSummarizationInput).toBe(100_000)
   })
 })
 
@@ -705,8 +705,9 @@ describe('end-to-end config coherence', () => {
       const config = computeConfig(size)
       const triggerTokens = config.triggerThreshold
 
-      // Trigger budget should always be partitioned into kept + summarizable portions.
-      expect(triggerTokens).toBe(
+      // Trigger budget is partitioned into kept + summarizable portions.
+      // For large windows the cap means leftover budget exists, so use >=.
+      expect(triggerTokens).toBeGreaterThanOrEqual(
         config.keepRecentTokens + config.maxSummarizationInput,
       )
       expect(config.maxSummarizationInput).toBeGreaterThanOrEqual(

@@ -70,19 +70,19 @@ export function computeConfig(contextWindow: number): ComputedConfig {
 
   // For tiny/medium windows, never require more tokens than are actually available to summarize.
   const minSummarizableTokens = Math.max(
-    256,
+    AGENT_LIMITS.COMPACTION_MIN_TOKEN_FLOOR,
     Math.min(baseMinSummarizableTokens, availableToSummarize),
   )
 
   // Pi-style summarization input budget: what remains at the trigger after keeping recent.
-  const maxSummarizationInput = Math.max(
-    minSummarizableTokens,
-    availableToSummarize,
+  const maxSummarizationInput = Math.min(
+    AGENT_LIMITS.COMPACTION_MAX_SUMMARIZATION_INPUT,
+    Math.max(minSummarizableTokens, availableToSummarize),
   )
 
   // Cap summary output to a fraction of reserved headroom.
   const summarizerMaxOutputTokens = Math.max(
-    256,
+    AGENT_LIMITS.COMPACTION_MIN_TOKEN_FLOOR,
     Math.floor(reserveTokens * AGENT_LIMITS.COMPACTION_SUMMARIZER_OUTPUT_RATIO),
   )
 
@@ -276,6 +276,47 @@ async function consumeStreamText(
   return chunks.join('')
 }
 
+async function callSummarizer(
+  model: LanguageModel,
+  messages: ModelMessage[],
+  userPrompt: string,
+  timeoutMs: number,
+  maxOutputTokens: number,
+  logLabel: string,
+): Promise<string | null> {
+  const transcript = messagesToTranscript(messages)
+  if (!transcript.trim()) return null
+
+  const systemPrompt = buildSummarizationSystemPrompt()
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      maxOutputTokens,
+      messages: [
+        {
+          role: 'user',
+          content: `<conversation_transcript>\n${transcript}\n</conversation_transcript>\n\n${userPrompt}`,
+        },
+      ],
+      abortSignal: controller.signal,
+    })
+
+    const text = await consumeStreamText(result)
+    return text || null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    logger.warn(`${logLabel} failed`, { error: message })
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function summarizeMessages(
   model: LanguageModel,
   messagesToSummarize: ModelMessage[],
@@ -283,45 +324,15 @@ async function summarizeMessages(
   timeoutMs: number,
   maxOutputTokens: number,
 ): Promise<string | null> {
-  const transcript = messagesToTranscript(messagesToSummarize)
-  if (!transcript.trim()) return null
-
-  const userPrompt = buildSummarizationPrompt(existingSummary)
-  const systemPrompt = buildSummarizationSystemPrompt()
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const result = streamText({
-      model,
-      system: systemPrompt,
-      maxOutputTokens,
-      messages: [
-        {
-          role: 'user',
-          content: `<conversation_transcript>\n${transcript}\n</conversation_transcript>\n\n${userPrompt}`,
-        },
-      ],
-      abortSignal: controller.signal,
-    })
-
-    const text = await consumeStreamText(result)
-    return text || null
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    logger.warn('Summarization failed, will use sliding window fallback', {
-      error: message,
-    })
-    return null
-  } finally {
-    clearTimeout(timeout)
-  }
+  return callSummarizer(
+    model,
+    messagesToSummarize,
+    buildSummarizationPrompt(existingSummary),
+    timeoutMs,
+    maxOutputTokens,
+    'Summarization',
+  )
 }
-
-// ---------------------------------------------------------------------------
-// LLM-based turn prefix summarization
-// ---------------------------------------------------------------------------
 
 async function summarizeTurnPrefix(
   model: LanguageModel,
@@ -329,38 +340,14 @@ async function summarizeTurnPrefix(
   timeoutMs: number,
   maxOutputTokens: number,
 ): Promise<string | null> {
-  const transcript = messagesToTranscript(turnPrefixMessages)
-  if (!transcript.trim()) return null
-
-  const userPrompt = buildTurnPrefixPrompt()
-  const systemPrompt = buildSummarizationSystemPrompt()
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const result = streamText({
-      model,
-      system: systemPrompt,
-      maxOutputTokens,
-      messages: [
-        {
-          role: 'user',
-          content: `<conversation_transcript>\n${transcript}\n</conversation_transcript>\n\n${userPrompt}`,
-        },
-      ],
-      abortSignal: controller.signal,
-    })
-
-    const text = await consumeStreamText(result)
-    return text || null
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    logger.warn('Turn prefix summarization failed', { error: message })
-    return null
-  } finally {
-    clearTimeout(timeout)
-  }
+  return callSummarizer(
+    model,
+    turnPrefixMessages,
+    buildTurnPrefixPrompt(),
+    timeoutMs,
+    maxOutputTokens,
+    'Turn prefix summarization',
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -530,8 +517,11 @@ async function compactMessages(
 
   // 5. Try LLM summarization
   const turnPrefixOutputBudget = Math.max(
-    256,
-    Math.floor(config.summarizerMaxOutputTokens * 0.5),
+    AGENT_LIMITS.COMPACTION_MIN_TOKEN_FLOOR,
+    Math.floor(
+      config.summarizerMaxOutputTokens *
+        AGENT_LIMITS.COMPACTION_TURN_PREFIX_OUTPUT_RATIO,
+    ),
   )
 
   logger.info('Attempting LLM-based compaction', {
@@ -640,6 +630,15 @@ async function compactMessages(
 // prepareStep factory (public API)
 // ---------------------------------------------------------------------------
 
+function isCompactionState(v: unknown): v is CompactionState {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'compactionCount' in v &&
+    typeof (v as CompactionState).compactionCount === 'number'
+  )
+}
+
 export function createCompactionPrepareStep(
   userConfig?: Partial<CompactionConfig>,
 ) {
@@ -669,11 +668,9 @@ export function createCompactionPrepareStep(
     model: LanguageModel
     experimental_context: unknown
   }) => {
-    const state: CompactionState =
-      (experimental_context as CompactionState | null) ?? {
-        existingSummary: null,
-        compactionCount: 0,
-      }
+    const state: CompactionState = isCompactionState(experimental_context)
+      ? experimental_context
+      : { existingSummary: null, compactionCount: 0 }
 
     // Stage 1: Check if compaction is needed using the current prompt as-is.
     const currentTokens = getCurrentTokenCount(steps, messages, config)
