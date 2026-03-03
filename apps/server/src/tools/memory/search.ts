@@ -42,9 +42,14 @@ async function loadMemoryEntries(): Promise<MemoryEntry[]> {
 export function createMemorySearchTool() {
   return tool({
     description:
-      'Search all memories (both core and daily) using fuzzy matching. This is the single tool for recalling anything from memory.',
+      'Search all memories (both core and daily) using fuzzy matching. Pass multiple keywords for broader recall — each keyword is searched independently and results are merged by best relevance.',
     inputSchema: z.object({
-      query: z.string().describe('Search query to find relevant memories'),
+      keywords: z
+        .array(z.string())
+        .min(1)
+        .describe(
+          'Search keywords/terms. Use multiple to cast a wider net (e.g. ["user name", "preferences", "location"]).',
+        ),
     }),
     execute: (params) =>
       executeWithMetrics(TOOL_NAME, async () => {
@@ -59,16 +64,34 @@ export function createMemorySearchTool() {
           includeScore: true,
         })
 
-        const results = fuse.search(params.query, { limit: 10 })
-
-        if (results.length === 0) {
-          return { text: `No memories matching "${params.query}" found.` }
+        const bestScores = new Map<
+          MemoryEntry,
+          { score: number; keyword: string }
+        >()
+        for (const keyword of params.keywords) {
+          for (const r of fuse.search(keyword)) {
+            const score = r.score ?? 1
+            const existing = bestScores.get(r.item)
+            if (!existing || score < existing.score) {
+              bestScores.set(r.item, { score, keyword })
+            }
+          }
         }
 
-        const formatted = results
-          .map((r) => {
-            const score = r.score !== undefined ? (1 - r.score).toFixed(2) : '?'
-            return `[${r.item.source}] (relevance: ${score})\n${r.item.content}`
+        if (bestScores.size === 0) {
+          return {
+            text: `No memories matching [${params.keywords.join(', ')}] found.`,
+          }
+        }
+
+        const sorted = [...bestScores.entries()]
+          .sort((a, b) => a[1].score - b[1].score)
+          .slice(0, 10)
+
+        const formatted = sorted
+          .map(([entry, { score }]) => {
+            const relevance = (1 - score).toFixed(2)
+            return `[${entry.source}] (relevance: ${relevance})\n${entry.content}`
           })
           .join('\n\n---\n\n')
 
