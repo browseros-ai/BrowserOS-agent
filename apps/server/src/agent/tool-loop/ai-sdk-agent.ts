@@ -78,6 +78,7 @@ export class AiSdkAgent {
       workspaceDir: config.resolvedConfig.sessionExecutionDir,
       soulContent,
       isSoulBootstrap: isBootstrap,
+      chatMode: config.resolvedConfig.chatMode,
     })
 
     // Configure compaction for context window management

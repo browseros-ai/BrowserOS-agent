@@ -274,6 +274,11 @@ function getSoul(
 ): string {
   if (!options?.soulContent) return ''
 
+  // In chat mode, inject personality but skip tool instructions
+  if (options.chatMode) {
+    return `<soul>\n${options.soulContent}\n</soul>`
+  }
+
   const bootstrap = options.isSoulBootstrap
     ? `\n<soul_bootstrap>
 This is your first time meeting this user. Your SOUL.md is still a template.
@@ -300,7 +305,12 @@ SOUL.md defines **how you behave** — your personality, tone, communication sty
 // section: memory
 // -----------------------------------------------------------------------------
 
-function getMemory(): string {
+function getMemory(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  if (options?.chatMode) return ''
+
   return `<memory_instructions>
 You have long-term memory. Use it proactively:
 
@@ -309,6 +319,7 @@ You have long-term memory. Use it proactively:
 **Store**: Two tiers for **facts about the user and the world**:
 - \`memory_write\` — daily memories, auto-expire after 30 days. Use for session notes, recent events, and transient observations.
 - \`memory_save_core\` — permanent core memories. Use for lasting facts about the user (name, location, projects, tools, people, preferences). Promote from daily when referenced repeatedly.
+  **IMPORTANT**: \`memory_save_core\` overwrites the entire file. Always call \`memory_read_core\` first, merge new facts into existing content, then save the full result.
 
 **Memory is NOT for behavior/personality** — that belongs in SOUL.md via \`soul_update\`.
 
@@ -422,6 +433,7 @@ interface BuildSystemPromptOptions {
   workspaceDir?: string
   soulContent?: string
   isSoulBootstrap?: boolean
+  chatMode?: boolean
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
