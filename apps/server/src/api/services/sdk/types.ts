@@ -65,10 +65,6 @@ export interface ActiveTab {
   windowId: number
 }
 
-export interface PageContent {
-  content: string
-}
-
 export interface Screenshot {
   data: string
   mimeType: string

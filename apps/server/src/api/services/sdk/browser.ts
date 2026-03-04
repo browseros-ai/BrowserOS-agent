@@ -79,7 +79,7 @@ export class BrowserService {
     tabId?: number,
     windowId?: number,
   ): Promise<NavigateResult> {
-    if (tabId) {
+    if (tabId !== undefined) {
       const pages = await this.browser.listPages()
       const page = pages.find((p) => p.tabId === tabId)
       if (!page) {
