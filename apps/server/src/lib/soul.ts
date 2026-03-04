@@ -30,10 +30,24 @@ export async function readSoul(): Promise<string> {
   return file.text()
 }
 
-export async function writeSoul(content: string): Promise<void> {
+export interface WriteSoulResult {
+  truncated: boolean
+  linesWritten: number
+  linesDropped: number
+  droppedContent: string
+}
+
+export async function writeSoul(content: string): Promise<WriteSoulResult> {
   const lines = content.split('\n')
-  const truncated = lines.slice(0, PATHS.SOUL_MAX_LINES).join('\n')
-  await Bun.write(getSoulPath(), truncated)
+  const kept = lines.slice(0, PATHS.SOUL_MAX_LINES)
+  const dropped = lines.slice(PATHS.SOUL_MAX_LINES)
+  await Bun.write(getSoulPath(), kept.join('\n'))
+  return {
+    truncated: dropped.length > 0,
+    linesWritten: kept.length,
+    linesDropped: dropped.length,
+    droppedContent: dropped.join('\n'),
+  }
 }
 
 export async function seedSoulTemplate(): Promise<void> {
