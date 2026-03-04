@@ -7,6 +7,7 @@ import {
   buildContentMarkdownExpression,
   type ContentMarkdownOptions,
 } from './content-markdown'
+import { type DomSearchResult, parseNodeAttributes } from './dom'
 import * as elements from './elements'
 import type { HistoryEntry } from './history'
 import * as history from './history'
@@ -391,6 +392,43 @@ export class Browser {
     return snapshot.buildInteractiveTree(nodes).join('\n')
   }
 
+  async getPageLinks(
+    page: number,
+  ): Promise<Array<{ text: string; href: string }>> {
+    const session = await this.resolveSession(page)
+    const nodes = await this.fetchAXTree(session)
+    const linkNodes = snapshot.extractLinkNodes(nodes)
+    if (linkNodes.length === 0) return []
+
+    const results: Array<{ text: string; href: string }> = []
+    const seen = new Set<string>()
+
+    for (const link of linkNodes) {
+      try {
+        const resolved = await session.DOM.resolveNode({
+          backendNodeId: link.backendDOMNodeId,
+        })
+        if (!resolved.object?.objectId) continue
+
+        const hrefResult = await session.Runtime.callFunctionOn({
+          objectId: resolved.object.objectId,
+          functionDeclaration:
+            'function() { return this.href || this.getAttribute("href") || ""; }',
+          returnByValue: true,
+        })
+
+        const href = hrefResult.result?.value as string
+        if (!href || href.startsWith('javascript:') || seen.has(href)) continue
+        seen.add(href)
+        results.push({ text: link.text, href })
+      } catch {
+        // skip unresolvable nodes
+      }
+    }
+
+    return results
+  }
+
   async enhancedSnapshot(page: number): Promise<string> {
     const session = await this.resolveSession(page)
     const nodes = await this.fetchAXTree(session)
@@ -511,6 +549,98 @@ export class Browser {
     return {
       value: result.result?.value,
       description: result.result?.description,
+    }
+  }
+
+  async getDom(page: number, opts?: { selector?: string }): Promise<string> {
+    const session = await this.resolveSession(page)
+    const doc = await session.DOM.getDocument({ depth: 0 })
+
+    let nodeId = doc.root.nodeId
+    if (opts?.selector) {
+      const found = await session.DOM.querySelector({
+        nodeId: doc.root.nodeId,
+        selector: opts.selector,
+      })
+      if (!found.nodeId) return ''
+      nodeId = found.nodeId
+    }
+
+    const result = await session.DOM.getOuterHTML({ nodeId })
+    return result.outerHTML
+  }
+
+  async searchDom(
+    page: number,
+    query: string,
+    opts?: { limit?: number },
+  ): Promise<{ results: DomSearchResult[]; totalCount: number }> {
+    const session = await this.resolveSession(page)
+    const limit = opts?.limit ?? 25
+
+    await session.DOM.getDocument({ depth: 0 })
+    const search = await session.DOM.performSearch({ query })
+    const count = Math.min(search.resultCount, limit)
+
+    if (count === 0) {
+      await session.DOM.discardSearchResults({ searchId: search.searchId })
+      return { results: [], totalCount: search.resultCount }
+    }
+
+    try {
+      const matched = await session.DOM.getSearchResults({
+        searchId: search.searchId,
+        fromIndex: 0,
+        toIndex: count,
+      })
+
+      const results: DomSearchResult[] = []
+      const seen = new Set<number>()
+      for (const nodeId of matched.nodeIds) {
+        try {
+          const desc = await session.DOM.describeNode({ nodeId, depth: 0 })
+          let node = desc.node
+          let resolvedNodeId = nodeId
+
+          // Text/comment nodes: resolve to parent element via JS
+          if (node.nodeType !== 1) {
+            const resolved = await session.DOM.resolveNode({ nodeId })
+            if (!resolved.object.objectId) continue
+            const parentResult = await session.Runtime.callFunctionOn({
+              objectId: resolved.object.objectId,
+              functionDeclaration: 'function() { return this.parentElement; }',
+              returnByValue: false,
+            })
+            if (!parentResult.result.objectId) continue
+            const parentNode = await session.DOM.requestNode({
+              objectId: parentResult.result.objectId,
+            })
+            resolvedNodeId = parentNode.nodeId
+            const parentDesc = await session.DOM.describeNode({
+              nodeId: parentNode.nodeId,
+              depth: 0,
+            })
+            node = parentDesc.node
+          }
+
+          if (node.nodeType !== 1) continue
+          if (seen.has(node.backendNodeId)) continue
+          seen.add(node.backendNodeId)
+
+          results.push({
+            tag: node.localName,
+            nodeId: resolvedNodeId,
+            backendNodeId: node.backendNodeId,
+            attributes: parseNodeAttributes(node),
+          })
+        } catch {
+          // node may have been removed between search and describe
+        }
+      }
+
+      return { results, totalCount: search.resultCount }
+    } finally {
+      await session.DOM.discardSearchResults({ searchId: search.searchId })
     }
   }
 
@@ -882,6 +1012,61 @@ export class Browser {
 
   async activateWindow(windowId: number): Promise<void> {
     await this.cdp.Browser.activateWindow({ windowId })
+  }
+
+  async showPage(
+    page: number,
+    opts?: { windowId?: number; index?: number; activate?: boolean },
+  ): Promise<PageInfo> {
+    const info = this.pages.get(page)
+    if (!info)
+      throw new Error(
+        `Unknown page ${page}. Use list_pages to see available pages.`,
+      )
+
+    const result = await this.cdp.Browser.showTab({
+      tabId: info.tabId,
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(opts?.index !== undefined && { index: opts.index }),
+      ...(opts?.activate !== undefined && { activate: opts.activate }),
+    })
+
+    const tab = result.tab as TabInfo
+    const updated: PageInfo = {
+      ...info,
+      isHidden: tab.isHidden,
+      isActive: tab.isActive,
+      windowId: tab.windowId,
+      index: tab.index,
+    }
+    this.pages.set(page, updated)
+    return updated
+  }
+
+  async movePage(
+    page: number,
+    opts?: { windowId?: number; index?: number },
+  ): Promise<PageInfo> {
+    const info = this.pages.get(page)
+    if (!info)
+      throw new Error(
+        `Unknown page ${page}. Use list_pages to see available pages.`,
+      )
+
+    const result = await this.cdp.Browser.moveTab({
+      tabId: info.tabId,
+      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(opts?.index !== undefined && { index: opts.index }),
+    })
+
+    const tab = result.tab as TabInfo
+    const updated: PageInfo = {
+      ...info,
+      windowId: tab.windowId,
+      index: tab.index,
+    }
+    this.pages.set(page, updated)
+    return updated
   }
 
   // --- Bookmarks ---

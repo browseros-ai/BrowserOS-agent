@@ -18,8 +18,8 @@ import { ControllerBackend } from './browser/backends/controller'
 import { Browser } from './browser/browser'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
+import { ensureBrowserosDir } from './lib/browseros-dir'
 import { initializeDb } from './lib/db'
-
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
@@ -27,6 +27,7 @@ import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
+import { seedSoulTemplate } from './lib/soul'
 import { registry } from './tools/registry'
 import { VERSION } from './version'
 
@@ -45,7 +46,7 @@ export class Application {
       resourcesDir: path.resolve(this.config.resourcesDir),
     })
 
-    this.initCoreServices()
+    await this.initCoreServices()
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
@@ -95,7 +96,7 @@ export class Application {
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
 
-        onShutdown: () => this.stop(),
+        onShutdown: () => this.stop('shutdown-endpoint'),
       })
     } catch (error) {
       this.handleStartupError('HTTP server', this.config.serverPort, error)
@@ -113,16 +114,24 @@ export class Application {
     metrics.log('http_server.started', { version: VERSION })
   }
 
-  stop(): void {
-    logger.info('Shutting down server...')
+  stop(reason?: string): void {
+    logger.info('Shutting down server...', { reason })
 
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
-    process.exit(EXIT_CODES.SUCCESS)
+    // Exit 0 only for managed shutdowns (POST /shutdown from Chromium).
+    // Signal kills exit non-zero so Chromium's OnProcessExited restarts us.
+    const code =
+      reason === 'SIGTERM' || reason === 'SIGINT'
+        ? EXIT_CODES.SIGNAL_KILL
+        : EXIT_CODES.SUCCESS
+    process.exit(code)
   }
 
-  private initCoreServices(): void {
+  private async initCoreServices(): Promise<void> {
     this.configureLogDirectory()
+    await ensureBrowserosDir()
+    await seedSoulTemplate()
 
     const dbPath = path.join(
       this.config.executionDir || this.config.resourcesDir,

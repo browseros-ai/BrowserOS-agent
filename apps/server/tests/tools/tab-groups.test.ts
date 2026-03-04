@@ -1,6 +1,6 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { close_page, list_pages, new_page } from '../../src/tools/navigation'
+import { close_page, new_page } from '../../src/tools/navigation'
 import {
   close_tab_group,
   group_tabs,
@@ -40,22 +40,11 @@ describe('tab group tools', () => {
         textOf(tab2Result).match(/Page ID:\s*(\d+)/)?.[1],
       )
 
-      // Get tab IDs from list_pages
-      const pagesResult = await execute(list_pages, {})
-      const pagesText = textOf(pagesResult)
-
-      // Extract tab IDs for our pages
-      const tabIds: number[] = []
-      for (const pageId of [tab1PageId, tab2PageId]) {
-        const pageRegex = new RegExp(`${pageId}\\.\\s+.*?\\(tab\\s+(\\d+)\\)`)
-        const match = pagesText.match(pageRegex)
-        if (match) tabIds.push(Number(match[1]))
-      }
-      assert.ok(tabIds.length === 2, `Expected 2 tab IDs, got ${tabIds.length}`)
+      const pageIds = [tab1PageId, tab2PageId]
 
       // Group tabs
       const groupResult = await execute(group_tabs, {
-        tabIds,
+        pageIds,
         title: 'Test Group',
       })
       assert.ok(!groupResult.isError, textOf(groupResult))
@@ -80,7 +69,7 @@ describe('tab group tools', () => {
       assert.ok(textOf(listResult).includes('Renamed Group'))
 
       // Ungroup
-      const ungroupResult = await execute(ungroup_tabs, { tabIds })
+      const ungroupResult = await execute(ungroup_tabs, { pageIds })
       assert.ok(!ungroupResult.isError, textOf(ungroupResult))
       assert.ok(textOf(ungroupResult).includes('Ungrouped'))
 
@@ -95,18 +84,12 @@ describe('tab group tools', () => {
       const tabResult = await execute(new_page, { url: 'about:blank' })
       const tabPageId = Number(textOf(tabResult).match(/Page ID:\s*(\d+)/)?.[1])
 
-      // Get tab ID
-      const pagesResult = await execute(list_pages, {})
-      const pageRegex = new RegExp(`${tabPageId}\\.\\s+.*?\\(tab\\s+(\\d+)\\)`)
-      const tabMatch = textOf(pagesResult).match(pageRegex)
-      assert.ok(tabMatch, 'Could not find tab ID')
-      const tabId = Number(tabMatch?.[1])
-
       // Group
       const groupResult = await execute(group_tabs, {
-        tabIds: [tabId],
+        pageIds: [tabPageId],
         title: 'Disposable',
       })
+      assert.ok(!groupResult.isError, textOf(groupResult))
       const groupId = textOf(groupResult).match(/Group ID:\s*(\S+)/)?.[1]
 
       // Close group (also closes the tab)

@@ -7,6 +7,7 @@ import {
   Palette,
   RotateCcw,
   Server,
+  Sparkles,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -32,6 +33,7 @@ const settingsNavItems: NavItem[] = [
     icon: Palette,
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
+  { name: 'Agent Soul', to: '/settings/soul', icon: Sparkles },
   { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]

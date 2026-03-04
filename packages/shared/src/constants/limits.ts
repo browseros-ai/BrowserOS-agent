@@ -15,10 +15,37 @@ export const RATE_LIMITS = {
 export const AGENT_LIMITS = {
   MAX_TURNS: 100,
   DEFAULT_CONTEXT_WINDOW: 200_000,
-  // Compression settings - hybrid approach with minimum headroom
-  COMPRESSION_MIN_HEADROOM: 10_000, // Always leave at least 10K tokens for tool responses
-  COMPRESSION_MAX_RATIO: 0.75, // Never wait longer than 75% for large models
-  COMPRESSION_MIN_RATIO: 0.4, // Never compress too early (before 40%)
+
+  // Legacy compression settings (used by gemini-agent.ts)
+  COMPRESSION_MIN_HEADROOM: 10_000,
+  COMPRESSION_MAX_RATIO: 0.75,
+  COMPRESSION_MIN_RATIO: 0.4,
+
+  // Compaction — adaptive trigger
+  COMPACTION_RESERVE_TOKENS: 16_384,
+
+  // Compaction — adaptive keep-recent
+  COMPACTION_MAX_KEEP_RECENT: 20_000,
+  COMPACTION_KEEP_RECENT_FRACTION: 0.35,
+  COMPACTION_SMALL_CONTEXT_WINDOW: 16_000,
+  COMPACTION_MIN_SUMMARIZABLE_INPUT: 4_000,
+  COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL: 1_000,
+
+  // Compaction — summarization
+  COMPACTION_MIN_TOKEN_FLOOR: 256,
+  COMPACTION_TURN_PREFIX_OUTPUT_RATIO: 0.5,
+  COMPACTION_MAX_SUMMARIZATION_INPUT: 100_000,
+  COMPACTION_SUMMARIZATION_TIMEOUT_MS: 60_000,
+  COMPACTION_SUMMARIZER_OUTPUT_RATIO: 0.8,
+
+  // Compaction — estimation (step 0 / no real usage)
+  COMPACTION_FIXED_OVERHEAD: 5_000,
+  COMPACTION_SAFETY_MULTIPLIER: 1.3,
+  COMPACTION_IMAGE_TOKEN_ESTIMATE: 1_000,
+
+  // Compaction — tool output truncation
+  COMPACTION_TOOL_OUTPUT_MAX_CHARS: 15_000,
+  COMPACTION_TRANSCRIPT_TOOL_OUTPUT_MAX_CHARS: 2_000,
 } as const
 
 export const PAGINATION = {

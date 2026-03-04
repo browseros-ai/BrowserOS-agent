@@ -4,7 +4,9 @@ import { stepCountIs, ToolLoopAgent, type UIMessage } from 'ai'
 import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
+import { isSoulBootstrap, readSoul } from '../../lib/soul'
 import { buildFilesystemToolSet } from '../../tools/filesystem/build-toolset'
+import { buildMemoryToolSet } from '../../tools/memory/build-toolset'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
@@ -49,10 +51,14 @@ export class AiSdkAgent {
     const filesystemTools = config.resolvedConfig.chatMode
       ? {}
       : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
-    const tools: Record<string, (typeof browserTools)[string]> = {
+    const memoryTools = config.resolvedConfig.chatMode
+      ? {}
+      : buildMemoryToolSet()
+    const tools = {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
+      ...memoryTools,
     }
 
     if (
@@ -76,12 +82,17 @@ export class AiSdkAgent {
     ) {
       excludeSections.push('nudges')
     }
+    const soulContent = await readSoul()
+    const isBootstrap = await isSoulBootstrap()
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
       isScheduledTask: config.resolvedConfig.isScheduledTask,
       scheduledTaskWindowId: config.browserContext?.windowId,
       workspaceDir: config.resolvedConfig.sessionExecutionDir,
+      soulContent,
+      isSoulBootstrap: isBootstrap,
+      chatMode: config.resolvedConfig.chatMode,
     })
 
     // Configure compaction for context window management
@@ -90,8 +101,6 @@ export class AiSdkAgent {
       AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
     const prepareStep = createCompactionPrepareStep({
       contextWindow,
-      compactionThreshold: 0.6,
-      toolOutputMaxChars: 15_000,
     })
 
     // Create the ToolLoopAgent

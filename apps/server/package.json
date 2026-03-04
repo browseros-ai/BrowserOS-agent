@@ -1,6 +1,6 @@
 {
   "name": "@browseros/server",
-  "version": "0.0.63",
+  "version": "0.0.66",
   "description": "BrowserOS server",
   "type": "module",
   "main": "./src/index.ts",
@@ -64,6 +64,7 @@
     "core-js": "3.45.1",
     "debug": "4.4.3",
     "eventsource-parser": "^3.0.0",
+    "fuse.js": "^7.1.0",
     "hono": "^4.12.3",
     "klavis": "^2.15.0",
     "pino": "^9.6.0",

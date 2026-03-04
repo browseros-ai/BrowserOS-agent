@@ -82,7 +82,7 @@ export function createDefaultBrowserOSProvider(): LlmProviderConfig {
     baseUrl: 'https://api.browseros.com/v1',
     modelId: 'browseros-auto',
     supportsImages: true,
-    contextWindow: 400000,
+    contextWindow: 200000,
     temperature: 0.2,
     createdAt: timestamp,
     updatedAt: timestamp,

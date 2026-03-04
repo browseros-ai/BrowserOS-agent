@@ -1,9 +1,10 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { close_page, new_page } from '../../src/tools/navigation'
+import { close_page, navigate_page, new_page } from '../../src/tools/navigation'
 import {
   evaluate_script,
   get_page_content,
+  get_page_links,
   take_enhanced_snapshot,
   take_screenshot,
   take_snapshot,
@@ -124,6 +125,76 @@ describe('observation tools', () => {
       assert.ok(!contentResult.isError, textOf(contentResult))
       const text = textOf(contentResult)
       assert.ok(text.includes('Example Domain'), 'Expected page content')
+
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('get_page_links extracts links from constructed HTML', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: 'about:blank' })
+      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const html = `
+        <a href="https://example.com/one">First Link</a>
+        <a href="https://example.com/two">Second Link</a>
+        <a href="https://example.com/three">Third Link</a>
+        <a href="https://example.com/one">Duplicate Link</a>
+        <a href="javascript:void(0)">JS Link</a>
+        <span>Not a link</span>
+      `
+      await execute(evaluate_script, {
+        page: pageId,
+        expression: `document.body.innerHTML = ${JSON.stringify(html)}`,
+      })
+
+      // navigate forces a new AX tree fetch
+      await execute(navigate_page, {
+        page: pageId,
+        action: 'reload',
+      })
+
+      // set body content again after reload
+      await execute(evaluate_script, {
+        page: pageId,
+        expression: `document.body.innerHTML = ${JSON.stringify(html)}`,
+      })
+
+      const linksResult = await execute(get_page_links, { page: pageId })
+      assert.ok(!linksResult.isError, textOf(linksResult))
+      const text = textOf(linksResult)
+
+      assert.ok(text.includes('First Link'), 'Expected first link text')
+      assert.ok(text.includes('Second Link'), 'Expected second link text')
+      assert.ok(text.includes('Third Link'), 'Expected third link text')
+      assert.ok(text.includes('example.com/one'), 'Expected first link URL')
+      assert.ok(text.includes('example.com/two'), 'Expected second link URL')
+
+      // should deduplicate by URL
+      const oneCount = (text.match(/example\.com\/one/g) || []).length
+      assert.strictEqual(oneCount, 1, 'Expected deduplication of same URL')
+
+      // should skip javascript: links
+      assert.ok(
+        !text.includes('javascript:'),
+        'Should not include javascript: links',
+      )
+
+      // should not include non-link elements
+      assert.ok(!text.includes('Not a link'), 'Should not include spans')
+
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('get_page_links returns empty message for pages with no links', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: 'about:blank' })
+      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const linksResult = await execute(get_page_links, { page: pageId })
+      assert.ok(!linksResult.isError, textOf(linksResult))
+      assert.ok(textOf(linksResult).includes('No links found'))
 
       await execute(close_page, { page: pageId })
     })

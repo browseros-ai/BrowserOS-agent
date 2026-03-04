@@ -61,14 +61,13 @@ Default to using Bun instead of Node.js:
 bun run start                    # Loads .env.dev automatically
 
 # Testing
-bun run test                     # Run controller-based and common tests
-bun run test:cdp                 # Run CDP-based tests (requires CDP connection)
-bun run test:controller          # Run controller-based tests only
+bun run test                     # Run tool tests (requires BrowserOS running)
+bun run test:tools               # Same as above
 bun run test:integration         # Run integration tests
-bun run test:all                 # Run all tests
+bun run test:sdk                 # Run SDK tests
 
 # Run a single test file
-bun --env-file=.env.dev test apps/server/tests/path/to/file.test.ts
+bun --env-file=.env.development test apps/server/tests/path/to/file.test.ts
 
 # Linting
 bun run lint                     # Check with Biome
@@ -161,7 +160,8 @@ When creating new packages in this monorepo:
 ## Test Organization
 
 Tests are in `apps/server/tests/`:
-- `tools/cdp-based/` - Tests requiring CDP connection (browser must be running)
-- `tools/controller-based/` - Tests using mocked controller context
-- `common/` - Unit tests for common utilities
+- `tools/` - Tool tests (require BrowserOS running with CDP)
+- `browser/` - Browser backend tests
+- `agent/` - Agent tests (compaction, rate limiter)
+- `sdk/` - Agent SDK tests
 - `__helpers__/` - Test utilities and fixtures

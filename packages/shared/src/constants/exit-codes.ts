@@ -16,6 +16,9 @@ export const EXIT_CODES = {
 
   /** Port conflict after retries - Chromium should increment port and restart */
   PORT_CONFLICT: 2,
+
+  /** Killed by external signal - Chromium should restart */
+  SIGNAL_KILL: 3,
 } as const
 
 export type ExitCode = (typeof EXIT_CODES)[keyof typeof EXIT_CODES]

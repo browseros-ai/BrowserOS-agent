@@ -47,7 +47,7 @@ export const get_page_content = defineTool({
       .describe('Only extract content visible in the current viewport'),
     includeLinks: z
       .boolean()
-      .default(true)
+      .default(false)
       .describe('Render links as [text](url) instead of plain text'),
     includeImages: z
       .boolean()
@@ -92,6 +92,26 @@ export const take_screenshot = defineTool({
       fullPage: args.fullPage,
     })
     response.image(data, mimeType)
+  },
+})
+
+export const get_page_links = defineTool({
+  name: 'get_page_links',
+  description:
+    'Extract all links from the page using the accessibility tree. Returns a deduplicated list of [text](url) entries. More reliable than DOM queries — handles role="link" elements and shadow DOM.',
+  input: z.object({
+    page: pageParam,
+  }),
+  handler: async (args, ctx, response) => {
+    const links = await ctx.browser.getPageLinks(args.page)
+
+    if (links.length === 0) {
+      response.text('No links found on the page.')
+      return
+    }
+
+    const lines = links.map((l) => (l.text ? `[${l.text}](${l.href})` : l.href))
+    response.text(lines.join('\n'))
   },
 })
 

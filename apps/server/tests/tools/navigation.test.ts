@@ -4,10 +4,14 @@ import {
   close_page,
   get_active_page,
   list_pages,
+  move_page,
   navigate_page,
+  new_hidden_page,
   new_page,
+  show_page,
   wait_for,
 } from '../../src/tools/navigation'
+import { close_window, create_window } from '../../src/tools/windows'
 import { withBrowser } from '../__helpers__/with-browser'
 
 function textOf(result: {
@@ -109,6 +113,71 @@ describe('navigation tools', () => {
       assert.ok(textOf(waitResult).includes('Timed out'))
 
       await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('new_hidden_page opens a hidden tab', async () => {
+    await withBrowser(async ({ execute }) => {
+      const result = await execute(new_hidden_page, {
+        url: 'about:blank',
+      })
+      assert.ok(!result.isError, textOf(result))
+      const text = textOf(result)
+      assert.ok(text.includes('Opened hidden page'), 'Expected hidden page')
+      assert.ok(text.includes('Page ID:'), 'Expected page ID')
+
+      const pageId = Number(text.match(/Page ID:\s*(\d+)/)?.[1])
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('show_page restores a hidden page to visible', async () => {
+    await withBrowser(async ({ execute }) => {
+      const hiddenResult = await execute(new_hidden_page, {
+        url: 'about:blank',
+      })
+      const pageId = Number(textOf(hiddenResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const showResult = await execute(show_page, { page: pageId })
+      assert.ok(!showResult.isError, textOf(showResult))
+      assert.ok(textOf(showResult).includes('now visible'))
+
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('show_page errors on an already-visible page', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: 'about:blank' })
+      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const showResult = await execute(show_page, { page: pageId })
+      assert.ok(showResult.isError, 'Expected error for visible page')
+
+      await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('move_page moves a tab to a different window', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: 'about:blank' })
+      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+
+      const winResult = await execute(create_window, {})
+      const windowId = Number(
+        textOf(winResult).match(/Created window\s+(\d+)/)?.[1],
+      )
+
+      const moveResult = await execute(move_page, {
+        page: pageId,
+        windowId,
+      })
+      assert.ok(!moveResult.isError, textOf(moveResult))
+      assert.ok(textOf(moveResult).includes('Moved page'))
+      assert.ok(textOf(moveResult).includes(`window ${windowId}`))
+
+      await execute(close_page, { page: pageId })
+      await execute(close_window, { windowId })
     })
   }, 60_000)
 })
