@@ -1,4 +1,4 @@
-import { readdir, unlink } from 'node:fs/promises'
+import { appendFile, readdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
 import { tool } from 'ai'
@@ -61,9 +61,7 @@ export function createMemoryWriteTool() {
         const filePath = join(memoryDir, getTodayFileName())
         const entry = `\n## ${getCurrentTime()}\n\n${params.content}\n`
 
-        const file = Bun.file(filePath)
-        const existing = (await file.exists()) ? await file.text() : ''
-        await Bun.write(filePath, existing + entry)
+        await appendFile(filePath, entry, 'utf-8')
 
         await cleanOldMemories(memoryDir)
 
