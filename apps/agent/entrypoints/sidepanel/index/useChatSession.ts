@@ -379,15 +379,14 @@ export const useChatSession = () => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
   useEffect(() => {
     messagesRef.current = messages
-    if (messages.length > 0) {
-      // Local storage: save on every change (including during streaming)
-      // Remote: only save when not streaming to avoid partial message saves
+    const messagesToSave = messages.filter((m) => m.parts?.length > 0)
+    if (messagesToSave.length > 0) {
       if (isLoggedIn) {
         if (status !== 'streaming') {
-          saveRemoteConversation(conversationIdRef.current, messages)
+          saveRemoteConversation(conversationIdRef.current, messagesToSave)
         }
       } else {
-        saveLocalConversation(conversationIdRef.current, messages)
+        saveLocalConversation(conversationIdRef.current, messagesToSave)
       }
     }
   }, [messages, isLoggedIn, status])
