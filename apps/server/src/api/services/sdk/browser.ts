@@ -3,77 +3,75 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Browser Service - MCP-based browser operations for SDK
+ * Browser Service - Direct browser operations for SDK
  */
 
-import {
-  callMcpTool,
-  getImageContent,
-  getTextContent,
-} from '../../utils/mcp-client'
+import type { Browser } from '../../../browser/browser'
 import type {
   ActiveTab,
   InteractiveElements,
   NavigateResult,
-  PageContent,
   PageLoadStatus,
   Screenshot,
 } from './types'
 import { SdkError } from './types'
 
 export class BrowserService {
-  constructor(private mcpServerUrl: string) {}
+  constructor(private browser: Browser) {}
+
+  private async getPageIdForTab(tabId: number): Promise<number> {
+    const resolved = await this.browser.resolveTabIds([tabId])
+    const pageId = resolved.get(tabId)
+    if (pageId === undefined) {
+      throw new SdkError(`Tab ${tabId} not found`, 404)
+    }
+    return pageId
+  }
 
   async getActiveTab(windowId?: number): Promise<ActiveTab> {
-    const result = await callMcpTool<ActiveTab>(
-      this.mcpServerUrl,
-      'browser_get_active_tab',
-      windowId ? { windowId } : {},
-    )
-
-    if (result.isError || !result.structuredContent?.tabId) {
-      throw new SdkError('Failed to get active tab')
+    if (windowId !== undefined) {
+      // Find the active tab in the specified window
+      const pages = await this.browser.listPages()
+      const page = pages.find((p) => p.windowId === windowId && p.isActive)
+      if (!page) {
+        throw new SdkError('No active tab found in specified window')
+      }
+      return {
+        tabId: page.tabId,
+        url: page.url,
+        title: page.title,
+        windowId: page.windowId ?? 0,
+      }
     }
 
-    return result.structuredContent
+    const page = await this.browser.getActivePage()
+    if (!page) {
+      throw new SdkError('No active tab found')
+    }
+
+    return {
+      tabId: page.tabId,
+      url: page.url,
+      title: page.title,
+      windowId: page.windowId ?? 0,
+    }
   }
 
   async getPageContent(tabId: number): Promise<string> {
-    const result = await callMcpTool<PageContent>(
-      this.mcpServerUrl,
-      'browser_get_page_content',
-      { tabId, type: 'text' },
-    )
-
-    if (result.isError) {
-      throw new SdkError('Failed to get page content')
-    }
-
-    const content = result.structuredContent?.content || getTextContent(result)
+    const pageId = await this.getPageIdForTab(tabId)
+    const content = await this.browser.contentAsMarkdown(pageId, {})
     if (!content) {
       throw new SdkError('No content found on page', 400)
     }
-
     return content
   }
 
   async getScreenshot(tabId: number): Promise<Screenshot> {
-    const result = await callMcpTool(
-      this.mcpServerUrl,
-      'browser_get_screenshot',
-      { tabId, size: 'medium' },
-    )
-
-    if (result.isError) {
-      throw new SdkError('Failed to capture screenshot')
-    }
-
-    const image = getImageContent(result)
-    if (!image) {
-      throw new SdkError('Screenshot not available')
-    }
-
-    return image
+    const pageId = await this.getPageIdForTab(tabId)
+    return await this.browser.screenshot(pageId, {
+      format: 'png',
+      fullPage: false,
+    })
   }
 
   async navigate(
@@ -81,62 +79,60 @@ export class BrowserService {
     tabId?: number,
     windowId?: number,
   ): Promise<NavigateResult> {
-    const result = await callMcpTool<NavigateResult>(
-      this.mcpServerUrl,
-      'browser_navigate',
-      {
-        url,
-        ...(tabId && { tabId }),
-        ...(windowId && { windowId }),
-      },
-    )
-
-    if (result.isError || !result.structuredContent?.tabId) {
-      throw new SdkError(getTextContent(result) || 'Navigation failed')
+    if (tabId !== undefined) {
+      const pages = await this.browser.listPages()
+      const page = pages.find((p) => p.tabId === tabId)
+      if (!page) {
+        throw new SdkError(`Tab ${tabId} not found`, 404)
+      }
+      await this.browser.goto(page.pageId, url)
+      return { tabId, windowId: page.windowId ?? 0 }
     }
 
-    return result.structuredContent
+    if (windowId !== undefined) {
+      const pages = await this.browser.listPages()
+      const page = pages.find((p) => p.windowId === windowId && p.isActive)
+      if (!page) {
+        throw new SdkError('No active tab in specified window')
+      }
+      await this.browser.goto(page.pageId, url)
+      return { tabId: page.tabId, windowId }
+    }
+
+    const activePage = await this.browser.getActivePage()
+    if (!activePage) {
+      throw new SdkError('No active tab to navigate')
+    }
+    await this.browser.goto(activePage.pageId, url)
+    return {
+      tabId: activePage.tabId,
+      windowId: activePage.windowId ?? 0,
+    }
   }
 
   async getPageLoadStatus(tabId: number): Promise<PageLoadStatus> {
-    const result = await callMcpTool<PageLoadStatus>(
-      this.mcpServerUrl,
-      'browser_get_load_status',
-      { tabId },
-    )
-
-    if (result.isError || result.structuredContent?.tabId === undefined) {
-      throw new SdkError(
-        getTextContent(result) || 'Failed to get page load status',
-      )
+    const pages = await this.browser.listPages()
+    const page = pages.find((p) => p.tabId === tabId)
+    if (!page) {
+      throw new SdkError('Tab not found', 404)
     }
-
-    return result.structuredContent
+    return {
+      tabId: page.tabId,
+      isDOMContentLoaded: !page.isLoading,
+      isResourcesLoading: page.isLoading,
+      isPageComplete: !page.isLoading,
+    }
   }
 
   async getInteractiveElements(
     tabId: number,
     simplified = false,
-    windowId?: number,
+    _windowId?: number,
   ): Promise<InteractiveElements> {
-    const result = await callMcpTool<InteractiveElements>(
-      this.mcpServerUrl,
-      'browser_get_interactive_elements',
-      {
-        tabId,
-        simplified,
-        ...(windowId && { windowId }),
-      },
-    )
-
-    if (result.isError) {
-      throw new SdkError(
-        getTextContent(result) || 'Failed to get interactive elements',
-      )
-    }
-
-    const content = result.structuredContent?.content || getTextContent(result)
-
+    const pageId = await this.getPageIdForTab(tabId)
+    const content = simplified
+      ? await this.browser.snapshot(pageId)
+      : await this.browser.enhancedSnapshot(pageId)
     return { content }
   }
 }
