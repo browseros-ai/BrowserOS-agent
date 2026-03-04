@@ -30,6 +30,17 @@ export class SessionStore {
     return this.sessions.has(conversationId)
   }
 
+  remove(conversationId: string): boolean {
+    const existed = this.sessions.delete(conversationId)
+    if (existed) {
+      logger.info('Session removed from store (without dispose)', {
+        conversationId,
+        remainingSessions: this.sessions.size,
+      })
+    }
+    return existed
+  }
+
   async delete(conversationId: string): Promise<boolean> {
     const session = this.sessions.get(conversationId)
     if (!session) return false
