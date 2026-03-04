@@ -23,6 +23,7 @@ import { MagicLinkCallback } from './login/MagicLinkCallback'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
+import { SoulPage } from './soul/SoulPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
 function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
@@ -43,6 +44,7 @@ const OptionsRedirect: FC = () => {
     'connect-mcp': '/connect-apps',
     mcp: '/settings/mcp',
     customization: '/settings/customization',
+    soul: '/settings/soul',
     'jtbd-agent': '/settings/survey',
     workflows: '/workflows',
     scheduled: '/scheduled',
@@ -89,6 +91,7 @@ export const App: FC = () => {
             <Route path="chat" element={<LlmHubPage />} />
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
+            <Route path="soul" element={<SoulPage />} />
             <Route path="survey" element={<SurveyPage {...surveyParams} />} />
           </Route>
         </Route>

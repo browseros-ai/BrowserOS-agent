@@ -265,6 +265,69 @@ function getStyle(): string {
 }
 
 // -----------------------------------------------------------------------------
+// section: soul
+// -----------------------------------------------------------------------------
+
+function getSoul(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  if (!options?.soulContent) return ''
+
+  // In chat mode, inject personality but skip tool instructions
+  if (options.chatMode) {
+    return `<soul>\n${options.soulContent}\n</soul>`
+  }
+
+  const bootstrap = options.isSoulBootstrap
+    ? `\n<soul_bootstrap>
+This is your first time meeting this user. Your SOUL.md is still a template.
+During this conversation, naturally pick up cues about:
+- How they'd like you to behave (formal, casual, direct, playful?) → \`soul_update\`
+- Any rules or boundaries for your behavior → \`soul_update\`
+- Facts about them (name, work, interests) → \`memory_save_core\`
+
+When you have enough signal, use \`soul_update\` to rewrite SOUL.md with a personalized version. Don't interrogate — just pick up cues from the conversation.
+</soul_bootstrap>`
+    : ''
+
+  return `<soul>
+${options.soulContent}
+</soul>
+<soul_evolution>
+SOUL.md defines **how you behave** — your personality, tone, communication style, rules, and boundaries. Update it with \`soul_update\` when you learn how the user wants you to act. If you change it, briefly tell the user. Use \`soul_read\` to read the current SOUL.md before updating.
+
+**SOUL.md is NOT for storing facts about the user.** User facts (name, location, projects, preferences about the world) belong in core memory via \`memory_save_core\`.
+</soul_evolution>${bootstrap}`
+}
+
+// -----------------------------------------------------------------------------
+// section: memory
+// -----------------------------------------------------------------------------
+
+function getMemory(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  if (options?.chatMode) return ''
+
+  return `<memory_instructions>
+You have long-term memory. Use it proactively:
+
+**Recall**: Use \`memory_search\` to recall context before answering — it searches all memories (core + daily) in one call.
+
+**Store**: Two tiers for **facts about the user and the world**:
+- \`memory_write\` — daily memories, auto-expire after 30 days. Use for session notes, recent events, and transient observations.
+- \`memory_save_core\` — permanent core memories. Use for lasting facts about the user (name, location, projects, tools, people, preferences). Promote from daily when referenced repeatedly.
+  **IMPORTANT**: \`memory_save_core\` overwrites the entire file. Always call \`memory_read_core\` first, merge new facts into existing content, then save the full result.
+
+**Memory is NOT for behavior/personality** — that belongs in SOUL.md via \`soul_update\`.
+
+Only delete core memories if the user explicitly asks to forget.
+</memory_instructions>`
+}
+
+// -----------------------------------------------------------------------------
 // section: security-reminder
 // -----------------------------------------------------------------------------
 
@@ -355,6 +418,8 @@ const promptSections: Record<string, PromptSectionFn> = {
   workspace: getWorkspace,
   'scheduled-task': getScheduledTask,
   'user-preferences': getUserPreferences,
+  soul: getSoul,
+  memory: getMemory,
   'security-reminder': getSecurityReminder,
 }
 
@@ -366,6 +431,9 @@ interface BuildSystemPromptOptions {
   isScheduledTask?: boolean
   scheduledTaskWindowId?: number
   workspaceDir?: string
+  soulContent?: string
+  isSoulBootstrap?: boolean
+  chatMode?: boolean
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {

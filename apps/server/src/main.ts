@@ -18,8 +18,8 @@ import { ControllerBackend } from './browser/backends/controller'
 import { Browser } from './browser/browser'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
+import { ensureBrowserosDir } from './lib/browseros-dir'
 import { initializeDb } from './lib/db'
-
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
@@ -27,6 +27,7 @@ import { isPortInUseError } from './lib/port-binding'
 import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
+import { seedSoulTemplate } from './lib/soul'
 import { registry } from './tools/registry'
 import { VERSION } from './version'
 
@@ -45,7 +46,7 @@ export class Application {
       resourcesDir: path.resolve(this.config.resourcesDir),
     })
 
-    this.initCoreServices()
+    await this.initCoreServices()
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
@@ -127,8 +128,10 @@ export class Application {
     process.exit(code)
   }
 
-  private initCoreServices(): void {
+  private async initCoreServices(): Promise<void> {
     this.configureLogDirectory()
+    await ensureBrowserosDir()
+    await seedSoulTemplate()
 
     const dbPath = path.join(
       this.config.executionDir || this.config.resourcesDir,
