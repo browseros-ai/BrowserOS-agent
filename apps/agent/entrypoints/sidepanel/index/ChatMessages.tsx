@@ -34,7 +34,7 @@ interface ChatMessagesProps {
   onClickDislike: (messageId: string, comment?: string) => void
   showJtbdPopup: boolean
   onTakeSurvey: () => void
-  onDismissJtbdPopup: () => void
+  onDismissJtbdPopup: (dontShowAgain: boolean) => void
 }
 
 export const ChatMessages: FC<ChatMessagesProps> = ({

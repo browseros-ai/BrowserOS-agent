@@ -4,6 +4,7 @@ export interface JtbdPopupState {
   messageCount: number
   surveyTaken: boolean
   samplingId: number
+  dontShowAgain: boolean
 }
 
 export const jtbdPopupStorage = storage.defineItem<JtbdPopupState>(
@@ -13,6 +14,7 @@ export const jtbdPopupStorage = storage.defineItem<JtbdPopupState>(
       messageCount: 0,
       surveyTaken: false,
       samplingId: -1,
+      dontShowAgain: false,
     },
   },
 )

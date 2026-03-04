@@ -21,6 +21,7 @@ function pickRandomDirection(): string {
 }
 
 const isEligible = (state: JtbdPopupState): boolean => {
+  if (state.dontShowAgain) return false
   if (state.surveyTaken) return false
   if (state.messageCount < JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD) return false
   if (state.messageCount % JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD !== 0)
@@ -80,9 +81,15 @@ export function useJtbdPopup() {
     [],
   )
 
-  const onDismiss = useCallback(async () => {
+  const onDismiss = useCallback(async (dontShowAgain: boolean) => {
     const current = await jtbdPopupStorage.getValue()
-    track(JTBD_POPUP_DISMISSED_EVENT, { messageCount: current.messageCount })
+    track(JTBD_POPUP_DISMISSED_EVENT, {
+      messageCount: current.messageCount,
+      dontShowAgain,
+    })
+    if (dontShowAgain) {
+      await jtbdPopupStorage.setValue({ ...current, dontShowAgain: true })
+    }
     setPopupVisible(false)
   }, [])
 
