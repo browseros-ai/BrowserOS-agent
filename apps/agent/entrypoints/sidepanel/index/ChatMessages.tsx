@@ -1,6 +1,6 @@
 import type { UIMessage } from 'ai'
 import { Bot } from 'lucide-react'
-import { type FC, Fragment, type RefObject } from 'react'
+import { type FC, Fragment } from 'react'
 import {
   Conversation,
   ConversationContent,
@@ -26,7 +26,6 @@ import { UserActionMessage } from './UserActionMessage'
 interface ChatMessagesProps {
   messages: UIMessage[]
   status: 'streaming' | 'submitted' | 'ready' | 'error'
-  messagesEndRef: RefObject<HTMLDivElement | null>
   getActionForMessage?: (message: UIMessage) => ChatAction | undefined
   liked: Record<string, boolean>
   onClickLike: (messageId: string) => void
@@ -40,7 +39,6 @@ interface ChatMessagesProps {
 export const ChatMessages: FC<ChatMessagesProps> = ({
   messages,
   status,
-  messagesEndRef,
   getActionForMessage,
   liked,
   disliked,
@@ -53,111 +51,107 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   const isStreaming = status === 'streaming' || status === 'submitted'
 
   return (
-    <>
-      <Conversation className="ph-mask">
-        <ConversationContent>
-          {messages.map((message, messageIndex) => {
-            const action = getActionForMessage?.(message)
-            const isLastMessage = messageIndex === messages.length - 1
-            const segments = getMessageSegments(
-              message,
-              isLastMessage,
-              isStreaming,
-            )
-            const toolBatches = segments.filter((s) => s.type === 'tool-batch')
-            const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
+    <Conversation className="ph-mask">
+      <ConversationContent>
+        {messages.map((message, messageIndex) => {
+          const action = getActionForMessage?.(message)
+          const isLastMessage = messageIndex === messages.length - 1
+          const segments = getMessageSegments(
+            message,
+            isLastMessage,
+            isStreaming,
+          )
+          const toolBatches = segments.filter((s) => s.type === 'tool-batch')
+          const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
 
-            const messageText = segments
-              ?.filter((each) => each.type === 'text')
-              ?.map((each) => each.text)
-              ?.join('\n\n')
+          const messageText = segments
+            ?.filter((each) => each.type === 'text')
+            ?.map((each) => each.text)
+            ?.join('\n\n')
 
-            const likeAction = () => onClickLike(message.id)
-            const dislikeAction = (comment?: string) =>
-              onClickDislike(message.id, comment)
+          const likeAction = () => onClickLike(message.id)
+          const dislikeAction = (comment?: string) =>
+            onClickDislike(message.id, comment)
 
-            return (
-              <Fragment key={message.id}>
-                <Message from={message.role}>
-                  <MessageContent>
-                    {action ? (
-                      <UserActionMessage action={action} />
-                    ) : (
-                      segments.map((segment) => {
-                        switch (segment.type) {
-                          case 'text':
-                            return (
-                              <MessageResponse key={segment.key}>
+          return (
+            <Fragment key={message.id}>
+              <Message from={message.role}>
+                <MessageContent>
+                  {action ? (
+                    <UserActionMessage action={action} />
+                  ) : (
+                    segments.map((segment) => {
+                      switch (segment.type) {
+                        case 'text':
+                          return (
+                            <MessageResponse key={segment.key}>
+                              {segment.text}
+                            </MessageResponse>
+                          )
+                        case 'reasoning':
+                          return (
+                            <Reasoning
+                              key={segment.key}
+                              className="w-full"
+                              isStreaming={segment.isStreaming}
+                            >
+                              <ReasoningTrigger />
+                              <ReasoningContent>
                                 {segment.text}
-                              </MessageResponse>
-                            )
-                          case 'reasoning':
-                            return (
-                              <Reasoning
-                                key={segment.key}
-                                className="w-full"
-                                isStreaming={segment.isStreaming}
-                              >
-                                <ReasoningTrigger />
-                                <ReasoningContent>
-                                  {segment.text}
-                                </ReasoningContent>
-                              </Reasoning>
-                            )
-                          case 'tool-batch':
-                            return (
-                              <ToolBatch
-                                key={segment.key}
-                                tools={segment.tools}
-                                isLastBatch={segment.key === lastToolBatchKey}
-                                isLastMessage={isLastMessage}
-                                isStreaming={isStreaming}
-                              />
-                            )
-                          default:
-                            return null
-                        }
-                      })
-                    )}
-                  </MessageContent>
-                </Message>
-                {message.role === 'assistant' &&
-                (!isLastMessage || !isStreaming) ? (
-                  <ChatMessageActions
-                    messageId={message.id}
-                    messageText={messageText}
-                    liked={liked[message.id] ?? false}
-                    disliked={disliked[message.id] ?? false}
-                    onClickLike={likeAction}
-                    onClickDislike={dislikeAction}
-                  />
-                ) : null}
-              </Fragment>
-            )
-          })}
-          {showJtbdPopup && (
-            <JtbdPopup
-              onTakeSurvey={onTakeSurvey}
-              onDismiss={onDismissJtbdPopup}
-            />
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      {isStreaming && (
-        <div className="flex animate-fadeInUp gap-2 px-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white">
-            <Bot className="h-3.5 w-3.5" />
+                              </ReasoningContent>
+                            </Reasoning>
+                          )
+                        case 'tool-batch':
+                          return (
+                            <ToolBatch
+                              key={segment.key}
+                              tools={segment.tools}
+                              isLastBatch={segment.key === lastToolBatchKey}
+                              isLastMessage={isLastMessage}
+                              isStreaming={isStreaming}
+                            />
+                          )
+                        default:
+                          return null
+                      }
+                    })
+                  )}
+                </MessageContent>
+              </Message>
+              {message.role === 'assistant' &&
+              (!isLastMessage || !isStreaming) ? (
+                <ChatMessageActions
+                  messageId={message.id}
+                  messageText={messageText}
+                  liked={liked[message.id] ?? false}
+                  disliked={disliked[message.id] ?? false}
+                  onClickLike={likeAction}
+                  onClickDislike={dislikeAction}
+                />
+              ) : null}
+            </Fragment>
+          )
+        })}
+        {isStreaming && (
+          <div className="flex animate-fadeInUp gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white">
+              <Bot className="h-3.5 w-3.5" />
+            </div>
+            <div className="flex items-center gap-1 rounded-xl rounded-tl-none border border-border/50 bg-card px-3 py-2.5 shadow-sm">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent-orange)]" />
+            </div>
           </div>
-          <div className="flex items-center gap-1 rounded-xl rounded-tl-none border border-border/50 bg-card px-3 py-2.5 shadow-sm">
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.3s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.15s]" />
-            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--accent-orange)]" />
-          </div>
-        </div>
-      )}
-      <div ref={messagesEndRef} />
-    </>
+        )}
+        {showJtbdPopup && (
+          <JtbdPopup
+            onTakeSurvey={onTakeSurvey}
+            onDismiss={onDismissJtbdPopup}
+          />
+        )}
+      </ConversationContent>
+      <ConversationScrollButton />
+    </Conversation>
   )
 }
