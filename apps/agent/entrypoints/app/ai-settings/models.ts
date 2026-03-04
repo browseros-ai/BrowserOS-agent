@@ -30,7 +30,10 @@ export interface ModelsData {
  * Based on: https://github.com/browseros-ai/BrowserOS-agent/blob/main/src/options/data/models.ts
  */
 export const MODELS_DATA: ModelsData = {
-  moonshot: [{ modelId: 'kimi-k2-0905-preview', contextLength: 128000 }],
+  moonshot: [
+    { modelId: 'kimi-k2.5', contextLength: 128000 },
+    { modelId: 'kimi-k2-0905-preview', contextLength: 128000 },
+  ],
   anthropic: [
     { modelId: 'claude-opus-4-5-20251101', contextLength: 200000 },
     { modelId: 'claude-haiku-4-5-20251001', contextLength: 200000 },

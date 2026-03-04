@@ -2,6 +2,7 @@ import { Check, Loader2, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useKimiLaunch } from '@/lib/feature-flags/useKimiLaunch'
 import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
   isTesting = false,
 }) => {
   const inputId = `provider-${provider.id}`
+  const kimiLaunch = useKimiLaunch()
 
   return (
     <label
@@ -79,24 +81,30 @@ export const ProviderCard: FC<ProviderCardProps> = ({
         </div>
         {isBuiltIn && provider.type === 'browseros' && (
           <span className="mb-1 inline-block rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-3 py-0.5 font-semibold text-white text-xs">
-            Free model Sponsored by Kimi K2.5
+            {kimiLaunch
+              ? 'Powered by Kimi K2.5 from Moonshot AI'
+              : 'Free model Sponsored by Kimi K2.5'}
           </span>
         )}
         <p className="truncate text-muted-foreground text-sm">
           {isBuiltIn ? (
-            <>
-              BrowserOS-hosted model with strict rate limits.{' '}
-              <a
-                href="https://docs.browseros.com/features/bring-your-own-llm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-foreground"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Bring your own key
-              </a>{' '}
-              for better performance.
-            </>
+            kimiLaunch ? (
+              'Extended usage for the next two weeks.'
+            ) : (
+              <>
+                BrowserOS-hosted model with strict rate limits.{' '}
+                <a
+                  href="https://docs.browseros.com/features/bring-your-own-llm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Bring your own key
+                </a>{' '}
+                for better performance.
+              </>
+            )
           ) : (
             `${provider.modelId} • ${provider.baseUrl}`
           )}

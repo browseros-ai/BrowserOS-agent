@@ -2,6 +2,7 @@ import { Globe2, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { useKimiLaunch } from '@/lib/feature-flags/useKimiLaunch'
 import { cn } from '@/lib/utils'
 import { getFaviconUrl, type LlmHubProvider } from './models'
 
@@ -20,13 +21,15 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
 }) => {
   const iconUrl = useMemo(() => getFaviconUrl(provider.url), [provider.url])
   const isKimi = provider.name === 'Kimi'
+  const kimiLaunch = useKimiLaunch()
+  const showKimiFlare = isKimi && kimiLaunch
 
   return (
     <div
       className={cn(
         'group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)] hover:shadow-md',
-        isKimi &&
-          'border-orange-400/60 shadow-[0_0_15px_rgba(251,146,60,0.3)] ring-2 ring-orange-400/50',
+        showKimiFlare &&
+          'border-orange-400/60 shadow-[0_0_15px_rgba(251,146,60,0.3)] ring-2 ring-orange-400/40',
       )}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
@@ -44,9 +47,9 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
       <div className="min-w-0 flex-1">
         <div className="mb-0.5 flex items-center gap-2">
           <span className="block truncate font-semibold">{provider.name}</span>
-          {isKimi && (
+          {showKimiFlare && (
             <span className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-0.5 font-medium text-white text-xs">
-              Try Kimi
+              Powered by Moonshot AI
             </span>
           )}
         </div>
