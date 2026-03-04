@@ -304,6 +304,15 @@ export const useChatSession = () => {
     }),
   })
 
+  // Remove messages with empty parts (e.g. interrupted assistant responses)
+  // to prevent AI SDK validation errors on subsequent sends
+  useEffect(() => {
+    if (status === 'streaming') return
+    if (messages.some((m) => !m.parts?.length)) {
+      setMessages(messages.filter((m) => m.parts?.length > 0))
+    }
+  }, [messages, status, setMessages])
+
   useNotifyActiveTab({
     messages,
     status,
