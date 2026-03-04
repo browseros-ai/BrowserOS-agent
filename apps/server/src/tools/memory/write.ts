@@ -31,7 +31,10 @@ async function cleanOldMemories(memoryDir: string): Promise<void> {
 
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - PATHS.MEMORY_RETENTION_DAYS)
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  const year = cutoff.getFullYear()
+  const month = String(cutoff.getMonth() + 1).padStart(2, '0')
+  const day = String(cutoff.getDate()).padStart(2, '0')
+  const cutoffStr = `${year}-${month}-${day}`
 
   for (const file of files) {
     const match = file.match(/^(\d{4}-\d{2}-\d{2})\.md$/)
