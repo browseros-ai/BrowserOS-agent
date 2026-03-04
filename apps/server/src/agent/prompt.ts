@@ -290,7 +290,7 @@ When you have enough signal, use \`soul_update\` to rewrite SOUL.md with a perso
 ${options.soulContent}
 </soul>
 <soul_evolution>
-SOUL.md defines **how you behave** — your personality, tone, communication style, rules, and boundaries. Update it with \`soul_update\` when you learn how the user wants you to act. If you change it, briefly tell the user.
+SOUL.md defines **how you behave** — your personality, tone, communication style, rules, and boundaries. Update it with \`soul_update\` when you learn how the user wants you to act. If you change it, briefly tell the user. Use \`soul_read\` to read the current SOUL.md before updating.
 
 **SOUL.md is NOT for storing facts about the user.** User facts (name, location, projects, preferences about the world) belong in core memory via \`memory_save_core\`.
 </soul_evolution>${bootstrap}`
