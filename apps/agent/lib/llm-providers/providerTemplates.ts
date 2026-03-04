@@ -112,6 +112,16 @@ export const providerTemplates: ProviderTemplate[] = [
     setupGuideUrl:
       'https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html',
   },
+  {
+    id: 'morpheus',
+    name: 'Morpheus',
+    defaultBaseUrl: 'https://api.mor.org/api/v1',
+    defaultModelId: 'glm-5',
+    supportsImages: false,
+    contextWindow: 131072,
+    apiKeyUrl: 'https://app.mor.org',
+    setupGuideUrl: 'https://apidocs.mor.org',
+  },
 ]
 
 /**
@@ -129,6 +139,7 @@ export const providerTypeOptions: { value: ProviderType; label: string }[] = [
   { value: 'lmstudio', label: 'LM Studio' },
   { value: 'bedrock', label: 'AWS Bedrock' },
   { value: 'browseros', label: 'BrowserOS' },
+  { value: 'morpheus', label: 'Morpheus' },
 ]
 
 /**
@@ -156,6 +167,7 @@ export const DEFAULT_BASE_URLS: Record<ProviderType, string> = {
   lmstudio: 'http://localhost:1234/v1',
   bedrock: '',
   browseros: '',
+  morpheus: 'https://api.mor.org/api/v1',
 }
 
 /**

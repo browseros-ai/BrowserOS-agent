@@ -23,6 +23,7 @@ export const LLM_PROVIDERS = {
   BEDROCK: 'bedrock',
   BROWSEROS: 'browseros',
   OPENAI_COMPATIBLE: 'openai-compatible',
+  MORPHEUS: 'morpheus',
 } as const
 
 /**
@@ -40,6 +41,7 @@ export const LLMProviderSchema: z.ZodEnum<
     'bedrock',
     'browseros',
     'openai-compatible',
+    'morpheus',
   ]
 > = z.enum([
   LLM_PROVIDERS.ANTHROPIC,
@@ -52,6 +54,7 @@ export const LLMProviderSchema: z.ZodEnum<
   LLM_PROVIDERS.BEDROCK,
   LLM_PROVIDERS.BROWSEROS,
   LLM_PROVIDERS.OPENAI_COMPATIBLE,
+  LLM_PROVIDERS.MORPHEUS,
 ])
 
 export type LLMProvider = z.infer<typeof LLMProviderSchema>

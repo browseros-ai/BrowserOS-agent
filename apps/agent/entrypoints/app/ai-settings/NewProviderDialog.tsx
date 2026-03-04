@@ -55,6 +55,7 @@ const providerTypeEnum = z.enum([
   'lmstudio',
   'bedrock',
   'browseros',
+  'morpheus',
 ])
 
 /**

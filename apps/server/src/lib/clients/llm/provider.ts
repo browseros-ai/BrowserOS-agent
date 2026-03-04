@@ -124,6 +124,15 @@ function createOpenAICompatibleModel(config: ResolvedLLMConfig): LanguageModel {
   })(config.model)
 }
 
+function createMorpheusModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.apiKey) throw new Error('Morpheus provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'morpheus',
+    baseURL: config.baseUrl || 'https://api.mor.org/api/v1',
+    apiKey: config.apiKey,
+  })(config.model)
+}
+
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.ANTHROPIC]: createAnthropicModel,
   [LLM_PROVIDERS.OPENAI]: createOpenAIModel,
@@ -135,6 +144,7 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.BEDROCK]: createBedrockModel,
   [LLM_PROVIDERS.BROWSEROS]: createBrowserOSModel,
   [LLM_PROVIDERS.OPENAI_COMPATIBLE]: createOpenAICompatibleModel,
+  [LLM_PROVIDERS.MORPHEUS]: createMorpheusModel,
 }
 
 export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
