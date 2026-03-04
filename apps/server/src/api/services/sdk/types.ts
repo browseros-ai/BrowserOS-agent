@@ -9,6 +9,7 @@
 import { BrowserContextSchema } from '@browseros/shared/schemas/browser-context'
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
+import type { Browser } from '../../../browser/browser'
 
 // Request validation schemas
 
@@ -53,6 +54,7 @@ export type VerifyRequest = z.infer<typeof VerifyRequestSchema>
 
 export interface SdkDeps {
   port: number
+  browser: Browser
   browserosId?: string
 }
 

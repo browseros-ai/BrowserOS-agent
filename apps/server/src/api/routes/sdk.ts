@@ -49,11 +49,9 @@ async function waitForPageLoad(
 }
 
 export function createSdkRoutes(deps: SdkDeps) {
-  const { port, browserosId } = deps
+  const { port, browser, browserosId } = deps
 
-  const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
-
-  const browserService = new BrowserService(mcpServerUrl)
+  const browserService = new BrowserService(browser)
   const chatService = new ChatService(port)
   const extractService = new ExtractService()
   const verifyService = new VerifyService()

@@ -110,6 +110,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       '/sdk',
       createSdkRoutes({
         port,
+        browser,
         browserosId,
       }),
     )
