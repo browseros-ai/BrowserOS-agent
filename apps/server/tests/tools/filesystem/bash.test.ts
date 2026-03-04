@@ -15,6 +15,7 @@ beforeEach(async () => {
   )
   await mkdir(tmpDir, { recursive: true })
   const tool = createBashTool(tmpDir)
+  // biome-ignore lint/suspicious/noExplicitAny: test helper
   exec = (params) => (tool as any).execute(params)
 })
 
@@ -84,6 +85,7 @@ describe('filesystem_bash', () => {
     await mkdir(join(tmpDir, 'subdir'))
     const subTool = createBashTool(join(tmpDir, 'subdir'))
     const subExec = (params: Record<string, unknown>) =>
+      // biome-ignore lint/suspicious/noExplicitAny: test helper
       (subTool as any).execute(params)
 
     const result = await subExec({ command: 'pwd' })

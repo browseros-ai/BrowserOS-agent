@@ -263,6 +263,42 @@ export async function findCursorInteractiveElements(
   return results
 }
 
+export interface LinkNode {
+  backendDOMNodeId: number
+  text: string
+}
+
+export function extractLinkNodes(nodes: AXNode[]): LinkNode[] {
+  const nodeMap = new Map<string, AXNode>()
+  for (const node of nodes) nodeMap.set(node.nodeId, node)
+
+  const links: LinkNode[] = []
+
+  function walk(nodeId: string): void {
+    const node = nodeMap.get(nodeId)
+    if (!node) return
+
+    const role = node.ignored
+      ? undefined
+      : (node.role?.value as string | undefined)
+
+    if (role === 'link' && node.backendDOMNodeId !== undefined) {
+      const text = typeof node.name?.value === 'string' ? node.name.value : ''
+      links.push({ backendDOMNodeId: node.backendDOMNodeId, text })
+    }
+
+    if (node.childIds) for (const childId of node.childIds) walk(childId)
+  }
+
+  const root =
+    nodes.find(
+      (n) => n.role?.value === 'RootWebArea' || n.role?.value === 'WebArea',
+    ) ?? nodes[0]
+  if (root?.childIds) for (const childId of root.childIds) walk(childId)
+
+  return links
+}
+
 function extractProps(node: AXNode): string {
   const parts: string[] = []
   if (!node.properties) return ''
