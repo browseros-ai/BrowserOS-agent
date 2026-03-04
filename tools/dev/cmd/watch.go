@@ -74,6 +74,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	env := proc.BuildEnv(p, "development")
+	env = append(env, fmt.Sprintf("BROWSEROS_USER_DATA_DIR=%s", userDataDir))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
