@@ -34,7 +34,7 @@ interface ChatMessagesProps {
   onClickDislike: (messageId: string, comment?: string) => void
   showJtbdPopup: boolean
   showDontShowAgain: boolean
-  onTakeSurvey: () => void
+  onTakeSurvey: (opts?: { dontShowAgain?: boolean }) => void
   onDismissJtbdPopup: (dontShowAgain: boolean) => void
 }
 

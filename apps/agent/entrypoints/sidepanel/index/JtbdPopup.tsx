@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 
 interface JtbdPopupProps {
-  onTakeSurvey: () => void
+  onTakeSurvey: (opts?: { dontShowAgain?: boolean }) => void
   onDismiss: (dontShowAgain: boolean) => void
   showDontShowAgain: boolean
 }
@@ -56,13 +56,7 @@ export const JtbdPopup: FC<JtbdPopupProps> = ({
           )}
 
           <div className="mt-3 flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
-                if (dontShowAgain) onDismiss(dontShowAgain)
-                onTakeSurvey()
-              }}
-            >
+            <Button size="sm" onClick={() => onTakeSurvey({ dontShowAgain })}>
               Take Survey
             </Button>
             <Button

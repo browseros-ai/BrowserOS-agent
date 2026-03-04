@@ -70,16 +70,22 @@ export function useJtbdPopup() {
     async ({
       maxTurns = 20,
       experimentId,
+      dontShowAgain = false,
     }: {
       maxTurns?: number
       experimentId?: string
+      dontShowAgain?: boolean
     } = {}) => {
-      // Direction is encoded in experimentId (e.g., "r2_competitor")
       const expId = experimentId ?? `r2_${pickRandomDirection()}`
       const current = await jtbdPopupStorage.getValue()
+      // Persist dontShowAgain without firing a dismiss event
+      if (dontShowAgain) {
+        await jtbdPopupStorage.setValue({ ...current, dontShowAgain: true })
+      }
       track(JTBD_POPUP_CLICKED_EVENT, {
         messageCount: current.messageCount,
         experimentId: expId,
+        dontShowAgain,
       })
       setPopupVisible(false)
       window.open(
