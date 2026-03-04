@@ -3,7 +3,7 @@ import type { FC } from 'react'
 import { useSoulContent } from './useSoulContent'
 
 export const SoulViewer: FC = () => {
-  const { content, isLoading, error } = useSoulContent()
+  const { content, isLoading, error, refetch } = useSoulContent()
 
   if (isLoading) {
     return (
@@ -40,7 +40,11 @@ export const SoulViewer: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card shadow-sm">
+    // biome-ignore lint/a11y/noStaticElementInteractions: mouseEnter for background refetch, not user interaction
+    <div
+      className="rounded-xl border border-border bg-card shadow-sm"
+      onMouseEnter={() => refetch()}
+    >
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-muted-foreground" />

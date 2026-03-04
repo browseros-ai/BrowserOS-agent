@@ -11,7 +11,7 @@ async function fetchSoul(baseUrl: string): Promise<string> {
 export function useSoulContent() {
   const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
 
-  const { data, isLoading, error } = useQuery<string, Error>({
+  const { data, isLoading, error, refetch } = useQuery<string, Error>({
     queryKey: ['soul', baseUrl],
     queryFn: () => fetchSoul(baseUrl as string),
     enabled: !!baseUrl && !urlLoading,
@@ -21,5 +21,6 @@ export function useSoulContent() {
     content: data ?? null,
     isLoading: isLoading || urlLoading,
     error,
+    refetch,
   }
 }
