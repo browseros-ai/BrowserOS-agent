@@ -33,6 +33,7 @@ const isEligible = (state: JtbdPopupState): boolean => {
 
 export function useJtbdPopup() {
   const [popupVisible, setPopupVisible] = useState(false)
+  const [showDontShowAgain, setShowDontShowAgain] = useState(false)
 
   useEffect(() => {
     jtbdPopupStorage.getValue().then(async (val) => {
@@ -52,7 +53,15 @@ export function useJtbdPopup() {
   const triggerIfEligible = useCallback(async () => {
     const current = await jtbdPopupStorage.getValue()
     if (isEligible(current)) {
-      track(JTBD_POPUP_SHOWN_EVENT, { messageCount: current.messageCount })
+      const newShownCount = current.shownCount + 1
+      await jtbdPopupStorage.setValue({ ...current, shownCount: newShownCount })
+      track(JTBD_POPUP_SHOWN_EVENT, {
+        messageCount: current.messageCount,
+        shownCount: newShownCount,
+      })
+      setShowDontShowAgain(
+        newShownCount >= JTBD_POPUP_CONSTANTS.DONT_SHOW_AGAIN_AFTER,
+      )
       setPopupVisible(true)
     }
   }, [])
@@ -95,6 +104,7 @@ export function useJtbdPopup() {
 
   return {
     popupVisible,
+    showDontShowAgain,
     recordMessageSent,
     triggerIfEligible,
     onTakeSurvey,

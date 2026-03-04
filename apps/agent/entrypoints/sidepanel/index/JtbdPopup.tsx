@@ -7,9 +7,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 interface JtbdPopupProps {
   onTakeSurvey: () => void
   onDismiss: (dontShowAgain: boolean) => void
+  showDontShowAgain: boolean
 }
 
-export const JtbdPopup: FC<JtbdPopupProps> = ({ onTakeSurvey, onDismiss }) => {
+export const JtbdPopup: FC<JtbdPopupProps> = ({
+  onTakeSurvey,
+  onDismiss,
+  showDontShowAgain,
+}) => {
   const [dontShowAgain, setDontShowAgain] = useState(false)
 
   return (
@@ -34,17 +39,21 @@ export const JtbdPopup: FC<JtbdPopupProps> = ({ onTakeSurvey, onDismiss }) => {
             </div>
           </div>
 
-          <label
-            htmlFor="jtbd-dont-show-again"
-            className="mt-3 flex items-center gap-2 text-muted-foreground text-xs"
-          >
-            <Checkbox
-              id="jtbd-dont-show-again"
-              checked={dontShowAgain}
-              onCheckedChange={(checked) => setDontShowAgain(checked === true)}
-            />
-            Don't show this again
-          </label>
+          {showDontShowAgain && (
+            <label
+              htmlFor="jtbd-dont-show-again"
+              className="mt-3 flex items-center gap-2 text-muted-foreground text-xs"
+            >
+              <Checkbox
+                id="jtbd-dont-show-again"
+                checked={dontShowAgain}
+                onCheckedChange={(checked) =>
+                  setDontShowAgain(checked === true)
+                }
+              />
+              Don't show this again
+            </label>
+          )}
 
           <div className="mt-3 flex gap-2">
             <Button

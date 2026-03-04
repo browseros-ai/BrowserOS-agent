@@ -41,6 +41,7 @@ export const Chat = () => {
 
   const {
     popupVisible,
+    showDontShowAgain,
     recordMessageSent,
     triggerIfEligible,
     onTakeSurvey,
@@ -180,6 +181,7 @@ export const Chat = () => {
             disliked={disliked}
             onClickDislike={onClickDislike}
             showJtbdPopup={popupVisible}
+            showDontShowAgain={showDontShowAgain}
             onTakeSurvey={onTakeSurvey}
             onDismissJtbdPopup={onDismissJtbdPopup}
           />
