@@ -80,7 +80,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 2)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	var wg sync.WaitGroup
 	var procs []*proc.ManagedProc
