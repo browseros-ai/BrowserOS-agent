@@ -47,7 +47,13 @@ export const JtbdPopup: FC<JtbdPopupProps> = ({ onTakeSurvey, onDismiss }) => {
           </label>
 
           <div className="mt-3 flex gap-2">
-            <Button size="sm" onClick={onTakeSurvey}>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (dontShowAgain) onDismiss(dontShowAgain)
+                onTakeSurvey()
+              }}
+            >
               Take Survey
             </Button>
             <Button
