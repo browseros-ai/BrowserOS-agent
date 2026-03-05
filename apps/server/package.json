@@ -22,8 +22,8 @@
       "import": "./src/rpc.ts"
     },
     "./agent": {
-      "types": "./src/agent/gemini-agent.ts",
-      "default": "./src/agent/gemini-agent.ts"
+      "types": "./src/agent/tool-loop/ai-sdk-agent.ts",
+      "default": "./src/agent/tool-loop/ai-sdk-agent.ts"
     },
     "./agent/types": {
       "types": "./src/agent/types.ts",

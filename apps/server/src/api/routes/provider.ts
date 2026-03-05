@@ -6,14 +6,14 @@
 
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
-import { testProviderConnection } from '../../agent/provider-adapter/test-provider'
-import { VercelAIConfigSchema } from '../../agent/provider-adapter/types'
+import { testProviderConnection } from '../../lib/clients/llm/test-provider'
 import { logger } from '../../lib/logger'
+import { AgentLLMConfigSchema } from '../types'
 
 export function createProviderRoutes() {
   return new Hono().post(
     '/',
-    zValidator('json', VercelAIConfigSchema),
+    zValidator('json', AgentLLMConfigSchema),
     async (c) => {
       const config = c.req.valid('json')
 
