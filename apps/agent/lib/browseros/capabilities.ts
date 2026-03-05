@@ -35,6 +35,8 @@ export enum Feature {
   WORKFLOW_SUPPORT = 'WORKFLOW_SUPPORT',
   // previousConversation as structured array (older servers only accept string)
   PREVIOUS_CONVERSATION_ARRAY = 'PREVIOUS_CONVERSATION_ARRAY',
+  // Soul page: agent personality viewer and editor
+  SOUL_SUPPORT = 'SOUL_SUPPORT',
 }
 
 /**
@@ -57,6 +59,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.PROXY_SUPPORT]: { minBrowserOSVersion: '0.39.0.1' },
   [Feature.WORKFLOW_SUPPORT]: { minServerVersion: '0.0.41' },
   [Feature.PREVIOUS_CONVERSATION_ARRAY]: { minServerVersion: '0.0.64' },
+  [Feature.SOUL_SUPPORT]: { minServerVersion: '0.0.67' },
 }
 
 function parseVersion(version: string): number[] {
