@@ -2,11 +2,14 @@ import { storage } from '@wxt-dev/storage'
 import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
+import { isKimiLaunchEnabled } from '@/lib/feature-flags/kimi-launch'
 import type { LlmProviderConfig, LlmProvidersBackup } from './types'
 import { uploadLlmProvidersToGraphql } from './uploadLlmProvidersToGraphql'
 
 /** Default provider ID constant */
 export const DEFAULT_PROVIDER_ID = 'browseros'
+const DEFAULT_PROVIDER_NAME = 'BrowserOS'
+const KIMI_LAUNCH_PROVIDER_NAME = 'Kimi K2.5'
 
 /** Storage key for LLM providers array */
 export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
@@ -68,8 +71,17 @@ export function setupLlmProvidersSyncToBackend(): () => void {
 
 /** Load providers from storage */
 export async function loadProviders(): Promise<LlmProviderConfig[]> {
-  const providers = await providersStorage.getValue()
-  return providers || []
+  const providers = (await providersStorage.getValue()) || []
+  const normalizedProviders = normalizeProvidersForLaunch(providers)
+
+  // Keep storage consistent so every consumer sees the same provider name.
+  if (
+    normalizedProviders.some((provider, index) => provider !== providers[index])
+  ) {
+    await providersStorage.setValue(normalizedProviders)
+  }
+
+  return normalizedProviders
 }
 
 /** Creates the default BrowserOS provider configuration */
@@ -78,7 +90,7 @@ export function createDefaultBrowserOSProvider(): LlmProviderConfig {
   return {
     id: DEFAULT_PROVIDER_ID,
     type: 'browseros',
-    name: 'BrowserOS',
+    name: getBuiltInProviderName(),
     baseUrl: 'https://api.browseros.com/v1',
     modelId: 'browseros-auto',
     supportsImages: true,
@@ -92,6 +104,32 @@ export function createDefaultBrowserOSProvider(): LlmProviderConfig {
 /** Creates the default providers configuration. Only call when storage is empty. */
 export function createDefaultProvidersConfig(): LlmProviderConfig[] {
   return [createDefaultBrowserOSProvider()]
+}
+
+function getBuiltInProviderName(): string {
+  return isKimiLaunchEnabled()
+    ? KIMI_LAUNCH_PROVIDER_NAME
+    : DEFAULT_PROVIDER_NAME
+}
+
+function normalizeProvidersForLaunch(
+  providers: LlmProviderConfig[],
+): LlmProviderConfig[] {
+  const builtInProviderName = getBuiltInProviderName()
+
+  return providers.map((provider) => {
+    if (
+      provider.id === DEFAULT_PROVIDER_ID &&
+      provider.type === 'browseros' &&
+      provider.name !== builtInProviderName
+    ) {
+      return {
+        ...provider,
+        name: builtInProviderName,
+      }
+    }
+    return provider
+  })
 }
 
 /** Storage key for the default provider ID */
