@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   BREADCRUMB_CONNECT_CLICKED_EVENT,
+  BREADCRUMB_CONNECT_COMPLETED_EVENT,
   BREADCRUMB_CONNECT_MANUAL_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
@@ -125,6 +126,7 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
   }
 
   const handleOAuthComplete = () => {
+    track(BREADCRUMB_CONNECT_COMPLETED_EVENT, { app_name: appName })
     setResolvedText(`Connected ${appName}`)
     setPhase('resolved')
     sendMessage({
