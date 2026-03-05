@@ -37,6 +37,8 @@ export enum Feature {
   PREVIOUS_CONVERSATION_ARRAY = 'PREVIOUS_CONVERSATION_ARRAY',
   // Soul page: agent personality viewer and editor
   SOUL_SUPPORT = 'SOUL_SUPPORT',
+  // Inline chat in the new tab page
+  NEWTAB_CHAT_SUPPORT = 'NEWTAB_CHAT_SUPPORT',
 }
 
 /**
@@ -60,6 +62,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.WORKFLOW_SUPPORT]: { minServerVersion: '0.0.41' },
   [Feature.PREVIOUS_CONVERSATION_ARRAY]: { minServerVersion: '0.0.64' },
   [Feature.SOUL_SUPPORT]: { minServerVersion: '0.0.67' },
+  [Feature.NEWTAB_CHAT_SUPPORT]: { minBrowserOSVersion: '0.40.0.0' },
 }
 
 function parseVersion(version: string): number[] {

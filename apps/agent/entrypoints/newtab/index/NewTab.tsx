@@ -46,6 +46,7 @@ import {
   NEWTAB_WORKSPACE_OPENED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
@@ -306,7 +307,17 @@ export const NewTab = () => {
           tabs: selectedTabs,
         })
         const searchQuery = `${item.name}${item.description ? ` - ${item.description}` : ''}}`
-        startInlineChat(searchQuery, 'agent', action)
+        if (supports(Feature.NEWTAB_CHAT_SUPPORT)) {
+          startInlineChat(searchQuery, 'agent', action)
+        } else {
+          openSidePanelWithSearch('open', {
+            query: searchQuery,
+            mode: 'agent',
+            action,
+          })
+          reset()
+          setSelectedTabs([])
+        }
         break
       }
       case 'browseros': {
@@ -319,7 +330,17 @@ export const NewTab = () => {
           message: item.message,
           tabs: selectedTabs,
         })
-        startInlineChat(item.message, item.mode, action)
+        if (supports(Feature.NEWTAB_CHAT_SUPPORT)) {
+          startInlineChat(item.message, item.mode, action)
+        } else {
+          openSidePanelWithSearch('open', {
+            query: item.message,
+            mode: item.mode,
+            action,
+          })
+          reset()
+          setSelectedTabs([])
+        }
         break
       }
     }
