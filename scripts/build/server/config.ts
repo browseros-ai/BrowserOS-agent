@@ -11,6 +11,11 @@ const REQUIRED_PROD_VARS = [
   'POSTHOG_API_KEY',
   'SENTRY_DSN',
 ]
+const INLINED_ENV_VARS = [
+  ...REQUIRED_PROD_VARS,
+  'NODE_ENV',
+  'LOG_LEVEL',
+] as const
 const PROD_ENV_PATH = join('apps', 'server', '.env.production')
 const PROD_ENV_TEMPLATE_PATH = join('apps', 'server', '.env.production.example')
 
@@ -30,26 +35,31 @@ function pickEnv(name: string, fileEnv: Record<string, string>): string {
 
 function loadProdEnv(rootDir: string): Record<string, string> {
   const prodEnvPath = join(rootDir, PROD_ENV_PATH)
-  if (existsSync(prodEnvPath)) {
-    return parse(readFileSync(prodEnvPath, 'utf-8'))
+  if (!existsSync(prodEnvPath)) {
+    const prodEnvTemplatePath = join(rootDir, PROD_ENV_TEMPLATE_PATH)
+    if (existsSync(prodEnvTemplatePath)) {
+      throw new Error(
+        `Missing ${PROD_ENV_PATH}. Create it from ${PROD_ENV_TEMPLATE_PATH} before running build:server.`,
+      )
+    }
+    throw new Error(
+      `Missing ${PROD_ENV_PATH}. The template file ${PROD_ENV_TEMPLATE_PATH} was not found.`,
+    )
   }
-  const prodEnvTemplatePath = join(rootDir, PROD_ENV_TEMPLATE_PATH)
-  if (existsSync(prodEnvTemplatePath)) {
-    return parse(readFileSync(prodEnvTemplatePath, 'utf-8'))
-  }
-  throw new Error(
-    `Missing ${PROD_ENV_PATH}. Create it from ${PROD_ENV_TEMPLATE_PATH} before running build:server.`,
-  )
+  return parse(readFileSync(prodEnvPath, 'utf-8'))
 }
 
 function buildInlineEnv(
   fileEnv: Record<string, string>,
 ): Record<string, string> {
-  const merged: Record<string, string> = {}
-  for (const [key, value] of Object.entries(fileEnv)) {
-    merged[key] = process.env[key] ?? value
+  const inlineEnv: Record<string, string> = {}
+  for (const key of INLINED_ENV_VARS) {
+    const value = process.env[key] ?? fileEnv[key]
+    if (value !== undefined) {
+      inlineEnv[key] = value
+    }
   }
-  return merged
+  return inlineEnv
 }
 
 function validateProductionEnv(envVars: Record<string, string>): void {
@@ -71,7 +81,8 @@ export function loadBuildConfig(rootDir: string): BuildConfig {
 
   const processEnv: NodeJS.ProcessEnv = {
     PATH: process.env.PATH ?? '',
-    ...envVars,
+    ...fileEnv,
+    ...process.env,
   }
 
   return {
