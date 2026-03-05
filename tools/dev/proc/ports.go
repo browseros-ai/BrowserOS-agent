@@ -2,10 +2,12 @@ package proc
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 )
 
 type Ports struct {
@@ -14,16 +16,117 @@ type Ports struct {
 	Extension int
 }
 
-func FindAvailablePort(start int) int {
-	for port := start; port < start+100; port++ {
-		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-		if err == nil {
-			ln.Close()
-			return port
+type PortReservations struct {
+	CDP       net.Listener
+	Server    net.Listener
+	Extension net.Listener
+}
+
+const (
+	randomPortMin = 9000
+	randomPortMax = 9999
+)
+
+var defaultLocalPorts = Ports{CDP: 9005, Server: 9105, Extension: 9305}
+
+func DefaultLocalPorts() Ports {
+	return defaultLocalPorts
+}
+
+func ResolveWatchPorts(useRandom bool) (Ports, *PortReservations, error) {
+	reserved := make(map[int]struct{}, 3)
+	reservations := &PortReservations{}
+	if useRandom {
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		cdp, cdpListener, err := selectRandomPort(rng, reserved)
+		if err != nil {
+			reservations.ReleaseAll()
+			return Ports{}, nil, err
 		}
+		reservations.CDP = cdpListener
+		server, serverListener, err := selectRandomPort(rng, reserved)
+		if err != nil {
+			reservations.ReleaseAll()
+			return Ports{}, nil, err
+		}
+		reservations.Server = serverListener
+		extension, extensionListener, err := selectRandomPort(rng, reserved)
+		if err != nil {
+			reservations.ReleaseAll()
+			return Ports{}, nil, err
+		}
+		reservations.Extension = extensionListener
+		return Ports{CDP: cdp, Server: server, Extension: extension}, reservations, nil
 	}
-	LogMsg(TagInfo, WarnColor.Sprintf("Could not find available port near %d, using %d", start, start))
-	return start
+
+	defaultPorts := DefaultLocalPorts()
+	cdp, cdpListener, err := selectPreferredPort(defaultPorts.CDP, reserved)
+	if err != nil {
+		reservations.ReleaseAll()
+		return Ports{}, nil, err
+	}
+	reservations.CDP = cdpListener
+	server, serverListener, err := selectPreferredPort(defaultPorts.Server, reserved)
+	if err != nil {
+		reservations.ReleaseAll()
+		return Ports{}, nil, err
+	}
+	reservations.Server = serverListener
+	extension, extensionListener, err := selectPreferredPort(defaultPorts.Extension, reserved)
+	if err != nil {
+		reservations.ReleaseAll()
+		return Ports{}, nil, err
+	}
+	reservations.Extension = extensionListener
+	return Ports{CDP: cdp, Server: server, Extension: extension}, reservations, nil
+}
+
+func IsPortAvailable(port int) bool {
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
+}
+
+func KillPorts(p Ports) {
+	KillPort(p.CDP)
+	KillPort(p.Server)
+	KillPort(p.Extension)
+}
+
+func (r *PortReservations) ReleaseCDP() {
+	if r == nil || r.CDP == nil {
+		return
+	}
+	r.CDP.Close()
+	r.CDP = nil
+}
+
+func (r *PortReservations) ReleaseServer() {
+	if r == nil || r.Server == nil {
+		return
+	}
+	r.Server.Close()
+	r.Server = nil
+}
+
+func (r *PortReservations) ReleaseExtension() {
+	if r == nil || r.Extension == nil {
+		return
+	}
+	r.Extension.Close()
+	r.Extension = nil
+}
+
+func (r *PortReservations) ReleaseAll() {
+	if r == nil {
+		return
+	}
+	r.ReleaseCDP()
+	r.ReleaseServer()
+	r.ReleaseExtension()
 }
 
 func KillPort(port int) {
@@ -98,4 +201,55 @@ func isMonorepoRoot(dir string) bool {
 	}
 	_, err = os.Stat(filepath.Join(dir, "apps"))
 	return err == nil
+}
+
+func selectPreferredPort(preferred int, reserved map[int]struct{}) (int, net.Listener, error) {
+	if listener, ok := reservePort(preferred, reserved); ok {
+		return preferred, listener, nil
+	}
+
+	start := preferred + 1
+	if preferred < randomPortMin || preferred > randomPortMax {
+		start = randomPortMin
+	}
+
+	for port := start; port <= randomPortMax; port++ {
+		if listener, ok := reservePort(port, reserved); ok {
+			return port, listener, nil
+		}
+	}
+	for port := randomPortMin; port < start; port++ {
+		if listener, ok := reservePort(port, reserved); ok {
+			return port, listener, nil
+		}
+	}
+	return 0, nil, fmt.Errorf("no available port found in range %d-%d", randomPortMin, randomPortMax)
+}
+
+func selectRandomPort(rng *rand.Rand, reserved map[int]struct{}) (int, net.Listener, error) {
+	candidates := make([]int, 0, randomPortMax-randomPortMin+1)
+	for port := randomPortMin; port <= randomPortMax; port++ {
+		candidates = append(candidates, port)
+	}
+	rng.Shuffle(len(candidates), func(i, j int) {
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	})
+	for _, port := range candidates {
+		if listener, ok := reservePort(port, reserved); ok {
+			return port, listener, nil
+		}
+	}
+	return 0, nil, fmt.Errorf("no available port found in range %d-%d", randomPortMin, randomPortMax)
+}
+
+func reservePort(port int, reserved map[int]struct{}) (net.Listener, bool) {
+	if _, exists := reserved[port]; exists {
+		return nil, false
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return nil, false
+	}
+	reserved[port] = struct{}{}
+	return listener, true
 }
