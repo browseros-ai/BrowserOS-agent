@@ -89,7 +89,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
         <p className="truncate text-muted-foreground text-sm">
           {isBuiltIn ? (
             kimiLaunch ? (
-              'Extended usage for the next two weeks.'
+              'Extended usage limits for the next two weeks.'
             ) : (
               <>
                 BrowserOS-hosted model with strict rate limits.{' '}
