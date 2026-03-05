@@ -40,7 +40,7 @@ type clientInfo struct {
 
 type toolCallParams struct {
 	Name      string         `json:"name"`
-	Arguments map[string]any `json:"arguments,omitempty"`
+	Arguments map[string]any `json:"arguments"`
 }
 
 // ToolResult is the result from an MCP tools/call.
