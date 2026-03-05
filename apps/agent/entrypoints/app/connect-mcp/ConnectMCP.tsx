@@ -1,5 +1,5 @@
 import { Check, Loader2, Plus, Server, Trash2 } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -7,6 +7,7 @@ import {
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
@@ -57,32 +58,7 @@ export const ConnectMCP: FC = () => {
     mutate: mutateUserIntegrations,
   } = useGetUserMCPIntegrations()
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: addServer is stable by behavior, adding it would cause infinite re-renders
-  useEffect(() => {
-    if (isUserMCPIntegrationsLoading || !userMCPIntegrations?.integrations)
-      return
-
-    const remoteAuthenticated = userMCPIntegrations.integrations.filter(
-      (i) => i.is_authenticated,
-    )
-    const missing = remoteAuthenticated.filter(
-      (remote) =>
-        !createdServers.some((s) => s.managedServerName === remote.name),
-    )
-
-    for (const integration of missing) {
-      const catalogEntry = serversList?.servers.find(
-        (s) => s.name === integration.name,
-      )
-      addServer({
-        id: Date.now().toString() + integration.name,
-        displayName: integration.name,
-        type: 'managed',
-        managedServerName: integration.name,
-        managedServerDescription: catalogEntry?.description ?? '',
-      })
-    }
-  }, [userMCPIntegrations, isUserMCPIntegrationsLoading, serversList])
+  useSyncRemoteIntegrations()
 
   const openAuthUrlForMCP = async (mcpName: string) => {
     try {
