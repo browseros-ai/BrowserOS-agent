@@ -83,7 +83,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
           <span className="mb-1 inline-block rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-3 py-0.5 font-semibold text-white text-xs">
             {kimiLaunch
               ? 'Powered by Kimi K2.5 from Moonshot AI'
-              : 'Free model Sponsored by Kimi K2.5'}
+              : 'Free Kimi K2.5 model in partnership with Moonshot AI.'}
           </span>
         )}
         <p className="truncate text-muted-foreground text-sm">

@@ -1,6 +1,5 @@
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
-import { isKimiLaunchEnabled } from '@/lib/feature-flags/kimi-launch'
 
 /** @public */
 export interface LlmHubProvider {
@@ -9,27 +8,14 @@ export interface LlmHubProvider {
 }
 
 export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
-  { name: 'ChatGPT', url: 'https://chatgpt.com' },
-  { name: 'Claude', url: 'https://claude.ai' },
-  { name: 'Grok', url: 'https://grok.com' },
-  { name: 'Gemini', url: 'https://gemini.google.com' },
-  { name: 'Perplexity', url: 'https://www.perplexity.ai' },
-]
-
-export const KIMI_LAUNCH_DEFAULT_PROVIDERS: LlmHubProvider[] = [
   { name: 'Kimi', url: 'https://www.kimi.com' },
   { name: 'ChatGPT', url: 'https://chatgpt.com' },
   { name: 'Claude', url: 'https://claude.ai' },
   { name: 'Gemini', url: 'https://gemini.google.com' },
 ]
 
-async function getDefaultProviders(): Promise<LlmHubProvider[]> {
-  const kimiEnabled = await isKimiLaunchEnabled()
-  return kimiEnabled ? KIMI_LAUNCH_DEFAULT_PROVIDERS : DEFAULT_PROVIDERS
-}
-
 export async function loadProviders(): Promise<LlmHubProvider[]> {
-  const defaults = await getDefaultProviders()
+  const defaults = DEFAULT_PROVIDERS
   try {
     const adapter = getBrowserOSAdapter()
     const providersPref = await adapter.getPref(
