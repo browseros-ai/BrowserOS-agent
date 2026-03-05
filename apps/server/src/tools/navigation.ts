@@ -2,11 +2,27 @@ import { z } from 'zod'
 import { defineTool } from './framework'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
+const pageInfoSchema = z.object({
+  pageId: z.number(),
+  targetId: z.string(),
+  tabId: z.number(),
+  url: z.string(),
+  title: z.string(),
+  isActive: z.boolean(),
+  isLoading: z.boolean(),
+  loadProgress: z.number(),
+  isPinned: z.boolean(),
+  isHidden: z.boolean(),
+  windowId: z.number().optional(),
+  index: z.number().optional(),
+  groupId: z.string().optional(),
+})
 
 export const get_active_page = defineTool({
   name: 'get_active_page',
   description: 'Get the currently active (focused) page in the browser',
   input: z.object({}),
+  output: z.object({ page: pageInfoSchema }),
   handler: async (_args, ctx, response) => {
     const page = await ctx.browser.getActivePage()
     if (!page) {
@@ -16,6 +32,7 @@ export const get_active_page = defineTool({
     response.text(
       `Active page: ${page.pageId} (tab ${page.tabId})\n${page.title}\n${page.url}`,
     )
+    response.data({ page })
   },
 })
 
@@ -23,11 +40,16 @@ export const list_pages = defineTool({
   name: 'list_pages',
   description: 'List all pages (tabs) currently open in the browser',
   input: z.object({}),
+  output: z.object({
+    pages: z.array(pageInfoSchema),
+    count: z.number(),
+  }),
   handler: async (_args, ctx, response) => {
     const pages = await ctx.browser.listPages()
 
     if (pages.length === 0) {
       response.text('No pages open.')
+      response.data({ pages: [], count: 0 })
       return
     }
 
@@ -35,6 +57,7 @@ export const list_pages = defineTool({
       (p) => `${p.pageId}. ${p.title} (tab ${p.tabId})\n   ${p.url}`,
     )
     response.text(lines.join('\n\n'))
+    response.data({ pages, count: pages.length })
   },
 })
 
@@ -51,6 +74,11 @@ export const navigate_page = defineTool({
       .string()
       .optional()
       .describe("URL to navigate to (required when action is 'url')"),
+  }),
+  output: z.object({
+    page: z.number(),
+    action: z.enum(['url', 'back', 'forward', 'reload']),
+    url: z.string().optional(),
   }),
   handler: async (args, ctx, response) => {
     if (args.action === 'url' && !args.url) {
@@ -82,6 +110,11 @@ export const navigate_page = defineTool({
       reload: 'Page reloaded',
     }
     response.text(messages[args.action] ?? 'Done')
+    response.data({
+      page: args.page,
+      action: args.action,
+      url: args.url,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -98,6 +131,13 @@ export const new_page = defineTool({
       .describe('Open in background without activating'),
     windowId: z.number().optional().describe('Window ID to create tab in'),
   }),
+  output: z.object({
+    pageId: z.number(),
+    url: z.string(),
+    hidden: z.boolean(),
+    background: z.boolean(),
+    windowId: z.number().optional(),
+  }),
   handler: async (args, ctx, response) => {
     const pageId = await ctx.browser.newPage(args.url, {
       hidden: args.hidden || undefined,
@@ -105,6 +145,13 @@ export const new_page = defineTool({
       windowId: args.windowId,
     })
     response.text(`Opened new page: ${args.url}\nPage ID: ${pageId}`)
+    response.data({
+      pageId,
+      url: args.url,
+      hidden: args.hidden,
+      background: args.background,
+      windowId: args.windowId,
+    })
     response.includePages()
   },
 })
@@ -117,6 +164,13 @@ export const new_hidden_page = defineTool({
     url: z.string().describe('URL to open'),
     windowId: z.number().optional().describe('Window ID to create tab in'),
   }),
+  output: z.object({
+    pageId: z.number(),
+    url: z.string(),
+    hidden: z.literal(true),
+    background: z.literal(true),
+    windowId: z.number().optional(),
+  }),
   handler: async (args, ctx, response) => {
     const pageId = await ctx.browser.newPage(args.url, {
       hidden: true,
@@ -124,6 +178,13 @@ export const new_hidden_page = defineTool({
       windowId: args.windowId,
     })
     response.text(`Opened hidden page: ${args.url}\nPage ID: ${pageId}`)
+    response.data({
+      pageId,
+      url: args.url,
+      hidden: true,
+      background: true,
+      windowId: args.windowId,
+    })
     response.includePages()
   },
 })
@@ -147,6 +208,7 @@ export const show_page = defineTool({
       .default(true)
       .describe('Activate (focus) the tab after showing'),
   }),
+  output: z.object({ page: pageInfoSchema }),
   handler: async (args, ctx, response) => {
     const updated = await ctx.browser.showPage(args.page, {
       windowId: args.windowId,
@@ -156,6 +218,7 @@ export const show_page = defineTool({
     response.text(
       `Page ${args.page} is now visible in window ${updated.windowId}`,
     )
+    response.data({ page: updated })
     response.includePages()
   },
 })
@@ -175,6 +238,7 @@ export const move_page = defineTool({
       .optional()
       .describe('Tab position index within the target window'),
   }),
+  output: z.object({ page: pageInfoSchema }),
   handler: async (args, ctx, response) => {
     const updated = await ctx.browser.movePage(args.page, {
       windowId: args.windowId,
@@ -183,6 +247,7 @@ export const move_page = defineTool({
     response.text(
       `Moved page ${args.page} to window ${updated.windowId} at index ${updated.index}`,
     )
+    response.data({ page: updated })
     response.includePages()
   },
 })
@@ -193,9 +258,14 @@ export const close_page = defineTool({
   input: z.object({
     page: pageParam,
   }),
+  output: z.object({
+    page: z.number(),
+    action: z.literal('close_page'),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.closePage(args.page)
     response.text(`Closed page ${args.page}`)
+    response.data({ page: args.page, action: 'close_page' })
     response.includePages()
   },
 })
@@ -212,6 +282,12 @@ export const wait_for = defineTool({
       .number()
       .default(10000)
       .describe('Maximum wait time in milliseconds'),
+  }),
+  output: z.object({
+    page: z.number(),
+    found: z.boolean(),
+    target: z.string(),
+    timeout: z.number(),
   }),
   handler: async (args, ctx, response) => {
     if (!args.text && !args.selector) {
@@ -230,6 +306,12 @@ export const wait_for = defineTool({
         ? `text "${args.text}"`
         : `selector "${args.selector}"`
       response.text(`Found ${target} on page.`)
+      response.data({
+        page: args.page,
+        found,
+        target,
+        timeout: args.timeout,
+      })
       response.includeSnapshot(args.page)
     } else {
       const target = args.text

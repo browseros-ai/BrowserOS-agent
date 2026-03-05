@@ -16,11 +16,16 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
 describe('page action tools', () => {
   it('save_pdf writes a PDF file to disk', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const pdfPath = join(tmpdir(), `browseros-test-${Date.now()}.pdf`)
 
@@ -31,6 +36,9 @@ describe('page action tools', () => {
         })
         assert.ok(!pdfResult.isError, textOf(pdfResult))
         assert.ok(textOf(pdfResult).includes('Saved PDF'))
+        const data = structuredOf<{ action: string; path: string }>(pdfResult)
+        assert.strictEqual(data.action, 'save_pdf')
+        assert.strictEqual(data.path, pdfPath)
         assert.ok(existsSync(pdfPath), 'PDF file should exist on disk')
 
         const stat = Bun.file(pdfPath)

@@ -18,12 +18,22 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
 describe('window tools', () => {
   it('list_windows returns at least one window', async () => {
     await withBrowser(async ({ execute }) => {
       const result = await execute(list_windows, {})
       assert.ok(!result.isError, textOf(result))
-      assert.ok(textOf(result).includes('Window'))
+      const data = structuredOf<{
+        windows: Array<{ windowId: number }>
+        count: number
+      }>(result)
+      assert.ok(data.count > 0, 'Expected at least one window')
+      assert.ok(data.windows[0]?.windowId !== undefined, 'Expected window IDs')
     })
   }, 60_000)
 
@@ -31,29 +41,36 @@ describe('window tools', () => {
     await withBrowser(async ({ execute }) => {
       const createResult = await execute(create_window, {})
       assert.ok(!createResult.isError, textOf(createResult))
-      const text = textOf(createResult)
-      assert.ok(text.includes('Created window'))
-
-      const windowIdMatch = text.match(/Created window\s+(\d+)/)
-      assert.ok(windowIdMatch, 'Could not extract window ID')
-      const windowId = Number(windowIdMatch?.[1])
+      const windowId = structuredOf<{ window: { windowId: number } }>(
+        createResult,
+      ).window.windowId
 
       const closeResult = await execute(close_window, { windowId })
       assert.ok(!closeResult.isError, textOf(closeResult))
-      assert.ok(textOf(closeResult).includes('Closed window'))
+      const closeData = structuredOf<{ action: string; windowId: number }>(
+        closeResult,
+      )
+      assert.strictEqual(closeData.action, 'close_window')
+      assert.strictEqual(closeData.windowId, windowId)
     })
   }, 60_000)
 
   it('activate_window focuses a window', async () => {
     await withBrowser(async ({ execute }) => {
       const listResult = await execute(list_windows, {})
-      const windowIdMatch = textOf(listResult).match(/Window\s+(\d+)/)
-      assert.ok(windowIdMatch, 'No window found')
-      const windowId = Number(windowIdMatch?.[1])
+      const listData = structuredOf<{ windows: Array<{ windowId: number }> }>(
+        listResult,
+      )
+      const windowId = listData.windows[0]?.windowId
+      assert.ok(windowId !== undefined, 'No window found')
 
       const activateResult = await execute(activate_window, { windowId })
       assert.ok(!activateResult.isError, textOf(activateResult))
-      assert.ok(textOf(activateResult).includes('Activated'))
+      const activateData = structuredOf<{ action: string; windowId: number }>(
+        activateResult,
+      )
+      assert.strictEqual(activateData.action, 'activate_window')
+      assert.strictEqual(activateData.windowId, windowId)
     })
   }, 60_000)
 
@@ -61,16 +78,18 @@ describe('window tools', () => {
     await withBrowser(async ({ execute }) => {
       const createResult = await execute(create_hidden_window, {})
       assert.ok(!createResult.isError, textOf(createResult))
-      const text = textOf(createResult)
-      assert.ok(text.includes('Created hidden window'))
-
-      const windowIdMatch = text.match(/Created hidden window\s+(\d+)/)
-      assert.ok(windowIdMatch, 'Could not extract window ID')
-      const windowId = Number(windowIdMatch?.[1])
+      const windowData = structuredOf<{
+        window: { windowId: number; isVisible: boolean }
+      }>(createResult)
+      assert.strictEqual(windowData.window.isVisible, false)
+      const windowId = windowData.window.windowId
 
       const listResult = await execute(list_windows, {})
+      const listData = structuredOf<{ windows: Array<{ windowId: number }> }>(
+        listResult,
+      )
       assert.ok(
-        textOf(listResult).includes(`Window ${windowId}`),
+        listData.windows.some((w) => w.windowId === windowId),
         'Hidden window should appear in list',
       )
 

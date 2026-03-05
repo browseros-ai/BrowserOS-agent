@@ -2,6 +2,17 @@ import { z } from 'zod'
 import type { BookmarkNode } from '../browser/bookmarks'
 import { defineTool } from './framework'
 
+const bookmarkNodeSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  url: z.string().optional(),
+  parentId: z.string().optional(),
+  type: z.enum(['url', 'folder']),
+  index: z.number().optional(),
+  dateAdded: z.number(),
+  dateLastUsed: z.number().optional(),
+})
+
 function formatBookmarkTree(nodes: BookmarkNode[]): string {
   const lines: string[] = []
   for (const node of nodes) {
@@ -19,15 +30,21 @@ export const get_bookmarks = defineTool({
   name: 'get_bookmarks',
   description: 'List all bookmarks in the browser',
   input: z.object({}),
+  output: z.object({
+    bookmarks: z.array(bookmarkNodeSchema),
+    count: z.number(),
+  }),
   handler: async (_args, ctx, response) => {
     const bookmarks = await ctx.browser.getBookmarks()
     if (bookmarks.length === 0) {
       response.text('No bookmarks found.')
+      response.data({ bookmarks: [], count: 0 })
       return
     }
     response.text(
       `Found ${bookmarks.length} bookmarks:\n\n${formatBookmarkTree(bookmarks)}`,
     )
+    response.data({ bookmarks, count: bookmarks.length })
   },
 })
 
@@ -42,6 +59,10 @@ export const create_bookmark = defineTool({
       .describe('URL to bookmark (omit to create a folder)'),
     parentId: z.string().optional().describe('Folder ID to create bookmark in'),
   }),
+  output: z.object({
+    action: z.literal('create_bookmark'),
+    bookmark: bookmarkNodeSchema,
+  }),
   handler: async (args, ctx, response) => {
     const bookmark = await ctx.browser.createBookmark(args)
     if (bookmark.url) {
@@ -51,6 +72,7 @@ export const create_bookmark = defineTool({
     } else {
       response.text(`Created folder: ${bookmark.title}\nID: ${bookmark.id}`)
     }
+    response.data({ action: 'create_bookmark', bookmark })
   },
 })
 
@@ -60,9 +82,14 @@ export const remove_bookmark = defineTool({
   input: z.object({
     id: z.string().describe('Bookmark or folder ID to remove'),
   }),
+  output: z.object({
+    action: z.literal('remove_bookmark'),
+    id: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.removeBookmark(args.id)
     response.text(`Removed bookmark ${args.id}`)
+    response.data({ action: 'remove_bookmark', id: args.id })
   },
 })
 
@@ -74,12 +101,17 @@ export const update_bookmark = defineTool({
     title: z.string().optional().describe('New title for the bookmark'),
     url: z.string().optional().describe('New URL for the bookmark'),
   }),
+  output: z.object({
+    action: z.literal('update_bookmark'),
+    bookmark: bookmarkNodeSchema,
+  }),
   handler: async (args, ctx, response) => {
     const bookmark = await ctx.browser.updateBookmark(args.id, {
       title: args.title,
       url: args.url,
     })
     response.text(`Updated bookmark: ${bookmark.title}\nID: ${bookmark.id}`)
+    response.data({ action: 'update_bookmark', bookmark })
   },
 })
 
@@ -96,12 +128,17 @@ export const move_bookmark = defineTool({
       .optional()
       .describe('Position within parent (0-based)'),
   }),
+  output: z.object({
+    action: z.literal('move_bookmark'),
+    bookmark: bookmarkNodeSchema,
+  }),
   handler: async (args, ctx, response) => {
     const bookmark = await ctx.browser.moveBookmark(args.id, {
       parentId: args.parentId,
       index: args.index,
     })
     response.text(`Moved: ${bookmark.title}`)
+    response.data({ action: 'move_bookmark', bookmark })
   },
 })
 
@@ -113,14 +150,25 @@ export const search_bookmarks = defineTool({
       .string()
       .describe('Search query to find bookmarks by title or URL'),
   }),
+  output: z.object({
+    query: z.string(),
+    bookmarks: z.array(bookmarkNodeSchema),
+    count: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     const bookmarks = await ctx.browser.searchBookmarks(args.query)
     if (bookmarks.length === 0) {
       response.text(`No bookmarks found matching "${args.query}".`)
+      response.data({ query: args.query, bookmarks: [], count: 0 })
       return
     }
     response.text(
       `Found ${bookmarks.length} bookmarks matching "${args.query}":\n\n${formatBookmarkTree(bookmarks)}`,
     )
+    response.data({
+      query: args.query,
+      bookmarks,
+      count: bookmarks.length,
+    })
   },
 })

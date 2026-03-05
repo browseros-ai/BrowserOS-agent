@@ -20,16 +20,32 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
+function pageIdOf(result: {
+  content: { type: string; text?: string }[]
+  structuredContent?: unknown
+}): number {
+  const data = result.structuredContent as { pageId?: number } | undefined
+  if (typeof data?.pageId === 'number') return data.pageId
+  return Number(textOf(result).match(/Page ID:\s*(\d+)/)?.[1])
+}
+
 describe('observation tools', () => {
   it('take_snapshot returns element IDs', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snapResult = await execute(take_snapshot, { page: pageId })
       assert.ok(!snapResult.isError, textOf(snapResult))
       const text = textOf(snapResult)
       assert.ok(text.length > 0, 'Snapshot should not be empty')
+      const data = structuredOf<{ snapshot: string }>(snapResult)
+      assert.ok(data.snapshot.length > 0, 'Expected structured snapshot')
 
       await execute(close_page, { page: pageId })
     })
@@ -38,7 +54,7 @@ describe('observation tools', () => {
   it('take_enhanced_snapshot returns structural context', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snapResult = await execute(take_enhanced_snapshot, { page: pageId })
       assert.ok(!snapResult.isError, textOf(snapResult))
@@ -52,7 +68,7 @@ describe('observation tools', () => {
   it('take_screenshot returns an image', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(take_screenshot, { page: pageId })
       assert.ok(!result.isError)
@@ -63,6 +79,12 @@ describe('observation tools', () => {
       )
       assert.ok(imageItem, 'Expected an image content item')
       assert.ok(imageItem.data.length > 0, 'Image data should not be empty')
+      const data = structuredOf<{ data: string; mimeType: string }>(result)
+      assert.ok(
+        data.data.length > 0,
+        'Structured image data should not be empty',
+      )
+      assert.ok(data.mimeType.startsWith('image/'))
 
       await execute(close_page, { page: pageId })
     })
@@ -71,7 +93,7 @@ describe('observation tools', () => {
   it('evaluate_script returns values', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const evalResult = await execute(evaluate_script, {
         page: pageId,
@@ -87,7 +109,7 @@ describe('observation tools', () => {
   it('evaluate_script returns strings', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const evalResult = await execute(evaluate_script, {
         page: pageId,
@@ -103,7 +125,7 @@ describe('observation tools', () => {
   it('evaluate_script reports errors', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const evalResult = await execute(evaluate_script, {
         page: pageId,
@@ -119,7 +141,7 @@ describe('observation tools', () => {
   it('get_page_content returns markdown text', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const contentResult = await execute(get_page_content, { page: pageId })
       assert.ok(!contentResult.isError, textOf(contentResult))
@@ -133,7 +155,7 @@ describe('observation tools', () => {
   it('get_page_links extracts links from constructed HTML', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const html = `
         <a href="https://example.com/one">First Link</a>
@@ -163,6 +185,10 @@ describe('observation tools', () => {
       const linksResult = await execute(get_page_links, { page: pageId })
       assert.ok(!linksResult.isError, textOf(linksResult))
       const text = textOf(linksResult)
+      const linksData = structuredOf<{
+        links: Array<{ href: string }>
+        count: number
+      }>(linksResult)
 
       assert.ok(text.includes('First Link'), 'Expected first link text')
       assert.ok(text.includes('Second Link'), 'Expected second link text')
@@ -173,6 +199,7 @@ describe('observation tools', () => {
       // should deduplicate by URL
       const oneCount = (text.match(/example\.com\/one/g) || []).length
       assert.strictEqual(oneCount, 1, 'Expected deduplication of same URL')
+      assert.ok(linksData.count >= 3, 'Expected structured links count')
 
       // should skip javascript: links
       assert.ok(
@@ -190,11 +217,15 @@ describe('observation tools', () => {
   it('get_page_links returns empty message for pages with no links', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const linksResult = await execute(get_page_links, { page: pageId })
       assert.ok(!linksResult.isError, textOf(linksResult))
       assert.ok(textOf(linksResult).includes('No links found'))
+      const linksData = structuredOf<{ links: unknown[]; count: number }>(
+        linksResult,
+      )
+      assert.strictEqual(linksData.count, 0)
 
       await execute(close_page, { page: pageId })
     })

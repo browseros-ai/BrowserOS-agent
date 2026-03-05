@@ -14,6 +14,20 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
+function pageIdOf(result: {
+  content: { type: string; text?: string }[]
+  structuredContent?: unknown
+}): number {
+  const data = result.structuredContent as { pageId?: number } | undefined
+  if (typeof data?.pageId === 'number') return data.pageId
+  return Number(textOf(result).match(/Page ID:\s*(\d+)/)?.[1])
+}
+
 const RICH_PAGE = `data:text/html,${encodeURIComponent(`<!DOCTYPE html>
 <html><head><title>DOM Test Page</title></head><body>
   <header id="main-header">
@@ -53,7 +67,7 @@ describe('get_dom', () => {
   it('returns full page HTML', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_dom, { page: pageId })
       assert.ok(!result.isError, textOf(result))
@@ -67,6 +81,13 @@ describe('get_dom', () => {
         'Should contain heading text',
       )
       assert.ok(html.includes('<head>'), 'Full page should include <head>')
+      const data = structuredOf<{
+        html: string
+        truncated: boolean
+        totalLength: number
+      }>(result)
+      assert.strictEqual(data.truncated, false)
+      assert.ok(data.totalLength >= data.html.length)
 
       await execute(close_page, { page: pageId })
     })
@@ -75,7 +96,7 @@ describe('get_dom', () => {
   it('scopes to a CSS selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_dom, {
         page: pageId,
@@ -107,7 +128,7 @@ describe('get_dom', () => {
   it('scopes to a nested CSS selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_dom, {
         page: pageId,
@@ -128,7 +149,7 @@ describe('get_dom', () => {
   it('returns error for non-matching selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_dom, {
         page: pageId,
@@ -147,7 +168,7 @@ describe('get_dom', () => {
   it('returns HTML for about:blank', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_dom, { page: pageId })
       assert.ok(!result.isError, textOf(result))
@@ -164,7 +185,7 @@ describe('get_dom', () => {
   it('truncates very large DOM with message', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       // Generate a large DOM: 10000 divs each with 20 chars ~ 200KB
       await execute(evaluate_script, {
@@ -198,7 +219,7 @@ describe('get_dom', () => {
   it('preserves element attributes in output', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_dom, {
         page: pageId,
@@ -228,7 +249,7 @@ describe('search_dom', () => {
   it('finds elements by plain text', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -241,6 +262,13 @@ describe('search_dom', () => {
         text.includes('matching elements'),
         'Should include match count',
       )
+      const data = structuredOf<{
+        query: string
+        shownCount: number
+        totalCount: number
+      }>(result)
+      assert.strictEqual(data.query, 'Welcome to Test Page')
+      assert.ok(data.totalCount >= data.shownCount)
 
       await execute(close_page, { page: pageId })
     })
@@ -249,7 +277,7 @@ describe('search_dom', () => {
   it('finds elements by CSS selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -271,7 +299,7 @@ describe('search_dom', () => {
   it('finds elements by XPath', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -289,7 +317,7 @@ describe('search_dom', () => {
   it('finds multiple elements with CSS class selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -306,7 +334,7 @@ describe('search_dom', () => {
   it('finds elements by ID selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -328,7 +356,7 @@ describe('search_dom', () => {
   it('returns no-match message for non-existent content', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -347,7 +375,7 @@ describe('search_dom', () => {
   it('respects limit parameter', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -377,7 +405,7 @@ describe('search_dom', () => {
   it('returns element attributes in search results', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -400,7 +428,7 @@ describe('search_dom', () => {
   it('finds elements on dynamically modified page', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       await execute(evaluate_script, {
         page: pageId,
@@ -432,7 +460,7 @@ describe('search_dom', () => {
   it('finds elements using attribute selector', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -450,7 +478,7 @@ describe('search_dom', () => {
   it('finds text across multiple elements', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -472,7 +500,7 @@ describe('search_dom', () => {
   it('includes nodeId in search results for element reference', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,
@@ -499,7 +527,7 @@ describe('search_dom', () => {
   it('handles empty page gracefully', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(search_dom, {
         page: pageId,

@@ -117,8 +117,13 @@ export const browseros_info = defineTool({
         'Specific topic to get info about. Use "overview" for general questions.',
       ),
   }),
+  output: z.object({
+    topic: z.enum(VALID_TOPICS),
+    content: z.string(),
+  }),
   handler: async (args, _ctx, response) => {
     const content = args.topic ? getTopicContent(args.topic) : BROWSEROS_INFO
     response.text(content)
+    response.data({ topic: args.topic, content })
   },
 })

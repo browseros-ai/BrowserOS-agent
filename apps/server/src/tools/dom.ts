@@ -19,6 +19,12 @@ export const get_dom = defineTool({
         "CSS selector to scope (e.g. 'main', '#content', 'form.login')",
       ),
   }),
+  output: z.object({
+    html: z.string(),
+    selector: z.string().optional(),
+    truncated: z.boolean(),
+    totalLength: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     const html = await ctx.browser.getDom(args.page, {
       selector: args.selector,
@@ -34,13 +40,26 @@ export const get_dom = defineTool({
     }
 
     if (html.length > MAX_DOM_HTML_LENGTH) {
+      const truncatedHtml = html.substring(0, MAX_DOM_HTML_LENGTH)
       response.text(
-        `${html.substring(0, MAX_DOM_HTML_LENGTH)}\n\n[Truncated — ${html.length} chars total. Use a CSS selector to scope to a specific element.]`,
+        `${truncatedHtml}\n\n[Truncated — ${html.length} chars total. Use a CSS selector to scope to a specific element.]`,
       )
+      response.data({
+        html: truncatedHtml,
+        selector: args.selector,
+        truncated: true,
+        totalLength: html.length,
+      })
       return
     }
 
     response.text(html)
+    response.data({
+      html,
+      selector: args.selector,
+      truncated: false,
+      totalLength: html.length,
+    })
   },
 })
 
@@ -61,6 +80,19 @@ export const search_dom = defineTool({
       .default(25)
       .describe('Maximum number of results to return (1–200)'),
   }),
+  output: z.object({
+    query: z.string(),
+    totalCount: z.number(),
+    shownCount: z.number(),
+    results: z.array(
+      z.object({
+        tag: z.string(),
+        nodeId: z.number(),
+        backendNodeId: z.number(),
+        attributes: z.record(z.string()),
+      }),
+    ),
+  }),
   handler: async (args, ctx, response) => {
     const { results, totalCount } = await ctx.browser.searchDom(
       args.page,
@@ -70,6 +102,12 @@ export const search_dom = defineTool({
 
     if (results.length === 0) {
       response.text(`No elements matching "${args.query}" found.`)
+      response.data({
+        query: args.query,
+        totalCount,
+        shownCount: 0,
+        results: [],
+      })
       return
     }
 
@@ -81,5 +119,11 @@ export const search_dom = defineTool({
     response.text(
       `Found ${totalCount} matching elements:\n\n${lines.join('\n\n')}${suffix}`,
     )
+    response.data({
+      query: args.query,
+      totalCount,
+      shownCount: results.length,
+      results,
+    })
   },
 })
