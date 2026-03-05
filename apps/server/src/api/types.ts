@@ -12,7 +12,7 @@ import {
   type Tab,
   TabSchema,
 } from '@browseros/shared/schemas/browser-context'
-import { LLM_PROVIDERS, LLMConfigSchema } from '@browseros/shared/schemas/llm'
+import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import type { ControllerBackend } from '../browser/backends/controller'
 import type { Browser } from '../browser/browser'
@@ -113,11 +113,7 @@ export type UpdateGraphRequest = z.infer<typeof UpdateGraphRequestSchema>
 // Run graph request - similar to ChatRequest, needs provider config for Agent SDK
 export const RunGraphRequestSchema = AgentLLMConfigSchema.extend({
   browserContext: BrowserContextSchema.optional(),
-}).refine(
-  (data) =>
-    !data.provider || data.provider === LLM_PROVIDERS.BROWSEROS || !!data.model,
-  { message: 'model is required for non-browseros providers', path: ['model'] },
-)
+})
 
 export type RunGraphRequest = z.infer<typeof RunGraphRequestSchema>
 
