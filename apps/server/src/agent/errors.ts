@@ -25,9 +25,3 @@ export class HttpAgentError extends Error {
     }
   }
 }
-
-export class SessionNotFoundError extends HttpAgentError {
-  constructor(public conversationId: string) {
-    super(`Session "${conversationId}" not found.`, 404, 'SESSION_NOT_FOUND')
-  }
-}

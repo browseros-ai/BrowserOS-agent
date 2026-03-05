@@ -25,10 +25,6 @@
       "types": "./src/agent/types.ts",
       "default": "./src/agent/types.ts"
     },
-    "./agent/errors": {
-      "types": "./src/agent/errors.ts",
-      "default": "./src/agent/errors.ts"
-    },
     "./lib/clients/gateway": {
       "types": "./src/lib/clients/gateway.ts",
       "default": "./src/lib/clients/gateway.ts"
