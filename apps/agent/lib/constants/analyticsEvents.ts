@@ -99,6 +99,22 @@ export const NEWTAB_APPS_OPENED_EVENT = 'newtab.apps.opened'
 export const NEWTAB_TIP_DISMISSED_EVENT = 'newtab.tip.dismissed'
 
 /** @public */
+export const NEWTAB_CHAT_STARTED_EVENT = 'newtab.chat.started'
+
+/** @public */
+export const NEWTAB_CHAT_STOPPED_EVENT = 'newtab.chat.stopped'
+
+/** @public */
+export const NEWTAB_CHAT_RESET_EVENT = 'newtab.chat.reset'
+
+/** @public */
+export const NEWTAB_CHAT_SUGGESTION_CLICKED_EVENT =
+  'newtab.chat.suggestion_clicked'
+
+/** @public */
+export const NEWTAB_CHAT_MODE_CHANGED_EVENT = 'newtab.chat.mode_changed'
+
+/** @public */
 export const WORKFLOW_DELETED_EVENT = 'settings.workflow.deleted'
 
 /** @public */

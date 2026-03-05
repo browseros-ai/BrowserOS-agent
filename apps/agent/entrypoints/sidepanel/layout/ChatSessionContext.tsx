@@ -1,14 +1,17 @@
 import { createContext, type FC, type ReactNode, useContext } from 'react'
-import { useChatSession } from '../index/useChatSession'
+import {
+  type ChatSessionOptions,
+  useChatSession,
+} from '../index/useChatSession'
 
 type ChatSessionContextValue = ReturnType<typeof useChatSession>
 
 const ChatSessionContext = createContext<ChatSessionContextValue | null>(null)
 
-export const ChatSessionProvider: FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const session = useChatSession()
+export const ChatSessionProvider: FC<
+  { children: ReactNode } & ChatSessionOptions
+> = ({ children, ...options }) => {
+  const session = useChatSession(options)
   return (
     <ChatSessionContext.Provider value={session}>
       {children}
