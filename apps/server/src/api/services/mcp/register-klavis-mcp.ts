@@ -16,19 +16,19 @@ import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
 
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`Klavis ${label} timed out`)),
-        TIMEOUTS.KLAVIS_FETCH,
-      ),
-    ),
-  ])
+  let timerId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<T>((_, reject) => {
+    timerId = setTimeout(
+      () => reject(new Error(`Klavis ${label} timed out`)),
+      TIMEOUTS.KLAVIS_FETCH,
+    )
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timerId))
 }
 
 export interface KlavisProxyHandle {
   tools: Tool[]
+  inputSchemas: Map<string, Record<string, never>>
   callTool: (
     name: string,
     args: Record<string, unknown>,
@@ -66,6 +66,17 @@ export async function connectKlavisProxy(
 
   const { tools } = await withTimeout(client.listTools(), 'listTools')
 
+  // Pre-compute Zod schemas once so registerKlavisTools avoids per-request conversion.
+  // Double cast works around TS2589 in registerTool's recursive generics.
+  const inputSchemas = new Map(
+    tools.map((t) => [
+      t.name,
+      jsonSchemaObjectToZodRawShape(
+        t.inputSchema as never,
+      ) as unknown as Record<string, never>,
+    ]),
+  )
+
   logger.info('Klavis proxy connected', {
     toolCount: tools.length,
     serverCount: allServers.length,
@@ -73,6 +84,7 @@ export async function connectKlavisProxy(
 
   return {
     tools,
+    inputSchemas,
     callTool: (name, args) =>
       client.callTool({ name, arguments: args }) as Promise<CallToolResult>,
     close: () => transport.close(),
@@ -84,11 +96,7 @@ export function registerKlavisTools(
   handle: KlavisProxyHandle,
 ): void {
   for (const tool of handle.tools) {
-    // Convert Strata's JSON Schema → ZodRawShape so MCP clients see proper params.
-    // Double cast works around TS2589 in registerTool's recursive generics.
-    const inputSchema = jsonSchemaObjectToZodRawShape(
-      tool.inputSchema as never,
-    ) as unknown as Record<string, never>
+    const inputSchema = handle.inputSchemas.get(tool.name)
 
     mcpServer.registerTool(
       tool.name,
