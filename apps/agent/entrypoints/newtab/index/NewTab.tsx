@@ -92,7 +92,6 @@ export const NewTab = () => {
   const { servers: mcpServers } = useMcpServers()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
 
-  // Chat session for inline chat
   const { messages, sendMessage, setMode, resetConversation } =
     useChatSessionContext()
 
@@ -269,7 +268,6 @@ export const NewTab = () => {
     runSelectedAction(selectedItem)
   }
 
-  // Start inline chat with the given message and action
   const startInlineChat = (
     message: string,
     mode: 'chat' | 'agent',
@@ -342,7 +340,6 @@ export const NewTab = () => {
     track(NEWTAB_OPENED_EVENT)
   }, [])
 
-  // Show chat view when active
   if (chatActive) {
     return <NewTabChat onBackToSearch={handleBackToSearch} />
   }
