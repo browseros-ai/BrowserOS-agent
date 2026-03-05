@@ -11,10 +11,6 @@ import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
-import {
-  formatUIMessageStreamDone,
-  formatUIMessageStreamEvent,
-} from '../../agent/provider-adapter/ui-message-stream'
 import { logger } from '../../lib/logger'
 import { BrowserService } from '../services/sdk/browser'
 import { ChatService } from '../services/sdk/chat'
@@ -29,6 +25,10 @@ import {
 } from '../services/sdk/types'
 import { VerifyService } from '../services/sdk/verify'
 import type { Env } from '../types'
+import {
+  formatUIMessageStreamDone,
+  formatUIMessageStreamEvent,
+} from '../utils/ui-message-stream'
 
 async function waitForPageLoad(
   browserService: BrowserService,

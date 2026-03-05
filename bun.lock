@@ -179,6 +179,7 @@
         "puppeteer-core": "24.23.0",
         "ws": "^8.18.0",
         "zod": "^3.24.2",
+        "zod-from-json-schema": "^0.1.0",
       },
       "devDependencies": {
         "@types/bun": "1.3.5",
@@ -3866,6 +3867,8 @@
     "zlye": ["zlye@0.4.4", "", { "dependencies": { "picocolors": "^1.1.1" }, "peerDependencies": { "typescript": ">=4.5.0" }, "optionalPeers": ["typescript"] }, "sha512-fwpeC841X3ElOLYRMKXbwX29pitNrsm6nRNvEhDMrRXDl3BhR2i03Bkr0GNrpyYgZJuEzUsBylXAYzgGPXXOCQ=="],
 
     "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+
+    "zod-from-json-schema": ["zod-from-json-schema@0.1.0", "", { "dependencies": { "zod": "^3.24.2" } }, "sha512-yPcDmFziXePHO8iK4WXl4WcqlKolohQKEdhbJadCzZ/+/ayr1IELxWrVQ/NSUKiuIweNiDlZoi6dgle4Bd1baw=="],
 
     "zod-to-json-schema": ["zod-to-json-schema@3.25.1", "", { "peerDependencies": { "zod": "^3.25 || ^4" } }, "sha512-pM/SU9d3YAggzi6MtR4h7ruuQlqKtad8e9S0fmxcMi+ueAK5Korys/aWcV9LIIHTVbj01NdzxcnXSN+O74ZIVA=="],
 

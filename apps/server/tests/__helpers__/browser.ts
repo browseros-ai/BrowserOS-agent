@@ -7,20 +7,20 @@
  */
 import type { ChildProcess } from 'node:child_process'
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { rmSync } from 'node:fs'
 
 export interface BrowserConfig {
   cdpPort: number
   serverPort: number
   extensionPort: number
   binaryPath: string
+  userDataDir: string
+  headless: boolean
 }
 
 interface BrowserState {
   process: ChildProcess
-  tempUserDataDir: string
+  userDataDir: string
   config: BrowserConfig
 }
 
@@ -66,11 +66,6 @@ export async function spawnBrowser(
     await killBrowser()
   }
 
-  const tempUserDataDir = mkdtempSync(join(tmpdir(), 'browseros-test-'))
-  console.log(`Created temp profile: ${tempUserDataDir}`)
-
-  const headless = process.env.BROWSEROS_TEST_HEADLESS === 'true'
-
   console.log(`Starting BrowserOS on CDP port ${config.cdpPort}...`)
   const browserProcess = spawn(
     config.binaryPath,
@@ -78,8 +73,8 @@ export async function spawnBrowser(
       '--use-mock-keychain',
       '--show-component-extension-options',
       '--enable-logging=stderr',
-      ...(headless ? ['--headless=new'] : []),
-      `--user-data-dir=${tempUserDataDir}`,
+      ...(config.headless ? ['--headless=new'] : []),
+      `--user-data-dir=${config.userDataDir}`,
       // TODO: replace with --browseros-cdp-port once we fix the browseros bug
       `--remote-debugging-port=${config.cdpPort}`,
       `--browseros-mcp-port=${config.serverPort}`,
@@ -109,7 +104,11 @@ export async function spawnBrowser(
   await waitForCdp(config.cdpPort)
   console.log('CDP is ready')
 
-  browserState = { process: browserProcess, tempUserDataDir, config }
+  browserState = {
+    process: browserProcess,
+    userDataDir: config.userDataDir,
+    config,
+  }
   return browserState
 }
 
@@ -135,10 +134,10 @@ export async function killBrowser(): Promise<void> {
 
   console.log('BrowserOS stopped')
 
-  if (browserState.tempUserDataDir) {
-    console.log(`Cleaning up temp profile: ${browserState.tempUserDataDir}`)
+  if (browserState.userDataDir) {
+    console.log(`Cleaning up temp profile: ${browserState.userDataDir}`)
     try {
-      rmSync(browserState.tempUserDataDir, { recursive: true, force: true })
+      rmSync(browserState.userDataDir, { recursive: true, force: true })
     } catch (error) {
       console.error('Failed to clean up temp directory:', error)
     }
