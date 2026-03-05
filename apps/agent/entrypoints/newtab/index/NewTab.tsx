@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/tooltip'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
+import { useChatSessionContext } from '@/entrypoints/sidepanel/layout/ChatSessionContext'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
@@ -35,6 +36,7 @@ import {
 import {
   NEWTAB_AI_TRIGGERED_EVENT,
   NEWTAB_APPS_OPENED_EVENT,
+  NEWTAB_CHAT_RESET_EVENT,
   NEWTAB_OPENED_EVENT,
   NEWTAB_SEARCH_EXECUTED_EVENT,
   NEWTAB_TAB_REMOVED_EVENT,
@@ -43,7 +45,6 @@ import {
   NEWTAB_WORKSPACE_OPENED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
-import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
@@ -54,6 +55,7 @@ import {
   useSuggestions,
 } from './lib/suggestions/useSuggestions'
 import { NewTabBranding } from './NewTabBranding'
+import { NewTabChat } from './NewTabChat'
 import { NewTabTip } from './NewTabTip'
 import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
@@ -79,6 +81,7 @@ export const NewTab = () => {
   const tabsDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+  const [chatActive, setChatActive] = useState(false)
   const [mentionState, setMentionState] = useState<MentionState>({
     isOpen: false,
     filterText: '',
@@ -88,6 +91,10 @@ export const NewTab = () => {
   const { supports } = useCapabilities()
   const { servers: mcpServers } = useMcpServers()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
+
+  // Chat session for inline chat
+  const { messages, sendMessage, setMode, resetConversation } =
+    useChatSessionContext()
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
@@ -262,6 +269,21 @@ export const NewTab = () => {
     runSelectedAction(selectedItem)
   }
 
+  // Start inline chat with the given message and action
+  const startInlineChat = (
+    message: string,
+    mode: 'chat' | 'agent',
+    action?: ReturnType<
+      typeof createBrowserOSAction | typeof createAITabAction
+    >,
+  ) => {
+    setMode(mode)
+    setChatActive(true)
+    sendMessage({ text: message, action })
+    reset()
+    setSelectedTabs([])
+  }
+
   const runSelectedAction = (item: SuggestionItem | undefined) => {
     if (!item) return
 
@@ -284,11 +306,7 @@ export const NewTab = () => {
           tabs: selectedTabs,
         })
         const searchQuery = `${item.name}${item.description ? ` - ${item.description}` : ''}}`
-        openSidePanelWithSearch('open', {
-          query: searchQuery,
-          mode: 'agent',
-          action,
-        })
+        startInlineChat(searchQuery, 'agent', action)
         break
       }
       case 'browseros': {
@@ -301,31 +319,33 @@ export const NewTab = () => {
           message: item.message,
           tabs: selectedTabs,
         })
-        openSidePanelWithSearch('open', {
-          query: item.message,
-          mode: item.mode,
-          action,
-        })
+        startInlineChat(item.message, item.mode, action)
         break
       }
     }
-    reset()
-    setSelectedTabs([])
+  }
+
+  const handleBackToSearch = () => {
+    track(NEWTAB_CHAT_RESET_EVENT, { message_count: messages.length })
+    resetConversation()
+    setChatActive(false)
   }
 
   const isSuggestionsVisible =
     !mentionState.isOpen &&
-    // User is typing text into the input
     ((isOpen && inputValue.length) ||
-      // There are sections to display
       (sections.length > 0 && inputValue.length) ||
-      // User has selected some active tabs
       (isOpen && selectedTabs.length))
 
   useEffect(() => {
     setMounted(true)
     track(NEWTAB_OPENED_EVENT)
   }, [])
+
+  // Show chat view when active
+  if (chatActive) {
+    return <NewTabChat onBackToSearch={handleBackToSearch} />
+  }
 
   return (
     <div className="pt-[max(25vh,16px)]">
