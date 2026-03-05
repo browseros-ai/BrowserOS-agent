@@ -41,11 +41,12 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 	defaultPorts := proc.DefaultLocalPorts()
 	p := defaultPorts
+	var reservations *proc.PortReservations
 	userDataDir := "/tmp/browseros-dev"
 
 	if watchNew {
 		proc.LogMsg(proc.TagInfo, "Selecting random available ports...")
-		p, err = proc.ResolveWatchPorts(true)
+		p, reservations, err = proc.ResolveWatchPorts(true)
 		if err != nil {
 			return err
 		}
@@ -61,7 +62,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		proc.KillPorts(defaultPorts)
 		proc.LogMsg(proc.TagInfo, "Ports cleared")
 
-		p, err = proc.ResolveWatchPorts(false)
+		p, reservations, err = proc.ResolveWatchPorts(false)
 		if err != nil {
 			return err
 		}
@@ -71,6 +72,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 				p.CDP, p.Server, p.Extension)
 		}
 	}
+	defer reservations.ReleaseAll()
 
 	fmt.Println()
 	mode := "watch"
@@ -121,6 +123,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		}
 		proc.LogMsg(proc.TagBuild, "agent built")
 
+		reservations.ReleaseCDP()
 		procs = append(procs, proc.StartManaged(ctx, &wg, proc.ProcConfig{
 			Tag:     proc.TagBrowser,
 			Dir:     root,
@@ -133,6 +136,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 			}),
 		}))
 	} else {
+		reservations.ReleaseCDP()
 		procs = append(procs, proc.StartManaged(ctx, &wg, proc.ProcConfig{
 			Tag:     proc.TagAgent,
 			Dir:     agentDir,
@@ -151,6 +155,8 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	}
 
 	// Start server
+	reservations.ReleaseServer()
+	reservations.ReleaseExtension()
 	procs = append(procs, proc.StartManaged(ctx, &wg, proc.ProcConfig{
 		Tag:     proc.TagServer,
 		Dir:     filepath.Join(root, "apps/server"),
