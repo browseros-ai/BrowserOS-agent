@@ -112,7 +112,7 @@ export class KlavisClient {
     integration: KlavisIntegrationItem,
   ): UserIntegration | null {
     if (typeof integration === 'string') {
-      return { name: integration, isAuthenticated: true }
+      return { name: integration, isAuthenticated: false }
     }
     const name = integration.name
     if (!name || typeof name !== 'string') {

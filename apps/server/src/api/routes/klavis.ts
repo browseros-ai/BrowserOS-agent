@@ -90,10 +90,17 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
       try {
         const integrations = await klavisClient.getUserIntegrations(browserosId)
-        const normalizedIntegrations = integrations.map((integration) => ({
-          name: integration.name,
-          is_authenticated: integration.isAuthenticated,
-        }))
+        const normalizedIntegrations = integrations.map((integration) => {
+          const canonical = OAUTH_MCP_SERVERS.find(
+            (s) =>
+              normalizeServerKey(s.name) ===
+              normalizeServerKey(integration.name),
+          )
+          return {
+            name: canonical?.name ?? integration.name,
+            is_authenticated: integration.isAuthenticated,
+          }
+        })
         logger.info('Fetched user integrations', {
           browserosId: browserosId.slice(0, 12),
           count: normalizedIntegrations.length,

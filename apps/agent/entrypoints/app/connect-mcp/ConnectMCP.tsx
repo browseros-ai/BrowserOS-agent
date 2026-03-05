@@ -195,7 +195,7 @@ export const ConnectMCP: FC = () => {
     for (const server of createdServers) {
       if (server.type !== 'managed' || !server.managedServerName) continue
       const integration = userMCPIntegrations?.integrations?.find(
-        (i) => i.name === server.managedServerName,
+        (i) => i.name.toLowerCase() === server.managedServerName?.toLowerCase(),
       )
       if (!integration?.is_authenticated) {
         unauthenticatedServers.push({
@@ -283,7 +283,9 @@ export const ConnectMCP: FC = () => {
                   (isUserMCPIntegrationsLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : userMCPIntegrations?.integrations?.find(
-                      (i) => i.name === server.managedServerName,
+                      (i) =>
+                        i.name.toLowerCase() ===
+                        server.managedServerName?.toLowerCase(),
                     )?.is_authenticated ? (
                     <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-600 text-xs">
                       <Check className="h-3 w-3" />

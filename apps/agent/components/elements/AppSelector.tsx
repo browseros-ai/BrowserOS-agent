@@ -58,7 +58,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
   const connectedServers = createdServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
     const integration = userMCPIntegrations?.integrations?.find(
-      (i) => i.name === s.managedServerName,
+      (i) => i.name.toLowerCase() === s.managedServerName?.toLowerCase(),
     )
     return integration?.is_authenticated === true
   })
@@ -67,7 +67,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
     if (s.type !== 'managed' || !s.managedServerName) return false
     if (isIntegrationsLoading) return false
     const integration = userMCPIntegrations?.integrations?.find(
-      (i) => i.name === s.managedServerName,
+      (i) => i.name.toLowerCase() === s.managedServerName?.toLowerCase(),
     )
     return !integration?.is_authenticated
   })
@@ -123,6 +123,12 @@ export const AppSelector: FC<AppSelectorProps> = ({
   const handleAddServer = async (name: string, description: string) => {
     try {
       const response = await addManagedServerMutation({ serverName: name })
+
+      if (!response.apiKeyUrl && !response.oauthUrl) {
+        toast.error(`Failed to add app: ${name}`)
+        return
+      }
+
       addServer({
         id: Date.now().toString(),
         displayName: name,
@@ -134,10 +140,6 @@ export const AppSelector: FC<AppSelectorProps> = ({
 
       if (response.apiKeyUrl) {
         setApiKeyServer({ name, apiKeyUrl: response.apiKeyUrl })
-        return
-      }
-      if (!response.oauthUrl) {
-        toast.error(`Failed to add app: ${name}`)
         return
       }
       window.open(response.oauthUrl, '_blank')?.focus()

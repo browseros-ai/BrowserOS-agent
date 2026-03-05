@@ -92,7 +92,7 @@ export const NewTab = () => {
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
     return userMCPIntegrations?.integrations?.find(
-      (i) => i.name === s.managedServerName,
+      (i) => i.name.toLowerCase() === s.managedServerName?.toLowerCase(),
     )?.is_authenticated
   })
 
