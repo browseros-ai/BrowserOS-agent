@@ -69,8 +69,11 @@ export async function runProdResourceBuild(argv: string[]): Promise<void> {
     log.done('Production server artifacts completed')
     for (const result of uploadResults) {
       log.info(`${result.targetId}: ${result.zipPath}`)
-      if (result.r2Key) {
-        log.info(`R2 key: ${result.r2Key}`)
+      if (result.latestR2Key) {
+        log.info(`R2 latest key: ${result.latestR2Key}`)
+      }
+      if (result.versionR2Key) {
+        log.info(`R2 version key: ${result.versionR2Key}`)
       }
     }
   } finally {

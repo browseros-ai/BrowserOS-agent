@@ -72,5 +72,6 @@ export interface StagedArtifact {
 export interface UploadResult {
   targetId: TargetId
   zipPath: string
-  r2Key?: string
+  latestR2Key?: string
+  versionR2Key?: string
 }

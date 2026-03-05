@@ -7,10 +7,10 @@ import { runCommand } from './command'
 import { joinObjectKey, uploadFileToObject } from './r2'
 import type { R2Config, StagedArtifact, UploadResult } from './types'
 
-function zipPathForArtifact(artifact: StagedArtifact, version: string): string {
+function zipPathForArtifact(artifact: StagedArtifact): string {
   return join(
     dirname(artifact.rootDir),
-    `browseros-server-resources-${version}-${artifact.target.id}.zip`,
+    `browseros-server-resources-${artifact.target.id}.zip`,
   )
 }
 
@@ -40,7 +40,7 @@ export async function archiveAndUploadArtifacts(
   const results: UploadResult[] = []
 
   for (const artifact of artifacts) {
-    const zipPath = zipPathForArtifact(artifact, version)
+    const zipPath = zipPathForArtifact(artifact)
     await zipArtifactRoot(artifact.rootDir, zipPath)
 
     if (!upload) {
@@ -48,9 +48,17 @@ export async function archiveAndUploadArtifacts(
       continue
     }
 
-    const objectKey = joinObjectKey(r2.uploadPrefix, basename(zipPath))
-    await uploadFileToObject(client, r2, objectKey, zipPath)
-    results.push({ targetId: artifact.target.id, zipPath, r2Key: objectKey })
+    const fileName = basename(zipPath)
+    const latestR2Key = joinObjectKey(r2.uploadPrefix, 'latest', fileName)
+    const versionR2Key = joinObjectKey(r2.uploadPrefix, version, fileName)
+    await uploadFileToObject(client, r2, latestR2Key, zipPath)
+    await uploadFileToObject(client, r2, versionR2Key, zipPath)
+    results.push({
+      targetId: artifact.target.id,
+      zipPath,
+      latestR2Key,
+      versionR2Key,
+    })
   }
 
   return results
