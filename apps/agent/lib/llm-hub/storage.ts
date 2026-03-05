@@ -14,8 +14,20 @@ export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
   { name: 'Gemini', url: 'https://gemini.google.com' },
 ]
 
+const LEGACY_DEFAULT_NAMES = new Set([
+  'ChatGPT',
+  'Claude',
+  'Grok',
+  'Gemini',
+  'Perplexity',
+])
+
+function isLegacyDefaults(providers: LlmHubProvider[]): boolean {
+  if (providers.length !== LEGACY_DEFAULT_NAMES.size) return false
+  return providers.every((p) => LEGACY_DEFAULT_NAMES.has(p.name))
+}
+
 export async function loadProviders(): Promise<LlmHubProvider[]> {
-  const defaults = DEFAULT_PROVIDERS
   try {
     const adapter = getBrowserOSAdapter()
     const providersPref = await adapter.getPref(
@@ -23,13 +35,13 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     )
     const providers = (providersPref?.value as LlmHubProvider[]) || []
 
-    if (providers.length === 0) {
-      return defaults
+    if (providers.length === 0 || isLegacyDefaults(providers)) {
+      return DEFAULT_PROVIDERS
     }
 
     return providers
   } catch {
-    return defaults
+    return DEFAULT_PROVIDERS
   }
 }
 
