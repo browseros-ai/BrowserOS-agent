@@ -5,7 +5,7 @@ import { NewTabFocusGrid } from './NewTabFocusGrid'
 
 export const NewTabLayout: FC = () => {
   return (
-    <ChatSessionProvider>
+    <ChatSessionProvider origin="newtab">
       <NewTabFocusGrid />
       <Outlet />
     </ChatSessionProvider>
