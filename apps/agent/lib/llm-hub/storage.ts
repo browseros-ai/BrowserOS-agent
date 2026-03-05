@@ -27,6 +27,17 @@ function isLegacyDefaults(providers: LlmHubProvider[]): boolean {
   return providers.every((p) => LEGACY_DEFAULT_NAMES.has(p.name))
 }
 
+async function migrateToDefaultProviders(): Promise<LlmHubProvider[]> {
+  const defaults = DEFAULT_PROVIDERS.map((provider) => ({ ...provider }))
+  try {
+    const adapter = getBrowserOSAdapter()
+    await adapter.setPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS, defaults)
+  } catch {
+    // Best effort migration: still return defaults for UI consistency
+  }
+  return defaults
+}
+
 export async function loadProviders(): Promise<LlmHubProvider[]> {
   try {
     const adapter = getBrowserOSAdapter()
@@ -36,12 +47,12 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     const providers = (providersPref?.value as LlmHubProvider[]) || []
 
     if (providers.length === 0 || isLegacyDefaults(providers)) {
-      return DEFAULT_PROVIDERS
+      return await migrateToDefaultProviders()
     }
 
     return providers
   } catch {
-    return DEFAULT_PROVIDERS
+    return DEFAULT_PROVIDERS.map((provider) => ({ ...provider }))
   }
 }
 
