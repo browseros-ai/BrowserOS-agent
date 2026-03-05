@@ -53,6 +53,60 @@
       "destination": "resources/bin/third_party/bun.exe",
       "os": ["windows"],
       "arch": ["x64"]
+    },
+    {
+      "name": "ripgrep - macOS ARM64",
+      "source": {
+        "type": "r2",
+        "key": "third_party/ripgrep/rg-darwin-arm64"
+      },
+      "destination": "resources/bin/third_party/rg",
+      "os": ["macos"],
+      "arch": ["arm64"],
+      "executable": true
+    },
+    {
+      "name": "ripgrep - macOS x64",
+      "source": {
+        "type": "r2",
+        "key": "third_party/ripgrep/rg-darwin-x64"
+      },
+      "destination": "resources/bin/third_party/rg",
+      "os": ["macos"],
+      "arch": ["x64"],
+      "executable": true
+    },
+    {
+      "name": "ripgrep - Linux ARM64",
+      "source": {
+        "type": "r2",
+        "key": "third_party/ripgrep/rg-linux-arm64"
+      },
+      "destination": "resources/bin/third_party/rg",
+      "os": ["linux"],
+      "arch": ["arm64"],
+      "executable": true
+    },
+    {
+      "name": "ripgrep - Linux x64",
+      "source": {
+        "type": "r2",
+        "key": "third_party/ripgrep/rg-linux-x64"
+      },
+      "destination": "resources/bin/third_party/rg",
+      "os": ["linux"],
+      "arch": ["x64"],
+      "executable": true
+    },
+    {
+      "name": "ripgrep - Windows x64",
+      "source": {
+        "type": "r2",
+        "key": "third_party/ripgrep/rg-windows-x64.exe"
+      },
+      "destination": "resources/bin/third_party/rg.exe",
+      "os": ["windows"],
+      "arch": ["x64"]
     }
   ]
 }
