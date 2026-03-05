@@ -31,24 +31,3 @@ export class SessionNotFoundError extends HttpAgentError {
     super(`Session "${conversationId}" not found.`, 404, 'SESSION_NOT_FOUND')
   }
 }
-
-export class AgentExecutionError extends HttpAgentError {
-  constructor(
-    message: string,
-    public originalError?: Error,
-  ) {
-    super(message, 500, 'AGENT_EXECUTION_ERROR')
-  }
-
-  override toJSON() {
-    return {
-      error: {
-        name: this.name,
-        message: this.message,
-        code: this.code,
-        statusCode: this.statusCode,
-        originalError: this.originalError?.message,
-      },
-    }
-  }
-}
