@@ -28,7 +28,7 @@ var (
 )
 
 func init() {
-	watchCmd.Flags().BoolVar(&watchNew, "new", false, "Find available ports and create a fresh user-data directory")
+	watchCmd.Flags().BoolVar(&watchNew, "new", false, "Use random available ports in 9000-9999 and create a fresh user-data directory")
 	watchCmd.Flags().BoolVar(&watchManual, "manual", false, "Build agent statically instead of WXT HMR mode")
 	rootCmd.AddCommand(watchCmd)
 }
@@ -39,14 +39,16 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	p := proc.Ports{CDP: 9005, Server: 9105, Extension: 9305}
+	defaultPorts := proc.DefaultLocalPorts()
+	p := defaultPorts
 	userDataDir := "/tmp/browseros-dev"
 
 	if watchNew {
-		proc.LogMsg(proc.TagInfo, "Finding available ports...")
-		p.CDP = proc.FindAvailablePort(p.CDP)
-		p.Server = proc.FindAvailablePort(p.Server)
-		p.Extension = proc.FindAvailablePort(p.Extension)
+		proc.LogMsg(proc.TagInfo, "Selecting random available ports...")
+		p, err = proc.ResolveWatchPorts(true)
+		if err != nil {
+			return err
+		}
 
 		dir, err := os.MkdirTemp("", "browseros-dev-")
 		if err != nil {
@@ -55,11 +57,19 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		userDataDir = dir
 		proc.LogMsgf(proc.TagInfo, "Created fresh profile: %s", userDataDir)
 	} else {
-		proc.LogMsg(proc.TagInfo, "Killing processes on default ports...")
-		proc.KillPort(p.CDP)
-		proc.KillPort(p.Server)
-		proc.KillPort(p.Extension)
+		proc.LogMsg(proc.TagInfo, "Killing processes on preferred ports...")
+		proc.KillPorts(defaultPorts)
 		proc.LogMsg(proc.TagInfo, "Ports cleared")
+
+		p, err = proc.ResolveWatchPorts(false)
+		if err != nil {
+			return err
+		}
+		if p != defaultPorts {
+			proc.LogMsgf(proc.TagInfo,
+				"Preferred ports unavailable, using fallback ports: CDP=%d Server=%d Extension=%d",
+				p.CDP, p.Server, p.Extension)
+		}
 	}
 
 	fmt.Println()

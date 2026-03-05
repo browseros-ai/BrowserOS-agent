@@ -2,10 +2,12 @@ package proc
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 )
 
 type Ports struct {
@@ -14,16 +16,65 @@ type Ports struct {
 	Extension int
 }
 
-func FindAvailablePort(start int) int {
-	for port := start; port < start+100; port++ {
-		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-		if err == nil {
-			ln.Close()
-			return port
+const (
+	randomPortMin = 9000
+	randomPortMax = 9999
+)
+
+var defaultLocalPorts = Ports{CDP: 9005, Server: 9105, Extension: 9305}
+
+func DefaultLocalPorts() Ports {
+	return defaultLocalPorts
+}
+
+func ResolveWatchPorts(useRandom bool) (Ports, error) {
+	reserved := make(map[int]struct{}, 3)
+	if useRandom {
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+		cdp, err := selectRandomPort(rng, reserved)
+		if err != nil {
+			return Ports{}, err
 		}
+		server, err := selectRandomPort(rng, reserved)
+		if err != nil {
+			return Ports{}, err
+		}
+		extension, err := selectRandomPort(rng, reserved)
+		if err != nil {
+			return Ports{}, err
+		}
+		return Ports{CDP: cdp, Server: server, Extension: extension}, nil
 	}
-	LogMsg(TagInfo, WarnColor.Sprintf("Could not find available port near %d, using %d", start, start))
-	return start
+
+	defaultPorts := DefaultLocalPorts()
+	cdp, err := selectPreferredPort(defaultPorts.CDP, reserved)
+	if err != nil {
+		return Ports{}, err
+	}
+	server, err := selectPreferredPort(defaultPorts.Server, reserved)
+	if err != nil {
+		return Ports{}, err
+	}
+	extension, err := selectPreferredPort(defaultPorts.Extension, reserved)
+	if err != nil {
+		return Ports{}, err
+	}
+	return Ports{CDP: cdp, Server: server, Extension: extension}, nil
+}
+
+func IsPortAvailable(port int) bool {
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
+}
+
+func KillPorts(p Ports) {
+	KillPort(p.CDP)
+	KillPort(p.Server)
+	KillPort(p.Extension)
 }
 
 func KillPort(port int) {
@@ -98,4 +149,54 @@ func isMonorepoRoot(dir string) bool {
 	}
 	_, err = os.Stat(filepath.Join(dir, "apps"))
 	return err == nil
+}
+
+func selectPreferredPort(preferred int, reserved map[int]struct{}) (int, error) {
+	if reservePort(preferred, reserved) {
+		return preferred, nil
+	}
+
+	start := preferred + 1
+	if preferred < randomPortMin || preferred > randomPortMax {
+		start = randomPortMin
+	}
+
+	for port := start; port <= randomPortMax; port++ {
+		if reservePort(port, reserved) {
+			return port, nil
+		}
+	}
+	for port := randomPortMin; port < start; port++ {
+		if reservePort(port, reserved) {
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("no available port found in range %d-%d", randomPortMin, randomPortMax)
+}
+
+func selectRandomPort(rng *rand.Rand, reserved map[int]struct{}) (int, error) {
+	candidates := make([]int, 0, randomPortMax-randomPortMin+1)
+	for port := randomPortMin; port <= randomPortMax; port++ {
+		candidates = append(candidates, port)
+	}
+	rng.Shuffle(len(candidates), func(i, j int) {
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	})
+	for _, port := range candidates {
+		if reservePort(port, reserved) {
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("no available port found in range %d-%d", randomPortMin, randomPortMax)
+}
+
+func reservePort(port int, reserved map[int]struct{}) bool {
+	if _, exists := reserved[port]; exists {
+		return false
+	}
+	if !IsPortAvailable(port) {
+		return false
+	}
+	reserved[port] = struct{}{}
+	return true
 }
