@@ -8,9 +8,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "snap",
-		Short: "Snapshot interactive elements on the page",
-		Args:  cobra.NoArgs,
+		Use:         "snap",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Snapshot interactive elements on the page",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			enhanced, _ := cmd.Flags().GetBool("enhanced")
 			c := newClient()

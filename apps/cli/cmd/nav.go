@@ -8,9 +8,10 @@ import (
 
 func init() {
 	navCmd := &cobra.Command{
-		Use:   "nav <url>",
-		Short: "Navigate the current page to a URL",
-		Args:  cobra.ExactArgs(1),
+		Use:         "nav <url>",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "Navigate the current page to a URL",
+		Args:        cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			pageID, err := resolvePageID(c)
@@ -34,23 +35,26 @@ func init() {
 	}
 
 	backCmd := &cobra.Command{
-		Use:   "back",
-		Short: "Navigate back",
-		Args:  cobra.NoArgs,
+		Use:         "back",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "Navigate back",
+		Args:        cobra.NoArgs,
 		Run:   navAction("back"),
 	}
 
 	forwardCmd := &cobra.Command{
-		Use:   "forward",
-		Short: "Navigate forward",
-		Args:  cobra.NoArgs,
+		Use:         "forward",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "Navigate forward",
+		Args:        cobra.NoArgs,
 		Run:   navAction("forward"),
 	}
 
 	reloadCmd := &cobra.Command{
-		Use:   "reload",
-		Short: "Reload the current page",
-		Args:  cobra.NoArgs,
+		Use:         "reload",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "Reload the current page",
+		Args:        cobra.NoArgs,
 		Run:   navAction("reload"),
 	}
 

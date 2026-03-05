@@ -1,13 +1,15 @@
 package config
 
 import (
-	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	ServerURL string `json:"serverUrl"`
+	ServerURL string `yaml:"server_url"`
 }
 
 func Dir() string {
@@ -19,17 +21,20 @@ func Dir() string {
 }
 
 func Path() string {
-	return filepath.Join(Dir(), "config.json")
+	return filepath.Join(Dir(), "config.yaml")
 }
 
 func Load() (*Config, error) {
 	data, err := os.ReadFile(Path())
 	if err != nil {
+		if os.IsNotExist(err) {
+			return &Config{}, nil
+		}
 		return nil, err
 	}
 	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 	return &cfg, nil
 }
@@ -39,9 +44,10 @@ func Save(cfg *Config) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(Path(), data, 0644)
+	header := "# browseros-cli configuration\n# Run: browseros-cli config --path\n\n"
+	return os.WriteFile(Path(), []byte(header+string(data)), 0644)
 }

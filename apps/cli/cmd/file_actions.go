@@ -10,9 +10,10 @@ import (
 
 func init() {
 	pdfCmd := &cobra.Command{
-		Use:   "pdf <path>",
-		Short: "Save the current page as PDF",
-		Args:  cobra.ExactArgs(1),
+		Use:         "pdf <path>",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Save the current page as PDF",
+		Args:        cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			pageID, err := resolvePageID(c)
@@ -35,9 +36,10 @@ func init() {
 	}
 
 	downloadCmd := &cobra.Command{
-		Use:   "download <element> <dir>",
-		Short: "Click element to trigger download and save to directory",
-		Args:  cobra.ExactArgs(2),
+		Use:         "download <element> <dir>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Click element to trigger download and save to directory",
+		Args:        cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			var element int
 			if _, err := fmt.Sscanf(args[0], "%d", &element); err != nil {

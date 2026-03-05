@@ -27,7 +27,8 @@ The URL looks like: http://127.0.0.1:9004/mcp
 
 The port varies per installation, so this step is required on first use.
 Run again if your port changes.`,
-		Args: cobra.NoArgs,
+		Annotations: map[string]string{"group": "Setup:"},
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			bold := color.New(color.Bold)
 			green := color.New(color.FgGreen)

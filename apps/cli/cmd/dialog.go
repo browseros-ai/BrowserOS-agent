@@ -8,9 +8,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "dialog <accept|dismiss>",
-		Short: "Handle a JavaScript dialog",
-		Args:  cobra.ExactArgs(1),
+		Use:         "dialog <accept|dismiss>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Handle a JavaScript dialog",
+		Args:        cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			action := args[0]
 			if action != "accept" && action != "dismiss" {

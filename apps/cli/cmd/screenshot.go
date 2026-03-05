@@ -12,9 +12,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "ss",
-		Short: "Take a screenshot",
-		Args:  cobra.NoArgs,
+		Use:         "ss",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Take a screenshot",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			outFile, _ := cmd.Flags().GetString("out")
 			full, _ := cmd.Flags().GetBool("full")

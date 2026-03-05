@@ -10,9 +10,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "eval <expression>",
-		Short: "Execute JavaScript in the page context",
-		Args:  cobra.MinimumNArgs(1),
+		Use:         "eval <expression>",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Execute JavaScript in the page context",
+		Args:        cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			expression := strings.Join(args, " ")
 			c := newClient()

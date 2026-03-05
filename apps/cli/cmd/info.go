@@ -8,9 +8,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "info [topic]",
-		Short: "Get information about BrowserOS features",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "info [topic]",
+		Annotations: map[string]string{"group": "Setup:"},
+		Short:       "Get information about BrowserOS features",
+		Args:        cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			toolArgs := map[string]any{}

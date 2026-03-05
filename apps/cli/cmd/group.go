@@ -10,8 +10,9 @@ import (
 
 func init() {
 	groupCmd := &cobra.Command{
-		Use:   "group",
-		Short: "Manage tab groups",
+		Use:         "group",
+		Annotations: map[string]string{"group": "Resources:"},
+		Short:       "Manage tab groups",
 	}
 
 	listCmd := &cobra.Command{

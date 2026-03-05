@@ -11,37 +11,42 @@ import (
 
 func init() {
 	hoverCmd := &cobra.Command{
-		Use:   "hover <element>",
-		Short: "Hover over an element",
-		Args:  cobra.ExactArgs(1),
+		Use:         "hover <element>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Hover over an element",
+		Args:        cobra.ExactArgs(1),
 		Run:   elementAction("hover"),
 	}
 
 	focusCmd := &cobra.Command{
-		Use:   "focus <element>",
-		Short: "Focus an element",
-		Args:  cobra.ExactArgs(1),
+		Use:         "focus <element>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Focus an element",
+		Args:        cobra.ExactArgs(1),
 		Run:   elementAction("focus"),
 	}
 
 	checkCmd := &cobra.Command{
-		Use:   "check <element>",
-		Short: "Check a checkbox or radio button",
-		Args:  cobra.ExactArgs(1),
+		Use:         "check <element>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Check a checkbox or radio button",
+		Args:        cobra.ExactArgs(1),
 		Run:   elementAction("check"),
 	}
 
 	uncheckCmd := &cobra.Command{
-		Use:   "uncheck <element>",
-		Short: "Uncheck a checkbox",
-		Args:  cobra.ExactArgs(1),
+		Use:         "uncheck <element>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Uncheck a checkbox",
+		Args:        cobra.ExactArgs(1),
 		Run:   elementAction("uncheck"),
 	}
 
 	selectCmd := &cobra.Command{
-		Use:   "select <element> <value>",
-		Short: "Select a dropdown option",
-		Args:  cobra.MinimumNArgs(2),
+		Use:         "select <element> <value>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Select a dropdown option",
+		Args:        cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			var element int
 			if _, err := fmt.Sscanf(args[0], "%d", &element); err != nil {
@@ -71,9 +76,10 @@ func init() {
 	}
 
 	dragCmd := &cobra.Command{
-		Use:   "drag <source> --to <target>",
-		Short: "Drag from one element to another",
-		Args:  cobra.ExactArgs(1),
+		Use:         "drag <source> --to <target>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Drag from one element to another",
+		Args:        cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			var source int
 			if _, err := fmt.Sscanf(args[0], "%d", &source); err != nil {
@@ -105,9 +111,10 @@ func init() {
 	_ = dragCmd.MarkFlagRequired("to")
 
 	uploadCmd := &cobra.Command{
-		Use:   "upload <element> <file...>",
-		Short: "Upload files to a file input",
-		Args:  cobra.MinimumNArgs(2),
+		Use:         "upload <element> <file...>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Upload files to a file input",
+		Args:        cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			var element int
 			if _, err := fmt.Sscanf(args[0], "%d", &element); err != nil {

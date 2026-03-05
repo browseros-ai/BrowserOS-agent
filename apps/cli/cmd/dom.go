@@ -10,9 +10,10 @@ import (
 
 func init() {
 	domCmd := &cobra.Command{
-		Use:   "dom",
-		Short: "Get raw HTML DOM structure",
-		Args:  cobra.NoArgs,
+		Use:         "dom",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Get raw HTML DOM structure",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			selector, _ := cmd.Flags().GetString("selector")
 
@@ -41,9 +42,10 @@ func init() {
 	domCmd.Flags().String("selector", "", "CSS selector to scope")
 
 	domSearchCmd := &cobra.Command{
-		Use:   "dom-search <query>",
-		Short: "Search DOM by text, CSS selector, or XPath",
-		Args:  cobra.MinimumNArgs(1),
+		Use:         "dom-search <query>",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Search DOM by text, CSS selector, or XPath",
+		Args:        cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			query := strings.Join(args, " ")
 			limit, _ := cmd.Flags().GetInt("limit")

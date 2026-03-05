@@ -10,8 +10,9 @@ import (
 
 func init() {
 	windowCmd := &cobra.Command{
-		Use:   "window",
-		Short: "Manage browser windows",
+		Use:         "window",
+		Annotations: map[string]string{"group": "Resources:"},
+		Short:       "Manage browser windows",
 	}
 
 	listCmd := &cobra.Command{

@@ -10,9 +10,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "scroll <direction> [amount]",
-		Short: "Scroll the page (up, down, left, right)",
-		Args:  cobra.RangeArgs(1, 2),
+		Use:         "scroll <direction> [amount]",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Scroll the page (up, down, left, right)",
+		Args:        cobra.RangeArgs(1, 2),
 		Run: func(cmd *cobra.Command, args []string) {
 			direction := args[0]
 			amount := 3

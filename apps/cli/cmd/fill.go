@@ -11,9 +11,10 @@ import (
 
 func init() {
 	fillCmd := &cobra.Command{
-		Use:   "fill <element> <text>",
-		Short: "Type text into an input element",
-		Args:  cobra.MinimumNArgs(2),
+		Use:         "fill <element> <text>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Type text into an input element",
+		Args:        cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			var element int
 			if _, err := fmt.Sscanf(args[0], "%d", &element); err != nil {
@@ -47,16 +48,18 @@ func init() {
 	fillCmd.Flags().Bool("no-clear", false, "Don't clear existing text before typing")
 
 	clearCmd := &cobra.Command{
-		Use:   "clear <element>",
-		Short: "Clear text content of an input element",
-		Args:  cobra.ExactArgs(1),
+		Use:         "clear <element>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Clear text content of an input element",
+		Args:        cobra.ExactArgs(1),
 		Run:   elementAction("clear"),
 	}
 
 	keyCmd := &cobra.Command{
-		Use:   "key <key>",
-		Short: "Press a key or key combination (e.g., Enter, Control+A)",
-		Args:  cobra.ExactArgs(1),
+		Use:         "key <key>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Press a key or key combination (e.g., Enter, Control+A)",
+		Args:        cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			pageID, err := resolvePageID(c)

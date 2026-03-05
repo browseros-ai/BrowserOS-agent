@@ -8,8 +8,9 @@ import (
 
 func init() {
 	bookmarkCmd := &cobra.Command{
-		Use:   "bookmark",
-		Short: "Manage bookmarks",
+		Use:         "bookmark",
+		Annotations: map[string]string{"group": "Resources:"},
+		Short:       "Manage bookmarks",
 	}
 
 	listCmd := &cobra.Command{

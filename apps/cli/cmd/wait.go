@@ -8,9 +8,10 @@ import (
 
 func init() {
 	cmd := &cobra.Command{
-		Use:   "wait",
-		Short: "Wait for text or selector to appear on the page",
-		Args:  cobra.NoArgs,
+		Use:         "wait",
+		Annotations: map[string]string{"group": "Observe:"},
+		Short:       "Wait for text or selector to appear on the page",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			text, _ := cmd.Flags().GetString("text")
 			selector, _ := cmd.Flags().GetString("selector")

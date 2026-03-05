@@ -10,9 +10,10 @@ import (
 
 func init() {
 	clickCmd := &cobra.Command{
-		Use:   "click <element>",
-		Short: "Click an element by snapshot ID",
-		Args:  cobra.ExactArgs(1),
+		Use:         "click <element>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Click an element by snapshot ID",
+		Args:        cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			var element int
 			if _, err := fmt.Sscanf(args[0], "%d", &element); err != nil {
@@ -62,9 +63,10 @@ func init() {
 	clickCmd.Flags().Bool("double", false, "Double-click")
 
 	clickAtCmd := &cobra.Command{
-		Use:   "click-at <x> <y>",
-		Short: "Click at specific coordinates",
-		Args:  cobra.ExactArgs(2),
+		Use:         "click-at <x> <y>",
+		Annotations: map[string]string{"group": "Input:"},
+		Short:       "Click at specific coordinates",
+		Args:        cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			var x, y int
 			if _, err := fmt.Sscanf(args[0], "%d", &x); err != nil {

@@ -11,9 +11,10 @@ import (
 
 func init() {
 	healthCmd := &cobra.Command{
-		Use:   "health",
-		Short: "Check BrowserOS server health",
-		Args:  cobra.NoArgs,
+		Use:         "health",
+		Annotations: map[string]string{"group": "Setup:"},
+		Short:       "Check BrowserOS server health",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			data, err := c.Health()
@@ -46,9 +47,10 @@ func init() {
 	}
 
 	statusCmd := &cobra.Command{
-		Use:   "status",
-		Short: "Check extension connection status",
-		Args:  cobra.NoArgs,
+		Use:         "status",
+		Annotations: map[string]string{"group": "Setup:"},
+		Short:       "Check extension connection status",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			data, err := c.Status()

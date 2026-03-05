@@ -10,9 +10,10 @@ import (
 
 func init() {
 	pagesCmd := &cobra.Command{
-		Use:   "pages",
-		Short: "List all open pages (tabs)",
-		Args:  cobra.NoArgs,
+		Use:         "pages",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "List all open pages (tabs)",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			result, err := c.CallTool("list_pages", nil)
@@ -28,9 +29,10 @@ func init() {
 	}
 
 	activeCmd := &cobra.Command{
-		Use:   "active",
-		Short: "Show the active (focused) page",
-		Args:  cobra.NoArgs,
+		Use:         "active",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "Show the active (focused) page",
+		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			result, err := c.CallTool("get_active_page", nil)
@@ -46,9 +48,10 @@ func init() {
 	}
 
 	closeCmd := &cobra.Command{
-		Use:   "close [pageId]",
-		Short: "Close a page (tab)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "close [pageId]",
+		Annotations: map[string]string{"group": "Navigate:"},
+		Short:       "Close a page (tab)",
+		Args:        cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
 			var pageID int

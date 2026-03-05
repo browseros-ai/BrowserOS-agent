@@ -8,8 +8,9 @@ import (
 
 func init() {
 	historyCmd := &cobra.Command{
-		Use:   "history",
-		Short: "Manage browser history",
+		Use:         "history",
+		Annotations: map[string]string{"group": "Resources:"},
+		Short:       "Manage browser history",
 	}
 
 	searchCmd := &cobra.Command{
