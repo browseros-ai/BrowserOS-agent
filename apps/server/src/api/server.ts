@@ -96,7 +96,11 @@ export async function createHttpServer(config: HttpServerConfig) {
       '/shutdown',
       createShutdownRoute({
         onShutdown: () => {
-          klavisProxy?.close().catch(() => {})
+          klavisProxy?.close().catch((err) =>
+            logger.warn('Failed to close Klavis proxy transport', {
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          )
           onShutdown?.()
         },
       }),

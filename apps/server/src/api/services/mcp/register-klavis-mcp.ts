@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -13,6 +14,18 @@ import type { KlavisClient } from '../../../lib/clients/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../../lib/clients/klavis/oauth-mcp-servers'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
+
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Klavis ${label} timed out`)),
+        TIMEOUTS.KLAVIS_FETCH,
+      ),
+    ),
+  ])
+}
 
 export interface KlavisProxyHandle {
   tools: Tool[]
@@ -49,10 +62,9 @@ export async function connectKlavisProxy(
   const transport = new StreamableHTTPClientTransport(
     new URL(strata.strataServerUrl),
   )
-  await client.connect(transport)
+  await withTimeout(client.connect(transport), 'connect')
 
-  // Discover available tools
-  const { tools } = await client.listTools()
+  const { tools } = await withTimeout(client.listTools(), 'listTools')
 
   logger.info('Klavis proxy connected', {
     toolCount: tools.length,
