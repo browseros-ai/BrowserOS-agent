@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { Mutex } from 'async-mutex'
 import { CdpBackend } from '../../src/browser/backends/cdp'
 import type { ControllerBackend } from '../../src/browser/backends/types'
@@ -5,7 +6,7 @@ import { Browser } from '../../src/browser/browser'
 import type { ToolDefinition } from '../../src/tools/framework'
 import { executeTool } from '../../src/tools/framework'
 import type { ToolResult } from '../../src/tools/response'
-import { type BrowserConfig, spawnBrowser } from './browser'
+import { type BrowserConfig, killBrowser, spawnBrowser } from './browser'
 import { createTestRuntimePlan, type TestRuntimePlan } from './test-runtime'
 import { killProcessOnPort } from './utils'
 
@@ -25,6 +26,10 @@ const stubController: ControllerBackend = {
 
 async function getOrCreateBrowser(): Promise<Browser> {
   if (cachedBrowser && cachedCdp?.isConnected()) return cachedBrowser
+
+  if (runtimePlan && !existsSync(runtimePlan.userDataDir)) {
+    runtimePlan = null
+  }
 
   if (!runtimePlan) {
     runtimePlan = await createTestRuntimePlan()
@@ -49,6 +54,15 @@ async function getOrCreateBrowser(): Promise<Browser> {
 
   cachedBrowser = new Browser(cachedCdp, stubController)
   return cachedBrowser
+}
+
+export async function cleanupWithBrowser(): Promise<void> {
+  await mutex.runExclusive(async () => {
+    await killBrowser()
+    cachedCdp = null
+    cachedBrowser = null
+    runtimePlan = null
+  })
 }
 
 export interface WithBrowserContext {

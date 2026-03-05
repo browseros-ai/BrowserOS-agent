@@ -10,4 +10,8 @@ export {
   killProcessOnPort,
   withMcpServer,
 } from './utils'
-export { type WithBrowserContext, withBrowser } from './with-browser'
+export {
+  cleanupWithBrowser,
+  type WithBrowserContext,
+  withBrowser,
+} from './with-browser'

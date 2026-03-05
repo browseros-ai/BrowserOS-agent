@@ -1,5 +1,5 @@
-import { execSync } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { TEST_PORTS } from '@browseros/shared/constants/ports'
@@ -38,16 +38,15 @@ function parsePort(
   return parsed
 }
 
-function isPortAvailable(port: number): boolean {
-  try {
-    const listeners = execSync(`lsof -nP -iTCP:${port} -sTCP:LISTEN`, {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
-    return listeners.length === 0
-  } catch {
-    return true
-  }
+async function isPortAvailable(port: number): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
+    const server = createServer()
+    server.unref()
+    server.once('error', () => resolve(false))
+    server.listen(port, () => {
+      server.close(() => resolve(true))
+    })
+  })
 }
 
 async function findAvailablePort(
@@ -58,7 +57,7 @@ async function findAvailablePort(
     if (reserved.has(port)) {
       continue
     }
-    if (isPortAvailable(port)) {
+    if (await isPortAvailable(port)) {
       reserved.add(port)
       return port
     }
