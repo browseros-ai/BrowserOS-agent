@@ -34,7 +34,7 @@ export const HubProvidersList: FC<HubProvidersListProps> = ({
     return (
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-medium">Configured Providers</h3>
+          <h3 className="font-medium">Configured AI Providers</h3>
           <Button
             variant="outline"
             size="sm"
@@ -57,7 +57,7 @@ export const HubProvidersList: FC<HubProvidersListProps> = ({
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-medium">Configured Providers</h3>
+        <h3 className="font-medium">Configured AI Providers</h3>
         <Button
           variant="outline"
           size="sm"

@@ -21,6 +21,16 @@ export interface ProviderTemplate {
  */
 export const providerTemplates: ProviderTemplate[] = [
   {
+    id: 'moonshot',
+    name: 'Moonshot AI',
+    defaultBaseUrl: 'https://api.moonshot.ai/v1',
+    defaultModelId: 'kimi-k2.5',
+    supportsImages: true,
+    contextWindow: 128000,
+    apiKeyUrl: 'https://platform.moonshot.ai/console/api-keys',
+    setupGuideUrl: 'https://platform.moonshot.ai/console/api-keys',
+  },
+  {
     id: 'openai',
     name: 'OpenAI',
     defaultBaseUrl: 'https://api.openai.com/v1',
@@ -119,6 +129,7 @@ export const providerTemplates: ProviderTemplate[] = [
  * @public
  */
 export const providerTypeOptions: { value: ProviderType; label: string }[] = [
+  { value: 'moonshot', label: 'Moonshot AI' },
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
@@ -146,6 +157,7 @@ export const getProviderTemplate = (
  * Auto-fills when user selects a provider type
  */
 export const DEFAULT_BASE_URLS: Record<ProviderType, string> = {
+  moonshot: 'https://api.moonshot.ai/v1',
   anthropic: 'https://api.anthropic.com/v1',
   openai: 'https://api.openai.com/v1',
   'openai-compatible': '',

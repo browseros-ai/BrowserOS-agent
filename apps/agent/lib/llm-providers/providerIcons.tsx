@@ -3,6 +3,7 @@ import {
   Azure,
   Bedrock,
   Gemini,
+  Kimi,
   LmStudio,
   Ollama,
   OpenAI,
@@ -30,6 +31,7 @@ const providerIconMap: Record<ProviderType, IconComponent | null> = {
   lmstudio: LmStudio,
   bedrock: Bedrock,
   browseros: null,
+  moonshot: Kimi,
 }
 
 interface ProviderIconProps {

@@ -7,13 +7,17 @@ export interface LlmHubProvider {
   url: string
 }
 
-export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
-  { name: 'ChatGPT', url: 'https://chatgpt.com' },
-  { name: 'Claude', url: 'https://claude.ai' },
-  { name: 'Grok', url: 'https://grok.com' },
-  { name: 'Gemini', url: 'https://gemini.google.com' },
-  { name: 'Perplexity', url: 'https://www.perplexity.ai' },
-]
+const KIMI_PROVIDER: LlmHubProvider = {
+  name: 'Kimi',
+  url: 'https://www.kimi.com',
+}
+
+function ensureKimiFirst(providers: LlmHubProvider[]): LlmHubProvider[] {
+  const hasKimi = providers.some(
+    (p) => p.name === 'Kimi' || p.url.includes('kimi.com'),
+  )
+  return hasKimi ? providers : [KIMI_PROVIDER, ...providers]
+}
 
 export async function loadProviders(): Promise<LlmHubProvider[]> {
   try {
@@ -24,12 +28,12 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     const providers = (providersPref?.value as LlmHubProvider[]) || []
 
     if (providers.length === 0) {
-      return DEFAULT_PROVIDERS
+      return [KIMI_PROVIDER]
     }
 
-    return providers
+    return ensureKimiFirst(providers)
   } catch {
-    return DEFAULT_PROVIDERS
+    return [KIMI_PROVIDER]
   }
 }
 

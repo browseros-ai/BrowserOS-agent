@@ -160,6 +160,18 @@ function createOpenAICompatibleFactory(
   })
 }
 
+function createMoonshotFactory(
+  config: VercelAIConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('Moonshot provider requires baseUrl')
+  if (!config.apiKey) throw new Error('Moonshot provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'moonshot',
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  })
+}
+
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [AIProvider.ANTHROPIC]: createAnthropicFactory,
   [AIProvider.OPENAI]: createOpenAIFactory,
@@ -171,6 +183,7 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [AIProvider.BEDROCK]: createBedrockFactory,
   [AIProvider.BROWSEROS]: createBrowserOSFactory,
   [AIProvider.OPENAI_COMPATIBLE]: createOpenAICompatibleFactory,
+  [AIProvider.MOONSHOT]: createMoonshotFactory,
 }
 
 /**

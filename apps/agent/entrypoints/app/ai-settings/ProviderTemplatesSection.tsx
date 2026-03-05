@@ -54,6 +54,7 @@ export const ProviderTemplatesSection: FC<ProviderTemplatesSectionProps> = ({
               <ProviderTemplateCard
                 key={template.id}
                 template={template}
+                highlighted={template.id === 'moonshot'}
                 onUseTemplate={onUseTemplate}
               />
             ))}

@@ -124,6 +124,16 @@ function createOpenAICompatibleModel(config: ResolvedLLMConfig): LanguageModel {
   })(config.model)
 }
 
+function createMoonshotModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl) throw new Error('Moonshot provider requires baseUrl')
+  if (!config.apiKey) throw new Error('Moonshot provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'moonshot',
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  })(config.model)
+}
+
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.ANTHROPIC]: createAnthropicModel,
   [LLM_PROVIDERS.OPENAI]: createOpenAIModel,
@@ -135,6 +145,7 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.BEDROCK]: createBedrockModel,
   [LLM_PROVIDERS.BROWSEROS]: createBrowserOSModel,
   [LLM_PROVIDERS.OPENAI_COMPATIBLE]: createOpenAICompatibleModel,
+  [LLM_PROVIDERS.MOONSHOT]: createMoonshotModel,
 }
 
 export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
