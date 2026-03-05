@@ -20,7 +20,9 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
   onDelete,
 }) => {
   const iconUrl = useMemo(() => getFaviconUrl(provider.url), [provider.url])
-  const isKimi = provider.name === 'Kimi'
+  const normalizedName = provider.name.trim().toLowerCase()
+  const normalizedUrl = provider.url.trim().toLowerCase()
+  const isKimi = normalizedName === 'kimi' || normalizedUrl.includes('kimi.com')
   const kimiLaunch = useKimiLaunch()
   const showKimiFlare = isKimi && kimiLaunch
 
@@ -48,9 +50,14 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
         <div className="mb-0.5 flex items-center gap-2">
           <span className="block truncate font-semibold">{provider.name}</span>
           {showKimiFlare && (
-            <span className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-0.5 font-medium text-white text-xs">
-              Powered by Moonshot AI
-            </span>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="rounded-full border border-orange-300/60 bg-orange-50 px-2 py-0.5 font-semibold text-[11px] text-orange-700">
+                Recommended
+              </span>
+              <span className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-0.5 font-medium text-white text-xs">
+                Powered by Moonshot AI
+              </span>
+            </div>
           )}
         </div>
         <p className="truncate text-muted-foreground/70 text-xs">

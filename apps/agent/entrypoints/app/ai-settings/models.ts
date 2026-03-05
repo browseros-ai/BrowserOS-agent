@@ -1,3 +1,4 @@
+import { isKimiLaunchEnabled } from '@/lib/feature-flags/kimi-launch'
 import type { ProviderType } from '@/lib/llm-providers/types'
 
 /**
@@ -24,6 +25,10 @@ export interface ModelsData {
   browseros: ModelInfo[]
   moonshot: ModelInfo[]
 }
+
+const KIMI_LAUNCH_MOONSHOT_MODELS: ModelInfo[] = [
+  { modelId: 'kimi-k2.5', contextLength: 128000 },
+]
 
 /**
  * Available models per provider with context lengths
@@ -99,6 +104,9 @@ export const MODELS_DATA: ModelsData = {
  * Get models for a specific provider type
  */
 export function getModelsForProvider(providerType: ProviderType): ModelInfo[] {
+  if (providerType === 'moonshot' && isKimiLaunchEnabled()) {
+    return KIMI_LAUNCH_MOONSHOT_MODELS
+  }
   return MODELS_DATA[providerType] || []
 }
 

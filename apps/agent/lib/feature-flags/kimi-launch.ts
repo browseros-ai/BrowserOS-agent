@@ -1,17 +1,14 @@
-import { storage } from '@wxt-dev/storage'
+import { env } from '@/lib/env'
 
-const KIMI_LAUNCH_KEY = 'local:feature-flag-kimi-launch'
+const ENABLED_VALUES = new Set(['1', 'true', 'yes', 'on'])
 
-const kimiLaunchStorage = storage.defineItem<boolean>(KIMI_LAUNCH_KEY, {
-  fallback: true,
-})
-
-export async function isKimiLaunchEnabled(): Promise<boolean> {
-  return (await kimiLaunchStorage.getValue()) ?? true
+function parseKimiLaunchFlag(value: string | undefined): boolean {
+  if (!value) return false
+  return ENABLED_VALUES.has(value.trim().toLowerCase())
 }
 
-export function setKimiLaunchEnabled(enabled: boolean): Promise<void> {
-  return kimiLaunchStorage.setValue(enabled)
-}
+const kimiLaunchEnabled = parseKimiLaunchFlag(env.VITE_PUBLIC_KIMI_LAUNCH)
 
-export { kimiLaunchStorage }
+export function isKimiLaunchEnabled(): boolean {
+  return kimiLaunchEnabled
+}
