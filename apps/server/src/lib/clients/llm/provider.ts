@@ -126,10 +126,11 @@ function createOpenAICompatibleModel(config: ResolvedLLMConfig): LanguageModel {
 
 function createMoonshotModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.baseUrl) throw new Error('Moonshot provider requires baseUrl')
+  if (!config.apiKey) throw new Error('Moonshot provider requires apiKey')
   return createOpenAICompatible({
     name: 'moonshot',
     baseURL: config.baseUrl,
-    ...(config.apiKey && { apiKey: config.apiKey }),
+    apiKey: config.apiKey,
   })(config.model)
 }
 

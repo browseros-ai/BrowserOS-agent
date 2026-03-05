@@ -14,17 +14,17 @@ export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
   { name: 'Gemini', url: 'https://gemini.google.com' },
 ]
 
-const LEGACY_DEFAULT_NAMES = new Set([
-  'ChatGPT',
-  'Claude',
-  'Grok',
-  'Gemini',
-  'Perplexity',
+const LEGACY_DEFAULTS_MAP = new Map([
+  ['ChatGPT', 'https://chatgpt.com'],
+  ['Claude', 'https://claude.ai'],
+  ['Grok', 'https://grok.com'],
+  ['Gemini', 'https://gemini.google.com'],
+  ['Perplexity', 'https://www.perplexity.ai'],
 ])
 
 function isLegacyDefaults(providers: LlmHubProvider[]): boolean {
-  if (providers.length !== LEGACY_DEFAULT_NAMES.size) return false
-  return providers.every((p) => LEGACY_DEFAULT_NAMES.has(p.name))
+  if (providers.length !== LEGACY_DEFAULTS_MAP.size) return false
+  return providers.every((p) => LEGACY_DEFAULTS_MAP.get(p.name) === p.url)
 }
 
 async function migrateToDefaultProviders(): Promise<LlmHubProvider[]> {
