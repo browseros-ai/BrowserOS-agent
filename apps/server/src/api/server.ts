@@ -14,8 +14,8 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
+import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
-
 import { createChatV2Routes } from './routes/chat-v2'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -26,6 +26,10 @@ import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
 import { createSoulRoutes } from './routes/soul'
 import { createStatusRoute } from './routes/status'
+import {
+  connectKlavisProxy,
+  type KlavisProxyHandle,
+} from './services/mcp/register-klavis-mcp'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 
@@ -67,6 +71,24 @@ export async function createHttpServer(config: HttpServerConfig) {
 
   const { onShutdown } = config
 
+  // Connect Klavis proxy (non-blocking: browser tools still work if this fails)
+  let klavisProxy: KlavisProxyHandle | null = null
+  if (browserosId) {
+    try {
+      klavisProxy = await connectKlavisProxy({
+        klavisClient: new KlavisClient(),
+        browserosId,
+      })
+    } catch (error) {
+      logger.warn(
+        'Failed to connect Klavis proxy, MCP will serve browser tools only',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      )
+    }
+  }
+
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ browser }))
@@ -84,6 +106,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         registry,
         browser,
+        klavisProxy,
       }),
     )
     .route(
