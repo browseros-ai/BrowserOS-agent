@@ -1,48 +1,5 @@
 package mcp
 
-// JSON-RPC 2.0 types
-
-type jsonrpcRequest struct {
-	JSONRPC string `json:"jsonrpc"`
-	ID      int    `json:"id"`
-	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
-}
-
-type jsonrpcResponse struct {
-	JSONRPC string       `json:"jsonrpc"`
-	ID      int          `json:"id"`
-	Result  any          `json:"result,omitempty"`
-	Error   *RPCError    `json:"error,omitempty"`
-}
-
-type RPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func (e *RPCError) Error() string {
-	return e.Message
-}
-
-// MCP protocol types
-
-type initializeParams struct {
-	ProtocolVersion string     `json:"protocolVersion"`
-	Capabilities    struct{}   `json:"capabilities"`
-	ClientInfo      clientInfo `json:"clientInfo"`
-}
-
-type clientInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-}
-
-type toolCallParams struct {
-	Name      string         `json:"name"`
-	Arguments map[string]any `json:"arguments"`
-}
-
 // ToolResult is the result from an MCP tools/call.
 type ToolResult struct {
 	Content           []ContentItem  `json:"content"`

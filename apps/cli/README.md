@@ -15,11 +15,11 @@ make
 ```
 
 The `init` command prompts for your MCP server URL. Find it in:
-**BrowserOS → Settings → BrowserOS as MCP → Server URL**
+**BrowserOS → Settings → BrowserOS MCP → Server URL**
 
 The port varies per installation (e.g., `http://127.0.0.1:9004/mcp`).
 
-Config is saved to `~/.config/browseros-cli/config.json`.
+Config is saved to `~/.config/browseros-cli/config.yaml`.
 
 ## Usage
 
@@ -77,7 +77,9 @@ browseros-cli group list
 | `--debug` | `BOS_DEBUG=1` | Debug output |
 | `--timeout, -t` | | Request timeout (default: 2m) |
 
-Priority for server URL: `--server` flag > `BROWSEROS_URL` env > config file > `http://127.0.0.1:9100`
+Priority for server URL: `--server` flag > `BROWSEROS_URL` env > config file
+
+If no server URL is configured, the CLI exits with setup instructions instead of assuming a localhost port.
 
 ## Testing
 
@@ -125,7 +127,7 @@ apps/cli/
 ├── main.go             # Entry point
 ├── Makefile            # Build targets
 ├── config/
-│   └── config.go       # Config file (~/.config/browseros-cli/config.json)
+│   └── config.go       # Config file (~/.config/browseros-cli/config.yaml)
 ├── cmd/
 │   ├── root.go         # Root command, global flags
 │   ├── init.go         # Server URL configuration

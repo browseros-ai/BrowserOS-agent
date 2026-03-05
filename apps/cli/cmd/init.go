@@ -22,7 +22,7 @@ func init() {
 		Short: "Configure the BrowserOS server connection",
 		Long: `Set up the CLI by providing the MCP server URL from BrowserOS.
 
-Open BrowserOS → Settings → BrowserOS as MCP to find your Server URL.
+Open BrowserOS → Settings → BrowserOS MCP to find your Server URL.
 The URL looks like: http://127.0.0.1:9004/mcp
 
 The port varies per installation, so this step is required on first use.
@@ -37,7 +37,7 @@ Run again if your port changes.`,
 			fmt.Println()
 			bold.Println("BrowserOS CLI Setup")
 			fmt.Println()
-			fmt.Println("Open BrowserOS → Settings → BrowserOS as MCP")
+			fmt.Println("Open BrowserOS → Settings → BrowserOS MCP")
 			fmt.Println("Copy the Server URL shown there.")
 			fmt.Println()
 			dim.Println("It looks like: http://127.0.0.1:9004/mcp")
@@ -55,9 +55,7 @@ Run again if your port changes.`,
 				output.Error("no URL provided", 1)
 			}
 
-			// Normalize: strip trailing /mcp if present — we add it ourselves
-			baseURL := strings.TrimSuffix(input, "/mcp")
-			baseURL = strings.TrimSuffix(baseURL, "/")
+			baseURL := normalizeServerURL(input)
 
 			parsed, err := url.Parse(baseURL)
 			if err != nil || parsed.Host == "" {

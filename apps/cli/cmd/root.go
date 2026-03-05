@@ -9,6 +9,7 @@ import (
 
 	"browseros-cli/config"
 	"browseros-cli/mcp"
+	"browseros-cli/output"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -124,15 +125,7 @@ func init() {
 
 	rootCmd.SetUsageTemplate(usageTemplate)
 
-	defaultURL := "http://127.0.0.1:9100"
-	if cfg, err := config.Load(); err == nil && cfg.ServerURL != "" {
-		defaultURL = cfg.ServerURL
-	}
-	if env := os.Getenv("BROWSEROS_URL"); env != "" {
-		defaultURL = env
-	}
-
-	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", defaultURL, "BrowserOS server URL")
+	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", defaultServerURL(), "BrowserOS server URL")
 	rootCmd.PersistentFlags().IntVarP(&pageFlag, "page", "p", 0, "Target page ID (default: active page)")
 	rootCmd.PersistentFlags().BoolVar(&jsonOut, "json", envBool("BOS_JSON"), "JSON output")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", envBool("BOS_DEBUG"), "Debug output")
@@ -142,7 +135,12 @@ func init() {
 }
 
 func newClient() *mcp.Client {
-	c := mcp.NewClient(serverURL, version, timeout)
+	baseURL, err := validateServerURL(serverURL)
+	if err != nil {
+		output.Error(err.Error(), 1)
+	}
+
+	c := mcp.NewClient(baseURL, version, timeout)
 	c.Debug = debug
 	return c
 }
@@ -164,4 +162,34 @@ func resolvePageID(c *mcp.Client) (int, error) {
 func envBool(key string) bool {
 	v := os.Getenv(key)
 	return v == "1" || v == "true"
+}
+
+func defaultServerURL() string {
+	if env := normalizeServerURL(os.Getenv("BROWSEROS_URL")); env != "" {
+		return env
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return ""
+	}
+
+	return normalizeServerURL(cfg.ServerURL)
+}
+
+func normalizeServerURL(raw string) string {
+	normalized := strings.TrimSpace(raw)
+	normalized = strings.TrimSuffix(normalized, "/mcp")
+	return strings.TrimSuffix(normalized, "/")
+}
+
+func validateServerURL(raw string) (string, error) {
+	baseURL := normalizeServerURL(raw)
+	if baseURL != "" {
+		return baseURL, nil
+	}
+
+	return "", fmt.Errorf(
+		"BrowserOS server URL is not configured.\n  Open BrowserOS -> Settings -> BrowserOS MCP and copy the Server URL.\n  Then run: browseros-cli init",
+	)
 }

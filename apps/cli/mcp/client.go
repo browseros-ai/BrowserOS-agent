@@ -1,13 +1,15 @@
 package mcp
 
 import (
-	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sync/atomic"
 	"time"
+
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Client struct {
@@ -15,7 +17,6 @@ type Client struct {
 	HTTPClient *http.Client
 	Version    string
 	Debug      bool
-	reqID      atomic.Int32
 }
 
 func NewClient(baseURL, version string, timeout time.Duration) *Client {
@@ -28,111 +29,86 @@ func NewClient(baseURL, version string, timeout time.Duration) *Client {
 	}
 }
 
-func (c *Client) nextID() int {
-	return int(c.reqID.Add(1))
-}
+func (c *Client) connect(ctx context.Context) (*sdkmcp.ClientSession, error) {
+	sdkClient := sdkmcp.NewClient(&sdkmcp.Implementation{
+		Name:    "browseros-cli",
+		Version: c.Version,
+	}, nil)
 
-func (c *Client) sendRPC(method string, params any) (json.RawMessage, error) {
-	req := jsonrpcRequest{
-		JSONRPC: "2.0",
-		ID:      c.nextID(),
-		Method:  method,
-		Params:  params,
+	transport := &sdkmcp.StreamableClientTransport{
+		Endpoint:             c.BaseURL + "/mcp",
+		HTTPClient:           c.HTTPClient,
+		DisableStandaloneSSE: true,
 	}
 
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("marshal request: %w", err)
-	}
-
-	if c.Debug {
-		fmt.Printf("[debug] POST %s/mcp %s\n", c.BaseURL, method)
-	}
-
-	httpReq, err := http.NewRequest("POST", c.BaseURL+"/mcp", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json, text/event-stream")
-
-	resp, err := c.HTTPClient.Do(httpReq)
+	session, err := sdkClient.Connect(ctx, transport, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w\n  Is the server running? Try: browseros-cli init", c.BaseURL, err)
 	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	if c.Debug {
-		fmt.Printf("[debug] Response (%d): %s\n", resp.StatusCode, string(data))
-	}
-
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("server returned HTTP %d: %s", resp.StatusCode, string(data))
-	}
-
-	var rpcResp jsonrpcResponse
-	if err := json.Unmarshal(data, &rpcResp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
-	if rpcResp.Error != nil {
-		return nil, rpcResp.Error
-	}
-
-	raw, err := json.Marshal(rpcResp.Result)
-	if err != nil {
-		return nil, fmt.Errorf("marshal result: %w", err)
-	}
-
-	return raw, nil
+	return session, nil
 }
 
-func (c *Client) initialize() error {
-	params := initializeParams{
-		ProtocolVersion: "2025-06-18",
-		ClientInfo: clientInfo{
-			Name:    "browseros-cli",
-			Version: c.Version,
-		},
-	}
-	_, err := c.sendRPC("initialize", params)
-	return err
-}
-
-// CallTool sends initialize + tools/call and returns the result.
+// CallTool connects, initializes, calls the named tool, and returns the result.
 func (c *Client) CallTool(name string, args map[string]any) (*ToolResult, error) {
-	if err := c.initialize(); err != nil {
-		return nil, fmt.Errorf("initialize: %w", err)
+	ctx, cancel := context.WithTimeout(context.Background(), c.HTTPClient.Timeout)
+	defer cancel()
+
+	session, err := c.connect(ctx)
+	if err != nil {
+		return nil, err
 	}
+	defer session.Close()
 
 	if args == nil {
 		args = map[string]any{}
 	}
-	params := toolCallParams{
+
+	sdkResult, err := session.CallTool(ctx, &sdkmcp.CallToolParams{
 		Name:      name,
 		Arguments: args,
-	}
-
-	raw, err := c.sendRPC("tools/call", params)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	var result ToolResult
-	if err := json.Unmarshal(raw, &result); err != nil {
-		return nil, fmt.Errorf("parse tool result: %w", err)
-	}
-
+	result := convertResult(sdkResult)
 	if result.IsError {
-		return &result, fmt.Errorf("%s", result.TextContent())
+		return result, fmt.Errorf("%s", result.TextContent())
 	}
 
-	return &result, nil
+	return result, nil
+}
+
+func convertResult(r *sdkmcp.CallToolResult) *ToolResult {
+	result := &ToolResult{
+		IsError: r.IsError,
+	}
+
+	for _, c := range r.Content {
+		switch v := c.(type) {
+		case *sdkmcp.TextContent:
+			result.Content = append(result.Content, ContentItem{Type: "text", Text: v.Text})
+		case *sdkmcp.ImageContent:
+			result.Content = append(result.Content, ContentItem{Type: "image", Data: base64.StdEncoding.EncodeToString(v.Data), MimeType: v.MIMEType})
+		}
+	}
+
+	if r.StructuredContent != nil {
+		switch sc := r.StructuredContent.(type) {
+		case map[string]any:
+			result.StructuredContent = sc
+		default:
+			data, err := json.Marshal(sc)
+			if err == nil {
+				var m map[string]any
+				if json.Unmarshal(data, &m) == nil {
+					result.StructuredContent = m
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 // ResolvePageID returns the explicit page ID or fetches the active page.
