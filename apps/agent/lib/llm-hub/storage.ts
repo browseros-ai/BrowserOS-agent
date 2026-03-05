@@ -7,26 +7,16 @@ export interface LlmHubProvider {
   url: string
 }
 
-const LEGACY_DEFAULTS_MAP = new Map([
-  ['ChatGPT', 'https://chatgpt.com'],
-  ['Claude', 'https://claude.ai'],
-  ['Grok', 'https://grok.com'],
-  ['Gemini', 'https://gemini.google.com'],
-  ['Perplexity', 'https://www.perplexity.ai'],
-])
-
-function isLegacyDefaults(providers: LlmHubProvider[]): boolean {
-  if (providers.length !== LEGACY_DEFAULTS_MAP.size) return false
-  return providers.every((p) => LEGACY_DEFAULTS_MAP.get(p.name) === p.url)
+const KIMI_PROVIDER: LlmHubProvider = {
+  name: 'Kimi',
+  url: 'https://www.kimi.com',
 }
 
-async function clearLegacyDefaults(): Promise<void> {
-  try {
-    const adapter = getBrowserOSAdapter()
-    await adapter.setPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS, [])
-  } catch {
-    // best effort
-  }
+function ensureKimiFirst(providers: LlmHubProvider[]): LlmHubProvider[] {
+  const hasKimi = providers.some(
+    (p) => p.name === 'Kimi' || p.url.includes('kimi.com'),
+  )
+  return hasKimi ? providers : [KIMI_PROVIDER, ...providers]
 }
 
 export async function loadProviders(): Promise<LlmHubProvider[]> {
@@ -37,14 +27,13 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     )
     const providers = (providersPref?.value as LlmHubProvider[]) || []
 
-    if (isLegacyDefaults(providers)) {
-      await clearLegacyDefaults()
-      return []
+    if (providers.length === 0) {
+      return [KIMI_PROVIDER]
     }
 
-    return providers
+    return ensureKimiFirst(providers)
   } catch {
-    return []
+    return [KIMI_PROVIDER]
   }
 }
 
