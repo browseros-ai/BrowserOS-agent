@@ -112,6 +112,12 @@ Each package has its own `.env.development` file:
 | `BROWSEROS_CLIENT_ID` | - | Client identifier (analytics) |
 | `POSTHOG_API_KEY` | - | Server-side PostHog API key |
 | `SENTRY_DSN` | - | Server-side Sentry DSN |
+| `R2_ACCOUNT_ID` | - | Cloudflare account id for production artifact downloads/uploads |
+| `R2_ACCESS_KEY_ID` | - | Cloudflare R2 access key id |
+| `R2_SECRET_ACCESS_KEY` | - | Cloudflare R2 secret access key |
+| `R2_BUCKET` | - | Cloudflare R2 bucket name |
+| `R2_DOWNLOAD_PREFIX` | - | Optional prefix prepended to third-party resource object keys |
+| `R2_UPLOAD_PREFIX` | `server/prod-resources` | Optional prefix for uploaded artifact zips |
 
 **Agent Variables** (`apps/agent/.env.development`)
 
@@ -136,7 +142,7 @@ bun run start:server          # Start the server
 bun run start:agent           # Start agent extension (dev mode)
 
 # Build
-bun run build:server          # Build server for production
+bun run build:server          # Build production server resource artifacts and upload zips to R2
 bun run build:agent           # Build agent extension
 bun run build:ext             # Build controller extension
 
@@ -150,6 +156,17 @@ bun run test:integration      # Run integration tests
 bun run lint                  # Check with Biome
 bun run lint:fix              # Auto-fix
 bun run typecheck             # TypeScript check
+```
+
+`build:server` now emits artifacts under `dist/prod/server/<target>/` and zip files under `dist/prod/server/`.
+
+Direct server build script options:
+
+```bash
+bun scripts/build/server.ts --target=all
+bun scripts/build/server.ts --target=darwin-arm64,linux-x64
+bun scripts/build/server.ts --target=all --manifest=scripts/build/config/server-prod-resources.json
+bun scripts/build/server.ts --target=all --no-upload
 ```
 
 ## License
