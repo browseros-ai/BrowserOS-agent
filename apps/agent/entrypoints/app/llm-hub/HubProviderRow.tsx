@@ -2,7 +2,6 @@ import { Globe2, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { useKimiLaunch } from '@/lib/feature-flags/useKimiLaunch'
 import { cn } from '@/lib/utils'
 import { getFaviconUrl, type LlmHubProvider } from './models'
 
@@ -23,15 +22,14 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
   const normalizedName = provider.name.trim().toLowerCase()
   const normalizedUrl = provider.url.trim().toLowerCase()
   const isKimi = normalizedName === 'kimi' || normalizedUrl.includes('kimi.com')
-  const kimiLaunch = useKimiLaunch()
-  const showKimiFlare = isKimi && kimiLaunch
+  const showKimiFlare = isKimi
 
   return (
     <div
       className={cn(
         'group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)] hover:shadow-md',
         showKimiFlare &&
-          'border-orange-400/60 shadow-[0_0_15px_rgba(251,146,60,0.3)] ring-2 ring-orange-400/40',
+          'border-orange-300/80 bg-orange-50/20 shadow-sm ring-1 ring-orange-300/45 dark:bg-orange-500/5',
       )}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
@@ -51,10 +49,10 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
           <span className="block truncate font-semibold">{provider.name}</span>
           {showKimiFlare && (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="rounded-full border border-orange-300/60 bg-orange-50 px-2 py-0.5 font-semibold text-[11px] text-orange-700">
+              <span className="rounded-full border border-orange-300/60 bg-orange-100/70 px-2 py-0.5 font-semibold text-[11px] text-orange-700 dark:border-orange-400/40 dark:bg-orange-500/15 dark:text-orange-300">
                 Recommended
               </span>
-              <span className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2.5 py-0.5 font-medium text-white text-xs">
+              <span className="rounded-full border border-orange-300/60 bg-orange-100/60 px-2.5 py-0.5 font-medium text-orange-700 text-xs dark:border-orange-400/40 dark:bg-orange-500/15 dark:text-orange-300">
                 Powered by Moonshot AI
               </span>
             </div>

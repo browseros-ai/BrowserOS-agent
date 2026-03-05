@@ -22,7 +22,7 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
       className={cn(
         'group flex w-full items-center gap-3 rounded-lg border bg-background p-4 text-left transition-all hover:border-[var(--accent-orange)] hover:shadow-md',
         highlighted
-          ? 'border-orange-400/60 shadow-[0_0_15px_rgba(251,146,60,0.25)] ring-2 ring-orange-400/40'
+          ? 'border-orange-300/80 bg-orange-50/30 shadow-sm ring-1 ring-orange-300/45 dark:bg-orange-500/5'
           : 'border-border',
       )}
     >
@@ -36,7 +36,7 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-foreground">{template.name}</span>
             {highlighted && (
-              <span className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-2 py-0.5 font-semibold text-[10px] text-white">
+              <span className="rounded-full border border-orange-300/60 bg-orange-100/70 px-2 py-0.5 font-semibold text-[10px] text-orange-700 dark:border-orange-400/40 dark:bg-orange-500/15 dark:text-orange-300">
                 Recommended
               </span>
             )}
@@ -48,7 +48,7 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
         className={cn(
           'shrink-0 rounded-md px-3 py-1 transition-colors group-hover:border-[var(--accent-orange)] group-hover:text-[var(--accent-orange)]',
           highlighted &&
-            'border-[var(--accent-orange)] text-[var(--accent-orange)]',
+            'border-[var(--accent-orange)] bg-[var(--accent-orange)]/5 text-[var(--accent-orange)]',
         )}
       >
         USE
