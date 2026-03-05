@@ -16,7 +16,7 @@ export const AGENT_LIMITS = {
   MAX_TURNS: 100,
   DEFAULT_CONTEXT_WINDOW: 200_000,
 
-  // Legacy compression settings (used by gemini-agent.ts)
+  // Compression settings for context compaction heuristics
   COMPRESSION_MIN_HEADROOM: 10_000,
   COMPRESSION_MAX_RATIO: 0.75,
   COMPRESSION_MIN_RATIO: 0.4,

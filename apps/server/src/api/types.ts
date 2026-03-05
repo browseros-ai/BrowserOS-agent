@@ -12,9 +12,8 @@ import {
   type Tab,
   TabSchema,
 } from '@browseros/shared/schemas/browser-context'
-import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
+import { LLM_PROVIDERS, LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
-import { VercelAIConfigSchema } from '../agent/provider-adapter/types'
 import type { ControllerBackend } from '../browser/backends/controller'
 import type { Browser } from '../browser/browser'
 import type { RateLimiter } from '../lib/rate-limiter/rate-limiter'
@@ -30,7 +29,14 @@ export {
   type Tab,
 }
 
-export const ChatRequestSchema = VercelAIConfigSchema.extend({
+export const AgentLLMConfigSchema = LLMConfigSchema.extend({
+  model: z.string().min(1, 'Model name is required'),
+  upstreamProvider: z.string().optional(),
+})
+
+export type AgentLLMConfig = z.infer<typeof AgentLLMConfigSchema>
+
+export const ChatRequestSchema = AgentLLMConfigSchema.extend({
   conversationId: z.string().uuid(),
   message: z.string().min(1, 'Message cannot be empty'),
   contextWindowSize: z.number().optional(),
@@ -105,7 +111,7 @@ export const UpdateGraphRequestSchema = z.object({
 export type UpdateGraphRequest = z.infer<typeof UpdateGraphRequestSchema>
 
 // Run graph request - similar to ChatRequest, needs provider config for Agent SDK
-export const RunGraphRequestSchema = VercelAIConfigSchema.extend({
+export const RunGraphRequestSchema = AgentLLMConfigSchema.extend({
   browserContext: BrowserContextSchema.optional(),
 }).refine(
   (data) =>

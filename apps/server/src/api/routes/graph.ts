@@ -9,10 +9,6 @@ import { zValidator } from '@hono/zod-validator'
 import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
-import {
-  formatUIMessageStreamDone,
-  formatUIMessageStreamEvent,
-} from '../../agent/provider-adapter/ui-message-stream'
 import { logger } from '../../lib/logger'
 import { GraphService } from '../services/graph-service'
 import {
@@ -20,6 +16,10 @@ import {
   RunGraphRequestSchema,
   UpdateGraphRequestSchema,
 } from '../types'
+import {
+  formatUIMessageStreamDone,
+  formatUIMessageStreamEvent,
+} from '../utils/ui-message-stream'
 import { SessionIdParamSchema } from '../utils/validation'
 
 interface SSEStreamOptions {
