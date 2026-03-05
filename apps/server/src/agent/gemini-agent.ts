@@ -20,21 +20,13 @@ import type { BrowserContext } from '../api/types'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
 import { registry } from '../tools/registry'
+import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
 import { AgentExecutionError } from './errors'
 import { buildSystemPrompt } from './prompt'
 import { VercelAIContentGenerator } from './provider-adapter/index'
 import type { HonoSSEStream } from './provider-adapter/types'
 import { UIMessageStreamWriter } from './provider-adapter/ui-message-stream'
 import type { ResolvedAgentConfig } from './types'
-
-const CHAT_MODE_ALLOWED_TOOLS = new Set([
-  'list_pages',
-  'get_page_content',
-  'scroll',
-  'take_snapshot',
-  'take_enhanced_snapshot',
-  'evaluate_script',
-])
 
 export interface ToolExecutionResult {
   parts: Part[]
