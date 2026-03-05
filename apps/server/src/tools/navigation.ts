@@ -317,6 +317,12 @@ export const wait_for = defineTool({
       const target = args.text
         ? `text "${args.text}"`
         : `selector "${args.selector}"`
+      response.data({
+        page: args.page,
+        found,
+        target,
+        timeout: args.timeout,
+      })
       response.error(`Timed out after ${args.timeout}ms waiting for ${target}.`)
     }
   },

@@ -79,11 +79,7 @@ describe('observation tools', () => {
       )
       assert.ok(imageItem, 'Expected an image content item')
       assert.ok(imageItem.data.length > 0, 'Image data should not be empty')
-      const data = structuredOf<{ data: string; mimeType: string }>(result)
-      assert.ok(
-        data.data.length > 0,
-        'Structured image data should not be empty',
-      )
+      const data = structuredOf<{ mimeType: string }>(result)
       assert.ok(data.mimeType.startsWith('image/'))
 
       await execute(close_page, { page: pageId })

@@ -22,15 +22,6 @@ const tabGroupWithPageIdsSchema = z.object({
   pageIds: z.array(z.number()),
 })
 
-const tabGroupWithTabIdsSchema = z.object({
-  groupId: z.string(),
-  windowId: z.number(),
-  title: z.string(),
-  color: z.string(),
-  collapsed: z.boolean(),
-  tabIds: z.array(z.number()),
-})
-
 export const list_tab_groups = defineTool({
   name: 'list_tab_groups',
   description: 'List all tab groups in the browser',
@@ -110,8 +101,7 @@ export const update_tab_group = defineTool({
       .describe('Whether to collapse (hide) the group tabs'),
   }),
   output: z.object({
-    group: tabGroupWithTabIdsSchema,
-    pageIds: z.array(z.number()),
+    group: tabGroupWithPageIdsSchema,
   }),
   handler: async (args, ctx, response) => {
     const group = await ctx.browser.updateTabGroup(args.groupId, {
@@ -123,12 +113,19 @@ export const update_tab_group = defineTool({
     const pageIds = group.tabIds
       .map((tabId) => tabToPage.get(tabId))
       .filter((id): id is number => id !== undefined)
+    const groupWithPageIds = {
+      groupId: group.groupId,
+      windowId: group.windowId,
+      title: group.title,
+      color: group.color,
+      collapsed: group.collapsed,
+      pageIds,
+    }
     response.text(
       `Updated group ${group.groupId}: "${group.title || '(unnamed)'}" (${group.color})${group.collapsed ? ' [COLLAPSED]' : ''}`,
     )
     response.data({
-      group,
-      pageIds,
+      group: groupWithPageIds,
     })
   },
 })

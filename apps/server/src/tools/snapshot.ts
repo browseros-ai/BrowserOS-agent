@@ -108,7 +108,6 @@ export const take_screenshot = defineTool({
       .describe('Capture full scrollable page'),
   }),
   output: z.object({
-    data: z.string(),
     mimeType: z.string(),
   }),
   handler: async (args, ctx, response) => {
@@ -118,7 +117,7 @@ export const take_screenshot = defineTool({
       fullPage: args.fullPage,
     })
     response.image(data, mimeType)
-    response.data({ data, mimeType })
+    response.data({ mimeType })
   },
 })
 
