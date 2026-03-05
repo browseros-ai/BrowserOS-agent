@@ -37,6 +37,7 @@ import {
   NEWTAB_AI_TRIGGERED_EVENT,
   NEWTAB_APPS_OPENED_EVENT,
   NEWTAB_CHAT_RESET_EVENT,
+  NEWTAB_CHAT_STARTED_EVENT,
   NEWTAB_OPENED_EVENT,
   NEWTAB_SEARCH_EXECUTED_EVENT,
   NEWTAB_TAB_REMOVED_EVENT,
@@ -275,6 +276,7 @@ export const NewTab = () => {
       typeof createBrowserOSAction | typeof createAITabAction
     >,
   ) => {
+    track(NEWTAB_CHAT_STARTED_EVENT, { mode, tabs_count: selectedTabs.length })
     setMode(mode)
     setChatActive(true)
     sendMessage({ text: message, action })

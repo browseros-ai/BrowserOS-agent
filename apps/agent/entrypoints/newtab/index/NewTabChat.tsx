@@ -9,7 +9,7 @@ import { useChatSessionContext } from '@/entrypoints/sidepanel/layout/ChatSessio
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import {
   NEWTAB_CHAT_MODE_CHANGED_EVENT,
-  NEWTAB_CHAT_STARTED_EVENT,
+  NEWTAB_CHAT_RESET_EVENT,
   NEWTAB_CHAT_STOPPED_EVENT,
   NEWTAB_CHAT_SUGGESTION_CLICKED_EVENT,
   NEWTAB_TAB_REMOVED_EVENT,
@@ -106,12 +106,6 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (messages.length === 0) {
-      track(NEWTAB_CHAT_STARTED_EVENT, {
-        mode,
-        tabs_count: attachedTabs.length,
-      })
-    }
     executeMessage()
   }
 
@@ -121,6 +115,7 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
   }
 
   const handleNewConversation = () => {
+    track(NEWTAB_CHAT_RESET_EVENT, { message_count: messages.length })
     resetConversation()
   }
 
