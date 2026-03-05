@@ -17,6 +17,7 @@ export function formatConversationHistory(
 
   return recentMessages
     .map((msg) => {
+      if (!msg.parts?.length) return null
       const role: 'user' | 'assistant' =
         msg.role === 'user' ? 'user' : 'assistant'
       const textContent = msg.parts

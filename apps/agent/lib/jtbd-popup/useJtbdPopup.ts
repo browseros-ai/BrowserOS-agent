@@ -21,6 +21,7 @@ function pickRandomDirection(): string {
 }
 
 const isEligible = (state: JtbdPopupState): boolean => {
+  if (state.dontShowAgain) return false
   if (state.surveyTaken) return false
   if (state.messageCount < JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD) return false
   if (state.messageCount % JTBD_POPUP_CONSTANTS.MESSAGE_THRESHOLD !== 0)
@@ -32,6 +33,7 @@ const isEligible = (state: JtbdPopupState): boolean => {
 
 export function useJtbdPopup() {
   const [popupVisible, setPopupVisible] = useState(false)
+  const [showDontShowAgain, setShowDontShowAgain] = useState(false)
 
   useEffect(() => {
     jtbdPopupStorage.getValue().then(async (val) => {
@@ -51,7 +53,15 @@ export function useJtbdPopup() {
   const triggerIfEligible = useCallback(async () => {
     const current = await jtbdPopupStorage.getValue()
     if (isEligible(current)) {
-      track(JTBD_POPUP_SHOWN_EVENT, { messageCount: current.messageCount })
+      const newShownCount = current.shownCount + 1
+      await jtbdPopupStorage.setValue({ ...current, shownCount: newShownCount })
+      track(JTBD_POPUP_SHOWN_EVENT, {
+        messageCount: current.messageCount,
+        shownCount: newShownCount,
+      })
+      setShowDontShowAgain(
+        newShownCount >= JTBD_POPUP_CONSTANTS.DONT_SHOW_AGAIN_AFTER,
+      )
       setPopupVisible(true)
     }
   }, [])
@@ -60,16 +70,22 @@ export function useJtbdPopup() {
     async ({
       maxTurns = 20,
       experimentId,
+      dontShowAgain = false,
     }: {
       maxTurns?: number
       experimentId?: string
+      dontShowAgain?: boolean
     } = {}) => {
-      // Direction is encoded in experimentId (e.g., "r2_competitor")
       const expId = experimentId ?? `r2_${pickRandomDirection()}`
       const current = await jtbdPopupStorage.getValue()
+      // Persist dontShowAgain without firing a dismiss event
+      if (dontShowAgain) {
+        await jtbdPopupStorage.setValue({ ...current, dontShowAgain: true })
+      }
       track(JTBD_POPUP_CLICKED_EVENT, {
         messageCount: current.messageCount,
         experimentId: expId,
+        dontShowAgain,
       })
       setPopupVisible(false)
       window.open(
@@ -80,14 +96,21 @@ export function useJtbdPopup() {
     [],
   )
 
-  const onDismiss = useCallback(async () => {
+  const onDismiss = useCallback(async (dontShowAgain: boolean) => {
     const current = await jtbdPopupStorage.getValue()
-    track(JTBD_POPUP_DISMISSED_EVENT, { messageCount: current.messageCount })
+    track(JTBD_POPUP_DISMISSED_EVENT, {
+      messageCount: current.messageCount,
+      dontShowAgain,
+    })
+    if (dontShowAgain) {
+      await jtbdPopupStorage.setValue({ ...current, dontShowAgain: true })
+    }
     setPopupVisible(false)
   }, [])
 
   return {
     popupVisible,
+    showDontShowAgain,
     recordMessageSent,
     triggerIfEligible,
     onTakeSurvey,

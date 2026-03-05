@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  DEFAULT_PROVIDERS,
-  type LlmHubProvider,
-  loadProviders,
-  saveProviders,
-} from './storage'
+import { type LlmHubProvider, loadProviders, saveProviders } from './storage'
 
 /** @public */
 export interface UseLlmHubProvidersReturn {
@@ -26,7 +21,7 @@ export function useLlmHubProviders(): UseLlmHubProvidersReturn {
         const data = await loadProviders()
         setProviders(data)
       } catch {
-        setProviders(DEFAULT_PROVIDERS)
+        setProviders([])
       } finally {
         setIsLoading(false)
       }

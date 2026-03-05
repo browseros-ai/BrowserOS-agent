@@ -45,6 +45,7 @@ import { track } from '@/lib/metrics/track'
 import { getModelContextLength, getModelOptions } from './models'
 
 const providerTypeEnum = z.enum([
+  'moonshot',
   'anthropic',
   'openai',
   'openai-compatible',
@@ -413,6 +414,12 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   const providerTemplate = getProviderTemplate(watchedType as ProviderType)
   const setupGuideUrl = providerTemplate?.setupGuideUrl
   const providerName = providerTemplate?.name
+  const setupGuideText =
+    watchedType === 'moonshot'
+      ? 'How to get a Kimi API key'
+      : providerName
+        ? `${providerName} setup guide`
+        : 'Provider setup guide'
 
   const handleSetupGuideClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -596,7 +603,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
                       className="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />
-                      {providerName} setup guide
+                      {setupGuideText}
                     </a>
                   )}
                 </FormDescription>

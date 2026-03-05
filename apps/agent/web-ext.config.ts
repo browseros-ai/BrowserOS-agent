@@ -40,7 +40,7 @@ export default defineWebExtConfig({
       '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS',
   },
   chromiumArgs,
-  chromiumProfile: '/tmp/browseros-dev',
+  chromiumProfile: env.BROWSEROS_USER_DATA_DIR || '/tmp/browseros-dev',
   keepProfileChanges: true,
   startUrls: ['chrome://newtab'],
 })

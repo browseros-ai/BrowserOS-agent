@@ -13,6 +13,7 @@ export type ProviderType =
   | 'lmstudio'
   | 'bedrock'
   | 'browseros'
+  | 'moonshot'
 
 /**
  * LLM Provider configuration

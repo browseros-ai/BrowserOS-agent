@@ -74,12 +74,13 @@ func runWatch(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	env := proc.BuildEnv(p, "development")
+	env = append(env, fmt.Sprintf("BROWSEROS_USER_DATA_DIR=%s", userDataDir))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 2)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	var wg sync.WaitGroup
 	var procs []*proc.ManagedProc

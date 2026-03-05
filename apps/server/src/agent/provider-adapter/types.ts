@@ -214,6 +214,7 @@ export enum AIProvider {
   BEDROCK = 'bedrock',
   BROWSEROS = 'browseros',
   OPENAI_COMPATIBLE = 'openai-compatible',
+  MOONSHOT = 'moonshot',
 }
 
 /**
