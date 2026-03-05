@@ -8,6 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { SetLevelRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Browser } from '../../../browser/browser'
 import type { ToolRegistry } from '../../../tools/tool-registry'
+import { MCP_INSTRUCTIONS } from './mcp-prompt'
 import {
   type KlavisProxyHandle,
   registerKlavisTools,
@@ -28,7 +29,7 @@ export function createMcpServer(deps: McpServiceDeps): McpServer {
       title: 'BrowserOS MCP server',
       version: deps.version,
     },
-    { capabilities: { logging: {} } },
+    { capabilities: { logging: {} }, instructions: MCP_INSTRUCTIONS },
   )
 
   server.server.setRequestHandler(SetLevelRequestSchema, () => {
