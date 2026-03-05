@@ -90,15 +90,15 @@ export function loadBuildConfig(rootDir: string): BuildConfig {
     envVars,
     processEnv,
     r2: {
-      accountId: pickEnv('R2_ACCOUNT_ID', envVars),
-      accessKeyId: pickEnv('R2_ACCESS_KEY_ID', envVars),
-      secretAccessKey: pickEnv('R2_SECRET_ACCESS_KEY', envVars),
-      bucket: pickEnv('R2_BUCKET', envVars),
+      accountId: pickEnv('R2_ACCOUNT_ID', fileEnv),
+      accessKeyId: pickEnv('R2_ACCESS_KEY_ID', fileEnv),
+      secretAccessKey: pickEnv('R2_SECRET_ACCESS_KEY', fileEnv),
+      bucket: pickEnv('R2_BUCKET', fileEnv),
       downloadPrefix:
-        process.env.R2_DOWNLOAD_PREFIX ?? envVars.R2_DOWNLOAD_PREFIX ?? '',
+        process.env.R2_DOWNLOAD_PREFIX ?? fileEnv.R2_DOWNLOAD_PREFIX ?? '',
       uploadPrefix:
         process.env.R2_UPLOAD_PREFIX ??
-        envVars.R2_UPLOAD_PREFIX ??
+        fileEnv.R2_UPLOAD_PREFIX ??
         'server/prod-resources',
     },
   }
