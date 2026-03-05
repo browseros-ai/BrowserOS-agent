@@ -79,17 +79,15 @@ export const ProviderCard: FC<ProviderCardProps> = ({
             </Badge>
           )}
         </div>
-        {isBuiltIn && provider.type === 'browseros' && (
+        {isBuiltIn && provider.type === 'browseros' && kimiLaunch && (
           <span className="mb-1 inline-block rounded-full border border-orange-300/60 bg-orange-100/70 px-3 py-0.5 font-semibold text-orange-700 text-xs dark:border-orange-400/40 dark:bg-orange-500/15 dark:text-orange-300">
-            {kimiLaunch
-              ? 'Powered by Kimi K2.5 from Moonshot AI'
-              : 'Free Kimi K2.5 model in partnership with Moonshot AI.'}
+            Powered by Kimi K2.5 from Moonshot AI
           </span>
         )}
         <p className="truncate text-muted-foreground text-sm">
           {isBuiltIn ? (
             kimiLaunch ? (
-              'Extended usage for the next two weeks.'
+              'Extended usage limits for the next 2 weeks!'
             ) : (
               <>
                 BrowserOS-hosted model with strict rate limits.{' '}

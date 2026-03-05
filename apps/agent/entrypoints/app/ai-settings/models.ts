@@ -1,4 +1,3 @@
-import { isKimiLaunchEnabled } from '@/lib/feature-flags/kimi-launch'
 import type { ProviderType } from '@/lib/llm-providers/types'
 
 /**
@@ -26,19 +25,12 @@ export interface ModelsData {
   moonshot: ModelInfo[]
 }
 
-const KIMI_LAUNCH_MOONSHOT_MODELS: ModelInfo[] = [
-  { modelId: 'kimi-k2.5', contextLength: 128000 },
-]
-
 /**
  * Available models per provider with context lengths
  * Based on: https://github.com/browseros-ai/BrowserOS-agent/blob/main/src/options/data/models.ts
  */
 export const MODELS_DATA: ModelsData = {
-  moonshot: [
-    { modelId: 'kimi-k2.5', contextLength: 128000 },
-    { modelId: 'kimi-k2-0905-preview', contextLength: 128000 },
-  ],
+  moonshot: [{ modelId: 'kimi-k2.5', contextLength: 128000 }],
   anthropic: [
     { modelId: 'claude-opus-4-5-20251101', contextLength: 200000 },
     { modelId: 'claude-haiku-4-5-20251001', contextLength: 200000 },
@@ -104,9 +96,6 @@ export const MODELS_DATA: ModelsData = {
  * Get models for a specific provider type
  */
 export function getModelsForProvider(providerType: ProviderType): ModelInfo[] {
-  if (providerType === 'moonshot' && isKimiLaunchEnabled()) {
-    return KIMI_LAUNCH_MOONSHOT_MODELS
-  }
   return MODELS_DATA[providerType] || []
 }
 

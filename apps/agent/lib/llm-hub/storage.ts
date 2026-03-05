@@ -7,13 +7,6 @@ export interface LlmHubProvider {
   url: string
 }
 
-export const DEFAULT_PROVIDERS: LlmHubProvider[] = [
-  { name: 'Kimi', url: 'https://www.kimi.com' },
-  { name: 'ChatGPT', url: 'https://chatgpt.com' },
-  { name: 'Claude', url: 'https://claude.ai' },
-  { name: 'Gemini', url: 'https://gemini.google.com' },
-]
-
 const LEGACY_DEFAULTS_MAP = new Map([
   ['ChatGPT', 'https://chatgpt.com'],
   ['Claude', 'https://claude.ai'],
@@ -27,15 +20,13 @@ function isLegacyDefaults(providers: LlmHubProvider[]): boolean {
   return providers.every((p) => LEGACY_DEFAULTS_MAP.get(p.name) === p.url)
 }
 
-async function migrateToDefaultProviders(): Promise<LlmHubProvider[]> {
-  const defaults = DEFAULT_PROVIDERS.map((provider) => ({ ...provider }))
+async function clearLegacyDefaults(): Promise<void> {
   try {
     const adapter = getBrowserOSAdapter()
-    await adapter.setPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS, defaults)
+    await adapter.setPref(BROWSEROS_PREFS.THIRD_PARTY_LLM_PROVIDERS, [])
   } catch {
-    // Best effort migration: still return defaults for UI consistency
+    // best effort
   }
-  return defaults
 }
 
 export async function loadProviders(): Promise<LlmHubProvider[]> {
@@ -46,13 +37,14 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     )
     const providers = (providersPref?.value as LlmHubProvider[]) || []
 
-    if (providers.length === 0 || isLegacyDefaults(providers)) {
-      return await migrateToDefaultProviders()
+    if (isLegacyDefaults(providers)) {
+      await clearLegacyDefaults()
+      return []
     }
 
     return providers
   } catch {
-    return DEFAULT_PROVIDERS.map((provider) => ({ ...provider }))
+    return []
   }
 }
 
