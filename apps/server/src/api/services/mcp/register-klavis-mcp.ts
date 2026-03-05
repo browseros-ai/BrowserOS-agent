@@ -8,7 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js'
-import { z } from 'zod'
+import { jsonSchemaObjectToZodRawShape } from 'zod-from-json-schema'
 import type { KlavisClient } from '../../../lib/clients/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../../lib/clients/klavis/oauth-mcp-servers'
 import { logger } from '../../../lib/logger'
@@ -67,22 +67,22 @@ export async function connectKlavisProxy(
   }
 }
 
-// ZodRecord triggers TS2589 with MCP SDK's recursive generics — cast required
-const PASSTHROUGH_SCHEMA = z.record(
-  z.string(),
-  z.unknown(),
-) as unknown as Record<string, never>
-
 export function registerKlavisTools(
   mcpServer: McpServer,
   handle: KlavisProxyHandle,
 ): void {
   for (const tool of handle.tools) {
+    // Convert Strata's JSON Schema → ZodRawShape so MCP clients see proper params.
+    // Double cast works around TS2589 in registerTool's recursive generics.
+    const inputSchema = jsonSchemaObjectToZodRawShape(
+      tool.inputSchema as never,
+    ) as unknown as Record<string, never>
+
     mcpServer.registerTool(
       tool.name,
       {
         description: tool.description,
-        inputSchema: PASSTHROUGH_SCHEMA,
+        inputSchema,
       },
       async (args: Record<string, unknown>) => {
         const startTime = performance.now()
@@ -118,8 +118,7 @@ export function registerKlavisTools(
     )
   }
 
-  logger.info('Registered Klavis tools on MCP server', {
+  logger.debug('Registered Klavis tools on MCP server', {
     count: handle.tools.length,
-    tools: handle.tools.map((t) => t.name),
   })
 }

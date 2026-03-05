@@ -94,7 +94,12 @@ export async function createHttpServer(config: HttpServerConfig) {
     .route('/health', createHealthRoute({ browser }))
     .route(
       '/shutdown',
-      createShutdownRoute({ onShutdown: onShutdown ?? (() => {}) }),
+      createShutdownRoute({
+        onShutdown: () => {
+          klavisProxy?.close().catch(() => {})
+          onShutdown?.()
+        },
+      }),
     )
     .route('/status', createStatusRoute({ controller }))
     .route('/soul', createSoulRoutes())
