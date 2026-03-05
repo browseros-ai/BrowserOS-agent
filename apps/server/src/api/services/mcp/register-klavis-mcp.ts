@@ -87,7 +87,7 @@ export async function connectKlavisProxy(
     inputSchemas,
     callTool: (name, args) =>
       client.callTool({ name, arguments: args }) as Promise<CallToolResult>,
-    close: () => transport.close(),
+    close: () => client.close(),
   }
 }
 
