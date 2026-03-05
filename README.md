@@ -82,6 +82,7 @@ brew install process-compose
 # Copy environment files for each package
 cp apps/server/.env.example apps/server/.env.development
 cp apps/agent/.env.example apps/agent/.env.development
+cp apps/server/.env.production.example apps/server/.env.production
 
 # Start the full dev environment
 process-compose up
@@ -95,9 +96,10 @@ The `process-compose up` command runs the following in order:
 
 ### Environment Variables
 
-Each package has its own `.env.development` file:
+Runtime uses `.env.development`, while production artifact builds use `.env.production`:
 
-- `apps/server/.env.development` - Server configuration
+- `apps/server/.env.development` - Server runtime configuration for local dev
+- `apps/server/.env.production` - Server production artifact build configuration
 - `apps/agent/.env.development` - Agent UI configuration
 
 **Server Variables** (`apps/server/.env.development`)
@@ -112,6 +114,19 @@ Each package has its own `.env.development` file:
 | `BROWSEROS_CLIENT_ID` | - | Client identifier (analytics) |
 | `POSTHOG_API_KEY` | - | Server-side PostHog API key |
 | `SENTRY_DSN` | - | Server-side Sentry DSN |
+| `BROWSEROS_TEST_HEADLESS` | false | Headless mode for server tests |
+
+**Server Production Build Variables** (`apps/server/.env.production`)
+
+Copy from `apps/server/.env.production.example` before running `build:server`.
+`build:server` requires all values below except `R2_DOWNLOAD_PREFIX` and `R2_UPLOAD_PREFIX`.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BROWSEROS_CONFIG_URL` | - | Remote config endpoint baked into prod binary |
+| `CODEGEN_SERVICE_URL` | - | Graph/codegen backend URL baked into prod binary |
+| `POSTHOG_API_KEY` | - | PostHog key baked into prod binary |
+| `SENTRY_DSN` | - | Sentry DSN baked into prod binary |
 | `R2_ACCOUNT_ID` | - | Cloudflare account id for production artifact downloads/uploads |
 | `R2_ACCESS_KEY_ID` | - | Cloudflare R2 access key id |
 | `R2_SECRET_ACCESS_KEY` | - | Cloudflare R2 secret access key |
@@ -142,6 +157,7 @@ bun run start:server          # Start the server
 bun run start:agent           # Start agent extension (dev mode)
 
 # Build
+bun run build                 # Build server, agent, and controller extension
 bun run build:server          # Build production server resource artifacts and upload zips to R2
 bun run build:agent           # Build agent extension
 bun run build:ext             # Build controller extension

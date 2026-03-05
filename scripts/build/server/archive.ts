@@ -21,7 +21,7 @@ export async function zipArtifactRoot(
   const absoluteOutputZipPath = isAbsolute(outputZipPath)
     ? outputZipPath
     : resolve(outputZipPath)
-  await rm(outputZipPath, { force: true })
+  await rm(absoluteOutputZipPath, { force: true })
   await runCommand(
     'zip',
     ['-r', '-q', absoluteOutputZipPath, '.'],

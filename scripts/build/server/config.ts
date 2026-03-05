@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { parse } from 'dotenv'
@@ -11,6 +11,8 @@ const REQUIRED_PROD_VARS = [
   'POSTHOG_API_KEY',
   'SENTRY_DSN',
 ]
+const PROD_ENV_PATH = join('apps', 'server', '.env.production')
+const PROD_ENV_TEMPLATE_PATH = join('apps', 'server', '.env.production.example')
 
 function readServerVersion(rootDir: string): string {
   const pkgPath = join(rootDir, 'apps/server/package.json')
@@ -27,8 +29,17 @@ function pickEnv(name: string, fileEnv: Record<string, string>): string {
 }
 
 function loadProdEnv(rootDir: string): Record<string, string> {
-  const path = join(rootDir, 'apps/server/.env.production')
-  return parse(readFileSync(path, 'utf-8'))
+  const prodEnvPath = join(rootDir, PROD_ENV_PATH)
+  if (existsSync(prodEnvPath)) {
+    return parse(readFileSync(prodEnvPath, 'utf-8'))
+  }
+  const prodEnvTemplatePath = join(rootDir, PROD_ENV_TEMPLATE_PATH)
+  if (existsSync(prodEnvTemplatePath)) {
+    return parse(readFileSync(prodEnvTemplatePath, 'utf-8'))
+  }
+  throw new Error(
+    `Missing ${PROD_ENV_PATH}. Create it from ${PROD_ENV_TEMPLATE_PATH} before running build:server.`,
+  )
 }
 
 function buildInlineEnv(
@@ -48,7 +59,7 @@ function validateProductionEnv(envVars: Record<string, string>): void {
   })
   if (missing.length > 0) {
     throw new Error(
-      `Production build requires variables: ${missing.join(', ')}`,
+      `Production build requires variables: ${missing.join(', ')} (set them in ${PROD_ENV_PATH} or process env).`,
     )
   }
 }

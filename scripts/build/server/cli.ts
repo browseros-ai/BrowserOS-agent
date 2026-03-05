@@ -1,49 +1,36 @@
+import { Command } from 'commander'
+
 import { resolveTargets } from './targets'
 import type { BuildArgs } from './types'
 
 const DEFAULT_MANIFEST_PATH = 'scripts/build/config/server-prod-resources.json'
 
-function parseValueFlag(arg: string, prefix: string): string | null {
-  if (!arg.startsWith(prefix)) {
-    return null
-  }
-  const value = arg.slice(prefix.length)
-  if (!value) {
-    throw new Error(`Missing value for flag ${prefix}`)
-  }
-  return value
-}
-
 export function parseBuildArgs(argv: string[]): BuildArgs {
-  let targetArg = 'all'
-  let manifestPath = DEFAULT_MANIFEST_PATH
-  let upload = true
-
-  for (const arg of argv) {
-    const targetValue = parseValueFlag(arg, '--target=')
-    if (targetValue !== null) {
-      targetArg = targetValue
-      continue
-    }
-    const manifestValue = parseValueFlag(arg, '--manifest=')
-    if (manifestValue !== null) {
-      manifestPath = manifestValue
-      continue
-    }
-    if (arg === '--no-upload') {
-      upload = false
-      continue
-    }
-    if (arg === '--upload') {
-      upload = true
-      continue
-    }
-    throw new Error(`Unknown argument: ${arg}`)
-  }
+  const program = new Command()
+  program
+    .allowUnknownOption(false)
+    .allowExcessArguments(false)
+    .exitOverride((error) => {
+      throw new Error(error.message)
+    })
+    .option('--target <targets>', 'Build target ids or "all"', 'all')
+    .option(
+      '--manifest <path>',
+      'Resource manifest path',
+      DEFAULT_MANIFEST_PATH,
+    )
+    .option('--upload', 'Upload artifact zips to R2')
+    .option('--no-upload', 'Skip zip upload to R2')
+  program.parse(argv, { from: 'user' })
+  const options = program.opts<{
+    target: string
+    manifest: string
+    upload: boolean
+  }>()
 
   return {
-    targets: resolveTargets(targetArg),
-    manifestPath,
-    upload,
+    targets: resolveTargets(options.target),
+    manifestPath: options.manifest,
+    upload: options.upload ?? true,
   }
 }
