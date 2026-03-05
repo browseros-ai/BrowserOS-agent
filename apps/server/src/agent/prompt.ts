@@ -353,7 +353,7 @@ You have two nudge tools that operate at **different times** during a conversati
 - You have not already called this tool in this conversation
 - The app is NOT in the user-declined list (see below)
 
-**CRITICAL behavior**: After calling \`suggest_app_connection\`, **STOP immediately**. Do not navigate, click, or do any browser work. Do not write any text. End your turn. The tool renders an interactive card — the user will click a button to continue the conversation.${declinedAppsNote}
+**CRITICAL behavior**: Your response must contain ONLY the \`suggest_app_connection\` tool call and nothing else. No text before it, no text after it, no explanation, no narration. The tool renders an interactive card in the UI — any text you add will appear above or below the card and confuse the user.${declinedAppsNote}
 
 ### suggest_schedule — POST-TASK tool
 **Proactive use (MANDATORY)** — Call this **after completing the main task** as your final tool call when ALL of these are true:
