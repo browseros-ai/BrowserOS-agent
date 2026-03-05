@@ -58,6 +58,7 @@ export class ChatV2Service {
       supportsImages: request.supportsImages,
       chatMode: request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,
+      declinedApps: request.declinedApps,
     }
 
     let session = sessionStore.get(request.conversationId)

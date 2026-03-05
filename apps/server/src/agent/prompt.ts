@@ -333,8 +333,14 @@ Only delete core memories if the user explicitly asks to forget.
 
 function getNudges(
   _exclude: Set<string>,
-  _options?: BuildSystemPromptOptions,
+  options?: BuildSystemPromptOptions,
 ): string {
+  const declinedApps = options?.declinedApps ?? []
+  const declinedAppsNote =
+    declinedApps.length > 0
+      ? `\n\n**User-declined apps**: The user has previously chosen "do it manually" for: ${declinedApps.join(', ')}. Do NOT call \`suggest_app_connection\` for these apps. Instead, proceed directly with browser automation. If the user explicitly asks to connect one of these apps via MCP (e.g. "help me connect Gmail with MCP"), then you may call \`suggest_app_connection\` for it.`
+      : ''
+
   return `<nudge_tools>
 ## Nudge Tools
 
@@ -345,8 +351,9 @@ You have two nudge tools that operate at **different times** during a conversati
 - The user's request relates to a service available in Connect Apps (Gmail, Slack, Calendar, Linear, GitHub, Notion, etc.)
 - You do NOT currently have MCP tools for that service (check your available tools)
 - You have not already called this tool in this conversation
+- The app is NOT in the user-declined list (see below)
 
-**CRITICAL behavior**: After calling \`suggest_app_connection\`, **STOP immediately**. Do not navigate, click, or do any browser work. Do not write any text. End your turn. The tool renders an interactive card — the user will click a button to continue the conversation.
+**CRITICAL behavior**: After calling \`suggest_app_connection\`, **STOP immediately**. Do not navigate, click, or do any browser work. Do not write any text. End your turn. The tool renders an interactive card — the user will click a button to continue the conversation.${declinedAppsNote}
 
 ### suggest_schedule — POST-TASK tool
 **Proactive use (MANDATORY)** — Call this **after completing the main task** as your final tool call when ALL of these are true:
@@ -469,6 +476,7 @@ interface BuildSystemPromptOptions {
   soulContent?: string
   isSoulBootstrap?: boolean
   chatMode?: boolean
+  declinedApps?: string[]
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {

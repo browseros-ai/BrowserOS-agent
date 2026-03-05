@@ -93,6 +93,7 @@ export class AiSdkAgent {
       soulContent,
       isSoulBootstrap: isBootstrap,
       chatMode: config.resolvedConfig.chatMode,
+      declinedApps: config.resolvedConfig.declinedApps,
     })
 
     // Configure compaction for context window management

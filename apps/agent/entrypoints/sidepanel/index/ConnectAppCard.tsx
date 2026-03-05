@@ -7,6 +7,7 @@ import {
   BREADCRUMB_CONNECT_MANUAL_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
+import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
@@ -131,8 +132,12 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
     })
   }
 
-  const handleManual = () => {
+  const handleManual = async () => {
     track(BREADCRUMB_CONNECT_MANUAL_EVENT, { app_name: appName })
+    const current = await declinedAppsStorage.getValue()
+    if (!current.includes(appName)) {
+      await declinedAppsStorage.setValue([...current, appName])
+    }
     setResolvedText(`Continuing without ${appName}`)
     setPhase('resolved')
     sendMessage({
