@@ -12,13 +12,6 @@ const REQUIRED_PROD_VARS = [
   'SENTRY_DSN',
 ]
 
-const REQUIRED_R2_VARS = [
-  'R2_ACCOUNT_ID',
-  'R2_ACCESS_KEY_ID',
-  'R2_SECRET_ACCESS_KEY',
-  'R2_BUCKET',
-]
-
 function readServerVersion(rootDir: string): string {
   const pkgPath = join(rootDir, 'apps/server/package.json')
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
@@ -64,10 +57,6 @@ export function loadBuildConfig(rootDir: string): BuildConfig {
   const fileEnv = loadProdEnv(rootDir)
   const envVars = buildInlineEnv(fileEnv)
   validateProductionEnv(envVars)
-
-  for (const varName of REQUIRED_R2_VARS) {
-    pickEnv(varName, envVars)
-  }
 
   const processEnv: NodeJS.ProcessEnv = {
     PATH: process.env.PATH ?? '',

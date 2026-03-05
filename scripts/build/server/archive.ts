@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 
 import type { S3Client } from '@aws-sdk/client-s3'
 
@@ -18,10 +18,13 @@ export async function zipArtifactRoot(
   artifactRoot: string,
   outputZipPath: string,
 ): Promise<void> {
+  const absoluteOutputZipPath = isAbsolute(outputZipPath)
+    ? outputZipPath
+    : resolve(outputZipPath)
   await rm(outputZipPath, { force: true })
   await runCommand(
     'zip',
-    ['-r', '-q', outputZipPath, '.'],
+    ['-r', '-q', absoluteOutputZipPath, '.'],
     process.env,
     artifactRoot,
   )

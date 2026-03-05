@@ -12,14 +12,28 @@ function validateRule(rule: ResourceRule): void {
   if (!rule.name || rule.name.trim().length === 0) {
     throw new Error('Manifest rule is missing name')
   }
-  if (!rule.source || rule.source.type !== 'r2') {
-    throw new Error(`Manifest rule ${rule.name} has unsupported source type`)
-  }
   if (!rule.source.key || !rule.destination) {
     throw new Error(
       `Manifest rule ${rule.name} is missing source key or destination`,
     )
   }
+}
+
+function parseSource(raw: unknown): ResourceRule['source'] {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('Manifest source must be an object')
+  }
+  const source = raw as Record<string, unknown>
+  if (source.type !== 'r2') {
+    throw new Error(
+      `Unsupported source type in manifest: ${String(source.type)}`,
+    )
+  }
+  const key = source.key
+  if (typeof key !== 'string' || key.length === 0) {
+    throw new Error('Manifest source key is required')
+  }
+  return { type: 'r2', key }
 }
 
 function parseRule(raw: unknown): ResourceRule {
@@ -29,12 +43,7 @@ function parseRule(raw: unknown): ResourceRule {
   const item = raw as Record<string, unknown>
   const rule: ResourceRule = {
     name: String(item.name ?? ''),
-    source: {
-      type: 'r2',
-      key: String(
-        (item.source as Record<string, unknown> | undefined)?.key ?? '',
-      ),
-    },
+    source: parseSource(item.source),
     destination: String(item.destination ?? ''),
     executable: item.executable === true,
   }
