@@ -1,4 +1,3 @@
-import { TEST_PORTS } from '@browseros/shared/constants/ports'
 import { Mutex } from 'async-mutex'
 import { CdpBackend } from '../../src/browser/backends/cdp'
 import type { ControllerBackend } from '../../src/browser/backends/types'
@@ -7,27 +6,13 @@ import type { ToolDefinition } from '../../src/tools/framework'
 import { executeTool } from '../../src/tools/framework'
 import type { ToolResult } from '../../src/tools/response'
 import { type BrowserConfig, spawnBrowser } from './browser'
+import { createTestRuntimePlan, type TestRuntimePlan } from './test-runtime'
 import { killProcessOnPort } from './utils'
-
-const cdpPort = Number.parseInt(
-  process.env.BROWSEROS_CDP_PORT || String(TEST_PORTS.cdp),
-  10,
-)
-const serverPort = Number.parseInt(
-  process.env.BROWSEROS_SERVER_PORT || String(TEST_PORTS.server),
-  10,
-)
-const extensionPort = Number.parseInt(
-  process.env.BROWSEROS_EXTENSION_PORT || String(TEST_PORTS.extension),
-  10,
-)
-const binaryPath =
-  process.env.BROWSEROS_BINARY ??
-  '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS'
 
 const mutex = new Mutex()
 let cachedCdp: CdpBackend | null = null
 let cachedBrowser: Browser | null = null
+let runtimePlan: TestRuntimePlan | null = null
 
 const stubController: ControllerBackend = {
   start: async () => {},
@@ -41,17 +26,25 @@ const stubController: ControllerBackend = {
 async function getOrCreateBrowser(): Promise<Browser> {
   if (cachedBrowser && cachedCdp?.isConnected()) return cachedBrowser
 
-  await killProcessOnPort(cdpPort)
+  if (!runtimePlan) {
+    runtimePlan = await createTestRuntimePlan()
+  }
+
+  if (runtimePlan.usesFixedPorts) {
+    await killProcessOnPort(runtimePlan.ports.cdp)
+  }
 
   const config: BrowserConfig = {
-    cdpPort,
-    serverPort,
-    extensionPort,
-    binaryPath,
+    cdpPort: runtimePlan.ports.cdp,
+    serverPort: runtimePlan.ports.server,
+    extensionPort: runtimePlan.ports.extension,
+    binaryPath: runtimePlan.binaryPath,
+    userDataDir: runtimePlan.userDataDir,
+    headless: runtimePlan.headless,
   }
   await spawnBrowser(config)
 
-  cachedCdp = new CdpBackend({ port: cdpPort })
+  cachedCdp = new CdpBackend({ port: runtimePlan.ports.cdp })
   await cachedCdp.connect()
 
   cachedBrowser = new Browser(cachedCdp, stubController)

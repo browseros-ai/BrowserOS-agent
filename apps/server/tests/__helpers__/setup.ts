@@ -5,8 +5,6 @@
  * Unified test environment orchestrator.
  * Ensures server + browser + extension are all ready.
  */
-import { TEST_PORTS } from '@browseros/shared/constants/ports'
-
 import {
   type BrowserConfig,
   getBrowserState,
@@ -14,6 +12,7 @@ import {
   spawnBrowser,
 } from './browser'
 import { getServerState, killServer, spawnServer } from './server'
+import { createTestRuntimePlan, type TestRuntimePlan } from './test-runtime'
 import { killProcessOnPort } from './utils'
 
 export interface TestEnvironmentConfig {
@@ -23,24 +22,7 @@ export interface TestEnvironmentConfig {
   skipExtension?: boolean
 }
 
-const DEFAULT_CONFIG: TestEnvironmentConfig = {
-  cdpPort: Number.parseInt(
-    process.env.BROWSEROS_CDP_PORT || String(TEST_PORTS.cdp),
-    10,
-  ),
-  serverPort: Number.parseInt(
-    process.env.BROWSEROS_SERVER_PORT || String(TEST_PORTS.server),
-    10,
-  ),
-  extensionPort: Number.parseInt(
-    process.env.BROWSEROS_EXTENSION_PORT || String(TEST_PORTS.extension),
-    10,
-  ),
-}
-
-const DEFAULT_BINARY_PATH =
-  process.env.BROWSEROS_BINARY ??
-  '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS'
+let runtimePlan: TestRuntimePlan | null = null
 
 async function isExtensionConnected(port: number): Promise<boolean> {
   try {
@@ -94,10 +76,14 @@ function configsMatch(
 export async function ensureBrowserOS(
   options?: Partial<TestEnvironmentConfig>,
 ): Promise<TestEnvironmentConfig> {
+  if (!runtimePlan) {
+    runtimePlan = await createTestRuntimePlan()
+  }
+
   const config: TestEnvironmentConfig = {
-    cdpPort: options?.cdpPort ?? DEFAULT_CONFIG.cdpPort,
-    serverPort: options?.serverPort ?? DEFAULT_CONFIG.serverPort,
-    extensionPort: options?.extensionPort ?? DEFAULT_CONFIG.extensionPort,
+    cdpPort: options?.cdpPort ?? runtimePlan.ports.cdp,
+    serverPort: options?.serverPort ?? runtimePlan.ports.server,
+    extensionPort: options?.extensionPort ?? runtimePlan.ports.extension,
     skipExtension: options?.skipExtension ?? false,
   }
 
@@ -140,15 +126,17 @@ export async function ensureBrowserOS(
   await killProcessOnPort(config.extensionPort)
   await killProcessOnPort(config.cdpPort)
 
-  // 2. Start server first (WebSocket ready for extension)
-  await spawnServer(config)
-
-  // 3. Start browser (extension will connect to server)
+  // 2. Start browser first so CDP is available before server startup.
   const browserConfig: BrowserConfig = {
     ...config,
-    binaryPath: DEFAULT_BINARY_PATH,
+    binaryPath: runtimePlan.binaryPath,
+    userDataDir: runtimePlan.userDataDir,
+    headless: runtimePlan.headless,
   }
   await spawnBrowser(browserConfig)
+
+  // 3. Start server once CDP is available.
+  await spawnServer(config)
 
   // 4. Wait for extension to connect (unless skipped for CDP-only tests)
   if (!config.skipExtension) {
@@ -170,5 +158,6 @@ export async function cleanupBrowserOS(): Promise<void> {
   console.log('\n=== Cleaning up BrowserOS test environment ===')
   await killBrowser()
   await killServer()
+  runtimePlan = null
   console.log('=== Cleanup complete ===\n')
 }
