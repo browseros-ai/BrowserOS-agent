@@ -8,6 +8,7 @@ import { isSoulBootstrap, readSoul } from '../../lib/soul'
 import { buildFilesystemToolSet } from '../../tools/filesystem/build-toolset'
 import { buildMemoryToolSet } from '../../tools/memory/build-toolset'
 import type { ToolRegistry } from '../../tools/tool-registry'
+import { CHAT_MODE_ALLOWED_TOOLS } from '../chat-mode'
 import { buildSystemPrompt } from '../prompt'
 import type { ResolvedAgentConfig } from '../types'
 import { createCompactionPrepareStep } from './compaction'
@@ -37,7 +38,19 @@ export class AiSdkAgent {
     const model = createLanguageModel(config.resolvedConfig)
 
     // Build browser tools from the unified tool registry
-    const browserTools = buildBrowserToolSet(config.registry, config.browser)
+    const allBrowserTools = buildBrowserToolSet(config.registry, config.browser)
+    const browserTools = config.resolvedConfig.chatMode
+      ? Object.fromEntries(
+          Object.entries(allBrowserTools).filter(([name]) =>
+            CHAT_MODE_ALLOWED_TOOLS.has(name),
+          ),
+        )
+      : allBrowserTools
+    if (config.resolvedConfig.chatMode) {
+      logger.info('Chat mode enabled, restricting to read-only browser tools', {
+        allowedTools: Array.from(CHAT_MODE_ALLOWED_TOOLS),
+      })
+    }
 
     // Build external MCP server specs (Klavis, custom) and connect clients
     const specs = await buildMcpServerSpecs({
