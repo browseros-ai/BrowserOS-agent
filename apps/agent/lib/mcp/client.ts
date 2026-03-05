@@ -9,6 +9,7 @@ interface InitializeResult {
 }
 
 interface ListToolsResult {
+  nextCursor?: unknown
   tools?: Array<{
     description?: unknown
     name?: unknown
@@ -85,6 +86,7 @@ async function parseMcpMessage(response: Response): Promise<unknown> {
     return parseSseMessage(await response.text())
   }
 
+  await response.body?.cancel()
   throw new Error(
     `Unsupported MCP response content type: ${contentType || 'unknown'}`,
   )
@@ -139,6 +141,18 @@ function normalizeTools(result: ListToolsResult): McpTool[] {
   })
 }
 
+function readNextCursor(result: ListToolsResult): string | undefined {
+  if (typeof result.nextCursor === 'undefined') {
+    return undefined
+  }
+
+  if (typeof result.nextCursor !== 'string') {
+    throw new Error('MCP tools response contains an invalid cursor')
+  }
+
+  return result.nextCursor
+}
+
 /**
  * Fetches available tools from an MCP server
  * @public
@@ -183,17 +197,27 @@ export async function fetchMcpTools(serverUrl: string): Promise<McpTool[]> {
 
   await initializedResponse.body?.cancel()
 
-  const toolsResponse = await postMcpMessage(
-    serverUrl,
-    {
-      jsonrpc: JSON_RPC_VERSION,
-      id: 1,
-      method: 'tools/list',
-    },
-    sessionId,
-    protocolVersion,
-  )
-  const toolsResult = await readMcpResult<ListToolsResult>(toolsResponse)
+  const tools: McpTool[] = []
+  let cursor: string | undefined
+  let requestId = 1
 
-  return normalizeTools(toolsResult)
+  do {
+    const toolsResponse = await postMcpMessage(
+      serverUrl,
+      {
+        jsonrpc: JSON_RPC_VERSION,
+        id: requestId,
+        method: 'tools/list',
+        ...(cursor ? { params: { cursor } } : {}),
+      },
+      sessionId,
+      protocolVersion,
+    )
+    const toolsResult = await readMcpResult<ListToolsResult>(toolsResponse)
+    tools.push(...normalizeTools(toolsResult))
+    cursor = readNextCursor(toolsResult)
+    requestId += 1
+  } while (cursor)
+
+  return tools
 }

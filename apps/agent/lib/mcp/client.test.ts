@@ -149,4 +149,128 @@ describe('fetchMcpTools', () => {
       })
     }
   })
+
+  it('follows paginated tools/list responses', async () => {
+    const cursors: Array<string | undefined> = []
+    let listRequests = 0
+
+    const server = createServer(async (req, res) => {
+      const message = JSON.parse(await readBody(req)) as {
+        id?: string | number
+        method: string
+        params?: {
+          cursor?: string
+        }
+      }
+
+      if (message.method === 'initialize') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'mcp-session-id': 'test-session',
+        })
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: message.id,
+            result: {
+              protocolVersion: '2025-03-26',
+              capabilities: {
+                tools: {},
+              },
+              serverInfo: {
+                name: 'test-server',
+                version: '1.0.0',
+              },
+            },
+          }),
+        )
+        return
+      }
+
+      if (message.method === 'notifications/initialized') {
+        res.writeHead(202)
+        res.end()
+        return
+      }
+
+      if (message.method === 'tools/list') {
+        listRequests += 1
+        cursors.push(message.params?.cursor)
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+        })
+
+        if (message.params?.cursor === 'cursor-1') {
+          res.end(
+            JSON.stringify({
+              jsonrpc: '2.0',
+              id: message.id,
+              result: {
+                tools: [
+                  {
+                    name: 'browser_get_page_content',
+                    description: 'Get page content',
+                  },
+                ],
+              },
+            }),
+          )
+          return
+        }
+
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: message.id,
+            result: {
+              nextCursor: 'cursor-1',
+              tools: [
+                {
+                  name: 'browser_list_tabs',
+                  description: 'List tabs',
+                },
+              ],
+            },
+          }),
+        )
+        return
+      }
+
+      res.writeHead(500)
+      res.end()
+    })
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve)
+    })
+
+    try {
+      const { port } = server.address() as AddressInfo
+      const tools = await fetchMcpTools(`http://127.0.0.1:${port}/mcp`)
+
+      expect(tools).toEqual([
+        {
+          name: 'browser_list_tabs',
+          description: 'List tabs',
+        },
+        {
+          name: 'browser_get_page_content',
+          description: 'Get page content',
+        },
+      ])
+      expect(listRequests).toBe(2)
+      expect(cursors).toEqual([undefined, 'cursor-1'])
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error)
+            return
+          }
+          resolve()
+        })
+      })
+    }
+  })
 })
