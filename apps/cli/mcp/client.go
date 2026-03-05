@@ -54,11 +54,11 @@ func (c *Client) sendRPC(method string, params any) (json.RawMessage, error) {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Accept", "application/json, text/event-stream")
 
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w\n  Is the server running? Check: browseros-cli health", c.BaseURL, err)
+		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w\n  Is the server running? Try: browseros-cli init", c.BaseURL, err)
 	}
 	defer resp.Body.Close()
 
@@ -110,6 +110,9 @@ func (c *Client) CallTool(name string, args map[string]any) (*ToolResult, error)
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
 
+	if args == nil {
+		args = map[string]any{}
+	}
 	params := toolCallParams{
 		Name:      name,
 		Arguments: args,
@@ -166,7 +169,7 @@ func (c *Client) Status() (map[string]any, error) {
 func (c *Client) restGET(path string) (map[string]any, error) {
 	resp, err := c.HTTPClient.Get(c.BaseURL + path)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w", c.BaseURL, err)
+		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w\n  Try: browseros-cli init", c.BaseURL, err)
 	}
 	defer resp.Body.Close()
 

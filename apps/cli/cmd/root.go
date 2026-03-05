@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"browseros-cli/config"
 	"browseros-cli/mcp"
 
 	"github.com/spf13/cobra"
@@ -40,6 +41,9 @@ func Execute() {
 
 func init() {
 	defaultURL := "http://127.0.0.1:9100"
+	if cfg, err := config.Load(); err == nil && cfg.ServerURL != "" {
+		defaultURL = cfg.ServerURL
+	}
 	if env := os.Getenv("BROWSEROS_URL"); env != "" {
 		defaultURL = env
 	}
