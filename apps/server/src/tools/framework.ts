@@ -6,6 +6,7 @@ export interface ToolDefinition {
   name: string
   description: string
   input: z.ZodType
+  output?: z.ZodType
   handler: ToolHandler
 }
 
@@ -19,12 +20,16 @@ export type ToolContext = {
   browser: Browser
 }
 
-export function defineTool<T extends z.ZodType>(config: {
+export function defineTool<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType | undefined = undefined,
+>(config: {
   name: string
   description: string
-  input: T
+  input: TInput
+  output?: TOutput
   handler: (
-    args: z.infer<T>,
+    args: z.infer<TInput>,
     ctx: ToolContext,
     response: ToolResponse,
   ) => Promise<void>

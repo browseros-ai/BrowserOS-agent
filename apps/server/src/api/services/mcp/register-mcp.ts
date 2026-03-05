@@ -30,6 +30,7 @@ export function registerTools(
         return {
           content: result.content,
           isError: result.isError,
+          structuredContent: result.structuredContent,
         }
       } catch (error) {
         const errorText = error instanceof Error ? error.message : String(error)
@@ -53,6 +54,7 @@ export function registerTools(
       {
         description: tool.description,
         inputSchema: tool.input as unknown as Record<string, never>,
+        outputSchema: tool.output as unknown as Record<string, never>,
       },
       handler,
     )

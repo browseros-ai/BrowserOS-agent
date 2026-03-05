@@ -19,6 +19,11 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
 describe('bookmark tools', () => {
   it('full CRUD lifecycle', async () => {
     await withBrowser(async ({ execute }) => {
@@ -28,23 +33,35 @@ describe('bookmark tools', () => {
         url: 'https://example.com/test-bookmark',
       })
       assert.ok(!createResult.isError, textOf(createResult))
-      const createText = textOf(createResult)
-      assert.ok(createText.includes('Test Bookmark'))
-      const idMatch = createText.match(/ID:\s*(\S+)/)
-      assert.ok(idMatch, 'Could not extract bookmark ID')
-      const bookmarkId = idMatch?.[1]
+      const createData = structuredOf<{
+        bookmark: { id: string; title: string }
+      }>(createResult)
+      assert.strictEqual(createData.bookmark.title, 'Test Bookmark')
+      const bookmarkId = createData.bookmark.id
 
       // Get
       const getResult = await execute(get_bookmarks, {})
       assert.ok(!getResult.isError, textOf(getResult))
-      assert.ok(textOf(getResult).includes('Test Bookmark'))
+      const getData = structuredOf<{ bookmarks: Array<{ title: string }> }>(
+        getResult,
+      )
+      assert.ok(
+        getData.bookmarks.some(
+          (bookmark) => bookmark.title === 'Test Bookmark',
+        ),
+      )
 
       // Search
       const searchResult = await execute(search_bookmarks, {
         query: 'Test Bookmark',
       })
       assert.ok(!searchResult.isError, textOf(searchResult))
-      assert.ok(textOf(searchResult).includes('Test Bookmark'))
+      const searchData = structuredOf<{ bookmarks: Array<{ id: string }> }>(
+        searchResult,
+      )
+      assert.ok(
+        searchData.bookmarks.some((bookmark) => bookmark.id === bookmarkId),
+      )
 
       // Update
       const updateResult = await execute(update_bookmark, {
@@ -52,12 +69,19 @@ describe('bookmark tools', () => {
         title: 'Updated Bookmark',
       })
       assert.ok(!updateResult.isError, textOf(updateResult))
-      assert.ok(textOf(updateResult).includes('Updated Bookmark'))
+      const updateData = structuredOf<{ bookmark: { title: string } }>(
+        updateResult,
+      )
+      assert.strictEqual(updateData.bookmark.title, 'Updated Bookmark')
 
       // Remove
       const removeResult = await execute(remove_bookmark, { id: bookmarkId })
       assert.ok(!removeResult.isError, textOf(removeResult))
-      assert.ok(textOf(removeResult).includes('Removed'))
+      const removeData = structuredOf<{ action: string; id: string }>(
+        removeResult,
+      )
+      assert.strictEqual(removeData.action, 'remove_bookmark')
+      assert.strictEqual(removeData.id, bookmarkId)
     })
   }, 60_000)
 
@@ -68,15 +92,19 @@ describe('bookmark tools', () => {
         title: 'Test Folder',
       })
       assert.ok(!folderResult.isError, textOf(folderResult))
-      assert.ok(textOf(folderResult).includes('folder'))
-      const folderId = textOf(folderResult).match(/ID:\s*(\S+)/)?.[1]
+      const folderData = structuredOf<{
+        bookmark: { id: string; type: string }
+      }>(folderResult)
+      assert.strictEqual(folderData.bookmark.type, 'folder')
+      const folderId = folderData.bookmark.id
 
       // Create bookmark
       const bmResult = await execute(create_bookmark, {
         title: 'Movable Bookmark',
         url: 'https://example.com/movable',
       })
-      const bmId = textOf(bmResult).match(/ID:\s*(\S+)/)?.[1]
+      const bmId = structuredOf<{ bookmark: { id: string } }>(bmResult).bookmark
+        .id
 
       // Move into folder
       const moveResult = await execute(move_bookmark, {
@@ -84,7 +112,10 @@ describe('bookmark tools', () => {
         parentId: folderId,
       })
       assert.ok(!moveResult.isError, textOf(moveResult))
-      assert.ok(textOf(moveResult).includes('Moved'))
+      const moveData = structuredOf<{ bookmark: { parentId?: string } }>(
+        moveResult,
+      )
+      assert.strictEqual(moveData.bookmark.parentId, folderId)
 
       // Cleanup
       await execute(remove_bookmark, { id: folderId })

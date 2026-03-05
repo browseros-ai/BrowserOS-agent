@@ -21,12 +21,26 @@ export const click = defineTool({
       .default(1)
       .describe('Number of clicks (2 for double-click)'),
   }),
+  output: z.object({
+    action: z.literal('click'),
+    page: z.number(),
+    element: z.number(),
+    button: z.enum(['left', 'right', 'middle']),
+    clickCount: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.click(args.page, args.element, {
       button: args.button,
       clickCount: args.clickCount,
     })
     response.text(`Clicked [${args.element}]`)
+    response.data({
+      action: 'click',
+      page: args.page,
+      element: args.element,
+      button: args.button,
+      clickCount: args.clickCount,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -44,12 +58,28 @@ export const click_at = defineTool({
       .describe('Mouse button'),
     clickCount: z.number().default(1).describe('Number of clicks'),
   }),
+  output: z.object({
+    action: z.literal('click_at'),
+    page: z.number(),
+    x: z.number(),
+    y: z.number(),
+    button: z.enum(['left', 'right', 'middle']),
+    clickCount: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.clickAt(args.page, args.x, args.y, {
       button: args.button,
       clickCount: args.clickCount,
     })
     response.text(`Clicked at (${args.x}, ${args.y})`)
+    response.data({
+      action: 'click_at',
+      page: args.page,
+      x: args.x,
+      y: args.y,
+      button: args.button,
+      clickCount: args.clickCount,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -61,9 +91,15 @@ export const hover = defineTool({
     page: pageParam,
     element: elementParam,
   }),
+  output: z.object({
+    action: z.literal('hover'),
+    page: z.number(),
+    element: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.hover(args.page, args.element)
     response.text(`Hovered over [${args.element}]`)
+    response.data({ action: 'hover', page: args.page, element: args.element })
   },
 })
 
@@ -74,9 +110,15 @@ export const clear = defineTool({
     page: pageParam,
     element: elementParam,
   }),
+  output: z.object({
+    action: z.literal('clear'),
+    page: z.number(),
+    element: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.fill(args.page, args.element, '', true)
     response.text(`Cleared [${args.element}]`)
+    response.data({ action: 'clear', page: args.page, element: args.element })
     response.includeSnapshot(args.page)
   },
 })
@@ -94,9 +136,23 @@ export const fill = defineTool({
       .default(true)
       .describe('Clear existing text before typing'),
   }),
+  output: z.object({
+    action: z.literal('fill'),
+    page: z.number(),
+    element: z.number(),
+    textLength: z.number(),
+    clear: z.boolean(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.fill(args.page, args.element, args.text, args.clear)
     response.text(`Typed ${args.text.length} characters into [${args.element}]`)
+    response.data({
+      action: 'fill',
+      page: args.page,
+      element: args.element,
+      textLength: args.text.length,
+      clear: args.clear,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -111,9 +167,15 @@ export const press_key = defineTool({
       .string()
       .describe("Key or combo like 'Enter', 'Control+A', 'ArrowDown'"),
   }),
+  output: z.object({
+    action: z.literal('press_key'),
+    page: z.number(),
+    key: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.pressKey(args.page, args.key)
     response.text(`Pressed ${args.key}`)
+    response.data({ action: 'press_key', page: args.page, key: args.key })
   },
 })
 
@@ -134,6 +196,14 @@ export const drag = defineTool({
       .optional()
       .describe('Target Y coordinate (if not using targetElement)'),
   }),
+  output: z.object({
+    action: z.literal('drag'),
+    page: z.number(),
+    sourceElement: z.number(),
+    targetElement: z.number().optional(),
+    targetX: z.number().optional(),
+    targetY: z.number().optional(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.drag(args.page, args.sourceElement, {
       element: args.targetElement,
@@ -145,6 +215,14 @@ export const drag = defineTool({
         ? `[${args.targetElement}]`
         : `(${args.targetX}, ${args.targetY})`
     response.text(`Dragged [${args.sourceElement}] \u2192 ${target}`)
+    response.data({
+      action: 'drag',
+      page: args.page,
+      sourceElement: args.sourceElement,
+      targetElement: args.targetElement,
+      targetX: args.targetX,
+      targetY: args.targetY,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -164,6 +242,13 @@ export const scroll = defineTool({
       .optional()
       .describe('Element ID to scroll at (scrolls page center if omitted)'),
   }),
+  output: z.object({
+    action: z.literal('scroll'),
+    page: z.number(),
+    direction: z.enum(['up', 'down', 'left', 'right']),
+    amount: z.number(),
+    element: z.number().optional(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.scroll(
       args.page,
@@ -172,6 +257,13 @@ export const scroll = defineTool({
       args.element,
     )
     response.text(`Scrolled ${args.direction} by ${args.amount}`)
+    response.data({
+      action: 'scroll',
+      page: args.page,
+      direction: args.direction,
+      amount: args.amount,
+      element: args.element,
+    })
   },
 })
 
@@ -186,9 +278,21 @@ export const handle_dialog = defineTool({
       .optional()
       .describe('Text to enter for prompt dialogs'),
   }),
+  output: z.object({
+    action: z.literal('handle_dialog'),
+    page: z.number(),
+    accept: z.boolean(),
+    promptText: z.string().optional(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.handleDialog(args.page, args.accept, args.promptText)
     response.text(args.accept ? 'Dialog accepted' : 'Dialog dismissed')
+    response.data({
+      action: 'handle_dialog',
+      page: args.page,
+      accept: args.accept,
+      promptText: args.promptText,
+    })
   },
 })
 
@@ -199,9 +303,15 @@ export const focus = defineTool({
     page: pageParam,
     element: elementParam,
   }),
+  output: z.object({
+    action: z.literal('focus'),
+    page: z.number(),
+    element: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.focus(args.page, args.element)
     response.text(`Focused [${args.element}]`)
+    response.data({ action: 'focus', page: args.page, element: args.element })
   },
 })
 
@@ -212,9 +322,15 @@ export const check = defineTool({
     page: pageParam,
     element: elementParam,
   }),
+  output: z.object({
+    action: z.literal('check'),
+    page: z.number(),
+    element: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.check(args.page, args.element)
     response.text(`Checked [${args.element}]`)
+    response.data({ action: 'check', page: args.page, element: args.element })
     response.includeSnapshot(args.page)
   },
 })
@@ -226,9 +342,15 @@ export const uncheck = defineTool({
     page: pageParam,
     element: elementParam,
   }),
+  output: z.object({
+    action: z.literal('uncheck'),
+    page: z.number(),
+    element: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.uncheck(args.page, args.element)
     response.text(`Unchecked [${args.element}]`)
+    response.data({ action: 'uncheck', page: args.page, element: args.element })
     response.includeSnapshot(args.page)
   },
 })
@@ -244,9 +366,23 @@ export const upload_file = defineTool({
     ),
     files: z.array(z.string()).describe('Absolute file paths to upload'),
   }),
+  output: z.object({
+    action: z.literal('upload_file'),
+    page: z.number(),
+    element: z.number(),
+    files: z.array(z.string()),
+    fileCount: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.uploadFile(args.page, args.element, args.files)
     response.text(`Set ${args.files.length} file(s) on [${args.element}]`)
+    response.data({
+      action: 'upload_file',
+      page: args.page,
+      element: args.element,
+      files: args.files,
+      fileCount: args.files.length,
+    })
     response.includeSnapshot(args.page)
   },
 })
@@ -259,6 +395,13 @@ export const select_option = defineTool({
     page: pageParam,
     element: elementParam.describe('Element ID of the <select> element'),
     value: z.string().describe('Option value or visible text to select'),
+  }),
+  output: z.object({
+    action: z.literal('select_option'),
+    page: z.number(),
+    element: z.number(),
+    value: z.string(),
+    selected: z.string(),
   }),
   handler: async (args, ctx, response) => {
     const selected = await ctx.browser.selectOption(
@@ -273,6 +416,13 @@ export const select_option = defineTool({
       return
     }
     response.text(`Selected "${selected}" in [${args.element}]`)
+    response.data({
+      action: 'select_option',
+      page: args.page,
+      element: args.element,
+      value: args.value,
+      selected,
+    })
     response.includeSnapshot(args.page)
   },
 })

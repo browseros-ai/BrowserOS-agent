@@ -1,6 +1,15 @@
 import { z } from 'zod'
 import { defineTool } from './framework'
 
+const historyItemSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string(),
+  lastVisitTime: z.number(),
+  visitCount: z.number().optional(),
+  typedCount: z.number().optional(),
+})
+
 export const search_history = defineTool({
   name: 'search_history',
   description: 'Search browser history by text query',
@@ -11,11 +20,17 @@ export const search_history = defineTool({
       .optional()
       .describe('Maximum number of results to return (default: 100)'),
   }),
+  output: z.object({
+    query: z.string(),
+    items: z.array(historyItemSchema),
+    count: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     const items = await ctx.browser.searchHistory(args.query, args.maxResults)
 
     if (items.length === 0) {
       response.text(`No history items found matching "${args.query}".`)
+      response.data({ query: args.query, items: [], count: 0 })
       return
     }
 
@@ -38,6 +53,11 @@ export const search_history = defineTool({
     }
 
     response.text(lines.join('\n'))
+    response.data({
+      query: args.query,
+      items,
+      count: items.length,
+    })
   },
 })
 
@@ -50,11 +70,16 @@ export const get_recent_history = defineTool({
       .optional()
       .describe('Number of recent items to retrieve (default: 20)'),
   }),
+  output: z.object({
+    items: z.array(historyItemSchema),
+    count: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     const items = await ctx.browser.getRecentHistory(args.maxResults)
 
     if (items.length === 0) {
       response.text('No recent history items.')
+      response.data({ items: [], count: 0 })
       return
     }
 
@@ -77,6 +102,10 @@ export const get_recent_history = defineTool({
     }
 
     response.text(lines.join('\n'))
+    response.data({
+      items,
+      count: items.length,
+    })
   },
 })
 
@@ -86,9 +115,14 @@ export const delete_history_url = defineTool({
   input: z.object({
     url: z.string().describe('URL to delete from history'),
   }),
+  output: z.object({
+    action: z.literal('delete_history_url'),
+    url: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.deleteHistoryUrl(args.url)
     response.text(`Deleted ${args.url} from history`)
+    response.data({ action: 'delete_history_url', url: args.url })
   },
 })
 
@@ -99,10 +133,24 @@ export const delete_history_range = defineTool({
     startTime: z.number().describe('Start time as epoch ms'),
     endTime: z.number().describe('End time as epoch ms'),
   }),
+  output: z.object({
+    action: z.literal('delete_history_range'),
+    startTime: z.number(),
+    endTime: z.number(),
+    startIso: z.string(),
+    endIso: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     await ctx.browser.deleteHistoryRange(args.startTime, args.endTime)
     const start = new Date(args.startTime).toISOString()
     const end = new Date(args.endTime).toISOString()
     response.text(`Deleted history from ${start} to ${end}`)
+    response.data({
+      action: 'delete_history_range',
+      startTime: args.startTime,
+      endTime: args.endTime,
+      startIso: start,
+      endIso: end,
+    })
   },
 })

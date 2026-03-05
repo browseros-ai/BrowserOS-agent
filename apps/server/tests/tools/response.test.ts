@@ -13,6 +13,29 @@ function textOf(result: {
 }
 
 describe('ToolResponse', () => {
+  it('accumulates structured content from data()', () => {
+    const response = new ToolResponse()
+    response.data('action', 'click')
+    response.data({ page: 1, element: 42 })
+
+    const result = response.toResult()
+    assert.deepStrictEqual(result.structuredContent, {
+      action: 'click',
+      page: 1,
+      element: 42,
+    })
+  })
+
+  it('overwrites keys on repeated data() writes', () => {
+    const response = new ToolResponse()
+    response.data('count', 1)
+    response.data({ count: 2 })
+    response.data('count', 3)
+
+    const result = response.toResult()
+    assert.deepStrictEqual(result.structuredContent, { count: 3 })
+  })
+
   it('times out slow post-actions without failing tool output', async () => {
     const response = new ToolResponse({ postActionTimeoutMs: 25 })
     response.text('ok')

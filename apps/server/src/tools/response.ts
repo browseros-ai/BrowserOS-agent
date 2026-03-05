@@ -18,6 +18,7 @@ export interface ToolResult {
   content: ContentItem[]
   isError?: boolean
   metadata?: ToolResultMetadata
+  structuredContent?: Record<string, unknown>
 }
 
 interface ToolResponseOptions {
@@ -27,6 +28,7 @@ interface ToolResponseOptions {
 export class ToolResponse {
   private content: ContentItem[] = []
   private hasError = false
+  private structured: Record<string, unknown> = {}
   private postActions: PostAction[] = []
   private postActionTimeoutMs: number
 
@@ -46,6 +48,16 @@ export class ToolResponse {
   error(message: string): void {
     this.hasError = true
     this.content.push({ type: 'text', text: message })
+  }
+
+  data(key: string, value: unknown): void
+  data(obj: Record<string, unknown>): void
+  data(keyOrObj: string | Record<string, unknown>, value?: unknown): void {
+    if (typeof keyOrObj === 'string') {
+      this.structured[keyOrObj] = value
+      return
+    }
+    Object.assign(this.structured, keyOrObj)
   }
 
   includeSnapshot(page: number): void {
@@ -127,9 +139,11 @@ export class ToolResponse {
   }
 
   toResult(): ToolResult {
+    const hasStructured = Object.keys(this.structured).length > 0
     return {
       content: this.content,
       ...(this.hasError && { isError: true }),
+      ...(hasStructured && { structuredContent: this.structured }),
     }
   }
 }

@@ -23,13 +23,22 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
 describe('navigation tools', () => {
   it('list_pages returns at least one page', async () => {
     await withBrowser(async ({ execute }) => {
       const result = await execute(list_pages, {})
       assert.ok(!result.isError, textOf(result))
-      const text = textOf(result)
-      assert.ok(text.length > 0, 'Expected non-empty page list')
+      const data = structuredOf<{
+        pages: Array<{ pageId: number }>
+        count: number
+      }>(result)
+      assert.ok(data.count > 0, 'Expected non-empty page list')
+      assert.ok(data.pages[0]?.pageId !== undefined, 'Expected page IDs')
     })
   }, 60_000)
 
@@ -37,26 +46,25 @@ describe('navigation tools', () => {
     await withBrowser(async ({ execute }) => {
       const result = await execute(get_active_page, {})
       assert.ok(!result.isError, textOf(result))
-      assert.ok(textOf(result).includes('Active page:'))
+      const data = structuredOf<{ page: { pageId: number; tabId: number } }>(
+        result,
+      )
+      assert.ok(data.page.pageId > 0)
+      assert.ok(data.page.tabId > 0)
     })
   }, 60_000)
 
   it('new_page opens a tab and close_page removes it', async () => {
     await withBrowser(async ({ execute }) => {
       const beforeResult = await execute(list_pages, {})
-      const beforeCount = textOf(beforeResult).split(/\n\n/).length
+      const beforeCount = structuredOf<{ count: number }>(beforeResult).count
 
       const newResult = await execute(new_page, { url: 'about:blank' })
       assert.ok(!newResult.isError, textOf(newResult))
-      const newText = textOf(newResult)
-      assert.ok(newText.includes('Page ID:'), 'Expected page ID in response')
-
-      const pageIdMatch = newText.match(/Page ID:\s*(\d+)/)
-      assert.ok(pageIdMatch, 'Could not extract page ID')
-      const pageId = Number(pageIdMatch?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const afterResult = await execute(list_pages, {})
-      const afterCount = textOf(afterResult).split(/\n\n/).length
+      const afterCount = structuredOf<{ count: number }>(afterResult).count
       assert.ok(afterCount > beforeCount, 'Expected more pages after new_page')
 
       const closeResult = await execute(close_page, { page: pageId })
@@ -68,7 +76,7 @@ describe('navigation tools', () => {
   it('navigate_page navigates to a URL', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const navResult = await execute(navigate_page, {
         page: pageId,
@@ -77,6 +85,9 @@ describe('navigation tools', () => {
       })
       assert.ok(!navResult.isError, textOf(navResult))
       assert.ok(textOf(navResult).includes('Navigated to'))
+      const data = structuredOf<{ action: string; page: number }>(navResult)
+      assert.strictEqual(data.action, 'url')
+      assert.strictEqual(data.page, pageId)
 
       await execute(close_page, { page: pageId })
     })
@@ -85,7 +96,7 @@ describe('navigation tools', () => {
   it('wait_for finds text on page', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const waitResult = await execute(wait_for, {
         page: pageId,
@@ -94,6 +105,9 @@ describe('navigation tools', () => {
       })
       assert.ok(!waitResult.isError, textOf(waitResult))
       assert.ok(textOf(waitResult).includes('Found'))
+      const data = structuredOf<{ found: boolean; page: number }>(waitResult)
+      assert.strictEqual(data.found, true)
+      assert.strictEqual(data.page, pageId)
 
       await execute(close_page, { page: pageId })
     })
@@ -102,7 +116,7 @@ describe('navigation tools', () => {
   it('wait_for times out for missing text', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const waitResult = await execute(wait_for, {
         page: pageId,
@@ -122,11 +136,9 @@ describe('navigation tools', () => {
         url: 'about:blank',
       })
       assert.ok(!result.isError, textOf(result))
-      const text = textOf(result)
-      assert.ok(text.includes('Opened hidden page'), 'Expected hidden page')
-      assert.ok(text.includes('Page ID:'), 'Expected page ID')
-
-      const pageId = Number(text.match(/Page ID:\s*(\d+)/)?.[1])
+      const data = structuredOf<{ pageId: number; hidden: boolean }>(result)
+      assert.strictEqual(data.hidden, true)
+      const pageId = data.pageId
       await execute(close_page, { page: pageId })
     })
   }, 60_000)
@@ -136,11 +148,16 @@ describe('navigation tools', () => {
       const hiddenResult = await execute(new_hidden_page, {
         url: 'about:blank',
       })
-      const pageId = Number(textOf(hiddenResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(hiddenResult).pageId
 
       const showResult = await execute(show_page, { page: pageId })
       assert.ok(!showResult.isError, textOf(showResult))
       assert.ok(textOf(showResult).includes('now visible'))
+      const data = structuredOf<{
+        page: { pageId: number; isHidden: boolean }
+      }>(showResult)
+      assert.strictEqual(data.page.pageId, pageId)
+      assert.strictEqual(data.page.isHidden, false)
 
       await execute(close_page, { page: pageId })
     })
@@ -149,7 +166,7 @@ describe('navigation tools', () => {
   it('show_page errors on an already-visible page', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const showResult = await execute(show_page, { page: pageId })
       assert.ok(showResult.isError, 'Expected error for visible page')
@@ -161,20 +178,22 @@ describe('navigation tools', () => {
   it('move_page moves a tab to a different window', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = structuredOf<{ pageId: number }>(newResult).pageId
 
       const winResult = await execute(create_window, {})
-      const windowId = Number(
-        textOf(winResult).match(/Created window\s+(\d+)/)?.[1],
-      )
+      const windowId = structuredOf<{ window: { windowId: number } }>(winResult)
+        .window.windowId
 
       const moveResult = await execute(move_page, {
         page: pageId,
         windowId,
       })
       assert.ok(!moveResult.isError, textOf(moveResult))
-      assert.ok(textOf(moveResult).includes('Moved page'))
-      assert.ok(textOf(moveResult).includes(`window ${windowId}`))
+      const moveData = structuredOf<{
+        page: { pageId: number; windowId?: number }
+      }>(moveResult)
+      assert.strictEqual(moveData.page.pageId, pageId)
+      assert.strictEqual(moveData.page.windowId, windowId)
 
       await execute(close_page, { page: pageId })
       await execute(close_window, { windowId })
