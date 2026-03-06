@@ -1,7 +1,6 @@
 import { ArrowRight, Sparkles, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { FC } from 'react'
-import { Button } from '@/components/ui/button'
 import type { ReleaseNote } from '@/lib/whats-new/whats-new-config'
 import { getReleaseNumber } from '@/lib/whats-new/whats-new-config'
 
@@ -18,49 +17,46 @@ export const WhatsNewBanner: FC<WhatsNewBannerProps> = ({
 }) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="relative overflow-hidden rounded-[1.75rem] border border-[var(--accent-orange)]/20 bg-gradient-to-br from-[var(--accent-orange)]/14 via-background to-background p-5 shadow-[0_24px_80px_-40px_rgba(245,121,36,0.65)]"
+      className="flex items-center justify-center"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,121,36,0.16),transparent_38%)]" />
-      <div className="relative flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-orange)] px-3 py-1 font-medium text-primary-foreground text-xs">
-              <Sparkles className="size-3.5" />
-              What's New
-            </span>
-            <span className="rounded-full border border-[var(--accent-orange)]/20 bg-background/80 px-3 py-1 font-medium text-[var(--accent-orange)] text-xs">
-              Release {getReleaseNumber(release.browserosVersion)}
-            </span>
+      <div className="group relative flex w-full max-w-xl items-center gap-1.5 rounded-2xl border border-[var(--accent-orange)]/18 bg-background/92 px-2.5 py-2 shadow-[0_18px_50px_-34px_rgba(245,121,36,0.55)] backdrop-blur">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-[1rem] px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent-orange)]/6"
+        >
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)]/12 text-[var(--accent-orange)] shadow-[0_0_0_4px_rgba(245,121,36,0.08)]">
+            <Sparkles className="size-4" />
           </div>
-          <div className="space-y-1">
-            <h2 className="font-semibold text-foreground text-xl">
-              BrowserOS v{release.browserosVersion}
-            </h2>
-            <p className="max-w-2xl text-muted-foreground text-sm leading-6">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-[var(--accent-orange)] text-xs">
+                What's new in this version
+              </span>
+              <span className="rounded-full border border-[var(--accent-orange)]/15 bg-[var(--accent-orange)]/8 px-2 py-0.5 font-medium text-[10px] text-[var(--accent-orange)] uppercase tracking-[0.16em]">
+                Release {getReleaseNumber(release.browserosVersion)}
+              </span>
+            </div>
+            <p className="truncate text-foreground text-sm">
               {release.summary}
             </p>
           </div>
-        </div>
+          <span className="hidden shrink-0 items-center gap-1 font-semibold text-[var(--accent-orange)] text-xs sm:inline-flex">
+            Open
+            <ArrowRight className="size-3.5" />
+          </span>
+        </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="absolute top-4 right-4 rounded-full p-2 text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground"
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Dismiss What's New"
         >
           <X className="size-4" />
         </button>
-      </div>
-      <div className="relative mt-4 flex flex-col gap-3 sm:flex-row">
-        <Button onClick={onOpen} className="rounded-xl">
-          See what's new
-          <ArrowRight className="size-4" />
-        </Button>
-        <Button variant="outline" onClick={onDismiss} className="rounded-xl">
-          Dismiss
-        </Button>
       </div>
     </motion.div>
   )

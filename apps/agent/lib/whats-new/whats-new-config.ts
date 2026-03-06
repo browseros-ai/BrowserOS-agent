@@ -1,10 +1,20 @@
 import { changelogUrl, productVideoUrl } from '@/lib/constants/productUrls'
 
+export interface ReleaseFeature {
+  id: string
+  title: string
+  description: string
+  linkLabel?: string
+  linkType?: string
+  linkUrl?: string
+}
+
 export interface ReleaseNote {
   id: string
   browserosVersion: string
   releaseDate: string
   summary: string
+  features?: ReleaseFeature[]
   highlights: string[]
   docsUrl: string
   talksUrl?: string
@@ -38,6 +48,38 @@ const RELEASE_NOTES: ReleaseNote[] = [
     releaseDate: 'March 4, 2026',
     summary:
       'A major release centered on the new agent v3, a much larger tools surface, and overall polish.',
+    features: [
+      {
+        id: 'agent-v3',
+        title: 'Agent v3',
+        description:
+          'The core agent was rebuilt from scratch for much faster execution, more reliable planning, and better task follow-through.',
+        linkLabel: 'Watch demo',
+        linkType: 'feature-talk',
+        linkUrl: productVideoUrl,
+      },
+      {
+        id: 'tools-upgrade',
+        title: 'Expanded tools surface',
+        description:
+          'BrowserOS now ships a much larger toolset, including file upload, save as PDF, background windows, and stronger connectivity to third-party coding agents.',
+        linkLabel: 'Read release notes',
+        linkType: 'feature-docs',
+        linkUrl: getReleaseDocsUrl('0.41.0'),
+      },
+      {
+        id: 'product-polish',
+        title: 'Reliability and install polish',
+        description:
+          'Installation, stability, and the day-to-day product experience were tightened across the release so the update feels smoother end to end.',
+      },
+      {
+        id: 'debian-packaging',
+        title: 'Linux packaging fixes',
+        description:
+          'Remaining Debian packaging issues were cleaned up to make Linux installs and updates more dependable.',
+      },
+    ],
     highlights: [
       'New agent (v3) rebuilt from scratch for much faster and more reliable task execution.',
       'Major tools upgrade with file upload, save as PDF, background windows, and better third-party coding-agent connectivity.',
@@ -54,6 +96,26 @@ const RELEASE_NOTES: ReleaseNote[] = [
     releaseDate: 'February 16, 2026',
     summary:
       'A Chromium and reliability refresh focused on security patches and more dependable login import.',
+    features: [
+      {
+        id: 'chromium-145',
+        title: 'Chromium 145 base',
+        description:
+          'BrowserOS moved onto the Chromium 145 base with the latest upstream fixes and security patches.',
+      },
+      {
+        id: 'login-import',
+        title: 'Stronger login imports',
+        description:
+          'Imported login sessions became more dependable, reducing failures during migration into BrowserOS.',
+      },
+      {
+        id: 'stability-refresh',
+        title: 'Stability refresh',
+        description:
+          'General reliability improvements landed across the app to make the release steadier overall.',
+      },
+    ],
     highlights: [
       'Upgraded to Chromium 145 with recent upstream fixes and security patches.',
       'Improved login session imports for better reliability.',
@@ -67,6 +129,26 @@ const RELEASE_NOTES: ReleaseNote[] = [
     releaseDate: 'February 3, 2026',
     summary:
       'Sync and app-connection workflows became easier to use and more reliable across machines.',
+    features: [
+      {
+        id: 'sync',
+        title: 'Cross-device sync',
+        description:
+          'Browser configuration, agent history, and scheduled tasks now move with you across machines.',
+      },
+      {
+        id: 'app-connector',
+        title: 'Redesigned App Connector',
+        description:
+          'Connecting MCP apps became easier with a cleaner setup flow and clearer entry points.',
+      },
+      {
+        id: 'mcp-stability',
+        title: 'MCP restart stability',
+        description:
+          'Additional port-handling fixes improved restart reliability and reduced disconnects.',
+      },
+    ],
     highlights: [
       'Sync now carries browser configuration, agent history, and scheduled tasks across devices.',
       'The App Connector flow was redesigned to make connecting MCP apps easier.',

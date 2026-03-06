@@ -410,15 +410,6 @@ export const NewTab = () => {
       <div className={'relative w-full space-y-8 md:w-3xl'}>
         {/* Logo and branding */}
         <NewTabBranding />
-        {whatsNewBanner && (
-          <WhatsNewBanner
-            release={whatsNewBanner.release}
-            onDismiss={() => {
-              void handleDismissWhatsNewBanner()
-            }}
-            onOpen={openWhatsNew}
-          />
-        )}
         {/* Search bar with context */}
         <div
           className={cn(
@@ -687,7 +678,19 @@ export const NewTab = () => {
           </div>
         </div>
 
-        {mounted && !isSuggestionsVisible && <NewTabTip />}
+        {mounted &&
+          !isSuggestionsVisible &&
+          (whatsNewBanner ? (
+            <WhatsNewBanner
+              release={whatsNewBanner.release}
+              onDismiss={() => {
+                void handleDismissWhatsNewBanner()
+              }}
+              onOpen={openWhatsNew}
+            />
+          ) : (
+            <NewTabTip />
+          ))}
 
         {/* Top sites */}
         {!isSuggestionsVisible && <TopSites />}
