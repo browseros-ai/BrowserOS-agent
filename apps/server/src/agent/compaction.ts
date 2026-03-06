@@ -1,6 +1,6 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { type LanguageModel, type ModelMessage, streamText } from 'ai'
-import { logger } from '../../lib/logger'
+import { logger } from '../lib/logger'
 import {
   buildSummarizationPrompt,
   buildSummarizationSystemPrompt,

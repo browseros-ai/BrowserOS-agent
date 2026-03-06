@@ -7,9 +7,9 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
-import { logger } from '../../lib/logger'
-import { createOpenRouterCompatibleFetch } from '../../lib/openrouter-fetch'
-import type { ResolvedAgentConfig } from '../types'
+import { logger } from '../lib/logger'
+import { createOpenRouterCompatibleFetch } from '../lib/openrouter-fetch'
+import type { ResolvedAgentConfig } from './types'
 
 type ProviderFactory = (
   config: ResolvedAgentConfig,
