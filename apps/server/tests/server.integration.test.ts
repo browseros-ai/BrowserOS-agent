@@ -153,13 +153,13 @@ describe('HTTP Server Integration Tests', () => {
     })
   })
 
-  describe('Chat endpoint', () => {
+  describe('Chat-v2 endpoint', () => {
     it(
       'streams a chat response with BrowserOS provider',
       async () => {
         const conversationId = crypto.randomUUID()
 
-        const response = await fetch(`${getBaseUrl()}/chat`, {
+        const response = await fetch(`${getBaseUrl()}/chat-v2`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ describe('HTTP Server Integration Tests', () => {
         )
 
         const deleteResponse = await fetch(
-          `${getBaseUrl()}/chat/${conversationId}`,
+          `${getBaseUrl()}/chat-v2/${conversationId}`,
           {
             method: 'DELETE',
           },
@@ -219,7 +219,7 @@ describe('HTTP Server Integration Tests', () => {
     )
 
     it('returns 400 for invalid chat request', async () => {
-      const response = await fetch(`${getBaseUrl()}/chat`, {
+      const response = await fetch(`${getBaseUrl()}/chat-v2`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,6 +234,23 @@ describe('HTTP Server Integration Tests', () => {
         400,
         'Should return 400 for invalid request',
       )
+    })
+
+    it('does not expose the legacy /chat endpoint', async () => {
+      const response = await fetch(`${getBaseUrl()}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: crypto.randomUUID(),
+          message: 'Hello',
+          provider: 'browseros',
+          model: 'claude-sonnet-4-20250514',
+        }),
+      })
+
+      assert.strictEqual(response.status, 404, 'Legacy /chat should return 404')
     })
   })
 })

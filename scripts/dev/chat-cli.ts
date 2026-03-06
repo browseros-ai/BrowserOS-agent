@@ -167,7 +167,7 @@ async function chat(config: {
   console.log(JSON.stringify(request, null, 2))
   console.log('\n--- Response Stream ---\n')
 
-  const response = await fetch(`http://127.0.0.1:${config.port}/chat`, {
+  const response = await fetch(`http://127.0.0.1:${config.port}/chat-v2`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),

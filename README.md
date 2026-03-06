@@ -41,7 +41,7 @@ packages/
 │                 BrowserOS Server (serverPort: 9100)                      │
 │                                                                          │
 │   /mcp ─────── MCP tool endpoints                                        │
-│   /chat ────── Agent streaming                                           │
+│   /chat-v2 ─── Agent streaming                                           │
 │   /health ─── Health check                                               │
 │                                                                          │
 │   Tools:                                                                 │

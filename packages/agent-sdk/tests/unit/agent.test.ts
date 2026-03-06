@@ -767,7 +767,7 @@ describe('Agent', () => {
       await agent.dispose()
 
       expect(fetchMock).toHaveBeenCalledWith(
-        `http://localhost:9222/chat/${sessionId}`,
+        `http://localhost:9222/chat-v2/${sessionId}`,
         { method: 'DELETE' },
       )
     })

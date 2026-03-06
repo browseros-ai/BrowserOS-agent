@@ -78,7 +78,7 @@ export class Agent implements AsyncDisposable, AgentContext {
     this._disposed = true
 
     if (this._sessionId) {
-      await fetch(`${this.baseUrl}/chat/${this._sessionId}`, {
+      await fetch(`${this.baseUrl}/chat-v2/${this._sessionId}`, {
         method: 'DELETE',
       }).catch(() => {})
     }

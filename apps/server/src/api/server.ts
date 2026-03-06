@@ -6,7 +6,7 @@
  * Consolidated HTTP Server
  *
  * This server combines:
- * - Agent HTTP routes (chat, klavis, provider)
+ * - Agent HTTP routes (chat-v2, klavis, provider)
  * - MCP HTTP routes (using @hono/mcp transport)
  */
 
@@ -116,16 +116,6 @@ export async function createHttpServer(config: HttpServerConfig) {
         registry,
         browser,
         klavisProxy,
-      }),
-    )
-    .route(
-      '/chat',
-      createChatV2Routes({
-        browser,
-        registry,
-        executionDir,
-        browserosId,
-        rateLimiter,
       }),
     )
     .route(
