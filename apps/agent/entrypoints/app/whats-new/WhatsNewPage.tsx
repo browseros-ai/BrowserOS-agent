@@ -145,11 +145,20 @@ export const WhatsNewPage = () => {
   }, [])
 
   useEffect(() => {
+    if (!requestedRelease && installedBrowserosVersion === null) {
+      return
+    }
+
     track(WHATS_NEW_VIEWED_EVENT, {
       release_version: activeRelease.browserosVersion,
       source,
     })
-  }, [activeRelease.browserosVersion, source])
+  }, [
+    activeRelease.browserosVersion,
+    installedBrowserosVersion,
+    requestedRelease,
+    source,
+  ])
 
   const handleLinkClick = (linkType: string, release: ReleaseNote) => {
     track(WHATS_NEW_LINK_CLICKED_EVENT, {

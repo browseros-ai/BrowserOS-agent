@@ -221,10 +221,6 @@ export function getLatestReleaseNote(): ReleaseNote {
   return RELEASE_NOTES[0]
 }
 
-export function getAllReleaseNotes(): ReleaseNote[] {
-  return RELEASE_NOTES
-}
-
 export function getReleaseNoteByBrowserosVersion(
   browserosVersion: string | null | undefined,
 ): ReleaseNote | null {
@@ -259,13 +255,6 @@ export function shouldAutoShowWhatsNew(extensionVersion: string): boolean {
   return (
     getConfiguredReleaseForExtensionVersion(extensionVersion)?.config
       .autoShow === true
-  )
-}
-
-export function shouldShowWhatsNewBanner(extensionVersion: string): boolean {
-  return (
-    getConfiguredReleaseForExtensionVersion(extensionVersion)?.config
-      .showBanner === true
   )
 }
 

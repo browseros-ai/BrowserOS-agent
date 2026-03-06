@@ -1,7 +1,6 @@
 import {
   getConfiguredReleaseForExtensionVersion,
   getWhatsNewAppUrl,
-  shouldAutoShowWhatsNew,
 } from './whats-new-config'
 import {
   hasAutoShownWhatsNew,
@@ -16,17 +15,14 @@ function getExtensionVersion(): string {
 
 export async function checkAndShowWhatsNew(): Promise<void> {
   const extensionVersion = getExtensionVersion()
-  if (!shouldAutoShowWhatsNew(extensionVersion)) {
+  const configuredRelease =
+    getConfiguredReleaseForExtensionVersion(extensionVersion)
+
+  if (!configuredRelease?.config.autoShow) {
     return
   }
 
   if (await hasAutoShownWhatsNew(extensionVersion)) {
-    return
-  }
-
-  const configuredRelease =
-    getConfiguredReleaseForExtensionVersion(extensionVersion)
-  if (!configuredRelease) {
     return
   }
 
