@@ -16,10 +16,14 @@ export function getModelDefaults(
   provider: string,
   modelId: string,
 ): ModelInfo | undefined {
-  return registry[provider]?.models[modelId]
+  if (!Object.hasOwn(registry, provider)) return undefined
+  const p = registry[provider]
+  if (!Object.hasOwn(p.models, modelId)) return undefined
+  return p.models[modelId]
 }
 
 export function getProviderModels(provider: string): ProviderInfo | undefined {
+  if (!Object.hasOwn(registry, provider)) return undefined
   return registry[provider]
 }
 
