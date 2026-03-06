@@ -355,9 +355,7 @@ function getPageContext(
   _exclude: Set<string>,
   options?: BuildSystemPromptOptions,
 ): string {
-  const windowLine = options?.scheduledTaskWindowId
-    ? `When creating new pages with \`new_page\`, always pass \`windowId: ${options.scheduledTaskWindowId}\`.`
-    : 'When creating new pages with `new_page`, pass the `windowId` from the Browser Context.'
+  if (options?.chatMode) return ''
 
   let prompt = '<page_context>'
 
@@ -366,11 +364,14 @@ function getPageContext(
       '\nYou are running as a **scheduled background task** in a dedicated hidden browser window.'
   }
 
-  prompt += `\n\n**CRITICAL RULES:**
-1. **Do NOT call \`get_active_page\` or \`list_pages\` to find your starting page.** Use the **page ID from the Browser Context** directly.
-2. ${windowLine}`
+  prompt +=
+    '\n\n**CRITICAL RULES:**\n1. **Do NOT call `get_active_page` or `list_pages` to find your starting page.** Use the **page ID from the Browser Context** directly.'
 
   if (options?.isScheduledTask) {
+    const windowLine = options.scheduledTaskWindowId
+      ? `When creating new pages with \`new_page\`, always pass \`windowId: ${options.scheduledTaskWindowId}\`.`
+      : 'When creating new pages with `new_page`, pass the `windowId` from the Browser Context.'
+    prompt += `\n2. ${windowLine}`
     prompt += '\n3. Complete the task end-to-end and report results.'
   }
 
