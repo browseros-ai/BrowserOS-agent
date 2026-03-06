@@ -6,6 +6,7 @@
 
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { getModelDefaults } from '@browseros/models-dev/registry'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
 import { AiSdkAgent } from '../../agent/tool-loop/ai-sdk-agent'
 import { formatUserMessage } from '../../agent/tool-loop/format-message'
@@ -40,6 +41,9 @@ export class ChatV2Service {
 
     const sessionExecutionDir = await this.resolveSessionDir(request)
 
+    // Auto-populate model defaults from registry when not client-specified
+    const modelDefaults = getModelDefaults(llmConfig.provider, llmConfig.model)
+
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
       provider: llmConfig.provider,
@@ -52,10 +56,14 @@ export class ChatV2Service {
       accessKeyId: llmConfig.accessKeyId,
       secretAccessKey: llmConfig.secretAccessKey,
       sessionToken: llmConfig.sessionToken,
-      contextWindowSize: request.contextWindowSize,
+      contextWindowSize:
+        request.contextWindowSize ?? modelDefaults?.limit.context,
       userSystemPrompt: request.userSystemPrompt,
       sessionExecutionDir,
-      supportsImages: request.supportsImages,
+      supportsImages:
+        request.supportsImages ??
+        modelDefaults?.modalities.input.includes('image') ??
+        true,
       chatMode: request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,
     }
