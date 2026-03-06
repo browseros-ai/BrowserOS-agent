@@ -44,7 +44,7 @@ export const ChatRequestSchema = AgentLLMConfigSchema.extend({
   userSystemPrompt: z.string().optional(),
   isScheduledTask: z.boolean().optional().default(false),
   userWorkingDir: z.string().min(1).optional(),
-  supportsImages: z.boolean().optional().default(true),
+  supportsImages: z.boolean().optional(),
   mode: z.enum(['chat', 'agent']).optional().default('agent'),
   previousConversation: z
     .union([
