@@ -206,3 +206,10 @@ export const ONBOARDING_FEATURE_CLICKED_EVENT = 'onboarding.feature.clicked'
 
 /** @public */
 export const ONBOARDING_COMPLETED_EVENT = 'onboarding.completed'
+
+/** @public */
+export const KIMI_API_KEY_CONFIGURED_EVENT = 'settings.kimi.api_key_configured'
+
+/** @public */
+export const KIMI_API_KEY_GUIDE_CLICKED_EVENT =
+  'settings.kimi.api_key_guide_clicked'

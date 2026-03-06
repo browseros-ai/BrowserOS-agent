@@ -2,6 +2,7 @@ import { Globe2, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import { useKimiLaunch } from '@/lib/feature-flags/useKimiLaunch'
 import { cn } from '@/lib/utils'
 import { getFaviconUrl, type LlmHubProvider } from './models'
 
@@ -19,10 +20,11 @@ export const HubProviderRow: FC<HubProviderRowProps> = ({
   onDelete,
 }) => {
   const iconUrl = useMemo(() => getFaviconUrl(provider.url), [provider.url])
+  const kimiLaunch = useKimiLaunch()
   const normalizedName = provider.name.trim().toLowerCase()
   const normalizedUrl = provider.url.trim().toLowerCase()
   const isKimi = normalizedName === 'kimi' || normalizedUrl.includes('kimi.com')
-  const showKimiFlare = isKimi
+  const showKimiFlare = isKimi && kimiLaunch
 
   return (
     <div
