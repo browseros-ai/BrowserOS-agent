@@ -1,6 +1,9 @@
 package mcp
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestExtractPageID(t *testing.T) {
 	tests := []struct {
@@ -43,6 +46,26 @@ func TestExtractPageID(t *testing.T) {
 				"page": map[string]any{
 					"tabId": float64(9),
 				},
+			},
+			ok: false,
+		},
+		{
+			name: "nil structured content",
+			data: nil,
+			ok:   false,
+		},
+		{
+			name: "json number page id",
+			data: map[string]any{
+				"pageId": json.Number("13"),
+			},
+			want: 13,
+			ok:   true,
+		},
+		{
+			name: "non whole float page id",
+			data: map[string]any{
+				"pageId": 3.5,
 			},
 			ok: false,
 		},

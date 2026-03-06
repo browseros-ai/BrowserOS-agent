@@ -224,7 +224,7 @@ func TestActivePage(t *testing.T) {
 	}
 }
 
-func TestSnapUsesActivePage(t *testing.T) {
+func TestSnapWithoutExplicitPage(t *testing.T) {
 	activeData := runJSON(t, "active")
 	page, ok := activeData["page"].(map[string]any)
 	if !ok {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"time"
 
@@ -155,6 +156,9 @@ func intValue(v any) (int, bool) {
 	case int64:
 		return int(n), true
 	case float64:
+		if math.Trunc(n) != n {
+			return 0, false
+		}
 		return int(n), true
 	case json.Number:
 		i, err := n.Int64()
