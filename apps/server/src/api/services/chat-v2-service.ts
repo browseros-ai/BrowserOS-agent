@@ -41,8 +41,13 @@ export class ChatV2Service {
 
     const sessionExecutionDir = await this.resolveSessionDir(request)
 
-    // Auto-populate model defaults from registry when not client-specified
-    const modelDefaults = getModelDefaults(llmConfig.provider, llmConfig.model)
+    // Auto-populate model defaults from registry when not client-specified.
+    // For the browseros meta-provider, also try the upstream provider.
+    const modelDefaults =
+      getModelDefaults(llmConfig.provider, llmConfig.model) ??
+      (llmConfig.upstreamProvider
+        ? getModelDefaults(llmConfig.upstreamProvider, llmConfig.model)
+        : undefined)
 
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
