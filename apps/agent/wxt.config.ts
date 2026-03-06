@@ -66,7 +66,7 @@ export default defineConfig({
       'https://api.bing.com/*',
       'https://in.search.yahoo.com/*',
       'https://duckduckgo.com/*',
-      'https://suggest.yandex.com/*',
+      'https://search.brave.com/*',
     ],
   },
   vite: () => ({
