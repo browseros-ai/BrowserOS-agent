@@ -31,6 +31,14 @@ export const ProviderCard: FC<ProviderCardProps> = ({
 }) => {
   const inputId = `provider-${provider.id}`
   const kimiLaunch = useKimiLaunch()
+  const providerDetails =
+    provider.type === 'codex'
+      ? `${provider.modelId} • ${
+          provider.authMode === 'api-key' || provider.apiKey
+            ? 'OpenAI API key'
+            : 'ChatGPT sign-in on this device'
+        }`
+      : `${provider.modelId} • ${provider.baseUrl}`
 
   return (
     <label
@@ -104,7 +112,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
               </>
             )
           ) : (
-            `${provider.modelId} • ${provider.baseUrl}`
+            providerDetails
           )}
         </p>
       </div>

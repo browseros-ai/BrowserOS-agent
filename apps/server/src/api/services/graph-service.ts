@@ -137,6 +137,7 @@ export class GraphService {
           provider: request.provider,
           model: request.model,
           apiKey: request.apiKey,
+          authMode: request.authMode,
           baseUrl: request.baseUrl,
           resourceName: request.resourceName,
           region: request.region,

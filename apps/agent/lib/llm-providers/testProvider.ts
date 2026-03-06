@@ -28,6 +28,7 @@ export async function testProvider(
         provider: provider.type,
         model: provider.modelId,
         apiKey: provider.apiKey,
+        authMode: provider.authMode,
         baseUrl: provider.baseUrl,
         // Azure
         resourceName: provider.resourceName,

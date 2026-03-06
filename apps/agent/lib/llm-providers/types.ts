@@ -5,6 +5,7 @@
 export type ProviderType =
   | 'anthropic'
   | 'openai'
+  | 'codex'
   | 'openai-compatible'
   | 'google'
   | 'openrouter'
@@ -14,6 +15,8 @@ export type ProviderType =
   | 'bedrock'
   | 'browseros'
   | 'moonshot'
+
+export type ProviderAuthMode = 'chatgpt' | 'api-key'
 
 /**
  * LLM Provider configuration
@@ -32,6 +35,8 @@ export interface LlmProviderConfig {
   modelId: string
   /** API key (encrypted and stored locally) */
   apiKey?: string
+  /** Optional auth mode for providers that support multiple credential sources */
+  authMode?: ProviderAuthMode
   /** Whether this provider supports image inputs */
   supportsImages: boolean
   /** Context window size (number of tokens) */

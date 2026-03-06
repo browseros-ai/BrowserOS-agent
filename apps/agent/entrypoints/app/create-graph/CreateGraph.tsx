@@ -221,6 +221,7 @@ export const CreateGraph: FC = () => {
               providerType: provider?.type,
               providerName: provider?.name,
               model: provider?.modelId ?? 'browseros',
+              authMode: provider?.authMode,
               contextWindowSize: provider?.contextWindow,
               temperature: provider?.temperature,
               resourceName: provider?.resourceName,

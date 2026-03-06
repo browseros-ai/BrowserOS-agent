@@ -7,6 +7,7 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
+import { createCodexProvider } from '../../lib/clients/llm/codex-auth'
 import { logger } from '../../lib/logger'
 import { createOpenRouterCompatibleFetch } from '../../lib/openrouter-fetch'
 import type { ResolvedAgentConfig } from '../types'
@@ -27,6 +28,15 @@ function createOpenAIFactory(
 ): (modelId: string) => unknown {
   if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
   return createOpenAI({ apiKey: config.apiKey })
+}
+
+function createCodexFactory(
+  config: ResolvedAgentConfig,
+): (modelId: string) => unknown {
+  return createCodexProvider({
+    apiKey: config.apiKey,
+    authMode: config.authMode,
+  })
 }
 
 function createGoogleFactory(
@@ -151,6 +161,7 @@ function createMoonshotFactory(
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.ANTHROPIC]: createAnthropicFactory,
   [LLM_PROVIDERS.OPENAI]: createOpenAIFactory,
+  [LLM_PROVIDERS.CODEX]: createCodexFactory,
   [LLM_PROVIDERS.GOOGLE]: createGoogleFactory,
   [LLM_PROVIDERS.OPENROUTER]: createOpenRouterFactory,
   [LLM_PROVIDERS.AZURE]: createAzureFactory,

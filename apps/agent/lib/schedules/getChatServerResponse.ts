@@ -106,6 +106,7 @@ export async function getChatServerResponse(
       providerType: provider?.type,
       providerName: provider?.name,
       apiKey: provider?.apiKey,
+      authMode: provider?.authMode,
       baseUrl: provider?.baseUrl,
       conversationId,
       model: provider?.modelId ?? 'default',

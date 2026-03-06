@@ -3,12 +3,13 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import type { LLMProvider } from '@browseros/shared/schemas/llm'
+import type { LLMAuthMode, LLMProvider } from '@browseros/shared/schemas/llm'
 
 export interface ProviderConfig {
   provider: LLMProvider
   model: string
   apiKey?: string
+  authMode?: LLMAuthMode
   baseUrl?: string
   upstreamProvider?: string
   resourceName?: string
@@ -23,6 +24,7 @@ export interface ResolvedAgentConfig {
   provider: LLMProvider
   model: string
   apiKey?: string
+  authMode?: LLMAuthMode
   baseUrl?: string
   upstreamProvider?: string
   resourceName?: string

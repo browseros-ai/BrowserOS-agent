@@ -1,4 +1,4 @@
-import type { ProviderType } from './types'
+import type { ProviderAuthMode, ProviderType } from './types'
 
 /**
  * Provider template for quick setup
@@ -9,8 +9,10 @@ export interface ProviderTemplate {
   name: string
   defaultBaseUrl: string
   defaultModelId: string
+  defaultAuthMode?: ProviderAuthMode
   supportsImages: boolean
   contextWindow: number
+  description?: string
   setupGuideUrl?: string
   apiKeyUrl?: string
 }
@@ -40,6 +42,18 @@ export const providerTemplates: ProviderTemplate[] = [
     apiKeyUrl: 'https://platform.openai.com/api-keys',
     setupGuideUrl:
       'https://docs.browseros.com/features/bring-your-own-llm#openai',
+  },
+  {
+    id: 'codex',
+    name: 'Codex',
+    defaultBaseUrl: '',
+    defaultModelId: 'gpt-5.4',
+    defaultAuthMode: 'chatgpt',
+    supportsImages: true,
+    contextWindow: 400000,
+    description: 'Reuse `codex login` or paste an OpenAI API key',
+    setupGuideUrl: 'https://developers.openai.com/codex/auth',
+    apiKeyUrl: 'https://platform.openai.com/api-keys',
   },
   {
     id: 'openai-compatible',
@@ -132,6 +146,7 @@ export const providerTypeOptions: { value: ProviderType; label: string }[] = [
   { value: 'moonshot', label: 'Moonshot AI' },
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'openai', label: 'OpenAI' },
+  { value: 'codex', label: 'Codex' },
   { value: 'openai-compatible', label: 'OpenAI Compatible' },
   { value: 'google', label: 'Gemini' },
   { value: 'openrouter', label: 'OpenRouter' },
@@ -160,6 +175,7 @@ export const DEFAULT_BASE_URLS: Record<ProviderType, string> = {
   moonshot: 'https://api.moonshot.ai/v1',
   anthropic: 'https://api.anthropic.com/v1',
   openai: 'https://api.openai.com/v1',
+  codex: '',
   'openai-compatible': '',
   google: 'https://generativelanguage.googleapis.com/v1beta',
   openrouter: 'https://openrouter.ai/api/v1',

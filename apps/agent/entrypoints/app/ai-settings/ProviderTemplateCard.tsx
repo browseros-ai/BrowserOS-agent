@@ -41,6 +41,11 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
               </span>
             )}
           </div>
+          {template.description && (
+            <p className="mt-1 text-muted-foreground text-xs">
+              {template.description}
+            </p>
+          )}
         </div>
       </div>
       <Badge

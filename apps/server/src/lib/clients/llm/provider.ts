@@ -17,6 +17,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { LanguageModel } from 'ai'
 import { logger } from '../../logger'
 import { createOpenRouterCompatibleFetch } from '../../openrouter-fetch'
+import { createCodexProvider } from './codex-auth'
 import type { ResolvedLLMConfig } from './types'
 
 type ProviderFactory = (config: ResolvedLLMConfig) => LanguageModel
@@ -29,6 +30,13 @@ function createAnthropicModel(config: ResolvedLLMConfig): LanguageModel {
 function createOpenAIModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
   return createOpenAI({ apiKey: config.apiKey })(config.model)
+}
+
+function createCodexModel(config: ResolvedLLMConfig): LanguageModel {
+  return createCodexProvider({
+    apiKey: config.apiKey,
+    authMode: config.authMode,
+  })(config.model)
 }
 
 function createGoogleModel(config: ResolvedLLMConfig): LanguageModel {
@@ -137,6 +145,7 @@ function createMoonshotModel(config: ResolvedLLMConfig): LanguageModel {
 const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.ANTHROPIC]: createAnthropicModel,
   [LLM_PROVIDERS.OPENAI]: createOpenAIModel,
+  [LLM_PROVIDERS.CODEX]: createCodexModel,
   [LLM_PROVIDERS.GOOGLE]: createGoogleModel,
   [LLM_PROVIDERS.OPENROUTER]: createOpenRouterModel,
   [LLM_PROVIDERS.AZURE]: createAzureModel,
