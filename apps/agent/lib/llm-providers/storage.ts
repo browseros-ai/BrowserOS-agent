@@ -14,6 +14,25 @@ const KIMI_LAUNCH_PROVIDER_NAME = 'Kimi K2.5'
 /** Storage key for LLM providers array */
 export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
   'local:llm-providers',
+  {
+    version: 2,
+    migrations: {
+      2: (
+        providers: LlmProviderConfig[] | null,
+      ): LlmProviderConfig[] | null => {
+        if (!providers) return providers
+        return providers.map((provider) => {
+          if (
+            provider.id === DEFAULT_PROVIDER_ID &&
+            provider.type === 'browseros'
+          ) {
+            return { ...provider, contextWindow: 200000 }
+          }
+          return provider
+        })
+      },
+    },
+  },
 )
 
 /** Backup providers to BrowserOS prefs (write-only, best-effort) */
@@ -118,11 +137,14 @@ function normalizeProvidersForLaunch(
   const builtInProviderName = getBuiltInProviderName()
 
   return providers.map((provider) => {
-    if (provider.id === DEFAULT_PROVIDER_ID && provider.type === 'browseros') {
+    if (
+      provider.id === DEFAULT_PROVIDER_ID &&
+      provider.type === 'browseros' &&
+      provider.name !== builtInProviderName
+    ) {
       return {
         ...provider,
         name: builtInProviderName,
-        contextWindow: 200000,
       }
     }
     return provider
