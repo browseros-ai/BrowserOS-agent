@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { createServer, type IncomingMessage } from 'node:http'
+import { createServer, type IncomingMessage, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fetchMcpTools } from './client'
 
@@ -17,6 +17,25 @@ function readBody(req: IncomingMessage): Promise<string> {
   })
 }
 
+function listen(server: Server): Promise<void> {
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', resolve)
+  })
+}
+
+function close(server: Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error)
+        return
+      }
+
+      resolve()
+    })
+  })
+}
+
 describe('fetchMcpTools', () => {
   let originalFunction: FunctionConstructor
 
@@ -28,12 +47,15 @@ describe('fetchMcpTools', () => {
     globalThis.Function = originalFunction
   })
 
-  it('lists tools without compiling output schemas', async () => {
+  it('lists tools without invoking Function-based schema compilation', async () => {
     const requests: string[] = []
+    let evalCalls = 0
+    let getRequests = 0
     let initialized = false
 
     const server = createServer(async (req, res) => {
       if (req.method === 'GET') {
+        getRequests += 1
         res.writeHead(405)
         res.end()
         return
@@ -112,13 +134,18 @@ describe('fetchMcpTools', () => {
       res.end()
     })
 
-    await new Promise<void>((resolve) => {
-      server.listen(0, '127.0.0.1', resolve)
-    })
+    await listen(server)
 
     try {
-      globalThis.Function = (() => {
-        throw new Error('blocked')
+      globalThis.Function = new Proxy(originalFunction, {
+        apply(target, thisArg, argArray) {
+          evalCalls += 1
+          return Reflect.apply(target, thisArg, argArray)
+        },
+        construct(target, argArray, newTarget) {
+          evalCalls += 1
+          return Reflect.construct(target, argArray, newTarget)
+        },
       }) as unknown as FunctionConstructor
 
       const { port } = server.address() as AddressInfo
@@ -130,6 +157,8 @@ describe('fetchMcpTools', () => {
           description: 'List tabs',
         },
       ])
+      expect(evalCalls).toBe(0)
+      expect(getRequests).toBe(1)
       expect(initialized).toBe(true)
       expect(requests).toEqual([
         'initialize',
@@ -138,15 +167,7 @@ describe('fetchMcpTools', () => {
       ])
     } finally {
       globalThis.Function = originalFunction
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error)
-            return
-          }
-          resolve()
-        })
-      })
+      await close(server)
     }
   })
 
@@ -155,6 +176,12 @@ describe('fetchMcpTools', () => {
     let listRequests = 0
 
     const server = createServer(async (req, res) => {
+      if (req.method === 'GET') {
+        res.writeHead(405)
+        res.end()
+        return
+      }
+
       const message = JSON.parse(await readBody(req)) as {
         id?: string | number
         method: string
@@ -211,6 +238,9 @@ describe('fetchMcpTools', () => {
                   {
                     name: 'browser_get_page_content',
                     description: 'Get page content',
+                    inputSchema: {
+                      type: 'object',
+                    },
                   },
                 ],
               },
@@ -229,6 +259,9 @@ describe('fetchMcpTools', () => {
                 {
                   name: 'browser_list_tabs',
                   description: 'List tabs',
+                  inputSchema: {
+                    type: 'object',
+                  },
                 },
               ],
             },
@@ -241,9 +274,7 @@ describe('fetchMcpTools', () => {
       res.end()
     })
 
-    await new Promise<void>((resolve) => {
-      server.listen(0, '127.0.0.1', resolve)
-    })
+    await listen(server)
 
     try {
       const { port } = server.address() as AddressInfo
@@ -262,15 +293,7 @@ describe('fetchMcpTools', () => {
       expect(listRequests).toBe(2)
       expect(cursors).toEqual([undefined, 'cursor-1'])
     } finally {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error)
-            return
-          }
-          resolve()
-        })
-      })
+      await close(server)
     }
   })
 })
