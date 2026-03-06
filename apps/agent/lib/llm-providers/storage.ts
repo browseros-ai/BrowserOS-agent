@@ -118,14 +118,11 @@ function normalizeProvidersForLaunch(
   const builtInProviderName = getBuiltInProviderName()
 
   return providers.map((provider) => {
-    if (
-      provider.id === DEFAULT_PROVIDER_ID &&
-      provider.type === 'browseros' &&
-      provider.name !== builtInProviderName
-    ) {
+    if (provider.id === DEFAULT_PROVIDER_ID && provider.type === 'browseros') {
       return {
         ...provider,
         name: builtInProviderName,
+        contextWindow: 200000,
       }
     }
     return provider
