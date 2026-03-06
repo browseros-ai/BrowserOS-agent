@@ -24,7 +24,7 @@ export interface ExecuteActionOptions {
 }
 
 export class ChatService {
-  private chatUrl: string
+  private readonly chatUrl: string
 
   constructor(port: number) {
     this.chatUrl = `http://127.0.0.1:${port}/chat`

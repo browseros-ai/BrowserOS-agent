@@ -235,5 +235,26 @@ describe('HTTP Server Integration Tests', () => {
         'Should return 400 for invalid request',
       )
     })
+
+    it('does not expose the removed /chat-v2 endpoint', async () => {
+      const response = await fetch(`${getBaseUrl()}/chat-v2`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: crypto.randomUUID(),
+          message: 'Hello',
+          provider: 'browseros',
+          model: 'claude-sonnet-4-20250514',
+        }),
+      })
+
+      assert.strictEqual(
+        response.status,
+        404,
+        'Removed /chat-v2 should return 404',
+      )
+    })
   })
 })
