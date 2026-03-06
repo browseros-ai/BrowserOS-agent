@@ -15,6 +15,7 @@ import { z } from 'zod'
 export const LLM_PROVIDERS = {
   ANTHROPIC: 'anthropic',
   OPENAI: 'openai',
+  CODEX: 'codex',
   GOOGLE: 'google',
   OPENROUTER: 'openrouter',
   AZURE: 'azure',
@@ -33,6 +34,7 @@ export const LLMProviderSchema: z.ZodEnum<
   [
     'anthropic',
     'openai',
+    'codex',
     'google',
     'openrouter',
     'azure',
@@ -46,6 +48,7 @@ export const LLMProviderSchema: z.ZodEnum<
 > = z.enum([
   LLM_PROVIDERS.ANTHROPIC,
   LLM_PROVIDERS.OPENAI,
+  LLM_PROVIDERS.CODEX,
   LLM_PROVIDERS.GOOGLE,
   LLM_PROVIDERS.OPENROUTER,
   LLM_PROVIDERS.AZURE,
@@ -59,6 +62,10 @@ export const LLMProviderSchema: z.ZodEnum<
 
 export type LLMProvider = z.infer<typeof LLMProviderSchema>
 
+export const LLMAuthModeSchema = z.enum(['chatgpt', 'api-key'])
+
+export type LLMAuthMode = z.infer<typeof LLMAuthModeSchema>
+
 /**
  * LLM configuration schema
  * Used by SDK endpoints and agent configuration
@@ -67,6 +74,7 @@ export const LLMConfigSchema: z.ZodObject<{
   provider: typeof LLMProviderSchema
   model: z.ZodOptional<z.ZodString>
   apiKey: z.ZodOptional<z.ZodString>
+  authMode: z.ZodOptional<typeof LLMAuthModeSchema>
   baseUrl: z.ZodOptional<z.ZodString>
   resourceName: z.ZodOptional<z.ZodString>
   region: z.ZodOptional<z.ZodString>
@@ -77,6 +85,7 @@ export const LLMConfigSchema: z.ZodObject<{
   provider: LLMProviderSchema,
   model: z.string().optional(),
   apiKey: z.string().optional(),
+  authMode: LLMAuthModeSchema.optional(),
   baseUrl: z.string().optional(),
   // Azure-specific
   resourceName: z.string().optional(),

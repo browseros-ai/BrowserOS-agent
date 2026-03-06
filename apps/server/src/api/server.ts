@@ -17,6 +17,7 @@ import { HttpAgentError } from '../agent/errors'
 import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
 import { createChatRoutes } from './routes/chat'
+import { createCodexRoutes } from './routes/codex'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
@@ -107,6 +108,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
     .route('/status', createStatusRoute({ controller }))
     .route('/soul', createSoulRoutes())
+    .route('/codex', createCodexRoutes())
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(

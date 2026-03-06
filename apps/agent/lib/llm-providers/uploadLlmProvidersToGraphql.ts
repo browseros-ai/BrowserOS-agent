@@ -27,6 +27,7 @@ const IGNORED_FIELDS = [
   'createdAt',
   'updatedAt',
   'apiKey',
+  'authMode',
   'accessKeyId',
   'secretAccessKey',
   'sessionToken',

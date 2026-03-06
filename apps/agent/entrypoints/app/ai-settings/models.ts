@@ -1,4 +1,4 @@
-import type { ProviderType } from '@/lib/llm-providers/types'
+import type { ProviderAuthMode, ProviderType } from '@/lib/llm-providers/types'
 
 /**
  * Model information with context length
@@ -6,6 +6,7 @@ import type { ProviderType } from '@/lib/llm-providers/types'
 export interface ModelInfo {
   modelId: string
   contextLength: number
+  authModes?: ProviderAuthMode[]
 }
 
 /**
@@ -14,6 +15,7 @@ export interface ModelInfo {
 export interface ModelsData {
   anthropic: ModelInfo[]
   openai: ModelInfo[]
+  codex: ModelInfo[]
   'openai-compatible': ModelInfo[]
   google: ModelInfo[]
   openrouter: ModelInfo[]
@@ -52,6 +54,26 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'o3-mini', contextLength: 200000 },
     { modelId: 'gpt-4o', contextLength: 128000 },
     { modelId: 'gpt-4o-mini', contextLength: 128000 },
+  ],
+  codex: [
+    { modelId: 'gpt-5.4', contextLength: 400000 },
+    {
+      modelId: 'gpt-5.3-codex-spark',
+      contextLength: 400000,
+      authModes: ['chatgpt'],
+    },
+    { modelId: 'gpt-5.3-codex', contextLength: 400000 },
+    { modelId: 'gpt-5.2', contextLength: 200000 },
+    {
+      modelId: 'gpt-5',
+      contextLength: 200000,
+      authModes: ['api-key'],
+    },
+    {
+      modelId: 'gpt-5-mini',
+      contextLength: 200000,
+      authModes: ['api-key'],
+    },
   ],
   'openai-compatible': [],
   google: [
@@ -95,15 +117,31 @@ export const MODELS_DATA: ModelsData = {
 /**
  * Get models for a specific provider type
  */
-export function getModelsForProvider(providerType: ProviderType): ModelInfo[] {
-  return MODELS_DATA[providerType] || []
+export function getModelsForProvider(
+  providerType: ProviderType,
+  authMode?: ProviderAuthMode,
+): ModelInfo[] {
+  const models = MODELS_DATA[providerType] || []
+  if (!authMode) {
+    return models
+  }
+
+  return models.filter((model) => {
+    if (!model.authModes?.length) {
+      return true
+    }
+    return model.authModes.includes(authMode)
+  })
 }
 
 /**
  * Get model options for select dropdown (model IDs + custom option)
  */
-export function getModelOptions(providerType: ProviderType): string[] {
-  const models = getModelsForProvider(providerType)
+export function getModelOptions(
+  providerType: ProviderType,
+  authMode?: ProviderAuthMode,
+): string[] {
+  const models = getModelsForProvider(providerType, authMode)
   const modelIds = models.map((m) => m.modelId)
   return modelIds.length > 0 ? [...modelIds, 'custom'] : ['custom']
 }
@@ -114,8 +152,9 @@ export function getModelOptions(providerType: ProviderType): string[] {
 export function getModelContextLength(
   providerType: ProviderType,
   modelId: string,
+  authMode?: ProviderAuthMode,
 ): number | undefined {
-  const models = getModelsForProvider(providerType)
+  const models = getModelsForProvider(providerType, authMode)
   const model = models.find((m) => m.modelId === modelId)
   return model?.contextLength
 }
@@ -126,7 +165,8 @@ export function getModelContextLength(
 export function isCustomModel(
   providerType: ProviderType,
   modelId: string,
+  authMode?: ProviderAuthMode,
 ): boolean {
-  const models = getModelsForProvider(providerType)
+  const models = getModelsForProvider(providerType, authMode)
   return !models.some((m) => m.modelId === modelId)
 }

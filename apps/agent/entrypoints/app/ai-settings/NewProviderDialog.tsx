@@ -1,8 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import {
+  CheckCircle2,
+  ExternalLink,
+  Info,
+  Loader2,
+  RefreshCw,
+  TerminalSquare,
+  XCircle,
+} from 'lucide-react'
+import { type FC, useEffect, useEffectEvent, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod/v3'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -30,17 +39,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { AI_PROVIDER_ADDED_EVENT } from '@/lib/constants/analyticsEvents'
+import {
+  type CodexStatus,
+  getCodexStatus,
+} from '@/lib/llm-providers/codexStatus'
 import {
   getDefaultBaseUrlForProviders,
   getProviderTemplate,
   providerTypeOptions,
 } from '@/lib/llm-providers/providerTemplates'
 import { type TestResult, testProvider } from '@/lib/llm-providers/testProvider'
-import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
+import type {
+  LlmProviderConfig,
+  ProviderAuthMode,
+  ProviderType,
+} from '@/lib/llm-providers/types'
 import { track } from '@/lib/metrics/track'
 import { getModelContextLength, getModelOptions } from './models'
 
@@ -48,6 +66,7 @@ const providerTypeEnum = z.enum([
   'moonshot',
   'anthropic',
   'openai',
+  'codex',
   'openai-compatible',
   'google',
   'openrouter',
@@ -69,6 +88,7 @@ export const providerFormSchema = z
     baseUrl: z.string().optional(),
     modelId: z.string().min(1, 'Model ID is required'),
     apiKey: z.string().optional(),
+    authMode: z.enum(['chatgpt', 'api-key']).optional(),
     supportsImages: z.boolean(),
     contextWindow: z.number().int().min(1000).max(2000000),
     temperature: z.number().min(0).max(2),
@@ -81,6 +101,17 @@ export const providerFormSchema = z
     sessionToken: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.type === 'codex') {
+      if (data.authMode === 'api-key' && !data.apiKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'API Key is required for Codex API key mode',
+          path: ['apiKey'],
+        })
+      }
+      return
+    }
+
     // Azure: require either resourceName or baseUrl
     if (data.type === 'azure') {
       if (!data.resourceName && !data.baseUrl) {
@@ -159,6 +190,67 @@ export interface NewProviderDialogProps {
   onSave: (provider: LlmProviderConfig) => Promise<void>
 }
 
+function getDefaultAuthMode(
+  provider?: Partial<LlmProviderConfig>,
+): ProviderAuthMode | undefined {
+  if (provider?.type !== 'codex') {
+    return provider?.authMode
+  }
+
+  return provider.authMode || 'chatgpt'
+}
+
+function buildProviderPayload(values: ProviderFormValues): ProviderFormValues {
+  if (values.type !== 'codex') {
+    return values
+  }
+
+  if (values.authMode === 'api-key') {
+    return {
+      ...values,
+      baseUrl: undefined,
+    }
+  }
+
+  return {
+    ...values,
+    apiKey: undefined,
+    baseUrl: undefined,
+    authMode: 'chatgpt',
+  }
+}
+
+function canTestProvider(values: {
+  type: ProviderType
+  modelId: string
+  authMode?: ProviderAuthMode
+  apiKey?: string
+  baseUrl?: string
+  resourceName?: string
+  accessKeyId?: string
+  secretAccessKey?: string
+  region?: string
+}): boolean {
+  if (!values.modelId) return false
+
+  if (values.type === 'codex') {
+    return values.authMode === 'api-key' ? !!values.apiKey : true
+  }
+  if (values.type === 'azure') {
+    return !!(values.resourceName || values.baseUrl) && !!values.apiKey
+  }
+  if (values.type === 'bedrock') {
+    return !!(values.accessKeyId && values.secretAccessKey && values.region)
+  }
+
+  if (!values.baseUrl) return false
+  if (!['ollama', 'lmstudio'].includes(values.type) && !values.apiKey) {
+    return false
+  }
+
+  return true
+}
+
 /**
  * Dialog for configuring a new LLM provider
  * @public
@@ -172,6 +264,9 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   const [isCustomModel, setIsCustomModel] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const [codexStatus, setCodexStatus] = useState<CodexStatus | null>(null)
+  const [codexStatusError, setCodexStatusError] = useState<string | null>(null)
+  const [isCodexStatusLoading, setIsCodexStatusLoading] = useState(false)
   const { supports } = useCapabilities()
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
@@ -188,9 +283,11 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
       type: initialValues?.type || 'openai',
       name: initialValues?.name || '',
       baseUrl:
-        initialValues?.baseUrl || getDefaultBaseUrlForProviders('openai'),
+        initialValues?.baseUrl ||
+        getDefaultBaseUrlForProviders(initialValues?.type || 'openai'),
       modelId: initialValues?.modelId || '',
       apiKey: initialValues?.apiKey || '',
+      authMode: getDefaultAuthMode(initialValues),
       supportsImages: initialValues?.supportsImages ?? false,
       contextWindow: initialValues?.contextWindow || 128000,
       temperature: initialValues?.temperature ?? 0.2,
@@ -206,6 +303,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
 
   const watchedType = form.watch('type')
   const watchedModelId = form.watch('modelId')
+  const watchedAuthMode = form.watch('authMode')
 
   // Watch credential fields to clear test result when they change
   const watchedApiKey = form.watch('apiKey')
@@ -224,6 +322,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     watchedType,
     watchedModelId,
     watchedApiKey,
+    watchedAuthMode,
     watchedBaseUrl,
     watchedResourceName,
     watchedAccessKeyId,
@@ -232,8 +331,39 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     watchedSessionToken,
   ])
 
+  const resolvedCodexAuthMode =
+    watchedType === 'codex'
+      ? ((watchedAuthMode || 'chatgpt') as ProviderAuthMode)
+      : undefined
+
   // Get model options for current provider type
-  const modelOptions = getModelOptions(watchedType as ProviderType)
+  const modelOptions = getModelOptions(
+    watchedType as ProviderType,
+    resolvedCodexAuthMode,
+  )
+
+  const refreshCodexStatus = useEffectEvent(async () => {
+    if (!agentServerUrl) {
+      setCodexStatus(null)
+      setCodexStatusError('Server URL not available')
+      return
+    }
+
+    setIsCodexStatusLoading(true)
+    setCodexStatusError(null)
+
+    try {
+      const nextStatus = await getCodexStatus(agentServerUrl)
+      setCodexStatus(nextStatus)
+    } catch (error) {
+      setCodexStatus(null)
+      setCodexStatusError(
+        error instanceof Error ? error.message : 'Failed to load Codex status',
+      )
+    } finally {
+      setIsCodexStatusLoading(false)
+    }
+  })
 
   // Handle provider type change (user-initiated via Select)
   const handleTypeChange = (newType: ProviderType) => {
@@ -241,9 +371,36 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     const defaultUrl = getDefaultBaseUrlForProviders(newType)
     if (defaultUrl) {
       form.setValue('baseUrl', defaultUrl)
+    } else {
+      form.setValue('baseUrl', '')
     }
+    form.setValue('authMode', newType === 'codex' ? 'chatgpt' : undefined)
     form.setValue('modelId', '')
     setIsCustomModel(false)
+  }
+
+  const handleCodexAuthModeChange = (authMode: ProviderAuthMode) => {
+    form.setValue('authMode', authMode)
+
+    if (watchedType !== 'codex' || isCustomModel) return
+
+    const nextModelOptions = getModelOptions('codex', authMode).filter(
+      (modelId) => modelId !== 'custom',
+    )
+
+    if (!watchedModelId || nextModelOptions.includes(watchedModelId)) {
+      return
+    }
+
+    const nextModelId = nextModelOptions[0] || ''
+    form.setValue('modelId', nextModelId)
+
+    if (!nextModelId) return
+
+    const contextLength = getModelContextLength('codex', nextModelId, authMode)
+    if (contextLength) {
+      form.setValue('contextWindow', contextLength)
+    }
   }
 
   // Auto-fill context window when model changes (only for new providers)
@@ -254,12 +411,19 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
       const contextLength = getModelContextLength(
         watchedType as ProviderType,
         watchedModelId,
+        resolvedCodexAuthMode,
       )
       if (contextLength) {
         form.setValue('contextWindow', contextLength)
       }
     }
-  }, [watchedModelId, watchedType, form, initialValues?.id])
+  }, [
+    watchedModelId,
+    watchedType,
+    resolvedCodexAuthMode,
+    form,
+    initialValues?.id,
+  ])
 
   // Handle model selection (including custom option)
   const handleModelChange = (value: string) => {
@@ -283,6 +447,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
           getDefaultBaseUrlForProviders(initialValues.type || 'openai'),
         modelId: initialValues.modelId || '',
         apiKey: initialValues.apiKey || '',
+        authMode: getDefaultAuthMode(initialValues),
         supportsImages: initialValues.supportsImages ?? false,
         contextWindow: initialValues.contextWindow || 128000,
         temperature: initialValues.temperature ?? 0.2,
@@ -308,6 +473,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
         baseUrl: getDefaultBaseUrlForProviders(defaultType),
         modelId: '',
         apiKey: '',
+        authMode: undefined,
         supportsImages: false,
         contextWindow: 128000,
         temperature: 0.2,
@@ -325,11 +491,22 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     setTestResult(null)
   }, [open, initialValues, form])
 
+  useEffect(() => {
+    if (open && watchedType === 'codex') {
+      refreshCodexStatus().catch(() => {})
+      return
+    }
+
+    setCodexStatus(null)
+    setCodexStatusError(null)
+  }, [open, watchedType])
+
   const onSubmit = async (values: ProviderFormValues) => {
     const isNewProvider = !initialValues?.id
+    const normalizedValues = buildProviderPayload(values)
     const provider: LlmProviderConfig = {
       id: initialValues?.id || crypto.randomUUID(),
-      ...values,
+      ...normalizedValues,
       createdAt: initialValues?.createdAt || Date.now(),
       updatedAt: Date.now(),
     }
@@ -337,8 +514,8 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     await onSave(provider)
     if (isNewProvider) {
       track(AI_PROVIDER_ADDED_EVENT, {
-        provider_type: values.type,
-        model: values.modelId,
+        provider_type: normalizedValues.type,
+        model: normalizedValues.modelId,
       })
     }
     form.reset()
@@ -347,20 +524,17 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
 
   // Check if we have enough info to test the connection
   const canTest = (): boolean => {
-    if (!watchedModelId) return false
-
-    if (watchedType === 'azure') {
-      return !!(watchedResourceName || watchedBaseUrl) && !!watchedApiKey
-    }
-    if (watchedType === 'bedrock') {
-      return !!watchedAccessKeyId && !!watchedSecretAccessKey && !!watchedRegion
-    }
-    // Standard providers need baseUrl, most need apiKey (except ollama/lmstudio)
-    if (!watchedBaseUrl) return false
-    if (!['ollama', 'lmstudio'].includes(watchedType) && !watchedApiKey) {
-      return false
-    }
-    return true
+    return canTestProvider({
+      type: watchedType,
+      modelId: watchedModelId,
+      authMode: resolvedCodexAuthMode,
+      apiKey: watchedApiKey,
+      baseUrl: watchedBaseUrl,
+      resourceName: watchedResourceName,
+      accessKeyId: watchedAccessKeyId,
+      secretAccessKey: watchedSecretAccessKey,
+      region: watchedRegion,
+    })
   }
 
   const handleTest = async () => {
@@ -376,7 +550,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     setTestResult(null)
 
     try {
-      const values = form.getValues()
+      const values = buildProviderPayload(form.getValues())
 
       const result = await testProvider(
         {
@@ -386,6 +560,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
           baseUrl: values.baseUrl,
           modelId: values.modelId,
           apiKey: values.apiKey,
+          authMode: values.authMode,
           supportsImages: values.supportsImages,
           contextWindow: values.contextWindow,
           temperature: values.temperature,
@@ -421,12 +596,176 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
         ? `${providerName} setup guide`
         : 'Provider setup guide'
 
-  const handleSetupGuideClick = (e: React.MouseEvent) => {
+  const handleSetupGuideClick = (
+    e: React.MouseEvent,
+    url: string | undefined = setupGuideUrl,
+  ) => {
     e.preventDefault()
-    if (setupGuideUrl) chrome.tabs.create({ url: setupGuideUrl })
+    if (url) chrome.tabs.create({ url })
   }
 
   const renderProviderSpecificFields = () => {
+    if (watchedType === 'codex') {
+      const codexAuthMode = (watchedAuthMode || 'chatgpt') as ProviderAuthMode
+      const hasChatGptStatus = !codexStatusError && codexStatus?.canUseChatGpt
+
+      return (
+        <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="font-medium text-sm">Codex Authentication</h4>
+              <p className="mt-1 text-muted-foreground text-sm">
+                Use your local Codex ChatGPT login or provide an OpenAI API key.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => refreshCodexStatus().catch(() => {})}
+              disabled={isCodexStatusLoading}
+            >
+              {isCodexStatusLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="authMode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Authentication Method</FormLabel>
+                <FormControl>
+                  <Tabs
+                    value={(field.value || 'chatgpt') as string}
+                    onValueChange={(value) =>
+                      handleCodexAuthModeChange(value as ProviderAuthMode)
+                    }
+                    className="w-full"
+                  >
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="chatgpt">
+                        Sign in with ChatGPT
+                      </TabsTrigger>
+                      <TabsTrigger value="api-key">Use API key</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </FormControl>
+                <FormDescription>
+                  ChatGPT mode reuses the local Codex login on this device.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {codexAuthMode === 'chatgpt' ? (
+            <>
+              <Alert
+                className={
+                  hasChatGptStatus
+                    ? 'border-green-200 bg-green-50/70 text-green-900 dark:border-green-900 dark:bg-green-950/40 dark:text-green-100'
+                    : 'border-border bg-background/70'
+                }
+              >
+                <Info />
+                <AlertTitle>Reuse your local Codex login</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    {codexStatus?.message ||
+                      codexStatusError ||
+                      'Run `codex login` on this machine, then refresh the status.'}
+                  </p>
+                  <p className="font-mono text-[11px]">
+                    {codexStatus?.authPath || '~/.codex/auth.json'}
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              <div className="rounded-lg border border-border border-dashed bg-background/60 p-3">
+                <div className="flex items-center gap-2 font-medium text-sm">
+                  <TerminalSquare className="h-4 w-4 text-[var(--accent-orange)]" />
+                  Terminal setup
+                </div>
+                <div className="mt-2 space-y-1 font-mono text-[11px] text-muted-foreground">
+                  <p>codex login</p>
+                  <p>codex login --device-auth</p>
+                </div>
+                <p className="mt-3 text-muted-foreground text-xs">
+                  BrowserOS reads the Codex login already stored by the CLI on
+                  this machine.{' '}
+                  {setupGuideUrl && (
+                    <a
+                      href={setupGuideUrl}
+                      onClick={(e) => handleSetupGuideClick(e, setupGuideUrl)}
+                      className="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Codex auth guide
+                    </a>
+                  )}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Alert className="border-border bg-background/70">
+                <Info />
+                <AlertTitle>Paste an OpenAI API key</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    BrowserOS cannot recover a key from an existing Codex CLI
+                    API-key login. Create or copy a key and paste it below.
+                  </p>
+                  {providerTemplate?.apiKeyUrl && (
+                    <p>
+                      <a
+                        href={providerTemplate.apiKeyUrl}
+                        onClick={(e) =>
+                          handleSetupGuideClick(e, providerTemplate.apiKeyUrl)
+                        }
+                        className="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        OpenAI API keys
+                      </a>
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+
+              <FormField
+                control={form.control}
+                name="apiKey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>API Key *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Enter your OpenAI API key"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Stored locally in BrowserOS and not synced to your other
+                      devices.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+        </div>
+      )
+    }
+
     if (watchedType === 'azure') {
       return (
         <>
@@ -599,7 +938,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
                   {setupGuideUrl && (
                     <a
                       href={setupGuideUrl}
-                      onClick={handleSetupGuideClick}
+                      onClick={(e) => handleSetupGuideClick(e, setupGuideUrl)}
                       className="inline-flex cursor-pointer items-center gap-1 text-primary hover:underline"
                     >
                       <ExternalLink className="h-3 w-3" />

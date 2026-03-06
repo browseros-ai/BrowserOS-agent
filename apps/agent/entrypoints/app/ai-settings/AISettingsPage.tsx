@@ -112,6 +112,7 @@ export const AISettingsPage: FC = () => {
       name: template.name,
       baseUrl: template.defaultBaseUrl,
       modelId: template.defaultModelId,
+      authMode: template.defaultAuthMode,
       supportsImages: template.supportsImages,
       contextWindow: template.contextWindow,
       temperature: 0.2,

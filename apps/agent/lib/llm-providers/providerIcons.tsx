@@ -23,6 +23,7 @@ type IconComponent = FC<IconProps>
 const providerIconMap: Record<ProviderType, IconComponent | null> = {
   anthropic: Anthropic,
   openai: OpenAI,
+  codex: OpenAI,
   'openai-compatible': OpenAI,
   google: Gemini,
   openrouter: OpenRouter,
