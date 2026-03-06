@@ -1,5 +1,6 @@
-import { Info, Keyboard } from 'lucide-react'
+import { Info, Keyboard, Sparkles } from 'lucide-react'
 import type { FC } from 'react'
+import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -8,6 +9,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { getWhatsNewPath } from '@/lib/whats-new/whats-new-config'
 
 interface SidebarUserFooterProps {
   expanded?: boolean
@@ -55,6 +57,28 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
     </a>
   )
 
+  const whatsNewLink = (
+    <NavLink
+      to={getWhatsNewPath({ source: 'sidebar-footer' })}
+      className={({ isActive }) =>
+        cn(
+          'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+          isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+        )
+      }
+    >
+      <Sparkles className="size-4 shrink-0" />
+      <span
+        className={cn(
+          'truncate transition-opacity duration-200',
+          expanded ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        What's New
+      </span>
+    </NavLink>
+  )
+
   const shortcutsButton = (
     <Button
       variant="ghost"
@@ -82,6 +106,15 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>{shortcutsButton}</TooltipTrigger>
             <TooltipContent side="right">Shortcuts</TooltipContent>
+          </Tooltip>
+        )}
+
+        {expanded ? (
+          whatsNewLink
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>{whatsNewLink}</TooltipTrigger>
+            <TooltipContent side="right">What's New</TooltipContent>
           </Tooltip>
         )}
 

@@ -16,6 +16,7 @@ import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { cn } from '@/lib/utils'
+import { getWhatsNewPath } from '@/lib/whats-new/whats-new-config'
 
 type NavItem = {
   name: string
@@ -96,7 +97,19 @@ export const SettingsSidebar: FC = () => {
         </nav>
       </div>
 
-      <div className="mt-auto border-t p-2">
+      <div className="mt-auto space-y-1 border-t p-2">
+        <NavLink
+          to={getWhatsNewPath({ source: 'settings-footer' })}
+          className={({ isActive }) =>
+            cn(
+              'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+              isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+            )
+          }
+        >
+          <Sparkles className="size-4 shrink-0" />
+          <span className="truncate">What's New</span>
+        </NavLink>
         <a
           href="https://docs.browseros.com/"
           target="_blank"
