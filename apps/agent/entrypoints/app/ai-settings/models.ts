@@ -41,13 +41,13 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'claude-3-5-haiku-20241022', contextLength: 200000 },
   ],
   openai: [
-    { modelId: 'gpt-5.2', contextLength: 400000 },
-    { modelId: 'gpt-5.2-pro', contextLength: 400000 },
-    { modelId: 'gpt-5', contextLength: 400000 },
-    { modelId: 'gpt-5-mini', contextLength: 400000 },
-    { modelId: 'gpt-5-nano', contextLength: 400000 },
-    { modelId: 'gpt-4.1', contextLength: 1000000 },
-    { modelId: 'gpt-4.1-mini', contextLength: 1000000 },
+    { modelId: 'gpt-5.2', contextLength: 200000 },
+    { modelId: 'gpt-5.2-pro', contextLength: 200000 },
+    { modelId: 'gpt-5', contextLength: 200000 },
+    { modelId: 'gpt-5-mini', contextLength: 200000 },
+    { modelId: 'gpt-5-nano', contextLength: 200000 },
+    { modelId: 'gpt-4.1', contextLength: 200000 },
+    { modelId: 'gpt-4.1-mini', contextLength: 200000 },
     { modelId: 'o4-mini', contextLength: 200000 },
     { modelId: 'o3-mini', contextLength: 200000 },
     { modelId: 'gpt-4o', contextLength: 128000 },
@@ -89,7 +89,7 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'qwen/qwen3-vl-8b', contextLength: 131072 },
   ],
   bedrock: [],
-  browseros: [],
+  browseros: [{ modelId: 'browseros-auto', contextLength: 200000 }],
 }
 
 /**
