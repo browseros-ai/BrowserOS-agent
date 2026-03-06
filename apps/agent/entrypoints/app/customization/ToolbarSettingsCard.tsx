@@ -3,12 +3,15 @@ import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
+import { Capabilities, Feature } from '@/lib/browseros/capabilities'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
 export const ToolbarSettingsCard: FC = () => {
   const [showLlmChat, setShowLlmChat] = useState(true)
   const [showLlmHub, setShowLlmHub] = useState(true)
   const [showToolbarLabels, setShowToolbarLabels] = useState(true)
+  const [verticalTabsEnabled, setVerticalTabsEnabled] = useState(true)
+  const [supportsVerticalTabs, setSupportsVerticalTabs] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -23,6 +26,18 @@ export const ToolbarSettingsCard: FC = () => {
         setShowLlmChat(chatPref?.value !== false)
         setShowLlmHub(hubPref?.value !== false)
         setShowToolbarLabels(labelsPref?.value !== false)
+
+        const hasVerticalTabsSupport = await Capabilities.supports(
+          Feature.VERTICAL_TABS_SUPPORT,
+        )
+        setSupportsVerticalTabs(hasVerticalTabsSupport)
+
+        if (hasVerticalTabsSupport) {
+          const verticalTabsPref = await adapter.getPref(
+            BROWSEROS_PREFS.VERTICAL_TABS_ENABLED,
+          )
+          setVerticalTabsEnabled(verticalTabsPref?.value !== false)
+        }
       } catch {
         // API not available - use defaults
       } finally {
@@ -40,7 +55,10 @@ export const ToolbarSettingsCard: FC = () => {
   ) => {
     try {
       const adapter = getBrowserOSAdapter()
-      await adapter.setPref(prefKey, value)
+      const success = await adapter.setPref(prefKey, value)
+      if (!success) {
+        throw new Error('Failed to update setting')
+      }
       setter(value)
     } catch {
       toast.error('Failed to update setting')
@@ -119,6 +137,34 @@ export const ToolbarSettingsCard: FC = () => {
             disabled={isLoading}
           />
         </div>
+
+        {supportsVerticalTabs && (
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label
+                htmlFor="vertical-tabs-enabled"
+                className="font-medium text-sm"
+              >
+                Use Vertical Tabs
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Turn off to switch back to the horizontal tab strip
+              </p>
+            </div>
+            <Switch
+              id="vertical-tabs-enabled"
+              checked={verticalTabsEnabled}
+              onCheckedChange={(checked) =>
+                handleToggle(
+                  BROWSEROS_PREFS.VERTICAL_TABS_ENABLED,
+                  checked,
+                  setVerticalTabsEnabled,
+                )
+              }
+              disabled={isLoading}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
