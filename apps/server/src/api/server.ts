@@ -21,7 +21,6 @@ import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
-import { createModelsRoutes } from './routes/models'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
@@ -109,7 +108,6 @@ export async function createHttpServer(config: HttpServerConfig) {
     .route('/status', createStatusRoute({ controller }))
     .route('/soul', createSoulRoutes())
     .route('/test-provider', createProviderRoutes())
-    .route('/models', createModelsRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(
       '/mcp',

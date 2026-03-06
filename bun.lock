@@ -158,7 +158,6 @@
         "@ai-sdk/provider": "^3.0.8",
         "@browseros-ai/agent-sdk": "workspace:*",
         "@browseros/cdp-protocol": "workspace:*",
-        "@browseros/models-dev": "workspace:*",
         "@browseros/shared": "workspace:*",
         "@google/gemini-cli-core": "^0.16.0",
         "@google/genai": "1.30.0",
@@ -218,10 +217,6 @@
     },
     "packages/cdp-protocol": {
       "name": "@browseros/cdp-protocol",
-      "version": "0.0.1",
-    },
-    "packages/models-dev": {
-      "name": "@browseros/models-dev",
       "version": "0.0.1",
     },
     "packages/shared": {
@@ -448,8 +443,6 @@
     "@browseros/agent": ["@browseros/agent@workspace:apps/agent"],
 
     "@browseros/cdp-protocol": ["@browseros/cdp-protocol@workspace:packages/cdp-protocol"],
-
-    "@browseros/models-dev": ["@browseros/models-dev@workspace:packages/models-dev"],
 
     "@browseros/server": ["@browseros/server@workspace:apps/server"],
 
