@@ -92,7 +92,7 @@ export async function getChatServerResponse(
     // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
     .map((s) => ({ name: s.displayName, url: s.config!.url }))
 
-  const response = await fetch(`${agentServerUrl}/chat-v2`, {
+  const response = await fetch(`${agentServerUrl}/chat`, {
     method: 'POST',
     signal: request.signal,
     headers: {

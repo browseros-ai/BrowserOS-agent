@@ -18,7 +18,7 @@ import { logger } from '../../lib/logger'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import type { BrowserContext, ChatRequest } from '../types'
 
-export interface ChatV2ServiceDeps {
+export interface ChatServiceDeps {
   sessionStore: SessionStore
   klavisClient: KlavisClient
   executionDir: string
@@ -27,8 +27,8 @@ export interface ChatV2ServiceDeps {
   browserosId?: string
 }
 
-export class ChatV2Service {
-  constructor(private deps: ChatV2ServiceDeps) {}
+export class ChatService {
+  constructor(private deps: ChatServiceDeps) {}
 
   async processMessage(
     request: ChatRequest,

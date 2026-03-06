@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Chat Service - Executes actions via /chat-v2 endpoint
+ * Chat Service - Executes actions via /chat endpoint
  */
 
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
@@ -27,7 +27,7 @@ export class ChatService {
   private readonly chatUrl: string
 
   constructor(port: number) {
-    this.chatUrl = `http://127.0.0.1:${port}/chat-v2`
+    this.chatUrl = `http://127.0.0.1:${port}/chat`
   }
 
   async executeAction(options: ExecuteActionOptions): Promise<void> {

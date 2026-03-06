@@ -10,11 +10,11 @@ import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
 import { Sentry } from '../../lib/sentry'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { createBrowserosRateLimitMiddleware } from '../middleware/rate-limit'
-import { ChatV2Service } from '../services/chat-v2-service'
+import { ChatService } from '../services/chat-service'
 import { ChatRequestSchema } from '../types'
 import { ConversationIdParamSchema } from '../utils/validation'
 
-interface ChatV2RouteDeps {
+interface ChatRouteDeps {
   browser: Browser
   registry: ToolRegistry
   executionDir?: string
@@ -22,14 +22,13 @@ interface ChatV2RouteDeps {
   rateLimiter?: RateLimiter
 }
 
-export function createChatV2Routes(deps: ChatV2RouteDeps) {
+export function createChatRoutes(deps: ChatRouteDeps) {
   const { browserosId, rateLimiter } = deps
   const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
 
-  // Initialize service dependencies
   const sessionStore = new SessionStore()
   const klavisClient = new KlavisClient()
-  const service = new ChatV2Service({
+  const service = new ChatService({
     sessionStore,
     klavisClient,
     executionDir,
@@ -57,12 +56,12 @@ export function createChatV2Routes(deps: ChatV2RouteDeps) {
           baseUrl: request.baseUrl,
         })
 
-        metrics.log('chat-v2.request', {
+        metrics.log('chat.request', {
           provider: request.provider,
           model: request.model,
         })
 
-        logger.info('Chat-v2 request received', {
+        logger.info('Chat request received', {
           conversationId: request.conversationId,
           provider: request.provider,
           model: request.model,

@@ -6,7 +6,7 @@
  * Consolidated HTTP Server
  *
  * This server combines:
- * - Agent HTTP routes (chat-v2, klavis, provider)
+ * - Agent HTTP routes (chat, klavis, provider)
  * - MCP HTTP routes (using @hono/mcp transport)
  */
 
@@ -16,7 +16,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
-import { createChatV2Routes } from './routes/chat-v2'
+import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
@@ -119,8 +119,8 @@ export async function createHttpServer(config: HttpServerConfig) {
       }),
     )
     .route(
-      '/chat-v2',
-      createChatV2Routes({
+      '/chat',
+      createChatRoutes({
         browser,
         registry,
         executionDir,

@@ -281,7 +281,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           : undefined
 
         return {
-          api: `${agentUrlRef.current}/chat-v2`,
+          api: `${agentUrlRef.current}/chat`,
           body: {
             message,
             provider: provider?.type,
