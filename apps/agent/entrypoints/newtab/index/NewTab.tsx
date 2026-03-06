@@ -122,7 +122,7 @@ export const NewTab = () => {
     setSelectedTabs((prev) => prev.filter((t) => t.id !== tabId))
   }
 
-  const { sections, flatItems } = useSuggestions({
+  const { sections, flatItems, providerConfig } = useSuggestions({
     query: inputValue,
     selectedTabs,
   })
@@ -290,9 +290,11 @@ export const NewTab = () => {
 
     switch (item.type) {
       case 'search':
-        track(NEWTAB_SEARCH_EXECUTED_EVENT, { search_engine: 'google' })
+        track(NEWTAB_SEARCH_EXECUTED_EVENT, {
+          search_engine: providerConfig.id,
+        })
         window.open(
-          `https://www.google.com/search?q=${encodeURIComponent(item.query)}`,
+          `${providerConfig.searchUrl}${encodeURIComponent(item.query)}`,
           '_self',
         )
         break
@@ -422,7 +424,7 @@ export const NewTab = () => {
               />
               <input
                 type="text"
-                placeholder="Ask AI or search Google..."
+                placeholder={`Ask AI or search ${providerConfig.name}...`}
                 className="flex-1 border-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
                 {...getInputProps({
                   ref: inputRef,
