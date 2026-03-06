@@ -215,11 +215,30 @@ func TestPageLifecycle(t *testing.T) {
 
 func TestActivePage(t *testing.T) {
 	data := runJSON(t, "active")
-	// Should return structured content with pageId
-	raw, _ := json.Marshal(data)
-	rawStr := string(raw)
-	if !strings.Contains(rawStr, "pageId") && !strings.Contains(rawStr, "page") {
-		t.Errorf("expected active page response to contain pageId, got: %s", rawStr)
+	page, ok := data["page"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected active page response to contain page object, got: %v", data)
+	}
+	if _, ok := page["pageId"].(float64); !ok {
+		t.Fatalf("expected active page response to contain numeric pageId, got: %v", page)
+	}
+}
+
+func TestSnapWithoutExplicitPage(t *testing.T) {
+	activeData := runJSON(t, "active")
+	page, ok := activeData["page"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected active page response to contain page object, got: %v", activeData)
+	}
+	if _, ok := page["pageId"].(float64); !ok {
+		t.Fatalf("expected active page response to contain numeric pageId, got: %v", page)
+	}
+	r := run(t, "--json", "snap")
+	if r.ExitCode != 0 {
+		t.Fatalf("snap exited %d: %s%s", r.ExitCode, r.Stdout, r.Stderr)
+	}
+	if len(strings.TrimSpace(r.Stdout)) < 10 {
+		t.Fatalf("snapshot output too short: %s", r.Stdout)
 	}
 }
 
