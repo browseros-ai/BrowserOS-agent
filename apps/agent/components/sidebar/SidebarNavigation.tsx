@@ -3,6 +3,7 @@ import {
   GitBranch,
   Home,
   PlugZap,
+  Server,
   Settings,
   UserPen,
 } from 'lucide-react'
@@ -29,14 +30,21 @@ type NavItem = {
   feature?: Feature
 }
 
+const SHOW_WORKFLOWS = false
+
 const primaryNavItems: NavItem[] = [
   { name: 'Home', to: '/home', icon: Home },
-  {
-    name: 'Workflows',
-    to: '/workflows',
-    icon: GitBranch,
-    feature: Feature.WORKFLOW_SUPPORT,
-  },
+  { name: 'BrowserOS MCP', to: '/settings/mcp', icon: Server },
+  ...(SHOW_WORKFLOWS
+    ? [
+        {
+          name: 'Workflows',
+          to: '/workflows',
+          icon: GitBranch,
+          feature: Feature.WORKFLOW_SUPPORT,
+        },
+      ]
+    : []),
   { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
   {
     name: 'Connect Apps',
@@ -71,7 +79,8 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
             const Icon = item.icon
             const isActive =
               item.to === '/settings/ai'
-                ? location.pathname.startsWith('/settings')
+                ? location.pathname.startsWith('/settings') &&
+                  location.pathname !== '/settings/mcp'
                 : location.pathname === item.to
 
             const navItem = (
