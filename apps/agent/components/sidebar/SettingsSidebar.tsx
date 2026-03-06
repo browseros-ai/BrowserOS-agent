@@ -7,7 +7,6 @@ import {
   Palette,
   RotateCcw,
   Search,
-  Server,
   Sparkles,
 } from 'lucide-react'
 import type { FC } from 'react'
@@ -27,7 +26,6 @@ type NavItem = {
 const settingsNavItems: NavItem[] = [
   { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
   { name: 'LLM Chat & Hub', to: '/settings/chat', icon: MessageSquare },
-  { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
   {
     name: 'Customization',
     to: '/settings/customization',
