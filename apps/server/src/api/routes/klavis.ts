@@ -49,6 +49,7 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
   // Chain route definitions for proper Hono RPC type inference
   return new Hono()
     .get('/servers', (c) => {
+      c.header('Cache-Control', 'no-store')
       return c.json({
         servers: OAUTH_MCP_SERVERS,
         count: OAUTH_MCP_SERVERS.length,
