@@ -23,6 +23,7 @@ import { MagicLinkCallback } from './login/MagicLinkCallback'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
+import { SearchProviderPage } from './search-provider/SearchProviderPage'
 import { SoulPage } from './soul/SoulPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
@@ -44,6 +45,7 @@ const OptionsRedirect: FC = () => {
     'connect-mcp': '/connect-apps',
     mcp: '/settings/mcp',
     customization: '/settings/customization',
+    search: '/settings/search',
     soul: '/settings/soul',
     'jtbd-agent': '/settings/survey',
     workflows: '/workflows',
@@ -91,6 +93,7 @@ export const App: FC = () => {
             <Route path="chat" element={<LlmHubPage />} />
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
+            <Route path="search" element={<SearchProviderPage />} />
             <Route path="soul" element={<SoulPage />} />
             <Route path="survey" element={<SurveyPage {...surveyParams} />} />
           </Route>

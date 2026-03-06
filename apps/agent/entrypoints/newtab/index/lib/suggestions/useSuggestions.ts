@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { getProviderConfig } from '@/lib/search-provider/providers'
+import { useSearchProvider } from '@/lib/search-provider/search-provider-storage'
 import { useAITabSuggestions } from '../aiTabSuggestions/useAITabSuggestions'
 import { useBrowserOSSuggestions } from '../browserOSSuggestions/useBrowserOSSuggestions'
 import { useSearchSuggestions } from '../searchSuggestions/useSearchSuggestions'
@@ -19,9 +21,12 @@ interface UseSuggestionsArgs {
  * @public
  */
 export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
+  const { provider } = useSearchProvider()
+  const providerConfig = getProviderConfig(provider)
+
   const { data: searchResultsFromAPI } = useSearchSuggestions({
     query,
-    searchEngine: 'google',
+    searchEngine: provider,
   })
 
   const searchResults: string[] = useMemo(() => {
@@ -81,8 +86,8 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
         }),
       )
       result.push({
-        id: 'google-search',
-        title: 'Google Search',
+        id: 'search',
+        title: `${providerConfig.name} Search`,
         items: searchItems,
       })
     }
@@ -94,6 +99,7 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
     selectedTabs.length,
     aiTabResults,
     searchResults,
+    providerConfig.name,
   ])
 
   const flatItems = useMemo(
@@ -101,7 +107,7 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
     [sections],
   )
 
-  return { sections, flatItems }
+  return { sections, flatItems, providerConfig }
 }
 
 /**

@@ -36,9 +36,9 @@ const getDuckDuckGoSuggestions = async (query: string): Promise<string[]> => {
   return data[1] || []
 }
 
-const getYandexSuggestions = async (query: string): Promise<string[]> => {
+const getBraveSuggestions = async (query: string): Promise<string[]> => {
   const response = await fetch(
-    `https://suggest.yandex.com/suggest-ff.cgi?part=${encodeURIComponent(query)}&uil=en&v=3`,
+    `https://search.brave.com/api/suggest?q=${encodeURIComponent(query)}`,
   )
   const data = await response.json()
   return data[1] || []
@@ -60,8 +60,8 @@ export const getSearchSuggestions = async ([searchEngine, query]: [
       return getYahooIndiaSuggestions(query)
     case 'duckduckgo':
       return getDuckDuckGoSuggestions(query)
-    case 'yandex':
-      return getYandexSuggestions(query)
+    case 'brave':
+      return getBraveSuggestions(query)
     default:
       return []
   }

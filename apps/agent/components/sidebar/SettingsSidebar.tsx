@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Palette,
   RotateCcw,
+  Search,
   Server,
   Sparkles,
 } from 'lucide-react'
@@ -33,6 +34,7 @@ const settingsNavItems: NavItem[] = [
     icon: Palette,
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
+  { name: 'Search Provider', to: '/settings/search', icon: Search },
   {
     name: 'Agent Soul',
     to: '/settings/soul',
