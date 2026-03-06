@@ -70,6 +70,8 @@ type CodexFetch = (
   init?: RequestInit,
 ) => Promise<Response>
 
+let pendingChatGptRefresh: Promise<CodexAuthFile> | null = null
+
 function normalizeAuthMode(
   authMode?: string | null,
 ): 'chatgpt' | 'api-key' | null {
@@ -188,6 +190,18 @@ async function refreshChatGptTokens(
   await writeCodexAuthFile(nextAuth)
 
   return nextAuth
+}
+
+async function refreshChatGptTokensOnce(
+  currentAuth: CodexAuthFile,
+): Promise<CodexAuthFile> {
+  if (!pendingChatGptRefresh) {
+    pendingChatGptRefresh = refreshChatGptTokens(currentAuth).finally(() => {
+      pendingChatGptRefresh = null
+    })
+  }
+
+  return pendingChatGptRefresh
 }
 
 async function loadChatGptAuth(): Promise<CodexAuthFile> {
@@ -313,7 +327,7 @@ export function createCodexChatGptFetch(): CodexFetch {
       (response.status === 401 || response.status === 403) &&
       auth.tokens?.refresh_token
     ) {
-      auth = await refreshChatGptTokens(auth)
+      auth = await refreshChatGptTokensOnce(auth)
       response = await execute()
     }
 

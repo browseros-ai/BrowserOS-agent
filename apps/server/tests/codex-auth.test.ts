@@ -151,6 +151,101 @@ describe('codex auth', () => {
     assert.strictEqual(savedAuth.tokens.refresh_token, 'fresh-refresh-token')
   })
 
+  it('deduplicates concurrent chatgpt token refreshes', async () => {
+    const authPath = getCodexAuthFilePath()
+    fs.mkdirSync(path.dirname(authPath), { recursive: true })
+    fs.writeFileSync(
+      authPath,
+      JSON.stringify({
+        auth_mode: 'chatgpt',
+        tokens: {
+          access_token: 'stale-token',
+          refresh_token: 'refresh-token',
+          account_id: 'acct_123',
+        },
+      }),
+    )
+
+    let refreshCalls = 0
+    let codexCalls = 0
+    let releaseRefresh!: () => void
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefresh = resolve
+    })
+
+    globalThis.fetch = (async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      const url =
+        input instanceof URL
+          ? input.toString()
+          : typeof input === 'string'
+            ? input
+            : input.url
+
+      if (url === 'https://auth.openai.com/oauth/token') {
+        refreshCalls += 1
+        await refreshGate
+        return new Response(
+          JSON.stringify({
+            access_token: 'fresh-token',
+            refresh_token: 'fresh-refresh-token',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
+
+      if (url === 'https://chatgpt.com/backend-api/codex/responses') {
+        codexCalls += 1
+        const headers = new Headers(init?.headers)
+        const authHeader = headers.get('authorization')
+
+        if (authHeader === 'Bearer stale-token') {
+          return new Response('unauthorized', { status: 401 })
+        }
+
+        assert.strictEqual(authHeader, 'Bearer fresh-token')
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      throw new Error(`Unexpected fetch URL in test: ${url}`)
+    }) as typeof globalThis.fetch
+
+    const codexFetch = createCodexChatGptFetch()
+    const firstRequest = codexFetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-5.4' }),
+    })
+    const secondRequest = codexFetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-5.4' }),
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.strictEqual(refreshCalls, 1)
+
+    releaseRefresh()
+
+    const [firstResponse, secondResponse] = await Promise.all([
+      firstRequest,
+      secondRequest,
+    ])
+
+    assert.strictEqual(firstResponse.status, 200)
+    assert.strictEqual(secondResponse.status, 200)
+    assert.strictEqual(refreshCalls, 1)
+    assert.strictEqual(codexCalls, 4)
+  })
+
   it('preserves request method and body when the SDK passes a Request', async () => {
     const authPath = getCodexAuthFilePath()
     fs.mkdirSync(path.dirname(authPath), { recursive: true })
