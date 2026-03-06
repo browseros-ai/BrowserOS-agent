@@ -7,6 +7,8 @@ export interface AgentSession {
   hiddenWindowId?: number
   /** Browser context scoped to the hidden window (scheduled tasks only) */
   browserContext?: BrowserContext
+  /** MCP server names used when the session was created, for change detection. */
+  mcpServerKey?: string
 }
 
 export class SessionStore {
@@ -26,6 +28,17 @@ export class SessionStore {
 
   has(conversationId: string): boolean {
     return this.sessions.has(conversationId)
+  }
+
+  remove(conversationId: string): boolean {
+    const existed = this.sessions.delete(conversationId)
+    if (existed) {
+      logger.info('Session removed from store (without dispose)', {
+        conversationId,
+        remainingSessions: this.sessions.size,
+      })
+    }
+    return existed
   }
 
   async delete(conversationId: string): Promise<boolean> {

@@ -74,12 +74,26 @@ export class AiSdkAgent {
       ...memoryTools,
     }
 
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      delete tools.suggest_schedule
+      delete tools.suggest_app_connection
+    }
+
     // Build system prompt with optional section exclusions
     // Tool definitions are already injected by the AI SDK via tool schemas,
     // so skip the redundant tool-reference section.
     const excludeSections: string[] = ['tool-reference']
     if (config.resolvedConfig.isScheduledTask) {
       excludeSections.push('tab-grouping')
+    }
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      excludeSections.push('nudges')
     }
     const soulContent = await readSoul()
     const isBootstrap = await isSoulBootstrap()
@@ -92,6 +106,7 @@ export class AiSdkAgent {
       soulContent,
       isSoulBootstrap: isBootstrap,
       chatMode: config.resolvedConfig.chatMode,
+      declinedApps: config.resolvedConfig.declinedApps,
     })
 
     // Configure compaction for context window management

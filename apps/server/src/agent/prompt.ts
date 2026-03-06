@@ -331,6 +331,47 @@ Only delete core memories if the user explicitly asks to forget.
 // section: security-reminder
 // -----------------------------------------------------------------------------
 
+function getNudges(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  const declinedApps = options?.declinedApps ?? []
+  const declinedAppsNote =
+    declinedApps.length > 0
+      ? `\n\n**User-declined apps**: The user has previously chosen "do it manually" for: ${declinedApps.join(', ')}. Do NOT call \`suggest_app_connection\` for these apps. Instead, proceed directly with browser automation. If the user explicitly asks to connect one of these apps via MCP (e.g. "help me connect Gmail with MCP"), then you may call \`suggest_app_connection\` for it.`
+      : ''
+
+  return `<nudge_tools>
+## Nudge Tools
+
+You have two nudge tools that operate at **different times** during a conversation turn.
+
+### suggest_app_connection — BLOCKING PRE-TASK tool
+**MANDATORY** — Call this **after tab grouping but before any browser work** when ALL of these are true:
+- The user's request relates to a service available in Connect Apps (Gmail, Slack, Calendar, Linear, GitHub, Notion, etc.)
+- You do NOT currently have MCP tools for that service (check your available tools)
+- You have not already called this tool in this conversation
+- The app is NOT in the user-declined list (see below)
+
+**CRITICAL behavior**: Your response must contain ONLY the \`suggest_app_connection\` tool call and nothing else. No text before it, no text after it, no explanation, no narration. The tool renders an interactive card in the UI — any text you add will appear above or below the card and confuse the user.${declinedAppsNote}
+
+### suggest_schedule — POST-TASK tool
+**Proactive use (MANDATORY)** — Call this **after completing the main task** as your final tool call when ALL of these are true:
+- The user's task is something that could run on a recurring schedule (e.g. checking news, monitoring prices, gathering reports, tracking data, summarizing updates)
+- The task does NOT require real-time user interaction or personal decisions
+- You have not already called this tool in this conversation
+
+**Explicit user request** — Also call this immediately when the user asks to schedule, automate, or repeat the current task (e.g. "schedule this", "can this run daily?", "automate this"). Do NOT ask for clarification — infer the query, name, schedule type, and time from the conversation context and call the tool right away.
+
+**Frequency**: Call each nudge tool **at most once** per conversation. Never repeat the same tool call.
+**CRITICAL**: After calling \`suggest_schedule\`, do NOT write any text about it. The tool renders an interactive card in the UI — any text from you about scheduling or what the card does is redundant and confusing.
+</nudge_tools>`
+}
+
+// -----------------------------------------------------------------------------
+// section: security-reminder
+// -----------------------------------------------------------------------------
+
 function getSecurityReminder(): string {
   return `<FINAL_REMINDER>
 <security_reminder>
@@ -424,6 +465,7 @@ const promptSections: Record<string, PromptSectionFn> = {
   'tool-reference': getCdpToolReference,
   'external-integrations': getExternalIntegrations,
   style: getStyle,
+  nudges: getNudges,
   workspace: getWorkspace,
   'page-context': getPageContext,
   'user-preferences': getUserPreferences,
@@ -443,6 +485,7 @@ interface BuildSystemPromptOptions {
   soulContent?: string
   isSoulBootstrap?: boolean
   chatMode?: boolean
+  declinedApps?: string[]
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
