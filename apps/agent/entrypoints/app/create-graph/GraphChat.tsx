@@ -50,6 +50,7 @@ export const GraphChat: FC<GraphChatProps> = ({
 
   const {
     popupVisible,
+    showDontShowAgain,
     recordMessageSent,
     triggerIfEligible,
     onTakeSurvey: onTakeSurveyBase,
@@ -145,6 +146,7 @@ export const GraphChat: FC<GraphChatProps> = ({
             status={status}
             messagesEndRef={messagesEndRef}
             showJtbdPopup={popupVisible}
+            showDontShowAgain={showDontShowAgain}
             onTakeSurvey={onTakeSurvey}
             onDismissJtbdPopup={onDismissJtbdPopup}
           />

@@ -2,7 +2,6 @@ import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { Capabilities } from '@/lib/browseros/capabilities'
 import { getHealthCheckUrl, getMcpServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanel, toggleSidePanel } from '@/lib/browseros/toggleSidePanel'
-import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
 import {
   setupLlmProvidersBackupToBrowserOS,
   setupLlmProvidersSyncToBackend,
@@ -19,6 +18,7 @@ import {
 } from '@/lib/schedules/scheduleStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import { checkAndShowWhatsNew } from '@/lib/whats-new/whats-new-notifier'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
 export default defineBackground(() => {
@@ -62,7 +62,7 @@ export default defineBackground(() => {
     }
 
     if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
-      checkAndShowChangelog().catch(() => null)
+      checkAndShowWhatsNew().catch(() => null)
     }
   })
 

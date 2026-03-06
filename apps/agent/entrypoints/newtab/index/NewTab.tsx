@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { AppSelector } from '@/components/elements/AppSelector'
 import {
   GlowingBorder,
@@ -44,11 +45,14 @@ import {
   NEWTAB_TAB_TOGGLED_EVENT,
   NEWTAB_TABS_OPENED_EVENT,
   NEWTAB_WORKSPACE_OPENED_EVENT,
+  WHATS_NEW_BANNER_CLICKED_EVENT,
+  WHATS_NEW_BANNER_DISMISSED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
+import { getWhatsNewPath } from '@/lib/whats-new/whats-new-config'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { ImportDataHint } from './ImportDataHint'
 import type { SuggestionItem } from './lib/suggestions/types'
@@ -64,7 +68,9 @@ import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
 import { SignInHint } from './SignInHint'
 import { TopSites } from './TopSites'
+import { useWhatsNewBanner } from './use-whats-new-banner'
 import { useActiveHint } from './useActiveHint'
+import { WhatsNewBanner } from './WhatsNewBanner'
 
 interface MentionState {
   isOpen: boolean
@@ -76,6 +82,7 @@ interface MentionState {
  * @public
  */
 export const NewTab = () => {
+  const navigate = useNavigate()
   const activeHint = useActiveHint()
   const [inputValue, setInputValue] = useState('')
   const [mounted, setMounted] = useState(false)
@@ -93,6 +100,7 @@ export const NewTab = () => {
   const { supports } = useCapabilities()
   const { servers: mcpServers } = useMcpServers()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
+  const { banner: whatsNewBanner, dismissBanner } = useWhatsNewBanner()
 
   const { messages, sendMessage, setMode, resetConversation } =
     useChatSessionContext()
@@ -365,6 +373,33 @@ export const NewTab = () => {
     track(NEWTAB_OPENED_EVENT)
   }, [])
 
+  const openWhatsNew = () => {
+    if (!whatsNewBanner) {
+      return
+    }
+
+    track(WHATS_NEW_BANNER_CLICKED_EVENT, {
+      release_version: whatsNewBanner.release.browserosVersion,
+    })
+    navigate(
+      getWhatsNewPath({
+        release: whatsNewBanner.release.browserosVersion,
+        source: 'newtab-banner',
+      }),
+    )
+  }
+
+  const handleDismissWhatsNewBanner = async () => {
+    if (!whatsNewBanner) {
+      return
+    }
+
+    track(WHATS_NEW_BANNER_DISMISSED_EVENT, {
+      release_version: whatsNewBanner.release.browserosVersion,
+    })
+    await dismissBanner()
+  }
+
   if (chatActive) {
     return <NewTabChat onBackToSearch={handleBackToSearch} />
   }
@@ -375,6 +410,15 @@ export const NewTab = () => {
       <div className={'relative w-full space-y-8 md:w-3xl'}>
         {/* Logo and branding */}
         <NewTabBranding />
+        {whatsNewBanner && (
+          <WhatsNewBanner
+            release={whatsNewBanner.release}
+            onDismiss={() => {
+              void handleDismissWhatsNewBanner()
+            }}
+            onOpen={openWhatsNew}
+          />
+        )}
         {/* Search bar with context */}
         <div
           className={cn(

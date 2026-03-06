@@ -115,6 +115,18 @@ export const NEWTAB_CHAT_SUGGESTION_CLICKED_EVENT =
 export const NEWTAB_CHAT_MODE_CHANGED_EVENT = 'newtab.chat.mode_changed'
 
 /** @public */
+export const WHATS_NEW_VIEWED_EVENT = 'ui.whats_new.viewed'
+
+/** @public */
+export const WHATS_NEW_BANNER_CLICKED_EVENT = 'newtab.whats_new.clicked'
+
+/** @public */
+export const WHATS_NEW_BANNER_DISMISSED_EVENT = 'newtab.whats_new.dismissed'
+
+/** @public */
+export const WHATS_NEW_LINK_CLICKED_EVENT = 'ui.whats_new.link_clicked'
+
+/** @public */
 export const WORKFLOW_DELETED_EVENT = 'settings.workflow.deleted'
 
 /** @public */

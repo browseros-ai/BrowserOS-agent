@@ -25,6 +25,7 @@ import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 import { SearchProviderPage } from './search-provider/SearchProviderPage'
 import { SoulPage } from './soul/SoulPage'
+import { WhatsNewPage } from './whats-new/WhatsNewPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
 function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
@@ -80,6 +81,7 @@ export const App: FC = () => {
           </Route>
 
           {/* Primary nav routes */}
+          <Route path="whats-new" element={<WhatsNewPage />} />
           <Route path="connect-apps" element={<ConnectMCP />} />
           <Route path="workflows" element={<WorkflowsPageWrapper />} />
           <Route path="scheduled" element={<ScheduledTasksPage />} />

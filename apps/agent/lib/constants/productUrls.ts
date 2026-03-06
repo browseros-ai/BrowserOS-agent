@@ -6,6 +6,11 @@ export const docsUrl = 'https://docs.browseros.com/'
 /**
  * @public
  */
+export const changelogUrl = 'https://docs.browseros.com/changelog'
+
+/**
+ * @public
+ */
 export const productWebUrl = 'https://browseros.com'
 
 /**
