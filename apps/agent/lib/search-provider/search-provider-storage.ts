@@ -24,8 +24,8 @@ export function useSearchProvider() {
   }, [])
 
   const setProvider = useCallback(async (value: SearchProviders) => {
-    setProviderState(value)
     await searchProviderStorage.setValue(value)
+    setProviderState(value)
   }, [])
 
   return { provider, setProvider }

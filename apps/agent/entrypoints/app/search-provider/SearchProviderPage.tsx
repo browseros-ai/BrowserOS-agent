@@ -15,12 +15,16 @@ export const SearchProviderPage: FC = () => {
   const handleSelectProvider = async (selected: SearchProviderConfig) => {
     if (selected.id === provider) return
 
-    await setProvider(selected.id)
-    track(SEARCH_PROVIDER_CHANGED_EVENT, {
-      provider: selected.id,
-      previous_provider: provider,
-    })
-    toast.success(`Search provider changed to ${selected.name}`)
+    try {
+      await setProvider(selected.id)
+      track(SEARCH_PROVIDER_CHANGED_EVENT, {
+        provider: selected.id,
+        previous_provider: provider,
+      })
+      toast.success(`Search provider changed to ${selected.name}`)
+    } catch {
+      toast.error('Failed to save search provider')
+    }
   }
 
   return (
