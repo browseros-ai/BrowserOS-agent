@@ -182,7 +182,8 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   const kimiLaunch = useKimiLaunch()
 
   const filteredProviderTypeOptions = providerTypeOptions.filter((opt) => {
-    if (opt.value === 'moonshot') return kimiLaunch
+    if (opt.value === 'moonshot')
+      return kimiLaunch || initialValues?.type === 'moonshot'
     if (opt.value === 'openai-compatible') {
       return supports(Feature.OPENAI_COMPATIBLE_SUPPORT)
     }
