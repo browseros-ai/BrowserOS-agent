@@ -29,11 +29,14 @@ export const click = defineTool({
     clickCount: z.number(),
   }),
   handler: async (args, ctx, response) => {
-    await ctx.browser.click(args.page, args.element, {
+    const coords = await ctx.browser.click(args.page, args.element, {
       button: args.button,
       clickCount: args.clickCount,
     })
-    response.text(`Clicked [${args.element}]`)
+    const coordText = coords
+      ? ` at (${Math.round(coords.x)}, ${Math.round(coords.y)})`
+      : ''
+    response.text(`Clicked [${args.element}]${coordText}`)
     response.data({
       action: 'click',
       page: args.page,
@@ -97,8 +100,10 @@ export const hover = defineTool({
     element: z.number(),
   }),
   handler: async (args, ctx, response) => {
-    await ctx.browser.hover(args.page, args.element)
-    response.text(`Hovered over [${args.element}]`)
+    const coords = await ctx.browser.hover(args.page, args.element)
+    response.text(
+      `Hovered over [${args.element}] at (${Math.round(coords.x)}, ${Math.round(coords.y)})`,
+    )
     response.data({ action: 'hover', page: args.page, element: args.element })
   },
 })
@@ -144,8 +149,18 @@ export const fill = defineTool({
     clear: z.boolean(),
   }),
   handler: async (args, ctx, response) => {
-    await ctx.browser.fill(args.page, args.element, args.text, args.clear)
-    response.text(`Typed ${args.text.length} characters into [${args.element}]`)
+    const coords = await ctx.browser.fill(
+      args.page,
+      args.element,
+      args.text,
+      args.clear,
+    )
+    const coordText = coords
+      ? ` at (${Math.round(coords.x)}, ${Math.round(coords.y)})`
+      : ''
+    response.text(
+      `Typed ${args.text.length} characters into [${args.element}]${coordText}`,
+    )
     response.data({
       action: 'fill',
       page: args.page,
@@ -205,7 +220,7 @@ export const drag = defineTool({
     targetY: z.number().optional(),
   }),
   handler: async (args, ctx, response) => {
-    await ctx.browser.drag(args.page, args.sourceElement, {
+    const coords = await ctx.browser.drag(args.page, args.sourceElement, {
       element: args.targetElement,
       x: args.targetX,
       y: args.targetY,
@@ -214,7 +229,9 @@ export const drag = defineTool({
       args.targetElement !== undefined
         ? `[${args.targetElement}]`
         : `(${args.targetX}, ${args.targetY})`
-    response.text(`Dragged [${args.sourceElement}] \u2192 ${target}`)
+    response.text(
+      `Dragged [${args.sourceElement}] (${Math.round(coords.from.x)}, ${Math.round(coords.from.y)}) \u2192 ${target} (${Math.round(coords.to.x)}, ${Math.round(coords.to.y)})`,
+    )
     response.data({
       action: 'drag',
       page: args.page,

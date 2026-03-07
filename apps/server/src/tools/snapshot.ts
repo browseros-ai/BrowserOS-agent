@@ -109,15 +109,20 @@ export const take_screenshot = defineTool({
   }),
   output: z.object({
     mimeType: z.string(),
+    devicePixelRatio: z.number(),
   }),
   handler: async (args, ctx, response) => {
-    const { data, mimeType } = await ctx.browser.screenshot(args.page, {
-      format: args.format,
-      quality: args.quality,
-      fullPage: args.fullPage,
-    })
+    const { data, mimeType, devicePixelRatio } = await ctx.browser.screenshot(
+      args.page,
+      {
+        format: args.format,
+        quality: args.quality,
+        fullPage: args.fullPage,
+      },
+    )
     response.image(data, mimeType)
-    response.data({ mimeType })
+    response.text(`devicePixelRatio: ${devicePixelRatio}`)
+    response.data({ mimeType, devicePixelRatio })
   },
 })
 
