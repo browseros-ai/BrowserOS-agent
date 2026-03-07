@@ -28,7 +28,10 @@ function createAnthropicModel(config: ResolvedLLMConfig): LanguageModel {
 
 function createOpenAIModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
-  return createOpenAI({ apiKey: config.apiKey })(config.model)
+  return createOpenAI({
+    apiKey: config.apiKey,
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
+  })(config.model)
 }
 
 function createGoogleModel(config: ResolvedLLMConfig): LanguageModel {
