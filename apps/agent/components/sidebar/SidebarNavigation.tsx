@@ -4,10 +4,11 @@ import {
   Home,
   PlugZap,
   Settings,
+  SquarePen,
   UserPen,
 } from 'lucide-react'
 import type { FC } from 'react'
-import { NavLink, useLocation } from 'react-router'
+import { NavLink, useLocation, useNavigate } from 'react-router'
 import {
   Tooltip,
   TooltipContent,
@@ -57,16 +58,44 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
   expanded = true,
 }) => {
   const location = useLocation()
+  const navigate = useNavigate()
   const { supports } = useCapabilities()
 
   const filteredItems = primaryNavItems.filter(
     (item) => !item.feature || supports(item.feature),
   )
 
+  const newChatButton = (
+    <button
+      type="button"
+      onClick={() => navigate('/home')}
+      className="flex h-9 w-full items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    >
+      <SquarePen className="size-4 shrink-0" />
+      <span
+        className={cn(
+          'truncate transition-opacity duration-200',
+          expanded ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        New Chat
+      </span>
+    </button>
+  )
+
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <div className="overflow-x-hidden p-2">
         <nav className="space-y-1">
+          {!expanded ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{newChatButton}</TooltipTrigger>
+              <TooltipContent side="right">New Chat</TooltipContent>
+            </Tooltip>
+          ) : (
+            newChatButton
+          )}
+
           {filteredItems.map((item) => {
             const Icon = item.icon
             const isActive =

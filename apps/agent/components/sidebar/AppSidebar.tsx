@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 import { SidebarBranding } from './SidebarBranding'
+import { SidebarHistory } from './SidebarHistory'
 import { SidebarNavigation } from './SidebarNavigation'
 import { SidebarUserFooter } from './SidebarUserFooter'
 
@@ -22,6 +23,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
     >
       <SidebarBranding expanded={expanded} />
       <SidebarNavigation expanded={expanded} />
+      <SidebarHistory expanded={expanded} />
       <SidebarUserFooter
         expanded={expanded}
         onOpenShortcuts={onOpenShortcuts}
