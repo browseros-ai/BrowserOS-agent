@@ -16,6 +16,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
+import { Sentry } from '../lib/sentry'
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -159,6 +160,7 @@ export async function createHttpServer(config: HttpServerConfig) {
       return c.json(error.toJSON(), error.statusCode as ContentfulStatusCode)
     }
 
+    Sentry.captureException(error)
     logger.error('Unhandled Error', {
       message: error.message,
       stack: error.stack,

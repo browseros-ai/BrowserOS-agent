@@ -1,5 +1,6 @@
 import type { z } from 'zod'
 import type { Browser } from '../browser/browser'
+import { Sentry } from '../lib/sentry'
 import { ToolResponse, type ToolResult } from './response'
 
 export interface ToolDefinition {
@@ -53,6 +54,10 @@ export async function executeTool(
   try {
     await tool.handler(args, ctx, response)
   } catch (err) {
+    Sentry.withScope((scope) => {
+      scope.setTag('tool', tool.name)
+      Sentry.captureException(err)
+    })
     const message = err instanceof Error ? err.message : String(err)
     response.error(`Internal error in ${tool.name}: ${message}`)
   }

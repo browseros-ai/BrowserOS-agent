@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../lib/clients/klavis/oauth-mcp-servers'
 import { logger } from '../../lib/logger'
+import { Sentry } from '../../lib/sentry'
 
 const ServerNameSchema = z.object({
   serverName: z.string().min(1),
@@ -76,6 +77,7 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
           servers: serverNames,
         })
       } catch (error) {
+        Sentry.captureException(error)
         logger.error('Error getting OAuth URLs', {
           browserosId: browserosId?.slice(0, 12),
           error: error instanceof Error ? error.message : String(error),
@@ -103,6 +105,7 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
           count: normalizedIntegrations.length,
         })
       } catch (error) {
+        Sentry.captureException(error)
         logger.error('Error fetching user integrations', {
           browserosId: browserosId?.slice(0, 12),
           error: error instanceof Error ? error.message : String(error),
@@ -159,6 +162,7 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
           return c.json({ success: true, serverName })
         } catch (error) {
+          Sentry.captureException(error)
           logger.error('Error submitting API key', {
             serverName,
             error: error instanceof Error ? error.message : String(error),

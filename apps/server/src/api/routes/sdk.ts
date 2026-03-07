@@ -12,6 +12,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { logger } from '../../lib/logger'
+import { Sentry } from '../../lib/sentry'
 import { BrowserService } from '../services/sdk/browser'
 import { ChatService } from '../services/sdk/chat'
 import { ExtractService } from '../services/sdk/extract'
@@ -73,6 +74,7 @@ export function createSdkRoutes(deps: SdkDeps) {
 
         return c.json({ success: true, tabId: navigatedTabId })
       } catch (error) {
+        Sentry.captureException(error)
         const err =
           error instanceof SdkError
             ? error
@@ -149,6 +151,7 @@ export function createSdkRoutes(deps: SdkDeps) {
             await honoStream.write(formatUIMessageStreamDone())
             return
           }
+          Sentry.captureException(error)
           const err =
             error instanceof SdkError
               ? error
@@ -202,6 +205,7 @@ export function createSdkRoutes(deps: SdkDeps) {
         })
         return c.json({ data })
       } catch (error) {
+        Sentry.captureException(error)
         const err =
           error instanceof SdkError
             ? error
@@ -251,6 +255,7 @@ export function createSdkRoutes(deps: SdkDeps) {
 
         return c.json(result)
       } catch (error) {
+        Sentry.captureException(error)
         const err =
           error instanceof SdkError
             ? error

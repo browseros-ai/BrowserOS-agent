@@ -27,6 +27,7 @@ const configResult = loadServerConfig()
 
 if (!configResult.ok) {
   Sentry.captureException(new Error(configResult.error))
+  await Sentry.flush(2000)
   console.error(configResult.error)
   process.exit(EXIT_CODES.GENERAL_ERROR)
 }
@@ -40,6 +41,7 @@ try {
     process.exit(error.exitCode)
   }
   Sentry.captureException(error)
+  await Sentry.flush(2000)
   console.error('Failed to start server:', error)
   process.exit(EXIT_CODES.GENERAL_ERROR)
 }

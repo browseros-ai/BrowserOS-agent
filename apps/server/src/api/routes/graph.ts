@@ -10,6 +10,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { logger } from '../../lib/logger'
+import { Sentry } from '../../lib/sentry'
 import { GraphService } from '../services/graph-service'
 import {
   CreateGraphRequestSchema,
@@ -101,6 +102,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
               signal,
             )
           } catch (error) {
+            Sentry.captureException(error)
             const errorMessage =
               error instanceof Error ? error.message : String(error)
             await s.write(
@@ -150,6 +152,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 signal,
               )
             } catch (error) {
+              Sentry.captureException(error)
               const errorMessage =
                 error instanceof Error ? error.message : String(error)
               await s.write(
@@ -238,6 +241,7 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 }),
               )
             } catch (error) {
+              Sentry.captureException(error)
               const errorMessage =
                 error instanceof Error ? error.message : String(error)
               await s.write(

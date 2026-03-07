@@ -17,6 +17,16 @@ Sentry.init({
   sendDefaultPii: true,
   environment: SENTRY_ENVIRONMENT,
   release: VERSION,
+  tracesSampleRate: SENTRY_ENVIRONMENT === 'production' ? 0.1 : 1.0,
+})
+
+// Catch unhandled errors at process level
+process.on('unhandledRejection', (reason) => {
+  Sentry.captureException(reason)
+})
+
+process.on('uncaughtException', (error) => {
+  Sentry.captureException(error)
 })
 
 export { Sentry }

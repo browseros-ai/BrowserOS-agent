@@ -9,6 +9,7 @@ import type { LLMConfig, UIMessageStreamEvent } from '@browseros-ai/agent-sdk'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import { cleanupExecution, executeGraph } from '../../graph/executor'
 import { logger } from '../../lib/logger'
+import { Sentry } from '../../lib/sentry'
 import {
   CodegenFinishMetadataSchema,
   CodegenGetResponseSchema,
@@ -103,6 +104,7 @@ export class GraphService {
         createdAt: new Date(result.data.createdAt || Date.now()),
       }
     } catch (error) {
+      Sentry.captureException(error)
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       logger.error('Failed to fetch graph', { sessionId, error: errorMessage })
@@ -189,6 +191,7 @@ export class GraphService {
       const response = await this.fetchCodegenService(url, method, body, signal)
       return await this.parseUIMessageStream(response, onEvent)
     } catch (error) {
+      Sentry.captureException(error)
       const errorMessage =
         error instanceof Error ? error.message : String(error)
       logger.error('Codegen proxy request failed', { url, error: errorMessage })
