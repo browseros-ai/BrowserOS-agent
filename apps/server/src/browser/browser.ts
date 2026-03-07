@@ -515,7 +515,7 @@ export class Browser {
     }
     if (opts.quality !== undefined) params.quality = opts.quality
 
-    const [result, dprResult] = await Promise.all([
+    const [screenshotResult, dprResult] = await Promise.allSettled([
       session.Page.captureScreenshot(
         params as Parameters<ProtocolApi['Page']['captureScreenshot']>[0],
       ),
@@ -525,8 +525,14 @@ export class Browser {
       }),
     ])
 
+    if (screenshotResult.status === 'rejected') throw screenshotResult.reason
+
+    const result = screenshotResult.value
     const devicePixelRatio =
-      typeof dprResult.result?.value === 'number' ? dprResult.result.value : 1
+      dprResult.status === 'fulfilled' &&
+      typeof dprResult.value.result?.value === 'number'
+        ? dprResult.value.result.value
+        : 1
 
     return {
       data: result.data,
