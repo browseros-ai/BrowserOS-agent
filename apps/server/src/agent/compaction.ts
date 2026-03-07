@@ -2,9 +2,11 @@ import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { type LanguageModel, type ModelMessage, streamText } from 'ai'
 import { logger } from '../lib/logger'
 import {
+  buildCompactionSummaryMessage,
   buildSummarizationPrompt,
   buildSummarizationSystemPrompt,
   buildTurnPrefixPrompt,
+  extractCompactionSummaryFromMessage,
   messagesToTranscript,
 } from './compaction-prompt'
 
@@ -442,6 +444,20 @@ export function slidingWindow(
   return messages.slice(startIndex)
 }
 
+function slidingWindowWithBoundary(
+  boundaryMessages: ModelMessage[],
+  liveMessages: ModelMessage[],
+  maxTokens: number,
+): ModelMessage[] {
+  if (boundaryMessages.length === 0) {
+    return slidingWindow(liveMessages, maxTokens)
+  }
+
+  const boundaryTokens = estimateTokens(boundaryMessages)
+  const liveBudget = Math.max(0, maxTokens - boundaryTokens)
+  return [...boundaryMessages, ...slidingWindow(liveMessages, liveBudget)]
+}
+
 // ---------------------------------------------------------------------------
 // Main compaction orchestrator
 // ---------------------------------------------------------------------------
@@ -454,35 +470,53 @@ async function compactMessages(
   state: CompactionState,
 ): Promise<ModelMessage[]> {
   const triggerThreshold = config.triggerThreshold
+  const existingBoundarySummary = extractCompactionSummaryFromMessage(
+    messages[0],
+  )
+  const boundaryMessages = existingBoundarySummary ? messages.slice(0, 1) : []
+  const liveMessages = messages.slice(boundaryMessages.length)
+
+  if (liveMessages.length <= 2) {
+    return slidingWindowWithBoundary(
+      boundaryMessages,
+      liveMessages,
+      triggerThreshold,
+    )
+  }
 
   // 1. Find safe split point
   const { splitIndex, turnStartIndex, isSplitTurn } = findSafeSplitPoint(
-    messages,
+    liveMessages,
     config.keepRecentTokens,
     config.imageTokenEstimate,
   )
 
   if (splitIndex === -1) {
     logger.info('Cannot find safe split point, using sliding window')
-    return slidingWindow(messages, triggerThreshold)
+    return slidingWindowWithBoundary(
+      boundaryMessages,
+      liveMessages,
+      triggerThreshold,
+    )
   }
 
-  const toKeep = messages.slice(splitIndex)
+  const toKeep = liveMessages.slice(splitIndex)
 
   // 2. Partition messages based on split turn detection
   let historyMessages: ModelMessage[]
   let turnPrefixMessages: ModelMessage[] = []
 
   if (isSplitTurn && turnStartIndex >= 0) {
-    historyMessages = messages.slice(0, turnStartIndex)
-    turnPrefixMessages = messages.slice(turnStartIndex, splitIndex)
+    historyMessages = liveMessages.slice(0, turnStartIndex)
+    turnPrefixMessages = liveMessages.slice(turnStartIndex, splitIndex)
     logger.info('Split turn detected', {
       historyMessages: historyMessages.length,
       turnPrefixMessages: turnPrefixMessages.length,
       toKeepMessages: toKeep.length,
+      hasExistingBoundary: boundaryMessages.length > 0,
     })
   } else {
-    historyMessages = messages.slice(0, splitIndex)
+    historyMessages = liveMessages.slice(0, splitIndex)
   }
 
   // Truncate tool outputs for summarization input
@@ -527,7 +561,11 @@ async function compactMessages(
     estimateTokens(toSummarize) + estimateTokens(truncatedTurnPrefix)
   if (totalSummarizable < config.minSummarizableTokens) {
     logger.info('Too little content to summarize, using sliding window')
-    return slidingWindow(messages, triggerThreshold)
+    return slidingWindowWithBoundary(
+      boundaryMessages,
+      liveMessages,
+      triggerThreshold,
+    )
   }
 
   // 5. Try LLM summarization
@@ -548,6 +586,7 @@ async function compactMessages(
     toKeepTokens: estimateTokens(toKeep),
     isSplitTurn,
     hasExistingSummary: state.existingSummary != null,
+    hasExistingBoundary: boundaryMessages.length > 0,
     compactionCount: state.compactionCount,
   })
 
@@ -580,13 +619,17 @@ async function compactMessages(
         summary = turnPrefixSummary
       }
     } else {
-      // Only turn prefix (first and only turn)
-      summary = await summarizeTurnPrefix(
+      const turnPrefixSummary = await summarizeTurnPrefix(
         model,
         truncatedTurnPrefix,
         config.summarizationTimeoutMs,
         turnPrefixOutputBudget,
       )
+      if (turnPrefixSummary && state.existingSummary) {
+        summary = `${state.existingSummary}\n\n---\n\n**Turn Context (split turn):**\n\n${turnPrefixSummary}`
+      } else {
+        summary = turnPrefixSummary
+      }
     }
   } else {
     // Non-split turn — standard summarization
@@ -602,7 +645,11 @@ async function compactMessages(
   // 6. Validate summary
   if (!summary) {
     logger.warn('Summarization returned empty, using sliding window fallback')
-    return slidingWindow(messages, triggerThreshold)
+    return slidingWindowWithBoundary(
+      boundaryMessages,
+      liveMessages,
+      triggerThreshold,
+    )
   }
 
   const allSummarized = [...toSummarize, ...truncatedTurnPrefix]
@@ -616,7 +663,11 @@ async function compactMessages(
         originalTokens,
       },
     )
-    return slidingWindow(messages, triggerThreshold)
+    return slidingWindowWithBoundary(
+      boundaryMessages,
+      liveMessages,
+      triggerThreshold,
+    )
   }
 
   // 7. Inject summary as first message + keep recent messages
@@ -635,7 +686,7 @@ async function compactMessages(
 
   const summaryMessage: ModelMessage = {
     role: 'user',
-    content: `${summary}\n\nContinue from where you left off.`,
+    content: buildCompactionSummaryMessage(summary),
   }
 
   return [summaryMessage, ...toKeep]
@@ -652,6 +703,26 @@ function isCompactionState(v: unknown): v is CompactionState {
     'compactionCount' in v &&
     typeof (v as CompactionState).compactionCount === 'number'
   )
+}
+
+function getCompactionState(
+  experimentalContext: unknown,
+  messages: ModelMessage[],
+): CompactionState {
+  const extractedSummary = extractCompactionSummaryFromMessage(messages[0])
+  if (!isCompactionState(experimentalContext)) {
+    return extractedSummary
+      ? { existingSummary: extractedSummary, compactionCount: 1 }
+      : { existingSummary: null, compactionCount: 0 }
+  }
+
+  return {
+    existingSummary: extractedSummary ?? experimentalContext.existingSummary,
+    compactionCount: Math.max(
+      experimentalContext.compactionCount,
+      extractedSummary ? 1 : 0,
+    ),
+  }
 }
 
 export function createCompactionPrepareStep(
@@ -683,9 +754,7 @@ export function createCompactionPrepareStep(
     model: LanguageModel
     experimental_context: unknown
   }) => {
-    const state: CompactionState = isCompactionState(experimental_context)
-      ? experimental_context
-      : { existingSummary: null, compactionCount: 0 }
+    const state = getCompactionState(experimental_context, messages)
 
     // Stage 1: Check if compaction is needed using the current prompt as-is.
     const currentTokens = getCurrentTokenCount(steps, messages, config)

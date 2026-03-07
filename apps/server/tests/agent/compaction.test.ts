@@ -8,8 +8,10 @@ import {
   truncateToolOutputs,
 } from '../../src/agent/compaction'
 import {
+  buildCompactionSummaryMessage,
   buildSummarizationPrompt,
   buildTurnPrefixPrompt,
+  extractCompactionSummaryFromMessage,
   messagesToTranscript,
 } from '../../src/agent/compaction-prompt'
 
@@ -588,6 +590,54 @@ describe('slidingWindow', () => {
 })
 
 // ---------------------------------------------------------------------------
+// compaction-prompt: compaction summary wrappers
+// ---------------------------------------------------------------------------
+
+describe('compaction summary wrappers', () => {
+  it('wraps summaries in an explicit compaction envelope', () => {
+    const message = buildCompactionSummaryMessage('## Goal\nShip compaction')
+    expect(message).toContain(
+      'The conversation history before this point was compacted',
+    )
+    expect(message).toContain('<summary>')
+    expect(message).toContain('## Goal')
+    expect(message).toContain('Continue from where you left off.')
+  })
+
+  it('extracts summaries from the wrapped envelope', () => {
+    const summary = '## Goal\nShip compaction'
+    const extracted = extractCompactionSummaryFromMessage(
+      userMsg(buildCompactionSummaryMessage(summary)),
+    )
+    expect(extracted).toBe(summary)
+  })
+
+  it('extracts legacy BrowserOS summary messages', () => {
+    const legacySummary = `## Goal
+Ship compaction
+
+## Constraints & Preferences
+- (none)
+
+## Progress
+### Done
+- [x] Previous compaction
+
+### In Progress
+- [ ] Keep going
+
+### Blocked
+- (none)`
+
+    const extracted = extractCompactionSummaryFromMessage(
+      userMsg(`${legacySummary}\n\nContinue from where you left off.`),
+    )
+
+    expect(extracted).toBe(legacySummary)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // compaction-prompt: buildSummarizationPrompt
 // ---------------------------------------------------------------------------
 
@@ -668,6 +718,15 @@ describe('messagesToTranscript', () => {
     const transcript = messagesToTranscript([userMsgWithImage('look at this')])
     expect(transcript).toContain('[Image]')
     expect(transcript).toContain('look at this')
+  })
+
+  it('serializes compaction summaries without wrapper noise', () => {
+    const transcript = messagesToTranscript([
+      userMsg(buildCompactionSummaryMessage('## Goal\nContinue task')),
+    ])
+    expect(transcript).toContain('[Compaction Summary]: ## Goal')
+    expect(transcript).not.toContain('<summary>')
+    expect(transcript).not.toContain('Continue from where you left off.')
   })
 
   it('handles a full conversation', () => {
