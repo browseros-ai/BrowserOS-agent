@@ -1,12 +1,12 @@
 import { createMCPClient } from '@ai-sdk/mcp'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { ToolSet } from 'ai'
-import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
-import { logger } from '../../lib/logger'
+import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
+import { logger } from '../lib/logger'
 import {
   detectMcpTransport,
   type McpTransportType,
-} from '../../lib/mcp-transport-detect'
+} from '../lib/mcp-transport-detect'
 
 export interface McpServerSpec {
   name: string

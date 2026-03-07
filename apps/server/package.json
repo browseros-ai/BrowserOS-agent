@@ -22,8 +22,8 @@
       "import": "./src/rpc.ts"
     },
     "./agent": {
-      "types": "./src/agent/tool-loop/ai-sdk-agent.ts",
-      "default": "./src/agent/tool-loop/ai-sdk-agent.ts"
+      "types": "./src/agent/ai-sdk-agent.ts",
+      "default": "./src/agent/ai-sdk-agent.ts"
     },
     "./agent/types": {
       "types": "./src/agent/types.ts",

@@ -6,12 +6,12 @@ import {
   findSafeSplitPoint,
   slidingWindow,
   truncateToolOutputs,
-} from '../../src/agent/tool-loop/compaction'
+} from '../../src/agent/compaction'
 import {
   buildSummarizationPrompt,
   buildTurnPrefixPrompt,
   messagesToTranscript,
-} from '../../src/agent/tool-loop/compaction-prompt'
+} from '../../src/agent/compaction-prompt'
 
 // ---------------------------------------------------------------------------
 // Helpers

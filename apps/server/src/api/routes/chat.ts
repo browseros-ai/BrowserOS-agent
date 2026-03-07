@@ -1,7 +1,7 @@
 import { PATHS } from '@browseros/shared/constants/paths'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
-import { SessionStore } from '../../agent/tool-loop/session-store'
+import { SessionStore } from '../../agent/session-store'
 import type { Browser } from '../../browser/browser'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'

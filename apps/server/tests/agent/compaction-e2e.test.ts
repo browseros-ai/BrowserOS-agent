@@ -12,7 +12,7 @@ import {
   type CompactionState,
   computeConfig,
   createCompactionPrepareStep,
-} from '../../src/agent/tool-loop/compaction'
+} from '../../src/agent/compaction'
 
 // ---------------------------------------------------------------------------
 // Test infrastructure

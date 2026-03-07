@@ -1,11 +1,11 @@
 import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
 import { type ToolSet, tool } from 'ai'
-import type { Browser } from '../../browser/browser'
-import { logger } from '../../lib/logger'
-import { metrics } from '../../lib/metrics'
-import { executeTool } from '../../tools/framework'
-import type { ContentItem } from '../../tools/response'
-import type { ToolRegistry } from '../../tools/tool-registry'
+import type { Browser } from '../browser/browser'
+import { logger } from '../lib/logger'
+import { metrics } from '../lib/metrics'
+import { executeTool } from '../tools/framework'
+import type { ContentItem } from '../tools/response'
+import type { ToolRegistry } from '../tools/tool-registry'
 
 function contentToModelOutput(
   content: ContentItem[],

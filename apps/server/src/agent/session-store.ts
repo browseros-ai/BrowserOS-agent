@@ -1,5 +1,5 @@
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
-import { logger } from '../../lib/logger'
+import { logger } from '../lib/logger'
 import type { AiSdkAgent } from './ai-sdk-agent'
 
 export interface AgentSession {
