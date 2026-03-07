@@ -15,6 +15,10 @@ import type { Browser } from '../../browser/browser'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
+import {
+  captureExceptionOnce,
+  getPublicErrorMessage,
+} from '../../lib/sentry-utils'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import type { BrowserContext, ChatRequest } from '../types'
 
@@ -60,101 +64,107 @@ export class ChatService {
       isScheduledTask: request.isScheduledTask,
     }
 
-    let session = sessionStore.get(request.conversationId)
-    let isNewSession = false
+    try {
+      let session = sessionStore.get(request.conversationId)
+      let isNewSession = false
 
-    if (!session) {
-      isNewSession = true
-      let hiddenWindowId: number | undefined
-      let browserContext = await this.resolvePageIds(request.browserContext)
-      if (request.isScheduledTask) {
-        try {
-          const win = await this.deps.browser.createWindow({ hidden: true })
-          hiddenWindowId = win.windowId
-          const pageId = await this.deps.browser.newPage('about:blank', {
-            windowId: hiddenWindowId,
-          })
-          browserContext = {
-            ...browserContext,
-            windowId: hiddenWindowId,
-            activeTab: {
-              id: pageId,
+      if (!session) {
+        isNewSession = true
+        let hiddenWindowId: number | undefined
+        let browserContext = await this.resolvePageIds(request.browserContext)
+        if (request.isScheduledTask) {
+          try {
+            const win = await this.deps.browser.createWindow({ hidden: true })
+            hiddenWindowId = win.windowId
+            const pageId = await this.deps.browser.newPage('about:blank', {
+              windowId: hiddenWindowId,
+            })
+            browserContext = {
+              ...browserContext,
+              windowId: hiddenWindowId,
+              activeTab: {
+                id: pageId,
+                pageId,
+                url: 'about:blank',
+                title: 'Scheduled Task',
+              },
+            }
+            logger.info('Created hidden window for scheduled task', {
+              conversationId: request.conversationId,
+              windowId: hiddenWindowId,
               pageId,
-              url: 'about:blank',
-              title: 'Scheduled Task',
-            },
+            })
+          } catch (error) {
+            logger.warn('Failed to create hidden window, using default', {
+              error: error instanceof Error ? error.message : String(error),
+            })
           }
-          logger.info('Created hidden window for scheduled task', {
-            conversationId: request.conversationId,
-            windowId: hiddenWindowId,
-            pageId,
-          })
-        } catch (error) {
-          logger.warn('Failed to create hidden window, using default', {
-            error: error instanceof Error ? error.message : String(error),
+        }
+
+        const agent = await AiSdkAgent.create({
+          resolvedConfig: agentConfig,
+          browser: this.deps.browser,
+          registry: this.deps.registry,
+          browserContext,
+          klavisClient: this.deps.klavisClient,
+          browserosId: this.deps.browserosId,
+        })
+        session = { agent, hiddenWindowId, browserContext }
+        sessionStore.set(request.conversationId, session)
+      }
+
+      if (isNewSession && request.previousConversation?.length) {
+        for (const msg of request.previousConversation) {
+          session.agent.messages.push({
+            id: crypto.randomUUID(),
+            role: msg.role === 'assistant' ? 'assistant' : 'user',
+            parts: [{ type: 'text', text: msg.content }],
           })
         }
-      }
-
-      const agent = await AiSdkAgent.create({
-        resolvedConfig: agentConfig,
-        browser: this.deps.browser,
-        registry: this.deps.registry,
-        browserContext,
-        klavisClient: this.deps.klavisClient,
-        browserosId: this.deps.browserosId,
-      })
-      session = { agent, hiddenWindowId, browserContext }
-      sessionStore.set(request.conversationId, session)
-    }
-
-    if (isNewSession && request.previousConversation?.length) {
-      for (const msg of request.previousConversation) {
-        session.agent.messages.push({
-          id: crypto.randomUUID(),
-          role: msg.role === 'assistant' ? 'assistant' : 'user',
-          parts: [{ type: 'text', text: msg.content }],
-        })
-      }
-      logger.info('Injected previous conversation history', {
-        conversationId: request.conversationId,
-        messageCount: request.previousConversation.length,
-      })
-    }
-
-    const messageContext = request.isScheduledTask
-      ? (session.browserContext ?? request.browserContext)
-      : request.browserContext
-    // Scheduled tasks already have correct internal pageIds from browser.newPage();
-    // calling resolvePageIds would pass those to resolveTabIds (which expects Chrome
-    // tab IDs), corrupting them back to undefined.
-    const resolvedMessageContext = request.isScheduledTask
-      ? messageContext
-      : await this.resolvePageIds(messageContext)
-    const userContent = formatUserMessage(
-      request.message,
-      resolvedMessageContext,
-    )
-    session.agent.appendUserMessage(userContent)
-
-    return createAgentUIStreamResponse({
-      agent: session.agent.toolLoopAgent,
-      uiMessages: session.agent.messages,
-      abortSignal,
-      onFinish: async ({ messages }: { messages: UIMessage[] }) => {
-        session.agent.messages = messages
-        logger.info('Agent execution complete', {
+        logger.info('Injected previous conversation history', {
           conversationId: request.conversationId,
-          totalMessages: messages.length,
+          messageCount: request.previousConversation.length,
         })
+      }
 
-        if (session?.hiddenWindowId) {
-          const windowId = session.hiddenWindowId
-          session.hiddenWindowId = undefined
-          this.closeHiddenWindow(windowId, request.conversationId)
-        }
-      },
-    })
+      const messageContext = request.isScheduledTask
+        ? (session.browserContext ?? request.browserContext)
+        : request.browserContext
+      const resolvedMessageContext = request.isScheduledTask
+        ? messageContext
+        : await this.resolvePageIds(messageContext)
+      const userContent = formatUserMessage(
+        request.message,
+        resolvedMessageContext,
+      )
+      session.agent.appendUserMessage(userContent)
+
+      return await createAgentUIStreamResponse({
+        agent: session.agent.toolLoopAgent,
+        uiMessages: session.agent.messages,
+        abortSignal,
+        onError: (error) => {
+          this.captureChatError(error, request, agentConfig, 'stream')
+          return getPublicErrorMessage(error, 'Agent execution failed')
+        },
+        onFinish: async ({ messages }: { messages: UIMessage[] }) => {
+          session.agent.messages = messages
+          logger.info('Agent execution complete', {
+            conversationId: request.conversationId,
+            totalMessages: messages.length,
+          })
+
+          if (session?.hiddenWindowId) {
+            const windowId = session.hiddenWindowId
+            session.hiddenWindowId = undefined
+            this.closeHiddenWindow(windowId, request.conversationId)
+          }
+        },
+      })
+    } catch (error) {
+      this.captureChatError(error, request, agentConfig, 'setup')
+      throw error
+    }
   }
 
   async deleteSession(
@@ -228,5 +238,32 @@ export class ChatService {
       : path.join(this.deps.executionDir, 'sessions', request.conversationId)
     await mkdir(dir, { recursive: true })
     return dir
+  }
+
+  private captureChatError(
+    error: unknown,
+    request: ChatRequest,
+    config: ResolvedAgentConfig,
+    phase: 'setup' | 'stream',
+  ): void {
+    captureExceptionOnce(error, {
+      tags: {
+        route: 'chat',
+        phase,
+        provider: config.provider,
+        model: config.model,
+        mode: request.mode,
+        is_scheduled_task: request.isScheduledTask,
+      },
+      contexts: {
+        chat_request: {
+          conversationId: request.conversationId,
+          mode: request.mode,
+          isScheduledTask: request.isScheduledTask,
+          hasBrowserContext: !!request.browserContext,
+          hasPreviousConversation: !!request.previousConversation?.length,
+        },
+      },
+    })
   }
 }

@@ -10,6 +10,7 @@ import {
   WORKFLOW_RUN_STOPPED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { captureChatError } from '@/lib/sentry/captureChatError'
 
 type WorkflowMessageMetadata = {
   window?: chrome.windows.Window
@@ -37,6 +38,14 @@ export const useRunWorkflow = () => {
   }, [agentServerUrl])
 
   const { sendMessage, stop, status, messages, setMessages, error } = useChat({
+    onError: (error) => {
+      captureChatError(error, {
+        surface: 'workflow-run',
+        codeId: codeIdRef.current,
+        provider: selectedLlmProviderRef.current?.type,
+        agentServerUrl: agentUrlRef.current,
+      })
+    },
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]

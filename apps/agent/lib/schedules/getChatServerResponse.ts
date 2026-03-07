@@ -7,6 +7,7 @@ import {
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
+import { captureChatError } from '@/lib/sentry/captureChatError'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
 import type { ToolCallExecution } from './scheduleTypes'
@@ -92,69 +93,96 @@ export async function getChatServerResponse(
     // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
     .map((s) => ({ name: s.displayName, url: s.config!.url }))
 
-  const response = await fetch(`${agentServerUrl}/chat`, {
-    method: 'POST',
-    signal: request.signal,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    // Important: this chat logic is also used in apps/agent/entrypoints/sidepanel/index/useChatSession.ts for sidepanel conversation. Make sure to keep them in sync for any future changes.
-    body: JSON.stringify({
-      messages: [{ role: 'user', content: request.message }],
-      message: request.message,
-      provider: provider?.type,
-      providerType: provider?.type,
-      providerName: provider?.name,
-      apiKey: provider?.apiKey,
-      baseUrl: provider?.baseUrl,
+  try {
+    const response = await fetch(`${agentServerUrl}/chat`, {
+      method: 'POST',
+      signal: request.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Important: this chat logic is also used in apps/agent/entrypoints/sidepanel/index/useChatSession.ts for sidepanel conversation. Make sure to keep them in sync for any future changes.
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: request.message }],
+        message: request.message,
+        provider: provider?.type,
+        providerType: provider?.type,
+        providerName: provider?.name,
+        apiKey: provider?.apiKey,
+        baseUrl: provider?.baseUrl,
+        conversationId,
+        model: provider?.modelId ?? 'default',
+        mode: request.mode ?? 'agent',
+        contextWindowSize: provider?.contextWindow,
+        temperature: provider?.temperature,
+        resourceName: provider?.resourceName,
+        accessKeyId: provider?.accessKeyId,
+        secretAccessKey: provider?.secretAccessKey,
+        region: provider?.region,
+        sessionToken: provider?.sessionToken,
+        browserContext:
+          request.activeTab ||
+          request.windowId ||
+          enabledMcpServers.length ||
+          customMcpServers.length
+            ? {
+                windowId: request.windowId,
+                activeTab: request.activeTab,
+                enabledMcpServers:
+                  enabledMcpServers.length > 0 ? enabledMcpServers : undefined,
+                customMcpServers:
+                  customMcpServers.length > 0 ? customMcpServers : undefined,
+              }
+            : undefined,
+        userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
+        isScheduledTask: true,
+        supportsImages: provider?.supportsImages,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = new Error(
+        `Chat request failed: ${response.status} ${response.statusText}`,
+      )
+      captureChatError(error, {
+        surface: 'scheduled-job-chat',
+        conversationId,
+        mode: request.mode ?? 'agent',
+        provider: provider?.type,
+        agentServerUrl,
+      })
+      throw error
+    }
+
+    const parsed = await parseUIMessageStream(response)
+
+    if (parsed.error) {
+      const error = new Error(parsed.error)
+      captureChatError(error, {
+        surface: 'scheduled-job-chat',
+        conversationId,
+        mode: request.mode ?? 'agent',
+        provider: provider?.type,
+        agentServerUrl,
+      })
+      throw error
+    }
+
+    return {
+      text: parsed.fullText,
       conversationId,
-      model: provider?.modelId ?? 'default',
+      finalResult: parsed.finalResult,
+      executionLog: parsed.executionLog,
+      toolCalls: parsed.toolCalls,
+    }
+  } catch (error) {
+    captureChatError(error, {
+      surface: 'scheduled-job-chat',
+      conversationId,
       mode: request.mode ?? 'agent',
-      contextWindowSize: provider?.contextWindow,
-      temperature: provider?.temperature,
-      resourceName: provider?.resourceName,
-      accessKeyId: provider?.accessKeyId,
-      secretAccessKey: provider?.secretAccessKey,
-      region: provider?.region,
-      sessionToken: provider?.sessionToken,
-      browserContext:
-        request.activeTab ||
-        request.windowId ||
-        enabledMcpServers.length ||
-        customMcpServers.length
-          ? {
-              windowId: request.windowId,
-              activeTab: request.activeTab,
-              enabledMcpServers:
-                enabledMcpServers.length > 0 ? enabledMcpServers : undefined,
-              customMcpServers:
-                customMcpServers.length > 0 ? customMcpServers : undefined,
-            }
-          : undefined,
-      userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
-      isScheduledTask: true,
-      supportsImages: provider?.supportsImages,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Chat request failed: ${response.status} ${response.statusText}`,
-    )
-  }
-
-  const parsed = await parseUIMessageStream(response)
-
-  if (parsed.error) {
-    throw new Error(parsed.error)
-  }
-
-  return {
-    text: parsed.fullText,
-    conversationId,
-    finalResult: parsed.finalResult,
-    executionLog: parsed.executionLog,
-    toolCalls: parsed.toolCalls,
+      provider: provider?.type,
+      agentServerUrl,
+    })
+    throw error
   }
 }
 

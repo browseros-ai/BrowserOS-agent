@@ -16,6 +16,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
+import { captureExceptionOnce } from '../lib/sentry-utils'
 import { createChatRoutes } from './routes/chat'
 import { createGraphRoutes } from './routes/graph'
 import { createHealthRoute } from './routes/health'
@@ -150,6 +151,22 @@ export async function createHttpServer(config: HttpServerConfig) {
     const error = err as Error
 
     if (error instanceof HttpAgentError) {
+      if (error.statusCode >= 500) {
+        captureExceptionOnce(error, {
+          tags: {
+            route: c.req.path,
+            method: c.req.method,
+            error_code: error.code,
+          },
+          contexts: {
+            request: {
+              path: c.req.path,
+              method: c.req.method,
+              statusCode: error.statusCode,
+            },
+          },
+        })
+      }
       logger.warn('HTTP Agent Error', {
         name: error.name,
         message: error.message,
@@ -158,6 +175,19 @@ export async function createHttpServer(config: HttpServerConfig) {
       })
       return c.json(error.toJSON(), error.statusCode as ContentfulStatusCode)
     }
+
+    captureExceptionOnce(error, {
+      tags: {
+        route: c.req.path,
+        method: c.req.method,
+      },
+      contexts: {
+        request: {
+          path: c.req.path,
+          method: c.req.method,
+        },
+      },
+    })
 
     logger.error('Unhandled Error', {
       message: error.message,

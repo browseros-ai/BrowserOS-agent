@@ -31,6 +31,7 @@ import {
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
+import { captureChatError } from '@/lib/sentry/captureChatError'
 import { sentry } from '@/lib/sentry/sentry'
 import { useWorkflows } from '@/lib/workflows/workflowStorage'
 import { GraphCanvas } from './GraphCanvas'
@@ -183,6 +184,14 @@ export const CreateGraph: FC = () => {
   }, [agentServerUrl, codeId])
 
   const { sendMessage, stop, status, messages, error, setMessages } = useChat({
+    onError: (error) => {
+      captureChatError(error, {
+        surface: 'create-graph',
+        codeId: codeIdRef.current,
+        provider: selectedLlmProviderRef.current?.type,
+        agentServerUrl: agentUrlRef.current,
+      })
+    },
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const lastMessage = messages[messages.length - 1]
