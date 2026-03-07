@@ -26,7 +26,10 @@ function createOpenAIFactory(
   config: ResolvedAgentConfig,
 ): (modelId: string) => unknown {
   if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
-  return createOpenAI({ apiKey: config.apiKey })
+  return createOpenAI({
+    apiKey: config.apiKey,
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
+  })
 }
 
 function createGoogleFactory(
