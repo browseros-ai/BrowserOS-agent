@@ -126,10 +126,7 @@ export const NewTab = () => {
     query: inputValue,
     selectedTabs,
   })
-  const searchPlaceholder =
-    providerConfig.id === 'google'
-      ? 'Ask BrowserOS or search Google...'
-      : `Ask BrowserOS or search ${providerConfig.name}...`
+  const searchPlaceholder = `Ask BrowserOS or search ${providerConfig.name}...`
 
   const {
     isOpen,
