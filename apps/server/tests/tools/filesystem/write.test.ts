@@ -29,6 +29,13 @@ describe('filesystem_write', () => {
     expect(result.isError).toBeUndefined()
     expect(result.text).toContain('Wrote')
     expect(result.text).toContain('bytes')
+    expect(result.generatedFiles).toEqual([
+      {
+        path: join(tmpDir, 'new.txt'),
+        sourceTool: 'filesystem_write',
+        operation: 'created',
+      },
+    ])
 
     const content = await readFile(join(tmpDir, 'new.txt'), 'utf-8')
     expect(content).toBe('hello world')
@@ -40,6 +47,13 @@ describe('filesystem_write', () => {
 
     const result = await exec({ path: 'exists.txt', content: 'new content' })
     expect(result.isError).toBeUndefined()
+    expect(result.generatedFiles).toEqual([
+      {
+        path: filePath,
+        sourceTool: 'filesystem_write',
+        operation: 'updated',
+      },
+    ])
 
     const content = await readFile(filePath, 'utf-8')
     expect(content).toBe('new content')

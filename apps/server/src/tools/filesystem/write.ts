@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, stat, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { GeneratedFile } from '@browseros/shared/generated-files'
 import { tool } from 'ai'
@@ -20,6 +20,9 @@ export function createWriteTool(cwd: string) {
     execute: (params) =>
       executeWithMetrics(TOOL_NAME, async () => {
         const resolved = resolve(cwd, params.path)
+        const operation = (await stat(resolved).catch(() => null))
+          ? 'updated'
+          : 'created'
         await mkdir(dirname(resolved), { recursive: true })
         await writeFile(resolved, params.content, 'utf-8')
         const bytes = Buffer.byteLength(params.content, 'utf-8')
@@ -27,7 +30,7 @@ export function createWriteTool(cwd: string) {
           {
             path: resolved,
             sourceTool: TOOL_NAME,
-            operation: 'created',
+            operation,
           },
         ]
         return {

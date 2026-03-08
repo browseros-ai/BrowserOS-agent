@@ -20,13 +20,27 @@ const ChatFilePathSchema = z.object({
 
 const SANDBOXED_INLINE_MEDIA_TYPES = new Set(['image/svg+xml', 'text/html'])
 
+function sanitizeInlineFilename(filename: string): string {
+  return Array.from(filename)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0)
+      return (
+        codePoint !== undefined &&
+        codePoint >= 0x20 &&
+        codePoint !== 0x7f &&
+        character !== '"'
+      )
+    })
+    .join('')
+}
+
 function buildFileHeaders(result: {
   filename: string
   mediaType: string
 }): Headers {
   const headers = new Headers({
     'Cache-Control': 'no-store',
-    'Content-Disposition': `inline; filename="${result.filename.replaceAll('"', '')}"`,
+    'Content-Disposition': `inline; filename="${sanitizeInlineFilename(result.filename)}"`,
     'Content-Type': result.mediaType,
     'X-Content-Type-Options': 'nosniff',
   })
