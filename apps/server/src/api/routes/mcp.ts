@@ -9,7 +9,7 @@ import { Hono } from 'hono'
 import type { Browser } from '../../browser/browser'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
-import { Sentry } from '../../lib/sentry'
+import { captureExceptionOnce } from '../../lib/sentry-utils'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { KlavisProxyHandle } from '../services/mcp/register-klavis-mcp'
@@ -39,7 +39,20 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       await mcpServer.connect(transport)
       return transport.handleRequest(c)
     } catch (error) {
-      Sentry.captureException(error)
+      captureExceptionOnce(error, {
+        tags: {
+          route: 'mcp',
+          action: 'handle-request',
+          scope_id: scopeId,
+        },
+        contexts: {
+          request: {
+            scopeId,
+            path: c.req.path,
+            method: c.req.method,
+          },
+        },
+      })
       logger.error('Error handling MCP request', {
         error: error instanceof Error ? error.message : String(error),
       })

@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { OAUTH_MCP_SERVERS } from '../../lib/clients/klavis/oauth-mcp-servers'
 import { logger } from '../../lib/logger'
+import { captureExceptionOnce } from '../../lib/sentry-utils'
 
 const ServerNameSchema = z.object({
   serverName: z.string().min(1),
@@ -40,6 +41,22 @@ const getAuthUrlForServer = (
     }
   }
   return undefined
+}
+
+function captureKlavisRouteError(
+  error: unknown,
+  action: string,
+  request: Record<string, unknown>,
+): void {
+  captureExceptionOnce(error, {
+    tags: {
+      route: 'klavis',
+      action,
+    },
+    contexts: {
+      klavis_request: request,
+    },
+  })
 }
 
 export function createKlavisRoutes(deps: KlavisRouteDeps) {
@@ -76,6 +93,9 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
           servers: serverNames,
         })
       } catch (error) {
+        captureKlavisRouteError(error, 'oauth-urls', {
+          browserosId: browserosId?.slice(0, 12),
+        })
         logger.error('Error getting OAuth URLs', {
           browserosId: browserosId?.slice(0, 12),
           error: error instanceof Error ? error.message : String(error),
@@ -103,6 +123,9 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
           count: normalizedIntegrations.length,
         })
       } catch (error) {
+        captureKlavisRouteError(error, 'user-integrations', {
+          browserosId: browserosId?.slice(0, 12),
+        })
         logger.error('Error fetching user integrations', {
           browserosId: browserosId?.slice(0, 12),
           error: error instanceof Error ? error.message : String(error),
@@ -124,16 +147,30 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
       logger.info('Adding server to strata', { serverName })
 
-      const result = await klavisClient.createStrata(browserosId, [serverName])
+      try {
+        const result = await klavisClient.createStrata(browserosId, [
+          serverName,
+        ])
 
-      return c.json({
-        success: true,
-        serverName,
-        strataId: result.strataId,
-        addedServers: result.addedServers,
-        oauthUrl: getAuthUrlForServer(result.oauthUrls, serverName),
-        apiKeyUrl: getAuthUrlForServer(result.apiKeyUrls, serverName),
-      })
+        return c.json({
+          success: true,
+          serverName,
+          strataId: result.strataId,
+          addedServers: result.addedServers,
+          oauthUrl: getAuthUrlForServer(result.oauthUrls, serverName),
+          apiKeyUrl: getAuthUrlForServer(result.apiKeyUrls, serverName),
+        })
+      } catch (error) {
+        captureKlavisRouteError(error, 'servers-add', {
+          browserosId: browserosId.slice(0, 12),
+          serverName,
+        })
+        logger.error('Error adding server to strata', {
+          serverName,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return c.json({ error: 'Failed to add server' }, 500)
+      }
     })
     .post(
       '/servers/submit-api-key',
@@ -159,6 +196,10 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
           return c.json({ success: true, serverName })
         } catch (error) {
+          captureKlavisRouteError(error, 'submit-api-key', {
+            browserosId: browserosId.slice(0, 12),
+            serverName,
+          })
           logger.error('Error submitting API key', {
             serverName,
             error: error instanceof Error ? error.message : String(error),
@@ -184,12 +225,24 @@ export function createKlavisRoutes(deps: KlavisRouteDeps) {
 
         logger.info('Removing server from strata', { serverName })
 
-        await klavisClient.removeServer(browserosId, serverName)
+        try {
+          await klavisClient.removeServer(browserosId, serverName)
 
-        return c.json({
-          success: true,
-          serverName,
-        })
+          return c.json({
+            success: true,
+            serverName,
+          })
+        } catch (error) {
+          captureKlavisRouteError(error, 'servers-remove', {
+            browserosId: browserosId.slice(0, 12),
+            serverName,
+          })
+          logger.error('Error removing server from strata', {
+            serverName,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return c.json({ error: 'Failed to remove server' }, 500)
+        }
       },
     )
 }

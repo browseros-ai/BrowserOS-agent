@@ -10,6 +10,7 @@ import type { Context } from 'hono'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { logger } from '../../lib/logger'
+import { captureExceptionOnce } from '../../lib/sentry-utils'
 import { GraphService } from '../services/graph-service'
 import {
   CreateGraphRequestSchema,
@@ -31,6 +32,22 @@ type SSEStreamCallback = (
   stream: { write: (data: string) => Promise<unknown> },
   signal: AbortSignal,
 ) => Promise<void>
+
+function captureGraphRouteError(
+  error: unknown,
+  action: string,
+  request: Record<string, unknown>,
+): void {
+  captureExceptionOnce(error, {
+    tags: {
+      route: 'graph',
+      action,
+    },
+    contexts: {
+      graph_request: request,
+    },
+  })
+}
 
 function createSSEStream(
   c: Context,
@@ -101,6 +118,9 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
               signal,
             )
           } catch (error) {
+            captureGraphRouteError(error, 'create', {
+              queryLength: request.query.length,
+            })
             const errorMessage =
               error instanceof Error ? error.message : String(error)
             await s.write(
@@ -150,6 +170,10 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 signal,
               )
             } catch (error) {
+              captureGraphRouteError(error, 'update', {
+                sessionId,
+                queryLength: request.query.length,
+              })
               const errorMessage =
                 error instanceof Error ? error.message : String(error)
               await s.write(
@@ -238,6 +262,11 @@ export function createGraphRoutes(deps: GraphRouteDeps) {
                 }),
               )
             } catch (error) {
+              captureGraphRouteError(error, 'run', {
+                sessionId,
+                provider: request.provider,
+                model: request.model,
+              })
               const errorMessage =
                 error instanceof Error ? error.message : String(error)
               await s.write(

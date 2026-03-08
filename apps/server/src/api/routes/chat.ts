@@ -7,7 +7,7 @@ import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
-import { Sentry } from '../../lib/sentry'
+import { withSentryIsolationScope } from '../../lib/sentry-utils'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { createBrowserosRateLimitMiddleware } from '../middleware/rate-limit'
 import { ChatService } from '../services/chat-service'
@@ -44,30 +44,44 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       createBrowserosRateLimitMiddleware({ rateLimiter, browserosId }),
       async (c) => {
         const request = c.req.valid('json')
+        const requestType = request.isScheduledTask ? 'schedule' : 'chat'
 
-        // Sentry + metrics (HTTP concerns only)
-        Sentry.getCurrentScope().setTag(
-          'request-type',
-          request.isScheduledTask ? 'schedule' : 'chat',
+        return withSentryIsolationScope(
+          {
+            tags: {
+              route: 'chat',
+              request_type: requestType,
+              provider: request.provider,
+              model: request.model,
+              mode: request.mode,
+            },
+            contexts: {
+              request: {
+                conversationId: request.conversationId,
+                provider: request.provider,
+                model: request.model,
+                baseUrl: request.baseUrl,
+                mode: request.mode,
+                isScheduledTask: request.isScheduledTask,
+                hasPreviousConversation: !!request.previousConversation?.length,
+              },
+            },
+          },
+          () => {
+            metrics.log('chat.request', {
+              provider: request.provider,
+              model: request.model,
+            })
+
+            logger.info('Chat request received', {
+              conversationId: request.conversationId,
+              provider: request.provider,
+              model: request.model,
+            })
+
+            return service.processMessage(request, c.req.raw.signal)
+          },
         )
-        Sentry.setContext('request', {
-          provider: request.provider,
-          model: request.model,
-          baseUrl: request.baseUrl,
-        })
-
-        metrics.log('chat.request', {
-          provider: request.provider,
-          model: request.model,
-        })
-
-        logger.info('Chat request received', {
-          conversationId: request.conversationId,
-          provider: request.provider,
-          model: request.model,
-        })
-
-        return service.processMessage(request, c.req.raw.signal)
       },
     )
     .delete(

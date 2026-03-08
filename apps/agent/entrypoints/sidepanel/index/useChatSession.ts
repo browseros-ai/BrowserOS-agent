@@ -25,6 +25,7 @@ import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { captureChatError } from '@/lib/sentry/captureChatError'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
@@ -198,6 +199,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     stop,
     error: chatError,
   } = useChat({
+    onError: (error) => {
+      captureChatError(error, {
+        surface:
+          options?.origin === 'newtab' ? 'newtab-chat' : 'sidepanel-chat',
+        conversationId: conversationIdRef.current,
+        mode: modeRef.current,
+        provider: selectedLlmProviderRef.current?.type,
+        agentServerUrl: agentUrlRef.current,
+      })
+    },
     transport: new DefaultChatTransport({
       // Important: this chat logic is also used in apps/agent/lib/schedules/getChatServerResponse.ts for scheduled jobs. Make sure to keep them in sync for any future changes.
       prepareSendMessagesRequest: async ({ messages }) => {

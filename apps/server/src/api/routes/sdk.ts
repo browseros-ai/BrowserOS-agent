@@ -12,6 +12,7 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { stream } from 'hono/streaming'
 import { logger } from '../../lib/logger'
+import { captureExceptionOnce } from '../../lib/sentry-utils'
 import { BrowserService } from '../services/sdk/browser'
 import { ChatService } from '../services/sdk/chat'
 import { ExtractService } from '../services/sdk/extract'
@@ -29,6 +30,27 @@ import {
   formatUIMessageStreamDone,
   formatUIMessageStreamEvent,
 } from '../utils/ui-message-stream'
+
+function captureSdkRouteError(
+  error: SdkError,
+  action: string,
+  request: Record<string, unknown>,
+): void {
+  if (error.statusCode < 500) {
+    return
+  }
+
+  captureExceptionOnce(error, {
+    tags: {
+      route: 'sdk',
+      action,
+      status_code: error.statusCode,
+    },
+    contexts: {
+      sdk_request: request,
+    },
+  })
+}
 
 async function waitForPageLoad(
   browserService: BrowserService,
@@ -79,6 +101,11 @@ export function createSdkRoutes(deps: SdkDeps) {
             : new SdkError(
                 error instanceof Error ? error.message : 'Navigation failed',
               )
+        captureSdkRouteError(err, 'nav', {
+          urlLength: url.length,
+          tabId,
+          windowId,
+        })
         logger.error('SDK nav error', { url, error: err.message })
         return c.json(
           { error: { message: err.message } },
@@ -157,6 +184,12 @@ export function createSdkRoutes(deps: SdkDeps) {
                     ? error.message
                     : 'Action execution failed',
                 )
+          captureSdkRouteError(err, 'act', {
+            instructionLength: instruction.length,
+            hasContext: !!context,
+            hasBrowserContext: !!browserContext,
+            hasSessionId: !!sessionId,
+          })
           logger.error('SDK act error', { instruction, error: err.message })
           await honoStream.write(
             formatUIMessageStreamEvent({
@@ -208,6 +241,11 @@ export function createSdkRoutes(deps: SdkDeps) {
             : new SdkError(
                 error instanceof Error ? error.message : 'Extraction failed',
               )
+        captureSdkRouteError(err, 'extract', {
+          instructionLength: instruction.length,
+          windowId,
+          tabId: requestTabId,
+        })
         logger.error('SDK extract error', { instruction, error: err.message })
         return c.json(
           { error: { message: err.message } },
@@ -257,6 +295,11 @@ export function createSdkRoutes(deps: SdkDeps) {
             : new SdkError(
                 error instanceof Error ? error.message : 'Verification failed',
               )
+        captureSdkRouteError(err, 'verify', {
+          expectationLength: expectation.length,
+          windowId,
+          tabId: requestTabId,
+        })
         logger.error('SDK verify error', { expectation, error: err.message })
         return c.json(
           { error: { message: err.message } },
