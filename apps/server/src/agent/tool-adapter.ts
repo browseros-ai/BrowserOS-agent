@@ -66,6 +66,7 @@ export function buildBrowserToolSet(
             content: result.content,
             isError: result.isError ?? false,
             metadata: result.metadata,
+            structuredContent: result.structuredContent,
           }
         } catch (error) {
           const errorText =
@@ -93,6 +94,7 @@ export function buildBrowserToolSet(
         const result = output as {
           content: ContentItem[]
           isError: boolean
+          structuredContent?: Record<string, unknown>
         }
         if (result.isError) {
           const text = result.content

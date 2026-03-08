@@ -1,6 +1,10 @@
 import { mkdtemp, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import {
+  type GeneratedFile,
+  GeneratedFilesSchema,
+} from '@browseros/shared/generated-files'
 import { z } from 'zod'
 import { defineTool } from './framework'
 
@@ -22,6 +26,7 @@ export const save_pdf = defineTool({
   }),
   output: z.object({
     action: z.literal('save_pdf'),
+    generatedFiles: GeneratedFilesSchema,
     page: z.number(),
     path: z.string(),
   }),
@@ -29,9 +34,18 @@ export const save_pdf = defineTool({
     const resolvedPath = resolve(args.cwd ?? process.cwd(), args.path)
     const { data } = await ctx.browser.printToPDF(args.page)
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
+    const generatedFiles: GeneratedFile[] = [
+      {
+        path: resolvedPath,
+        mediaType: 'application/pdf',
+        sourceTool: 'save_pdf',
+        operation: 'saved',
+      },
+    ]
     response.text(`Saved PDF to ${resolvedPath}`)
     response.data({
       action: 'save_pdf',
+      generatedFiles,
       page: args.page,
       path: resolvedPath,
     })
@@ -67,6 +81,7 @@ export const save_screenshot = defineTool({
   }),
   output: z.object({
     action: z.literal('save_screenshot'),
+    generatedFiles: GeneratedFilesSchema,
     page: z.number(),
     path: z.string(),
     format: z.enum(['png', 'jpeg', 'webp']),
@@ -81,10 +96,19 @@ export const save_screenshot = defineTool({
       fullPage: args.fullPage,
     })
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
+    const generatedFiles: GeneratedFile[] = [
+      {
+        path: resolvedPath,
+        mediaType: `image/${args.format}`,
+        sourceTool: 'save_screenshot',
+        operation: 'saved',
+      },
+    ]
     response.text(`Saved screenshot to ${resolvedPath}`)
     response.data({
       action: 'save_screenshot',
       page: args.page,
+      generatedFiles,
       path: resolvedPath,
       format: args.format,
       quality: args.quality,
@@ -111,6 +135,7 @@ export const download_file = defineTool({
     page: z.number(),
     element: z.number(),
     directory: z.string(),
+    generatedFiles: GeneratedFilesSchema,
     suggestedFilename: z.string(),
     destinationPath: z.string(),
   }),
@@ -124,6 +149,13 @@ export const download_file = defineTool({
 
       const destPath = join(resolvedDir, suggestedFilename)
       await rename(filePath, destPath)
+      const generatedFiles: GeneratedFile[] = [
+        {
+          path: destPath,
+          sourceTool: 'download_file',
+          operation: 'downloaded',
+        },
+      ]
 
       response.text(`Downloaded "${suggestedFilename}" to ${destPath}`)
       response.data({
@@ -131,6 +163,7 @@ export const download_file = defineTool({
         page: args.page,
         element: args.element,
         directory: resolvedDir,
+        generatedFiles,
         suggestedFilename,
         destinationPath: destPath,
       })

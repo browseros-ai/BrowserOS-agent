@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import type { GeneratedFile } from '@browseros/shared/generated-files'
 import { tool } from 'ai'
 import { z } from 'zod'
 import {
@@ -127,7 +128,17 @@ export function createEditTool(cwd: string) {
         await writeFile(resolved, finalContent, 'utf-8')
 
         const diff = generateDiff(params.old_string, params.new_string)
-        return { text: `Applied edit to ${params.path}\n\n${diff}` }
+        const generatedFiles: GeneratedFile[] = [
+          {
+            path: resolved,
+            sourceTool: TOOL_NAME,
+            operation: 'updated',
+          },
+        ]
+        return {
+          text: `Applied edit to ${params.path}\n\n${diff}`,
+          generatedFiles,
+        }
       }),
     toModelOutput,
   })

@@ -8,6 +8,11 @@ import type { Context } from 'hono'
 import type { Env } from '../types'
 
 const LOCALHOST_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
+const LOCALHOST_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1'])
+const TRUSTED_EXTENSION_PROTOCOLS = new Set([
+  'chrome-extension:',
+  'moz-extension:',
+])
 
 /**
  * Check if request originates from localhost.
@@ -50,4 +55,37 @@ export function isLocalhostRequest(c: Context<Env>): boolean {
   }
 
   return true
+}
+
+function isTrustedRequestUrl(urlValue: string | undefined): boolean {
+  if (!urlValue) return true
+
+  try {
+    const url = new URL(urlValue)
+    return (
+      LOCALHOST_HOSTNAMES.has(url.hostname) ||
+      TRUSTED_EXTENSION_PROTOCOLS.has(url.protocol)
+    )
+  } catch {
+    return false
+  }
+}
+
+export function isTrustedLocalBrowserRequest(c: Context<Env>): boolean {
+  const server = c.env.server
+  const request = c.req.raw
+  const socketAddr = server.requestIP(request)
+  if (!socketAddr || !LOCALHOST_ADDRESSES.has(socketAddr.address)) {
+    return false
+  }
+
+  const host = c.req.header('host')
+  if (!host) return false
+  const hostname = host.split(':')[0]
+  if (!LOCALHOST_HOSTNAMES.has(hostname)) return false
+
+  return (
+    isTrustedRequestUrl(c.req.header('origin')) &&
+    isTrustedRequestUrl(c.req.header('referer'))
+  )
 }

@@ -33,6 +33,10 @@
       "types": "./src/constants/paths.ts",
       "default": "./src/constants/paths.ts"
     },
+    "./generated-files": {
+      "types": "./src/generated-files.ts",
+      "default": "./src/generated-files.ts"
+    },
     "./types/logger": {
       "types": "./src/types/logger.ts",
       "default": "./src/types/logger.ts"

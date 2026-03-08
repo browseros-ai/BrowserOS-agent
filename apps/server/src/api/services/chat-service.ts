@@ -104,8 +104,15 @@ export class ChatService {
         klavisClient: this.deps.klavisClient,
         browserosId: this.deps.browserosId,
       })
-      session = { agent, hiddenWindowId, browserContext }
+      session = {
+        agent,
+        executionDir: sessionExecutionDir,
+        hiddenWindowId,
+        browserContext,
+      }
       sessionStore.set(request.conversationId, session)
+    } else {
+      session.executionDir = sessionExecutionDir
     }
 
     if (isNewSession && request.previousConversation?.length) {

@@ -36,9 +36,26 @@ describe('page action tools', () => {
         })
         assert.ok(!pdfResult.isError, textOf(pdfResult))
         assert.ok(textOf(pdfResult).includes('Saved PDF'))
-        const data = structuredOf<{ action: string; path: string }>(pdfResult)
+        const data = structuredOf<{
+          action: string
+          path: string
+          generatedFiles: Array<{
+            path: string
+            mediaType: string
+            sourceTool: string
+            operation: string
+          }>
+        }>(pdfResult)
         assert.strictEqual(data.action, 'save_pdf')
         assert.strictEqual(data.path, pdfPath)
+        assert.deepStrictEqual(data.generatedFiles, [
+          {
+            path: pdfPath,
+            mediaType: 'application/pdf',
+            sourceTool: 'save_pdf',
+            operation: 'saved',
+          },
+        ])
         assert.ok(existsSync(pdfPath), 'PDF file should exist on disk')
 
         const stat = Bun.file(pdfPath)

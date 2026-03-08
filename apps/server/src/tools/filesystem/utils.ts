@@ -1,6 +1,7 @@
 import type { Dirent } from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import type { GeneratedFile } from '@browseros/shared/generated-files'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 
@@ -17,6 +18,7 @@ export interface FilesystemToolResult {
   text: string
   isError?: boolean
   images?: Array<{ data: string; mimeType: string }>
+  generatedFiles?: GeneratedFile[]
 }
 
 export interface TruncationResult {

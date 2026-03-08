@@ -4,6 +4,7 @@ import type { AiSdkAgent } from './ai-sdk-agent'
 
 export interface AgentSession {
   agent: AiSdkAgent
+  executionDir: string
   hiddenWindowId?: number
   /** Browser context scoped to the hidden window (scheduled tasks only) */
   browserContext?: BrowserContext

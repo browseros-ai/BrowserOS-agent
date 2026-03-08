@@ -18,6 +18,7 @@ import {
 } from '@/components/ai-elements/reasoning'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { ChatMessageActions } from './ChatMessageActions'
+import { GeneratedFileCards } from './GeneratedFileCards'
 import { getMessageSegments } from './getMessageSegments'
 import { JtbdPopup } from './JtbdPopup'
 import { ToolBatch } from './ToolBatch'
@@ -27,6 +28,7 @@ interface ChatMessagesProps {
   messages: UIMessage[]
   status: 'streaming' | 'submitted' | 'ready' | 'error'
   messagesEndRef: RefObject<HTMLDivElement | null>
+  conversationId?: string
   getActionForMessage?: (message: UIMessage) => ChatAction | undefined
   liked: Record<string, boolean>
   onClickLike: (messageId: string) => void
@@ -42,6 +44,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   messages,
   status,
   messagesEndRef,
+  conversationId,
   getActionForMessage,
   liked,
   disliked,
@@ -121,6 +124,10 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         }
                       })
                     )}
+                    <GeneratedFileCards
+                      conversationId={conversationId}
+                      message={message}
+                    />
                   </MessageContent>
                 </Message>
                 {message.role === 'assistant' &&

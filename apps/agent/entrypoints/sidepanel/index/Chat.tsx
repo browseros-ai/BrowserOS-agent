@@ -37,6 +37,7 @@ export const Chat = () => {
     disliked,
     onClickDislike,
     isRestoringConversation,
+    conversationId,
   } = useChatSessionContext()
 
   const {
@@ -175,6 +176,7 @@ export const Chat = () => {
             messages={messages}
             status={status}
             messagesEndRef={messagesEndRef}
+            conversationId={conversationId}
             getActionForMessage={getActionForMessage}
             liked={liked}
             onClickLike={onClickLike}

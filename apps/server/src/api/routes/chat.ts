@@ -10,9 +10,11 @@ import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
 import { Sentry } from '../../lib/sentry'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import { createBrowserosRateLimitMiddleware } from '../middleware/rate-limit'
+import { ChatFileService } from '../services/chat-file-service'
 import { ChatService } from '../services/chat-service'
 import { ChatRequestSchema } from '../types'
 import { ConversationIdParamSchema } from '../utils/validation'
+import { createChatFileRoutes } from './chat-files'
 
 interface ChatRouteDeps {
   browser: Browser
@@ -35,6 +37,10 @@ export function createChatRoutes(deps: ChatRouteDeps) {
     browser: deps.browser,
     registry: deps.registry,
     browserosId,
+  })
+  const fileService = new ChatFileService({
+    sessionStore,
+    executionDir,
   })
 
   return new Hono()
@@ -69,6 +75,12 @@ export function createChatRoutes(deps: ChatRouteDeps) {
 
         return service.processMessage(request, c.req.raw.signal)
       },
+    )
+    .route(
+      '/:conversationId/files',
+      createChatFileRoutes({
+        fileService,
+      }),
     )
     .delete(
       '/:conversationId',

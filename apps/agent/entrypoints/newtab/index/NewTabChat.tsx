@@ -38,6 +38,7 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
     disliked,
     onClickDislike,
     isRestoringConversation,
+    conversationId,
     providers,
     selectedProvider,
     handleSelectProvider,
@@ -148,6 +149,7 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
             messages={messages}
             status={status}
             messagesEndRef={messagesEndRef}
+            conversationId={conversationId}
             getActionForMessage={getActionForMessage}
             liked={liked}
             onClickLike={onClickLike}

@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import type { GeneratedFile } from '@browseros/shared/generated-files'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { executeWithMetrics, toModelOutput } from './utils'
@@ -22,7 +23,17 @@ export function createWriteTool(cwd: string) {
         await mkdir(dirname(resolved), { recursive: true })
         await writeFile(resolved, params.content, 'utf-8')
         const bytes = Buffer.byteLength(params.content, 'utf-8')
-        return { text: `Wrote ${bytes} bytes to ${params.path}` }
+        const generatedFiles: GeneratedFile[] = [
+          {
+            path: resolved,
+            sourceTool: TOOL_NAME,
+            operation: 'created',
+          },
+        ]
+        return {
+          text: `Wrote ${bytes} bytes to ${params.path}`,
+          generatedFiles,
+        }
       }),
     toModelOutput,
   })
