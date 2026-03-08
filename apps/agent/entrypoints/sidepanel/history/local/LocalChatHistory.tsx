@@ -1,15 +1,30 @@
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { useConversations } from '@/lib/conversations/conversationStorage'
-import { useChatSessionContext } from '../../layout/ChatSessionContext'
 import { ConversationList } from '../components/ConversationList'
-import type { HistoryConversation } from '../components/types'
+import type {
+  HistoryConversation,
+  HistoryListVariant,
+} from '../components/types'
 import { extractLastUserMessage, groupConversations } from '../components/utils'
 
-export const LocalChatHistory: FC = () => {
+interface LocalChatHistoryProps {
+  activeConversationId: string
+  getConversationHref: (conversationId: string) => string
+  onNewConversation: () => void
+  onNavigate?: () => void
+  variant?: HistoryListVariant
+}
+
+export const LocalChatHistory: FC<LocalChatHistoryProps> = ({
+  activeConversationId,
+  getConversationHref,
+  onNewConversation,
+  onNavigate,
+  variant = 'sidepanel',
+}) => {
   const { conversations: localConversations, removeConversation } =
     useConversations()
-  const { conversationId: activeConversationId } = useChatSessionContext()
 
   const conversations = useMemo<HistoryConversation[]>(() => {
     return localConversations.map((conv) => ({
@@ -29,6 +44,10 @@ export const LocalChatHistory: FC = () => {
       groupedConversations={groupedConversations}
       activeConversationId={activeConversationId}
       onDelete={removeConversation}
+      getConversationHref={getConversationHref}
+      onNewConversation={onNewConversation}
+      onNavigate={onNavigate}
+      variant={variant}
     />
   )
 }

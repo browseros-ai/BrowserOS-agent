@@ -4,6 +4,8 @@ export interface HistoryConversation {
   lastUserMessage: string
 }
 
+export type HistoryListVariant = 'sidepanel' | 'page'
+
 export type TimeGroup = 'today' | 'thisWeek' | 'thisMonth' | 'older'
 
 export interface GroupedConversations {

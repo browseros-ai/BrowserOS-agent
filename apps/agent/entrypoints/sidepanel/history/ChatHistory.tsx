@@ -3,6 +3,7 @@ import type { UIMessage } from 'ai'
 import { Loader2 } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { useConversations } from '@/lib/conversations/conversationStorage'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
@@ -12,7 +13,10 @@ import { useGraphqlMutation } from '@/lib/graphql/useGraphqlMutation'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useChatSessionContext } from '../layout/ChatSessionContext'
 import { ConversationList } from './components/ConversationList'
-import type { HistoryConversation } from './components/types'
+import type {
+  HistoryConversation,
+  HistoryListVariant,
+} from './components/types'
 import { extractLastUserMessage, groupConversations } from './components/utils'
 import {
   DeleteConversationDocument,
@@ -20,8 +24,26 @@ import {
 } from './graphql/chatHistoryDocument'
 import { LocalChatHistory } from './local/LocalChatHistory'
 
-const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
-  const { conversationId: activeConversationId } = useChatSessionContext()
+const DEFAULT_HISTORY_HREF = (conversationId: string) =>
+  `/?conversationId=${conversationId}`
+
+interface RemoteChatHistoryProps {
+  userId: string
+  activeConversationId: string
+  getConversationHref: (conversationId: string) => string
+  onNewConversation: () => void
+  onNavigate?: () => void
+  variant?: HistoryListVariant
+}
+
+const RemoteChatHistory: FC<RemoteChatHistoryProps> = ({
+  userId,
+  activeConversationId,
+  getConversationHref,
+  onNewConversation,
+  onNavigate,
+  variant = 'sidepanel',
+}) => {
   const queryClient = useQueryClient()
 
   const { data: profileData } = useGraphqlQuery(GetProfileIdByUserIdDocument, {
@@ -112,19 +134,61 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
       hasNextPage={hasNextPage}
       isFetchingNextPage={isFetchingNextPage}
       onLoadMore={fetchNextPage}
+      getConversationHref={getConversationHref}
+      onNewConversation={onNewConversation}
+      onNavigate={onNavigate}
+      variant={variant}
     />
   )
 }
 
-export const ChatHistory: FC = () => {
+interface ChatHistoryProps {
+  getConversationHref?: (conversationId: string) => string
+  newConversationHref?: string
+  onNavigate?: () => void
+  variant?: HistoryListVariant
+}
+
+export const ChatHistory: FC<ChatHistoryProps> = ({
+  getConversationHref = DEFAULT_HISTORY_HREF,
+  newConversationHref = '/',
+  onNavigate,
+  variant = 'sidepanel',
+}) => {
   const { sessionInfo } = useSessionInfo()
+  const navigate = useNavigate()
+  const { conversationId: activeConversationId, resetConversation } =
+    useChatSessionContext()
   const userId = sessionInfo.user?.id
   // needed to initiate remote-sync
   useConversations()
 
-  if (userId) {
-    return <RemoteChatHistory userId={userId} />
+  const handleNewConversation = () => {
+    resetConversation()
+    navigate(newConversationHref)
+    onNavigate?.()
   }
 
-  return <LocalChatHistory />
+  if (userId) {
+    return (
+      <RemoteChatHistory
+        userId={userId}
+        activeConversationId={activeConversationId}
+        getConversationHref={getConversationHref}
+        onNewConversation={handleNewConversation}
+        onNavigate={onNavigate}
+        variant={variant}
+      />
+    )
+  }
+
+  return (
+    <LocalChatHistory
+      activeConversationId={activeConversationId}
+      getConversationHref={getConversationHref}
+      onNewConversation={handleNewConversation}
+      onNavigate={onNavigate}
+      variant={variant}
+    />
+  )
 }

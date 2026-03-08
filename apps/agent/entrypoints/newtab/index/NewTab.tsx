@@ -50,6 +50,7 @@ import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanel
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
+import { NewTabChatHistoryPanel } from '../history/NewTabChatHistoryPanel'
 import { ImportDataHint } from './ImportDataHint'
 import type { SuggestionItem } from './lib/suggestions/types'
 import {
@@ -94,8 +95,13 @@ export const NewTab = () => {
   const { servers: mcpServers } = useMcpServers()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
 
-  const { messages, sendMessage, setMode, resetConversation } =
-    useChatSessionContext()
+  const {
+    messages,
+    sendMessage,
+    setMode,
+    resetConversation,
+    isRestoringConversation,
+  } = useChatSessionContext()
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
@@ -366,219 +372,271 @@ export const NewTab = () => {
     track(NEWTAB_OPENED_EVENT)
   }, [])
 
-  if (chatActive) {
-    return <NewTabChat onBackToSearch={handleBackToSearch} />
+  const showChat = chatActive || messages.length > 0 || isRestoringConversation
+
+  if (showChat) {
+    return (
+      <div className="grid min-h-[calc(100vh-2rem)] gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="hidden xl:block">
+          <NewTabChatHistoryPanel className="sticky top-8 h-[calc(100vh-4rem)]" />
+        </aside>
+        <div className="min-w-0">
+          <NewTabChat onBackToSearch={handleBackToSearch} />
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="pt-[max(25vh,16px)]">
-      {/* Main content */}
-      <div className={'relative w-full space-y-8 md:w-3xl'}>
-        {/* Logo and branding */}
-        <NewTabBranding />
-        {/* Search bar with context */}
-        <div
-          className={cn(
-            'relative overflow-hidden bg-border/50 p-[2px]',
-            isSuggestionsVisible ||
-              mentionState.isOpen ||
-              selectedTabs.length > 0
-              ? 'bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
-              : 'bg-border/50 hover:border-border',
-          )}
-          style={{ borderRadius: '1.5rem' }}
-        >
-          {mounted && (
+    <div className="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      <aside className="hidden xl:block">
+        <NewTabChatHistoryPanel className="sticky top-8 h-[calc(100vh-4rem)]" />
+      </aside>
+
+      <div className="min-w-0">
+        <div className="xl:hidden">
+          <NewTabChatHistoryPanel className="mb-6 max-h-[26rem]" />
+        </div>
+
+        <div className="pt-6 md:pt-10 xl:pt-[max(25vh,16px)]">
+          <div className="relative mx-auto w-full max-w-3xl space-y-8">
+            <NewTabBranding />
             <div
-              className="absolute inset-0"
+              className={cn(
+                'relative overflow-hidden bg-border/50 p-[2px]',
+                isSuggestionsVisible ||
+                  mentionState.isOpen ||
+                  selectedTabs.length > 0
+                  ? 'bg-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
+                  : 'bg-border/50 hover:border-border',
+              )}
               style={{ borderRadius: '1.5rem' }}
             >
-              <GlowingBorder duration={2000} delay={0} rx="1.5rem" ry="1.5rem">
-                <GlowingElement />
-              </GlowingBorder>
-            </div>
-          )}
-          <div
-            className={cn(
-              'relative bg-card shadow-lg',
-              isSuggestionsVisible ||
-                mentionState.isOpen ||
-                selectedTabs.length > 0
-                ? 'border-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
-                : 'border-border/50 hover:border-border',
-            )}
-            style={{ borderRadius: 'calc(1.5rem - 2px)' }}
-          >
-            {/* Main search input */}
-            <div className="flex items-center gap-3 px-5 py-4">
-              <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-
-              <TabPickerPopover
-                variant="mention"
-                isOpen={mentionState.isOpen}
-                filterText={mentionState.filterText}
-                selectedTabs={selectedTabs}
-                onToggleTab={toggleTab}
-                onClose={closeMention}
-                anchorRef={inputRef}
-                side="bottom"
-              />
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                className="flex-1 border-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
-                {...getInputProps({
-                  ref: inputRef,
-                  onChange: (e) => handleInputChange(e.currentTarget.value),
-                  onKeyDown: (e) => {
-                    if (!mentionStateRef.current.isOpen) return
-                    if (e.key === 'Tab') {
-                      e.preventDefault()
-                      closeMention()
-                    }
-                  },
-                })}
-              />
-
-              <Button
-                onClick={handleSend}
-                size="icon"
-                className="h-10 w-10 flex-shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                <ArrowRight className="h-5 w-5" />
-              </Button>
-            </div>
-
-            <AnimatePresence>
-              {selectedTabs.length > 0 && (
-                <motion.div
-                  className="overflow-clip px-5 pb-4"
-                  transition={{ duration: 0.2 }}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
+              {mounted && (
+                <div
+                  className="absolute inset-0"
+                  style={{ borderRadius: '1.5rem' }}
                 >
-                  <div className="styled-scrollbar flex gap-3 overflow-x-auto pb-2">
-                    <AnimatePresence>
-                      {selectedTabs.map((selectedTab) => {
-                        if (!selectedTab) return null
-                        return (
-                          <motion.div
-                            key={selectedTab.id}
-                            className="group w-48 flex-shrink-0 overflow-clip rounded-lg border border-border bg-accent/50 p-3 transition-colors hover:bg-accent"
-                            transition={{ duration: 0.2 }}
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-background">
-                                {selectedTab.favIconUrl ? (
-                                  <img
-                                    src={selectedTab.favIconUrl}
-                                    alt={selectedTab.title}
-                                    className="h-6 w-6"
-                                  />
-                                ) : (
-                                  <Globe className="h-6 w-6" />
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="mb-1 truncate font-medium text-foreground text-sm">
-                                  {selectedTab.title}
-                                </div>
-                                <div className="text-muted-foreground text-xs">
-                                  Tab
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeTab(selectedTab.id)}
-                                className="cursor-pointer rounded p-1 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </motion.div>
-                        )
-                      })}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
+                  <GlowingBorder
+                    duration={2000}
+                    delay={0}
+                    rx="1.5rem"
+                    ry="1.5rem"
+                  >
+                    <GlowingElement />
+                  </GlowingBorder>
+                </div>
               )}
-            </AnimatePresence>
+              <div
+                className={cn(
+                  'relative bg-card shadow-lg',
+                  isSuggestionsVisible ||
+                    mentionState.isOpen ||
+                    selectedTabs.length > 0
+                    ? 'border-[var(--accent-orange)]/30 shadow-[var(--accent-orange)]/10'
+                    : 'border-border/50 hover:border-border',
+                )}
+                style={{ borderRadius: 'calc(1.5rem - 2px)' }}
+              >
+                <div className="flex items-center gap-3 px-5 py-4">
+                  <Search className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
 
-            <AnimatePresence>
-              {isSuggestionsVisible && (
-                <SearchSuggestions
-                  getItemProps={getItemProps}
-                  getMenuProps={getMenuProps}
-                  highlightedIndex={highlightedIndex}
-                  sections={sections}
-                />
-              )}
-            </AnimatePresence>
+                  <TabPickerPopover
+                    variant="mention"
+                    isOpen={mentionState.isOpen}
+                    filterText={mentionState.filterText}
+                    selectedTabs={selectedTabs}
+                    onToggleTab={toggleTab}
+                    onClose={closeMention}
+                    anchorRef={inputRef}
+                    side="bottom"
+                  />
+                  <input
+                    type="text"
+                    placeholder={searchPlaceholder}
+                    className="flex-1 border-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+                    {...getInputProps({
+                      ref: inputRef,
+                      onChange: (e) => handleInputChange(e.currentTarget.value),
+                      onKeyDown: (e) => {
+                        if (!mentionStateRef.current.isOpen) return
+                        if (e.key === 'Tab') {
+                          e.preventDefault()
+                          closeMention()
+                        }
+                      },
+                    })}
+                  />
 
-            {mounted && (
-              <div className="flex items-center justify-between border-border/50 border-t px-5 py-3">
-                <div className="flex items-center gap-1">
-                  {supports(Feature.WORKSPACE_FOLDER_SUPPORT) && (
-                    <WorkspaceSelector>
-                      <Button
-                        variant="ghost"
-                        onClick={() => track(NEWTAB_WORKSPACE_OPENED_EVENT)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
-                          'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                          'data-[state=open]:bg-accent',
-                        )}
-                      >
-                        <Folder className="h-4 w-4" />
-                        <span>{selectedFolder?.name || 'Add workspace'}</span>
-                        <ChevronDown className="h-3 w-3" />
-                      </Button>
-                    </WorkspaceSelector>
-                  )}
-
-                  <div className="relative" ref={tabsDropdownRef}>
-                    <TabPickerPopover
-                      variant="selector"
-                      selectedTabs={selectedTabs}
-                      onToggleTab={toggleTab}
-                    >
-                      <Button
-                        onClick={() => track(NEWTAB_TABS_OPENED_EVENT)}
-                        className={cn(
-                          'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
-                          selectedTabs.length > 0
-                            ? 'bg-[var(--accent-orange)]! text-white shadow-sm'
-                            : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                          'data-[state=open]:bg-accent',
-                        )}
-                      >
-                        <Layers className="h-4 w-4" />
-                        <span>Tabs</span>
-                      </Button>
-                    </TabPickerPopover>
-                  </div>
+                  <Button
+                    onClick={handleSend}
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
                 </div>
 
-                {supports(Feature.MANAGED_MCP_SUPPORT) && (
-                  <div className="ml-auto flex items-center gap-1.5">
-                    {connectedManagedServers.length === 0 && (
-                      <span className="flex items-center gap-1 font-semibold text-[var(--accent-orange)] text-sm">
-                        New!
-                      </span>
-                    )}
-                    {connectedManagedServers.length === 0 ? (
-                      <Tooltip>
-                        <AppSelector side="bottom">
-                          <TooltipTrigger asChild>
+                <AnimatePresence>
+                  {selectedTabs.length > 0 && (
+                    <motion.div
+                      className="overflow-clip px-5 pb-4"
+                      transition={{ duration: 0.2 }}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                    >
+                      <div className="styled-scrollbar flex gap-3 overflow-x-auto pb-2">
+                        <AnimatePresence>
+                          {selectedTabs.map((selectedTab) => {
+                            if (!selectedTab) return null
+                            return (
+                              <motion.div
+                                key={selectedTab.id}
+                                className="group w-48 flex-shrink-0 overflow-clip rounded-lg border border-border bg-accent/50 p-3 transition-colors hover:bg-accent"
+                                transition={{ duration: 0.2 }}
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+                                    {selectedTab.favIconUrl ? (
+                                      <img
+                                        src={selectedTab.favIconUrl}
+                                        alt={selectedTab.title}
+                                        className="h-6 w-6"
+                                      />
+                                    ) : (
+                                      <Globe className="h-6 w-6" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="mb-1 truncate font-medium text-foreground text-sm">
+                                      {selectedTab.title}
+                                    </div>
+                                    <div className="text-muted-foreground text-xs">
+                                      Tab
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeTab(selectedTab.id)}
+                                    className="cursor-pointer rounded p-1 opacity-0 transition-opacity hover:bg-background group-hover:opacity-100"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {isSuggestionsVisible && (
+                    <SearchSuggestions
+                      getItemProps={getItemProps}
+                      getMenuProps={getMenuProps}
+                      highlightedIndex={highlightedIndex}
+                      sections={sections}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {mounted && (
+                  <div className="flex items-center justify-between border-border/50 border-t px-5 py-3">
+                    <div className="flex items-center gap-1">
+                      {supports(Feature.WORKSPACE_FOLDER_SUPPORT) && (
+                        <WorkspaceSelector>
+                          <Button
+                            variant="ghost"
+                            onClick={() => track(NEWTAB_WORKSPACE_OPENED_EVENT)}
+                            className={cn(
+                              'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                              'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                              'data-[state=open]:bg-accent',
+                            )}
+                          >
+                            <Folder className="h-4 w-4" />
+                            <span>
+                              {selectedFolder?.name || 'Add workspace'}
+                            </span>
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </WorkspaceSelector>
+                      )}
+
+                      <div className="relative" ref={tabsDropdownRef}>
+                        <TabPickerPopover
+                          variant="selector"
+                          selectedTabs={selectedTabs}
+                          onToggleTab={toggleTab}
+                        >
+                          <Button
+                            onClick={() => track(NEWTAB_TABS_OPENED_EVENT)}
+                            className={cn(
+                              'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                              selectedTabs.length > 0
+                                ? 'bg-[var(--accent-orange)]! text-white shadow-sm'
+                                : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                              'data-[state=open]:bg-accent',
+                            )}
+                          >
+                            <Layers className="h-4 w-4" />
+                            <span>Tabs</span>
+                          </Button>
+                        </TabPickerPopover>
+                      </div>
+                    </div>
+
+                    {supports(Feature.MANAGED_MCP_SUPPORT) && (
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {connectedManagedServers.length === 0 && (
+                          <span className="flex items-center gap-1 font-semibold text-[var(--accent-orange)] text-sm">
+                            New!
+                          </span>
+                        )}
+                        {connectedManagedServers.length === 0 ? (
+                          <Tooltip>
+                            <AppSelector side="bottom">
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() =>
+                                    track(NEWTAB_APPS_OPENED_EVENT, {
+                                      has_connected_apps: false,
+                                    })
+                                  }
+                                  className={cn(
+                                    'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
+                                    'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                                    'data-[state=open]:bg-accent',
+                                  )}
+                                >
+                                  <PlugZap className="h-4 w-4" />
+                                  <span>Apps</span>
+                                  <ChevronDown className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                            </AppSelector>
+                            <TooltipContent side="left" className="max-w-56">
+                              Apps directly connected will have more accurate
+                              and faster responses for your queries!
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <AppSelector side="bottom">
                             <Button
                               variant="ghost"
                               onClick={() =>
                                 track(NEWTAB_APPS_OPENED_EVENT, {
-                                  has_connected_apps: false,
+                                  has_connected_apps: true,
+                                  connected_count:
+                                    connectedManagedServers.length,
                                 })
                               }
                               className={cn(
@@ -587,69 +645,43 @@ export const NewTab = () => {
                                 'data-[state=open]:bg-accent',
                               )}
                             >
-                              <PlugZap className="h-4 w-4" />
+                              <div className="flex items-center -space-x-1.5">
+                                {connectedManagedServers
+                                  .slice(0, 4)
+                                  .map((s) => (
+                                    <div
+                                      key={s.id}
+                                      className="rounded-full ring-2 ring-card"
+                                    >
+                                      <McpServerIcon
+                                        serverName={s.managedServerName ?? ''}
+                                        size={16}
+                                      />
+                                    </div>
+                                  ))}
+                              </div>
+                              {connectedManagedServers.length > 4 && (
+                                <span className="text-xs">
+                                  +{connectedManagedServers.length - 4}
+                                </span>
+                              )}
                               <span>Apps</span>
                               <ChevronDown className="h-3 w-3" />
                             </Button>
-                          </TooltipTrigger>
-                        </AppSelector>
-                        <TooltipContent side="left" className="max-w-56">
-                          Apps directly connected will have more accurate and
-                          faster responses for your queries!
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <AppSelector side="bottom">
-                        <Button
-                          variant="ghost"
-                          onClick={() =>
-                            track(NEWTAB_APPS_OPENED_EVENT, {
-                              has_connected_apps: true,
-                              connected_count: connectedManagedServers.length,
-                            })
-                          }
-                          className={cn(
-                            'flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-sm transition-all',
-                            'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                            'data-[state=open]:bg-accent',
-                          )}
-                        >
-                          <div className="flex items-center -space-x-1.5">
-                            {connectedManagedServers.slice(0, 4).map((s) => (
-                              <div
-                                key={s.id}
-                                className="rounded-full ring-2 ring-card"
-                              >
-                                <McpServerIcon
-                                  serverName={s.managedServerName ?? ''}
-                                  size={16}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          {connectedManagedServers.length > 4 && (
-                            <span className="text-xs">
-                              +{connectedManagedServers.length - 4}
-                            </span>
-                          )}
-                          <span>Apps</span>
-                          <ChevronDown className="h-3 w-3" />
-                        </Button>
-                      </AppSelector>
+                          </AppSelector>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
+            </div>
+
+            {mounted && !isSuggestionsVisible && <NewTabTip />}
+            {!isSuggestionsVisible && <TopSites />}
+            {mounted && !isSuggestionsVisible && <ScheduleResults />}
           </div>
         </div>
-
-        {mounted && !isSuggestionsVisible && <NewTabTip />}
-
-        {/* Top sites */}
-        {!isSuggestionsVisible && <TopSites />}
-
-        {mounted && !isSuggestionsVisible && <ScheduleResults />}
       </div>
       {mounted && (
         <ShortcutsDialog

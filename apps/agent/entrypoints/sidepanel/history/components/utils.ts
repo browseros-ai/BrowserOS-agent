@@ -45,7 +45,11 @@ export const groupConversations = (
     older: [],
   }
 
-  for (const conversation of conversations) {
+  const sortedConversations = [...conversations].sort(
+    (a, b) => b.lastMessagedAt - a.lastMessagedAt,
+  )
+
+  for (const conversation of sortedConversations) {
     const group = getTimeGroup(conversation.lastMessagedAt)
     groups[group].push(conversation)
   }
