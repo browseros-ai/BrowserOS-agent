@@ -126,6 +126,10 @@ export const NewTab = () => {
     query: inputValue,
     selectedTabs,
   })
+  const searchPlaceholder =
+    providerConfig.id === 'google'
+      ? 'Ask BrowserOS or search Google...'
+      : `Ask BrowserOS or search ${providerConfig.name}...`
 
   const {
     isOpen,
@@ -424,7 +428,7 @@ export const NewTab = () => {
               />
               <input
                 type="text"
-                placeholder={`Ask AI or search ${providerConfig.name}...`}
+                placeholder={searchPlaceholder}
                 className="flex-1 border-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
                 {...getInputProps({
                   ref: inputRef,
