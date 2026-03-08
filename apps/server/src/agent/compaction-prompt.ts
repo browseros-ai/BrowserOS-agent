@@ -70,6 +70,29 @@ Summarize the prefix to provide context for the retained suffix:
 
 Be concise. Focus on what's needed to understand the kept suffix.`
 
+const COMPACTION_SUMMARY_PREFIX = `The conversation history before this point was compacted into the following summary:
+
+<summary>
+`
+
+const COMPACTION_SUMMARY_SUFFIX = `
+</summary>
+
+Continue from where you left off.`
+
+const LEGACY_COMPACTION_SUMMARY_SUFFIX = '\n\nContinue from where you left off.'
+
+export function buildCompactionSummaryMessage(summary: string): string {
+  return `${COMPACTION_SUMMARY_PREFIX}${summary}${COMPACTION_SUMMARY_SUFFIX}`
+}
+
+export function extractCompactionSummaryFromMessage(
+  message: ModelMessage | undefined,
+): string | null {
+  if (!message || message.role !== 'user') return null
+  return extractCompactionSummaryFromText(extractTextContent(message.content))
+}
+
 export function buildSummarizationPrompt(
   existingSummary: string | null,
 ): string {
@@ -97,7 +120,13 @@ export function messagesToTranscript(messages: ModelMessage[]): string {
 
   for (const msg of messages) {
     if (msg.role === 'user') {
-      parts.push(`[User]: ${extractTextContent(msg.content)}`)
+      const text = extractTextContent(msg.content)
+      const compactionSummary = extractCompactionSummaryFromText(text)
+      if (compactionSummary) {
+        parts.push(`[Compaction Summary]: ${compactionSummary}`)
+      } else {
+        parts.push(`[User]: ${text}`)
+      }
     } else if (msg.role === 'assistant') {
       const { text, toolCalls } = extractAssistantContent(msg.content)
       if (text) parts.push(`[Assistant]: ${text}`)
@@ -117,6 +146,30 @@ export function messagesToTranscript(messages: ModelMessage[]): string {
   }
 
   return parts.join('\n\n')
+}
+
+function extractCompactionSummaryFromText(text: string): string | null {
+  if (
+    text.startsWith(COMPACTION_SUMMARY_PREFIX) &&
+    text.endsWith(COMPACTION_SUMMARY_SUFFIX)
+  ) {
+    return text
+      .slice(
+        COMPACTION_SUMMARY_PREFIX.length,
+        -COMPACTION_SUMMARY_SUFFIX.length,
+      )
+      .trim()
+  }
+
+  if (
+    text.startsWith('## Goal') &&
+    text.includes('## Progress') &&
+    text.endsWith(LEGACY_COMPACTION_SUMMARY_SUFFIX)
+  ) {
+    return text.slice(0, -LEGACY_COMPACTION_SUMMARY_SUFFIX.length).trim()
+  }
+
+  return null
 }
 
 function extractTextContent(content: UserContent): string {

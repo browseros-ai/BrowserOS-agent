@@ -13,6 +13,7 @@ import {
   computeConfig,
   createCompactionPrepareStep,
 } from '../../src/agent/compaction'
+import { extractCompactionSummaryFromMessage } from '../../src/agent/compaction-prompt'
 
 // ---------------------------------------------------------------------------
 // Test infrastructure
@@ -623,6 +624,97 @@ describe('compaction E2E — iterative compaction', () => {
     expect(state2.compactionCount).toBe(1) // unchanged
     expect(state2.existingSummary).toBeTruthy() // preserved
   })
+
+  it('rehydrates previous summary from the first compaction message across calls', async () => {
+    const contextWindow = 10_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+    const config = computeConfig(contextWindow)
+    const triggerAt = Math.floor(contextWindow * config.triggerRatio)
+
+    let sawPreviousSummary = false
+    let sawBoundaryWrapperInTranscript = false
+    let summarizationCalls = 0
+
+    const model = createMock(async (options) => {
+      if (isSummarizationCall(options)) {
+        summarizationCalls++
+        if (summarizationCalls === 2) {
+          const promptText = extractUserText(options)
+          sawPreviousSummary = promptText.includes('<previous_summary>')
+          sawBoundaryWrapperInTranscript = promptText.includes(
+            'The conversation history before this point was compacted',
+          )
+        }
+        return summaryResponse(200)
+      }
+      return textResponse('unused', 100)
+    })
+
+    const firstResult = await prepareStep({
+      messages: buildModerateMessages(8, 2000),
+      steps: [{ usage: { inputTokens: triggerAt + 1000 } }] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    const secondMessages: ModelMessage[] = [
+      ...firstResult.messages,
+      ...buildModerateMessages(6, 1000).slice(1),
+    ]
+
+    const secondResult = await prepareStep({
+      messages: secondMessages,
+      steps: [{ usage: { inputTokens: triggerAt + 1000 } }] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    const state = secondResult.experimental_context as CompactionState
+    expect(state.compactionCount).toBe(2)
+    expect(sawPreviousSummary).toBe(true)
+    expect(sawBoundaryWrapperInTranscript).toBe(false)
+  })
+
+  it('preserves the previous summary boundary when a later compaction fails', async () => {
+    const contextWindow = 10_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+    const config = computeConfig(contextWindow)
+    const triggerAt = Math.floor(contextWindow * config.triggerRatio)
+
+    const initialModel = createMock(async () => summaryResponse(200))
+
+    const firstResult = await prepareStep({
+      messages: buildModerateMessages(8, 2000),
+      steps: [{ usage: { inputTokens: triggerAt + 1000 } }] as StepsStub,
+      model: initialModel,
+      experimental_context: null,
+    })
+
+    const firstSummary = extractCompactionSummaryFromMessage(
+      firstResult.messages[0],
+    )
+    expect(firstSummary).toBeTruthy()
+
+    const failingModel = createMock(async () => {
+      throw new Error('Model unavailable')
+    })
+
+    const secondMessages: ModelMessage[] = [
+      ...firstResult.messages,
+      ...buildModerateMessages(6, 1000).slice(1),
+    ]
+
+    const secondResult = await prepareStep({
+      messages: secondMessages,
+      steps: [{ usage: { inputTokens: triggerAt + 1000 } }] as StepsStub,
+      model: failingModel,
+      experimental_context: null,
+    })
+
+    expect(extractCompactionSummaryFromMessage(secondResult.messages[0])).toBe(
+      firstSummary,
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1099,5 +1191,68 @@ describe('compaction E2E — split turn handling', () => {
 
     // The merged summary should contain the split turn separator
     expect(state.existingSummary).toContain('Turn Context (split turn)')
+  })
+})
+
+describe('compaction E2E — legacy boundary recovery', () => {
+  it('rehydrates legacy plain-text summary messages from older sessions', async () => {
+    const contextWindow = 10_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+    const config = computeConfig(contextWindow)
+    const triggerAt = Math.floor(contextWindow * config.triggerRatio)
+
+    let sawPreviousSummary = false
+    const legacySummary = `## Goal
+Legacy task
+
+## Constraints & Preferences
+- (none)
+
+## Progress
+### Done
+- [x] Previous compaction
+
+### In Progress
+- [ ] Continue
+
+### Blocked
+- (none)
+
+## Key Decisions
+- (none)
+
+## Active State
+- Page 1 open
+
+## Next Steps
+1. Continue
+
+## Critical Context
+- Legacy context`
+
+    const model = createMock(async (options) => {
+      if (isSummarizationCall(options)) {
+        sawPreviousSummary =
+          extractUserText(options).includes('<previous_summary>')
+        return summaryResponse(200)
+      }
+      return textResponse('unused', 100)
+    })
+
+    const result = await prepareStep({
+      messages: [
+        {
+          role: 'user',
+          content: `${legacySummary}\n\nContinue from where you left off.`,
+        },
+        ...buildModerateMessages(8, 2000).slice(1),
+      ],
+      steps: [{ usage: { inputTokens: triggerAt + 1000 } }] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    expect(extractCompactionSummaryFromMessage(result.messages[0])).toBeTruthy()
+    expect(sawPreviousSummary).toBe(true)
   })
 })
