@@ -104,9 +104,7 @@ export const ConversationItem: FC<ConversationItemProps> = ({
             onClick={handleDeleteClick}
             className={cn(
               'shrink-0 rounded p-1 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive',
-              variant === 'page'
-                ? 'opacity-0 group-hover:opacity-100'
-                : 'opacity-0 group-hover:opacity-100',
+              'opacity-0 group-hover:opacity-100',
             )}
             title="Delete conversation"
           >

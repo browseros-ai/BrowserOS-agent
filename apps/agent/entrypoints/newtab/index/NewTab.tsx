@@ -389,15 +389,11 @@ export const NewTab = () => {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-      <aside className="hidden xl:block">
-        <NewTabChatHistoryPanel className="sticky top-8 h-[calc(100vh-4rem)]" />
+      <aside>
+        <NewTabChatHistoryPanel className="mb-6 max-h-[26rem] xl:sticky xl:top-8 xl:mb-0 xl:h-[calc(100vh-4rem)]" />
       </aside>
 
       <div className="min-w-0">
-        <div className="xl:hidden">
-          <NewTabChatHistoryPanel className="mb-6 max-h-[26rem]" />
-        </div>
-
         <div className="pt-6 md:pt-10 xl:pt-[max(25vh,16px)]">
           <div className="relative mx-auto w-full max-w-3xl space-y-8">
             <NewTabBranding />
