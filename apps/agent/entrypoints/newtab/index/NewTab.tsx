@@ -45,7 +45,7 @@ import {
   NEWTAB_TABS_OPENED_EVENT,
   NEWTAB_WORKSPACE_OPENED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { useMcpConfig } from '@/lib/mcp/useMcpConfig'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
@@ -91,7 +91,7 @@ export const NewTab = () => {
   })
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
-  const { servers: mcpServers } = useMcpServers()
+  const { servers: mcpServers } = useMcpConfig()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
 
   const { messages, sendMessage, setMode, resetConversation } =

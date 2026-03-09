@@ -7,7 +7,7 @@ import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { useMcpConfig } from '@/lib/mcp/useMcpConfig'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { ChatAttachedTabs } from './ChatAttachedTabs'
@@ -42,7 +42,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
 }) => {
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
-  const { servers: mcpServers } = useMcpServers()
+  const { servers: mcpServers } = useMcpConfig()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
   const chatInputRef = useRef<ChatInputHandle>(null)
   const [isTabMentionOpen, setIsTabMentionOpen] = useState(false)

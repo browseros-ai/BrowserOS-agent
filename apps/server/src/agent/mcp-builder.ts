@@ -1,9 +1,9 @@
 import { createMCPClient } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport as StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
-import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { ToolSet } from 'ai'
 import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
+import { getMcpServers } from '../lib/mcp-config'
 
 export type McpServerSpec =
   | {
@@ -23,7 +23,6 @@ export type McpServerSpec =
     }
 
 export interface McpServerSpecDeps {
-  browserContext?: BrowserContext
   klavisClient?: KlavisClient
   browserosId?: string
 }
@@ -33,22 +32,23 @@ export interface McpClientBundle {
   tools: ToolSet
 }
 
-// Build list of MCP server specs from config + browser context
+// Build MCP specs from mcp.json config file
 export async function buildMcpServerSpecs(
   deps: McpServerSpecDeps,
 ): Promise<McpServerSpec[]> {
   const specs: McpServerSpec[] = []
+  const servers = await getMcpServers()
 
-  // Klavis Strata MCP servers (managed — still auto-detected)
-  if (
-    deps.browserosId &&
-    deps.klavisClient &&
-    deps.browserContext?.enabledMcpServers?.length
-  ) {
+  // Managed servers → Klavis Strata
+  const managedNames = servers
+    .filter((s) => s.type === 'managed' && s.managedServerName)
+    .map((s) => s.managedServerName!)
+
+  if (deps.browserosId && deps.klavisClient && managedNames.length) {
     try {
       const result = await deps.klavisClient.createStrata(
         deps.browserosId,
-        deps.browserContext.enabledMcpServers,
+        managedNames,
       )
       specs.push({
         type: 'url',
@@ -58,7 +58,7 @@ export async function buildMcpServerSpecs(
       })
       logger.info('Added Klavis Strata MCP server', {
         browserosId: deps.browserosId.slice(0, 12),
-        servers: deps.browserContext.enabledMcpServers,
+        servers: managedNames,
       })
     } catch (error) {
       logger.error('Failed to create Klavis Strata MCP server', {
@@ -67,27 +67,28 @@ export async function buildMcpServerSpecs(
     }
   }
 
-  // User-provided custom MCP servers — transport is explicit, no probing
-  if (deps.browserContext?.customMcpServers?.length) {
-    for (const server of deps.browserContext.customMcpServers) {
-      if (server.transport === 'stdio') {
-        specs.push({
-          type: 'stdio',
-          name: `custom-${server.name}`,
-          command: server.command,
-          args: server.args,
-          cwd: server.cwd,
-          env: server.env,
-        })
-      } else {
-        specs.push({
-          type: 'url',
-          name: `custom-${server.name}`,
-          url: server.url,
-          transport: server.transport,
-          headers: server.headers,
-        })
-      }
+  // Custom servers → explicit transport from config
+  const customServers = servers.filter((s) => s.type === 'custom')
+  for (const server of customServers) {
+    const transport = server.config?.transport ?? 'http'
+
+    if (transport === 'stdio' && server.config?.command) {
+      specs.push({
+        type: 'stdio',
+        name: `custom-${server.displayName}`,
+        command: server.config.command,
+        args: server.config.args,
+        cwd: server.config.cwd,
+        env: server.config.env,
+      })
+    } else if (server.config?.url) {
+      specs.push({
+        type: 'url',
+        name: `custom-${server.displayName}`,
+        url: server.config.url,
+        transport: transport === 'sse' ? 'sse' : 'http',
+        headers: server.config.headers,
+      })
     }
   }
 

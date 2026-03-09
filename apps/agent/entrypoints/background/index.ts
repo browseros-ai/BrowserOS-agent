@@ -9,6 +9,7 @@ import {
   syncLlmProviders,
 } from '@/lib/llm-providers/storage'
 import { fetchMcpTools } from '@/lib/mcp/client'
+import { migrateMcpToServer } from '@/lib/mcp/migrateMcpToServer'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
 import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
@@ -30,6 +31,7 @@ export default defineBackground(() => {
   setupScheduledJobsSyncToBackend()
 
   scheduledJobRuns()
+  migrateMcpToServer().catch(() => null)
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (tab.id) {

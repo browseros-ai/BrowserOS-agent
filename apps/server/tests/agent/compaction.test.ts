@@ -874,7 +874,7 @@ describe('createContextOverflowMiddleware', () => {
       ],
     }
 
-    const result = await middleware.wrapGenerate!({
+    const result = await middleware.wrapGenerate?.({
       doGenerate: async () => mockResult,
       params,
     } as any)
@@ -889,7 +889,7 @@ describe('createContextOverflowMiddleware', () => {
     }
 
     await expect(
-      middleware.wrapGenerate!({
+      middleware.wrapGenerate?.({
         doGenerate: async () => {
           throw new Error('network timeout')
         },
@@ -912,7 +912,7 @@ describe('createContextOverflowMiddleware', () => {
       ],
     }
 
-    const result = await middleware.wrapGenerate!({
+    const result = await middleware.wrapGenerate?.({
       doGenerate: async () => {
         callCount++
         if (callCount === 1) {
@@ -943,7 +943,7 @@ describe('createContextOverflowMiddleware', () => {
       ],
     }
 
-    await middleware.wrapGenerate!({
+    await middleware.wrapGenerate?.({
       doGenerate: async () => {
         if (truncatedPrompt.length === 0) {
           truncatedPrompt = [...params.prompt]
@@ -970,7 +970,7 @@ describe('createContextOverflowMiddleware', () => {
       ],
     }
 
-    const result = await middleware.wrapStream!({
+    const result = await middleware.wrapStream?.({
       doStream: async () => {
         callCount++
         if (callCount === 1) {
@@ -1007,7 +1007,7 @@ describe('createContextOverflowMiddleware', () => {
         prompt: [{ role: 'user', content: 'hi' }],
       }
 
-      await middleware.wrapGenerate!({
+      await middleware.wrapGenerate?.({
         doGenerate: async () => {
           callCount++
           if (callCount === 1) throw new Error(errMsg)
@@ -1045,7 +1045,7 @@ describe('createContextOverflowMiddleware', () => {
       ],
     }
 
-    await middleware.wrapGenerate!({
+    await middleware.wrapGenerate?.({
       doGenerate: async () => {
         if (truncatedPrompt.length === 0) {
           truncatedPrompt = [...params.prompt]

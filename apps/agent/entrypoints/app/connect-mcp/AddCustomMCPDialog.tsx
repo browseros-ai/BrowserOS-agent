@@ -35,7 +35,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import type { McpTransport } from '@/lib/mcp/mcpServerStorage'
+
+type McpTransport = 'http' | 'sse' | 'stdio'
 
 const urlFormSchema = z.object({
   transport: z.enum(['http', 'sse']),

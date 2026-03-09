@@ -19,6 +19,10 @@ export function getCoreMemoryPath(): string {
   return join(getMemoryDir(), PATHS.CORE_MEMORY_FILE_NAME)
 }
 
+export function getMcpConfigPath(): string {
+  return join(getBrowserosDir(), PATHS.MCP_CONFIG_FILE_NAME)
+}
+
 export async function ensureBrowserosDir(): Promise<void> {
   await mkdir(getMemoryDir(), { recursive: true })
 }

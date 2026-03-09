@@ -6,7 +6,11 @@ import {
   CUSTOM_MCP_ADDED_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import {
+  useAddMcpServer,
+  useMcpConfig,
+  useRemoveMcpServer,
+} from '@/lib/mcp/useMcpConfig'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import {
@@ -37,7 +41,9 @@ const failedToRemoveMcp = (serverName: string, e: unknown) => {
  * @public
  */
 export const ConnectMCP: FC = () => {
-  const { servers: createdServers, addServer, removeServer } = useMcpServers()
+  const { servers: createdServers, mutate: mutateMcpConfig } = useMcpConfig()
+  const { trigger: addServerMutation } = useAddMcpServer()
+  const { trigger: removeServerMutation } = useRemoveMcpServer()
   const [addingManagedMcp, setAddingManagedMcp] = useState(false)
   const [addingCustomMcp, setAddingCustomMcp] = useState(false)
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null)
@@ -103,13 +109,13 @@ export const ConnectMCP: FC = () => {
         return
       }
 
-      addServer({
-        id: Date.now().toString(),
+      await addServerMutation({
         displayName: name,
         type: 'managed',
         managedServerName: name,
         managedServerDescription: description,
       })
+      mutateMcpConfig()
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
       if (response.apiKeyUrl) {
@@ -155,7 +161,8 @@ export const ConnectMCP: FC = () => {
         serverName: name,
       })
       if (response.success) {
-        removeServer(id)
+        await removeServerMutation({ id })
+        mutateMcpConfig()
       } else {
         failedToRemoveMcp(name, 'Success not returned from server')
       }
@@ -166,9 +173,8 @@ export const ConnectMCP: FC = () => {
     }
   }
 
-  const addCustomServer = (config: CustomServerConfig) => {
-    addServer({
-      id: Date.now().toString(),
+  const addCustomServer = async (config: CustomServerConfig) => {
+    await addServerMutation({
       displayName: config.name,
       type: 'custom',
       config: {
@@ -182,6 +188,7 @@ export const ConnectMCP: FC = () => {
         env: config.env,
       },
     })
+    mutateMcpConfig()
     track(CUSTOM_MCP_ADDED_EVENT, {
       transport: config.transport ?? 'http',
     })
@@ -328,7 +335,9 @@ export const ConnectMCP: FC = () => {
                         name: server.managedServerName,
                       })
                     } else {
-                      removeServer(server.id)
+                      removeServerMutation({ id: server.id }).then(() =>
+                        mutateMcpConfig(),
+                      )
                     }
                   }}
                   className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

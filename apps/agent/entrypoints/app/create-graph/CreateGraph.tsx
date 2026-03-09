@@ -1,6 +1,5 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
-import { compact } from 'es-toolkit/array'
 import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
@@ -167,8 +166,6 @@ export const CreateGraph: FC = () => {
 
   const {
     selectedLlmProviderRef,
-    enabledMcpServersRef,
-    enabledCustomServersRef,
     personalizationRef,
     selectedLlmProvider,
     isLoadingProviders,
@@ -211,8 +208,6 @@ export const CreateGraph: FC = () => {
 
         if (metadata?.messageType === 'run-graph' && codeIdRef.current) {
           const provider = selectedLlmProviderRef.current
-          const enabledMcpServers = enabledMcpServersRef.current
-          const customMcpServers = enabledCustomServersRef.current
 
           return {
             api: `${agentUrlRef.current}/graph/${codeIdRef.current}/run`,
@@ -234,8 +229,6 @@ export const CreateGraph: FC = () => {
               browserContext: {
                 windowId: metadata?.window?.id,
                 activeTab: metadata?.window?.tabs?.[0],
-                enabledMcpServers: compact(enabledMcpServers),
-                customMcpServers,
               },
               userSystemPrompt: personalizationRef.current,
             },

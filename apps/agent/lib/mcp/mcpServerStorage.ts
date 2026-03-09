@@ -2,7 +2,8 @@ import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
 
 /**
- * @public
+ * @deprecated Use useMcpConfig() from useMcpConfig.ts instead.
+ * Kept for one-time migration to server-side mcp.json.
  */
 export type McpTransport = 'http' | 'sse' | 'stdio'
 
@@ -32,7 +33,8 @@ export const mcpServerStorage = storage.defineItem<McpServer[]>(
 )
 
 /**
- * @public
+ * @deprecated Use useMcpConfig() from useMcpConfig.ts instead.
+ * Kept for one-time migration to server-side mcp.json.
  */
 export function useMcpServers() {
   const [servers, setServers] = useState<McpServer[]>([])

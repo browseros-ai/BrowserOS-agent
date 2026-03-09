@@ -1,6 +1,5 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
-import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
@@ -75,8 +74,6 @@ const NEWTAB_SYSTEM_PROMPT = `IMPORTANT: The user is chatting from the New Tab p
 export const useChatSession = (options?: ChatSessionOptions) => {
   const {
     selectedLlmProviderRef,
-    enabledMcpServersRef,
-    enabledCustomServersRef,
     personalizationRef,
     selectedLlmProvider,
     isLoadingProviders,
@@ -209,8 +206,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const message = getLastMessageText(messages)
         const provider = selectedLlmProviderRef.current
         const currentMode = modeRef.current
-        const enabledMcpServers = enabledMcpServersRef.current
-        const customMcpServers = enabledCustomServersRef.current
 
         const getActionForMessage = (messageText: string) => {
           return textToActionRef.current.get(messageText)
@@ -230,8 +225,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             url?: string
             title?: string
           }[]
-          enabledMcpServers?: string[]
-          customMcpServers?: typeof customMcpServers
         } = {}
 
         if (activeTab) {
@@ -249,14 +242,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             url: tab.url,
             title: tab.title,
           }))
-        }
-
-        if (enabledMcpServers.length) {
-          browserContext.enabledMcpServers = compact(enabledMcpServers)
-        }
-
-        if (customMcpServers.length) {
-          browserContext.customMcpServers = customMcpServers
         }
 
         const supportsArrayConversation = await Capabilities.supports(

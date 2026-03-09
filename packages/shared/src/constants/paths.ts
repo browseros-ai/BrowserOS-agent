@@ -12,6 +12,7 @@ export const PATHS = {
   MEMORY_DIR_NAME: 'memory',
   SOUL_FILE_NAME: 'SOUL.md',
   CORE_MEMORY_FILE_NAME: 'CORE.md',
+  MCP_CONFIG_FILE_NAME: 'mcp.json',
   SOUL_MAX_LINES: 150,
   MEMORY_RETENTION_DAYS: 30,
 } as const
