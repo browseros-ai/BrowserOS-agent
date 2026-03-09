@@ -1,6 +1,12 @@
+import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
-import { stepCountIs, ToolLoopAgent, type UIMessage } from 'ai'
+import {
+  stepCountIs,
+  ToolLoopAgent,
+  type UIMessage,
+  wrapLanguageModel,
+} from 'ai'
 import type { Browser } from '../browser/browser'
 import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
@@ -10,6 +16,7 @@ import { buildMemoryToolSet } from '../tools/memory/build-toolset'
 import type { ToolRegistry } from '../tools/tool-registry'
 import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
 import { createCompactionPrepareStep } from './compaction'
+import { createContextOverflowMiddleware } from './context-overflow-middleware'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
@@ -34,8 +41,18 @@ export class AiSdkAgent {
   ) {}
 
   static async create(config: AiSdkAgentConfig): Promise<AiSdkAgent> {
-    // Build language model from provider config
-    const model = createLanguageModel(config.resolvedConfig)
+    const contextWindow =
+      config.resolvedConfig.contextWindowSize ??
+      AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+
+    // Build language model with overflow protection middleware
+    const rawModel = createLanguageModel(
+      config.resolvedConfig,
+    ) as LanguageModelV3
+    const model = wrapLanguageModel({
+      model: rawModel,
+      middleware: createContextOverflowMiddleware(contextWindow),
+    })
 
     // Build browser tools from the unified tool registry
     const allBrowserTools = buildBrowserToolSet(config.registry, config.browser)
@@ -95,9 +112,6 @@ export class AiSdkAgent {
     })
 
     // Configure compaction for context window management
-    const contextWindow =
-      config.resolvedConfig.contextWindowSize ??
-      AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
     const prepareStep = createCompactionPrepareStep({
       contextWindow,
     })

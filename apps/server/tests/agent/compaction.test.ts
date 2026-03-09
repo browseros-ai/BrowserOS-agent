@@ -4,6 +4,8 @@ import {
   computeConfig,
   estimateTokens,
   findSafeSplitPoint,
+  getCurrentTokenCount,
+  type StepWithUsage,
   slidingWindow,
   truncateToolOutputs,
 } from '../../src/agent/compaction'
@@ -12,6 +14,7 @@ import {
   buildTurnPrefixPrompt,
   messagesToTranscript,
 } from '../../src/agent/compaction-prompt'
+import { createContextOverflowMiddleware } from '../../src/agent/context-overflow-middleware'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -729,6 +732,283 @@ describe('end-to-end config coherence', () => {
       const config = computeConfig(size)
       const expectedReserve = size <= 16_000 ? Math.floor(size * 0.5) : 16_384
       expect(config.reserveTokens).toBe(expectedReserve)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getCurrentTokenCount — Pi-style additive counting
+// ---------------------------------------------------------------------------
+
+describe('getCurrentTokenCount — Pi-style additive', () => {
+  const config = computeConfig(200_000)
+
+  it('returns estimated with safety margin when no steps exist', () => {
+    const msgs = [userMsg('a'.repeat(400))]
+    const result = getCurrentTokenCount([], msgs, config)
+    const rawEstimate = estimateTokens(msgs, config.imageTokenEstimate)
+    const expected =
+      Math.ceil(rawEstimate * config.safetyMultiplier) + config.fixedOverhead
+    expect(result).toBe(expected)
+  })
+
+  it('returns estimated when last step has no usage', () => {
+    const steps: StepWithUsage[] = [{ usage: undefined }]
+    const msgs = [userMsg('hello')]
+    const result = getCurrentTokenCount(steps, msgs, config)
+    const rawEstimate = estimateTokens(msgs, config.imageTokenEstimate)
+    const expected =
+      Math.ceil(rawEstimate * config.safetyMultiplier) + config.fixedOverhead
+    expect(result).toBe(expected)
+  })
+
+  it('adds outputTokens to base when no trailing tool results', () => {
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 50_000, outputTokens: 2_000 } },
+    ]
+    const msgs = [userMsg('hello'), assistantMsg('response')]
+    const result = getCurrentTokenCount(steps, msgs, config)
+    expect(result).toBe(52_000)
+  })
+
+  it('adds trailing tool result tokens to base + output', () => {
+    const toolOutput = 'x'.repeat(40_000) // ~10K tokens
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 100_000, outputTokens: 1_000 } },
+    ]
+    const msgs = [
+      userMsg('hello'),
+      assistantToolCall('snapshot', {}),
+      toolResult('snapshot', toolOutput),
+    ]
+
+    const result = getCurrentTokenCount(steps, msgs, config)
+    const expectedTrailing = estimateTokens(
+      [toolResult('snapshot', toolOutput)],
+      config.imageTokenEstimate,
+    )
+    expect(result).toBe(100_000 + 1_000 + expectedTrailing)
+  })
+
+  it('catches large DOM snapshot that would bypass threshold', () => {
+    // Simulates the original bug: last step saw 150K tokens,
+    // then a 100K-char tool result (~25K tokens) is added
+    const largeSnapshot = 'x'.repeat(100_000)
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 150_000, outputTokens: 500 } },
+    ]
+    const msgs = [
+      userMsg('navigate to site'),
+      assistantToolCall('snapshot', {}),
+      toolResult('snapshot', largeSnapshot),
+    ]
+
+    const result = getCurrentTokenCount(steps, msgs, config)
+    // Must be significantly above 150K — the old code returned 150K (stale)
+    expect(result).toBeGreaterThan(170_000)
+  })
+
+  it('counts multiple trailing tool results', () => {
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 80_000, outputTokens: 1_000 } },
+    ]
+    const msgs = [
+      userMsg('do things'),
+      assistantToolCall('click', { selector: '#btn' }),
+      toolResult('click', 'x'.repeat(4_000)),
+      toolResult('snapshot', 'y'.repeat(8_000)),
+    ]
+
+    const result = getCurrentTokenCount(steps, msgs, config)
+    const trailing1 = estimateTokens(
+      [toolResult('click', 'x'.repeat(4_000))],
+      config.imageTokenEstimate,
+    )
+    const trailing2 = estimateTokens(
+      [toolResult('snapshot', 'y'.repeat(8_000))],
+      config.imageTokenEstimate,
+    )
+    expect(result).toBe(80_000 + 1_000 + trailing1 + trailing2)
+  })
+
+  it('stops counting trailing at first non-tool message', () => {
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 50_000, outputTokens: 500 } },
+    ]
+    // assistant message after tool results — trailing should be 0
+    const msgs = [
+      userMsg('hello'),
+      assistantToolCall('click', {}),
+      toolResult('click', 'x'.repeat(4_000)),
+      assistantMsg('done'),
+    ]
+
+    const result = getCurrentTokenCount(steps, msgs, config)
+    // No trailing tool results (last message is assistant)
+    expect(result).toBe(50_500)
+  })
+
+  it('handles zero outputTokens gracefully', () => {
+    const steps: StepWithUsage[] = [{ usage: { inputTokens: 50_000 } }]
+    const msgs = [userMsg('hello')]
+    const result = getCurrentTokenCount(steps, msgs, config)
+    expect(result).toBe(50_000)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Context overflow middleware
+// ---------------------------------------------------------------------------
+
+describe('createContextOverflowMiddleware', () => {
+  it('passes through when model succeeds', async () => {
+    const middleware = createContextOverflowMiddleware(200_000)
+    const mockResult = { text: 'hello' }
+    const params = {
+      prompt: [
+        { role: 'system', content: 'You are helpful' },
+        { role: 'user', content: 'hi' },
+      ],
+    }
+
+    const result = await middleware.wrapGenerate!({
+      doGenerate: async () => mockResult,
+      params,
+    } as any)
+
+    expect(result).toBe(mockResult)
+  })
+
+  it('rethrows non-context errors', async () => {
+    const middleware = createContextOverflowMiddleware(200_000)
+    const params = {
+      prompt: [{ role: 'user', content: 'hi' }],
+    }
+
+    await expect(
+      middleware.wrapGenerate!({
+        doGenerate: async () => {
+          throw new Error('network timeout')
+        },
+        params,
+      } as any),
+    ).rejects.toThrow('network timeout')
+  })
+
+  it('truncates and retries on context_length error', async () => {
+    const middleware = createContextOverflowMiddleware(200_000)
+    let callCount = 0
+    const params = {
+      prompt: [
+        { role: 'system', content: 'system prompt' },
+        { role: 'user', content: 'old message 1' },
+        { role: 'assistant', content: 'old response 1' },
+        { role: 'user', content: 'old message 2' },
+        { role: 'assistant', content: 'old response 2' },
+        { role: 'user', content: 'recent message' },
+      ],
+    }
+
+    const result = await middleware.wrapGenerate!({
+      doGenerate: async () => {
+        callCount++
+        if (callCount === 1) {
+          throw new Error('context_length_exceeded')
+        }
+        return { text: 'success after truncation' }
+      },
+      params,
+    } as any)
+
+    expect(callCount).toBe(2)
+    expect(result).toEqual({ text: 'success after truncation' })
+    // System message should be preserved
+    expect(params.prompt.some((m: any) => m.role === 'system')).toBe(true)
+    // Prompt should be shorter after truncation
+    expect(params.prompt.length).toBeLessThanOrEqual(6)
+  })
+
+  it('preserves system messages during truncation', async () => {
+    const middleware = createContextOverflowMiddleware(10_000)
+    let truncatedPrompt: any[] = []
+    const params = {
+      prompt: [
+        { role: 'system', content: 'important system prompt' },
+        { role: 'user', content: 'a'.repeat(50_000) },
+        { role: 'assistant', content: 'b'.repeat(50_000) },
+        { role: 'user', content: 'recent' },
+      ],
+    }
+
+    await middleware.wrapGenerate!({
+      doGenerate: async () => {
+        if (truncatedPrompt.length === 0) {
+          truncatedPrompt = [...params.prompt]
+          throw new Error('maximum context length exceeded')
+        }
+        truncatedPrompt = [...params.prompt]
+        return { text: 'ok' }
+      },
+      params,
+    } as any)
+
+    const systemMsgs = truncatedPrompt.filter((m: any) => m.role === 'system')
+    expect(systemMsgs.length).toBe(1)
+    expect(systemMsgs[0].content).toBe('important system prompt')
+  })
+
+  it('handles wrapStream the same way', async () => {
+    const middleware = createContextOverflowMiddleware(200_000)
+    let callCount = 0
+    const params = {
+      prompt: [
+        { role: 'system', content: 'system' },
+        { role: 'user', content: 'message' },
+      ],
+    }
+
+    const result = await middleware.wrapStream!({
+      doStream: async () => {
+        callCount++
+        if (callCount === 1) {
+          throw new Error('token limit exceeded')
+        }
+        return { stream: 'mock-stream' }
+      },
+      params,
+    } as any)
+
+    expect(callCount).toBe(2)
+    expect(result).toEqual({ stream: 'mock-stream' })
+  })
+
+  it('detects various context length error messages', async () => {
+    const middleware = createContextOverflowMiddleware(200_000)
+    const errorMessages = [
+      'context_length_exceeded',
+      'This request is too long',
+      'maximum context length is 128000',
+      'token limit exceeded',
+      'exceeds the model maximum',
+      'max_tokens exceeded',
+    ]
+
+    for (const errMsg of errorMessages) {
+      let callCount = 0
+      const params = {
+        prompt: [{ role: 'user', content: 'hi' }],
+      }
+
+      await middleware.wrapGenerate!({
+        doGenerate: async () => {
+          callCount++
+          if (callCount === 1) throw new Error(errMsg)
+          return { text: 'ok' }
+        },
+        params,
+      } as any)
+
+      expect(callCount).toBe(2)
     }
   })
 })

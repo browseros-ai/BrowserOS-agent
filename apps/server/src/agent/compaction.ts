@@ -157,8 +157,11 @@ export function estimateTokens(
   return Math.ceil(chars / 4) + imageCount * imageTokenEstimate
 }
 
-interface StepWithUsage {
-  usage?: { inputTokens?: number | undefined }
+export interface StepWithUsage {
+  usage?: {
+    inputTokens?: number | undefined
+    outputTokens?: number | undefined
+  }
 }
 
 export function getCurrentTokenCount(
@@ -166,15 +169,31 @@ export function getCurrentTokenCount(
   messages: ModelMessage[],
   config: ComputedConfig,
 ): number {
-  // Use real API usage from the last step when available
   if (steps.length > 0) {
     const lastStep = steps[steps.length - 1]
     if (lastStep.usage?.inputTokens != null && lastStep.usage.inputTokens > 0) {
-      return lastStep.usage.inputTokens
+      // Pi-style additive: real usage as base + trailing content added since
+      const base = lastStep.usage.inputTokens
+      const outputTokens = lastStep.usage.outputTokens ?? 0
+
+      // Estimate trailing tool result messages added after the last model call
+      let trailingTokens = 0
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'tool') {
+          trailingTokens += estimateTokens(
+            [messages[i]],
+            config.imageTokenEstimate,
+          )
+        } else {
+          break
+        }
+      }
+
+      return base + outputTokens + trailingTokens
     }
   }
 
-  // Fallback: estimation with safety multiplier + overhead
+  // No real usage → full estimation with safety margin
   const estimated = estimateTokens(messages, config.imageTokenEstimate)
   return Math.ceil(estimated * config.safetyMultiplier) + config.fixedOverhead
 }
