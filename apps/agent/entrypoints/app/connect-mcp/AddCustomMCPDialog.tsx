@@ -41,7 +41,7 @@ const urlFormSchema = z.object({
   transport: z.enum(['http', 'sse']),
   name: z.string().min(1, 'Server name is required'),
   url: z.string().url('Please enter a valid URL'),
-  authHeader: z.string().optional(),
+  headers: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
   description: z.string().optional(),
 })
 
@@ -89,7 +89,7 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
       transport: 'http',
       name: '',
       url: '',
-      authHeader: '',
+      headers: [],
       description: '',
     },
   })
@@ -106,6 +106,12 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
       description: '',
     },
   })
+
+  const {
+    fields: headerFields,
+    append: addHeader,
+    remove: removeHeader,
+  } = useFieldArray({ control: urlForm.control, name: 'headers' })
 
   const {
     fields: envFields,
@@ -133,15 +139,17 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
   }
 
   const onUrlSubmit = (values: UrlFormValues) => {
-    const authValue = values.authHeader?.trim()
-    const headers = authValue ? { Authorization: authValue } : undefined
+    const headers: Record<string, string> = {}
+    for (const h of values.headers ?? []) {
+      if (h.key.trim()) headers[h.key.trim()] = h.value
+    }
 
     onAddServer({
       name: values.name,
       url: values.url,
       description: values.description ?? '',
       transport: values.transport,
-      headers,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
     })
     resetForms()
     onOpenChange(false)
@@ -246,28 +254,50 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
 
               <Collapsible>
                 <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-muted">
-                  <span className="flex-1 font-medium">
-                    Authentication (Optional)
-                  </span>
+                  <span className="flex-1 font-medium">Headers (Optional)</span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2 space-y-2">
-                  <FormField
-                    control={urlForm.control}
-                    name="authHeader"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Authorization Header</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="Bearer sk-..."
-                            {...field}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                <CollapsibleContent className="mt-2">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-muted-foreground text-xs">
+                      e.g. Authorization: Bearer sk-...
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addHeader({ key: '', value: '' })}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </Button>
+                  </div>
+                  {headerFields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="mb-2 flex items-center gap-2"
+                    >
+                      <Input
+                        placeholder="Header"
+                        className="flex-1 font-mono text-xs"
+                        {...urlForm.register(`headers.${index}.key`)}
+                      />
+                      <Input
+                        placeholder="Value"
+                        className="flex-1 font-mono text-xs"
+                        {...urlForm.register(`headers.${index}.value`)}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => removeHeader(index)}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                 </CollapsibleContent>
               </Collapsible>
 
