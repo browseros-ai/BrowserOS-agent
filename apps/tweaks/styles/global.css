@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+:root {
+  --background: oklch(0.977 0.008 84);
+  --foreground: oklch(0.22 0.02 34);
+  --card: oklch(0.992 0.004 84);
+  --card-foreground: oklch(0.22 0.02 34);
+  --muted: oklch(0.947 0.01 84);
+  --muted-foreground: oklch(0.51 0.02 34);
+  --primary: oklch(0.63 0.17 42);
+  --primary-foreground: oklch(0.99 0.01 85);
+  --secondary: oklch(0.91 0.02 84);
+  --secondary-foreground: oklch(0.24 0.02 34);
+  --border: oklch(0.89 0.01 84);
+  --ring: oklch(0.63 0.17 42);
+  --accent: oklch(0.83 0.08 70);
+  --accent-foreground: oklch(0.2 0.02 34);
+  --destructive: oklch(0.62 0.22 28);
+  --destructive-foreground: oklch(0.99 0.01 85);
+  --radius: 1rem;
+}
+
+@theme inline {
+  --font-sans: "Avenir Next", "Segoe UI Variable", "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", "JetBrains Mono", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image:
+      radial-gradient(
+        circle at top left,
+        rgba(232, 169, 87, 0.16),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at bottom right,
+        rgba(143, 95, 58, 0.14),
+        transparent 24%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.8),
+        rgba(255, 249, 242, 0.94)
+      );
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family:
+      "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+
+  code,
+  pre {
+    font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background: rgba(196, 107, 40, 0.22);
+  }
+}

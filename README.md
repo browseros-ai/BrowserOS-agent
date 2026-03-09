@@ -10,6 +10,7 @@ Monorepo for the BrowserOS-agent -- contains 3 packages: agent-UI, server (which
 apps/
   server/          # Bun server - MCP endpoints + agent loop
   agent/           # Agent UI (Chrome extension)
+  tweaks/          # Tweaks Studio (Chrome extension for per-site modifications)
   controller-ext/  # BrowserOS Controller (Chrome extension for chrome.* APIs)
 
 packages/
@@ -20,6 +21,7 @@ packages/
 |---------|-------------|
 | `apps/server` | Bun server exposing MCP tools and running the agent loop |
 | `apps/agent` | Agent UI - Chrome extension for the chat interface |
+| `apps/tweaks` | Tweaks Studio - Chrome extension for local per-site CSS/JS tweaks |
 | `apps/controller-ext` | BrowserOS Controller - Chrome extension that bridges `chrome.*` APIs (tabs, bookmarks, history) to the server via WebSocket |
 | `packages/shared` | Shared constants used across packages |
 
@@ -27,6 +29,7 @@ packages/
 
 - `apps/server`: Bun server which contains the agent loop and tools.
 - `apps/agent`: Agent UI (Chrome extension).
+- `apps/tweaks`: Tweaks Studio - a lightweight extension for installing and editing local per-site tweaks.
 - `apps/controller-ext`: BrowserOS Controller - a Chrome extension that bridges `chrome.*` APIs to the server. Controller tools within the server communicate with this extension via WebSocket.
 
 ```
@@ -94,6 +97,8 @@ The `process-compose up` command runs the following in order:
 3. `bun --cwd apps/agent codegen` — generates agent code
 4. `bun --cwd apps/server start` and `bun --cwd apps/agent dev` — starts server and agent in parallel
 
+`apps/tweaks` is a standalone extension and is not part of the default `process-compose` stack. Run it separately with `bun run start:tweaks`.
+
 ### Environment Variables
 
 Runtime uses `.env.development`, while production artifact builds use `.env.production`:
@@ -155,11 +160,13 @@ Copy from `apps/server/.env.production.example` before running `build:server`.
 # Start
 bun run start:server          # Start the server
 bun run start:agent           # Start agent extension (dev mode)
+bun run start:tweaks          # Start Tweaks Studio extension (dev mode)
 
 # Build
 bun run build                 # Build server, agent, and controller extension
 bun run build:server          # Build production server resource artifacts and upload zips to R2
 bun run build:agent           # Build agent extension
+bun run build:tweaks          # Build Tweaks Studio extension
 bun run build:ext             # Build controller extension
 
 # Test
