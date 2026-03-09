@@ -39,7 +39,8 @@ export const AGENT_LIMITS = {
   COMPACTION_SUMMARIZER_OUTPUT_RATIO: 0.8,
 
   // Compaction — estimation (step 0 / no real usage)
-  COMPACTION_FIXED_OVERHEAD: 5_000,
+  // Covers system prompt (~2.5K tokens) + tool definitions as JSON Schema (~8-9K tokens)
+  COMPACTION_FIXED_OVERHEAD: 12_000,
   COMPACTION_SAFETY_MULTIPLIER: 1.3,
   COMPACTION_IMAGE_TOKEN_ESTIMATE: 1_000,
 
