@@ -231,10 +231,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             title?: string
           }[]
           enabledMcpServers?: string[]
-          customMcpServers?: {
-            name: string
-            url: string
-          }[]
+          customMcpServers?: typeof customMcpServers
         } = {}
 
         if (activeTab) {
@@ -259,10 +256,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         }
 
         if (customMcpServers.length) {
-          browserContext.customMcpServers = customMcpServers as {
-            name: string
-            url: string
-          }[]
+          browserContext.customMcpServers = customMcpServers
         }
 
         const supportsArrayConversation = await Capabilities.supports(

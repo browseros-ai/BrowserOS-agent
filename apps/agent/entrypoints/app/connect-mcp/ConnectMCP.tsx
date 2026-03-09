@@ -9,7 +9,10 @@ import {
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
-import { AddCustomMCPDialog } from './AddCustomMCPDialog'
+import {
+  AddCustomMCPDialog,
+  type CustomServerConfig,
+} from './AddCustomMCPDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
 import { ApiKeyDialog } from './ApiKeyDialog'
 import { AvailableManagedServers } from './AvailableManagedServers'
@@ -163,21 +166,25 @@ export const ConnectMCP: FC = () => {
     }
   }
 
-  const addCustomServer = (config: {
-    name: string
-    url: string
-    description: string
-  }) => {
+  const addCustomServer = (config: CustomServerConfig) => {
     addServer({
       id: Date.now().toString(),
       displayName: config.name,
       type: 'custom',
       config: {
-        url: config.url,
+        url: config.url || undefined,
         description: config.description,
+        transport: config.transport,
+        headers: config.headers,
+        command: config.command,
+        args: config.args,
+        cwd: config.cwd,
+        env: config.env,
       },
     })
-    track(CUSTOM_MCP_ADDED_EVENT)
+    track(CUSTOM_MCP_ADDED_EVENT, {
+      transport: config.transport ?? 'http',
+    })
   }
 
   const availableServers = serversList?.servers.filter((eachServer) => {
@@ -272,11 +279,20 @@ export const ConnectMCP: FC = () => {
                     >
                       {server.type === 'managed' ? 'Built-in' : 'Custom'}
                     </span>
+                    {server.type === 'custom' && server.config?.transport && (
+                      <span className="rounded bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs uppercase">
+                        {server.config.transport}
+                      </span>
+                    )}
                   </div>
                   <p className="text-muted-foreground text-sm">
                     {server.managedServerDescription ||
                       server.config?.description ||
-                      server.config?.url}
+                      (server.config?.transport === 'stdio'
+                        ? [server.config.command, ...(server.config.args ?? [])]
+                            .filter(Boolean)
+                            .join(' ')
+                        : server.config?.url)}
                   </p>
                 </div>
                 {server.type === 'managed' &&

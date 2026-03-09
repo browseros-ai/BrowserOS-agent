@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 /**
  * @public
  */
+export type McpTransport = 'http' | 'sse' | 'stdio'
+
 export interface McpServer {
   id: string
   displayName: string
@@ -13,6 +15,12 @@ export interface McpServer {
   config?: {
     url?: string
     description?: string
+    transport?: McpTransport
+    headers?: Record<string, string>
+    command?: string
+    args?: string[]
+    cwd?: string
+    env?: Record<string, string>
   }
 }
 

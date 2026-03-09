@@ -27,15 +27,36 @@ export const TabSchema: z.ZodObject<{
 export type Tab = z.infer<typeof TabSchema>
 
 /**
- * Custom MCP server configuration schema
+ * Custom MCP server configuration schemas — one variant per transport type
  */
-export const CustomMcpServerSchema: z.ZodObject<{
-  name: z.ZodString
-  url: z.ZodString
-}> = z.object({
+const HttpMcpServerSchema = z.object({
+  transport: z.literal('http'),
   name: z.string(),
   url: z.string().url(),
+  headers: z.record(z.string()).optional(),
 })
+
+const SseMcpServerSchema = z.object({
+  transport: z.literal('sse'),
+  name: z.string(),
+  url: z.string().url(),
+  headers: z.record(z.string()).optional(),
+})
+
+const StdioMcpServerSchema = z.object({
+  transport: z.literal('stdio'),
+  name: z.string(),
+  command: z.string(),
+  args: z.array(z.string()).optional(),
+  cwd: z.string().optional(),
+  env: z.record(z.string()).optional(),
+})
+
+export const CustomMcpServerSchema = z.discriminatedUnion('transport', [
+  HttpMcpServerSchema,
+  SseMcpServerSchema,
+  StdioMcpServerSchema,
+])
 
 export type CustomMcpServer = z.infer<typeof CustomMcpServerSchema>
 
@@ -43,14 +64,7 @@ export type CustomMcpServer = z.infer<typeof CustomMcpServerSchema>
  * Browser context schema
  * Contains window, tab, and MCP server information for targeting browser operations
  */
-export const BrowserContextSchema: z.ZodObject<{
-  windowId: z.ZodOptional<z.ZodNumber>
-  activeTab: z.ZodOptional<typeof TabSchema>
-  selectedTabs: z.ZodOptional<z.ZodArray<typeof TabSchema>>
-  tabs: z.ZodOptional<z.ZodArray<typeof TabSchema>>
-  enabledMcpServers: z.ZodOptional<z.ZodArray<z.ZodString>>
-  customMcpServers: z.ZodOptional<z.ZodArray<typeof CustomMcpServerSchema>>
-}> = z.object({
+export const BrowserContextSchema = z.object({
   windowId: z.number().optional(),
   activeTab: TabSchema.optional(),
   selectedTabs: z.array(TabSchema).optional(),

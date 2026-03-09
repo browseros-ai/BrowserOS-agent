@@ -1,19 +1,26 @@
 import { createMCPClient } from '@ai-sdk/mcp'
+import { Experimental_StdioMCPTransport as StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { ToolSet } from 'ai'
 import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
-import {
-  detectMcpTransport,
-  type McpTransportType,
-} from '../lib/mcp-transport-detect'
 
-export interface McpServerSpec {
-  name: string
-  url: string
-  transport: McpTransportType
-  headers?: Record<string, string>
-}
+export type McpServerSpec =
+  | {
+      type: 'url'
+      name: string
+      url: string
+      transport: 'http' | 'sse'
+      headers?: Record<string, string>
+    }
+  | {
+      type: 'stdio'
+      name: string
+      command: string
+      args?: string[]
+      cwd?: string
+      env?: Record<string, string>
+    }
 
 export interface McpServerSpecDeps {
   browserContext?: BrowserContext
@@ -32,7 +39,7 @@ export async function buildMcpServerSpecs(
 ): Promise<McpServerSpec[]> {
   const specs: McpServerSpec[] = []
 
-  // Klavis Strata MCP servers
+  // Klavis Strata MCP servers (managed — still auto-detected)
   if (
     deps.browserosId &&
     deps.klavisClient &&
@@ -44,9 +51,10 @@ export async function buildMcpServerSpecs(
         deps.browserContext.enabledMcpServers,
       )
       specs.push({
+        type: 'url',
         name: 'klavis-strata',
         url: result.strataServerUrl,
-        transport: 'streamable-http',
+        transport: 'http',
       })
       logger.info('Added Klavis Strata MCP server', {
         browserosId: deps.browserosId.slice(0, 12),
@@ -59,18 +67,27 @@ export async function buildMcpServerSpecs(
     }
   }
 
-  // User-provided custom MCP servers
+  // User-provided custom MCP servers — transport is explicit, no probing
   if (deps.browserContext?.customMcpServers?.length) {
-    const servers = deps.browserContext.customMcpServers
-    const transports = await Promise.all(
-      servers.map((s) => detectMcpTransport(s.url)),
-    )
-    for (let i = 0; i < servers.length; i++) {
-      specs.push({
-        name: `custom-${servers[i].name}`,
-        url: servers[i].url,
-        transport: transports[i],
-      })
+    for (const server of deps.browserContext.customMcpServers) {
+      if (server.transport === 'stdio') {
+        specs.push({
+          type: 'stdio',
+          name: `custom-${server.name}`,
+          command: server.command,
+          args: server.args,
+          cwd: server.cwd,
+          env: server.env,
+        })
+      } else {
+        specs.push({
+          type: 'url',
+          name: `custom-${server.name}`,
+          url: server.url,
+          transport: server.transport,
+          headers: server.headers,
+        })
+      }
     }
   }
 
@@ -85,16 +102,34 @@ export async function createMcpClients(
   let tools: ToolSet = {}
 
   for (const spec of specs) {
-    const client = await createMCPClient({
-      transport: {
-        type: spec.transport === 'sse' ? 'sse' : 'http',
-        url: spec.url,
-        headers: spec.headers,
-      },
-    })
-    clients.push(client)
-    const clientTools = await client.tools()
-    tools = { ...tools, ...clientTools }
+    try {
+      const client =
+        spec.type === 'stdio'
+          ? await createMCPClient({
+              transport: new StdioMCPTransport({
+                command: spec.command,
+                args: spec.args,
+                env: spec.env,
+                cwd: spec.cwd,
+              }),
+            })
+          : await createMCPClient({
+              transport: {
+                type: spec.transport === 'sse' ? 'sse' : 'http',
+                url: spec.url,
+                headers: spec.headers,
+              },
+            })
+
+      clients.push(client)
+      const clientTools = await client.tools()
+      tools = { ...tools, ...clientTools }
+    } catch (error) {
+      logger.error('Failed to connect to MCP server', {
+        name: spec.name,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   return { clients, tools }

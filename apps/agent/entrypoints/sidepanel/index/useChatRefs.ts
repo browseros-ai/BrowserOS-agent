@@ -5,19 +5,54 @@ import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { type McpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 
+type CustomMcpServerPayload =
+  | {
+      transport: 'http' | 'sse'
+      name: string
+      url: string
+      headers?: Record<string, string>
+    }
+  | {
+      transport: 'stdio'
+      name: string
+      command: string
+      args?: string[]
+      cwd?: string
+      env?: Record<string, string>
+    }
+
 const constructMcpServers = (servers: McpServer[]) => {
   return servers
     .filter((eachServer) => eachServer.type === 'managed')
     .map((each) => each.managedServerName)
 }
 
-const constructCustomServers = (servers: McpServer[]) => {
+const constructCustomServers = (
+  servers: McpServer[],
+): CustomMcpServerPayload[] => {
   return servers
-    .filter((eachServer) => eachServer.type === 'custom')
-    .map((each) => ({
-      name: each.displayName,
-      url: each.config?.url,
-    }))
+    .filter((s) => s.type === 'custom')
+    .map((s): CustomMcpServerPayload => {
+      const transport = s.config?.transport ?? 'http'
+
+      if (transport === 'stdio') {
+        return {
+          transport: 'stdio',
+          name: s.displayName,
+          command: s.config?.command ?? '',
+          args: s.config?.args,
+          cwd: s.config?.cwd,
+          env: s.config?.env,
+        }
+      }
+
+      return {
+        transport,
+        name: s.displayName,
+        url: s.config?.url ?? '',
+        headers: s.config?.headers,
+      }
+    })
 }
 
 export const useChatRefs = () => {
