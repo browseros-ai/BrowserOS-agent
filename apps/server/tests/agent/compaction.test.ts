@@ -239,13 +239,13 @@ describe('computeConfig — summarization budgets', () => {
 // ---------------------------------------------------------------------------
 
 describe('estimateTokens', () => {
-  it('estimates text messages as chars/4', () => {
-    const msgs = [userMsg('a'.repeat(400))]
+  it('estimates text messages as chars/3', () => {
+    const msgs = [userMsg('a'.repeat(300))]
     expect(estimateTokens(msgs)).toBe(100)
   })
 
   it('estimates tool result text', () => {
-    const msgs = [toolResult('test', 'a'.repeat(800))]
+    const msgs = [toolResult('test', 'a'.repeat(600))]
     expect(estimateTokens(msgs)).toBe(200)
   })
 
@@ -253,12 +253,12 @@ describe('estimateTokens', () => {
     const obj = { key: 'a'.repeat(100) }
     const msgs = [toolResultJson('test', obj)]
     const serialized = JSON.stringify(obj)
-    expect(estimateTokens(msgs)).toBe(Math.ceil(serialized.length / 4))
+    expect(estimateTokens(msgs)).toBe(Math.ceil(serialized.length / 3))
   })
 
   it('counts images as 1000 tokens each', () => {
     const msgs = [userMsgWithImage('hello')]
-    const textTokens = Math.ceil('hello'.length / 4)
+    const textTokens = Math.ceil('hello'.length / 3)
     expect(estimateTokens(msgs)).toBe(textTokens + 1000)
   })
 
@@ -271,14 +271,14 @@ describe('estimateTokens', () => {
         { type: 'image', image: new Uint8Array([2]) },
       ],
     }
-    const textTokens = Math.ceil('compare these'.length / 4)
+    const textTokens = Math.ceil('compare these'.length / 3)
     expect(estimateTokens([msg])).toBe(textTokens + 2000)
   })
 
   it('handles tool call input', () => {
     const msgs = [assistantToolCall('navigate', { url: 'https://example.com' })]
     const expected = Math.ceil(
-      JSON.stringify({ url: 'https://example.com' }).length / 4,
+      JSON.stringify({ url: 'https://example.com' }).length / 3,
     )
     expect(estimateTokens(msgs)).toBe(expected)
   })

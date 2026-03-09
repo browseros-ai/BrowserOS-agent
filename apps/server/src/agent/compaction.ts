@@ -117,6 +117,7 @@ function estimateContentPart(part: Record<string, unknown>): {
   if ('type' in part && part.type === 'image') {
     return { chars: 0, images: 1 }
   }
+  // Tool output with {type, value} wrapper (AI SDK standard)
   if (
     'output' in part &&
     part.output &&
@@ -129,8 +130,23 @@ function estimateContentPart(part: Record<string, unknown>): {
       images: 0,
     }
   }
+  // Tool result field (may be string or object)
+  if ('result' in part) {
+    const result = part.result
+    if (typeof result === 'string') {
+      return { chars: result.length, images: 0 }
+    }
+    if (result != null) {
+      return { chars: JSON.stringify(result).length, images: 0 }
+    }
+  }
   if ('input' in part) {
     return { chars: JSON.stringify(part.input).length, images: 0 }
+  }
+  // Fallback: serialize the whole part to catch any unknown structure
+  const serialized = JSON.stringify(part)
+  if (serialized.length > 100) {
+    return { chars: serialized.length, images: 0 }
   }
   return { chars: 0, images: 0 }
 }
@@ -154,7 +170,7 @@ export function estimateTokens(
     }
   }
 
-  return Math.ceil(chars / 4) + imageCount * imageTokenEstimate
+  return Math.ceil(chars / 3) + imageCount * imageTokenEstimate
 }
 
 export interface StepWithUsage {
@@ -370,7 +386,7 @@ async function summarizeTurnPrefix(
 }
 
 // ---------------------------------------------------------------------------
-// Tool output truncation (unchanged from original)
+// Tool output truncation
 // ---------------------------------------------------------------------------
 
 export function truncateToolOutputs(
@@ -384,30 +400,23 @@ export function truncateToolOutputs(
       if (!('output' in part)) return part
 
       const output = part.output
-      if (output.type === 'text' && output.value.length > maxChars) {
-        return {
-          ...part,
-          output: {
-            ...output,
-            value: `${output.value.slice(0, maxChars)}\n\n[... truncated ${output.value.length - maxChars} characters]`,
-          },
-        }
-      }
+      if (!('value' in output)) return part
 
-      if (output.type === 'json') {
-        const serialized = JSON.stringify(output.value)
-        if (serialized.length > maxChars) {
-          return {
-            ...part,
-            output: {
-              type: 'text' as const,
-              value: `${serialized.slice(0, maxChars)}\n\n[... truncated ${serialized.length - maxChars} characters]`,
-            },
-          }
-        }
-      }
+      // Stringify value regardless of output.type (text, json, content, etc.)
+      const valStr =
+        typeof output.value === 'string'
+          ? output.value
+          : JSON.stringify(output.value)
 
-      return part
+      if (valStr.length <= maxChars) return part
+
+      return {
+        ...part,
+        output: {
+          type: 'text' as const,
+          value: `${valStr.slice(0, maxChars)}\n\n[... truncated ${valStr.length - maxChars} characters]`,
+        },
+      }
     })
 
     return { ...msg, content }
@@ -706,22 +715,25 @@ export function createCompactionPrepareStep(
       ? experimental_context
       : { existingSummary: null, compactionCount: 0 }
 
+    // Stage 0: Cap oversized tool outputs before any estimation or compaction.
+    const capped = truncateToolOutputs(messages, config.toolOutputMaxChars)
+
     // Stage 1: Check if compaction is needed using the current prompt as-is.
-    const currentTokens = getCurrentTokenCount(steps, messages, config)
+    const currentTokens = getCurrentTokenCount(steps, capped, config)
     const triggerThreshold = config.triggerThreshold
 
     if (currentTokens <= triggerThreshold) {
-      return { messages, experimental_context: state }
+      return { messages: capped, experimental_context: state }
     }
 
     logger.warn('Context approaching limit, attempting compaction', {
       currentTokens,
       triggerThreshold: Math.floor(triggerThreshold),
-      messageCount: messages.length,
+      messageCount: capped.length,
     })
 
     // Stage 2: LLM-based compaction with sliding window fallback
-    const compacted = await compactMessages(model, messages, config, state)
+    const compacted = await compactMessages(model, capped, config, state)
     return { messages: compacted, experimental_context: state }
   }
 }
