@@ -19,6 +19,11 @@ export function getCoreMemoryPath(): string {
   return join(getMemoryDir(), PATHS.CORE_MEMORY_FILE_NAME)
 }
 
+export function getSkillsDir(): string {
+  return join(getBrowserosDir(), PATHS.SKILLS_DIR_NAME)
+}
+
 export async function ensureBrowserosDir(): Promise<void> {
   await mkdir(getMemoryDir(), { recursive: true })
+  await mkdir(getSkillsDir(), { recursive: true })
 }

@@ -24,6 +24,7 @@ import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 import { SearchProviderPage } from './search-provider/SearchProviderPage'
+import { SkillsPage } from './skills/SkillsPage'
 import { SoulPage } from './soul/SoulPage'
 import { WorkflowsPageWrapper } from './workflows/WorkflowsPageWrapper'
 
@@ -95,6 +96,7 @@ export const App: FC = () => {
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="search" element={<SearchProviderPage />} />
             <Route path="soul" element={<SoulPage />} />
+            <Route path="skills" element={<SkillsPage />} />
             <Route path="survey" element={<SurveyPage {...surveyParams} />} />
           </Route>
         </Route>

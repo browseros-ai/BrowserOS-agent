@@ -9,6 +9,7 @@ import {
   Search,
   Server,
   Sparkles,
+  Wand2,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -41,6 +42,7 @@ const settingsNavItems: NavItem[] = [
     icon: Sparkles,
     feature: Feature.SOUL_SUPPORT,
   },
+  { name: 'Skills', to: '/settings/skills', icon: Wand2 },
   { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]

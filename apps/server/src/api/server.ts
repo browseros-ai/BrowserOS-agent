@@ -24,6 +24,7 @@ import { createMcpRoutes } from './routes/mcp'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
+import { createSkillsRoutes } from './routes/skills'
 import { createSoulRoutes } from './routes/soul'
 import { createStatusRoute } from './routes/status'
 import {
@@ -107,6 +108,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     )
     .route('/status', createStatusRoute({ controller }))
     .route('/soul', createSoulRoutes())
+    .route('/skills', createSkillsRoutes())
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(
