@@ -21,7 +21,22 @@ CREATE TABLE IF NOT EXISTS identity (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`
 
+const TWEEKS_TABLE = `
+CREATE TABLE IF NOT EXISTS tweeks (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  domain TEXT NOT NULL,
+  url_pattern TEXT NOT NULL,
+  script TEXT NOT NULL,
+  script_type TEXT NOT NULL DEFAULT 'js',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`
+
 export function initSchema(db: Database): void {
   db.exec(RATE_LIMITER_TABLE)
   db.exec(IDENTITY_TABLE)
+  db.exec(TWEEKS_TABLE)
 }

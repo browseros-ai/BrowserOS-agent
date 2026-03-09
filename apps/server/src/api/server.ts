@@ -26,6 +26,7 @@ import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
 import { createSoulRoutes } from './routes/soul'
 import { createStatusRoute } from './routes/status'
+import { createTweeksRoutes } from './routes/tweeks'
 import {
   connectKlavisProxy,
   type KlavisProxyHandle,
@@ -144,6 +145,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         codegenServiceUrl: config.codegenServiceUrl,
       }),
     )
+    .route('/tweeks', createTweeksRoutes())
 
   // Error handler
   app.onError((err, c) => {

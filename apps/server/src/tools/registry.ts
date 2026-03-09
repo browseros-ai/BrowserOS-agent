@@ -60,6 +60,13 @@ import {
 } from './tab-groups'
 import { createRegistry } from './tool-registry'
 import {
+  apply_tweek,
+  create_tweek,
+  delete_tweek,
+  list_tweeks,
+  toggle_tweek,
+} from './tweeks'
+import {
   activate_window,
   close_window,
   create_hidden_window,
@@ -140,4 +147,11 @@ export const registry = createRegistry([
 
   // Info (1)
   browseros_info,
+
+  // Tweeks (5)
+  create_tweek,
+  list_tweeks,
+  apply_tweek,
+  toggle_tweek,
+  delete_tweek,
 ])
