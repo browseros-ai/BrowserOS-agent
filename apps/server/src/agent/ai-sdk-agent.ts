@@ -46,13 +46,14 @@ export class AiSdkAgent {
       AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
 
     // Build language model with overflow protection middleware
-    const rawModel = createLanguageModel(
-      config.resolvedConfig,
-    ) as LanguageModelV3
-    const model = wrapLanguageModel({
-      model: rawModel,
-      middleware: createContextOverflowMiddleware(contextWindow),
-    })
+    const rawModel = createLanguageModel(config.resolvedConfig)
+    const model =
+      (rawModel as any).specificationVersion === 'v3'
+        ? wrapLanguageModel({
+            model: rawModel as LanguageModelV3,
+            middleware: createContextOverflowMiddleware(contextWindow),
+          })
+        : rawModel
 
     // Build browser tools from the unified tool registry
     const allBrowserTools = buildBrowserToolSet(config.registry, config.browser)

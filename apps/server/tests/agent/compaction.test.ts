@@ -14,7 +14,10 @@ import {
   buildTurnPrefixPrompt,
   messagesToTranscript,
 } from '../../src/agent/compaction-prompt'
-import { createContextOverflowMiddleware } from '../../src/agent/context-overflow-middleware'
+import {
+  createContextOverflowMiddleware,
+  isContextOverflowError,
+} from '../../src/agent/context-overflow-middleware'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -982,15 +985,20 @@ describe('createContextOverflowMiddleware', () => {
     expect(result).toEqual({ stream: 'mock-stream' })
   })
 
-  it('detects various context length error messages', async () => {
+  it('detects provider-specific context overflow errors', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
     const errorMessages = [
-      'context_length_exceeded',
-      'This request is too long',
-      'maximum context length is 128000',
-      'token limit exceeded',
-      'exceeds the model maximum',
-      'max_tokens exceeded',
+      'context_length_exceeded', // Generic
+      'prompt is too long: 213462 tokens > 200000 maximum', // Anthropic
+      'Your input exceeds the context window of this model', // OpenAI
+      'The input token count (1196265) exceeds the maximum number of tokens allowed', // Google
+      "This model's maximum prompt length is 131072 but the request contains 537812 tokens", // xAI
+      'Please reduce the length of the messages or completion', // Groq
+      'maximum context length is 128000 tokens', // OpenRouter
+      'token limit exceeded', // Generic
+      'too many tokens', // Generic
+      'exceeded model token limit', // Kimi
+      'input is too long for requested model', // Amazon Bedrock
     ]
 
     for (const errMsg of errorMessages) {
@@ -1010,5 +1018,48 @@ describe('createContextOverflowMiddleware', () => {
 
       expect(callCount).toBe(2)
     }
+  })
+
+  it('does not false-positive on unrelated errors', () => {
+    const unrelatedErrors = [
+      'URL is too long',
+      'Invalid max_tokens: must be between 1 and 4096',
+      'session token is too long',
+      'file name is too long',
+      'network timeout',
+      'rate limit exceeded',
+    ]
+
+    for (const errMsg of unrelatedErrors) {
+      expect(isContextOverflowError(new Error(errMsg))).toBe(false)
+    }
+  })
+
+  it('keeps at least the last non-system message when it exceeds target', async () => {
+    const middleware = createContextOverflowMiddleware(1_000)
+    let truncatedPrompt: any[] = []
+    const params = {
+      prompt: [
+        { role: 'system', content: 'system' },
+        { role: 'user', content: 'x'.repeat(100_000) },
+      ],
+    }
+
+    await middleware.wrapGenerate!({
+      doGenerate: async () => {
+        if (truncatedPrompt.length === 0) {
+          truncatedPrompt = [...params.prompt]
+          throw new Error('context_length_exceeded')
+        }
+        truncatedPrompt = [...params.prompt]
+        return { text: 'ok' }
+      },
+      params,
+    } as any)
+
+    // Must keep system + at least the last user message (not empty)
+    expect(truncatedPrompt.length).toBe(2)
+    expect(truncatedPrompt[0].role).toBe('system')
+    expect(truncatedPrompt[1].role).toBe('user')
   })
 })

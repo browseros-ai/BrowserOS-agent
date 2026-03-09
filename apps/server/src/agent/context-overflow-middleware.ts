@@ -6,17 +6,36 @@ import type {
 } from '@ai-sdk/provider'
 import { logger } from '../lib/logger'
 
-function isContextLengthError(error: unknown): boolean {
+/**
+ * Provider-specific regex patterns for context overflow errors.
+ * Adapted from Pi coding agent's overflow detection.
+ *
+ * @see https://github.com/badlogic/pi-mono/blob/main/packages/ai/src/utils/overflow.ts
+ */
+const OVERFLOW_PATTERNS: RegExp[] = [
+  /prompt is too long/i, // Anthropic
+  /input is too long for requested model/i, // Amazon Bedrock
+  /exceeds the context window/i, // OpenAI (Completions & Responses API)
+  /input token count.*exceeds the maximum/i, // Google (Gemini)
+  /maximum prompt length is \d+/i, // xAI (Grok)
+  /reduce the length of the messages/i, // Groq
+  /maximum context length is \d+ tokens/i, // OpenRouter (all backends)
+  /exceeds the limit of \d+/i, // GitHub Copilot
+  /exceeds the available context size/i, // llama.cpp server
+  /greater than the context length/i, // LM Studio
+  /context window exceeds limit/i, // MiniMax
+  /exceeded model token limit/i, // Kimi For Coding
+  /too large for model with \d+ maximum context length/i, // Mistral
+  /model_context_window_exceeded/i, // z.ai non-standard finish_reason
+  /context[_ ]length[_ ]exceeded/i, // Generic fallback
+  /too many tokens/i, // Generic fallback
+  /token limit exceeded/i, // Generic fallback
+]
+
+export function isContextOverflowError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
-  const msg = error.message.toLowerCase()
-  return (
-    msg.includes('context_length') ||
-    msg.includes('too long') ||
-    msg.includes('maximum context length') ||
-    msg.includes('token limit') ||
-    msg.includes('exceeds the model') ||
-    msg.includes('max_tokens')
-  )
+  const msg = error.message
+  return OVERFLOW_PATTERNS.some((p) => p.test(msg))
 }
 
 function truncatePrompt(
@@ -41,6 +60,11 @@ function truncatePrompt(
     keepFrom = i
   }
 
+  // Always keep at least the most recent non-system message
+  if (keepFrom >= nonSystem.length && nonSystem.length > 0) {
+    keepFrom = nonSystem.length - 1
+  }
+
   const kept: LanguageModelV3Prompt = [
     ...systemMessages,
     ...nonSystem.slice(keepFrom),
@@ -62,7 +86,7 @@ export function createContextOverflowMiddleware(
       try {
         return await doGenerate()
       } catch (error) {
-        if (!isContextLengthError(error)) throw error
+        if (!isContextOverflowError(error)) throw error
         logger.warn(
           'Context overflow detected in doGenerate, truncating and retrying',
         )
@@ -77,7 +101,7 @@ export function createContextOverflowMiddleware(
       try {
         return await doStream()
       } catch (error) {
-        if (!isContextLengthError(error)) throw error
+        if (!isContextOverflowError(error)) throw error
         logger.warn(
           'Context overflow detected in doStream, truncating and retrying',
         )
