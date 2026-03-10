@@ -4,6 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createReadTool } from '../../../src/tools/filesystem/read'
 import type { FilesystemToolResult } from '../../../src/tools/filesystem/utils'
+import {
+  MAX_READ_CHARS,
+  MAX_READ_LINES,
+} from '../../../src/tools/filesystem/utils'
 
 let tmpDir: string
 let exec: (params: Record<string, unknown>) => Promise<FilesystemToolResult>
@@ -104,15 +108,37 @@ describe('filesystem_read', () => {
     expect(result.text).toContain('absolute')
   })
 
-  it('truncates large files', async () => {
+  it('errors when a read would exceed the line limit', async () => {
     const manyLines = Array.from(
-      { length: 5000 },
+      { length: MAX_READ_LINES + 50 },
       (_, i) => `line ${i + 1}`,
     ).join('\n')
     await writeFile(join(tmpDir, 'large.txt'), manyLines)
     const result = await exec({ path: 'large.txt' })
-    expect(result.text).toContain('offset=')
-    expect(result.text).toContain('to continue reading')
+    expect(result.isError).toBe(true)
+    expect(result.text).toContain(`${MAX_READ_LINES}-line limit`)
+  })
+
+  it('errors when the requested limit exceeds the maximum allowed lines', async () => {
+    const manyLines = Array.from(
+      { length: 50 },
+      (_, i) => `line ${i + 1}`,
+    ).join('\n')
+    await writeFile(join(tmpDir, 'limited.txt'), manyLines)
+    const result = await exec({
+      path: 'limited.txt',
+      limit: MAX_READ_LINES + 1,
+    })
+    expect(result.isError).toBe(true)
+    expect(result.text).toContain(`at most ${MAX_READ_LINES} lines`)
+  })
+
+  it('errors when a requested range exceeds the character limit', async () => {
+    const longLine = 'x'.repeat(MAX_READ_CHARS + 100)
+    await writeFile(join(tmpDir, 'chars.txt'), longLine)
+    const result = await exec({ path: 'chars.txt', limit: 1 })
+    expect(result.isError).toBe(true)
+    expect(result.text).toContain(`${MAX_READ_CHARS}-character limit`)
   })
 
   it('handles files with UTF-8 BOM', async () => {

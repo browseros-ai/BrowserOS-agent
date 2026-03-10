@@ -1,5 +1,7 @@
+import { TOOL_LIMITS } from '@browseros/shared/constants/limits'
 import { z } from 'zod'
 import { defineTool } from './framework'
+import { writeToolOutputFile } from './output-file'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 
@@ -40,7 +42,7 @@ export const take_enhanced_snapshot = defineTool({
 export const get_page_content = defineTool({
   name: 'get_page_content',
   description:
-    'Extract page content as clean markdown with headers, links, lists, tables, and formatting preserved. Use for reading articles, understanding page content, or extracting data. Not for automation — use take_snapshot for that.',
+    'Extract page content as clean markdown with headers, links, lists, tables, and formatting preserved. Large results are written to a local file and returned by path. Not for automation — use take_snapshot for that.',
   input: z.object({
     page: pageParam,
     selector: z
@@ -63,11 +65,14 @@ export const get_page_content = defineTool({
       .describe('Include image references as ![alt](src)'),
   }),
   output: z.object({
-    content: z.string(),
+    content: z.string().optional(),
+    path: z.string().optional(),
+    contentLength: z.number(),
     selector: z.string().optional(),
     viewportOnly: z.boolean(),
     includeLinks: z.boolean(),
     includeImages: z.boolean(),
+    writtenToFile: z.boolean(),
   }),
   handler: async (args, ctx, response) => {
     const text = await ctx.browser.contentAsMarkdown(args.page, {
@@ -76,13 +81,48 @@ export const get_page_content = defineTool({
       includeLinks: args.includeLinks,
       includeImages: args.includeImages,
     })
-    response.text(text || 'No text content found.')
+    if (!text) {
+      response.text('No text content found.')
+      response.data({
+        content: '',
+        contentLength: 0,
+        selector: args.selector,
+        viewportOnly: args.viewportOnly,
+        includeLinks: args.includeLinks,
+        includeImages: args.includeImages,
+        writtenToFile: false,
+      })
+      return
+    }
+
+    if (text.length > TOOL_LIMITS.INLINE_PAGE_CONTENT_MAX_CHARS) {
+      const path = await writeToolOutputFile({
+        toolName: 'get-page-content',
+        extension: 'md',
+        content: text,
+      })
+      response.text(`Saved page content to ${path}`)
+      response.data({
+        path,
+        contentLength: text.length,
+        selector: args.selector,
+        viewportOnly: args.viewportOnly,
+        includeLinks: args.includeLinks,
+        includeImages: args.includeImages,
+        writtenToFile: true,
+      })
+      return
+    }
+
+    response.text(text)
     response.data({
-      content: text || '',
+      content: text,
+      contentLength: text.length,
       selector: args.selector,
       viewportOnly: args.viewportOnly,
       includeLinks: args.includeLinks,
       includeImages: args.includeImages,
+      writtenToFile: false,
     })
   },
 })

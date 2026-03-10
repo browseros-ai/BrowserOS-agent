@@ -1,6 +1,7 @@
 import type { Dirent } from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { join, relative } from 'node:path'
+import { TOOL_LIMITS } from '@browseros/shared/constants/limits'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 
@@ -12,6 +13,8 @@ export const DEFAULT_FIND_LIMIT = 1000
 export const DEFAULT_LS_LIMIT = 500
 export const DEFAULT_BASH_TIMEOUT = 120
 export const MAX_GREP_FILE_SIZE = 2 * 1024 * 1024
+export const MAX_READ_LINES = TOOL_LIMITS.FILESYSTEM_READ_MAX_LINES
+export const MAX_READ_CHARS = TOOL_LIMITS.FILESYSTEM_READ_MAX_CHARS
 
 export interface FilesystemToolResult {
   text: string
