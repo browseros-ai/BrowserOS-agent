@@ -3,10 +3,11 @@ import { join, resolve } from 'node:path'
 import matter from 'gray-matter'
 import { getSkillsDir } from '../lib/browseros-dir'
 import { logger } from '../lib/logger'
-import { loadAllSkills } from './loader'
+import { isValidFrontmatter, loadAllSkills } from './loader'
 import type {
   CreateSkillInput,
   SkillDetail,
+  SkillFrontmatter,
   SkillMeta,
   UpdateSkillInput,
 } from './types'
@@ -28,10 +29,7 @@ function safeSkillDir(id: string): string {
   return resolved
 }
 
-function buildSkillMd(
-  frontmatter: Record<string, unknown>,
-  content: string,
-): string {
+function buildSkillMd(frontmatter: SkillFrontmatter, content: string): string {
   return matter.stringify(content, frontmatter)
 }
 
@@ -54,16 +52,22 @@ export async function getSkill(id: string): Promise<SkillDetail | null> {
 
   try {
     const raw = await readFile(skillMdPath, 'utf-8')
-    const { data, content } = matter(raw)
+    const parsed = matter(raw)
 
+    if (!isValidFrontmatter(parsed.data)) {
+      logger.warn('Skill has invalid frontmatter', { id })
+      return null
+    }
+
+    const meta = parsed.data.metadata
     return {
       id,
-      name: (data.name as string) || id,
-      description: (data.description as string) || '',
+      name: meta?.['display-name'] || parsed.data.name,
+      description: parsed.data.description,
       location: skillMdPath,
-      enabled: data.enabled !== false,
-      version: typeof data.version === 'string' ? data.version : undefined,
-      content: content.trim(),
+      enabled: meta?.enabled !== 'false',
+      version: meta?.version,
+      content: parsed.content.trim(),
     }
   } catch (err) {
     logger.warn('Failed to read skill', {
@@ -84,10 +88,13 @@ export async function createSkill(input: CreateSkillInput): Promise<SkillMeta> {
   }
 
   await mkdir(dirPath, { recursive: true })
-  const frontmatter = {
-    name: input.name,
+  const frontmatter: SkillFrontmatter = {
+    name: id,
     description: input.description,
-    enabled: true,
+    metadata: {
+      'display-name': input.name,
+      enabled: 'true',
+    },
   }
   await writeFile(
     join(dirPath, 'SKILL.md'),
@@ -107,33 +114,45 @@ export async function updateSkill(
   id: string,
   input: UpdateSkillInput,
 ): Promise<SkillMeta> {
-  const existing = await getSkill(id)
-  if (!existing) throw new Error(`Skill "${id}" not found`)
-
-  const name = input.name ?? existing.name
-  const description = input.description ?? existing.description
-  const content = input.content ?? existing.content
-  const enabled = input.enabled ?? existing.enabled
-
-  const frontmatter: Record<string, unknown> = {
-    name,
-    description,
-    enabled,
+  const skillMdPath = join(safeSkillDir(id), 'SKILL.md')
+  if (!(await fileExists(skillMdPath))) {
+    throw new Error(`Skill "${id}" not found`)
   }
-  if (existing.version) frontmatter.version = existing.version
 
-  await writeFile(
-    join(safeSkillDir(id), 'SKILL.md'),
-    buildSkillMd(frontmatter, content),
-  )
+  const raw = await readFile(skillMdPath, 'utf-8')
+  const parsed = matter(raw)
+  if (!isValidFrontmatter(parsed.data)) {
+    throw new Error(`Skill "${id}" has invalid frontmatter`)
+  }
+
+  const existing = parsed.data
+  const existingMeta = existing.metadata ?? {}
+  const displayName =
+    input.name ?? existingMeta['display-name'] ?? existing.name
+  const description = input.description ?? existing.description
+  const content = input.content ?? parsed.content.trim()
+  const enabled = input.enabled ?? existingMeta.enabled !== 'false'
+
+  const frontmatter: SkillFrontmatter = {
+    ...existing,
+    name: id,
+    description,
+    metadata: {
+      ...existingMeta,
+      'display-name': displayName,
+      enabled: String(enabled),
+    },
+  }
+
+  await writeFile(skillMdPath, buildSkillMd(frontmatter, content))
 
   return {
     id,
-    name,
+    name: displayName,
     description,
-    location: existing.location,
+    location: skillMdPath,
     enabled,
-    version: existing.version,
+    version: existingMeta.version,
   }
 }
 

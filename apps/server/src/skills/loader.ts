@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import matter from 'gray-matter'
 import { logger } from '../lib/logger'
-import type { SkillMeta } from './types'
+import type { SkillFrontmatter, SkillMeta } from './types'
 
 async function isDirectory(dirPath: string): Promise<boolean> {
   try {
@@ -13,6 +13,17 @@ async function isDirectory(dirPath: string): Promise<boolean> {
   }
 }
 
+export function isValidFrontmatter(data: unknown): data is SkillFrontmatter {
+  if (typeof data !== 'object' || data === null) return false
+  const d = data as Record<string, unknown>
+  return (
+    typeof d.name === 'string' &&
+    d.name.length > 0 &&
+    typeof d.description === 'string' &&
+    d.description.length > 0
+  )
+}
+
 async function parseSkillFile(
   skillMdPath: string,
   dirName: string,
@@ -21,12 +32,7 @@ async function parseSkillFile(
     const content = await readFile(skillMdPath, 'utf-8')
     const { data } = matter(content)
 
-    if (
-      !data.name ||
-      typeof data.name !== 'string' ||
-      !data.description ||
-      typeof data.description !== 'string'
-    ) {
+    if (!isValidFrontmatter(data)) {
       logger.warn('Skill missing required frontmatter fields', {
         path: skillMdPath,
         dirName,
@@ -34,13 +40,14 @@ async function parseSkillFile(
       return null
     }
 
+    const meta = data.metadata
     return {
       id: dirName,
-      name: data.name,
+      name: meta?.['display-name'] || data.name,
       description: data.description,
       location: skillMdPath,
-      enabled: data.enabled !== false,
-      version: typeof data.version === 'string' ? data.version : undefined,
+      enabled: meta?.enabled !== 'false',
+      version: meta?.version,
     }
   } catch (err) {
     logger.warn('Failed to parse skill', {
