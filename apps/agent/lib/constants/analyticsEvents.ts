@@ -208,6 +208,22 @@ export const ONBOARDING_FEATURE_CLICKED_EVENT = 'onboarding.feature.clicked'
 export const ONBOARDING_COMPLETED_EVENT = 'onboarding.completed'
 
 /** @public */
+export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
+
+/** @public */
+export const BREADCRUMB_CONNECT_CLICKED_EVENT = 'breadcrumb.connect.clicked'
+
+/** @public */
+export const BREADCRUMB_CONNECT_MANUAL_EVENT = 'breadcrumb.connect.manual'
+
+/** @public */
+export const BREADCRUMB_CONNECT_COMPLETED_EVENT = 'breadcrumb.connect.completed'
+
+/** @public */
+export const BREADCRUMB_SCHEDULE_DISMISSED_EVENT =
+  'breadcrumb.schedule.dismissed'
+
+/** @public */
 export const KIMI_API_KEY_CONFIGURED_EVENT = 'settings.kimi.api_key_configured'
 
 /** @public */

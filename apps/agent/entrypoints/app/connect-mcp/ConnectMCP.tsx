@@ -7,6 +7,7 @@ import {
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
@@ -56,6 +57,8 @@ export const ConnectMCP: FC = () => {
     isLoading: isUserMCPIntegrationsLoading,
     mutate: mutateUserIntegrations,
   } = useGetUserMCPIntegrations()
+
+  useSyncRemoteIntegrations()
 
   const openAuthUrlForMCP = async (mcpName: string) => {
     try {

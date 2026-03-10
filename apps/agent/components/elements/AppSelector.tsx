@@ -23,6 +23,7 @@ import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetU
 import { useSubmitApiKey } from '@/entrypoints/app/connect-mcp/useSubmitApiKey'
 import { MANAGED_MCP_ADDED_EVENT } from '@/lib/constants/analyticsEvents'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 
@@ -43,6 +44,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
   } | null>(null)
 
   const { servers: createdServers, addServer } = useMcpServers()
+  useSyncRemoteIntegrations()
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const { trigger: submitApiKeyMutation, isMutating: isSubmittingApiKey } =
     useSubmitApiKey()

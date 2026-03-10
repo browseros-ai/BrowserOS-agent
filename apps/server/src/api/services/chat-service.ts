@@ -58,10 +58,39 @@ export class ChatService {
       supportsImages: request.supportsImages,
       chatMode: request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,
+      declinedApps: request.declinedApps,
     }
 
     let session = sessionStore.get(request.conversationId)
     let isNewSession = false
+
+    // Build a stable key from enabled MCP servers for change detection
+    const mcpServerKey = this.buildMcpServerKey(request.browserContext)
+
+    // Detect MCP config change mid-conversation → rebuild session
+    if (session && session.mcpServerKey !== mcpServerKey) {
+      logger.info('MCP servers changed mid-conversation, rebuilding session', {
+        conversationId: request.conversationId,
+        previous: session.mcpServerKey,
+        current: mcpServerKey,
+      })
+      const previousMessages = session.agent.messages
+      await session.agent.dispose()
+      sessionStore.remove(request.conversationId)
+
+      const browserContext = await this.resolvePageIds(request.browserContext)
+      const agent = await AiSdkAgent.create({
+        resolvedConfig: agentConfig,
+        browser: this.deps.browser,
+        registry: this.deps.registry,
+        browserContext,
+        klavisClient: this.deps.klavisClient,
+        browserosId: this.deps.browserosId,
+      })
+      session = { agent, browserContext, mcpServerKey }
+      session.agent.messages = previousMessages
+      sessionStore.set(request.conversationId, session)
+    }
 
     if (!session) {
       isNewSession = true
@@ -104,7 +133,7 @@ export class ChatService {
         klavisClient: this.deps.klavisClient,
         browserosId: this.deps.browserosId,
       })
-      session = { agent, hiddenWindowId, browserContext }
+      session = { agent, hiddenWindowId, browserContext, mcpServerKey }
       sessionStore.set(request.conversationId, session)
     }
 
@@ -220,6 +249,13 @@ export class ChatService {
         error: error instanceof Error ? error.message : String(error),
       })
     })
+  }
+
+  private buildMcpServerKey(browserContext?: BrowserContext): string {
+    const managed = browserContext?.enabledMcpServers?.slice().sort() ?? []
+    const custom =
+      browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
+    return [...managed, ...custom].join(',')
   }
 
   private async resolveSessionDir(request: ChatRequest): Promise<string> {

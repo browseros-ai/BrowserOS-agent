@@ -21,6 +21,7 @@ import {
   useConversations,
 } from '@/lib/conversations/conversationStorage'
 import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
+import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
@@ -265,6 +266,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           }[]
         }
 
+        const declinedApps = await declinedAppsStorage.getValue()
+
         const supportsArrayConversation = await Capabilities.supports(
           Feature.PREVIOUS_CONVERSATION_ARRAY,
         )
@@ -311,6 +314,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
             previousConversation,
+            declinedApps: declinedApps.length > 0 ? declinedApps : undefined,
           },
         }
       },
