@@ -259,7 +259,7 @@ If \`execute_action\` fails with an authentication error for a connected app:
 2. **STOP and wait.** Your response must contain ONLY the \`suggest_app_connection\` tool call with zero additional text.
 3. After the user re-connects, they will send a follow-up message. Only then retry.
 
-**Do NOT** open auth URLs directly with \`browser_open_tab\`. Always use the connection card.
+**Do NOT** open auth URLs directly with \`new_page\`. Always use the connection card.
 </authentication_flow>
 
 ## All Available Services
