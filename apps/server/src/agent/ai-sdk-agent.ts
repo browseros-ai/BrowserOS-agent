@@ -4,6 +4,7 @@ import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import {
   stepCountIs,
   ToolLoopAgent,
+  type ToolSet,
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
@@ -23,6 +24,7 @@ import { createContextOverflowMiddleware } from './context-overflow-middleware'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
+import { createDelegateTaskTool } from './sub-agent'
 import { buildBrowserToolSet } from './tool-adapter'
 import type { ResolvedAgentConfig } from './types'
 
@@ -88,7 +90,7 @@ export class AiSdkAgent {
     const memoryTools = config.resolvedConfig.chatMode
       ? {}
       : buildMemoryToolSet()
-    const tools = {
+    const tools: ToolSet = {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
@@ -121,6 +123,16 @@ export class AiSdkAgent {
       chatMode: config.resolvedConfig.chatMode,
       skillsCatalog,
     })
+
+    // Add sub-agent delegation tool — exact replica of parent, fresh context
+    if (!config.resolvedConfig.chatMode) {
+      tools.delegate_task = createDelegateTaskTool({
+        model,
+        instructions,
+        parentTools: tools,
+        contextWindow,
+      })
+    }
 
     // Configure compaction for context window management
     const prepareStep = createCompactionPrepareStep({
