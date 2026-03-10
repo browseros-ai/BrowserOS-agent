@@ -1,29 +1,33 @@
 import { describe, expect, it } from 'bun:test'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import type { ModelMessage, ToolResultPart } from 'ai'
 import {
-  clearToolOutputs,
   computeConfig,
   estimateTokens,
   findSafeSplitPoint,
   getCurrentTokenCount,
+  reduceToolOutputs,
   type StepWithUsage,
   slidingWindow,
-  truncateToolOutputs,
 } from '../../src/agent/compaction'
 import {
   countBinaryParts,
   stripBinaryContent,
-} from '../../src/agent/compaction-content'
+} from '../../src/agent/compaction/content'
 import {
   buildSummarizationPrompt,
   buildTurnPrefixPrompt,
   messagesToTranscript,
-} from '../../src/agent/compaction-prompt'
+} from '../../src/agent/compaction/prompt'
 import {
   createContextOverflowMiddleware,
   isContextOverflowError,
 } from '../../src/agent/context-overflow-middleware'
+import {
+  getMessageNormalizationOptions,
+  normalizeMessagesForModel,
+} from '../../src/agent/message-normalization'
 
 const {
   COMPACTION_RESERVE_TOKENS,
@@ -186,6 +190,23 @@ function userMsgWithImage(text: string): ModelMessage {
 
 function repeat(char: string, count: number): string {
   return char.repeat(count)
+}
+
+function agentConfig(
+  overrides: Partial<{
+    provider: string
+    model: string
+    upstreamProvider: string
+    supportsImages: boolean
+  }> = {},
+) {
+  return {
+    conversationId: 'test-conversation',
+    provider: LLM_PROVIDERS.OPENROUTER,
+    model: 'moonshotai/kimi-k2.5',
+    sessionExecutionDir: '/tmp/browseros-tests',
+    ...overrides,
+  }
 }
 
 // Build a realistic browser automation conversation
@@ -395,6 +416,144 @@ describe('stripBinaryContent', () => {
     expect(output.value).toContain('[File: report.pdf]')
     expect(output.value).not.toContain('abcd')
     expect(output.value).not.toContain('efgh')
+  })
+})
+
+describe('getMessageNormalizationOptions', () => {
+  it('marks openrouter-compatible transports as requiring normalization', () => {
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({ provider: LLM_PROVIDERS.OPENROUTER }),
+      ).supportsMediaInToolResults,
+    ).toBe(false)
+
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({
+          provider: LLM_PROVIDERS.BROWSEROS,
+          upstreamProvider: LLM_PROVIDERS.OPENAI,
+        }),
+      ).supportsMediaInToolResults,
+    ).toBe(false)
+  })
+
+  it('keeps native anthropic and openai transports unchanged', () => {
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({ provider: LLM_PROVIDERS.ANTHROPIC }),
+      ).supportsMediaInToolResults,
+    ).toBe(true)
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({ provider: LLM_PROVIDERS.OPENAI }),
+      ).supportsMediaInToolResults,
+    ).toBe(true)
+  })
+})
+
+describe('normalizeMessagesForModel', () => {
+  it('moves screenshot media into a follow-up user message for incompatible providers', () => {
+    const messages = [
+      assistantToolCall('snapshot', { page: 2 }),
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'abcd',
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+
+    const normalized = normalizeMessagesForModel(messages, {
+      supportsImages: true,
+      supportsMediaInToolResults: false,
+    })
+
+    expect(normalized).toHaveLength(3)
+
+    const toolMessage = normalized[1]
+    expect(toolMessage.role).toBe('tool')
+    const output = (toolMessage.content as ToolResultPart[])[0].output
+    expect(output.type).toBe('text')
+    if (output.type === 'text') {
+      expect(output.value).toContain('Captured screenshot')
+      expect(output.value).toContain('[Image]')
+      expect(output.value).not.toContain('abcd')
+    }
+
+    const mediaMessage = normalized[2]
+    expect(mediaMessage.role).toBe('user')
+    expect(Array.isArray(mediaMessage.content)).toBe(true)
+    if (Array.isArray(mediaMessage.content)) {
+      expect(mediaMessage.content[0]).toEqual({
+        type: 'text',
+        text: 'Attached image(s) from tool result:',
+      })
+      expect(mediaMessage.content[1]).toEqual({
+        type: 'image',
+        image: 'abcd',
+        mediaType: 'image/png',
+      })
+    }
+  })
+
+  it('keeps media out of the prompt when the model does not support image input', () => {
+    const messages = [
+      assistantToolCall('snapshot', { page: 2 }),
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'abcd',
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+
+    const normalized = normalizeMessagesForModel(messages, {
+      supportsImages: false,
+      supportsMediaInToolResults: false,
+    })
+
+    expect(normalized).toHaveLength(2)
+    const output = (normalized[1].content as ToolResultPart[])[0].output
+    expect(output.type).toBe('text')
+  })
+
+  it('converts generic file attachments into follow-up user file parts', () => {
+    const messages = [
+      assistantToolCall('fetch_report', { id: 'report-1' }),
+      toolResultContent('fetch_report', [
+        { type: 'text', text: 'Downloaded report' },
+        {
+          type: 'file-data',
+          data: 'cGRm',
+          mediaType: 'application/pdf',
+          filename: 'report.pdf',
+        },
+      ]),
+    ]
+
+    const normalized = normalizeMessagesForModel(messages, {
+      supportsImages: true,
+      supportsMediaInToolResults: false,
+    })
+
+    expect(normalized).toHaveLength(3)
+    expect(normalized[2].role).toBe('user')
+    if (Array.isArray(normalized[2].content)) {
+      expect(normalized[2].content[0]).toEqual({
+        type: 'text',
+        text: 'Attached file(s) from tool result:',
+      })
+      expect(normalized[2].content[1]).toEqual({
+        type: 'file',
+        data: 'cGRm',
+        mediaType: 'application/pdf',
+        filename: 'report.pdf',
+      })
+    }
   })
 })
 
@@ -623,49 +782,59 @@ describe('splitting at different context windows', () => {
 })
 
 // ---------------------------------------------------------------------------
-// truncateToolOutputs
+// reduceToolOutputs
 // ---------------------------------------------------------------------------
 
-describe('truncateToolOutputs', () => {
-  it('truncates text output exceeding maxChars', () => {
+describe('reduceToolOutputs', () => {
+  it('truncates protected recent outputs exceeding maxChars', () => {
     const msgs = [toolResult('test', 'a'.repeat(20_000))]
-    const truncated = truncateToolOutputs(msgs, 15_000)
+    const reduced = reduceToolOutputs(msgs, {
+      maxChars: 15_000,
+      keepRecentCount: 1,
+    })
 
     const output = (
-      truncated[0].content as Array<{ output: { value: string } }>
+      reduced[0].content as Array<{ output: { value: string } }>
     )[0].output.value
     expect(output.length).toBeLessThan(20_000)
     expect(output).toContain('[... truncated')
   })
 
-  it('truncates JSON output exceeding maxChars', () => {
-    const msgs = [toolResultJson('test', { data: 'x'.repeat(20_000) })]
-    const truncated = truncateToolOutputs(msgs, 15_000)
+  it('clears older verbose outputs but protects the last two', () => {
+    const msgs = [
+      toolResult('old', 'x'.repeat(500)),
+      toolResult('recent_0', 'y'.repeat(500)),
+      toolResult('recent_1', 'z'.repeat(500)),
+    ]
+    const reduced = reduceToolOutputs(msgs, {
+      maxChars: 200,
+      keepRecentCount: 2,
+      clearThreshold: 100,
+    })
 
     const part = (
-      truncated[0].content as Array<{ output: { type: string; value: string } }>
-    )[0]
-    expect(part.output.type).toBe('text')
-    expect(part.output.value).toContain('[... truncated')
-  })
-
-  it('does not modify outputs under maxChars', () => {
-    const msgs = [toolResult('test', 'short output')]
-    const truncated = truncateToolOutputs(msgs, 15_000)
-
-    const output = (
-      truncated[0].content as Array<{ output: { value: string } }>
+      reduced[0].content as Array<{ output: { type: string; value: string } }>
     )[0].output.value
-    expect(output).toBe('short output')
+    const protected0 = (
+      reduced[1].content as Array<{ output: { value: string } }>
+    )[0].output.value
+    const protected1 = (
+      reduced[2].content as Array<{ output: { value: string } }>
+    )[0].output.value
+
+    expect(part).toBe('[Cleared — 500 chars]')
+    expect(protected0).toContain('[... truncated')
+    expect(protected1).toContain('[... truncated')
   })
 
   it('does not modify non-tool messages', () => {
     const msgs = [userMsg('hello'), assistantMsg('world')]
-    const truncated = truncateToolOutputs(msgs, 100)
-    expect(truncated).toEqual(msgs)
+    expect(
+      reduceToolOutputs(msgs, { maxChars: 100, keepRecentCount: 2 }),
+    ).toEqual(msgs)
   })
 
-  it('normalizes content output even when it fits under maxChars', () => {
+  it('normalizes content output before reduction', () => {
     const msgs = [
       toolResultContent('snapshot', [
         { type: 'text', text: 'Captured screenshot' },
@@ -676,35 +845,14 @@ describe('truncateToolOutputs', () => {
         },
       ]),
     ]
-    const truncated = truncateToolOutputs(msgs, 100)
+    const reduced = reduceToolOutputs(msgs, {
+      maxChars: 100,
+      keepRecentCount: 1,
+      clearThreshold: 0,
+    })
 
     const output = (
-      truncated[0].content as Array<{ output: { type: string; value: string } }>
-    )[0].output
-
-    expect(output.type).toBe('text')
-    expect(output.value).toContain('Captured screenshot')
-    expect(output.value).toContain('[Image]')
-    expect(output.value).not.toContain('x'.repeat(100))
-  })
-})
-
-describe('clearToolOutputs', () => {
-  it('normalizes content output before the clear threshold check', () => {
-    const msgs = [
-      toolResultContent('snapshot', [
-        { type: 'text', text: 'Captured screenshot' },
-        {
-          type: 'image-data',
-          data: 'x'.repeat(20_000),
-          mediaType: 'image/png',
-        },
-      ]),
-    ]
-    const cleared = clearToolOutputs(msgs, 0)
-
-    const output = (
-      cleared[0].content as Array<{ output: { type: string; value: string } }>
+      reduced[0].content as Array<{ output: { type: string; value: string } }>
     )[0].output
 
     expect(output.type).toBe('text')
@@ -939,7 +1087,7 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     expect(result).toBe(expected)
   })
 
-  it('adds outputTokens to base when no trailing tool results', () => {
+  it('adds outputTokens to base when no trailing post-step messages remain', () => {
     const steps: StepWithUsage[] = [
       { usage: { inputTokens: 50_000, outputTokens: 2_000 } },
     ]
@@ -1008,11 +1156,39 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     expect(result).toBe(80_000 + 1_000 + trailing1 + trailing2)
   })
 
-  it('stops counting trailing at first non-tool message', () => {
+  it('counts the synthetic follow-up user media message too', () => {
     const steps: StepWithUsage[] = [
       { usage: { inputTokens: 50_000, outputTokens: 500 } },
     ]
-    // assistant message after tool results — trailing should be 0
+    const msgs = normalizeMessagesForModel(
+      [
+        userMsg('hello'),
+        assistantToolCall('snapshot', {}),
+        toolResultContent('snapshot', [
+          { type: 'text', text: 'Captured screenshot' },
+          {
+            type: 'image-data',
+            data: 'abcd',
+            mediaType: 'image/png',
+          },
+        ]),
+      ],
+      {
+        supportsImages: true,
+        supportsMediaInToolResults: false,
+      },
+    )
+
+    const result = getCurrentTokenCount(steps, msgs, config)
+    const trailing = estimateTokens(msgs.slice(-2), config.imageTokenEstimate)
+
+    expect(result).toBe(50_000 + 500 + trailing)
+  })
+
+  it('stops counting trailing at the most recent assistant message', () => {
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 50_000, outputTokens: 500 } },
+    ]
     const msgs = [
       userMsg('hello'),
       assistantToolCall('click', {}),
@@ -1021,7 +1197,6 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     ]
 
     const result = getCurrentTokenCount(steps, msgs, config)
-    // No trailing tool results (last message is assistant)
     expect(result).toBe(50_500)
   })
 
