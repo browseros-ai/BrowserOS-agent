@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { formatSearchResult } from '../browser/dom'
 import { defineTool } from './framework'
-import { writeToolOutputFile } from './output-file'
+import { writeTempToolOutputFile } from './output-file'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 
@@ -37,7 +37,7 @@ export const get_dom = defineTool({
       return
     }
 
-    const path = await writeToolOutputFile(ctx, {
+    const path = await writeTempToolOutputFile({
       toolName: 'get-dom',
       extension: 'html',
       content: html,
