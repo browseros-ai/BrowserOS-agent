@@ -42,8 +42,8 @@ export const AppSelector: FC<AppSelectorProps> = ({
     apiKeyUrl: string
   } | null>(null)
 
-  const { servers: createdServers, mutate: mutateMcpConfig } = useMcpConfig()
-  const { trigger: addMcpServerMutation } = useAddMcpServer()
+  const { servers: createdServers } = useMcpConfig()
+  const { mutateAsync: addMcpServerMutation } = useAddMcpServer()
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const { trigger: submitApiKeyMutation, isMutating: isSubmittingApiKey } =
     useSubmitApiKey()
@@ -130,7 +130,6 @@ export const AppSelector: FC<AppSelectorProps> = ({
         managedServerName: name,
         managedServerDescription: description,
       })
-      mutateMcpConfig()
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
       if (response.apiKeyUrl) {

@@ -41,9 +41,9 @@ const failedToRemoveMcp = (serverName: string, e: unknown) => {
  * @public
  */
 export const ConnectMCP: FC = () => {
-  const { servers: createdServers, mutate: mutateMcpConfig } = useMcpConfig()
-  const { trigger: addServerMutation } = useAddMcpServer()
-  const { trigger: removeServerMutation } = useRemoveMcpServer()
+  const { servers: createdServers } = useMcpConfig()
+  const { mutateAsync: addServerMutation } = useAddMcpServer()
+  const { mutateAsync: removeServerMutation } = useRemoveMcpServer()
   const [addingManagedMcp, setAddingManagedMcp] = useState(false)
   const [addingCustomMcp, setAddingCustomMcp] = useState(false)
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null)
@@ -115,7 +115,6 @@ export const ConnectMCP: FC = () => {
         managedServerName: name,
         managedServerDescription: description,
       })
-      mutateMcpConfig()
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
       if (response.apiKeyUrl) {
@@ -161,8 +160,7 @@ export const ConnectMCP: FC = () => {
         serverName: name,
       })
       if (response.success) {
-        await removeServerMutation({ id })
-        mutateMcpConfig()
+        await removeServerMutation(id)
       } else {
         failedToRemoveMcp(name, 'Success not returned from server')
       }
@@ -188,7 +186,6 @@ export const ConnectMCP: FC = () => {
         env: config.env,
       },
     })
-    mutateMcpConfig()
     track(CUSTOM_MCP_ADDED_EVENT, {
       transport: config.transport ?? 'http',
     })
@@ -335,9 +332,7 @@ export const ConnectMCP: FC = () => {
                         name: server.managedServerName,
                       })
                     } else {
-                      removeServerMutation({ id: server.id }).then(() =>
-                        mutateMcpConfig(),
-                      )
+                      removeServerMutation(server.id)
                     }
                   }}
                   className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

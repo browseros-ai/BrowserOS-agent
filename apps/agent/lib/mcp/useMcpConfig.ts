@@ -1,5 +1,4 @@
-import useSWR from 'swr'
-import useSWRMutation from 'swr/mutation'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 
 export interface McpServerEntry {
@@ -20,73 +19,70 @@ export interface McpServerEntry {
   }
 }
 
-interface McpConfigResponse {
-  servers: McpServerEntry[]
-}
-
 const MCP_CONFIG_KEY = 'mcp-config'
 
-const fetchMcpConfig = async ([hostUrl]: [
-  string,
-]): Promise<McpConfigResponse> => {
-  const response = await fetch(`${hostUrl}/mcp-config`)
+async function fetchMcpConfig(
+  baseUrl: string,
+): Promise<{ servers: McpServerEntry[] }> {
+  const response = await fetch(`${baseUrl}/mcp-config`)
   if (!response.ok) throw new Error('Failed to fetch MCP config')
-  return response.json() as Promise<McpConfigResponse>
+  return response.json() as Promise<{ servers: McpServerEntry[] }>
 }
 
 // List all MCP servers from server-side mcp.json
 export function useMcpConfig() {
-  const { baseUrl } = useAgentServerUrl()
+  const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
 
-  const { data, error, isLoading, mutate } = useSWR(
-    baseUrl ? [baseUrl, MCP_CONFIG_KEY] : null,
-    fetchMcpConfig,
-    { keepPreviousData: true },
-  )
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: [MCP_CONFIG_KEY, baseUrl],
+    queryFn: () => fetchMcpConfig(baseUrl as string),
+    enabled: !!baseUrl && !urlLoading,
+  })
 
   return {
     servers: data?.servers ?? [],
-    isLoading,
+    isLoading: isLoading || urlLoading,
     error,
-    mutate,
+    refetch,
   }
 }
 
 // Add a new MCP server
-const addServer = async (
-  url: string,
-  { arg }: { arg: Omit<McpServerEntry, 'id'> },
-): Promise<{ server: McpServerEntry }> => {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(arg),
-  })
-  if (!response.ok) throw new Error('Failed to add MCP server')
-  return response.json() as Promise<{ server: McpServerEntry }>
-}
-
 export function useAddMcpServer() {
   const { baseUrl } = useAgentServerUrl()
+  const queryClient = useQueryClient()
 
-  return useSWRMutation(baseUrl ? `${baseUrl}/mcp-config` : null, addServer)
+  return useMutation({
+    mutationFn: async (server: Omit<McpServerEntry, 'id'>) => {
+      const response = await fetch(`${baseUrl}/mcp-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(server),
+      })
+      if (!response.ok) throw new Error('Failed to add MCP server')
+      return response.json() as Promise<{ server: McpServerEntry }>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [MCP_CONFIG_KEY] })
+    },
+  })
 }
 
 // Remove an MCP server
-const removeServerFn = async (
-  url: string,
-  { arg }: { arg: { id: string } },
-): Promise<{ success: boolean }> => {
-  const response = await fetch(`${url}/${arg.id}`, { method: 'DELETE' })
-  if (!response.ok) throw new Error('Failed to remove MCP server')
-  return response.json() as Promise<{ success: boolean }>
-}
-
 export function useRemoveMcpServer() {
   const { baseUrl } = useAgentServerUrl()
+  const queryClient = useQueryClient()
 
-  return useSWRMutation(
-    baseUrl ? `${baseUrl}/mcp-config` : null,
-    removeServerFn,
-  )
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`${baseUrl}/mcp-config/${id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error('Failed to remove MCP server')
+      return response.json() as Promise<{ success: boolean }>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [MCP_CONFIG_KEY] })
+    },
+  })
 }
