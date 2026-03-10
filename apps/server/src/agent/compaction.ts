@@ -815,6 +815,9 @@ export function createCompactionPrepareStep(
         removed: current.length - pruned.length,
       })
       current = pruned
+      // Step usage is stale after removing messages — re-estimate from content.
+      // Intentionally conservative (×safetyMultiplier + fixedOverhead) so we
+      // don't under-count and hit a provider overflow error downstream.
       currentTokens = estimateTokensForThreshold(current, config)
       if (currentTokens <= triggerThreshold) {
         return { messages: current, experimental_context: state }
@@ -835,8 +838,10 @@ export function createCompactionPrepareStep(
     if (currentTokens <= triggerThreshold) {
       return { messages: cleared, experimental_context: state }
     }
-    current = cleared
 
+    // Stage 3 didn't resolve — fall through to LLM compaction.
+    // Pass `current` (truncated, not cleared) so that toKeep retains
+    // meaningful tool outputs for the agent's immediate context.
     logger.warn(
       'Context still over limit after pruning, attempting compaction',
       {

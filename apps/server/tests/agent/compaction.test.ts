@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { ModelMessage } from 'ai'
 import {
   computeConfig,
@@ -18,6 +19,77 @@ import {
   createContextOverflowMiddleware,
   isContextOverflowError,
 } from '../../src/agent/context-overflow-middleware'
+
+const {
+  COMPACTION_RESERVE_TOKENS,
+  COMPACTION_SMALL_CONTEXT_WINDOW,
+  COMPACTION_KEEP_RECENT_FRACTION,
+  COMPACTION_MAX_KEEP_RECENT,
+  COMPACTION_MIN_SUMMARIZABLE_INPUT,
+  COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL,
+  COMPACTION_MAX_SUMMARIZATION_INPUT,
+  COMPACTION_MIN_TOKEN_FLOOR,
+  COMPACTION_SUMMARIZER_OUTPUT_RATIO,
+} = AGENT_LIMITS
+
+function expectedReserve(contextWindow: number): number {
+  return contextWindow <= COMPACTION_SMALL_CONTEXT_WINDOW
+    ? Math.floor(contextWindow * 0.5)
+    : COMPACTION_RESERVE_TOKENS
+}
+
+function expectedTrigger(contextWindow: number): number {
+  return Math.max(0, contextWindow - expectedReserve(contextWindow))
+}
+
+function expectedKeepRecent(contextWindow: number): number {
+  return Math.max(
+    0,
+    Math.min(
+      COMPACTION_MAX_KEEP_RECENT,
+      Math.floor(
+        expectedTrigger(contextWindow) * COMPACTION_KEEP_RECENT_FRACTION,
+      ),
+    ),
+  )
+}
+
+function expectedAvailableToSummarize(contextWindow: number): number {
+  return Math.max(
+    0,
+    expectedTrigger(contextWindow) - expectedKeepRecent(contextWindow),
+  )
+}
+
+function expectedMinSummarizable(contextWindow: number): number {
+  const base =
+    contextWindow <= COMPACTION_SMALL_CONTEXT_WINDOW
+      ? COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL
+      : COMPACTION_MIN_SUMMARIZABLE_INPUT
+  return Math.max(
+    COMPACTION_MIN_TOKEN_FLOOR,
+    Math.min(base, expectedAvailableToSummarize(contextWindow)),
+  )
+}
+
+function expectedMaxSummarizationInput(contextWindow: number): number {
+  return Math.min(
+    COMPACTION_MAX_SUMMARIZATION_INPUT,
+    Math.max(
+      expectedMinSummarizable(contextWindow),
+      expectedAvailableToSummarize(contextWindow),
+    ),
+  )
+}
+
+function expectedSummarizerMaxOutput(contextWindow: number): number {
+  return Math.max(
+    COMPACTION_MIN_TOKEN_FLOOR,
+    Math.floor(
+      expectedReserve(contextWindow) * COMPACTION_SUMMARIZER_OUTPUT_RATIO,
+    ),
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -119,45 +191,26 @@ function buildBrowserConversation(
 describe('computeConfig — reserve trigger', () => {
   it('8K model → reserve is clamped to 50% of context', () => {
     const config = computeConfig(8_000)
-    expect(config.reserveTokens).toBe(4_000)
-    expect(config.triggerThreshold).toBe(4_000)
+    expect(config.reserveTokens).toBe(expectedReserve(8_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(8_000))
     expect(config.triggerRatio).toBe(0.5)
   })
 
   it('16K model → reserve is clamped to 50% of context', () => {
     const config = computeConfig(16_000)
-    expect(config.reserveTokens).toBe(8_000)
-    expect(config.triggerThreshold).toBe(8_000)
+    expect(config.reserveTokens).toBe(expectedReserve(16_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(16_000))
     expect(config.triggerRatio).toBe(0.5)
   })
 
-  it('32K model → reserve is fixed at 16,384', () => {
-    const config = computeConfig(32_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(15_616)
-    expect(config.triggerRatio).toBeCloseTo(0.488, 3)
-  })
-
-  it('64K model → reserve remains fixed at 16,384', () => {
-    const config = computeConfig(64_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(47_616)
-    expect(config.triggerRatio).toBeCloseTo(0.744, 3)
-  })
-
-  it('200K model → reserve remains fixed at 16,384', () => {
-    const config = computeConfig(200_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(183_616)
-    expect(config.triggerRatio).toBeCloseTo(0.918, 3)
-  })
-
-  it('1M model → reserve remains fixed at 16,384', () => {
-    const config = computeConfig(1_000_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(983_616)
-    expect(config.triggerRatio).toBeCloseTo(0.984, 3)
-  })
+  for (const size of [32_000, 64_000, 200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → reserve is fixed at COMPACTION_RESERVE_TOKENS`, () => {
+      const config = computeConfig(size)
+      expect(config.reserveTokens).toBe(COMPACTION_RESERVE_TOKENS)
+      expect(config.triggerThreshold).toBe(expectedTrigger(size))
+      expect(config.triggerRatio).toBeCloseTo(expectedTrigger(size) / size, 3)
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -165,38 +218,20 @@ describe('computeConfig — reserve trigger', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeConfig — keep-recent', () => {
-  it('8K model → keeps 35% of trigger budget', () => {
-    const config = computeConfig(8_000)
-    expect(config.minSummarizableTokens).toBe(1_000)
-    expect(config.keepRecentTokens).toBe(1_400)
-  })
+  for (const size of [8_000, 16_000, 32_000, 64_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → keeps ${COMPACTION_KEEP_RECENT_FRACTION * 100}% of trigger budget`, () => {
+      const config = computeConfig(size)
+      expect(config.keepRecentTokens).toBe(expectedKeepRecent(size))
+      expect(config.minSummarizableTokens).toBe(expectedMinSummarizable(size))
+    })
+  }
 
-  it('16K model → keeps 35% of trigger budget', () => {
-    const config = computeConfig(16_000)
-    expect(config.minSummarizableTokens).toBe(1_000)
-    expect(config.keepRecentTokens).toBe(2_800)
-  })
-
-  it('32K model → keeps 35% of trigger budget', () => {
-    const config = computeConfig(32_000)
-    expect(config.minSummarizableTokens).toBe(4_000)
-    expect(config.keepRecentTokens).toBe(5_465)
-  })
-
-  it('64K model → still below cap with 35% split', () => {
-    const config = computeConfig(64_000)
-    expect(config.keepRecentTokens).toBe(16_665)
-  })
-
-  it('200K model → capped at 20K', () => {
-    const config = computeConfig(200_000)
-    expect(config.keepRecentTokens).toBe(20_000)
-  })
-
-  it('1M model → capped at 20K', () => {
-    const config = computeConfig(1_000_000)
-    expect(config.keepRecentTokens).toBe(20_000)
-  })
+  for (const size of [200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → capped at COMPACTION_MAX_KEEP_RECENT`, () => {
+      const config = computeConfig(size)
+      expect(config.keepRecentTokens).toBe(COMPACTION_MAX_KEEP_RECENT)
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -204,34 +239,37 @@ describe('computeConfig — keep-recent', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeConfig — summarization budgets', () => {
-  it('16K model → summarize budget is trigger minus keep-recent', () => {
-    const config = computeConfig(16_000)
-    expect(config.maxSummarizationInput).toBe(5_200)
-    expect(config.summarizerMaxOutputTokens).toBe(6_400)
-  })
-
-  it('32K model → summarize budget expands for fewer repeated compactions', () => {
-    const config = computeConfig(32_000)
-    expect(config.maxSummarizationInput).toBe(10_151)
-    expect(config.summarizerMaxOutputTokens).toBe(13_107)
-  })
+  for (const size of [16_000, 32_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → summarize budget is trigger minus keep-recent`, () => {
+      const config = computeConfig(size)
+      expect(config.maxSummarizationInput).toBe(
+        expectedMaxSummarizationInput(size),
+      )
+      expect(config.summarizerMaxOutputTokens).toBe(
+        expectedSummarizerMaxOutput(size),
+      )
+    })
+  }
 
   it('20K model → min summarizable is clamped to available summarize budget', () => {
     const config = computeConfig(20_000)
-    expect(config.minSummarizableTokens).toBe(2_351)
-    expect(config.maxSummarizationInput).toBe(2_351)
+    expect(config.minSummarizableTokens).toBe(expectedMinSummarizable(20_000))
+    expect(config.maxSummarizationInput).toBe(
+      expectedMaxSummarizationInput(20_000),
+    )
   })
 
-  it('200K model → max summarization input is capped at 100K', () => {
-    const config = computeConfig(200_000)
-    expect(config.maxSummarizationInput).toBe(100_000)
-    expect(config.summarizerMaxOutputTokens).toBe(13_107)
-  })
-
-  it('1M model → max summarization input is capped at 100K', () => {
-    const config = computeConfig(1_000_000)
-    expect(config.maxSummarizationInput).toBe(100_000)
-  })
+  for (const size of [200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → max summarization input capped at COMPACTION_MAX_SUMMARIZATION_INPUT`, () => {
+      const config = computeConfig(size)
+      expect(config.maxSummarizationInput).toBe(
+        COMPACTION_MAX_SUMMARIZATION_INPUT,
+      )
+      expect(config.summarizerMaxOutputTokens).toBe(
+        expectedSummarizerMaxOutput(size),
+      )
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -728,13 +766,12 @@ describe('end-to-end config coherence', () => {
     })
   }
 
-  it('reserve is either half-context (tiny models) or fixed 16,384 (larger models)', () => {
+  it('reserve is either half-context (tiny models) or COMPACTION_RESERVE_TOKENS (larger models)', () => {
     for (const size of [
       8_000, 16_000, 32_000, 64_000, 128_000, 200_000, 1_000_000,
     ]) {
       const config = computeConfig(size)
-      const expectedReserve = size <= 16_000 ? Math.floor(size * 0.5) : 16_384
-      expect(config.reserveTokens).toBe(expectedReserve)
+      expect(config.reserveTokens).toBe(expectedReserve(size))
     }
   })
 })
