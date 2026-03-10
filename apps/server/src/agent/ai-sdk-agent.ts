@@ -8,9 +8,12 @@ import {
   wrapLanguageModel,
 } from 'ai'
 import type { Browser } from '../browser/browser'
+import { getSkillsDir } from '../lib/browseros-dir'
 import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
 import { isSoulBootstrap, readSoul } from '../lib/soul'
+import { buildSkillsCatalog } from '../skills/catalog'
+import { loadSkills } from '../skills/loader'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { buildMemoryToolSet } from '../tools/memory/build-toolset'
 import type { ToolRegistry } from '../tools/tool-registry'
@@ -115,6 +118,12 @@ export class AiSdkAgent {
     }
     const soulContent = await readSoul()
     const isBootstrap = await isSoulBootstrap()
+
+    // Load skills catalog for prompt injection
+    const skills = await loadSkills(getSkillsDir())
+    const skillsCatalog =
+      skills.length > 0 ? buildSkillsCatalog(skills) : undefined
+
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
@@ -126,6 +135,7 @@ export class AiSdkAgent {
       chatMode: config.resolvedConfig.chatMode,
       connectedApps: config.browserContext?.enabledMcpServers,
       declinedApps: config.resolvedConfig.declinedApps,
+      skillsCatalog,
     })
 
     // Configure compaction for context window management

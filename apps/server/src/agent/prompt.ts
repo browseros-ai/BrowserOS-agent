@@ -490,6 +490,8 @@ const promptSections: Record<string, PromptSectionFn> = {
   'user-preferences': getUserPreferences,
   soul: getSoul,
   memory: getMemory,
+  skills: (_exclude: Set<string>, options?: BuildSystemPromptOptions) =>
+    options?.skillsCatalog || '',
   'security-reminder': getSecurityReminder,
 }
 
@@ -508,6 +510,7 @@ interface BuildSystemPromptOptions {
   connectedApps?: string[]
   /** Apps the user previously declined to connect (chose "do it manually"). */
   declinedApps?: string[]
+  skillsCatalog?: string
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
