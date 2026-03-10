@@ -1,5 +1,10 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
-import { type LanguageModel, type ModelMessage, streamText } from 'ai'
+import {
+  type LanguageModel,
+  type ModelMessage,
+  pruneMessages,
+  streamText,
+} from 'ai'
 import { logger } from '../lib/logger'
 import {
   buildSummarizationPrompt,
@@ -214,6 +219,22 @@ export function getCurrentTokenCount(
   return Math.ceil(estimated * config.safetyMultiplier) + config.fixedOverhead
 }
 
+/**
+ * Estimate tokens directly from message content with safety margin.
+ * Used after pruning/clearing when step usage is stale.
+ */
+export function estimateTokensForThreshold(
+  messages: ModelMessage[],
+  config: ComputedConfig,
+): number {
+  return (
+    Math.ceil(
+      estimateTokens(messages, config.imageTokenEstimate) *
+        config.safetyMultiplier,
+    ) + config.fixedOverhead
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Safe split point detection
 // ---------------------------------------------------------------------------
@@ -421,6 +442,49 @@ export function truncateToolOutputs(
 
     return { ...msg, content }
   })
+}
+
+// ---------------------------------------------------------------------------
+// Clear tool outputs (replace verbose output with placeholder)
+// ---------------------------------------------------------------------------
+
+export function clearToolOutputs(messages: ModelMessage[]): ModelMessage[] {
+  let cleared = 0
+  const result = messages.map((msg) => {
+    if (msg.role !== 'tool') return msg
+
+    const content = msg.content.map((part) => {
+      if (!('output' in part)) return part
+
+      const output = part.output
+      if (!('value' in output)) return part
+
+      const valStr =
+        typeof output.value === 'string'
+          ? output.value
+          : JSON.stringify(output.value)
+
+      if (valStr.length <= AGENT_LIMITS.COMPACTION_CLEAR_OUTPUT_MIN_CHARS)
+        return part
+
+      cleared++
+      return {
+        ...part,
+        output: {
+          type: 'text' as const,
+          value: `[Cleared — ${valStr.length} chars]`,
+        },
+      }
+    })
+
+    return { ...msg, content }
+  })
+
+  if (cleared > 0) {
+    logger.info('Cleared tool outputs', { clearedCount: cleared })
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -716,24 +780,55 @@ export function createCompactionPrepareStep(
       : { existingSummary: null, compactionCount: 0 }
 
     // Stage 0: Cap oversized tool outputs before any estimation or compaction.
-    const capped = truncateToolOutputs(messages, config.toolOutputMaxChars)
-
-    // Stage 1: Check if compaction is needed using the current prompt as-is.
-    const currentTokens = getCurrentTokenCount(steps, capped, config)
+    let current = truncateToolOutputs(messages, config.toolOutputMaxChars)
     const triggerThreshold = config.triggerThreshold
 
+    // Stage 1: Check if compaction is needed.
+    let currentTokens = getCurrentTokenCount(steps, current, config)
     if (currentTokens <= triggerThreshold) {
-      return { messages: capped, experimental_context: state }
+      return { messages: current, experimental_context: state }
     }
 
-    logger.warn('Context approaching limit, attempting compaction', {
-      currentTokens,
-      triggerThreshold: Math.floor(triggerThreshold),
-      messageCount: capped.length,
+    // Stage 2: Prune — remove old tool call/result pairs beyond recent messages.
+    const keepRecent = AGENT_LIMITS.COMPACTION_PRUNE_KEEP_RECENT_MESSAGES
+    const pruned = pruneMessages({
+      messages: current,
+      toolCalls: `before-last-${keepRecent}-messages`,
+      emptyMessages: 'remove',
     })
+    if (pruned.length < current.length) {
+      logger.info('Pruned old tool calls', {
+        before: current.length,
+        after: pruned.length,
+        removed: current.length - pruned.length,
+      })
+      current = pruned
+      // Re-estimate from message content — step usage is stale after pruning.
+      currentTokens = estimateTokensForThreshold(current, config)
+      if (currentTokens <= triggerThreshold) {
+        return { messages: current, experimental_context: state }
+      }
+    }
 
-    // Stage 2: LLM-based compaction with sliding window fallback
-    const compacted = await compactMessages(model, capped, config, state)
+    // Stage 3: Clear remaining tool outputs — replace with short placeholders.
+    const cleared = clearToolOutputs(current)
+    currentTokens = estimateTokensForThreshold(cleared, config)
+    if (currentTokens <= triggerThreshold) {
+      return { messages: cleared, experimental_context: state }
+    }
+    current = cleared
+
+    logger.warn(
+      'Context still over limit after pruning, attempting compaction',
+      {
+        currentTokens,
+        triggerThreshold: Math.floor(triggerThreshold),
+        messageCount: current.length,
+      },
+    )
+
+    // Stage 4: LLM-based compaction with sliding window fallback.
+    const compacted = await compactMessages(model, current, config, state)
     return { messages: compacted, experimental_context: state }
   }
 }
