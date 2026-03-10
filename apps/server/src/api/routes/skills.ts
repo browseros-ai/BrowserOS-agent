@@ -48,7 +48,8 @@ export function createSkillsRoutes() {
         return c.json({ skill })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to update'
-        return c.json({ error: msg }, 404)
+        const status = msg.includes('not found') ? 404 : 500
+        return c.json({ error: msg }, status)
       }
     })
     .delete('/:id', async (c) => {
@@ -57,7 +58,8 @@ export function createSkillsRoutes() {
         return c.json({ ok: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to delete'
-        return c.json({ error: msg }, 404)
+        const status = msg.includes('not found') ? 404 : 500
+        return c.json({ error: msg }, status)
       }
     })
 }
