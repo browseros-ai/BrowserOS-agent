@@ -22,7 +22,7 @@ export const AGENT_LIMITS = {
   COMPRESSION_MIN_RATIO: 0.4,
 
   // Compaction — adaptive trigger
-  COMPACTION_RESERVE_TOKENS: 16_384,
+  COMPACTION_RESERVE_TOKENS: 20_000,
 
   // Compaction — adaptive keep-recent
   COMPACTION_MAX_KEEP_RECENT: 20_000,
