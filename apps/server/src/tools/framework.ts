@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import type { z } from 'zod'
 import type { Browser } from '../browser/browser'
 import { ToolResponse, type ToolResult } from './response'
@@ -16,8 +17,22 @@ export type ToolHandler = (
   response: ToolResponse,
 ) => Promise<void>
 
+export interface ToolDirectories {
+  executionDir: string
+  resourcesDir?: string
+}
+
 export type ToolContext = {
   browser: Browser
+  directories: ToolDirectories
+}
+
+export function resolveExecutionPath(
+  ctx: ToolContext,
+  targetPath: string,
+  cwd?: string,
+): string {
+  return resolve(cwd ?? ctx.directories.executionDir, targetPath)
 }
 
 export function defineTool<

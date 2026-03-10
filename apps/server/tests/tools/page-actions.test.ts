@@ -1,10 +1,17 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import { existsSync, unlinkSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { Browser } from '../../src/browser/browser'
+import { executeTool, type ToolContext } from '../../src/tools/framework'
 import { close_page, new_page } from '../../src/tools/navigation'
-import { save_pdf } from '../../src/tools/page-actions'
+import {
+  download_file,
+  save_pdf,
+  save_screenshot,
+} from '../../src/tools/page-actions'
 import { withBrowser } from '../__helpers__/with-browser'
 
 function textOf(result: {
@@ -21,7 +28,138 @@ function structuredOf<T>(result: { structuredContent?: unknown }): T {
   return result.structuredContent as T
 }
 
+function createToolContext(
+  browser: Browser,
+  executionDir: string,
+  resourcesDir?: string,
+): ToolContext {
+  return {
+    browser,
+    directories: {
+      executionDir,
+      resourcesDir,
+    },
+  }
+}
+
+function createBrowserStub(methods: Record<string, unknown>): Browser {
+  return {
+    getTabIdForPage: () => undefined,
+    ...methods,
+  } as unknown as Browser
+}
+
 describe('page action tools', () => {
+  it('save_pdf resolves relative paths against the execution directory by default', async () => {
+    const executionDir = await mkdtemp(
+      join(tmpdir(), 'browseros-page-actions-'),
+    )
+    const browser = createBrowserStub({
+      printToPDF: async () => ({
+        data: Buffer.from('pdf-data').toString('base64'),
+      }),
+    })
+
+    try {
+      const result = await executeTool(
+        save_pdf,
+        { page: 1, path: 'report.pdf' },
+        createToolContext(browser, executionDir),
+        AbortSignal.timeout(1_000),
+      )
+
+      assert.ok(!result.isError, textOf(result))
+      const outputPath = join(executionDir, 'report.pdf')
+      assert.strictEqual(
+        structuredOf<{ path: string }>(result).path,
+        outputPath,
+      )
+      assert.ok(existsSync(outputPath), 'PDF file should exist in executionDir')
+    } finally {
+      await rm(executionDir, { recursive: true, force: true })
+    }
+  })
+
+  it('save_screenshot still honors an explicit cwd override', async () => {
+    const executionDir = await mkdtemp(
+      join(tmpdir(), 'browseros-page-actions-'),
+    )
+    const overrideDir = await mkdtemp(join(tmpdir(), 'browseros-page-actions-'))
+    const browser = createBrowserStub({
+      screenshot: async () => ({
+        data: Buffer.from('image-data').toString('base64'),
+      }),
+    })
+
+    try {
+      const result = await executeTool(
+        save_screenshot,
+        { page: 1, path: 'capture.png', cwd: overrideDir },
+        createToolContext(browser, executionDir),
+        AbortSignal.timeout(1_000),
+      )
+
+      assert.ok(!result.isError, textOf(result))
+      const outputPath = join(overrideDir, 'capture.png')
+      assert.strictEqual(
+        structuredOf<{ path: string }>(result).path,
+        outputPath,
+      )
+      assert.ok(
+        existsSync(outputPath),
+        'Screenshot should exist in overrideDir',
+      )
+      assert.ok(
+        !existsSync(join(executionDir, 'capture.png')),
+        'Execution directory should not be used when cwd is provided',
+      )
+    } finally {
+      await rm(executionDir, { recursive: true, force: true })
+      await rm(overrideDir, { recursive: true, force: true })
+    }
+  })
+
+  it('download_file resolves relative directories against the execution directory by default', async () => {
+    const executionDir = await mkdtemp(
+      join(tmpdir(), 'browseros-page-actions-'),
+    )
+    const browser = createBrowserStub({
+      downloadViaClick: async (
+        _page: number,
+        _element: number,
+        tempDir: string,
+      ) => {
+        const filePath = join(tempDir, 'download.txt')
+        await Bun.write(filePath, 'hello')
+        return {
+          filePath,
+          suggestedFilename: 'download.txt',
+        }
+      },
+    })
+
+    try {
+      const result = await executeTool(
+        download_file,
+        { page: 1, element: 7, path: '.' },
+        createToolContext(browser, executionDir),
+        AbortSignal.timeout(1_000),
+      )
+
+      assert.ok(!result.isError, textOf(result))
+      const outputPath = join(executionDir, 'download.txt')
+      const structured = structuredOf<{
+        directory: string
+        destinationPath: string
+      }>(result)
+      assert.strictEqual(structured.directory, executionDir)
+      assert.strictEqual(structured.destinationPath, outputPath)
+      assert.ok(existsSync(outputPath), 'Download should land in executionDir')
+    } finally {
+      await rm(executionDir, { recursive: true, force: true })
+    }
+  })
+
   it('save_pdf writes a PDF file to disk', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'https://example.com' })

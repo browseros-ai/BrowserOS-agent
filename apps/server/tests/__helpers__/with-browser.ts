@@ -81,7 +81,15 @@ export async function withBrowser(
       args: unknown,
     ): Promise<ToolResult> => {
       const signal = AbortSignal.timeout(30_000)
-      return executeTool(tool, args, { browser }, signal)
+      return executeTool(
+        tool,
+        args,
+        {
+          browser,
+          directories: { executionDir: process.cwd() },
+        },
+        signal,
+      )
     }
 
     await cb({ browser, execute })

@@ -63,6 +63,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     host = '0.0.0.0',
     browserosId,
     executionDir,
+    resourcesDir,
     rateLimiter,
     version,
     browser,
@@ -117,6 +118,8 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         registry,
         browser,
+        executionDir,
+        resourcesDir,
         klavisProxy,
       }),
     )

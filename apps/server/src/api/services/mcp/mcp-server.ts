@@ -19,6 +19,8 @@ export interface McpServiceDeps {
   version: string
   registry: ToolRegistry
   browser: Browser
+  executionDir: string
+  resourcesDir: string
   klavisProxy?: KlavisProxyHandle | null
 }
 
@@ -37,7 +39,13 @@ export function createMcpServer(deps: McpServiceDeps): McpServer {
   })
 
   // Register browser tools
-  registerTools(server, deps.registry, { browser: deps.browser })
+  registerTools(server, deps.registry, {
+    browser: deps.browser,
+    directories: {
+      executionDir: deps.executionDir,
+      resourcesDir: deps.resourcesDir,
+    },
+  })
 
   // Register Klavis proxy tools (if connected)
   if (deps.klavisProxy) {
