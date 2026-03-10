@@ -83,6 +83,5 @@ export function createDelegateTaskTool(deps: DelegateTaskDeps) {
         return `Sub-agent failed: ${message}`
       }
     },
-    },
   })
 }
