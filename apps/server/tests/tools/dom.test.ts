@@ -1,6 +1,8 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { get_dom, search_dom } from '../../src/tools/dom'
 import { close_page, new_page } from '../../src/tools/navigation'
 import { evaluate_script } from '../../src/tools/snapshot'
@@ -68,6 +70,13 @@ const RICH_PAGE = `data:text/html,${encodeURIComponent(`<!DOCTYPE html>
   </main>
 </body></html>`)}`
 
+function cleanupSavedDom(domPath: string): void {
+  unlinkSync(domPath)
+  try {
+    rmSync(dirname(domPath))
+  } catch {}
+}
+
 // ── get_dom ──
 
 describe('get_dom', () => {
@@ -85,6 +94,10 @@ describe('get_dom', () => {
 
         assert.ok(textOf(result).includes('Saved DOM'))
         assert.ok(existsSync(domPath), 'Saved DOM file should exist')
+        assert.ok(
+          dirname(domPath).startsWith(join(tmpdir(), 'browseros-tool-output-')),
+          'Saved DOM file should be written to an OS temp directory',
+        )
         assert.ok(html.includes('<html'), 'Should contain <html> tag')
         assert.ok(html.includes('</html>'), 'Should contain closing </html>')
         assert.ok(html.includes('id="login-form"'), 'Should contain form ID')
@@ -100,7 +113,7 @@ describe('get_dom', () => {
         assert.strictEqual(data.path, domPath)
         assert.strictEqual(data.totalLength, html.length)
       } finally {
-        if (domPath && existsSync(domPath)) unlinkSync(domPath)
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
         await execute(close_page, { page: pageId })
       }
     })
@@ -137,7 +150,7 @@ describe('get_dom', () => {
           'Scoped result should NOT contain features section',
         )
       } finally {
-        if (domPath && existsSync(domPath)) unlinkSync(domPath)
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
         await execute(close_page, { page: pageId })
       }
     })
@@ -163,7 +176,7 @@ describe('get_dom', () => {
         assert.ok(html.includes('About'), 'Should contain nav links')
         assert.ok(!html.includes('<form'), 'Scoped nav should NOT contain form')
       } finally {
-        if (domPath && existsSync(domPath)) unlinkSync(domPath)
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
         await execute(close_page, { page: pageId })
       }
     })
@@ -204,7 +217,7 @@ describe('get_dom', () => {
           'about:blank should still have html element',
         )
       } finally {
-        if (domPath && existsSync(domPath)) unlinkSync(domPath)
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
         await execute(close_page, { page: pageId })
       }
     })
@@ -236,6 +249,10 @@ describe('get_dom', () => {
         const html = readFileSync(domPath, 'utf8')
 
         assert.ok(textOf(result).includes('Saved DOM'))
+        assert.ok(
+          dirname(domPath).startsWith(join(tmpdir(), 'browseros-tool-output-')),
+          'Saved DOM file should be written to an OS temp directory',
+        )
         assert.ok(data.totalLength > 100_000, 'Expected a large DOM payload')
         assert.strictEqual(html.length, data.totalLength)
         assert.ok(
@@ -243,7 +260,7 @@ describe('get_dom', () => {
           'Saved file should contain the full DOM',
         )
       } finally {
-        if (domPath && existsSync(domPath)) unlinkSync(domPath)
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
         await execute(close_page, { page: pageId })
       }
     })
@@ -274,7 +291,7 @@ describe('get_dom', () => {
           'Should preserve data attributes',
         )
       } finally {
-        if (domPath && existsSync(domPath)) unlinkSync(domPath)
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
         await execute(close_page, { page: pageId })
       }
     })

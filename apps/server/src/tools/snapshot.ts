@@ -1,7 +1,7 @@
 import { TOOL_LIMITS } from '@browseros/shared/constants/limits'
 import { z } from 'zod'
 import { defineTool } from './framework'
-import { writeToolOutputFile } from './output-file'
+import { writeTempToolOutputFile } from './output-file'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 
@@ -96,7 +96,7 @@ export const get_page_content = defineTool({
     }
 
     if (text.length > TOOL_LIMITS.INLINE_PAGE_CONTENT_MAX_CHARS) {
-      const path = await writeToolOutputFile({
+      const path = await writeTempToolOutputFile({
         toolName: 'get-page-content',
         extension: 'md',
         content: text,
