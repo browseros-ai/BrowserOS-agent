@@ -429,6 +429,8 @@ const promptSections: Record<string, PromptSectionFn> = {
   'user-preferences': getUserPreferences,
   soul: getSoul,
   memory: getMemory,
+  skills: (_exclude: Set<string>, options?: BuildSystemPromptOptions) =>
+    options?.skillsCatalog || '',
   'security-reminder': getSecurityReminder,
 }
 
@@ -443,6 +445,7 @@ interface BuildSystemPromptOptions {
   soulContent?: string
   isSoulBootstrap?: boolean
   chatMode?: boolean
+  skillsCatalog?: string
 }
 
 export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
