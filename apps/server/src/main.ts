@@ -221,6 +221,12 @@ export class Application {
       'Controller WebSocket server unavailable, continuing without controller bridge',
       { port, error: errorMsg },
     )
+    if (isPortInUseError(error)) {
+      logger.warn(
+        'Controller WebSocket port is already in use, continuing without controller bridge',
+        { port },
+      )
+    }
     Sentry.captureException(error)
   }
 
