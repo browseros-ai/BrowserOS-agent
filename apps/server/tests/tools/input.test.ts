@@ -23,6 +23,20 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
+function pageIdOf(result: {
+  content: { type: string; text?: string }[]
+  structuredContent?: unknown
+}): number {
+  const data = result.structuredContent as { pageId?: number } | undefined
+  if (typeof data?.pageId === 'number') return data.pageId
+  return Number(textOf(result).match(/Page ID:\s*(\d+)/)?.[1])
+}
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -75,7 +89,7 @@ describe('input tools', () => {
   it('fill types text into an input', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snap = await execute(take_snapshot, { page: pageId })
       const snapText = textOf(snap)
@@ -87,6 +101,11 @@ describe('input tools', () => {
         text: 'John Doe',
       })
       assert.ok(!fillResult.isError, textOf(fillResult))
+      const fillData = structuredOf<{ action: string; textLength: number }>(
+        fillResult,
+      )
+      assert.strictEqual(fillData.action, 'fill')
+      assert.strictEqual(fillData.textLength, 'John Doe'.length)
 
       const val = await execute(evaluate_script, {
         page: pageId,
@@ -101,7 +120,7 @@ describe('input tools', () => {
   it('click triggers a button', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       // Fill the input first
       const snap = await execute(take_snapshot, { page: pageId })
@@ -116,6 +135,11 @@ describe('input tools', () => {
         element: btnId,
       })
       assert.ok(!clickResult.isError, textOf(clickResult))
+      const clickData = structuredOf<{ action: string; element: number }>(
+        clickResult,
+      )
+      assert.strictEqual(clickData.action, 'click')
+      assert.strictEqual(clickData.element, btnId)
 
       const output = await execute(evaluate_script, {
         page: pageId,
@@ -130,7 +154,7 @@ describe('input tools', () => {
   it('check and uncheck toggle a checkbox', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snap = await execute(take_snapshot, { page: pageId })
       const snapText = textOf(snap)
@@ -167,7 +191,7 @@ describe('input tools', () => {
   it('select_option selects a dropdown value', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       // Use evaluate_script to get the select element's backendNodeId directly
       const nodeId = await execute(evaluate_script, {
@@ -203,7 +227,7 @@ describe('input tools', () => {
   it('press_key sends a keystroke', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snap = await execute(take_snapshot, { page: pageId })
       const inputId = findElementId(textOf(snap), 'Enter name')
@@ -230,7 +254,7 @@ describe('input tools', () => {
   it('press_key Enter fires keypress event', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snap = await execute(take_snapshot, { page: pageId })
       const inputId = findElementId(textOf(snap), 'Enter name')
@@ -272,7 +296,7 @@ describe('input tools', () => {
   it('press_key normalizes case-insensitive key names', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snap = await execute(take_snapshot, { page: pageId })
       const inputId = findElementId(textOf(snap), 'Enter name')
@@ -300,7 +324,7 @@ describe('input tools', () => {
       const newResult = await execute(new_page, {
         url: FORM_PAGE,
       })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const before = await execute(evaluate_script, {
         page: pageId,
@@ -331,7 +355,7 @@ describe('input tools', () => {
   it('hover moves cursor over element', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const snap = await execute(take_snapshot, { page: pageId })
       const btnId = findElementId(textOf(snap), 'Submit')

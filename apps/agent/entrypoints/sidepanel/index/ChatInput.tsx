@@ -147,10 +147,16 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       [closeMention, openMentionAtCursor, toggleMentionAtCursor],
     )
 
+    const isBusy = status !== 'ready' && status !== 'error'
+
     const handleSubmit = (e: FormEvent) => {
       if (mentionStateRef.current.isOpen) {
         e.preventDefault()
         closeMention()
+        return
+      }
+      if (isBusy) {
+        e.preventDefault()
         return
       }
       onSubmitProp(e)
@@ -229,7 +235,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
         !e.nativeEvent.isComposing
       ) {
         e.preventDefault()
-        if (input.trim()) {
+        if (input.trim() && !isBusy) {
           e.currentTarget.form?.requestSubmit()
         }
       }
@@ -280,7 +286,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           }
           rows={1}
         />
-        {status === 'streaming' ? (
+        {isBusy ? (
           <button
             type="button"
             onClick={onStop}

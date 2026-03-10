@@ -99,6 +99,22 @@ export const NEWTAB_APPS_OPENED_EVENT = 'newtab.apps.opened'
 export const NEWTAB_TIP_DISMISSED_EVENT = 'newtab.tip.dismissed'
 
 /** @public */
+export const NEWTAB_CHAT_STARTED_EVENT = 'newtab.chat.started'
+
+/** @public */
+export const NEWTAB_CHAT_STOPPED_EVENT = 'newtab.chat.stopped'
+
+/** @public */
+export const NEWTAB_CHAT_RESET_EVENT = 'newtab.chat.reset'
+
+/** @public */
+export const NEWTAB_CHAT_SUGGESTION_CLICKED_EVENT =
+  'newtab.chat.suggestion_clicked'
+
+/** @public */
+export const NEWTAB_CHAT_MODE_CHANGED_EVENT = 'newtab.chat.mode_changed'
+
+/** @public */
 export const WORKFLOW_DELETED_EVENT = 'settings.workflow.deleted'
 
 /** @public */
@@ -162,6 +178,9 @@ export const SCHEDULED_TASK_RETRIED_EVENT = 'settings.scheduled_task.retried'
 export const JTBD_POPUP_DISMISSED_EVENT = 'ui.jtbd_popup.dismissed'
 
 /** @public */
+export const SEARCH_PROVIDER_CHANGED_EVENT = 'settings.search_provider.changed'
+
+/** @public */
 export const ONBOARDING_STARTED_EVENT = 'onboarding.started'
 
 /** @public */
@@ -203,3 +222,10 @@ export const BREADCRUMB_CONNECT_COMPLETED_EVENT = 'breadcrumb.connect.completed'
 /** @public */
 export const BREADCRUMB_SCHEDULE_DISMISSED_EVENT =
   'breadcrumb.schedule.dismissed'
+
+/** @public */
+export const KIMI_API_KEY_CONFIGURED_EVENT = 'settings.kimi.api_key_configured'
+
+/** @public */
+export const KIMI_API_KEY_GUIDE_CLICKED_EVENT =
+  'settings.kimi.api_key_guide_clicked'

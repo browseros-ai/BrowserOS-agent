@@ -31,10 +31,9 @@ func runCleanup(cmd *cobra.Command, args []string) error {
 	doTemps := !cleanupPorts || cleanupTemps
 
 	if doPorts {
-		proc.LogMsg(proc.TagInfo, "Killing processes on ports 9005, 9105, 9305...")
-		proc.KillPort(9005)
-		proc.KillPort(9105)
-		proc.KillPort(9305)
+		ports := proc.DefaultLocalPorts()
+		proc.LogMsgf(proc.TagInfo, "Killing processes on ports %d, %d, %d...", ports.CDP, ports.Server, ports.Extension)
+		proc.KillPorts(ports)
 		proc.LogMsg(proc.TagInfo, "Ports cleared")
 	}
 

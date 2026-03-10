@@ -30,7 +30,7 @@ export interface ModelsData {
  * Based on: https://github.com/browseros-ai/BrowserOS-agent/blob/main/src/options/data/models.ts
  */
 export const MODELS_DATA: ModelsData = {
-  moonshot: [{ modelId: 'kimi-k2.5', contextLength: 128000 }],
+  moonshot: [{ modelId: 'kimi-k2.5', contextLength: 256000 }],
   anthropic: [
     { modelId: 'claude-opus-4-5-20251101', contextLength: 200000 },
     { modelId: 'claude-haiku-4-5-20251001', contextLength: 200000 },
@@ -41,13 +41,13 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'claude-3-5-haiku-20241022', contextLength: 200000 },
   ],
   openai: [
-    { modelId: 'gpt-5.2', contextLength: 400000 },
-    { modelId: 'gpt-5.2-pro', contextLength: 400000 },
-    { modelId: 'gpt-5', contextLength: 400000 },
-    { modelId: 'gpt-5-mini', contextLength: 400000 },
-    { modelId: 'gpt-5-nano', contextLength: 400000 },
-    { modelId: 'gpt-4.1', contextLength: 1000000 },
-    { modelId: 'gpt-4.1-mini', contextLength: 1000000 },
+    { modelId: 'gpt-5.2', contextLength: 200000 },
+    { modelId: 'gpt-5.2-pro', contextLength: 200000 },
+    { modelId: 'gpt-5', contextLength: 200000 },
+    { modelId: 'gpt-5-mini', contextLength: 200000 },
+    { modelId: 'gpt-5-nano', contextLength: 200000 },
+    { modelId: 'gpt-4.1', contextLength: 200000 },
+    { modelId: 'gpt-4.1-mini', contextLength: 200000 },
     { modelId: 'o4-mini', contextLength: 200000 },
     { modelId: 'o3-mini', contextLength: 200000 },
     { modelId: 'gpt-4o', contextLength: 128000 },
@@ -89,7 +89,7 @@ export const MODELS_DATA: ModelsData = {
     { modelId: 'qwen/qwen3-vl-8b', contextLength: 131072 },
   ],
   bedrock: [],
-  browseros: [],
+  browseros: [{ modelId: 'browseros-auto', contextLength: 200000 }],
 }
 
 /**

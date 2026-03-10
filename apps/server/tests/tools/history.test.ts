@@ -18,12 +18,26 @@ function textOf(result: {
     .join('\n')
 }
 
+function structuredOf<T>(result: { structuredContent?: unknown }): T {
+  assert.ok(result.structuredContent, 'Expected structuredContent')
+  return result.structuredContent as T
+}
+
+function pageIdOf(result: {
+  content: { type: string; text?: string }[]
+  structuredContent?: unknown
+}): number {
+  const data = result.structuredContent as { pageId?: number } | undefined
+  if (typeof data?.pageId === 'number') return data.pageId
+  return Number(textOf(result).match(/Page ID:\s*(\d+)/)?.[1])
+}
+
 describe('history tools', () => {
   it('get_recent_history returns items', async () => {
     await withBrowser(async ({ execute }) => {
       // Navigate somewhere to ensure history exists
       const newResult = await execute(new_page, { url: 'https://example.com' })
-      const pageId = Number(textOf(newResult).match(/Page ID:\s*(\d+)/)?.[1])
+      const pageId = pageIdOf(newResult)
 
       const result = await execute(get_recent_history, { maxResults: 10 })
       assert.ok(!result.isError, textOf(result))
@@ -32,6 +46,8 @@ describe('history tools', () => {
         text.includes('history') || text.includes('Retrieved'),
         'Expected history response',
       )
+      const data = structuredOf<{ items: unknown[]; count: number }>(result)
+      assert.strictEqual(data.items.length, data.count)
 
       await execute(close_page, { page: pageId })
     })
@@ -44,6 +60,13 @@ describe('history tools', () => {
         maxResults: 10,
       })
       assert.ok(!result.isError, textOf(result))
+      const data = structuredOf<{
+        query: string
+        items: unknown[]
+        count: number
+      }>(result)
+      assert.strictEqual(data.query, 'example')
+      assert.strictEqual(data.items.length, data.count)
     })
   }, 60_000)
 
@@ -54,6 +77,8 @@ describe('history tools', () => {
       })
       assert.ok(!result.isError, textOf(result))
       assert.ok(textOf(result).includes('Deleted'))
+      const data = structuredOf<{ action: string; url: string }>(result)
+      assert.strictEqual(data.action, 'delete_history_url')
     })
   }, 60_000)
 
@@ -66,6 +91,14 @@ describe('history tools', () => {
       })
       assert.ok(!result.isError, textOf(result))
       assert.ok(textOf(result).includes('Deleted history from'))
+      const data = structuredOf<{
+        action: string
+        startTime: number
+        endTime: number
+      }>(result)
+      assert.strictEqual(data.action, 'delete_history_range')
+      assert.strictEqual(data.startTime, now - 1000)
+      assert.strictEqual(data.endTime, now)
     })
   }, 60_000)
 })

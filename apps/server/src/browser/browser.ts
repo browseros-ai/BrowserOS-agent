@@ -506,7 +506,7 @@ export class Browser {
   async screenshot(
     page: number,
     opts: { format: string; quality?: number; fullPage: boolean },
-  ): Promise<{ data: string; mimeType: string }> {
+  ): Promise<{ data: string; mimeType: string; devicePixelRatio: number }> {
     const session = await this.resolveSession(page)
 
     const params: Record<string, unknown> = {
@@ -515,11 +515,30 @@ export class Browser {
     }
     if (opts.quality !== undefined) params.quality = opts.quality
 
-    const result = await session.Page.captureScreenshot(
-      params as Parameters<ProtocolApi['Page']['captureScreenshot']>[0],
-    )
+    const [screenshotResult, dprResult] = await Promise.allSettled([
+      session.Page.captureScreenshot(
+        params as Parameters<ProtocolApi['Page']['captureScreenshot']>[0],
+      ),
+      session.Runtime.evaluate({
+        expression: 'window.devicePixelRatio',
+        returnByValue: true,
+      }),
+    ])
 
-    return { data: result.data, mimeType: `image/${opts.format}` }
+    if (screenshotResult.status === 'rejected') throw screenshotResult.reason
+
+    const result = screenshotResult.value
+    const devicePixelRatio =
+      dprResult.status === 'fulfilled' &&
+      typeof dprResult.value.result?.value === 'number'
+        ? dprResult.value.result.value
+        : 1
+
+    return {
+      data: result.data,
+      mimeType: `image/${opts.format}`,
+      devicePixelRatio,
+    }
   }
 
   async evaluate(
@@ -650,7 +669,7 @@ export class Browser {
     page: number,
     element: number,
     opts?: { button?: string; clickCount?: number },
-  ): Promise<void> {
+  ): Promise<{ x: number; y: number } | undefined> {
     const session = await this.resolveSession(page)
 
     await elements.scrollIntoView(session, element)
@@ -665,11 +684,13 @@ export class Browser {
         opts?.clickCount ?? 1,
         0,
       )
+      return { x, y }
     } catch {
       logger.debug(
         `CDP click failed for element=${element}, falling back to JS click`,
       )
       await elements.jsClick(session, element)
+      return undefined
     }
   }
 
@@ -690,12 +711,16 @@ export class Browser {
     )
   }
 
-  async hover(page: number, element: number): Promise<void> {
+  async hover(
+    page: number,
+    element: number,
+  ): Promise<{ x: number; y: number }> {
     const session = await this.resolveSession(page)
 
     await elements.scrollIntoView(session, element)
     const { x, y } = await elements.getElementCenter(session, element)
     await mouse.dispatchHover(session, x, y)
+    return { x, y }
   }
 
   async fill(
@@ -703,17 +728,24 @@ export class Browser {
     element: number,
     text: string,
     clear = true,
-  ): Promise<void> {
+  ): Promise<{ x: number; y: number } | undefined> {
     const session = await this.resolveSession(page)
 
     await elements.scrollIntoView(session, element)
 
+    let coords: { x: number; y: number } | undefined
     try {
       await elements.focusElement(session, element)
+      try {
+        coords = await elements.getElementCenter(session, element)
+      } catch {
+        // coordinates are best-effort
+      }
     } catch {
       try {
         const { x, y } = await elements.getElementCenter(session, element)
         await mouse.dispatchClick(session, x, y, 'left', 1, 0)
+        coords = { x, y }
       } catch {
         logger.warn('Could not focus element via click either')
       }
@@ -721,6 +753,7 @@ export class Browser {
 
     if (clear) await keyboard.clearField(session)
     await keyboard.typeText(session, text)
+    return coords
   }
 
   async pressKey(page: number, key: string): Promise<void> {
@@ -732,7 +765,10 @@ export class Browser {
     page: number,
     sourceElement: number,
     target: { element?: number; x?: number; y?: number },
-  ): Promise<void> {
+  ): Promise<{
+    from: { x: number; y: number }
+    to: { x: number; y: number }
+  }> {
     const session = await this.resolveSession(page)
 
     await elements.scrollIntoView(session, sourceElement)
@@ -750,6 +786,7 @@ export class Browser {
     }
 
     await mouse.dispatchDrag(session, from, to)
+    return { from, to }
   }
 
   async scroll(

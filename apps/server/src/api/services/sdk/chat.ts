@@ -8,8 +8,8 @@
 
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
+import type { UIMessageStreamEvent } from '@browseros/shared/schemas/ui-stream'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
-import type { UIMessageStreamEvent } from '../../../agent/provider-adapter/ui-message-stream'
 import { SdkError } from './types'
 
 export interface ExecuteActionOptions {
@@ -24,7 +24,7 @@ export interface ExecuteActionOptions {
 }
 
 export class ChatService {
-  private chatUrl: string
+  private readonly chatUrl: string
 
   constructor(port: number) {
     this.chatUrl = `http://127.0.0.1:${port}/chat`

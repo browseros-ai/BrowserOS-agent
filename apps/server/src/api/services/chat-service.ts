@@ -6,54 +6,25 @@
 
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
-import { MCPServerConfig } from '@google/gemini-cli-core'
-import type { HonoSSEStream } from '../../agent/provider-adapter/types'
-import type { SessionManager } from '../../agent/session'
-import type { ProviderConfig, ResolvedAgentConfig } from '../../agent/types'
+import { createAgentUIStreamResponse, type UIMessage } from 'ai'
+import { AiSdkAgent } from '../../agent/ai-sdk-agent'
+import { formatUserMessage } from '../../agent/format-message'
+import type { SessionStore } from '../../agent/session-store'
+import type { ResolvedAgentConfig } from '../../agent/types'
 import type { Browser } from '../../browser/browser'
-import { INLINED_ENV } from '../../env'
-import {
-  fetchBrowserOSConfig,
-  getLLMConfigFromProvider,
-} from '../../lib/clients/gateway'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
+import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
-import {
-  detectMcpTransport,
-  type McpTransportType,
-} from '../../lib/mcp-transport-detect'
+import type { ToolRegistry } from '../../tools/tool-registry'
 import type { BrowserContext, ChatRequest } from '../types'
 
-interface McpServerOptions {
-  url: string
-  transport: McpTransportType
-  headers?: Record<string, string>
-  trust?: boolean
-}
-
-function createMcpServerConfig(options: McpServerOptions): MCPServerConfig {
-  return new MCPServerConfig(
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    options.transport === 'sse' ? options.url : undefined,
-    options.transport === 'streamable-http' ? options.url : undefined,
-    options.headers,
-    undefined,
-    undefined,
-    options.trust,
-  )
-}
-
 export interface ChatServiceDeps {
-  sessionManager: SessionManager
+  sessionStore: SessionStore
   klavisClient: KlavisClient
   executionDir: string
-  mcpServerUrl: string
-  browserosId?: string
   browser: Browser
+  registry: ToolRegistry
+  browserosId?: string
 }
 
 export class ChatService {
@@ -61,41 +32,26 @@ export class ChatService {
 
   async processMessage(
     request: ChatRequest,
-    rawStream: HonoSSEStream,
     abortSignal: AbortSignal,
-  ): Promise<void> {
-    const { sessionManager } = this.deps
+  ): Promise<Response> {
+    const { sessionStore } = this.deps
 
-    const providerConfig = await this.resolveProviderConfig(request)
-    logger.debug('Provider config resolved', {
-      provider: providerConfig.provider,
-      model: providerConfig.model,
-      hasUpstreamProvider: !!providerConfig.upstreamProvider,
-    })
-
-    const mcpServers = await this.buildMcpServers(
-      request.conversationId,
-      request.browserContext,
-    )
-    logger.debug('MCP servers built', {
-      serverCount: Object.keys(mcpServers).length,
-      servers: Object.keys(mcpServers),
-    })
+    const llmConfig = await resolveLLMConfig(request, this.deps.browserosId)
 
     const sessionExecutionDir = await this.resolveSessionDir(request)
 
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
-      provider: providerConfig.provider,
-      model: providerConfig.model,
-      apiKey: providerConfig.apiKey,
-      baseUrl: providerConfig.baseUrl,
-      upstreamProvider: providerConfig.upstreamProvider,
-      resourceName: providerConfig.resourceName,
-      region: providerConfig.region,
-      accessKeyId: providerConfig.accessKeyId,
-      secretAccessKey: providerConfig.secretAccessKey,
-      sessionToken: providerConfig.sessionToken,
+      provider: llmConfig.provider,
+      model: llmConfig.model,
+      apiKey: llmConfig.apiKey,
+      baseUrl: llmConfig.baseUrl,
+      upstreamProvider: llmConfig.upstreamProvider,
+      resourceName: llmConfig.resourceName,
+      region: llmConfig.region,
+      accessKeyId: llmConfig.accessKeyId,
+      secretAccessKey: llmConfig.secretAccessKey,
+      sessionToken: llmConfig.sessionToken,
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
       sessionExecutionDir,
@@ -104,156 +60,114 @@ export class ChatService {
       isScheduledTask: request.isScheduledTask,
     }
 
-    const browserContext = await this.resolvePageIds(request.browserContext)
+    let session = sessionStore.get(request.conversationId)
+    let isNewSession = false
 
-    const session = await sessionManager.getOrCreate(agentConfig, mcpServers)
-    await session.agent.execute(
-      request.message,
-      rawStream,
-      abortSignal,
-      browserContext,
-      request.previousConversation,
-    )
-  }
-
-  private async resolveProviderConfig(
-    request: ChatRequest,
-  ): Promise<ProviderConfig> {
-    if (request.provider === LLM_PROVIDERS.BROWSEROS) {
-      const configUrl = INLINED_ENV.BROWSEROS_CONFIG_URL
-      if (!configUrl) {
-        throw new Error(
-          'BROWSEROS_CONFIG_URL environment variable is required for BrowserOS provider',
-        )
+    if (!session) {
+      isNewSession = true
+      let hiddenWindowId: number | undefined
+      let browserContext = await this.resolvePageIds(request.browserContext)
+      if (request.isScheduledTask) {
+        try {
+          const win = await this.deps.browser.createWindow({ hidden: true })
+          hiddenWindowId = win.windowId
+          const pageId = await this.deps.browser.newPage('about:blank', {
+            windowId: hiddenWindowId,
+          })
+          browserContext = {
+            ...browserContext,
+            windowId: hiddenWindowId,
+            activeTab: {
+              id: pageId,
+              pageId,
+              url: 'about:blank',
+              title: 'Scheduled Task',
+            },
+          }
+          logger.info('Created hidden window for scheduled task', {
+            conversationId: request.conversationId,
+            windowId: hiddenWindowId,
+            pageId,
+          })
+        } catch (error) {
+          logger.warn('Failed to create hidden window, using default', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
       }
 
-      logger.info('Fetching BrowserOS config', {
-        configUrl,
+      const agent = await AiSdkAgent.create({
+        resolvedConfig: agentConfig,
+        browser: this.deps.browser,
+        registry: this.deps.registry,
+        browserContext,
+        klavisClient: this.deps.klavisClient,
         browserosId: this.deps.browserosId,
       })
+      session = { agent, hiddenWindowId, browserContext }
+      sessionStore.set(request.conversationId, session)
+    }
 
-      const browserosConfig = await fetchBrowserOSConfig(
-        configUrl,
-        this.deps.browserosId,
-      )
-      const llmConfig = getLLMConfigFromProvider(browserosConfig, 'default')
-
-      logger.info('Using BrowserOS config', {
-        model: llmConfig.modelName,
-        baseUrl: llmConfig.baseUrl,
-        upstreamProvider: llmConfig.providerType,
-      })
-
-      return {
-        provider: request.provider,
-        model: llmConfig.modelName,
-        apiKey: llmConfig.apiKey,
-        baseUrl: llmConfig.baseUrl,
-        upstreamProvider: llmConfig.providerType,
+    if (isNewSession && request.previousConversation?.length) {
+      for (const msg of request.previousConversation) {
+        session.agent.messages.push({
+          id: crypto.randomUUID(),
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          parts: [{ type: 'text', text: msg.content }],
+        })
       }
+      logger.info('Injected previous conversation history', {
+        conversationId: request.conversationId,
+        messageCount: request.previousConversation.length,
+      })
     }
 
-    return {
-      provider: request.provider,
-      model: request.model,
-      apiKey: request.apiKey,
-      baseUrl: request.baseUrl,
-      resourceName: request.resourceName,
-      region: request.region,
-      accessKeyId: request.accessKeyId,
-      secretAccessKey: request.secretAccessKey,
-      sessionToken: request.sessionToken,
-    }
+    const messageContext = request.isScheduledTask
+      ? (session.browserContext ?? request.browserContext)
+      : request.browserContext
+    // Scheduled tasks already have correct internal pageIds from browser.newPage();
+    // calling resolvePageIds would pass those to resolveTabIds (which expects Chrome
+    // tab IDs), corrupting them back to undefined.
+    const resolvedMessageContext = request.isScheduledTask
+      ? messageContext
+      : await this.resolvePageIds(messageContext)
+    const userContent = formatUserMessage(
+      request.message,
+      resolvedMessageContext,
+    )
+    session.agent.appendUserMessage(userContent)
+
+    return createAgentUIStreamResponse({
+      agent: session.agent.toolLoopAgent,
+      uiMessages: session.agent.messages,
+      abortSignal,
+      onFinish: async ({ messages }: { messages: UIMessage[] }) => {
+        session.agent.messages = messages
+        logger.info('Agent execution complete', {
+          conversationId: request.conversationId,
+          totalMessages: messages.length,
+        })
+
+        if (session?.hiddenWindowId) {
+          const windowId = session.hiddenWindowId
+          session.hiddenWindowId = undefined
+          this.closeHiddenWindow(windowId, request.conversationId)
+        }
+      },
+    })
   }
 
-  private async buildMcpServers(
+  async deleteSession(
     conversationId: string,
-    browserContext?: BrowserContext,
-  ): Promise<Record<string, MCPServerConfig>> {
-    const { klavisClient, mcpServerUrl, browserosId } = this.deps
-    const servers: Record<string, MCPServerConfig> = {}
-
-    if (mcpServerUrl) {
-      servers['browseros-mcp'] = createMcpServerConfig({
-        url: mcpServerUrl,
-        transport: 'streamable-http',
-        headers: {
-          Accept: 'application/json, text/event-stream',
-          'X-BrowserOS-Scope-Id': conversationId,
-        },
-        trust: true,
-      })
+  ): Promise<{ deleted: boolean; sessionCount: number }> {
+    const session = this.deps.sessionStore.get(conversationId)
+    if (session?.hiddenWindowId) {
+      const windowId = session.hiddenWindowId
+      session.hiddenWindowId = undefined
+      this.closeHiddenWindow(windowId, conversationId)
     }
-
-    if (browserosId && browserContext?.enabledMcpServers?.length) {
-      try {
-        const result = await klavisClient.createStrata(
-          browserosId,
-          browserContext.enabledMcpServers,
-        )
-        servers['klavis-strata'] = createMcpServerConfig({
-          url: result.strataServerUrl,
-          transport: 'streamable-http',
-          trust: true,
-        })
-        logger.info('Added Klavis Strata MCP server', {
-          browserosId: browserosId.slice(0, 12),
-          servers: browserContext.enabledMcpServers,
-        })
-      } catch (error) {
-        logger.error('Failed to create Klavis Strata MCP server', {
-          browserosId: browserosId?.slice(0, 12),
-          servers: browserContext.enabledMcpServers,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-    }
-
-    if (browserContext?.customMcpServers?.length) {
-      const customServers = browserContext.customMcpServers
-      const transports = await Promise.all(
-        customServers.map((server) => detectMcpTransport(server.url)),
-      )
-      for (let i = 0; i < customServers.length; i++) {
-        const server = customServers[i]
-        const transport = transports[i]
-        servers[`custom-${server.name}`] = createMcpServerConfig({
-          url: server.url,
-          transport,
-          trust: true,
-        })
-        logger.info('Added custom MCP server', {
-          name: server.name,
-          url: server.url,
-          transport,
-        })
-      }
-    }
-
-    return servers
-  }
-
-  private async resolveSessionDir(request: ChatRequest): Promise<string> {
-    let dir: string
-    let userProvided: boolean
-
-    if (request.userWorkingDir) {
-      dir = request.userWorkingDir
-      userProvided = true
-    } else {
-      // create new session dir for this conversationId
-      dir = path.join(
-        this.deps.executionDir,
-        'sessions',
-        request.conversationId,
-      )
-      userProvided = false
-    }
-
-    await mkdir(dir, { recursive: true })
-    logger.info('Session directory resolved', { dir, userProvided })
-
-    return dir
+    const deleted = await this.deps.sessionStore.delete(conversationId)
+    return { deleted, sessionCount: this.deps.sessionStore.count() }
   }
 
   // Browser context arrives with Chrome tab IDs, but tools expect internal page IDs.
@@ -263,23 +177,26 @@ export class ChatService {
   ): Promise<BrowserContext | undefined> {
     if (!browserContext) return undefined
 
-    const tabIds: number[] = []
-    if (browserContext.activeTab) tabIds.push(browserContext.activeTab.id)
+    const tabIdSet = new Set<number>()
+    if (browserContext.activeTab) tabIdSet.add(browserContext.activeTab.id)
     if (browserContext.selectedTabs) {
-      for (const tab of browserContext.selectedTabs) tabIds.push(tab.id)
+      for (const tab of browserContext.selectedTabs) tabIdSet.add(tab.id)
     }
     if (browserContext.tabs) {
-      for (const tab of browserContext.tabs) tabIds.push(tab.id)
+      for (const tab of browserContext.tabs) tabIdSet.add(tab.id)
     }
 
-    if (tabIds.length === 0) return browserContext
+    if (tabIdSet.size === 0) return browserContext
 
-    const tabToPage = await this.deps.browser.resolveTabIds(tabIds)
+    const tabToPage = await this.deps.browser.resolveTabIds([...tabIdSet])
 
-    const addPageId = (tab: { id: number; url?: string; title?: string }) => ({
-      ...tab,
-      pageId: tabToPage.get(tab.id),
-    })
+    const addPageId = (tab: { id: number; url?: string; title?: string }) => {
+      const pageId = tabToPage.get(tab.id)
+      if (pageId === undefined) {
+        logger.warn('Could not resolve page ID for tab', { tabId: tab.id })
+      }
+      return { ...tab, pageId }
+    }
 
     logger.debug('Resolved tab IDs to page IDs', {
       mapping: Object.fromEntries(tabToPage),
@@ -293,5 +210,23 @@ export class ChatService {
       selectedTabs: browserContext.selectedTabs?.map(addPageId),
       tabs: browserContext.tabs?.map(addPageId),
     }
+  }
+
+  private closeHiddenWindow(windowId: number, conversationId: string): void {
+    this.deps.browser.closeWindow(windowId).catch((error) => {
+      logger.warn('Failed to close hidden window', {
+        windowId,
+        conversationId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
+  }
+
+  private async resolveSessionDir(request: ChatRequest): Promise<string> {
+    const dir = request.userWorkingDir
+      ? request.userWorkingDir
+      : path.join(this.deps.executionDir, 'sessions', request.conversationId)
+    await mkdir(dir, { recursive: true })
+    return dir
   }
 }

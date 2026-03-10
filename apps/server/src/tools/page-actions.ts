@@ -20,11 +20,21 @@ export const save_pdf = defineTool({
       .optional()
       .describe('Working directory to resolve relative paths against'),
   }),
+  output: z.object({
+    action: z.literal('save_pdf'),
+    page: z.number(),
+    path: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     const resolvedPath = resolve(args.cwd ?? process.cwd(), args.path)
     const { data } = await ctx.browser.printToPDF(args.page)
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
     response.text(`Saved PDF to ${resolvedPath}`)
+    response.data({
+      action: 'save_pdf',
+      page: args.page,
+      path: resolvedPath,
+    })
   },
 })
 
@@ -55,6 +65,14 @@ export const save_screenshot = defineTool({
       .default(false)
       .describe('Capture full scrollable page'),
   }),
+  output: z.object({
+    action: z.literal('save_screenshot'),
+    page: z.number(),
+    path: z.string(),
+    format: z.enum(['png', 'jpeg', 'webp']),
+    quality: z.number().optional(),
+    fullPage: z.boolean(),
+  }),
   handler: async (args, ctx, response) => {
     const resolvedPath = resolve(args.cwd ?? process.cwd(), args.path)
     const { data } = await ctx.browser.screenshot(args.page, {
@@ -64,6 +82,14 @@ export const save_screenshot = defineTool({
     })
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
     response.text(`Saved screenshot to ${resolvedPath}`)
+    response.data({
+      action: 'save_screenshot',
+      page: args.page,
+      path: resolvedPath,
+      format: args.format,
+      quality: args.quality,
+      fullPage: args.fullPage,
+    })
   },
 })
 
@@ -80,6 +106,14 @@ export const download_file = defineTool({
       .optional()
       .describe('Working directory to resolve relative paths against'),
   }),
+  output: z.object({
+    action: z.literal('download_file'),
+    page: z.number(),
+    element: z.number(),
+    directory: z.string(),
+    suggestedFilename: z.string(),
+    destinationPath: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     const resolvedDir = resolve(args.cwd ?? process.cwd(), args.path)
     const tempDir = await mkdtemp(join(tmpdir(), 'browseros-dl-'))
@@ -92,6 +126,14 @@ export const download_file = defineTool({
       await rename(filePath, destPath)
 
       response.text(`Downloaded "${suggestedFilename}" to ${destPath}`)
+      response.data({
+        action: 'download_file',
+        page: args.page,
+        element: args.element,
+        directory: resolvedDir,
+        suggestedFilename,
+        destinationPath: destPath,
+      })
     } finally {
       await rm(tempDir, { recursive: true, force: true }).catch(() => {})
     }

@@ -43,12 +43,10 @@ func runTest(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	p := proc.Ports{CDP: 9005, Server: 9105, Extension: 9305}
+	p := proc.DefaultLocalPorts()
 
 	proc.LogMsg(proc.TagInfo, "Killing processes on test ports...")
-	proc.KillPort(p.CDP)
-	proc.KillPort(p.Server)
-	proc.KillPort(p.Extension)
+	proc.KillPorts(p)
 	proc.LogMsg(proc.TagInfo, "Ports cleared")
 
 	if n := proc.CleanupTempDirs("browseros-test-"); n > 0 {

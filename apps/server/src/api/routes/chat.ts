@@ -1,57 +1,42 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- * SPDX-License-Identifier: AGPL-3.0-or-later
- */
-
 import { PATHS } from '@browseros/shared/constants/paths'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
-import { stream } from 'hono/streaming'
-import type { SessionManager } from '../../agent/session'
+import { SessionStore } from '../../agent/session-store'
 import type { Browser } from '../../browser/browser'
 import { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import type { RateLimiter } from '../../lib/rate-limiter/rate-limiter'
 import { Sentry } from '../../lib/sentry'
+import type { ToolRegistry } from '../../tools/tool-registry'
 import { createBrowserosRateLimitMiddleware } from '../middleware/rate-limit'
 import { ChatService } from '../services/chat-service'
 import { ChatRequestSchema } from '../types'
 import { ConversationIdParamSchema } from '../utils/validation'
 
 interface ChatRouteDeps {
-  port: number
+  browser: Browser
+  registry: ToolRegistry
   executionDir?: string
   browserosId?: string
   rateLimiter?: RateLimiter
-  sessionManager: SessionManager
-  browser: Browser
 }
 
 export function createChatRoutes(deps: ChatRouteDeps) {
-  const { port, browserosId, rateLimiter, sessionManager, browser } = deps
-
-  const mcpServerUrl = `http://127.0.0.1:${port}/mcp`
+  const { browserosId, rateLimiter } = deps
   const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
 
+  const sessionStore = new SessionStore()
   const klavisClient = new KlavisClient()
-
-  const chatService = new ChatService({
-    sessionManager,
+  const service = new ChatService({
+    sessionStore,
     klavisClient,
     executionDir,
-    mcpServerUrl,
+    browser: deps.browser,
+    registry: deps.registry,
     browserosId,
-    browser,
   })
 
-  logger.debug('Chat routes initialized', {
-    browserosId,
-    mcpServerUrl,
-  })
-
-  // Chain route definitions for proper Hono RPC type inference
   return new Hono()
     .post(
       '/',
@@ -60,6 +45,7 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       async (c) => {
         const request = c.req.valid('json')
 
+        // Sentry + metrics (HTTP concerns only)
         Sentry.getCurrentScope().setTag(
           'request-type',
           request.isScheduledTask ? 'schedule' : 'chat',
@@ -79,45 +65,9 @@ export function createChatRoutes(deps: ChatRouteDeps) {
           conversationId: request.conversationId,
           provider: request.provider,
           model: request.model,
-          browserContext: request.browserContext,
         })
 
-        c.header('Content-Type', 'text/event-stream')
-        c.header('x-vercel-ai-ui-message-stream', 'v1')
-        c.header('Cache-Control', 'no-cache')
-        c.header('Connection', 'keep-alive')
-
-        const abortController = new AbortController()
-
-        if (c.req.raw.signal) {
-          c.req.raw.signal.addEventListener(
-            'abort',
-            () => abortController.abort(),
-            { once: true },
-          )
-        }
-
-        return stream(c, async (honoStream) => {
-          honoStream.onAbort(() => {
-            abortController.abort()
-            metrics.log('chat.aborted', {
-              provider: request.provider,
-              model: request.model,
-            })
-          })
-
-          const rawStream = {
-            write: async (data: string): Promise<void> => {
-              await honoStream.write(data)
-            },
-          }
-
-          await chatService.processMessage(
-            request,
-            rawStream,
-            abortController.signal,
-          )
-        })
+        return service.processMessage(request, c.req.raw.signal)
       },
     )
     .delete(
@@ -125,28 +75,18 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       zValidator('param', ConversationIdParamSchema),
       async (c) => {
         const { conversationId } = c.req.valid('param')
-        const deleted = sessionManager.delete(conversationId)
+        const result = await service.deleteSession(conversationId)
 
-        // TODO: nikhil - figure out  better clean-up strategy for sessionDir
-        // rather than deleting on session delete
-        // at end of session as might have useful reports/other artifacts
-        //
-        // const sessionDir = path.join(executionDir, 'agent', conversationId)
-        // await rm(sessionDir, { recursive: true, force: true }).catch(() => {})
-
-        if (deleted) {
+        if (result.deleted) {
           return c.json({
             success: true,
             message: `Session ${conversationId} deleted`,
-            sessionCount: sessionManager.count(),
+            sessionCount: result.sessionCount,
           })
         }
 
         return c.json(
-          {
-            success: false,
-            message: `Session ${conversationId} not found`,
-          },
+          { success: false, message: `Session ${conversationId} not found` },
           404,
         )
       },

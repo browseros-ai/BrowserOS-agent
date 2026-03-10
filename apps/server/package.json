@@ -1,6 +1,6 @@
 {
   "name": "@browseros/server",
-  "version": "0.0.66",
+  "version": "0.0.69",
   "description": "BrowserOS server",
   "type": "module",
   "main": "./src/index.ts",
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "bun --watch --env-file=.env.development src/index.ts",
-    "build": "bun ../../scripts/build/server.ts --mode=prod --target=all",
+    "build": "bun ../../scripts/build/server.ts --target=all",
     "test:tools": "bun run test:cleanup && bun --env-file=.env.development test tests/tools",
     "test:integration": "bun run test:cleanup && bun --env-file=.env.development test tests/server.integration.test.ts",
     "test:sdk": "bun run test:cleanup && bun --env-file=.env.development test tests/sdk",
@@ -22,8 +22,8 @@
       "import": "./src/rpc.ts"
     },
     "./agent": {
-      "types": "./src/agent/gemini-agent.ts",
-      "default": "./src/agent/gemini-agent.ts"
+      "types": "./src/agent/ai-sdk-agent.ts",
+      "default": "./src/agent/ai-sdk-agent.ts"
     },
     "./agent/types": {
       "types": "./src/agent/types.ts",
@@ -55,7 +55,7 @@
     "@hono/mcp": "^0.2.3",
     "@hono/node-server": "^1.19.6",
     "@hono/zod-validator": "^0.4.3",
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "@sentry/bun": "^10.31.0",
     "ai": "^6.0.94",
@@ -71,7 +71,8 @@
     "posthog-node": "^4.17.0",
     "puppeteer-core": "24.23.0",
     "ws": "^8.18.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "zod-from-json-schema": "^0.1.0"
   },
   "devDependencies": {
     "@types/bun": "1.3.5",

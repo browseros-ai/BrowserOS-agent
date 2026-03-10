@@ -6,4 +6,4 @@ export type SearchProviders =
   | 'bing'
   | 'yahoo'
   | 'duckduckgo'
-  | 'yandex'
+  | 'brave'

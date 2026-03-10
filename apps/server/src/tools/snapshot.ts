@@ -10,9 +10,13 @@ export const take_snapshot = defineTool({
   input: z.object({
     page: pageParam,
   }),
+  output: z.object({
+    snapshot: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     const tree = await ctx.browser.snapshot(args.page)
     response.text(tree || 'Page has no interactive elements.')
+    response.data({ snapshot: tree || '' })
   },
 })
 
@@ -23,9 +27,13 @@ export const take_enhanced_snapshot = defineTool({
   input: z.object({
     page: pageParam,
   }),
+  output: z.object({
+    snapshot: z.string(),
+  }),
   handler: async (args, ctx, response) => {
     const tree = await ctx.browser.enhancedSnapshot(args.page)
     response.text(tree || 'Page has no visible content.')
+    response.data({ snapshot: tree || '' })
   },
 })
 
@@ -54,6 +62,13 @@ export const get_page_content = defineTool({
       .default(false)
       .describe('Include image references as ![alt](src)'),
   }),
+  output: z.object({
+    content: z.string(),
+    selector: z.string().optional(),
+    viewportOnly: z.boolean(),
+    includeLinks: z.boolean(),
+    includeImages: z.boolean(),
+  }),
   handler: async (args, ctx, response) => {
     const text = await ctx.browser.contentAsMarkdown(args.page, {
       selector: args.selector,
@@ -62,6 +77,13 @@ export const get_page_content = defineTool({
       includeImages: args.includeImages,
     })
     response.text(text || 'No text content found.')
+    response.data({
+      content: text || '',
+      selector: args.selector,
+      viewportOnly: args.viewportOnly,
+      includeLinks: args.includeLinks,
+      includeImages: args.includeImages,
+    })
   },
 })
 
@@ -85,13 +107,22 @@ export const take_screenshot = defineTool({
       .default(false)
       .describe('Capture full scrollable page'),
   }),
+  output: z.object({
+    mimeType: z.string(),
+    devicePixelRatio: z.number(),
+  }),
   handler: async (args, ctx, response) => {
-    const { data, mimeType } = await ctx.browser.screenshot(args.page, {
-      format: args.format,
-      quality: args.quality,
-      fullPage: args.fullPage,
-    })
+    const { data, mimeType, devicePixelRatio } = await ctx.browser.screenshot(
+      args.page,
+      {
+        format: args.format,
+        quality: args.quality,
+        fullPage: args.fullPage,
+      },
+    )
     response.image(data, mimeType)
+    response.text(`devicePixelRatio: ${devicePixelRatio}`)
+    response.data({ mimeType, devicePixelRatio })
   },
 })
 
@@ -102,16 +133,27 @@ export const get_page_links = defineTool({
   input: z.object({
     page: pageParam,
   }),
+  output: z.object({
+    links: z.array(
+      z.object({
+        text: z.string(),
+        href: z.string(),
+      }),
+    ),
+    count: z.number(),
+  }),
   handler: async (args, ctx, response) => {
     const links = await ctx.browser.getPageLinks(args.page)
 
     if (links.length === 0) {
       response.text('No links found on the page.')
+      response.data({ links: [], count: 0 })
       return
     }
 
     const lines = links.map((l) => (l.text ? `[${l.text}](${l.href})` : l.href))
     response.text(lines.join('\n'))
+    response.data({ links, count: links.length })
   },
 })
 
@@ -123,6 +165,11 @@ export const evaluate_script = defineTool({
     page: pageParam,
     expression: z.string().describe('JavaScript expression to evaluate'),
   }),
+  output: z.object({
+    text: z.string(),
+    value: z.unknown().optional(),
+    description: z.string().optional(),
+  }),
   handler: async (args, ctx, response) => {
     const result = await ctx.browser.evaluate(args.page, args.expression)
 
@@ -132,12 +179,21 @@ export const evaluate_script = defineTool({
     }
 
     const val = result.value
+    let text: string
     if (val === undefined) {
-      response.text(result.description ?? 'undefined')
+      text = result.description ?? 'undefined'
+      response.text(text)
     } else if (typeof val === 'string') {
-      response.text(val)
+      text = val
+      response.text(text)
     } else {
-      response.text(JSON.stringify(val, null, 2))
+      text = JSON.stringify(val, null, 2)
+      response.text(text)
     }
+    response.data({
+      text,
+      value: result.value,
+      description: result.description,
+    })
   },
 })
