@@ -18,6 +18,8 @@ import { logger } from '../../lib/logger'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import type { BrowserContext, ChatRequest } from '../types'
 
+const chatServiceLogger = logger.child({ key: 'api.chat-service' })
+
 export interface ChatServiceDeps {
   sessionStore: SessionStore
   klavisClient: KlavisClient
@@ -69,11 +71,14 @@ export class ChatService {
 
     // Detect MCP config change mid-conversation → rebuild session
     if (session && session.mcpServerKey !== mcpServerKey) {
-      logger.info('MCP servers changed mid-conversation, rebuilding session', {
-        conversationId: request.conversationId,
-        previous: session.mcpServerKey,
-        current: mcpServerKey,
-      })
+      chatServiceLogger.info(
+        'MCP servers changed mid-conversation, rebuilding session',
+        {
+          conversationId: request.conversationId,
+          previous: session.mcpServerKey,
+          current: mcpServerKey,
+        },
+      )
       const previousMessages = session.agent.messages
       await session.agent.dispose()
       sessionStore.remove(request.conversationId)
@@ -113,15 +118,18 @@ export class ChatService {
               title: 'Scheduled Task',
             },
           }
-          logger.info('Created hidden window for scheduled task', {
+          chatServiceLogger.info('Created hidden window for scheduled task', {
             conversationId: request.conversationId,
             windowId: hiddenWindowId,
             pageId,
           })
         } catch (error) {
-          logger.warn('Failed to create hidden window, using default', {
-            error: error instanceof Error ? error.message : String(error),
-          })
+          chatServiceLogger.warn(
+            'Failed to create hidden window, using default',
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+          )
         }
       }
 
@@ -145,7 +153,7 @@ export class ChatService {
           parts: [{ type: 'text', text: msg.content }],
         })
       }
-      logger.info('Injected previous conversation history', {
+      chatServiceLogger.info('Injected previous conversation history', {
         conversationId: request.conversationId,
         messageCount: request.previousConversation.length,
       })
@@ -172,7 +180,7 @@ export class ChatService {
       abortSignal,
       onFinish: async ({ messages }: { messages: UIMessage[] }) => {
         session.agent.messages = messages
-        logger.info('Agent execution complete', {
+        chatServiceLogger.info('Agent execution complete', {
           conversationId: request.conversationId,
           totalMessages: messages.length,
         })
@@ -222,12 +230,14 @@ export class ChatService {
     const addPageId = (tab: { id: number; url?: string; title?: string }) => {
       const pageId = tabToPage.get(tab.id)
       if (pageId === undefined) {
-        logger.warn('Could not resolve page ID for tab', { tabId: tab.id })
+        chatServiceLogger.warn('Could not resolve page ID for tab', {
+          tabId: tab.id,
+        })
       }
       return { ...tab, pageId }
     }
 
-    logger.debug('Resolved tab IDs to page IDs', {
+    chatServiceLogger.debug('Resolved tab IDs to page IDs', {
       mapping: Object.fromEntries(tabToPage),
     })
 
@@ -243,7 +253,7 @@ export class ChatService {
 
   private closeHiddenWindow(windowId: number, conversationId: string): void {
     this.deps.browser.closeWindow(windowId).catch((error) => {
-      logger.warn('Failed to close hidden window', {
+      chatServiceLogger.warn('Failed to close hidden window', {
         windowId,
         conversationId,
         error: error instanceof Error ? error.message : String(error),

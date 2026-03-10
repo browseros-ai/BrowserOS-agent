@@ -114,22 +114,47 @@ function createConsoleTransport(): pino.TransportSingleOptions | null {
   return null
 }
 
-export class Logger implements LoggerInterface {
-  private consoleLogger: pino.Logger
-  private fileLogger: pino.Logger | null = null
-  private level: LogLevel
+interface LoggerState {
+  consoleLogger: pino.Logger
+  fileLogger: pino.Logger | null
+  level: LogLevel
+}
 
-  constructor(level?: LogLevel) {
-    this.level =
+export class Logger implements LoggerInterface {
+  private readonly state: LoggerState
+  private readonly bindings: Record<string, unknown>
+
+  constructor(
+    level?: LogLevel,
+    state?: LoggerState,
+    bindings: Record<string, unknown> = {},
+  ) {
+    this.bindings = bindings
+    if (state) {
+      this.state = state
+      return
+    }
+    const resolvedLevel =
       level ||
       (process.env.LOG_LEVEL as LogLevel | undefined) ||
       (isDev ? 'debug' : 'info')
-    this.consoleLogger = this.createConsoleLogger()
+    this.state = {
+      level: resolvedLevel,
+      consoleLogger: this.createConsoleLogger(resolvedLevel),
+      fileLogger: null,
+    }
   }
 
-  private createConsoleLogger(): pino.Logger {
+  child(bindings: Record<string, unknown>): Logger {
+    return new Logger(undefined, this.state, {
+      ...this.bindings,
+      ...bindings,
+    })
+  }
+
+  private createConsoleLogger(level: LogLevel): pino.Logger {
     const options: pino.LoggerOptions = {
-      level: this.level,
+      level,
     }
 
     // Add source tracking in development
@@ -168,14 +193,29 @@ export class Logger implements LoggerInterface {
     })
 
     // File logger: always JSON, no source tracking (for performance)
-    this.fileLogger = pino({ level: this.level }, fileDestination)
+    this.state.fileLogger = pino({ level: this.state.level }, fileDestination)
   }
 
   setLevel(level: LogLevel): void {
-    this.level = level
-    this.consoleLogger.level = level
-    if (this.fileLogger) {
-      this.fileLogger.level = level
+    this.state.level = level
+    this.state.consoleLogger.level = level
+    if (this.state.fileLogger) {
+      this.state.fileLogger.level = level
+    }
+  }
+
+  private mergeMeta(
+    meta?: Record<string, unknown>,
+  ): Record<string, unknown> | undefined {
+    if (Object.keys(this.bindings).length === 0) {
+      return meta
+    }
+    if (!meta) {
+      return { ...this.bindings }
+    }
+    return {
+      ...this.bindings,
+      ...meta,
     }
   }
 
@@ -184,26 +224,27 @@ export class Logger implements LoggerInterface {
     message: string,
     meta?: Record<string, unknown>,
   ): void {
-    const logFn = this.consoleLogger[level].bind(this.consoleLogger)
-    const fileLogFn = this.fileLogger?.[level].bind(this.fileLogger)
+    const logFn = this.state.consoleLogger[level].bind(this.state.consoleLogger)
+    const fileLogFn = this.state.fileLogger?.[level].bind(this.state.fileLogger)
+    const mergedMeta = this.mergeMeta(meta)
 
     // Console: truncate large values in dev (skip for error/warn so full context is visible)
-    if (meta && isDev && level !== 'error' && level !== 'warn') {
+    if (mergedMeta && isDev && level !== 'error' && level !== 'warn') {
       const truncated = truncateForConsole(
-        meta,
+        mergedMeta,
         CONTENT_LIMITS.CONSOLE_META_CHAR,
       )
       logFn(truncated, message)
-    } else if (meta) {
-      logFn(meta, message)
+    } else if (mergedMeta) {
+      logFn(mergedMeta, message)
     } else {
       logFn(message)
     }
 
     // File: always log full data, no truncation
     if (fileLogFn) {
-      if (meta) {
-        fileLogFn(meta, message)
+      if (mergedMeta) {
+        fileLogFn(mergedMeta, message)
       } else {
         fileLogFn(message)
       }

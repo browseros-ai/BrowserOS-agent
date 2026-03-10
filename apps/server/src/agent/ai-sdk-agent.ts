@@ -26,6 +26,8 @@ import { createLanguageModel } from './provider-factory'
 import { buildBrowserToolSet } from './tool-adapter'
 import type { ResolvedAgentConfig } from './types'
 
+const agentLogger = logger.child({ key: 'agent.ai-sdk-agent' })
+
 export interface AiSdkAgentConfig {
   resolvedConfig: ResolvedAgentConfig
   browser: Browser
@@ -72,9 +74,12 @@ export class AiSdkAgent {
         )
       : allBrowserTools
     if (config.resolvedConfig.chatMode) {
-      logger.info('Chat mode enabled, restricting to read-only browser tools', {
-        allowedTools: Array.from(CHAT_MODE_ALLOWED_TOOLS),
-      })
+      agentLogger.info(
+        'Chat mode enabled, restricting to read-only browser tools',
+        {
+          allowedTools: Array.from(CHAT_MODE_ALLOWED_TOOLS),
+        },
+      )
     }
 
     // Build external MCP server specs (Klavis, custom) and connect clients
@@ -156,7 +161,7 @@ export class AiSdkAgent {
       prepareStep,
     })
 
-    logger.info('Agent session created (v2)', {
+    agentLogger.info('Agent session created (v2)', {
       conversationId: config.resolvedConfig.conversationId,
       provider: config.resolvedConfig.provider,
       model: config.resolvedConfig.model,
@@ -195,6 +200,6 @@ export class AiSdkAgent {
     for (const client of this._mcpClients) {
       await client.close().catch(() => {})
     }
-    logger.info('Agent disposed', { conversationId: this.conversationId })
+    agentLogger.info('Agent disposed', { conversationId: this.conversationId })
   }
 }

@@ -11,6 +11,8 @@ import { logger } from '../lib/logger'
 import { createOpenRouterCompatibleFetch } from '../lib/openrouter-fetch'
 import type { ResolvedAgentConfig } from './types'
 
+const providerLogger = logger.child({ key: 'agent.provider-factory' })
+
 type ProviderFactory = (
   config: ResolvedAgentConfig,
 ) => (modelId: string) => unknown
@@ -116,7 +118,9 @@ function createBrowserOSFactory(
   if (upstreamProvider === LLM_PROVIDERS.AZURE) {
     return createAzure({ baseURL: baseUrl, ...(apiKey && { apiKey }) })
   }
-  logger.info('creating openai-compatible')
+  providerLogger.info('Creating OpenAI-compatible BrowserOS provider', {
+    upstreamProvider: upstreamProvider ?? null,
+  })
   return createOpenAICompatible({
     name: 'browseros',
     baseURL: baseUrl,

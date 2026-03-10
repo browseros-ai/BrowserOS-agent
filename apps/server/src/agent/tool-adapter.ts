@@ -7,6 +7,8 @@ import { executeTool, type ToolContext } from '../tools/framework'
 import type { ContentItem } from '../tools/response'
 import type { ToolRegistry } from '../tools/tool-registry'
 
+const toolAdapterLogger = logger.child({ key: 'agent.tool-adapter' })
+
 function contentToModelOutput(
   content: ContentItem[],
 ): LanguageModelV2ToolResultOutput {
@@ -75,7 +77,7 @@ export function buildBrowserToolSet(
           const errorText =
             error instanceof Error ? error.message : String(error)
 
-          logger.error('Tool execution failed', {
+          toolAdapterLogger.error('Tool execution failed', {
             tool: def.name,
             error: errorText,
           })

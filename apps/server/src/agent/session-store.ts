@@ -2,6 +2,8 @@ import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import { logger } from '../lib/logger'
 import type { AiSdkAgent } from './ai-sdk-agent'
 
+const sessionStoreLogger = logger.child({ key: 'agent.session-store' })
+
 export interface AgentSession {
   agent: AiSdkAgent
   hiddenWindowId?: number
@@ -20,7 +22,7 @@ export class SessionStore {
 
   set(conversationId: string, session: AgentSession): void {
     this.sessions.set(conversationId, session)
-    logger.info('Session added to store', {
+    sessionStoreLogger.info('Session added to store', {
       conversationId,
       totalSessions: this.sessions.size,
     })
@@ -33,7 +35,7 @@ export class SessionStore {
   remove(conversationId: string): boolean {
     const existed = this.sessions.delete(conversationId)
     if (existed) {
-      logger.info('Session removed from store (without dispose)', {
+      sessionStoreLogger.info('Session removed from store (without dispose)', {
         conversationId,
         remainingSessions: this.sessions.size,
       })
@@ -47,7 +49,7 @@ export class SessionStore {
 
     await session.agent.dispose()
     this.sessions.delete(conversationId)
-    logger.info('Session deleted', {
+    sessionStoreLogger.info('Session deleted', {
       conversationId,
       remainingSessions: this.sessions.size,
     })

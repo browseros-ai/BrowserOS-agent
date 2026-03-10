@@ -6,6 +6,10 @@ import type {
 } from '@ai-sdk/provider'
 import { logger } from '../lib/logger'
 
+const overflowLogger = logger.child({
+  key: 'agent.context-overflow-middleware',
+})
+
 /**
  * Provider-specific regex patterns for context overflow errors.
  * Adapted from Pi coding agent's overflow detection.
@@ -69,7 +73,7 @@ function truncatePrompt(
     ...systemMessages,
     ...nonSystem.slice(keepFrom),
   ]
-  logger.warn('Emergency prompt truncation', {
+  overflowLogger.warn('Emergency prompt truncation', {
     original: prompt.length,
     kept: kept.length,
     dropped: prompt.length - kept.length,
@@ -87,7 +91,7 @@ export function createContextOverflowMiddleware(
         return await doGenerate()
       } catch (error) {
         if (!isContextOverflowError(error)) throw error
-        logger.warn(
+        overflowLogger.warn(
           'Context overflow detected in doGenerate, truncating and retrying',
         )
         ;(params as LanguageModelV3CallOptions).prompt = truncatePrompt(
@@ -102,7 +106,7 @@ export function createContextOverflowMiddleware(
         return await doStream()
       } catch (error) {
         if (!isContextOverflowError(error)) throw error
-        logger.warn(
+        overflowLogger.warn(
           'Context overflow detected in doStream, truncating and retrying',
         )
         ;(params as LanguageModelV3CallOptions).prompt = truncatePrompt(

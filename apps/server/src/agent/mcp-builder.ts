@@ -9,6 +9,8 @@ import {
   type McpTransportType,
 } from '../lib/mcp-transport-detect'
 
+const mcpLogger = logger.child({ key: 'agent.mcp-builder' })
+
 export interface McpServerSpec {
   name: string
   url: string
@@ -49,12 +51,12 @@ export async function buildMcpServerSpecs(
         url: result.strataServerUrl,
         transport: 'streamable-http',
       })
-      logger.info('Added Klavis Strata MCP server', {
+      mcpLogger.info('Added Klavis Strata MCP server', {
         browserosId: deps.browserosId.slice(0, 12),
         servers: deps.browserContext.enabledMcpServers,
       })
     } catch (error) {
-      logger.error('Failed to create Klavis Strata MCP server', {
+      mcpLogger.error('Failed to create Klavis Strata MCP server', {
         error: error instanceof Error ? error.message : String(error),
       })
     }
@@ -116,7 +118,7 @@ async function connectMcpClient(
     ])
     return { client, tools: clientTools }
   } catch (error) {
-    logger.warn('Failed to connect MCP client, skipping', {
+    mcpLogger.warn('Failed to connect MCP client, skipping', {
       name: spec.name,
       url: spec.url,
       error: error instanceof Error ? error.message : String(error),

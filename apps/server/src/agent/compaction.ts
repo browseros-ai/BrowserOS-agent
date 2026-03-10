@@ -8,6 +8,8 @@ import {
   messagesToTranscript,
 } from './compaction-prompt'
 
+const compactionLogger = logger.child({ key: 'agent.compaction' })
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -345,7 +347,7 @@ async function callSummarizer(
     return text || null
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    logger.warn(`${logLabel} failed`, { error: message })
+    compactionLogger.warn(`${logLabel} failed`, { error: message })
     return null
   } finally {
     clearTimeout(timeout)
@@ -461,7 +463,7 @@ export function slidingWindow(
 
   if (startIndex === 0) return messages
 
-  logger.info('Sliding window applied', {
+  compactionLogger.info('Sliding window applied', {
     droppedMessages: startIndex,
     remainingMessages: messages.length - startIndex,
     estimatedTokens: estimateTokens(messages.slice(startIndex)),
@@ -491,7 +493,7 @@ async function compactMessages(
   )
 
   if (splitIndex === -1) {
-    logger.info('Cannot find safe split point, using sliding window')
+    compactionLogger.info('Cannot find safe split point, using sliding window')
     return slidingWindow(messages, triggerThreshold)
   }
 
@@ -504,7 +506,7 @@ async function compactMessages(
   if (isSplitTurn && turnStartIndex >= 0) {
     historyMessages = messages.slice(0, turnStartIndex)
     turnPrefixMessages = messages.slice(turnStartIndex, splitIndex)
-    logger.info('Split turn detected', {
+    compactionLogger.info('Split turn detected', {
       historyMessages: historyMessages.length,
       turnPrefixMessages: turnPrefixMessages.length,
       toKeepMessages: toKeep.length,
@@ -528,10 +530,13 @@ async function compactMessages(
     const summarizeTokens = estimateTokens(toSummarize)
     if (summarizeTokens > config.maxSummarizationInput) {
       const excess = summarizeTokens - config.maxSummarizationInput
-      logger.info('Capping summarization input, dropping oldest messages', {
-        excess,
-        maxSummarizationInput: config.maxSummarizationInput,
-      })
+      compactionLogger.info(
+        'Capping summarization input, dropping oldest messages',
+        {
+          excess,
+          maxSummarizationInput: config.maxSummarizationInput,
+        },
+      )
       toSummarize = slidingWindow(toSummarize, config.maxSummarizationInput)
     }
   }
@@ -539,10 +544,13 @@ async function compactMessages(
   if (truncatedTurnPrefix.length > 0) {
     const prefixTokens = estimateTokens(truncatedTurnPrefix)
     if (prefixTokens > config.maxSummarizationInput) {
-      logger.info('Capping turn prefix input, dropping oldest messages', {
-        excess: prefixTokens - config.maxSummarizationInput,
-        maxSummarizationInput: config.maxSummarizationInput,
-      })
+      compactionLogger.info(
+        'Capping turn prefix input, dropping oldest messages',
+        {
+          excess: prefixTokens - config.maxSummarizationInput,
+          maxSummarizationInput: config.maxSummarizationInput,
+        },
+      )
       truncatedTurnPrefix = slidingWindow(
         truncatedTurnPrefix,
         config.maxSummarizationInput,
@@ -554,7 +562,9 @@ async function compactMessages(
   const totalSummarizable =
     estimateTokens(toSummarize) + estimateTokens(truncatedTurnPrefix)
   if (totalSummarizable < config.minSummarizableTokens) {
-    logger.info('Too little content to summarize, using sliding window')
+    compactionLogger.info(
+      'Too little content to summarize, using sliding window',
+    )
     return slidingWindow(messages, triggerThreshold)
   }
 
@@ -567,7 +577,7 @@ async function compactMessages(
     ),
   )
 
-  logger.info('Attempting LLM-based compaction', {
+  compactionLogger.info('Attempting LLM-based compaction', {
     toSummarizeMessages: toSummarize.length,
     toSummarizeTokens: estimateTokens(toSummarize),
     turnPrefixMessages: truncatedTurnPrefix.length,
@@ -629,7 +639,9 @@ async function compactMessages(
 
   // 6. Validate summary
   if (!summary) {
-    logger.warn('Summarization returned empty, using sliding window fallback')
+    compactionLogger.warn(
+      'Summarization returned empty, using sliding window fallback',
+    )
     return slidingWindow(messages, triggerThreshold)
   }
 
@@ -637,7 +649,7 @@ async function compactMessages(
   const summaryTokens = Math.ceil(summary.length / 4)
   const originalTokens = estimateTokens(allSummarized)
   if (summaryTokens >= originalTokens) {
-    logger.warn(
+    compactionLogger.warn(
       'Summary is larger than original, using sliding window fallback',
       {
         summaryTokens,
@@ -651,7 +663,7 @@ async function compactMessages(
   state.existingSummary = summary
   state.compactionCount++
 
-  logger.info('LLM compaction succeeded', {
+  compactionLogger.info('LLM compaction succeeded', {
     originalMessages: messages.length,
     keptMessages: toKeep.length,
     summaryTokens,
@@ -689,7 +701,7 @@ export function createCompactionPrepareStep(
     userConfig?.contextWindow ?? AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
   const config = computeConfig(contextWindow)
 
-  logger.info('Compaction config computed', {
+  compactionLogger.info('Compaction config computed', {
     contextWindow,
     reserveTokens: config.reserveTokens,
     triggerRatio: config.triggerRatio.toFixed(3),
@@ -726,7 +738,7 @@ export function createCompactionPrepareStep(
       return { messages: capped, experimental_context: state }
     }
 
-    logger.warn('Context approaching limit, attempting compaction', {
+    compactionLogger.warn('Context approaching limit, attempting compaction', {
       currentTokens,
       triggerThreshold: Math.floor(triggerThreshold),
       messageCount: capped.length,
