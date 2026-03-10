@@ -50,19 +50,18 @@ export class Application {
 
     const dailyRateLimit = await fetchDailyRateLimit(identity.getBrowserOSId())
 
-    let controller: ControllerBackend
+    const controller = new ControllerBackend({
+      port: this.config.extensionPort,
+    })
+    let controllerServerStarted = false
     try {
       logger.debug(
         `Starting WebSocket server on port ${this.config.extensionPort}`,
       )
-      controller = new ControllerBackend({ port: this.config.extensionPort })
       await controller.start()
+      controllerServerStarted = true
     } catch (error) {
-      return this.handleStartupError(
-        'WebSocket server',
-        this.config.extensionPort,
-        error,
-      )
+      this.handleControllerStartupError(this.config.extensionPort, error)
     }
 
     if (!this.config.cdpPort) {
@@ -110,7 +109,7 @@ export class Application {
       `Health endpoint: http://127.0.0.1:${this.config.serverPort}/health`,
     )
 
-    this.logStartupSummary()
+    this.logStartupSummary(controllerServerStarted)
 
     metrics.log('http_server.started', { version: VERSION })
   }
@@ -216,11 +215,28 @@ export class Application {
     process.exit(EXIT_CODES.GENERAL_ERROR)
   }
 
-  private logStartupSummary(): void {
+  private handleControllerStartupError(port: number, error: unknown): void {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    logger.warn(
+      'Controller WebSocket server unavailable, continuing without controller bridge',
+      { port, error: errorMsg },
+    )
+    if (isPortInUseError(error)) {
+      logger.warn(
+        'Controller WebSocket port is already in use, continuing without controller bridge',
+        { port },
+      )
+    }
+    Sentry.captureException(error)
+  }
+
+  private logStartupSummary(controllerServerStarted: boolean): void {
     logger.info('')
     logger.info('Services running:')
     logger.info(
-      `  Controller Server: ws://127.0.0.1:${this.config.extensionPort}`,
+      controllerServerStarted
+        ? `  Controller Server: ws://127.0.0.1:${this.config.extensionPort}`
+        : '  Controller Server: unavailable',
     )
     logger.info(`  HTTP Server: http://127.0.0.1:${this.config.serverPort}`)
     logger.info('')
