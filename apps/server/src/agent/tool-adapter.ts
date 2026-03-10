@@ -1,4 +1,4 @@
-import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
+import type { LanguageModelV3ToolResultOutput } from '@ai-sdk/provider'
 import { type ToolSet, tool } from 'ai'
 import type { Browser } from '../browser/browser'
 import { logger } from '../lib/logger'
@@ -9,7 +9,7 @@ import type { ToolRegistry } from '../tools/tool-registry'
 
 function contentToModelOutput(
   content: ContentItem[],
-): LanguageModelV2ToolResultOutput {
+): LanguageModelV3ToolResultOutput {
   const hasImages = content.some((c) => c.type === 'image')
 
   if (!hasImages) {
@@ -27,7 +27,7 @@ function contentToModelOutput(
         return { type: 'text' as const, text: c.text }
       }
       return {
-        type: 'media' as const,
+        type: 'image-data' as const,
         data: c.data,
         mediaType: c.mimeType,
       }
@@ -53,6 +53,7 @@ export function buildBrowserToolSet(
       execute: async (params) => {
         const startTime = performance.now()
         try {
+          logger.debug('Tool call started', { tool: def.name })
           const result = await executeTool(
             def,
             params,
@@ -60,9 +61,15 @@ export function buildBrowserToolSet(
             AbortSignal.timeout(120_000),
           )
 
+          const durationMs = Math.round(performance.now() - startTime)
+          logger.info('Tool call finished', {
+            tool: def.name,
+            durationMs,
+            isError: result.isError ?? false,
+          })
           metrics.log('tool_executed', {
             tool_name: def.name,
-            duration_ms: Math.round(performance.now() - startTime),
+            duration_ms: durationMs,
             success: !result.isError,
           })
 

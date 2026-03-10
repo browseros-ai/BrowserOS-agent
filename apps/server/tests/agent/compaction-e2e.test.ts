@@ -14,7 +14,6 @@ import {
   computeConfig,
   createCompactionPrepareStep,
   estimateTokensForThreshold,
-  truncateToolOutputs,
 } from '../../src/agent/compaction'
 
 // ---------------------------------------------------------------------------
@@ -271,7 +270,7 @@ function buildModerateMessages(
 /**
  * Build text-heavy user/assistant exchanges WITHOUT tool calls.
  * These survive pruneMessages (Stage 2) and clearToolOutputs (Stage 3),
- * forcing LLM summarization (Stage 4) when large enough.
+ * forcing LLM summarization (Stage 3) when large enough.
  */
 function buildTextHeavyMessages(
   exchangeCount: number,
@@ -744,9 +743,9 @@ describe('compaction E2E — tool output truncation', () => {
     expect(content[0].output.value).not.toContain('[... truncated')
   })
 
-  it('Stages 2+3 clear tool outputs before LLM summarization sees them', async () => {
+  it('Stages 1+2 clear tool outputs before LLM summarization sees them', async () => {
     // When tool-call-heavy messages trigger compaction, the pruning and
-    // clearing stages remove/replace tool outputs before Stage 4.
+    // clearing stages remove/replace tool outputs before Stage 3.
     const contextWindow = 10_000
     const prepareStep = createCompactionPrepareStep({ contextWindow })
     const config = computeConfig(contextWindow)
@@ -761,7 +760,7 @@ describe('compaction E2E — tool output truncation', () => {
       return textResponse('done', 100)
     })
 
-    // These tool call/result pairs will be pruned/cleared before Stage 4.
+    // These tool call/result pairs will be pruned/cleared before Stage 3.
     const messages = buildModerateMessages(8, 2000)
 
     const result = await prepareStep({
@@ -779,11 +778,217 @@ describe('compaction E2E — tool output truncation', () => {
 })
 
 // ---------------------------------------------------------------------------
-// E2E: Pruning stages (Stage 2 & Stage 3)
+// E2E: Image handling in the pipeline
+// ---------------------------------------------------------------------------
+
+describe('compaction E2E — image handling', () => {
+  it('preserves original messages with images when under threshold', async () => {
+    const contextWindow = 200_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+
+    const model = createMock(async () => summaryResponse(200))
+
+    const largeImage = 'x'.repeat(300_000)
+    const messages: ModelMessage[] = [
+      { role: 'user', content: 'Take a screenshot' },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'screenshot',
+            input: {},
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_1',
+            toolName: 'screenshot',
+            output: {
+              type: 'content' as const,
+              value: [
+                { type: 'text' as const, text: 'Page loaded' },
+                {
+                  type: 'image-data' as const,
+                  data: largeImage,
+                  mediaType: 'image/png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+      { role: 'assistant', content: 'I can see the page.' },
+    ]
+
+    const result = await prepareStep({
+      messages,
+      steps: [{ usage: { inputTokens: 5000 } }] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    const state = result.experimental_context as CompactionState
+    expect(state.compactionCount).toBe(0)
+
+    // Under threshold: original messages returned with images intact
+    const toolMsg = result.messages.find((m) => m.role === 'tool')
+    expect(toolMsg).toBeDefined()
+    const output = (
+      toolMsg?.content as Array<{
+        output: { type: string; value: Array<{ type: string; data?: string }> }
+      }>
+    )[0].output
+    expect(output.type).toBe('content')
+    expect(output.value[1].type).toBe('image-data')
+    expect(output.value[1].data).toBe(largeImage)
+  })
+
+  it('strips binary content when compaction triggers (images not corrupted)', async () => {
+    const contextWindow = 10_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+    const config = computeConfig(contextWindow)
+    const triggerAt = Math.floor(contextWindow * config.triggerRatio)
+
+    const model = createMock(async (options) => {
+      if (isSummarizationCall(options)) {
+        // Verify the summarizer never sees base64 data
+        const userText = extractUserText(options)
+        expect(userText).not.toContain('iVBORw0KGo')
+        return summaryResponse(200)
+      }
+      return textResponse('done', 100)
+    })
+
+    // Build text-heavy messages with image tool results
+    const messages: ModelMessage[] = [
+      { role: 'user', content: `Analyze these pages: ${'q'.repeat(3000)}` },
+    ]
+    for (let i = 0; i < 8; i++) {
+      messages.push({
+        role: 'assistant',
+        content: `Analysis ${i}: ${'a'.repeat(2000)}`,
+      })
+      messages.push({
+        role: 'user',
+        content: `Follow-up ${i}: ${'q'.repeat(500)}`,
+      })
+    }
+
+    // Add tool results with actual image data to verify binary stripping
+    messages.push({
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'call_screenshot',
+          toolName: 'screenshot',
+          input: {},
+        },
+      ],
+    })
+    messages.push({
+      role: 'tool',
+      content: [
+        {
+          type: 'tool-result',
+          toolCallId: 'call_screenshot',
+          toolName: 'screenshot',
+          output: {
+            type: 'content' as const,
+            value: [
+              { type: 'text' as const, text: 'Page loaded' },
+              {
+                type: 'image-data' as const,
+                data: `iVBORw0KGo${'x'.repeat(300_000)}`,
+                mediaType: 'image/png',
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+    const result = await prepareStep({
+      messages,
+      steps: [{ usage: { inputTokens: triggerAt + 2000 } }] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    const state = result.experimental_context as CompactionState
+    expect(state.compactionCount).toBe(1)
+    expect(result.messages.length).toBeLessThan(messages.length)
+  })
+
+  it('does not double-count image tokens after stripping', async () => {
+    const contextWindow = 200_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+
+    const model = createMock(async () => summaryResponse(200))
+
+    const messages: ModelMessage[] = [
+      { role: 'user', content: 'hello' },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'screenshot',
+            input: {},
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_1',
+            toolName: 'screenshot',
+            output: {
+              type: 'content' as const,
+              value: [
+                { type: 'text' as const, text: 'ok' },
+                {
+                  type: 'image-data' as const,
+                  data: 'x'.repeat(300_000),
+                  mediaType: 'image/png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+      { role: 'assistant', content: 'done' },
+    ]
+
+    // With low inputTokens, even with large base64 data, should stay under threshold
+    // because token estimation uses fixed image cost (1000 tokens), not base64 length
+    const result = await prepareStep({
+      messages,
+      steps: [{ usage: { inputTokens: 5000 } }] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    const state = result.experimental_context as CompactionState
+    expect(state.compactionCount).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// E2E: Pruning stages (Stage 1 & Stage 2)
 // ---------------------------------------------------------------------------
 
 describe('compaction E2E — pruning stages', () => {
-  it('Stage 2 (pruneMessages) resolves overflow without LLM summarization', async () => {
+  it('Stage 1 (pruneMessages) resolves overflow without LLM summarization', async () => {
     const contextWindow = 10_000
     const prepareStep = createCompactionPrepareStep({ contextWindow })
     const config = computeConfig(contextWindow)
@@ -797,7 +1002,7 @@ describe('compaction E2E — pruning stages', () => {
       return summaryResponse(200)
     })
 
-    // Tool call/result pairs get pruned by Stage 2. After pruning + re-estimation,
+    // Tool call/result pairs get pruned by Stage 1. After pruning + re-estimation,
     // the remaining content (short text messages) should be well under threshold.
     const messages = buildModerateMessages(8, 2000)
 
@@ -816,7 +1021,7 @@ describe('compaction E2E — pruning stages', () => {
     expect(result.messages.length).toBeLessThanOrEqual(messages.length)
   })
 
-  it('Stage 3 (clearToolOutputs) clears old outputs but protects last 2', async () => {
+  it('Stage 2 (clearToolOutputs) clears old outputs but protects last 3', async () => {
     const messages: ModelMessage[] = [
       { role: 'user', content: 'Do tasks' },
       {
@@ -885,6 +1090,28 @@ describe('compaction E2E — pruning stages', () => {
           },
         ],
       },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_recent_2',
+            toolName: 'action_3',
+            input: { step: 3 },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_recent_2',
+            toolName: 'action_3',
+            output: { type: 'text' as const, value: 'w'.repeat(500) },
+          },
+        ],
+      },
     ]
 
     const cleared = clearToolOutputs(messages)
@@ -894,12 +1121,13 @@ describe('compaction E2E — pruning stages', () => {
 
     // Old tool output (index 0) should be cleared
     expect(toolMsgs[0].content[0].output.value).toContain('[Cleared')
-    // Last 2 tool outputs should be protected
+    // Last 3 tool outputs should be protected
     expect(toolMsgs[1].content[0].output.value).toBe('y'.repeat(500))
     expect(toolMsgs[2].content[0].output.value).toBe('z'.repeat(500))
+    expect(toolMsgs[3].content[0].output.value).toBe('w'.repeat(500))
   })
 
-  it('all 4 stages work together when only LLM summarization resolves overflow', async () => {
+  it('all 3 stages work together when only LLM summarization resolves overflow', async () => {
     const contextWindow = 10_000
     const prepareStep = createCompactionPrepareStep({ contextWindow })
     const config = computeConfig(contextWindow)
@@ -933,29 +1161,6 @@ describe('compaction E2E — pruning stages', () => {
     expect(result.messages[0].content as string).toContain('## Goal')
   })
 
-  it('truncateToolOutputs caps outputs at 15K chars', () => {
-    const messages: ModelMessage[] = [
-      {
-        role: 'tool',
-        content: [
-          {
-            type: 'tool-result',
-            toolCallId: 'call_1',
-            toolName: 'test',
-            output: { type: 'text' as const, value: 'x'.repeat(50_000) },
-          },
-        ],
-      },
-    ]
-
-    const truncated = truncateToolOutputs(messages, 15_000)
-    const part = (
-      truncated[0].content as Array<{ output: { value: string } }>
-    )[0]
-    expect(part.output.value).toContain('[... truncated')
-    expect(part.output.value.length).toBeLessThan(20_000)
-  })
-
   it('clearToolOutputs replaces outputs >100 chars with placeholder, protects last N', () => {
     const messages: ModelMessage[] = [
       {
@@ -963,7 +1168,7 @@ describe('compaction E2E — pruning stages', () => {
         content: [
           {
             type: 'tool-result',
-            toolCallId: 'call_1',
+            toolCallId: 'call_0',
             toolName: 'test',
             output: { type: 'text' as const, value: 'x'.repeat(500) },
           },
@@ -974,9 +1179,20 @@ describe('compaction E2E — pruning stages', () => {
         content: [
           {
             type: 'tool-result',
-            toolCallId: 'call_2',
+            toolCallId: 'call_1',
             toolName: 'test',
             output: { type: 'text' as const, value: 'y'.repeat(200) },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_2',
+            toolName: 'test',
+            output: { type: 'text' as const, value: 'z'.repeat(300) },
           },
         ],
       },
@@ -1003,11 +1219,15 @@ describe('compaction E2E — pruning stages', () => {
     const part2 = (
       cleared[2].content as Array<{ output: { value: string } }>
     )[0]
-    // First tool message cleared (not in last 2)
+    const part3 = (
+      cleared[3].content as Array<{ output: { value: string } }>
+    )[0]
+    // First tool message cleared (not in last 3)
     expect(part0.output.value).toBe('[Cleared — 500 chars]')
-    // Last 2 tool messages protected by default keepRecentCount=2
+    // Last 3 tool messages protected by default keepRecentCount=3
     expect(part1.output.value).toBe('y'.repeat(200))
-    expect(part2.output.value).toBe('short')
+    expect(part2.output.value).toBe('z'.repeat(300))
+    expect(part3.output.value).toBe('short')
   })
 
   it('estimateTokensForThreshold applies safety multiplier and overhead', () => {
@@ -1071,7 +1291,7 @@ describe('compaction E2E — generateText with tools and prepareStep', () => {
 
       expect(result.text).toContain('All pages processed')
       expect(result.steps.length).toBeGreaterThanOrEqual(toolCallCount + 1)
-      // With the 4-stage pipeline, earlier stages (pruning/clearing) may resolve
+      // With the 3-stage pipeline, earlier stages (pruning/clearing) may resolve
       // overflow before LLM summarization. For tool-call-heavy conversations,
       // this is expected. We verify the conversation completed successfully.
     })

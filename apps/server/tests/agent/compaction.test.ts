@@ -3,12 +3,13 @@ import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { ModelMessage } from 'ai'
 import {
   computeConfig,
+  countBinaryParts,
   estimateTokens,
   findSafeSplitPoint,
   getCurrentTokenCount,
   type StepWithUsage,
   slidingWindow,
-  truncateToolOutputs,
+  stripBinaryContent,
 } from '../../src/agent/compaction'
 import {
   buildSummarizationPrompt,
@@ -158,6 +159,62 @@ function userMsgWithImage(text: string): ModelMessage {
     content: [
       { type: 'text', text },
       { type: 'image', image: new Uint8Array([1, 2, 3]) },
+    ],
+  }
+}
+
+function toolResultWithImage(
+  toolName: string,
+  text: string,
+  imageData = 'iVBORw0KGo...',
+): ModelMessage {
+  return {
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: `call_${toolName}`,
+        toolName,
+        output: {
+          type: 'content' as const,
+          value: [
+            { type: 'text' as const, text },
+            {
+              type: 'image-data' as const,
+              data: imageData,
+              mediaType: 'image/png',
+            },
+          ],
+        },
+      },
+    ],
+  }
+}
+
+function toolResultWithFile(
+  toolName: string,
+  text: string,
+  fileData = 'base64filedata...',
+): ModelMessage {
+  return {
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: `call_${toolName}`,
+        toolName,
+        output: {
+          type: 'content' as const,
+          value: [
+            { type: 'text' as const, text },
+            {
+              type: 'file-data' as const,
+              data: fileData,
+              mediaType: 'application/pdf',
+            },
+          ],
+        },
+      },
     ],
   }
 }
@@ -319,6 +376,42 @@ describe('estimateTokens', () => {
       JSON.stringify({ url: 'https://example.com' }).length / 3,
     )
     expect(estimateTokens(msgs)).toBe(expected)
+  })
+
+  it('estimates content-type tool output with text + image', () => {
+    const msgs = [
+      toolResultWithImage('screenshot', 'a'.repeat(300), 'x'.repeat(300_000)),
+    ]
+    const estimate = estimateTokens(msgs)
+    // 300 chars text → 100 tokens + 1 image × 1000 = 1100
+    expect(estimate).toBe(Math.ceil(300 / 3) + 1000)
+  })
+
+  it('estimates content-type tool output text only (after stripping)', () => {
+    const msgs = [
+      toolResultWithImage('screenshot', 'a'.repeat(300), 'x'.repeat(300_000)),
+    ]
+    const stripped = stripBinaryContent(msgs)
+    const estimate = estimateTokens(stripped)
+    // After stripping, image becomes [Image] (7 chars)
+    // Total chars: 300 + 7 = 307 → ceil(307/3) = 103 tokens (no image bonus)
+    expect(estimate).toBe(Math.ceil(307 / 3))
+  })
+
+  it('handles execution-denied tool output', () => {
+    const msg: ModelMessage = {
+      role: 'tool',
+      content: [
+        {
+          type: 'tool-result',
+          toolCallId: 'call_test',
+          toolName: 'test',
+          output: { type: 'execution-denied' as const, reason: 'User denied' },
+        },
+      ],
+    }
+    // 'User denied' = 11 chars → ceil(11/3) = 4 tokens
+    expect(estimateTokens([msg])).toBe(Math.ceil(11 / 3))
   })
 
   it('handles empty messages', () => {
@@ -551,46 +644,122 @@ describe('splitting at different context windows', () => {
 })
 
 // ---------------------------------------------------------------------------
-// truncateToolOutputs
+// stripBinaryContent & countBinaryParts
 // ---------------------------------------------------------------------------
 
-describe('truncateToolOutputs', () => {
-  it('truncates text output exceeding maxChars', () => {
-    const msgs = [toolResult('test', 'a'.repeat(20_000))]
-    const truncated = truncateToolOutputs(msgs, 15_000)
+describe('stripBinaryContent', () => {
+  it('replaces image-data in tool content outputs with [Image]', () => {
+    const msgs = [
+      toolResultWithImage('screenshot', 'Page loaded', 'x'.repeat(300_000)),
+    ]
+    const stripped = stripBinaryContent(msgs)
 
     const output = (
-      truncated[0].content as Array<{ output: { value: string } }>
-    )[0].output.value
-    expect(output.length).toBeLessThan(20_000)
-    expect(output).toContain('[... truncated')
+      stripped[0].content as Array<{
+        output: { type: string; value: Array<{ type: string; text?: string }> }
+      }>
+    )[0].output
+    expect(output.type).toBe('content')
+    expect(output.value).toHaveLength(2)
+    expect(output.value[0]).toEqual({ type: 'text', text: 'Page loaded' })
+    expect(output.value[1]).toEqual({ type: 'text', text: '[Image]' })
   })
 
-  it('truncates JSON output exceeding maxChars', () => {
-    const msgs = [toolResultJson('test', { data: 'x'.repeat(20_000) })]
-    const truncated = truncateToolOutputs(msgs, 15_000)
-
-    const part = (
-      truncated[0].content as Array<{ output: { type: string; value: string } }>
-    )[0]
-    expect(part.output.type).toBe('text')
-    expect(part.output.value).toContain('[... truncated')
-  })
-
-  it('does not modify outputs under maxChars', () => {
-    const msgs = [toolResult('test', 'short output')]
-    const truncated = truncateToolOutputs(msgs, 15_000)
+  it('replaces file-data in tool content outputs with [File]', () => {
+    const msgs = [toolResultWithFile('download', 'File downloaded')]
+    const stripped = stripBinaryContent(msgs)
 
     const output = (
-      truncated[0].content as Array<{ output: { value: string } }>
-    )[0].output.value
-    expect(output).toBe('short output')
+      stripped[0].content as Array<{
+        output: { type: string; value: Array<{ type: string; text?: string }> }
+      }>
+    )[0].output
+    expect(output.type).toBe('content')
+    expect(output.value).toHaveLength(2)
+    expect(output.value[0]).toEqual({ type: 'text', text: 'File downloaded' })
+    expect(output.value[1]).toEqual({ type: 'text', text: '[File]' })
   })
 
-  it('does not modify non-tool messages', () => {
-    const msgs = [userMsg('hello'), assistantMsg('world')]
-    const truncated = truncateToolOutputs(msgs, 100)
-    expect(truncated).toEqual(msgs)
+  it('replaces user images with [Image]', () => {
+    const msgs = [userMsgWithImage('look at this')]
+    const stripped = stripBinaryContent(msgs)
+
+    const content = stripped[0].content as Array<{
+      type: string
+      text?: string
+    }>
+    expect(content).toHaveLength(2)
+    expect(content[0]).toEqual({ type: 'text', text: 'look at this' })
+    expect(content[1]).toEqual({ type: 'text', text: '[Image]' })
+  })
+
+  it('does not mutate original messages', () => {
+    const original = [
+      toolResultWithImage('screenshot', 'Page loaded', 'base64data'),
+    ]
+    const stripped = stripBinaryContent(original)
+
+    const originalOutput = (
+      original[0].content as Array<{
+        output: { value: Array<{ type: string }> }
+      }>
+    )[0].output.value[1]
+    expect(originalOutput.type).toBe('image-data')
+
+    const strippedOutput = (
+      stripped[0].content as Array<{
+        output: { value: Array<{ type: string }> }
+      }>
+    )[0].output.value[1]
+    expect(strippedOutput.type).toBe('text')
+  })
+
+  it('passes through text-only tool outputs unchanged', () => {
+    const msgs = [toolResult('test', 'hello')]
+    const stripped = stripBinaryContent(msgs)
+
+    const output = (
+      stripped[0].content as Array<{ output: { type: string; value: string } }>
+    )[0].output
+    expect(output.type).toBe('text')
+    expect(output.value).toBe('hello')
+  })
+
+  it('passes through assistant messages unchanged', () => {
+    const msgs = [assistantMsg('hello')]
+    const stripped = stripBinaryContent(msgs)
+    expect(stripped).toEqual(msgs)
+  })
+})
+
+describe('countBinaryParts', () => {
+  it('counts image-data parts in tool content outputs', () => {
+    const msgs = [toolResultWithImage('screenshot', 'text', 'data')]
+    expect(countBinaryParts(msgs)).toBe(1)
+  })
+
+  it('counts file-data parts in tool content outputs', () => {
+    const msgs = [toolResultWithFile('download', 'File downloaded')]
+    expect(countBinaryParts(msgs)).toBe(1)
+  })
+
+  it('counts user images', () => {
+    const msgs = [userMsgWithImage('look')]
+    expect(countBinaryParts(msgs)).toBe(1)
+  })
+
+  it('counts multiple images across messages', () => {
+    const msgs = [
+      userMsgWithImage('img1'),
+      toolResultWithImage('s1', 'text1', 'd1'),
+      toolResultWithImage('s2', 'text2', 'd2'),
+    ]
+    expect(countBinaryParts(msgs)).toBe(3)
+  })
+
+  it('returns 0 for text-only messages', () => {
+    const msgs = [userMsg('hello'), toolResult('test', 'result')]
+    expect(countBinaryParts(msgs)).toBe(0)
   })
 })
 
@@ -712,6 +881,37 @@ describe('messagesToTranscript', () => {
     const transcript = messagesToTranscript([userMsgWithImage('look at this')])
     expect(transcript).toContain('[Image]')
     expect(transcript).toContain('look at this')
+  })
+
+  it('handles content-type tool output with images', () => {
+    const transcript = messagesToTranscript([
+      toolResultWithImage(
+        'screenshot',
+        'Page loaded successfully',
+        'x'.repeat(300_000),
+      ),
+    ])
+    expect(transcript).toContain('[Tool Result] screenshot:')
+    expect(transcript).toContain('Page loaded successfully')
+    expect(transcript).toContain('[Image]')
+    expect(transcript).not.toContain('x'.repeat(100))
+  })
+
+  it('handles execution-denied tool output in transcript', () => {
+    const msg: ModelMessage = {
+      role: 'tool',
+      content: [
+        {
+          type: 'tool-result',
+          toolCallId: 'call_test',
+          toolName: 'test',
+          output: { type: 'execution-denied' as const, reason: undefined },
+        },
+      ],
+    }
+    const transcript = messagesToTranscript([msg])
+    expect(transcript).toContain('[Tool Result] test:')
+    expect(transcript).toContain('[execution denied]')
   })
 
   it('handles a full conversation', () => {

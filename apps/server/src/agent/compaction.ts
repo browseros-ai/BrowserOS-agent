@@ -1,9 +1,11 @@
+import type { LanguageModelV3ToolResultOutput } from '@ai-sdk/provider'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import {
   type LanguageModel,
   type ModelMessage,
   pruneMessages,
   streamText,
+  type ToolContent,
 } from 'ai'
 import { logger } from '../lib/logger'
 import {
@@ -34,7 +36,6 @@ export interface ComputedConfig {
   fixedOverhead: number
   safetyMultiplier: number
   imageTokenEstimate: number
-  toolOutputMaxChars: number
 }
 
 export interface CompactionState {
@@ -104,13 +105,122 @@ export function computeConfig(contextWindow: number): ComputedConfig {
     fixedOverhead: AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
     safetyMultiplier: AGENT_LIMITS.COMPACTION_SAFETY_MULTIPLIER,
     imageTokenEstimate: AGENT_LIMITS.COMPACTION_IMAGE_TOKEN_ESTIMATE,
-    toolOutputMaxChars: AGENT_LIMITS.COMPACTION_TOOL_OUTPUT_MAX_CHARS,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Binary content stripping
+// ---------------------------------------------------------------------------
+
+// V3 types: image-data, file-data. 'media' is the deprecated V2 equivalent
+// kept for backward compat with messages created before the adapter migration.
+function isBinaryContentPart(part: { type: string }): boolean {
+  return (
+    part.type === 'media' ||
+    part.type === 'image-data' ||
+    part.type === 'file-data'
+  )
+}
+
+export function stripBinaryContent(messages: ModelMessage[]): ModelMessage[] {
+  return messages.map((msg) => {
+    if (msg.role === 'user') return stripUserBinary(msg)
+    if (msg.role === 'tool') return stripToolBinary(msg)
+    return msg
+  })
+}
+
+function stripUserBinary(msg: ModelMessage & { role: 'user' }): ModelMessage {
+  if (typeof msg.content === 'string') return msg
+
+  const content = msg.content.map((part) => {
+    if (part.type === 'image') return { type: 'text' as const, text: '[Image]' }
+    if (part.type === 'file') return { type: 'text' as const, text: '[File]' }
+    return part
+  })
+
+  return { ...msg, content }
+}
+
+function stripToolBinary(msg: ModelMessage & { role: 'tool' }): ModelMessage {
+  const content = (msg.content as ToolContent).map((part) => {
+    if (part.type !== 'tool-result') return part
+
+    const output = part.output as LanguageModelV3ToolResultOutput
+    if (output.type !== 'content') return part
+
+    const strippedValue = output.value.map((cp) => {
+      if (isBinaryContentPart(cp as { type: string })) {
+        const placeholder =
+          (cp as { type: string }).type === 'file-data' ? '[File]' : '[Image]'
+        return { type: 'text' as const, text: placeholder }
+      }
+      return cp
+    })
+
+    return { ...part, output: { ...output, value: strippedValue } }
+  })
+
+  return { ...msg, content } as ModelMessage
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: inherent complexity of walking nested AI SDK message types
+export function countBinaryParts(messages: ModelMessage[]): number {
+  let count = 0
+
+  for (const msg of messages) {
+    if (msg.role === 'user' && typeof msg.content !== 'string') {
+      for (const part of msg.content) {
+        if (part.type === 'image' || part.type === 'file') count++
+      }
+    } else if (msg.role === 'tool') {
+      for (const part of msg.content as ToolContent) {
+        if (part.type !== 'tool-result') continue
+        const output = part.output as LanguageModelV3ToolResultOutput
+        if (output.type !== 'content') continue
+        for (const cp of output.value) {
+          if (isBinaryContentPart(cp as { type: string })) count++
+        }
+      }
+    }
+  }
+
+  return count
 }
 
 // ---------------------------------------------------------------------------
 // Token estimation
 // ---------------------------------------------------------------------------
+
+function estimateToolResultOutput(output: LanguageModelV3ToolResultOutput): {
+  chars: number
+  images: number
+} {
+  switch (output.type) {
+    case 'text':
+    case 'error-text':
+      return { chars: output.value.length, images: 0 }
+    case 'json':
+    case 'error-json':
+      return { chars: JSON.stringify(output.value).length, images: 0 }
+    case 'execution-denied':
+      return { chars: output.reason?.length ?? 0, images: 0 }
+    case 'content': {
+      let chars = 0
+      let images = 0
+      for (const cp of output.value) {
+        if (cp.type === 'text') {
+          chars += cp.text.length
+        } else if (isBinaryContentPart(cp as { type: string })) {
+          images++
+        }
+      }
+      return { chars, images }
+    }
+    default:
+      return { chars: 0, images: 0 }
+  }
+}
 
 function estimateContentPart(part: Record<string, unknown>): {
   chars: number
@@ -122,36 +232,18 @@ function estimateContentPart(part: Record<string, unknown>): {
   if ('type' in part && part.type === 'image') {
     return { chars: 0, images: 1 }
   }
-  // Tool output with {type, value} wrapper (AI SDK standard)
   if (
     'output' in part &&
     part.output &&
     typeof part.output === 'object' &&
-    'value' in (part.output as Record<string, unknown>)
+    'type' in (part.output as Record<string, unknown>)
   ) {
-    const val = (part.output as { value: unknown }).value
-    return {
-      chars: typeof val === 'string' ? val.length : JSON.stringify(val).length,
-      images: 0,
-    }
-  }
-  // Tool result field (may be string or object)
-  if ('result' in part) {
-    const result = part.result
-    if (typeof result === 'string') {
-      return { chars: result.length, images: 0 }
-    }
-    if (result != null) {
-      return { chars: JSON.stringify(result).length, images: 0 }
-    }
+    return estimateToolResultOutput(
+      part.output as LanguageModelV3ToolResultOutput,
+    )
   }
   if ('input' in part) {
     return { chars: JSON.stringify(part.input).length, images: 0 }
-  }
-  // Fallback: serialize the whole part to catch any unknown structure
-  const serialized = JSON.stringify(part)
-  if (serialized.length > 100) {
-    return { chars: serialized.length, images: 0 }
   }
   return { chars: 0, images: 0 }
 }
@@ -407,52 +499,41 @@ async function summarizeTurnPrefix(
 }
 
 // ---------------------------------------------------------------------------
-// Tool output truncation
-// ---------------------------------------------------------------------------
-
-export function truncateToolOutputs(
-  messages: ModelMessage[],
-  maxChars: number,
-): ModelMessage[] {
-  return messages.map((msg) => {
-    if (msg.role !== 'tool') return msg
-
-    const content = msg.content.map((part) => {
-      if (!('output' in part)) return part
-
-      const output = part.output
-      if (!('value' in output)) return part
-
-      // Stringify value regardless of output.type (text, json, content, etc.)
-      const valStr =
-        typeof output.value === 'string'
-          ? output.value
-          : JSON.stringify(output.value)
-
-      if (valStr.length <= maxChars) return part
-
-      return {
-        ...part,
-        output: {
-          type: 'text' as const,
-          value: `${valStr.slice(0, maxChars)}\n\n[... truncated ${valStr.length - maxChars} characters]`,
-        },
-      }
-    })
-
-    return { ...msg, content }
-  })
-}
-
-// ---------------------------------------------------------------------------
 // Clear tool outputs (replace verbose output with placeholder)
 // ---------------------------------------------------------------------------
 
+function measureToolResultOutput(
+  output: LanguageModelV3ToolResultOutput,
+): number {
+  switch (output.type) {
+    case 'text':
+    case 'error-text':
+      return output.value.length
+    case 'json':
+    case 'error-json':
+      return JSON.stringify(output.value).length
+    case 'execution-denied':
+      return output.reason?.length ?? 0
+    case 'content': {
+      let size = 0
+      for (const cp of output.value) {
+        if (cp.type === 'text') size += cp.text.length
+        // After binary stripping, binary parts are already replaced with text
+        // but handle defensively in case called on un-stripped messages
+        else if (isBinaryContentPart(cp as { type: string }))
+          size += (cp as { data?: string }).data?.length ?? 0
+      }
+      return size
+    }
+    default:
+      return 0
+  }
+}
+
 export function clearToolOutputs(
   messages: ModelMessage[],
-  keepRecentCount = 2,
+  keepRecentCount = 3,
 ): ModelMessage[] {
-  // Find indices of tool messages to protect (last N)
   const toolIndices: number[] = []
   for (let i = 0; i < messages.length; i++) {
     if (messages[i].role === 'tool') toolIndices.push(i)
@@ -463,31 +544,25 @@ export function clearToolOutputs(
   const result = messages.map((msg, idx) => {
     if (msg.role !== 'tool' || protectedIndices.has(idx)) return msg
 
-    const content = msg.content.map((part) => {
-      if (!('output' in part)) return part
+    const content = (msg.content as ToolContent).map((part) => {
+      if (part.type !== 'tool-result') return part
 
-      const output = part.output
-      if (!('value' in output)) return part
+      const output = part.output as LanguageModelV3ToolResultOutput
+      const size = measureToolResultOutput(output)
 
-      const valStr =
-        typeof output.value === 'string'
-          ? output.value
-          : JSON.stringify(output.value)
-
-      if (valStr.length <= AGENT_LIMITS.COMPACTION_CLEAR_OUTPUT_MIN_CHARS)
-        return part
+      if (size <= AGENT_LIMITS.COMPACTION_CLEAR_OUTPUT_MIN_CHARS) return part
 
       cleared++
       return {
         ...part,
         output: {
           type: 'text' as const,
-          value: `[Cleared — ${valStr.length} chars]`,
+          value: `[Cleared — ${size} chars]`,
         },
       }
     })
 
-    return { ...msg, content }
+    return { ...msg, content } as ModelMessage
   })
 
   if (cleared > 0) {
@@ -590,15 +665,9 @@ async function compactMessages(
     historyMessages = messages.slice(0, splitIndex)
   }
 
-  // Truncate tool outputs for summarization input
-  let toSummarize =
-    historyMessages.length > 0
-      ? truncateToolOutputs(historyMessages, config.toolOutputMaxChars)
-      : []
-  let truncatedTurnPrefix =
-    turnPrefixMessages.length > 0
-      ? truncateToolOutputs(turnPrefixMessages, config.toolOutputMaxChars)
-      : []
+  let toSummarize = historyMessages.length > 0 ? [...historyMessages] : []
+  let turnPrefixForSummary =
+    turnPrefixMessages.length > 0 ? [...turnPrefixMessages] : []
 
   // 3. Cap summarization input — sliding window the oldest if too large
   if (toSummarize.length > 0) {
@@ -613,15 +682,15 @@ async function compactMessages(
     }
   }
 
-  if (truncatedTurnPrefix.length > 0) {
-    const prefixTokens = estimateTokens(truncatedTurnPrefix)
+  if (turnPrefixForSummary.length > 0) {
+    const prefixTokens = estimateTokens(turnPrefixForSummary)
     if (prefixTokens > config.maxSummarizationInput) {
       logger.info('Capping turn prefix input, dropping oldest messages', {
         excess: prefixTokens - config.maxSummarizationInput,
         maxSummarizationInput: config.maxSummarizationInput,
       })
-      truncatedTurnPrefix = slidingWindow(
-        truncatedTurnPrefix,
+      turnPrefixForSummary = slidingWindow(
+        turnPrefixForSummary,
         config.maxSummarizationInput,
       )
     }
@@ -629,7 +698,7 @@ async function compactMessages(
 
   // 4. Skip LLM for trivially small inputs (not worth the cost)
   const totalSummarizable =
-    estimateTokens(toSummarize) + estimateTokens(truncatedTurnPrefix)
+    estimateTokens(toSummarize) + estimateTokens(turnPrefixForSummary)
   if (totalSummarizable < config.minSummarizableTokens) {
     logger.info('Too little content to summarize, using sliding window')
     return slidingWindow(messages, triggerThreshold)
@@ -647,8 +716,8 @@ async function compactMessages(
   logger.info('Attempting LLM-based compaction', {
     toSummarizeMessages: toSummarize.length,
     toSummarizeTokens: estimateTokens(toSummarize),
-    turnPrefixMessages: truncatedTurnPrefix.length,
-    turnPrefixTokens: estimateTokens(truncatedTurnPrefix),
+    turnPrefixMessages: turnPrefixForSummary.length,
+    turnPrefixTokens: estimateTokens(turnPrefixForSummary),
     toKeepMessages: toKeep.length,
     toKeepTokens: estimateTokens(toKeep),
     isSplitTurn,
@@ -658,7 +727,7 @@ async function compactMessages(
 
   let summary: string | null = null
 
-  if (isSplitTurn && truncatedTurnPrefix.length > 0) {
+  if (isSplitTurn && turnPrefixForSummary.length > 0) {
     if (toSummarize.length > 0) {
       // Both history and turn prefix — summarize in parallel
       const [historySummary, turnPrefixSummary] = await Promise.all([
@@ -671,7 +740,7 @@ async function compactMessages(
         ),
         summarizeTurnPrefix(
           model,
-          truncatedTurnPrefix,
+          turnPrefixForSummary,
           config.summarizationTimeoutMs,
           turnPrefixOutputBudget,
         ),
@@ -688,7 +757,7 @@ async function compactMessages(
       // Only turn prefix (first and only turn)
       summary = await summarizeTurnPrefix(
         model,
-        truncatedTurnPrefix,
+        turnPrefixForSummary,
         config.summarizationTimeoutMs,
         turnPrefixOutputBudget,
       )
@@ -710,7 +779,7 @@ async function compactMessages(
     return slidingWindow(messages, triggerThreshold)
   }
 
-  const allSummarized = [...toSummarize, ...truncatedTurnPrefix]
+  const allSummarized = [...toSummarize, ...turnPrefixForSummary]
   const summaryTokens = Math.ceil(summary.length / 4)
   const originalTokens = estimateTokens(allSummarized)
   if (summaryTokens >= originalTokens) {
@@ -793,13 +862,25 @@ export function createCompactionPrepareStep(
       : { existingSummary: null, compactionCount: 0 }
 
     const triggerThreshold = config.triggerThreshold
-    let current = messages
 
-    // Stage 0: Check threshold — if under, return untouched (no data loss).
-    let currentTokens = getCurrentTokenCount(steps, current, config)
+    // Strip binary content — all downstream operates on clean text.
+    const stripped = stripBinaryContent(messages)
+    const binaryTokens = countBinaryParts(messages) * config.imageTokenEstimate
+
+    // Stage 0: Check threshold — if under, return ORIGINAL (no data loss).
+    // Only add binaryTokens when using estimation (no real step usage).
+    // When real inputTokens exist, the provider's count already includes image costs.
+    const lastInputTokens =
+      steps.length > 0 ? steps[steps.length - 1].usage?.inputTokens : undefined
+    const hasRealUsage = lastInputTokens != null && lastInputTokens > 0
+    let currentTokens =
+      getCurrentTokenCount(steps, stripped, config) +
+      (hasRealUsage ? 0 : binaryTokens)
     if (currentTokens <= triggerThreshold) {
-      return { messages: current, experimental_context: state }
+      return { messages, experimental_context: state }
     }
+
+    let current = stripped
 
     // Stage 1: Prune — remove old tool call/result pairs beyond recent messages.
     const keepRecent = AGENT_LIMITS.COMPACTION_PRUNE_KEEP_RECENT_MESSAGES
@@ -815,32 +896,21 @@ export function createCompactionPrepareStep(
         removed: current.length - pruned.length,
       })
       current = pruned
-      // Step usage is stale after removing messages — re-estimate from content.
-      // Intentionally conservative (×safetyMultiplier + fixedOverhead) so we
-      // don't under-count and hit a provider overflow error downstream.
       currentTokens = estimateTokensForThreshold(current, config)
       if (currentTokens <= triggerThreshold) {
         return { messages: current, experimental_context: state }
       }
     }
 
-    // Stage 2: Truncate large tool outputs to 15K chars (keeps partial content).
-    const truncated = truncateToolOutputs(current, config.toolOutputMaxChars)
-    currentTokens = estimateTokensForThreshold(truncated, config)
-    if (currentTokens <= triggerThreshold) {
-      return { messages: truncated, experimental_context: state }
-    }
-    current = truncated
-
-    // Stage 3: Clear old tool outputs — replace with placeholders, skip last 2.
-    const cleared = clearToolOutputs(current)
+    // Stage 2: Clear old tool outputs — replace with placeholders, skip last 2.
+    const cleared = clearToolOutputs(current, 3)
     currentTokens = estimateTokensForThreshold(cleared, config)
     if (currentTokens <= triggerThreshold) {
       return { messages: cleared, experimental_context: state }
     }
 
-    // Stage 3 didn't resolve — fall through to LLM compaction.
-    // Pass `current` (truncated, not cleared) so that toKeep retains
+    // Clearing didn't resolve — fall through to LLM compaction.
+    // Pass `current` (not cleared) so that toKeep retains
     // meaningful tool outputs for the agent's immediate context.
     logger.warn(
       'Context still over limit after pruning, attempting compaction',
@@ -851,7 +921,7 @@ export function createCompactionPrepareStep(
       },
     )
 
-    // Stage 4: LLM-based compaction with sliding window fallback.
+    // Stage 3: LLM-based compaction with sliding window fallback.
     const compacted = await compactMessages(model, current, config, state)
     return { messages: compacted, experimental_context: state }
   }

@@ -48,8 +48,7 @@ export const AGENT_LIMITS = {
   COMPACTION_PRUNE_KEEP_RECENT_MESSAGES: 6,
   COMPACTION_CLEAR_OUTPUT_MIN_CHARS: 100,
 
-  // Compaction — tool output truncation
-  COMPACTION_TOOL_OUTPUT_MAX_CHARS: 15_000,
+  // Compaction — transcript serialization
   COMPACTION_TRANSCRIPT_TOOL_OUTPUT_MAX_CHARS: 2_000,
 } as const
 

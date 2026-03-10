@@ -165,23 +165,52 @@ function extractAssistantContent(content: AssistantContent): {
 function formatToolOutput(output: unknown, maxChars: number): string {
   if (!output || typeof output !== 'object') return String(output ?? '')
 
-  const out = output as { type?: string; value?: unknown }
+  const out = output as { type?: string; value?: unknown; reason?: string }
   let text: string
 
-  if (out.type === 'text' || out.type === 'error-text') {
-    text = String(out.value ?? '')
-  } else if (out.type === 'json' || out.type === 'error-json') {
-    try {
-      text = JSON.stringify(out.value)
-    } catch {
-      text = String(out.value)
+  switch (out.type) {
+    case 'text':
+    case 'error-text':
+      text = String(out.value ?? '')
+      break
+    case 'json':
+    case 'error-json':
+      try {
+        text = JSON.stringify(out.value)
+      } catch {
+        text = String(out.value)
+      }
+      break
+    case 'execution-denied':
+      text = out.reason ?? '[execution denied]'
+      break
+    case 'content': {
+      const parts = out.value as Array<{
+        type: string
+        text?: string
+        data?: string
+        url?: string
+      }>
+      text = (Array.isArray(parts) ? parts : [])
+        .map((part) => {
+          if (part.type === 'text') return part.text ?? ''
+          if (part.type === 'image-data' || part.type === 'media')
+            return '[Image]'
+          if (part.type === 'file-data') return '[File]'
+          if (part.type === 'image-url' || part.type === 'file-url')
+            return `[${part.url}]`
+          return ''
+        })
+        .filter(Boolean)
+        .join('\n')
+      break
     }
-  } else {
-    try {
-      text = JSON.stringify(output)
-    } catch {
-      text = String(output)
-    }
+    default:
+      try {
+        text = JSON.stringify(output)
+      } catch {
+        text = String(output)
+      }
   }
 
   if (text.length > maxChars) {
