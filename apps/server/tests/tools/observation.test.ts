@@ -1,6 +1,7 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { join } from 'node:path'
 import { close_page, navigate_page, new_page } from '../../src/tools/navigation'
 import {
   evaluate_script,
@@ -196,6 +197,10 @@ describe('observation tools', () => {
         assert.strictEqual(data.writtenToFile, true)
         assert.ok(textOf(contentResult).includes('Saved page content'))
         assert.ok(existsSync(savedPath), 'Saved page content file should exist')
+        assert.ok(
+          savedPath.startsWith(join(process.cwd(), 'tool-output')),
+          'Saved page content should be written under executionDir/tool-output',
+        )
 
         const savedContent = readFileSync(savedPath, 'utf8')
         assert.strictEqual(savedContent.length, data.contentLength)

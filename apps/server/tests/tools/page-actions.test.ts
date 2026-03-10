@@ -123,12 +123,14 @@ describe('page action tools', () => {
     const executionDir = await mkdtemp(
       join(tmpdir(), 'browseros-page-actions-'),
     )
+    let stagingDir: string | undefined
     const browser = createBrowserStub({
       downloadViaClick: async (
         _page: number,
         _element: number,
         tempDir: string,
       ) => {
+        stagingDir = tempDir
         const filePath = join(tempDir, 'download.txt')
         await Bun.write(filePath, 'hello')
         return {
@@ -155,6 +157,15 @@ describe('page action tools', () => {
       assert.strictEqual(structured.directory, executionDir)
       assert.strictEqual(structured.destinationPath, outputPath)
       assert.ok(existsSync(outputPath), 'Download should land in executionDir')
+      assert.ok(stagingDir, 'Download should use a staging directory')
+      assert.ok(
+        stagingDir.startsWith(join(executionDir, 'browseros-dl-')),
+        'Staging directory should be created inside executionDir',
+      )
+      assert.ok(
+        !existsSync(stagingDir),
+        'Staging directory should be removed after the download completes',
+      )
     } finally {
       await rm(executionDir, { recursive: true, force: true })
     }

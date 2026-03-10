@@ -1,6 +1,7 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { join } from 'node:path'
 import { get_dom, search_dom } from '../../src/tools/dom'
 import { close_page, new_page } from '../../src/tools/navigation'
 import { evaluate_script } from '../../src/tools/snapshot'
@@ -85,6 +86,10 @@ describe('get_dom', () => {
 
         assert.ok(textOf(result).includes('Saved DOM'))
         assert.ok(existsSync(domPath), 'Saved DOM file should exist')
+        assert.ok(
+          domPath.startsWith(join(process.cwd(), 'tool-output')),
+          'Saved DOM file should be written under executionDir/tool-output',
+        )
         assert.ok(html.includes('<html'), 'Should contain <html> tag')
         assert.ok(html.includes('</html>'), 'Should contain closing </html>')
         assert.ok(html.includes('id="login-form"'), 'Should contain form ID')
@@ -236,6 +241,10 @@ describe('get_dom', () => {
         const html = readFileSync(domPath, 'utf8')
 
         assert.ok(textOf(result).includes('Saved DOM'))
+        assert.ok(
+          domPath.startsWith(join(process.cwd(), 'tool-output')),
+          'Saved DOM file should be written under executionDir/tool-output',
+        )
         assert.ok(data.totalLength > 100_000, 'Expected a large DOM payload')
         assert.strictEqual(html.length, data.totalLength)
         assert.ok(

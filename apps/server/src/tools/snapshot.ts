@@ -96,7 +96,7 @@ export const get_page_content = defineTool({
     }
 
     if (text.length > TOOL_LIMITS.INLINE_PAGE_CONTENT_MAX_CHARS) {
-      const path = await writeToolOutputFile({
+      const path = await writeToolOutputFile(ctx, {
         toolName: 'get-page-content',
         extension: 'md',
         content: text,

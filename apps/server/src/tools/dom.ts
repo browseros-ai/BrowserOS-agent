@@ -37,7 +37,7 @@ export const get_dom = defineTool({
       return
     }
 
-    const path = await writeToolOutputFile({
+    const path = await writeToolOutputFile(ctx, {
       toolName: 'get-dom',
       extension: 'html',
       content: html,

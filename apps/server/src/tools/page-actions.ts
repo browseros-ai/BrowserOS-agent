@@ -1,5 +1,4 @@
 import { mkdtemp, rename, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { defineTool, resolveExecutionPath } from './framework'
@@ -122,7 +121,9 @@ export const download_file = defineTool({
   }),
   handler: async (args, ctx, response) => {
     const resolvedDir = resolveExecutionPath(ctx, args.path, args.cwd)
-    const tempDir = await mkdtemp(join(tmpdir(), 'browseros-dl-'))
+    const tempDir = await mkdtemp(
+      join(ctx.directories.executionDir, 'browseros-dl-'),
+    )
 
     try {
       const { filePath, suggestedFilename } =
