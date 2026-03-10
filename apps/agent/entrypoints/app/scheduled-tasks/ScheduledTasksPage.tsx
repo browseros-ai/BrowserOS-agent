@@ -1,4 +1,5 @@
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { RunResultDialog } from '@/components/ai-elements/run-result-dialog'
 import {
   AlertDialog,
@@ -55,6 +56,34 @@ export const ScheduledTasksPage: FC = () => {
   const viewingRun = viewingRunId
     ? (jobRuns.find((r) => r.id === viewingRunId) ?? null)
     : null
+
+  const [prefillValues, setPrefillValues] = useState<ScheduledJob | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const prefillHandled = useRef(false)
+
+  useEffect(() => {
+    if (prefillHandled.current) return
+    if (searchParams.get('openDialog') !== 'true') return
+    prefillHandled.current = true
+
+    const prefill: ScheduledJob = {
+      id: '',
+      name: searchParams.get('name') ?? '',
+      query: searchParams.get('query') ?? '',
+      scheduleType:
+        (searchParams.get('scheduleType') as ScheduledJob['scheduleType']) ??
+        'daily',
+      scheduleTime: searchParams.get('scheduleTime') ?? '09:00',
+      scheduleInterval: 1,
+      enabled: true,
+      createdAt: '',
+      updatedAt: '',
+    }
+    setPrefillValues(prefill)
+    setEditingJob(null)
+    setIsDialogOpen(true)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams])
 
   const handleAdd = () => {
     setEditingJob(null)
@@ -171,8 +200,11 @@ export const ScheduledTasksPage: FC = () => {
 
       <NewScheduledTaskDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        initialValues={editingJob}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open)
+          if (!open) setPrefillValues(null)
+        }}
+        initialValues={editingJob ?? prefillValues}
         onSave={handleSave}
       />
 
