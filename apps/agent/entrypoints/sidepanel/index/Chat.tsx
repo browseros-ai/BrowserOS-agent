@@ -201,6 +201,7 @@ export const Chat = () => {
         attachedTabs={attachedTabs}
         onToggleTab={toggleTabSelection}
         onRemoveTab={removeTab}
+        shouldAutoFocus
       />
     </>
   )

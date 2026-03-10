@@ -1,6 +1,6 @@
 import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AppSelector } from '@/components/elements/AppSelector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
@@ -27,6 +27,7 @@ interface ChatFooterProps {
   attachedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
   onRemoveTab: (tabId?: number) => void
+  shouldAutoFocus?: boolean
 }
 
 export const ChatFooter: FC<ChatFooterProps> = ({
@@ -40,6 +41,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   attachedTabs,
   onToggleTab,
   onRemoveTab,
+  shouldAutoFocus = false,
 }) => {
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
@@ -48,6 +50,15 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   useSyncRemoteIntegrations()
   const chatInputRef = useRef<ChatInputHandle>(null)
   const [isTabMentionOpen, setIsTabMentionOpen] = useState(false)
+
+  useEffect(() => {
+    if (!shouldAutoFocus) return
+
+    const frameId = requestAnimationFrame(() => {
+      chatInputRef.current?.focus()
+    })
+    return () => cancelAnimationFrame(frameId)
+  }, [shouldAutoFocus])
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
