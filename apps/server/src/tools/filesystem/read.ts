@@ -35,14 +35,18 @@ function getSelectedLines(
   startIdx: number,
   limit?: number,
 ): string[] {
-  if (limit && limit > MAX_READ_LINES) {
+  if (limit !== undefined && limit <= 0) {
+    throw new Error('filesystem_read limit must be greater than 0.')
+  }
+
+  if (limit !== undefined && limit > MAX_READ_LINES) {
     throw new Error(
       `filesystem_read accepts at most ${MAX_READ_LINES} lines per call. Retry with a smaller limit.`,
     )
   }
 
   const remaining = allLines.slice(startIdx)
-  if (limit && limit < remaining.length) {
+  if (limit !== undefined && limit < remaining.length) {
     return remaining.slice(0, limit)
   }
   return remaining
@@ -54,7 +58,7 @@ function validateSelectedRange(selected: string[], startIdx: number): void {
 
   if (selected.length > MAX_READ_LINES) {
     throw new Error(
-      `Requested lines ${startLineNum}-${endLineNum} exceed the ${MAX_READ_LINES}-line limit for filesystem_read. Retry with a smaller limit.`,
+      `Requested lines ${startLineNum}-${endLineNum} exceed the ${MAX_READ_LINES}-line limit for filesystem_read. Retry with offset and limit=${MAX_READ_LINES} or smaller.`,
     )
   }
 }
@@ -102,7 +106,12 @@ export function createReadTool(cwd: string) {
         .number()
         .optional()
         .describe('Starting line number (1-indexed)'),
-      limit: z.number().optional().describe('Maximum number of lines to read'),
+      limit: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('Maximum number of lines to read'),
     }),
     execute: (params) =>
       executeWithMetrics(TOOL_NAME, async () => {

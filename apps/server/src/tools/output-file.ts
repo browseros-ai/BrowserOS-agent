@@ -18,7 +18,7 @@ export async function writeToolOutputFile(args: {
   await mkdir(outputDir, { recursive: true })
 
   const toolName = sanitizeSegment(args.toolName)
-  const extension = sanitizeSegment(args.extension).replace(/^-+/, '') || 'txt'
+  const extension = sanitizeSegment(args.extension) || 'txt'
   const filePath = join(
     outputDir,
     `${toolName}-${Date.now()}-${randomUUID()}.${extension}`,

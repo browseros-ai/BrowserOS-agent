@@ -133,6 +133,13 @@ describe('filesystem_read', () => {
     expect(result.text).toContain(`at most ${MAX_READ_LINES} lines`)
   })
 
+  it('errors when limit is zero', async () => {
+    await writeFile(join(tmpDir, 'zero.txt'), 'a\nb\nc')
+    const result = await exec({ path: 'zero.txt', limit: 0 })
+    expect(result.isError).toBe(true)
+    expect(result.text).toContain('greater than 0')
+  })
+
   it('errors when a requested range exceeds the character limit', async () => {
     const longLine = 'x'.repeat(MAX_READ_CHARS + 100)
     await writeFile(join(tmpDir, 'chars.txt'), longLine)
