@@ -59,7 +59,11 @@ export class AiSdkAgent {
         : rawModel
 
     // Build browser tools from the unified tool registry
-    const allBrowserTools = buildBrowserToolSet(config.registry, config.browser)
+    const allBrowserTools = buildBrowserToolSet(
+      config.registry,
+      config.browser,
+      config.resolvedConfig.sessionExecutionDir,
+    )
     const browserTools = config.resolvedConfig.chatMode
       ? Object.fromEntries(
           Object.entries(allBrowserTools).filter(([name]) =>

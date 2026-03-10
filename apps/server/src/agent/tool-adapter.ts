@@ -3,7 +3,7 @@ import { type ToolSet, tool } from 'ai'
 import type { Browser } from '../browser/browser'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
-import { executeTool } from '../tools/framework'
+import { executeTool, type ToolContext } from '../tools/framework'
 import type { ContentItem } from '../tools/response'
 import type { ToolRegistry } from '../tools/tool-registry'
 
@@ -38,9 +38,13 @@ function contentToModelOutput(
 export function buildBrowserToolSet(
   registry: ToolRegistry,
   browser: Browser,
+  executionDir: string,
 ): ToolSet {
   const toolSet: ToolSet = {}
-  const ctx = { browser }
+  const ctx: ToolContext = {
+    browser,
+    directories: { executionDir },
+  }
 
   for (const def of registry.all()) {
     toolSet[def.name] = tool({

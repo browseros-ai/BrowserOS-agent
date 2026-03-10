@@ -93,6 +93,7 @@ export class Application {
         registry,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
+        resourcesDir: this.config.resourcesDir,
         rateLimiter: new RateLimiter(this.getDb(), dailyRateLimit),
         codegenServiceUrl: this.config.codegenServiceUrl,
 

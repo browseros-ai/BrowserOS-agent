@@ -90,7 +90,8 @@ export interface HttpServerConfig {
   registry: ToolRegistry
 
   browserosId?: string
-  executionDir?: string
+  executionDir: string
+  resourcesDir: string
   rateLimiter?: RateLimiter
 
   codegenServiceUrl?: string
