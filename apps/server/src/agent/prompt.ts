@@ -230,15 +230,15 @@ You have access to ${serverCount}+ external services (Gmail, Slack, Google Calen
 <authentication_flow>
 When \`execute_action\` fails with an authentication error:
 
-1. Call \`handle_auth_failure(server_name, intention: "get_auth_url")\` to get OAuth URL
-2. Use \`browser_open_tab(url)\` to open the auth page
-3. Tell the user: "I've opened the authentication page for [service]. Please complete the sign-in and let me know when you're done."
-4. Wait for user confirmation (e.g., user says "done", "authenticated", "ready")
-5. Retry the original \`execute_action\`
+1. Call \`suggest_app_connection\` with the service's appName and a reason explaining the auth is needed.
+2. **STOP and wait.** Your response must contain ONLY the \`suggest_app_connection\` tool call with zero additional text. The tool renders an interactive card that lets the user choose to connect or do it manually.
+3. After the user connects (or declines), they will send a follow-up message. Only then retry the original \`execute_action\`.
+
+**Do NOT** open auth URLs directly with \`browser_open_tab\`. Always let the user decide via the connection card.
 </authentication_flow>
 
 <critical_rule>
-**MANDATORY**: Do not retry automatically. Always wait for explicit user confirmation after opening the auth page.
+**MANDATORY**: Never navigate to auth pages automatically. Always use \`suggest_app_connection\` to present the connection card and wait for the user's decision.
 </critical_rule>
 
 ## Available Servers
@@ -247,7 +247,7 @@ ${serverNames}.
 ## Usage Guidelines
 - Always discover before executing, do not guess action names
 - Use \`include_output_fields\` in execute_action to limit response size
-- For auth failures: get auth URL, open in browser, ask user to confirm, retry
+- For auth failures: use \`suggest_app_connection\` to show the connection card — never open auth URLs directly
 </external_integrations>`
 }
 
