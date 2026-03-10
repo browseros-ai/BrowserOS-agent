@@ -35,8 +35,10 @@ export default defineBackground(() => {
   const agentTabSets = new Map<string, Set<number>>()
 
   chrome.tabs.onRemoved.addListener((tabId) => {
-    for (const tabSet of agentTabSets.values()) {
+    for (const [conversationId, tabSet] of agentTabSets) {
       tabSet.delete(tabId)
+      // Prune empty entries to prevent unbounded growth
+      if (tabSet.size === 0) agentTabSets.delete(conversationId)
     }
   })
 
