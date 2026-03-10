@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { Capabilities, Feature } from '@/lib/browseros/capabilities'
+import { isSidePanelOpen } from '@/lib/browseros/toggleSidePanel'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import {
@@ -26,6 +27,16 @@ import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import {
+  getSharedSidepanelConversation,
+  saveSharedSidepanelConversation,
+  watchSharedSidepanelConversations,
+} from '@/lib/sidepanel/shared-sidepanel-conversation'
+import {
+  ensureSharedSidepanelSession,
+  getSharedSidepanelSessionForTab,
+  watchSharedSidepanelSessionForTab,
+} from '@/lib/sidepanel/shared-sidepanel-session'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
@@ -73,6 +84,10 @@ export interface ChatSessionOptions {
 
 const NEWTAB_SYSTEM_PROMPT = `IMPORTANT: The user is chatting from the New Tab page. When performing browser actions, ALWAYS open content in a NEW TAB rather than navigating the current tab. The user's new tab page should remain accessible.`
 
+function haveMessagesChanged(left: UIMessage[], right: UIMessage[]): boolean {
+  return JSON.stringify(left) !== JSON.stringify(right)
+}
+
 export const useChatSession = (options?: ChatSessionOptions) => {
   const {
     selectedLlmProviderRef,
@@ -100,6 +115,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   } = useRemoteConversationSave()
   const [searchParams, setSearchParams] = useSearchParams()
   const conversationIdParam = searchParams.get('conversationId')
+  const isSidepanelOrigin = options?.origin !== 'newtab'
 
   const agentUrlRef = useRef(agentServerUrl)
 
@@ -121,10 +137,92 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [conversationId, setConversationId] = useState(crypto.randomUUID())
   const conversationIdRef = useRef(conversationId)
+  const [currentTabId, setCurrentTabId] = useState<number | null>(null)
+  const [sharedConversationId, setSharedConversationId] = useState<
+    string | null
+  >(null)
+  const [isResolvingSharedConversation, setIsResolvingSharedConversation] =
+    useState(isSidepanelOrigin)
 
   useEffect(() => {
     conversationIdRef.current = conversationId
   }, [conversationId])
+
+  useEffect(() => {
+    if (!isSidepanelOrigin) {
+      setIsResolvingSharedConversation(false)
+      return
+    }
+
+    let cancelled = false
+
+    const syncCurrentTab = async () => {
+      const activeTabs = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      })
+      if (cancelled) return
+      setCurrentTabId(activeTabs[0]?.id ?? null)
+    }
+
+    syncCurrentTab().catch(() => {
+      if (!cancelled) {
+        setCurrentTabId(null)
+      }
+    })
+
+    const handleActivated = () => {
+      syncCurrentTab().catch(() => {
+        if (!cancelled) {
+          setCurrentTabId(null)
+        }
+      })
+    }
+
+    chrome.tabs.onActivated.addListener(handleActivated)
+
+    return () => {
+      cancelled = true
+      chrome.tabs.onActivated.removeListener(handleActivated)
+    }
+  }, [isSidepanelOrigin])
+
+  useEffect(() => {
+    if (!isSidepanelOrigin) return
+
+    if (!currentTabId) {
+      setSharedConversationId(null)
+      setIsResolvingSharedConversation(false)
+      return
+    }
+
+    let cancelled = false
+    setIsResolvingSharedConversation(true)
+
+    getSharedSidepanelSessionForTab(currentTabId)
+      .then((session) => {
+        if (cancelled) return
+        setSharedConversationId(session?.conversationId ?? null)
+        setIsResolvingSharedConversation(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSharedConversationId(null)
+        setIsResolvingSharedConversation(false)
+      })
+
+    const unwatch = watchSharedSidepanelSessionForTab(
+      currentTabId,
+      (session) => {
+        setSharedConversationId(session?.conversationId ?? null)
+      },
+    )
+
+    return () => {
+      cancelled = true
+      unwatch()
+    }
+  }, [currentTabId, isSidepanelOrigin])
 
   const onClickLike = (messageId: string) => {
     const { responseText, queryText } = getResponseAndQueryFromMessageId(
@@ -333,17 +431,20 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useNotifyActiveTab({
     messages,
     status,
-    conversationId: conversationIdRef.current,
+    conversationId,
+    hostTabId: currentTabId,
   })
+
+  const conversationIdToRestore = conversationIdParam ?? sharedConversationId
 
   const {
     data: remoteConversationData,
     isFetched: isRemoteConversationFetched,
   } = useGraphqlQuery(
     GetConversationWithMessagesDocument,
-    { conversationId: conversationIdParam ?? '' },
+    { conversationId: conversationIdToRestore ?? '' },
     {
-      enabled: !!conversationIdParam && isLoggedIn,
+      enabled: !!conversationIdToRestore && isLoggedIn,
     },
   )
 
@@ -351,53 +452,122 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     string | null
   >(null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: restore should only run when query data arrives or conversationIdParam changes
   useEffect(() => {
-    if (!conversationIdParam) return
-    if (restoredConversationId === conversationIdParam) return
+    if (isResolvingSharedConversation) return
+    if (!conversationIdToRestore) return
+    if (restoredConversationId === conversationIdToRestore) return
 
-    if (isLoggedIn) {
-      if (!isRemoteConversationFetched) return
+    let cancelled = false
 
-      if (remoteConversationData?.conversation) {
-        const restoredMessages =
-          remoteConversationData.conversation.conversationMessages.nodes
-            .filter((node): node is NonNullable<typeof node> => node !== null)
-            .map((node) => node.message as UIMessage)
-
-        setConversationId(
-          conversationIdParam as ReturnType<typeof crypto.randomUUID>,
-        )
-        setMessages(restoredMessages)
-        markMessagesAsSaved(conversationIdParam, restoredMessages)
-      }
-      setRestoredConversationId(conversationIdParam)
-      setSearchParams({}, { replace: true })
-    } else {
-      const restoreLocal = async () => {
-        const conversations = await conversationStorage.getValue()
-        const conversation = conversations?.find(
-          (c) => c.id === conversationIdParam,
-        )
-
-        if (conversation) {
-          setConversationId(
-            conversation.id as ReturnType<typeof crypto.randomUUID>,
-          )
-          setMessages(conversation.messages)
-        }
-        setRestoredConversationId(conversationIdParam)
+    const finishRestore = () => {
+      if (cancelled) return
+      setRestoredConversationId(conversationIdToRestore)
+      if (conversationIdParam) {
         setSearchParams({}, { replace: true })
       }
-      restoreLocal()
     }
-  }, [conversationIdParam, remoteConversationData, isLoggedIn])
+
+    const restoreFromLocalStores = async () => {
+      const sharedConversation = await getSharedSidepanelConversation(
+        conversationIdToRestore,
+      )
+      if (sharedConversation) {
+        setConversationId(
+          conversationIdToRestore as ReturnType<typeof crypto.randomUUID>,
+        )
+        setMessages(sharedConversation.messages)
+        markMessagesAsSaved(
+          conversationIdToRestore,
+          sharedConversation.messages,
+        )
+        finishRestore()
+        return true
+      }
+
+      const conversations = await conversationStorage.getValue()
+      const localConversation = conversations?.find(
+        (conversation) => conversation.id === conversationIdToRestore,
+      )
+
+      if (!localConversation) return false
+
+      setConversationId(
+        conversationIdToRestore as ReturnType<typeof crypto.randomUUID>,
+      )
+      setMessages(localConversation.messages)
+      markMessagesAsSaved(conversationIdToRestore, localConversation.messages)
+      finishRestore()
+      return true
+    }
+
+    const restoreConversation = async () => {
+      const restoredFromLocal = await restoreFromLocalStores()
+      if (restoredFromLocal || cancelled) return
+
+      if (isLoggedIn) {
+        if (!isRemoteConversationFetched) return
+
+        if (remoteConversationData?.conversation) {
+          const restoredMessages =
+            remoteConversationData.conversation.conversationMessages.nodes
+              .filter((node): node is NonNullable<typeof node> => node !== null)
+              .map((node) => node.message as UIMessage)
+
+          setConversationId(
+            conversationIdToRestore as ReturnType<typeof crypto.randomUUID>,
+          )
+          setMessages(restoredMessages)
+          markMessagesAsSaved(conversationIdToRestore, restoredMessages)
+        }
+        finishRestore()
+        return
+      }
+
+      finishRestore()
+    }
+
+    restoreConversation()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    conversationIdParam,
+    conversationIdToRestore,
+    isLoggedIn,
+    isRemoteConversationFetched,
+    isResolvingSharedConversation,
+    markMessagesAsSaved,
+    remoteConversationData,
+    restoredConversationId,
+    setSearchParams,
+    setMessages,
+  ])
+
+  useEffect(() => {
+    const unwatch = watchSharedSidepanelConversations((store) => {
+      const activeConversation = store[conversationIdRef.current]
+      if (!activeConversation) return
+
+      const nextMessages = activeConversation.messages
+      if (!haveMessagesChanged(messagesRef.current, nextMessages)) return
+
+      setMessages(nextMessages)
+    })
+
+    return () => unwatch()
+  }, [setMessages])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
   useEffect(() => {
     messagesRef.current = messages
     const messagesToSave = messages.filter((m) => m.parts?.length > 0)
     if (messagesToSave.length > 0) {
+      saveSharedSidepanelConversation(
+        conversationIdRef.current,
+        messagesToSave,
+      ).catch(() => null)
+
       if (isLoggedIn) {
         if (status !== 'streaming') {
           saveRemoteConversation(conversationIdRef.current, messagesToSave)
@@ -407,6 +577,36 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       }
     }
   }, [messages, isLoggedIn, status])
+
+  useEffect(() => {
+    if (!isSidepanelOrigin || !currentTabId) return
+    if (isResolvingSharedConversation) return
+    if (
+      conversationIdToRestore &&
+      restoredConversationId !== conversationIdToRestore
+    ) {
+      return
+    }
+
+    const syncSharedSession = async () => {
+      const panelOpen = await isSidePanelOpen(currentTabId)
+      if (!panelOpen) return
+
+      await ensureSharedSidepanelSession({
+        tabId: currentTabId,
+        conversationId,
+      })
+    }
+
+    syncSharedSession().catch(() => null)
+  }, [
+    conversationId,
+    conversationIdToRestore,
+    currentTabId,
+    isResolvingSharedConversation,
+    isSidepanelOrigin,
+    restoredConversationId,
+  ])
 
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
@@ -470,6 +670,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     stop()
     setConversationId(crypto.randomUUID())
     setMessages([])
+    setSharedConversationId(null)
     setTextToAction(new Map())
     setLiked({})
     setDisliked({})
@@ -478,7 +679,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }
 
   const isRestoringConversation =
-    !!conversationIdParam && restoredConversationId !== conversationIdParam
+    !isResolvingSharedConversation &&
+    !!conversationIdToRestore &&
+    restoredConversationId !== conversationIdToRestore
 
   return {
     mode,
