@@ -8,13 +8,11 @@ import type {
 import { generateText, type ModelMessage, stepCountIs, tool } from 'ai'
 import { MockLanguageModelV3 } from 'ai/test'
 import { z } from 'zod'
-import {
-  type CompactionState,
-  clearToolOutputs,
-  computeConfig,
-  createCompactionPrepareStep,
-  estimateTokensForThreshold,
-} from '../../src/agent/compaction'
+import { clearToolOutputs } from '../../src/agent/compaction/clear-tool-outputs'
+import { computeConfig } from '../../src/agent/compaction/config'
+import { estimateTokensForThreshold } from '../../src/agent/compaction/estimate-tokens'
+import { createCompactionPrepareStep } from '../../src/agent/compaction/prepare-step'
+import type { CompactionState } from '../../src/agent/compaction/types'
 
 // ---------------------------------------------------------------------------
 // Test infrastructure

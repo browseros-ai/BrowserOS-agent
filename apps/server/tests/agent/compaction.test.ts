@@ -1,21 +1,23 @@
 import { describe, expect, it } from 'bun:test'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { ModelMessage } from 'ai'
+import { computeConfig } from '../../src/agent/compaction/config'
 import {
-  computeConfig,
-  countBinaryParts,
   estimateTokens,
-  findSafeSplitPoint,
   getCurrentTokenCount,
-  type StepWithUsage,
-  slidingWindow,
-  stripBinaryContent,
-} from '../../src/agent/compaction'
+} from '../../src/agent/compaction/estimate-tokens'
 import {
   buildSummarizationPrompt,
   buildTurnPrefixPrompt,
   messagesToTranscript,
-} from '../../src/agent/compaction-prompt'
+} from '../../src/agent/compaction/prompt'
+import { slidingWindow } from '../../src/agent/compaction/sliding-window'
+import { findSafeSplitPoint } from '../../src/agent/compaction/split-point'
+import {
+  countBinaryParts,
+  stripBinaryContent,
+} from '../../src/agent/compaction/strip-binary'
+import type { StepWithUsage } from '../../src/agent/compaction/types'
 import {
   createContextOverflowMiddleware,
   isContextOverflowError,
