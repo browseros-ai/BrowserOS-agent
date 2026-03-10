@@ -36,6 +36,7 @@ export function useSyncRemoteIntegrations() {
       const localServers = await mcpServerStorage.getValue()
       const missing = integrations.filter(
         (remote) =>
+          remote.is_authenticated &&
           !localServers.some((s) => s.managedServerName === remote.name),
       )
 
