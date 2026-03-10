@@ -692,64 +692,13 @@ describe('compaction E2E — tool output truncation', () => {
     expect(content[0].output.value).not.toContain('[... truncated')
   })
 
-  it('Stage 0 always truncates oversized tool outputs even when below threshold', async () => {
+  it('returns messages untouched when under threshold (no truncation)', async () => {
     const contextWindow = 200_000
     const prepareStep = createCompactionPrepareStep({ contextWindow })
 
     const model = createMock(async () => summaryResponse(200))
 
-    const messages: ModelMessage[] = [
-      { role: 'user', content: 'Get the page' },
-      {
-        role: 'assistant',
-        content: [
-          {
-            type: 'tool-call',
-            toolCallId: 'call_1',
-            toolName: 'get_page_content',
-            input: { pageId: 1 },
-          },
-        ],
-      },
-      {
-        role: 'tool',
-        content: [
-          {
-            type: 'tool-result',
-            toolCallId: 'call_1',
-            toolName: 'get_page_content',
-            output: { type: 'text' as const, value: 'x'.repeat(100_000) },
-          },
-        ],
-      },
-      { role: 'assistant', content: 'Got the content' },
-    ]
-
-    const result = await prepareStep({
-      messages,
-      steps: [{ usage: { inputTokens: 5000 } }] as StepsStub,
-      model,
-      experimental_context: null,
-    })
-
-    const state = result.experimental_context as CompactionState
-    expect(state.compactionCount).toBe(0)
-
-    const toolMsg = result.messages.find((m) => m.role === 'tool')
-    expect(toolMsg).toBeDefined()
-    const content = toolMsg?.content as Array<{ output: { value: string } }>
-    expect(content[0].output.value).toContain('[... truncated')
-    expect(content[0].output.value.length).toBeLessThan(20_000)
-  })
-
-  it('Stage 0 truncation markers survive in output when clearing not needed', async () => {
-    // With a large context window and low usage, Stage 1 returns early after
-    // Stage 0 truncation. The truncation markers should be visible in the output.
-    const contextWindow = 200_000
-    const prepareStep = createCompactionPrepareStep({ contextWindow })
-
-    const model = createMock(async () => summaryResponse(200))
-
+    const bigOutput = 'x'.repeat(50_000)
     const messages: ModelMessage[] = [
       { role: 'user', content: 'Get pages' },
       {
@@ -770,10 +719,7 @@ describe('compaction E2E — tool output truncation', () => {
             type: 'tool-result',
             toolCallId: 'call_0',
             toolName: 'get_page',
-            output: {
-              type: 'text' as const,
-              value: `Result: ${'x'.repeat(50_000)}`,
-            },
+            output: { type: 'text' as const, value: bigOutput },
           },
         ],
       },
@@ -790,12 +736,12 @@ describe('compaction E2E — tool output truncation', () => {
     const state = result.experimental_context as CompactionState
     expect(state.compactionCount).toBe(0)
 
-    // Stage 0 truncated the 50K output to 15K + marker
+    // Under threshold — messages returned untouched, no truncation
     const toolMsg = result.messages.find((m) => m.role === 'tool')
     expect(toolMsg).toBeDefined()
     const content = toolMsg?.content as Array<{ output: { value: string } }>
-    expect(content[0].output.value).toContain('[... truncated')
-    expect(content[0].output.value.length).toBeLessThan(20_000)
+    expect(content[0].output.value.length).toBe(50_000)
+    expect(content[0].output.value).not.toContain('[... truncated')
   })
 
   it('Stages 2+3 clear tool outputs before LLM summarization sees them', async () => {
@@ -870,33 +816,16 @@ describe('compaction E2E — pruning stages', () => {
     expect(result.messages.length).toBeLessThanOrEqual(messages.length)
   })
 
-  it('Stage 3 (clearToolOutputs) resolves overflow when pruning is not enough', async () => {
-    const contextWindow = 10_000
-    const prepareStep = createCompactionPrepareStep({ contextWindow })
-    const config = computeConfig(contextWindow)
-    const triggerAt = Math.floor(contextWindow * config.triggerRatio)
-
-    let summarizationCalled = false
-    const model = createMock(async (options) => {
-      if (isSummarizationCall(options)) {
-        summarizationCalled = true
-      }
-      return summaryResponse(200)
-    })
-
-    // Build messages where the last 6 messages contain tool results with
-    // large outputs. Stage 2 only prunes tool calls BEFORE the last 6,
-    // so recent tool outputs survive pruning but get cleared by Stage 3.
+  it('Stage 3 (clearToolOutputs) clears old outputs but protects last 2', async () => {
     const messages: ModelMessage[] = [
-      { role: 'user', content: 'Do some tasks' },
-      // These are within the last 6 messages, so Stage 2 won't prune them
+      { role: 'user', content: 'Do tasks' },
       {
         role: 'assistant',
         content: [
           {
             type: 'tool-call',
-            toolCallId: 'call_recent_0',
-            toolName: 'action_0',
+            toolCallId: 'call_old',
+            toolName: 'action_old',
             input: { step: 0 },
           },
         ],
@@ -906,12 +835,9 @@ describe('compaction E2E — pruning stages', () => {
         content: [
           {
             type: 'tool-result',
-            toolCallId: 'call_recent_0',
-            toolName: 'action_0',
-            output: {
-              type: 'text' as const,
-              value: `Recent result: ${'r'.repeat(14_000)}`,
-            },
+            toolCallId: 'call_old',
+            toolName: 'action_old',
+            output: { type: 'text' as const, value: 'x'.repeat(500) },
           },
         ],
       },
@@ -920,7 +846,7 @@ describe('compaction E2E — pruning stages', () => {
         content: [
           {
             type: 'tool-call',
-            toolCallId: 'call_recent_1',
+            toolCallId: 'call_recent_0',
             toolName: 'action_1',
             input: { step: 1 },
           },
@@ -931,38 +857,46 @@ describe('compaction E2E — pruning stages', () => {
         content: [
           {
             type: 'tool-result',
-            toolCallId: 'call_recent_1',
+            toolCallId: 'call_recent_0',
             toolName: 'action_1',
-            output: {
-              type: 'text' as const,
-              value: `Recent result: ${'r'.repeat(14_000)}`,
-            },
+            output: { type: 'text' as const, value: 'y'.repeat(500) },
           },
         ],
       },
-      { role: 'assistant', content: 'Done with both steps.' },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_recent_1',
+            toolName: 'action_2',
+            input: { step: 2 },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_recent_1',
+            toolName: 'action_2',
+            output: { type: 'text' as const, value: 'z'.repeat(500) },
+          },
+        ],
+      },
     ]
 
-    const result = await prepareStep({
-      messages,
-      steps: [{ usage: { inputTokens: triggerAt + 1000 } }] as StepsStub,
-      model,
-      experimental_context: null,
-    })
-
-    const state = result.experimental_context as CompactionState
-    expect(state.compactionCount).toBe(0)
-    expect(summarizationCalled).toBe(false)
-
-    // Tool outputs should have been cleared (replaced with placeholder)
-    const toolMsgs = result.messages.filter((m) => m.role === 'tool') as Array<{
+    const cleared = clearToolOutputs(messages)
+    const toolMsgs = cleared.filter((m) => m.role === 'tool') as Array<{
       content: Array<{ output: { value: string } }>
     }>
-    for (const tm of toolMsgs) {
-      for (const part of tm.content) {
-        expect(part.output.value).toContain('[Cleared')
-      }
-    }
+
+    // Old tool output (index 0) should be cleared
+    expect(toolMsgs[0].content[0].output.value).toContain('[Cleared')
+    // Last 2 tool outputs should be protected
+    expect(toolMsgs[1].content[0].output.value).toBe('y'.repeat(500))
+    expect(toolMsgs[2].content[0].output.value).toBe('z'.repeat(500))
   })
 
   it('all 4 stages work together when only LLM summarization resolves overflow', async () => {
@@ -1022,7 +956,7 @@ describe('compaction E2E — pruning stages', () => {
     expect(part.output.value.length).toBeLessThan(20_000)
   })
 
-  it('clearToolOutputs replaces outputs >100 chars with placeholder', () => {
+  it('clearToolOutputs replaces outputs >100 chars with placeholder, protects last N', () => {
     const messages: ModelMessage[] = [
       {
         role: 'tool',
@@ -1042,6 +976,17 @@ describe('compaction E2E — pruning stages', () => {
             type: 'tool-result',
             toolCallId: 'call_2',
             toolName: 'test',
+            output: { type: 'text' as const, value: 'y'.repeat(200) },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_3',
+            toolName: 'test',
             output: { type: 'text' as const, value: 'short' },
           },
         ],
@@ -1055,8 +1000,14 @@ describe('compaction E2E — pruning stages', () => {
     const part1 = (
       cleared[1].content as Array<{ output: { value: string } }>
     )[0]
+    const part2 = (
+      cleared[2].content as Array<{ output: { value: string } }>
+    )[0]
+    // First tool message cleared (not in last 2)
     expect(part0.output.value).toBe('[Cleared — 500 chars]')
-    expect(part1.output.value).toBe('short')
+    // Last 2 tool messages protected by default keepRecentCount=2
+    expect(part1.output.value).toBe('y'.repeat(200))
+    expect(part2.output.value).toBe('short')
   })
 
   it('estimateTokensForThreshold applies safety multiplier and overhead', () => {

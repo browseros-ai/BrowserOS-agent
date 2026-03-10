@@ -448,10 +448,20 @@ export function truncateToolOutputs(
 // Clear tool outputs (replace verbose output with placeholder)
 // ---------------------------------------------------------------------------
 
-export function clearToolOutputs(messages: ModelMessage[]): ModelMessage[] {
+export function clearToolOutputs(
+  messages: ModelMessage[],
+  keepRecentCount = 2,
+): ModelMessage[] {
+  // Find indices of tool messages to protect (last N)
+  const toolIndices: number[] = []
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].role === 'tool') toolIndices.push(i)
+  }
+  const protectedIndices = new Set(toolIndices.slice(-keepRecentCount))
+
   let cleared = 0
-  const result = messages.map((msg) => {
-    if (msg.role !== 'tool') return msg
+  const result = messages.map((msg, idx) => {
+    if (msg.role !== 'tool' || protectedIndices.has(idx)) return msg
 
     const content = msg.content.map((part) => {
       if (!('output' in part)) return part
@@ -481,7 +491,10 @@ export function clearToolOutputs(messages: ModelMessage[]): ModelMessage[] {
   })
 
   if (cleared > 0) {
-    logger.info('Cleared tool outputs', { clearedCount: cleared })
+    logger.info('Cleared tool outputs', {
+      clearedCount: cleared,
+      protectedCount: protectedIndices.size,
+    })
   }
 
   return result
@@ -779,17 +792,16 @@ export function createCompactionPrepareStep(
       ? experimental_context
       : { existingSummary: null, compactionCount: 0 }
 
-    // Stage 0: Cap oversized tool outputs before any estimation or compaction.
-    let current = truncateToolOutputs(messages, config.toolOutputMaxChars)
     const triggerThreshold = config.triggerThreshold
+    let current = messages
 
-    // Stage 1: Check if compaction is needed.
+    // Stage 0: Check threshold — if under, return untouched (no data loss).
     let currentTokens = getCurrentTokenCount(steps, current, config)
     if (currentTokens <= triggerThreshold) {
       return { messages: current, experimental_context: state }
     }
 
-    // Stage 2: Prune — remove old tool call/result pairs beyond recent messages.
+    // Stage 1: Prune — remove old tool call/result pairs beyond recent messages.
     const keepRecent = AGENT_LIMITS.COMPACTION_PRUNE_KEEP_RECENT_MESSAGES
     const pruned = pruneMessages({
       messages: current,
@@ -803,14 +815,21 @@ export function createCompactionPrepareStep(
         removed: current.length - pruned.length,
       })
       current = pruned
-      // Re-estimate from message content — step usage is stale after pruning.
       currentTokens = estimateTokensForThreshold(current, config)
       if (currentTokens <= triggerThreshold) {
         return { messages: current, experimental_context: state }
       }
     }
 
-    // Stage 3: Clear remaining tool outputs — replace with short placeholders.
+    // Stage 2: Truncate large tool outputs to 15K chars (keeps partial content).
+    const truncated = truncateToolOutputs(current, config.toolOutputMaxChars)
+    currentTokens = estimateTokensForThreshold(truncated, config)
+    if (currentTokens <= triggerThreshold) {
+      return { messages: truncated, experimental_context: state }
+    }
+    current = truncated
+
+    // Stage 3: Clear old tool outputs — replace with placeholders, skip last 2.
     const cleared = clearToolOutputs(current)
     currentTokens = estimateTokensForThreshold(cleared, config)
     if (currentTokens <= triggerThreshold) {

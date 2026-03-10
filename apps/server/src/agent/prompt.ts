@@ -356,7 +356,7 @@ Only delete core memories if the user explicitly asks to forget.
 
 function getNudges(
   _exclude: Set<string>,
-  options?: BuildSystemPromptOptions,
+  _options?: BuildSystemPromptOptions,
 ): string {
   return `<nudge_tools>
 ## Nudge Tools
