@@ -1,7 +1,7 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { existsSync, readFileSync, unlinkSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { close_page, navigate_page, new_page } from '../../src/tools/navigation'
 import {
   evaluate_script,
@@ -34,6 +34,13 @@ function pageIdOf(result: {
   const data = result.structuredContent as { pageId?: number } | undefined
   if (typeof data?.pageId === 'number') return data.pageId
   return Number(textOf(result).match(/Page ID:\s*(\d+)/)?.[1])
+}
+
+function cleanupSavedContent(path: string): void {
+  unlinkSync(path)
+  try {
+    rmSync(dirname(path))
+  } catch {}
 }
 
 describe('observation tools', () => {
@@ -197,8 +204,9 @@ describe('observation tools', () => {
         assert.strictEqual(data.writtenToFile, true)
         assert.ok(textOf(contentResult).includes('Saved page content'))
         assert.ok(existsSync(savedPath), 'Saved page content file should exist')
-        assert.ok(
-          savedPath.startsWith(join(process.cwd(), 'tool-output')),
+        assert.strictEqual(
+          dirname(savedPath),
+          join(process.cwd(), 'tool-output'),
           'Saved page content should be written under executionDir/tool-output',
         )
 
@@ -209,7 +217,7 @@ describe('observation tools', () => {
           'Saved file should contain the extracted content',
         )
       } finally {
-        if (savedPath && existsSync(savedPath)) unlinkSync(savedPath)
+        if (savedPath && existsSync(savedPath)) cleanupSavedContent(savedPath)
         await execute(close_page, { page: pageId })
       }
     })
