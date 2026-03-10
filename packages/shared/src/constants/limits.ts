@@ -22,7 +22,7 @@ export const AGENT_LIMITS = {
   COMPRESSION_MIN_RATIO: 0.4,
 
   // Compaction — adaptive trigger
-  COMPACTION_RESERVE_TOKENS: 16_384,
+  COMPACTION_RESERVE_TOKENS: 20_000,
 
   // Compaction — adaptive keep-recent
   COMPACTION_MAX_KEEP_RECENT: 20_000,
@@ -43,6 +43,10 @@ export const AGENT_LIMITS = {
   COMPACTION_FIXED_OVERHEAD: 12_000,
   COMPACTION_SAFETY_MULTIPLIER: 1.3,
   COMPACTION_IMAGE_TOKEN_ESTIMATE: 1_000,
+
+  // Compaction — pruning (before LLM summarization)
+  COMPACTION_PRUNE_KEEP_RECENT_MESSAGES: 6,
+  COMPACTION_CLEAR_OUTPUT_MIN_CHARS: 100,
 
   // Compaction — tool output truncation
   COMPACTION_TOOL_OUTPUT_MAX_CHARS: 15_000,
