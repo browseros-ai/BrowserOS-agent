@@ -14,6 +14,7 @@ import { isSoulBootstrap, readSoul } from '../lib/soul'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { buildMemoryToolSet } from '../tools/memory/build-toolset'
 import type { ToolRegistry } from '../tools/tool-registry'
+import type { AgentInterface } from './agent-interface'
 import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
 import { createCompactionPrepareStep } from './compaction'
 import { createContextOverflowMiddleware } from './context-overflow-middleware'
@@ -32,7 +33,7 @@ export interface AiSdkAgentConfig {
   browserosId?: string
 }
 
-export class AiSdkAgent {
+export class AiSdkAgent implements AgentInterface {
   private constructor(
     private _agent: ToolLoopAgent,
     private _messages: UIMessage[],

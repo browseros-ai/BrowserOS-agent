@@ -6,8 +6,10 @@
 
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
+import { ClaudeAgent } from '../../agent/claude-agent'
 import { formatUserMessage } from '../../agent/format-message'
 import type { SessionStore } from '../../agent/session-store'
 import type { ResolvedAgentConfig } from '../../agent/types'
@@ -96,14 +98,24 @@ export class ChatService {
         }
       }
 
-      const agent = await AiSdkAgent.create({
-        resolvedConfig: agentConfig,
-        browser: this.deps.browser,
-        registry: this.deps.registry,
-        browserContext,
-        klavisClient: this.deps.klavisClient,
-        browserosId: this.deps.browserosId,
-      })
+      const useClaudeAgent = agentConfig.provider === LLM_PROVIDERS.ANTHROPIC
+      const agent = useClaudeAgent
+        ? await ClaudeAgent.create({
+            resolvedConfig: agentConfig,
+            browser: this.deps.browser,
+            registry: this.deps.registry,
+            browserContext,
+            klavisClient: this.deps.klavisClient,
+            browserosId: this.deps.browserosId,
+          })
+        : await AiSdkAgent.create({
+            resolvedConfig: agentConfig,
+            browser: this.deps.browser,
+            registry: this.deps.registry,
+            browserContext,
+            klavisClient: this.deps.klavisClient,
+            browserosId: this.deps.browserosId,
+          })
       session = { agent, hiddenWindowId, browserContext }
       sessionStore.set(request.conversationId, session)
     }
@@ -137,9 +149,23 @@ export class ChatService {
     )
     session.agent.appendUserMessage(userContent)
 
+    if (session.agent instanceof ClaudeAgent) {
+      const onComplete = session.hiddenWindowId
+        ? async () => {
+            const windowId = session.hiddenWindowId
+            if (windowId) {
+              session.hiddenWindowId = undefined
+              this.closeHiddenWindow(windowId, request.conversationId)
+            }
+          }
+        : undefined
+      return session.agent.processMessage(abortSignal, onComplete)
+    }
+
+    const aiSdkAgent = session.agent as AiSdkAgent
     return createAgentUIStreamResponse({
-      agent: session.agent.toolLoopAgent,
-      uiMessages: session.agent.messages,
+      agent: aiSdkAgent.toolLoopAgent,
+      uiMessages: aiSdkAgent.messages,
       abortSignal,
       onFinish: async ({ messages }: { messages: UIMessage[] }) => {
         session.agent.messages = messages
