@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
-import type { ModelMessage } from 'ai'
+import type { ModelMessage, ToolResultPart } from 'ai'
 import {
   computeConfig,
   estimateTokens,
@@ -10,6 +10,10 @@ import {
   slidingWindow,
   truncateToolOutputs,
 } from '../../src/agent/compaction'
+import {
+  countBinaryParts,
+  stripBinaryContent,
+} from '../../src/agent/compaction-content'
 import {
   buildSummarizationPrompt,
   buildTurnPrefixPrompt,
@@ -147,6 +151,23 @@ function toolResultJson(toolName: string, value: unknown): ModelMessage {
         toolCallId: `call_${toolName}`,
         toolName,
         output: { type: 'json' as const, value },
+      },
+    ],
+  }
+}
+
+function toolResultContent(
+  toolName: string,
+  value: Extract<ToolResultPart['output'], { type: 'content' }>['value'],
+): ModelMessage {
+  return {
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: `call_${toolName}`,
+        toolName,
+        output: { type: 'content' as const, value },
       },
     ],
   }
@@ -294,6 +315,22 @@ describe('estimateTokens', () => {
     expect(estimateTokens(msgs)).toBe(Math.ceil(serialized.length / 3))
   })
 
+  it('estimates tool result content without counting base64 payload size', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Screenshot taken' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(120_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+
+    const textTokens = Math.ceil('Screenshot taken'.length / 3)
+    expect(estimateTokens(msgs)).toBe(textTokens + 1000)
+  })
+
   it('counts images as 1000 tokens each', () => {
     const msgs = [userMsgWithImage('hello')]
     const textTokens = Math.ceil('hello'.length / 3)
@@ -323,6 +360,40 @@ describe('estimateTokens', () => {
 
   it('handles empty messages', () => {
     expect(estimateTokens([])).toBe(0)
+  })
+})
+
+describe('stripBinaryContent', () => {
+  it('replaces content outputs with placeholder text and counts media parts', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Before image' },
+        {
+          type: 'image-data',
+          data: 'abcd',
+          mediaType: 'image/png',
+        },
+        {
+          type: 'file-data',
+          data: 'efgh',
+          mediaType: 'application/pdf',
+          filename: 'report.pdf',
+        },
+      ]),
+    ]
+
+    const stripped = stripBinaryContent(msgs)
+    const output = (
+      stripped[0].content as Array<{ output: { type: string; value: string } }>
+    )[0].output
+
+    expect(countBinaryParts(msgs)).toBe(2)
+    expect(output.type).toBe('text')
+    expect(output.value).toContain('Before image')
+    expect(output.value).toContain('[Image]')
+    expect(output.value).toContain('[File: report.pdf]')
+    expect(output.value).not.toContain('abcd')
+    expect(output.value).not.toContain('efgh')
   })
 })
 
@@ -706,6 +777,23 @@ describe('messagesToTranscript', () => {
     expect(transcript).toContain('[... truncated')
     // The tool output should be capped
     expect(transcript.length).toBeLessThan(5000)
+  })
+
+  it('serializes content tool results without leaking base64', () => {
+    const transcript = messagesToTranscript([
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(10_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ])
+
+    expect(transcript).toContain('[Tool Result] snapshot: Captured screenshot')
+    expect(transcript).toContain('[Image]')
+    expect(transcript).not.toContain('x'.repeat(100))
   })
 
   it('replaces images with [Image]', () => {

@@ -5,7 +5,13 @@ import type {
   LanguageModelV3StreamPart,
   LanguageModelV3Usage,
 } from '@ai-sdk/provider'
-import { generateText, type ModelMessage, stepCountIs, tool } from 'ai'
+import {
+  generateText,
+  type ModelMessage,
+  stepCountIs,
+  type ToolResultPart,
+  tool,
+} from 'ai'
 import { MockLanguageModelV3 } from 'ai/test'
 import { z } from 'zod'
 import {
@@ -268,6 +274,23 @@ function buildModerateMessages(
   return messages
 }
 
+function toolResultContent(
+  toolName: string,
+  value: Extract<ToolResultPart['output'], { type: 'content' }>['value'],
+): ModelMessage {
+  return {
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: `call_${toolName}`,
+        toolName,
+        output: { type: 'content' as const, value },
+      },
+    ],
+  }
+}
+
 /**
  * Build text-heavy user/assistant exchanges WITHOUT tool calls.
  * These survive pruneMessages (Stage 2) and clearToolOutputs (Stage 3),
@@ -403,6 +426,59 @@ describe('compaction E2E — trigger logic', () => {
     expect(
       (result.experimental_context as CompactionState).compactionCount,
     ).toBe(0)
+  })
+
+  it('strips content tool-result media before pruning when that resolves the overflow', async () => {
+    const contextWindow = 200_000
+    const prepareStep = createCompactionPrepareStep({ contextWindow })
+    const config = computeConfig(contextWindow)
+    const triggerAt = Math.floor(contextWindow * config.triggerRatio)
+    const model = createMock(textResponse('unused', 100))
+
+    const result = await prepareStep({
+      messages: [
+        { role: 'user', content: 'Take a screenshot' },
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call_snapshot',
+              toolName: 'snapshot',
+              input: {},
+            },
+          ],
+        },
+        toolResultContent('snapshot', [
+          { type: 'text', text: 'Captured screenshot' },
+          {
+            type: 'image-data',
+            data: 'x'.repeat(200_000),
+            mediaType: 'image/png',
+          },
+        ]),
+      ],
+      steps: [
+        { usage: { inputTokens: triggerAt + 1_000, outputTokens: 100 } },
+      ] as StepsStub,
+      model,
+      experimental_context: null,
+    })
+
+    const output = (
+      result.messages[2].content as Array<{
+        output: { type: string; value: string }
+      }>
+    )[0].output
+
+    expect(
+      (result.experimental_context as CompactionState).compactionCount,
+    ).toBe(0)
+    expect(result.messages).toHaveLength(3)
+    expect(output.type).toBe('text')
+    expect(output.value).toContain('Captured screenshot')
+    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('x'.repeat(100))
   })
 })
 

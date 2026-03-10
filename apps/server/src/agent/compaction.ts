@@ -1,11 +1,19 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import {
+  type AssistantContent,
   type LanguageModel,
   type ModelMessage,
   pruneMessages,
   streamText,
+  type ToolContent,
+  type UserContent,
 } from 'ai'
 import { logger } from '../lib/logger'
+import {
+  estimateToolResultOutput,
+  stripBinaryContent,
+  toolResultOutputToText,
+} from './compaction-content'
 import {
   buildSummarizationPrompt,
   buildSummarizationSystemPrompt,
@@ -112,48 +120,97 @@ export function computeConfig(contextWindow: number): ComputedConfig {
 // Token estimation
 // ---------------------------------------------------------------------------
 
-function estimateContentPart(part: Record<string, unknown>): {
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function estimateUserContent(content: UserContent): {
   chars: number
   images: number
 } {
-  if ('text' in part && typeof part.text === 'string') {
-    return { chars: part.text.length, images: 0 }
+  if (typeof content === 'string') {
+    return { chars: content.length, images: 0 }
   }
-  if ('type' in part && part.type === 'image') {
-    return { chars: 0, images: 1 }
-  }
-  // Tool output with {type, value} wrapper (AI SDK standard)
-  if (
-    'output' in part &&
-    part.output &&
-    typeof part.output === 'object' &&
-    'value' in (part.output as Record<string, unknown>)
-  ) {
-    const val = (part.output as { value: unknown }).value
-    return {
-      chars: typeof val === 'string' ? val.length : JSON.stringify(val).length,
-      images: 0,
+
+  let chars = 0
+  let images = 0
+
+  for (const part of content) {
+    if (part.type === 'text') {
+      chars += part.text.length
+    } else if (part.type === 'image') {
+      images++
+    } else if (part.type === 'file') {
+      images++
     }
   }
-  // Tool result field (may be string or object)
-  if ('result' in part) {
-    const result = part.result
-    if (typeof result === 'string') {
-      return { chars: result.length, images: 0 }
+
+  return { chars, images }
+}
+
+function estimateAssistantContent(content: AssistantContent): {
+  chars: number
+  images: number
+} {
+  if (typeof content === 'string') {
+    return { chars: content.length, images: 0 }
+  }
+
+  let chars = 0
+  let images = 0
+
+  for (const part of content) {
+    switch (part.type) {
+      case 'text':
+      case 'reasoning':
+        chars += part.text.length
+        break
+      case 'tool-call':
+        chars += safeJsonStringify(part.input).length
+        break
+      case 'tool-result': {
+        const estimate = estimateToolResultOutput(part.output)
+        chars += estimate.chars
+        images += estimate.images
+        break
+      }
+      case 'tool-approval-request':
+        chars += part.approvalId.length + part.toolCallId.length
+        break
+      case 'file':
+        images++
+        break
     }
-    if (result != null) {
-      return { chars: JSON.stringify(result).length, images: 0 }
+  }
+
+  return { chars, images }
+}
+
+function estimateToolContent(content: ToolContent): {
+  chars: number
+  images: number
+} {
+  let chars = 0
+  let images = 0
+
+  for (const part of content) {
+    if (part.type === 'tool-result') {
+      const estimate = estimateToolResultOutput(part.output)
+      chars += estimate.chars
+      images += estimate.images
+    } else {
+      chars += part.approvalId.length
+      if (part.reason) {
+        chars += part.reason.length
+      }
     }
   }
-  if ('input' in part) {
-    return { chars: JSON.stringify(part.input).length, images: 0 }
-  }
-  // Fallback: serialize the whole part to catch any unknown structure
-  const serialized = JSON.stringify(part)
-  if (serialized.length > 100) {
-    return { chars: serialized.length, images: 0 }
-  }
-  return { chars: 0, images: 0 }
+
+  return { chars, images }
 }
 
 export function estimateTokens(
@@ -164,15 +221,25 @@ export function estimateTokens(
   let imageCount = 0
 
   for (const msg of messages) {
-    if (typeof msg.content === 'string') {
-      chars += msg.content.length
-    } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        const est = estimateContentPart(part as Record<string, unknown>)
-        chars += est.chars
-        imageCount += est.images
-      }
+    let estimate = { chars: 0, images: 0 }
+
+    switch (msg.role) {
+      case 'system':
+        estimate = { chars: msg.content.length, images: 0 }
+        break
+      case 'user':
+        estimate = estimateUserContent(msg.content)
+        break
+      case 'assistant':
+        estimate = estimateAssistantContent(msg.content)
+        break
+      case 'tool':
+        estimate = estimateToolContent(msg.content)
+        break
     }
+
+    chars += estimate.chars
+    imageCount += estimate.images
   }
 
   return Math.ceil(chars / 3) + imageCount * imageTokenEstimate
@@ -414,28 +481,23 @@ export function truncateToolOutputs(
   messages: ModelMessage[],
   maxChars: number,
 ): ModelMessage[] {
+  const formatTruncated = (text: string) =>
+    `${text.slice(0, maxChars)}\n\n[... truncated ${text.length - maxChars} characters]`
+
   return messages.map((msg) => {
     if (msg.role !== 'tool') return msg
 
     const content = msg.content.map((part) => {
-      if (!('output' in part)) return part
+      if (part.type !== 'tool-result') return part
 
-      const output = part.output
-      if (!('value' in output)) return part
-
-      // Stringify value regardless of output.type (text, json, content, etc.)
-      const valStr =
-        typeof output.value === 'string'
-          ? output.value
-          : JSON.stringify(output.value)
-
-      if (valStr.length <= maxChars) return part
+      const outputText = toolResultOutputToText(part.output)
+      if (outputText.length <= maxChars) return part
 
       return {
         ...part,
         output: {
           type: 'text' as const,
-          value: `${valStr.slice(0, maxChars)}\n\n[... truncated ${valStr.length - maxChars} characters]`,
+          value: formatTruncated(outputText),
         },
       }
     })
@@ -464,25 +526,19 @@ export function clearToolOutputs(
     if (msg.role !== 'tool' || protectedIndices.has(idx)) return msg
 
     const content = msg.content.map((part) => {
-      if (!('output' in part)) return part
+      if (part.type !== 'tool-result') return part
 
-      const output = part.output
-      if (!('value' in output)) return part
-
-      const valStr =
-        typeof output.value === 'string'
-          ? output.value
-          : JSON.stringify(output.value)
-
-      if (valStr.length <= AGENT_LIMITS.COMPACTION_CLEAR_OUTPUT_MIN_CHARS)
+      const outputText = toolResultOutputToText(part.output)
+      if (outputText.length <= AGENT_LIMITS.COMPACTION_CLEAR_OUTPUT_MIN_CHARS) {
         return part
+      }
 
       cleared++
       return {
         ...part,
         output: {
           type: 'text' as const,
-          value: `[Cleared — ${valStr.length} chars]`,
+          value: `[Cleared — ${outputText.length} chars]`,
         },
       }
     })
@@ -793,10 +849,15 @@ export function createCompactionPrepareStep(
       : { existingSummary: null, compactionCount: 0 }
 
     const triggerThreshold = config.triggerThreshold
-    let current = messages
 
     // Stage 0: Check threshold — if under, return untouched (no data loss).
-    let currentTokens = getCurrentTokenCount(steps, current, config)
+    let currentTokens = getCurrentTokenCount(steps, messages, config)
+    if (currentTokens <= triggerThreshold) {
+      return { messages, experimental_context: state }
+    }
+
+    let current = stripBinaryContent(messages)
+    currentTokens = estimateTokensForThreshold(current, config)
     if (currentTokens <= triggerThreshold) {
       return { messages: current, experimental_context: state }
     }
