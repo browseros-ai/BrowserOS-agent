@@ -12,6 +12,7 @@ import { logger } from '../lib/logger'
 import {
   estimateToolResultOutput,
   stripBinaryContent,
+  stripToolResultOutput,
   toolResultOutputToText,
 } from './compaction-content'
 import {
@@ -490,8 +491,14 @@ export function truncateToolOutputs(
     const content = msg.content.map((part) => {
       if (part.type !== 'tool-result') return part
 
-      const outputText = toolResultOutputToText(part.output)
-      if (outputText.length <= maxChars) return part
+      const output =
+        part.output.type === 'content'
+          ? stripToolResultOutput(part.output)
+          : part.output
+      const outputText = toolResultOutputToText(output)
+      if (outputText.length <= maxChars) {
+        return output === part.output ? part : { ...part, output }
+      }
 
       return {
         ...part,
@@ -519,7 +526,9 @@ export function clearToolOutputs(
   for (let i = 0; i < messages.length; i++) {
     if (messages[i].role === 'tool') toolIndices.push(i)
   }
-  const protectedIndices = new Set(toolIndices.slice(-keepRecentCount))
+  const protectedIndices = new Set(
+    keepRecentCount > 0 ? toolIndices.slice(-keepRecentCount) : [],
+  )
 
   let cleared = 0
   const result = messages.map((msg, idx) => {
@@ -528,9 +537,13 @@ export function clearToolOutputs(
     const content = msg.content.map((part) => {
       if (part.type !== 'tool-result') return part
 
-      const outputText = toolResultOutputToText(part.output)
+      const output =
+        part.output.type === 'content'
+          ? stripToolResultOutput(part.output)
+          : part.output
+      const outputText = toolResultOutputToText(output)
       if (outputText.length <= AGENT_LIMITS.COMPACTION_CLEAR_OUTPUT_MIN_CHARS) {
-        return part
+        return output === part.output ? part : { ...part, output }
       }
 
       cleared++

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { ModelMessage, ToolResultPart } from 'ai'
 import {
+  clearToolOutputs,
   computeConfig,
   estimateTokens,
   findSafeSplitPoint,
@@ -662,6 +663,54 @@ describe('truncateToolOutputs', () => {
     const msgs = [userMsg('hello'), assistantMsg('world')]
     const truncated = truncateToolOutputs(msgs, 100)
     expect(truncated).toEqual(msgs)
+  })
+
+  it('normalizes content output even when it fits under maxChars', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(20_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+    const truncated = truncateToolOutputs(msgs, 100)
+
+    const output = (
+      truncated[0].content as Array<{ output: { type: string; value: string } }>
+    )[0].output
+
+    expect(output.type).toBe('text')
+    expect(output.value).toContain('Captured screenshot')
+    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('x'.repeat(100))
+  })
+})
+
+describe('clearToolOutputs', () => {
+  it('normalizes content output before the clear threshold check', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(20_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+    const cleared = clearToolOutputs(msgs, 0)
+
+    const output = (
+      cleared[0].content as Array<{ output: { type: string; value: string } }>
+    )[0].output
+
+    expect(output.type).toBe('text')
+    expect(output.value).toContain('Captured screenshot')
+    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('x'.repeat(100))
   })
 })
 
