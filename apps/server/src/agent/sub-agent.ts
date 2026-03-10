@@ -65,17 +65,24 @@ export function createDelegateTaskTool(deps: DelegateTaskDeps) {
         taskPreview: task.slice(0, 120),
       })
 
-      const result = await subAgent.generate({
-        prompt: task,
-        abortSignal,
-      })
+      try {
+        const result = await subAgent.generate({
+          prompt: task,
+          abortSignal,
+        })
 
-      logger.info('Sub-agent completed', {
-        steps: result.steps.length,
-        finishReason: result.finishReason,
-      })
+        logger.info('Sub-agent completed', {
+          steps: result.steps.length,
+          finishReason: result.finishReason,
+        })
 
-      return result.text
+        return result.text || 'Sub-agent completed but produced no text output.'
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        logger.error('Sub-agent failed', { error: message })
+        return `Sub-agent failed: ${message}`
+      }
+    },
     },
   })
 }
