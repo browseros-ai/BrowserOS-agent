@@ -468,6 +468,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const resetConversation = () => {
     track(CONVERSATION_RESET_EVENT, { message_count: messages.length })
     stop()
+    // Clear agent tab tracking in background before generating new conversationId
+    chrome.runtime
+      .sendMessage({
+        type: 'clear-agent-tabs',
+        conversationId: conversationIdRef.current,
+      })
+      .catch(() => {})
     setConversationId(crypto.randomUUID())
     setMessages([])
     setTextToAction(new Map())
