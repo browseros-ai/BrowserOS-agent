@@ -24,6 +24,8 @@ export interface MessageNormalizationOptions {
   supportsMediaInToolResults: boolean
 }
 
+// See how opencode handles, inspiration from there
+// https://github.com/anomalyco/opencode/blob/5ec5d1daceaab23c8ffa9ae32b40f53120f4609e/packages/opencode/src/session/message-v2.ts#L503-L522
 function supportsToolResultMediaTransport(
   config: ResolvedAgentConfig,
 ): boolean {

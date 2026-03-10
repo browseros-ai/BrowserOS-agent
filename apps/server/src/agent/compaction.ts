@@ -5,14 +5,14 @@ import {
   pruneMessages,
   streamText,
 } from 'ai'
-import { logger } from '../../lib/logger'
-import { stripBinaryContent } from './content'
+import { logger } from '../lib/logger'
+import { stripBinaryContent } from './compaction/content'
 import {
   buildSummarizationPrompt,
   buildSummarizationSystemPrompt,
   buildTurnPrefixPrompt,
   messagesToTranscript,
-} from './prompt'
+} from './compaction/prompt'
 import {
   type CompactionState,
   type ComputedConfig,
@@ -25,7 +25,7 @@ import {
   reduceToolOutputs,
   type StepWithUsage,
   slidingWindow,
-} from './utils'
+} from './compaction/utils'
 
 export {
   type CompactionState,
@@ -38,7 +38,7 @@ export {
   reduceToolOutputs,
   type StepWithUsage,
   slidingWindow,
-} from './utils'
+} from './compaction/utils'
 
 export interface CompactionConfig {
   contextWindow: number
