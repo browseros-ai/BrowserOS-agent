@@ -1,7 +1,9 @@
 import type { ChatStatus, ToolUIPart, UIMessage } from 'ai'
 import { useEffect, useRef } from 'react'
 import type { GlowMessage } from '@/entrypoints/glow.content/GlowMessage'
+import { openSidePanel } from '@/lib/browseros/toggleSidePanel'
 import { firstRunConfettiShownStorage } from '@/lib/onboarding/onboardingStorage'
+import { linkTabToSharedSidepanelSession } from '@/lib/sidepanel/shared-sidepanel-session'
 
 function extractTabId(toolPart: ToolUIPart | null): number | undefined {
   if (!toolPart) return undefined
@@ -19,25 +21,36 @@ function extractTabId(toolPart: ToolUIPart | null): number | undefined {
   return input?.tabId
 }
 
+function extractTabIds(parts: UIMessage['parts'] | undefined): number[] {
+  if (!parts) return []
+
+  return [
+    ...new Set(
+      parts
+        .filter((part): part is ToolUIPart => part.type?.startsWith('tool-'))
+        .map((part) => extractTabId(part))
+        .filter((tabId): tabId is number => tabId !== undefined),
+    ),
+  ]
+}
+
 export const useNotifyActiveTab = ({
   messages,
   status,
   conversationId,
+  hostTabId,
 }: {
   messages: UIMessage[]
   status: ChatStatus
   conversationId: string
+  hostTabId: number | null
 }) => {
   const lastTabIdRef = useRef<number | null>(null)
 
   const lastMessage = messages?.[messages.length - 1]
-
-  const latestTool =
-    lastMessage?.parts?.findLast((part) => part?.type?.startsWith('tool-')) ??
-    null
-
-  const hasToolCalls = !!latestTool
-  const toolTabId = extractTabId(latestTool as ToolUIPart | null)
+  const toolTabIds = extractTabIds(lastMessage?.parts)
+  const hasToolCalls = toolTabIds.length > 0
+  const toolTabId = toolTabIds.at(-1)
 
   useEffect(() => {
     const isStreaming = status === 'streaming'
@@ -73,14 +86,23 @@ export const useNotifyActiveTab = ({
       let targetTabId = toolTabId
 
       if (!targetTabId) {
-        const tabs = await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
-        })
-        targetTabId = tabs[0]?.id
+        targetTabId = hostTabId ?? undefined
       }
 
       if (cancelled || !targetTabId) return
+
+      if (hostTabId) {
+        for (const linkedTabId of toolTabIds) {
+          await linkTabToSharedSidepanelSession({
+            sourceTabId: hostTabId,
+            targetTabId: linkedTabId,
+            conversationId,
+          }).catch(() => null)
+          await openSidePanel(linkedTabId).catch(() => null)
+        }
+      }
+
+      await openSidePanel(targetTabId).catch(() => null)
 
       if (previousTabId && previousTabId !== targetTabId) {
         const deactivateMessage: GlowMessage = {
@@ -105,7 +127,7 @@ export const useNotifyActiveTab = ({
     return () => {
       cancelled = true
     }
-  }, [conversationId, status, hasToolCalls, toolTabId])
+  }, [conversationId, hostTabId, status, hasToolCalls, toolTabId, toolTabIds])
 
   return
 }

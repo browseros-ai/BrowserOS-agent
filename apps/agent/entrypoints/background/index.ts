@@ -18,6 +18,7 @@ import {
   syncScheduledJobs,
 } from '@/lib/schedules/scheduleStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import { removeTabFromSharedSidepanelSession } from '@/lib/sidepanel/shared-sidepanel-session'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
@@ -30,6 +31,10 @@ export default defineBackground(() => {
   setupScheduledJobsSyncToBackend()
 
   scheduledJobRuns()
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    removeTabFromSharedSidepanelSession(tabId).catch(() => null)
+  })
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (tab.id) {
