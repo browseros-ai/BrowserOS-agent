@@ -1,4 +1,5 @@
 import {
+  Brain,
   CalendarClock,
   GitBranch,
   Home,
@@ -56,6 +57,12 @@ const primaryNavItems: NavItem[] = [
     to: '/home/soul',
     icon: Sparkles,
     feature: Feature.SOUL_SUPPORT,
+  },
+  {
+    name: 'Memory',
+    to: '/home/memory',
+    icon: Brain,
+    feature: Feature.MEMORY_SUPPORT,
   },
   { name: 'Settings', to: '/settings/ai', icon: Settings },
 ]

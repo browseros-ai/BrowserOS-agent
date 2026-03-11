@@ -1,0 +1,128 @@
+import { MessageSquare, Send } from 'lucide-react'
+import type { FC } from 'react'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
+
+interface Example {
+  label: string
+  query: string
+}
+
+const MEMORY_EXAMPLES: Example[] = [
+  {
+    label: 'Introduce yourself',
+    query:
+      'My name is [name] and I work as a [role] at [company]. Save this to your core memory.',
+  },
+  {
+    label: 'Share preferences',
+    query:
+      'I prefer dark mode, concise answers, and TypeScript. Remember these preferences.',
+  },
+  {
+    label: 'Add your stack',
+    query:
+      'My main tech stack is React, Node.js, and PostgreSQL. Save this to core memory.',
+  },
+  {
+    label: 'Review memories',
+    query:
+      'Read your core memories and tell me what you know about me. Is anything outdated?',
+  },
+]
+
+export const MemoryExamples: FC = () => {
+  const [editingQuery, setEditingQuery] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  const handleTryIt = (query: string) => {
+    setEditingQuery(query)
+    setDialogOpen(true)
+  }
+
+  const handleSend = () => {
+    if (!editingQuery.trim()) return
+    openSidePanelWithSearch('open', {
+      query: editingQuery.trim(),
+      mode: 'agent',
+    })
+    setDialogOpen(false)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="font-medium text-sm">Teach your agent about you</h3>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Use these prompts to help your agent learn. Edit the message before
+          sending.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        {MEMORY_EXAMPLES.map((example) => (
+          <div
+            key={example.label}
+            className="flex items-center justify-between rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50"
+          >
+            <div className="mr-3 min-w-0 flex-1">
+              <p className="font-medium text-sm">{example.label}</p>
+              <p className="mt-0.5 truncate text-muted-foreground text-xs">
+                {example.query}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              onClick={() => handleTryIt(example.query)}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Try it
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit message</DialogTitle>
+            <DialogDescription>
+              Customize the prompt before sending it to your agent.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={editingQuery}
+            onChange={(e) => setEditingQuery(e.target.value)}
+            rows={4}
+            className="resize-none"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSend}
+              disabled={!editingQuery.trim()}
+              className="gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
