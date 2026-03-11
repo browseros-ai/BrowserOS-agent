@@ -28,7 +28,7 @@ export const StepConnectApps = ({
   direction,
   onContinue,
 }: StepConnectAppsProps) => {
-  const { addServer } = useMcpServers()
+  const { servers, addServer } = useMcpServers()
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const {
     data: userIntegrations,
@@ -36,14 +36,16 @@ export const StepConnectApps = ({
     mutate: refreshIntegrations,
   } = useGetUserMCPIntegrations()
   const [connectingApp, setConnectingApp] = useState<string | null>(null)
+  const [isPolling, setIsPolling] = useState(false)
 
-  // Poll for integration status changes after connecting
+  // Only poll for integration status after an OAuth flow starts
   useEffect(() => {
+    if (!isPolling) return
     const interval = setInterval(() => {
       refreshIntegrations()
     }, 3000)
     return () => clearInterval(interval)
-  }, [refreshIntegrations])
+  }, [isPolling, refreshIntegrations])
 
   const isAppConnected = (appName: string) => {
     return userIntegrations?.integrations?.some(
@@ -56,17 +58,21 @@ export const StepConnectApps = ({
     try {
       const response = await addManagedServerMutation({ serverName: appName })
 
-      // Register the server locally
-      addServer({
-        id: Date.now().toString(),
-        displayName: appName,
-        type: 'managed',
-        managedServerName: appName,
-        managedServerDescription:
-          APPS_TO_CONNECT.find((a) => a.name === appName)?.description ?? '',
-      })
+      // Only register the server if it doesn't already exist locally
+      const alreadyAdded = servers?.some((s) => s.managedServerName === appName)
+      if (!alreadyAdded) {
+        addServer({
+          id: Date.now().toString(),
+          displayName: appName,
+          type: 'managed',
+          managedServerName: appName,
+          managedServerDescription:
+            APPS_TO_CONNECT.find((a) => a.name === appName)?.description ?? '',
+        })
+      }
 
       if (response.oauthUrl) {
+        setIsPolling(true)
         window.open(response.oauthUrl, '_blank')?.focus()
       }
 

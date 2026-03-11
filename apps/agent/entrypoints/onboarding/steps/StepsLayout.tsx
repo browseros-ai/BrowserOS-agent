@@ -1,4 +1,4 @@
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Check, Loader2 } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { NavLink, useNavigate, useParams } from 'react-router'
@@ -26,14 +26,19 @@ export const StepsLayout = () => {
   const stepEntry = steps.find((each) => each.id === currentStep)
   const ActiveStep = stepEntry?.component ?? (() => null)
 
+  const [isCheckingSignIn, setIsCheckingSignIn] = useState(false)
+
   // Auto-skip Step 4 (Connect Apps) if the user didn't sign in
   useEffect(() => {
     if (currentStep !== CONNECT_APPS_STEP_ID) return
+    setIsCheckingSignIn(true)
     onboardingSignedInStorage.getValue().then((signedIn) => {
       if (!signedIn) {
         navigate(`/onboarding/steps/${CONNECT_APPS_STEP_ID + 1}`, {
           replace: true,
         })
+      } else {
+        setIsCheckingSignIn(false)
       }
     })
   }, [currentStep, navigate])
@@ -122,7 +127,11 @@ export const StepsLayout = () => {
       {/* Main Content */}
       <main className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
         <div className="w-full max-w-4xl">
-          {isChatStep ? (
+          {isCheckingSignIn ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : isChatStep ? (
             // Chat step renders full-height without animation wrapper
             <ActiveStep
               key={currentStep}

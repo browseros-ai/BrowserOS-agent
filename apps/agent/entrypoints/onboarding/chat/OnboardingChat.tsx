@@ -168,8 +168,6 @@ export const OnboardingChat: FC<OnboardingChatProps> = ({ onComplete }) => {
               <div key={task.id} className="flex items-center gap-1.5">
                 {isDone ? (
                   <Check className="size-3.5 text-green-500" />
-                ) : status === 'streaming' && !isDone ? (
-                  <Circle className="size-3.5 text-muted-foreground/40" />
                 ) : (
                   <Circle className="size-3.5 text-muted-foreground/40" />
                 )}

@@ -1,5 +1,5 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -8,10 +8,7 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
-import {
-  onboardingCompletedStorage,
-  onboardingProfileStorage,
-} from '@/lib/onboarding/onboardingStorage'
+import { onboardingCompletedStorage } from '@/lib/onboarding/onboardingStorage'
 
 function buildDemoSuggestions() {
   return [
@@ -36,17 +33,7 @@ function buildDemoSuggestions() {
 
 export const OnboardingDemo = () => {
   const [customQuery, setCustomQuery] = useState('')
-  const [demoSuggestions, setDemoSuggestions] = useState(() =>
-    buildDemoSuggestions(),
-  )
-
-  useEffect(() => {
-    onboardingProfileStorage.getValue().then((profile) => {
-      if (profile?.name) {
-        setDemoSuggestions(buildDemoSuggestions())
-      }
-    })
-  }, [])
+  const demoSuggestions = buildDemoSuggestions()
 
   const completeOnboarding = async () => {
     await onboardingCompletedStorage.setValue(true)

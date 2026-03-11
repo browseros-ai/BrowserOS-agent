@@ -73,6 +73,21 @@ export interface ChatSessionOptions {
 
 const NEWTAB_SYSTEM_PROMPT = `IMPORTANT: The user is chatting from the New Tab page. When performing browser actions, ALWAYS open content in a NEW TAB rather than navigating the current tab. The user's new tab page should remain accessible.`
 
+const getSystemPrompt = (
+  origin: ChatOrigin | undefined,
+  personalization: string,
+): string => {
+  if (origin === 'onboarding') {
+    return [personalization, ONBOARDING_SYSTEM_PROMPT]
+      .filter(Boolean)
+      .join('\n\n')
+  }
+  if (origin === 'newtab') {
+    return [personalization, NEWTAB_SYSTEM_PROMPT].filter(Boolean).join('\n\n')
+  }
+  return personalization
+}
+
 const ONBOARDING_SYSTEM_PROMPT = `IMPORTANT: This is the user's first interaction with BrowserOS. You are running an onboarding sequence to help them get set up. Follow these steps IN ORDER:
 
 1. LINKEDIN: Open linkedin.com in the current browser. Use take_snapshot and get_page_content to extract the user's profile (they should be logged in). Report back what you found — their headline, company, and a brief summary.
@@ -319,16 +334,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             region: provider?.region,
             sessionToken: provider?.sessionToken,
             browserContext,
-            userSystemPrompt:
-              options?.origin === 'onboarding'
-                ? [personalizationRef.current, ONBOARDING_SYSTEM_PROMPT]
-                    .filter(Boolean)
-                    .join('\n\n')
-                : options?.origin === 'newtab'
-                  ? [personalizationRef.current, NEWTAB_SYSTEM_PROMPT]
-                      .filter(Boolean)
-                      .join('\n\n')
-                  : personalizationRef.current,
+            userSystemPrompt: getSystemPrompt(
+              options?.origin,
+              personalizationRef.current,
+            ),
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
             previousConversation,
