@@ -4,7 +4,6 @@ import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 import { NewTab } from '../newtab/index/NewTab'
 import { NewTabLayout } from '../newtab/layout/NewTabLayout'
 import { Personalize } from '../newtab/personalize/Personalize'
-import { OnboardingDemo } from '../onboarding/demo/OnboardingDemo'
 import { FeaturesPage } from '../onboarding/features/Features'
 import { Onboarding } from '../onboarding/index/Onboarding'
 import { StepsLayout } from '../onboarding/steps/StepsLayout'
@@ -108,7 +107,10 @@ export const App: FC = () => {
         <Route path="onboarding">
           <Route index element={<Onboarding />} />
           <Route path="steps/:stepId" element={<StepsLayout />} />
-          <Route path="demo" element={<OnboardingDemo />} />
+          <Route
+            path="demo"
+            element={<Navigate to="/onboarding/steps/5" replace />}
+          />
           <Route path="features" element={<FeaturesPage />} />
         </Route>
 

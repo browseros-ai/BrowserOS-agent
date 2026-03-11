@@ -49,6 +49,11 @@ import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
+import {
+  getSearchActionFingerprint,
+  isSearchActionForTarget,
+  searchActionsStorage,
+} from '@/lib/search-actions/searchActionsStorage'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 import { ImportDataHint } from './ImportDataHint'
@@ -98,6 +103,16 @@ export const NewTab = () => {
 
   const { messages, sendMessage, setMode, resetConversation } =
     useChatSessionContext()
+  const sendMessageRef = useRef(sendMessage)
+  const setModeRef = useRef(setMode)
+  const resetConversationRef = useRef(resetConversation)
+  const processingSearchActionRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage
+    setModeRef.current = setMode
+    resetConversationRef.current = resetConversation
+  }, [resetConversation, sendMessage, setMode])
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
@@ -356,6 +371,61 @@ export const NewTab = () => {
     resetConversation()
     setChatActive(false)
   }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const consumeSearchAction = async (
+      storageAction: Awaited<ReturnType<typeof searchActionsStorage.getValue>>,
+    ) => {
+      const currentTab = await chrome.tabs.getCurrent().catch(() => undefined)
+      const currentTabId = currentTab?.id
+
+      if (
+        cancelled ||
+        !storageAction ||
+        !isSearchActionForTarget(storageAction, 'newtab', currentTabId)
+      ) {
+        return
+      }
+
+      const fingerprint = getSearchActionFingerprint(storageAction)
+      if (processingSearchActionRef.current === fingerprint) {
+        return
+      }
+
+      processingSearchActionRef.current = fingerprint
+
+      try {
+        await searchActionsStorage.removeValue()
+        if (cancelled) return
+
+        resetConversationRef.current()
+        setModeRef.current(storageAction.mode)
+        setChatActive(true)
+        sendMessageRef.current({
+          text: storageAction.query,
+          action: storageAction.action,
+        })
+      } finally {
+        processingSearchActionRef.current = null
+      }
+    }
+
+    searchActionsStorage
+      .getValue()
+      .then(consumeSearchAction)
+      .catch(() => {})
+
+    const unwatch = searchActionsStorage.watch((storageAction) => {
+      consumeSearchAction(storageAction).catch(() => {})
+    })
+
+    return () => {
+      cancelled = true
+      unwatch()
+    }
+  }, [])
 
   const isSuggestionsVisible =
     !mentionState.isOpen &&

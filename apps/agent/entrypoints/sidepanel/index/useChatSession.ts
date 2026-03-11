@@ -25,7 +25,10 @@ import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
-import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import {
+  isSearchActionForTarget,
+  searchActionsStorage,
+} from '@/lib/search-actions/searchActionsStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
@@ -74,6 +77,7 @@ export interface ChatSessionOptions {
 const NEWTAB_SYSTEM_PROMPT = `IMPORTANT: The user is chatting from the New Tab page. When performing browser actions, ALWAYS open content in a NEW TAB rather than navigating the current tab. The user's new tab page should remain accessible.`
 
 export const useChatSession = (options?: ChatSessionOptions) => {
+  const origin = options?.origin ?? 'sidepanel'
   const {
     selectedLlmProviderRef,
     enabledMcpServersRef,
@@ -427,14 +431,22 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
+    if (origin !== 'sidepanel') return
+
     const unwatch = searchActionsStorage.watch((storageAction) => {
-      if (storageAction) {
-        setMode(storageAction.mode)
-        sendMessage({ text: storageAction.query, action: storageAction.action })
+      if (
+        !storageAction ||
+        !isSearchActionForTarget(storageAction, 'sidepanel')
+      ) {
+        return
       }
+
+      searchActionsStorage.removeValue().catch(() => {})
+      setMode(storageAction.mode)
+      sendMessage({ text: storageAction.query, action: storageAction.action })
     })
     return () => unwatch()
-  }, [])
+  }, [origin])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {

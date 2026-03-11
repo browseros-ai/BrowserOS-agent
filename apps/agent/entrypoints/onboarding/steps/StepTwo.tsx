@@ -1,18 +1,31 @@
-import { AlertCircle, CheckCircle2, Loader2, Mail } from 'lucide-react'
-import { useState } from 'react'
+import {
+  AlertCircle,
+  CalendarDays,
+  CheckCircle2,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { signIn } from '@/lib/auth/auth-client'
+import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import {
   ONBOARDING_SIGNIN_COMPLETED_EVENT,
   ONBOARDING_SIGNIN_SKIPPED_EVENT,
   ONBOARDING_STEP_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
-import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
+import {
+  authRedirectPathStorage,
+  signInHintDismissedAtStorage,
+} from '@/lib/onboarding/onboardingStorage'
+import { useGetUserMCPIntegrations } from '../../app/connect-mcp/useGetUserMCPIntegrations'
+import { ManagedAppConnectionCard } from './ManagedAppConnectionCard'
+import { StepScaffold } from './StepScaffold'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 interface StepTwoProps {
@@ -20,196 +33,245 @@ interface StepTwoProps {
   onContinue: () => void
 }
 
-type SignInState = 'idle' | 'loading' | 'magic-link-sent' | 'error'
-
 export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
-  const [email, setEmail] = useState('')
-  const [state, setState] = useState<SignInState>('idle')
+  const { sessionInfo } = useSessionInfo()
+  const { data: integrations } = useGetUserMCPIntegrations()
+  const [state, setState] = useState<'idle' | 'loading' | 'local-only'>('idle')
   const [error, setError] = useState<string | null>(null)
 
-  const handleSkip = () => {
-    track(ONBOARDING_SIGNIN_SKIPPED_EVENT)
-    track(ONBOARDING_STEP_COMPLETED_EVENT, {
-      step: 2,
-      step_name: 'signin',
-      skipped: true,
-    })
-    onContinue()
-  }
+  const isSignedIn = !!sessionInfo?.user
 
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) return
-
-    setState('loading')
-    setError(null)
-
-    try {
-      const result = await signIn.magicLink({
-        email: email.trim(),
-        callbackURL: '/home',
-      })
-
-      if (result.error) {
-        setState('error')
-        setError(result.error.message || 'Failed to send magic link')
-        return
-      }
-
-      setState('magic-link-sent')
-      track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'magic_link' })
-      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
-    } catch (err) {
-      setState('error')
-      setError(err instanceof Error ? err.message : 'Failed to send magic link')
+  const connectedApps = useMemo(() => {
+    const items = integrations?.integrations ?? []
+    return {
+      gmail:
+        items.find((integration) => integration.name === 'Gmail')
+          ?.is_authenticated ?? false,
+      calendar:
+        items.find((integration) => integration.name === 'Google Calendar')
+          ?.is_authenticated ?? false,
     }
-  }
+  }, [integrations])
 
   const handleGoogleSignIn = async () => {
     setState('loading')
     setError(null)
 
     try {
+      await authRedirectPathStorage.setValue('/onboarding/steps/3')
       track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'google' })
-      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
-
-      await authRedirectPathStorage.setValue('/onboarding/demo')
       await signIn.social({
         provider: 'google',
         callbackURL: '/home',
       })
     } catch (err) {
-      setState('error')
+      setState('idle')
       setError(
         err instanceof Error ? err.message : 'Failed to sign in with Google',
       )
     }
   }
 
-  if (state === 'magic-link-sent') {
-    return (
-      <StepTransition direction={direction}>
-        <div className="flex h-full flex-col items-center justify-center">
-          <div className="w-full max-w-md space-y-6 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <CheckCircle2 className="size-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="font-bold text-2xl tracking-tight">
-                Check your email
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                We sent a magic link to <strong>{email}</strong>. Click the link
-                to sign in.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setState('idle')
-                  setEmail('')
-                }}
-              >
-                Use a different email
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={onContinue}
-                className="text-muted-foreground"
-              >
-                Continue without signing in
-              </Button>
-            </div>
-          </div>
-        </div>
-      </StepTransition>
+  const handleLocalOnly = async () => {
+    setState('local-only')
+    setError(null)
+    track(ONBOARDING_SIGNIN_SKIPPED_EVENT)
+    await signInHintDismissedAtStorage.setValue(
+      Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
     )
   }
 
+  const handleContinue = async () => {
+    await signInHintDismissedAtStorage.setValue(
+      Date.now() + 100 * 365 * 24 * 60 * 60 * 1000,
+    )
+    track(ONBOARDING_STEP_COMPLETED_EVENT, {
+      step: 3,
+      step_name: 'connect_google',
+      signed_in: isSignedIn,
+      gmail_connected: connectedApps.gmail,
+      calendar_connected: connectedApps.calendar,
+      local_only: state === 'local-only',
+    })
+    onContinue()
+  }
+
+  const canContinue = isSignedIn || state === 'local-only'
+
   return (
     <StepTransition direction={direction}>
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="w-full max-w-md space-y-6">
-          <div className="space-y-2 text-center">
-            <h2 className="font-bold text-3xl tracking-tight">
-              Sign in to BrowserOS
-            </h2>
-            <p className="text-base text-muted-foreground">
-              Sync your settings and unlock cloud features
-            </p>
+      <StepScaffold
+        badge="Step 3"
+        title="Connect the Google layer"
+        description="Sign in to BrowserOS, then connect Gmail and Google Calendar so the first chat can ask for the right context instead of guessing."
+        aside={
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Badge
+                variant="secondary"
+                className="rounded-full bg-background px-3 py-1"
+              >
+                Why this matters
+              </Badge>
+              <p className="text-muted-foreground text-sm leading-6">
+                Strawberry's best move is earning context before the first ask.
+                This step gives BrowserOS the same setup path without hiding the
+                user's consent.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                {
+                  icon: ShieldCheck,
+                  title: 'BrowserOS account',
+                  description:
+                    'Sync chat history, providers, schedules, and onboarding profile across devices.',
+                },
+                {
+                  icon: Mail,
+                  title: 'Gmail',
+                  description:
+                    'Lets the agent ask to inspect recent inbox threads when you want it to know your work better.',
+                },
+                {
+                  icon: CalendarDays,
+                  title: 'Google Calendar',
+                  description:
+                    'Gives BrowserOS the option to understand your upcoming week and schedule recurring automation.',
+                },
+              ].map(({ icon: Icon, title, description }) => (
+                <div
+                  key={title}
+                  className="rounded-2xl border border-border/70 bg-background/80 p-4"
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-[var(--accent-orange)]" />
+                    <p className="font-medium text-sm">{title}</p>
+                  </div>
+                  <p className="text-muted-foreground text-sm leading-6">
+                    {description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <div className="rounded-[28px] border border-border/70 bg-muted/35 p-6">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <LockKeyhole className="h-4 w-4 text-[var(--accent-orange)]" />
+                  <p className="font-medium text-sm">BrowserOS sign-in</p>
+                </div>
+                <h3 className="font-semibold text-xl">
+                  {isSignedIn
+                    ? `Signed in as ${sessionInfo.user?.email ?? 'your account'}`
+                    : 'Use Google to unlock cloud sync and app connections'}
+                </h3>
+                <p className="max-w-2xl text-muted-foreground leading-7">
+                  This is the foundation for connected apps and a richer launch
+                  conversation. If you prefer, you can stay local and connect
+                  everything later.
+                </p>
+              </div>
+
+              {isSignedIn ? (
+                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 font-medium text-emerald-700 text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Connected
+                </div>
+              ) : null}
+            </div>
+
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {!isSignedIn ? (
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  size="lg"
+                  className="bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+                  onClick={handleGoogleSignIn}
+                  disabled={state === 'loading'}
+                >
+                  {state === 'loading' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <GoogleIcon />
+                  )}
+                  Continue with Google
+                </Button>
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  onClick={handleLocalOnly}
+                  disabled={state === 'loading'}
+                >
+                  Keep this local for now
+                </Button>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                You can go ahead and connect Gmail and Google Calendar below.
+              </p>
+            )}
           </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" />
-              <AlertDescription>{error}</AlertDescription>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <ManagedAppConnectionCard
+              appName="Gmail"
+              description="Read and search recent email once you explicitly approve it."
+              Icon={Mail}
+              disabled={!isSignedIn}
+              disabledReason="Sign in to BrowserOS first so Gmail can be connected to your account."
+            />
+            <ManagedAppConnectionCard
+              appName="Google Calendar"
+              description="Read upcoming events and help BrowserOS schedule work around them."
+              Icon={CalendarDays}
+              disabled={!isSignedIn}
+              disabledReason="Sign in to BrowserOS first so Calendar can be connected to your account."
+            />
+          </div>
+
+          {state === 'local-only' && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                You can finish onboarding locally. BrowserOS will still explain
+                soul, skills, BYO keys, and schedules, and you can connect apps
+                later from settings.
+              </AlertDescription>
             </Alert>
           )}
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleSignIn}
-            disabled={state === 'loading'}
-          >
-            {state === 'loading' ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <GoogleIcon />
-            )}
-            Continue with Google
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator className="w-full" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with email
-              </span>
-            </div>
-          </div>
-
-          <form onSubmit={handleMagicLink} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="signin-email">Email</Label>
-              <Input
-                id="signin-email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={state === 'loading'}
-                required
-              />
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-border/70 border-t pt-6">
+            <p className="max-w-xl text-muted-foreground text-sm leading-6">
+              {isSignedIn
+                ? `Connected now: ${connectedApps.gmail ? 'Gmail' : 'Gmail pending'}, ${connectedApps.calendar ? 'Google Calendar' : 'Google Calendar pending'}.`
+                : 'Sign in for the full connected-apps path, or continue locally and wire these in later.'}
+            </p>
             <Button
-              type="submit"
-              className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
-              disabled={state === 'loading' || !email.trim()}
+              type="button"
+              size="lg"
+              className="min-w-40 bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+              onClick={handleContinue}
+              disabled={!canContinue}
             >
-              {state === 'loading' ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Mail className="size-4" />
-              )}
-              Send Magic Link
-            </Button>
-          </form>
-
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              onClick={handleSkip}
-              className="text-muted-foreground"
-            >
-              Skip for now
+              Continue
             </Button>
           </div>
         </div>
-      </div>
+      </StepScaffold>
     </StepTransition>
   )
 }

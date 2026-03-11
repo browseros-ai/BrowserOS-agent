@@ -16,6 +16,10 @@ import { NavLink, useLocation } from 'react-router'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
+import {
+  getOnboardingFeaturesPath,
+  getOnboardingRevisitPath,
+} from '@/lib/onboarding/onboardingFlow'
 import { cn } from '@/lib/utils'
 
 type NavItem = {
@@ -43,8 +47,16 @@ const settingsNavItems: NavItem[] = [
     feature: Feature.SOUL_SUPPORT,
   },
   { name: 'Skills', to: '/settings/skills', icon: Wand2 },
-  { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
-  { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
+  {
+    name: 'Explore Features',
+    to: getOnboardingFeaturesPath('settings'),
+    icon: Compass,
+  },
+  {
+    name: 'Revisit Onboarding',
+    to: getOnboardingRevisitPath(),
+    icon: RotateCcw,
+  },
 ]
 
 export const SettingsSidebar: FC = () => {
@@ -78,7 +90,7 @@ export const SettingsSidebar: FC = () => {
         <nav className="space-y-1">
           {filteredItems.map((item) => {
             const Icon = item.icon
-            const isActive = location.pathname === item.to
+            const isActive = location.pathname === item.to.split('?')[0]
 
             return (
               <NavLink

@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { signIn, useSession } from '@/lib/auth/auth-client'
+import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
 
 type LoginState = 'idle' | 'loading' | 'magic-link-sent' | 'error'
 
@@ -45,6 +46,7 @@ export const LoginPage: FC = () => {
     setError(null)
 
     try {
+      await authRedirectPathStorage.removeValue()
       const result = await signIn.magicLink({
         email: email.trim(),
         callbackURL: '/home',
@@ -68,6 +70,7 @@ export const LoginPage: FC = () => {
     setError(null)
 
     try {
+      await authRedirectPathStorage.removeValue()
       await signIn.social({
         provider: 'google',
         callbackURL: '/home',
