@@ -49,6 +49,7 @@ function buildDemoSuggestions(company?: string) {
 export const OnboardingDemo = () => {
   const [searchParams] = useSearchParams()
   const [customQuery, setCustomQuery] = useState('')
+  const [companyName, setCompanyName] = useState<string | null>(null)
   const [demoSuggestions, setDemoSuggestions] = useState(() =>
     buildDemoSuggestions(),
   )
@@ -57,6 +58,7 @@ export const OnboardingDemo = () => {
   useEffect(() => {
     onboardingProfileStorage.getValue().then((profile) => {
       if (profile?.company) {
+        setCompanyName(profile.company)
         setDemoSuggestions(buildDemoSuggestions(profile.company))
       }
     })
@@ -121,10 +123,12 @@ export const OnboardingDemo = () => {
                 <Sparkles className="size-6 text-[var(--accent-orange)]" />
               </div>
               <h2 className="font-bold text-3xl tracking-tight">
-                Try your first task
+                Let&apos;s put BrowserOS to work
               </h2>
               <p className="text-base text-muted-foreground">
-                Pick a suggestion or type your own to see BrowserOS in action
+                {companyName
+                  ? `We tailored a few starter tasks around ${companyName}. Pick one or type a real task of your own.`
+                  : 'Pick a suggestion or type a real task of your own to see BrowserOS in action.'}
               </p>
             </div>
 

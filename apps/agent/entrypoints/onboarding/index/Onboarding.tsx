@@ -20,6 +20,8 @@ export const Onboarding: FC = () => {
   const [mounted, setMounted] = useState(false)
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false)
   const isRevisit = searchParams.get('source') === 'revisit'
+  const usesManualFlow = hasCompletedOnboarding
+  const showRevisitCopy = hasCompletedOnboarding || isRevisit
 
   useEffect(() => {
     setMounted(true)
@@ -29,9 +31,8 @@ export const Onboarding: FC = () => {
       .then((completed) => setHasCompletedOnboarding(completed))
   }, [])
 
-  const showRevisitActions = hasCompletedOnboarding || isRevisit
   const primaryPath = getOnboardingFeaturesPath(
-    showRevisitActions ? 'settings' : 'setup',
+    usesManualFlow ? 'settings' : 'setup',
   )
 
   return (
@@ -45,9 +46,7 @@ export const Onboarding: FC = () => {
           <div className="space-y-6 text-center">
             <PillIndicator
               text={
-                showRevisitActions
-                  ? 'Welcome Back'
-                  : 'Open-Source Agentic Browser'
+                showRevisitCopy ? 'Welcome Back' : 'Open-Source Agentic Browser'
               }
               className={`transition-all delay-100 duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
             />
@@ -64,9 +63,11 @@ export const Onboarding: FC = () => {
             <p
               className={`mx-auto max-w-2xl text-pretty text-muted-foreground text-xl leading-relaxed transition-all delay-300 duration-700 md:text-2xl ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
             >
-              {showRevisitActions
+              {usesManualFlow
                 ? 'Revisit the guided setup or jump straight back into BrowserOS.'
-                : 'Turn your words into actions. Privacy-first alternative to ChatGPT Atlas, Perplexity Comet and Dia!'}
+                : isRevisit
+                  ? 'Pick up where you left off and finish a short guided setup.'
+                  : 'Turn your words into actions. Privacy-first alternative to ChatGPT Atlas, Perplexity Comet and Dia!'}
             </p>
 
             <div
@@ -78,7 +79,11 @@ export const Onboarding: FC = () => {
                 className="group bg-primary font-medium text-primary-foreground transition-transform duration-200 hover:scale-105 hover:bg-primary/90"
               >
                 <NavLink to={primaryPath}>
-                  {showRevisitActions ? 'Revisit Onboarding' : 'Get Started'}
+                  {usesManualFlow
+                    ? 'Revisit Onboarding'
+                    : isRevisit
+                      ? 'Continue Setup'
+                      : 'Get Started'}
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </NavLink>
               </Button>
@@ -88,7 +93,7 @@ export const Onboarding: FC = () => {
                 variant="outline"
                 className="border-border bg-background transition-transform duration-200 hover:scale-105 hover:bg-accent"
               >
-                {showRevisitActions ? (
+                {usesManualFlow ? (
                   <NavLink to={ONBOARDING_HOME_PATH}>Open BrowserOS</NavLink>
                 ) : (
                   <a

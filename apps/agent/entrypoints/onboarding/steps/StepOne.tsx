@@ -152,7 +152,7 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
               Tell us about yourself
             </h2>
             <p className="text-base text-muted-foreground">
-              Help us personalize your experience
+              We use this to personalize BrowserOS and your first task
             </p>
           </div>
 
