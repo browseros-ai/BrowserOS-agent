@@ -1,5 +1,11 @@
+import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { readSoul, writeSoul } from '../../lib/soul'
+
+const WriteSoulSchema = z.object({
+  content: z.string(),
+})
 
 export function createSoulRoutes() {
   return new Hono()
@@ -7,8 +13,8 @@ export function createSoulRoutes() {
       const content = await readSoul()
       return c.json({ content })
     })
-    .put('/', async (c) => {
-      const { content } = await c.req.json<{ content: string }>()
+    .put('/', zValidator('json', WriteSoulSchema), async (c) => {
+      const { content } = c.req.valid('json')
       const result = await writeSoul(content)
       return c.json(result)
     })
