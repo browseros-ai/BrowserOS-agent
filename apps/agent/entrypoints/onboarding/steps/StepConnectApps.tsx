@@ -118,7 +118,7 @@ export const StepConnectApps = ({
 
   const handleContinue = () => {
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
-      step: 2,
+      step: 3,
       step_name: 'connect_apps',
       gmail_connected: !!isAppConnected('Gmail'),
       calendar_connected: !!isAppConnected('Google Calendar'),
@@ -129,7 +129,7 @@ export const StepConnectApps = ({
   const handleSkip = () => {
     track(ONBOARDING_CONNECT_APPS_SKIPPED_EVENT)
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
-      step: 2,
+      step: 3,
       step_name: 'connect_apps',
       skipped: true,
     })
