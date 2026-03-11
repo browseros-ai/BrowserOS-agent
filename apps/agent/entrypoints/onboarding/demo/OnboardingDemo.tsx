@@ -1,6 +1,7 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { Input } from '@/components/ui/input'
 import {
   ONBOARDING_COMPLETED_EVENT,
@@ -13,7 +14,121 @@ import {
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
 
-function buildDemoSuggestions(company?: string) {
+interface DemoSuggestion {
+  label: string
+  query: string
+  mode: 'chat' | 'agent'
+}
+
+const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
+  Gmail: [
+    {
+      label: 'Summarize my unread emails and highlight anything urgent',
+      query: 'Summarize my unread emails and highlight anything urgent',
+      mode: 'agent',
+    },
+    {
+      label: 'Show the last 5 emails from my manager',
+      query:
+        'Show the last 5 emails from my manager and list any action items mentioned',
+      mode: 'agent',
+    },
+  ],
+  'Google Calendar': [
+    {
+      label: "What meetings do I have tomorrow?",
+      query:
+        "What meetings do I have tomorrow? Who's attending and what's the agenda?",
+      mode: 'agent',
+    },
+    {
+      label: 'Show my schedule for this week',
+      query: 'Show my schedule for this week and flag any double-bookings',
+      mode: 'agent',
+    },
+  ],
+  Notion: [
+    {
+      label: 'List my recently updated Notion pages',
+      query:
+        'List my recently updated Notion pages and summarize what changed',
+      mode: 'agent',
+    },
+    {
+      label: 'Show all Notion tasks assigned to me',
+      query: 'Show all Notion tasks assigned to me and their current status',
+      mode: 'agent',
+    },
+  ],
+  Slack: [
+    {
+      label: 'Show my unread Slack mentions',
+      query: 'Show my unread Slack mentions and summarize each thread',
+      mode: 'agent',
+    },
+    {
+      label: 'Latest messages in my most active Slack channels',
+      query: 'What are the latest messages in my most active Slack channels?',
+      mode: 'agent',
+    },
+  ],
+  GitHub: [
+    {
+      label: 'Show my open GitHub issues sorted by priority',
+      query: 'Show my open GitHub issues sorted by priority',
+      mode: 'agent',
+    },
+    {
+      label: 'List my recent GitHub pull requests',
+      query:
+        'List my recent GitHub pull requests and their review status',
+      mode: 'agent',
+    },
+  ],
+  Linear: [
+    {
+      label: 'What Linear tickets are assigned to me?',
+      query:
+        'What Linear tickets are assigned to me? Show status and any recent comments',
+      mode: 'agent',
+    },
+    {
+      label: 'Show my current Linear sprint progress',
+      query:
+        'Show my current Linear sprint and how many tickets are completed vs remaining',
+      mode: 'agent',
+    },
+  ],
+  Jira: [
+    {
+      label: 'What Jira tickets are assigned to me?',
+      query:
+        'What Jira tickets are assigned to me? Show status and priority',
+      mode: 'agent',
+    },
+    {
+      label: 'Summarize recent comments on my open Jira issues',
+      query: 'Summarize recent comments on my open Jira issues',
+      mode: 'agent',
+    },
+  ],
+  'Google Docs': [
+    {
+      label: 'List my recently edited Google Docs',
+      query:
+        'List my recently edited Google Docs and who else has been editing them',
+      mode: 'agent',
+    },
+    {
+      label: 'Show my shared Google Docs with recent comments',
+      query:
+        'Show my shared Google Docs and summarize any recent comments',
+      mode: 'agent',
+    },
+  ],
+}
+
+function buildDefaultSuggestions(company?: string): DemoSuggestion[] {
   return [
     company
       ? {
@@ -40,19 +155,51 @@ function buildDemoSuggestions(company?: string) {
   ]
 }
 
+function buildPersonalizedSuggestions(
+  connectedApps: string[],
+): DemoSuggestion[] {
+  const suggestions: DemoSuggestion[] = []
+  const usedApps = new Set<string>()
+
+  for (const appName of connectedApps) {
+    if (suggestions.length >= 3) break
+    if (usedApps.has(appName)) continue
+
+    const prompts = APP_PROMPTS[appName]
+    if (prompts?.[0]) {
+      suggestions.push(prompts[0])
+      usedApps.add(appName)
+    }
+  }
+
+  return suggestions
+}
+
 export const OnboardingDemo = () => {
   const [customQuery, setCustomQuery] = useState('')
-  const [demoSuggestions, setDemoSuggestions] = useState(() =>
-    buildDemoSuggestions(),
+  const [demoSuggestions, setDemoSuggestions] = useState<DemoSuggestion[]>(() =>
+    buildDefaultSuggestions(),
   )
+  const { data: userIntegrations } = useGetUserMCPIntegrations()
 
   useEffect(() => {
-    onboardingProfileStorage.getValue().then((profile) => {
-      if (profile?.company) {
-        setDemoSuggestions(buildDemoSuggestions(profile.company))
+    const connectedApps =
+      userIntegrations?.integrations
+        ?.filter((i) => i.is_authenticated)
+        .map((i) => i.name) ?? []
+
+    if (connectedApps.length > 0) {
+      const personalized = buildPersonalizedSuggestions(connectedApps)
+      if (personalized.length > 0) {
+        setDemoSuggestions(personalized)
+        return
       }
+    }
+
+    onboardingProfileStorage.getValue().then((profile) => {
+      setDemoSuggestions(buildDefaultSuggestions(profile?.company))
     })
-  }, [])
+  }, [userIntegrations])
 
   const completeOnboarding = async () => {
     await onboardingCompletedStorage.setValue(true)
