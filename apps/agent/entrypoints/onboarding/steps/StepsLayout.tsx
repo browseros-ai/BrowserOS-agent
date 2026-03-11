@@ -151,11 +151,11 @@ export const StepsLayout = () => {
         </div>
       </div>
 
-      {/* Main Content — split layout with mascot */}
-      <main className="flex flex-1 overflow-hidden">
-        {/* Left: step content */}
-        <div className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
-          <div className="w-full max-w-xl">
+      {/* Main Content */}
+      <main className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
+        <div className="flex w-full max-w-4xl items-center gap-8">
+          {/* Step content */}
+          <div className="min-w-0 flex-1">
             {isCheckingSignIn ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -189,11 +189,11 @@ export const StepsLayout = () => {
               </>
             )}
           </div>
-        </div>
 
-        {/* Right: mascot panel */}
-        <div className="hidden w-[360px] shrink-0 items-center justify-center border-border/40 border-l bg-muted/30 lg:flex">
-          <Mascot />
+          {/* Mascot — always visible, sits right next to the content */}
+          <div className="hidden items-end self-center md:flex">
+            <Mascot />
+          </div>
         </div>
       </main>
     </div>
