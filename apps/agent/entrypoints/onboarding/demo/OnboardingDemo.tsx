@@ -1,5 +1,6 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { NavLink, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -9,9 +10,14 @@ import {
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import {
+  getOnboardingFlowSource,
+  getOnboardingStepPath,
+} from '@/lib/onboarding/onboardingFlow'
+import {
   onboardingCompletedStorage,
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
+import { OnboardingProgress } from '../steps/OnboardingProgress'
 
 function buildDemoSuggestions(company?: string) {
   return [
@@ -41,10 +47,12 @@ function buildDemoSuggestions(company?: string) {
 }
 
 export const OnboardingDemo = () => {
+  const [searchParams] = useSearchParams()
   const [customQuery, setCustomQuery] = useState('')
   const [demoSuggestions, setDemoSuggestions] = useState(() =>
     buildDemoSuggestions(),
   )
+  const source = getOnboardingFlowSource(searchParams)
 
   useEffect(() => {
     onboardingProfileStorage.getValue().then((profile) => {
@@ -103,62 +111,78 @@ export const OnboardingDemo = () => {
   }
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-background px-6">
-      <div className="w-full max-w-lg space-y-8">
-        <div className="space-y-2 text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-[var(--accent-orange)]/10">
-            <Sparkles className="size-6 text-[var(--accent-orange)]" />
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <OnboardingProgress currentStep={3} />
+      <main className="flex flex-1 items-center justify-center overflow-y-auto px-6">
+        <div className="w-full max-w-4xl">
+          <div className="mx-auto w-full max-w-lg space-y-8">
+            <div className="space-y-2 text-center">
+              <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-[var(--accent-orange)]/10">
+                <Sparkles className="size-6 text-[var(--accent-orange)]" />
+              </div>
+              <h2 className="font-bold text-3xl tracking-tight">
+                Try your first task
+              </h2>
+              <p className="text-base text-muted-foreground">
+                Pick a suggestion or type your own to see BrowserOS in action
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {demoSuggestions.map((suggestion, index) => (
+                <button
+                  key={suggestion.label}
+                  type="button"
+                  onClick={() =>
+                    handleDemoTask(suggestion.query, suggestion.mode, index)
+                  }
+                  className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-[var(--accent-orange)]/50 hover:bg-accent"
+                >
+                  <span className="font-medium text-sm">
+                    {suggestion.label}
+                  </span>
+                  <ArrowRight className="size-4 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleCustomQuery} className="flex gap-2">
+              <Input
+                placeholder="Or type your own task..."
+                value={customQuery}
+                onChange={(e) => setCustomQuery(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                disabled={!customQuery.trim()}
+                className="bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+              >
+                Go
+              </Button>
+            </form>
+
+            <div className="text-center">
+              <Button
+                variant="ghost"
+                onClick={handleSkip}
+                className="text-muted-foreground"
+              >
+                Skip and go to homepage
+              </Button>
+            </div>
           </div>
-          <h2 className="font-bold text-3xl tracking-tight">
-            Try your first task
-          </h2>
-          <p className="text-base text-muted-foreground">
-            Pick a suggestion or type your own to see BrowserOS in action
-          </p>
-        </div>
 
-        <div className="space-y-3">
-          {demoSuggestions.map((suggestion, index) => (
-            <button
-              key={suggestion.label}
-              type="button"
-              onClick={() =>
-                handleDemoTask(suggestion.query, suggestion.mode, index)
-              }
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-[var(--accent-orange)]/50 hover:bg-accent"
-            >
-              <span className="font-medium text-sm">{suggestion.label}</span>
-              <ArrowRight className="size-4 text-muted-foreground" />
-            </button>
-          ))}
+          <div className="pt-8">
+            <Button variant="ghost" asChild className="group">
+              <NavLink to={getOnboardingStepPath(2, source)}>
+                <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                Back
+              </NavLink>
+            </Button>
+          </div>
         </div>
-
-        <form onSubmit={handleCustomQuery} className="flex gap-2">
-          <Input
-            placeholder="Or type your own task..."
-            value={customQuery}
-            onChange={(e) => setCustomQuery(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            disabled={!customQuery.trim()}
-            className="bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
-          >
-            Go
-          </Button>
-        </form>
-
-        <div className="text-center">
-          <Button
-            variant="ghost"
-            onClick={handleSkip}
-            className="text-muted-foreground"
-          >
-            Skip and go to homepage
-          </Button>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }

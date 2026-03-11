@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle2, Loader2, Mail } from 'lucide-react'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +13,10 @@ import {
   ONBOARDING_STEP_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import {
+  getOnboardingDemoPath,
+  getOnboardingFlowSource,
+} from '@/lib/onboarding/onboardingFlow'
 import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
 import { type StepDirection, StepTransition } from './StepTransition'
 
@@ -23,11 +28,16 @@ interface StepTwoProps {
 type SignInState = 'idle' | 'loading' | 'magic-link-sent' | 'error'
 
 export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [state, setState] = useState<SignInState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const redirectPath = getOnboardingDemoPath(
+    getOnboardingFlowSource(searchParams),
+  )
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    await authRedirectPathStorage.removeValue()
     track(ONBOARDING_SIGNIN_SKIPPED_EVENT)
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
       step: 2,
@@ -45,12 +55,14 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
     setError(null)
 
     try {
+      await authRedirectPathStorage.setValue(redirectPath)
       const result = await signIn.magicLink({
         email: email.trim(),
         callbackURL: '/home',
       })
 
       if (result.error) {
+        await authRedirectPathStorage.removeValue()
         setState('error')
         setError(result.error.message || 'Failed to send magic link')
         return
@@ -60,6 +72,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
       track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'magic_link' })
       track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
     } catch (err) {
+      await authRedirectPathStorage.removeValue()
       setState('error')
       setError(err instanceof Error ? err.message : 'Failed to send magic link')
     }
@@ -73,12 +86,13 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
       track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'google' })
       track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
 
-      await authRedirectPathStorage.setValue('/onboarding/demo')
+      await authRedirectPathStorage.setValue(redirectPath)
       await signIn.social({
         provider: 'google',
         callbackURL: '/home',
       })
     } catch (err) {
+      await authRedirectPathStorage.removeValue()
       setState('error')
       setError(
         err instanceof Error ? err.message : 'Failed to sign in with Google',
@@ -115,7 +129,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
               </Button>
               <Button
                 variant="ghost"
-                onClick={onContinue}
+                onClick={() => void handleSkip()}
                 className="text-muted-foreground"
               >
                 Continue without signing in
@@ -202,7 +216,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
           <div className="text-center">
             <Button
               variant="ghost"
-              onClick={handleSkip}
+              onClick={() => void handleSkip()}
               className="text-muted-foreground"
             >
               Skip for now

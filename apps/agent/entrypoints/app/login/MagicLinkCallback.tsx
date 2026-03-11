@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { useSession } from '@/lib/auth/auth-client'
+import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
 
 export const MagicLinkCallback: FC = () => {
   const navigate = useNavigate()
@@ -20,14 +21,27 @@ export const MagicLinkCallback: FC = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     const errorParam = searchParams.get('error')
     if (errorParam) {
       setError(decodeURIComponent(errorParam))
       return
     }
 
-    if (!isPending && session) {
-      navigate('/home', { replace: true })
+    if (isPending || !session) return
+
+    const redirectAfterAuth = async () => {
+      const redirectPath = await authRedirectPathStorage.getValue()
+      if (redirectPath) {
+        await authRedirectPathStorage.removeValue()
+      }
+      if (cancelled) return
+      navigate(redirectPath || '/home', { replace: true })
+    }
+
+    void redirectAfterAuth()
+    return () => {
+      cancelled = true
     }
   }, [session, isPending, searchParams, navigate])
 

@@ -11,6 +11,7 @@ import {
   SplitSquareHorizontal,
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
+import { NavLink, useSearchParams } from 'react-router'
 import DiscordLogo from '@/assets/discord-logo.svg'
 import GithubLogo from '@/assets/github-logo.svg'
 import SlackLogo from '@/assets/slack-logo.svg'
@@ -31,6 +32,11 @@ import {
   productRepositoryUrl,
   slackUrl,
 } from '@/lib/constants/productUrls'
+import {
+  getOnboardingFlowSource,
+  getOnboardingStepPath,
+  ONBOARDING_ENTRY_PATH,
+} from '@/lib/onboarding/onboardingFlow'
 import { cn } from '@/lib/utils'
 import { BentoCard, type Feature } from './BentoCard'
 import { VideoFrame } from './VideoFrame'
@@ -153,7 +159,10 @@ const features: Feature[] = [
  * @public
  */
 export const FeaturesPage: FC = () => {
+  const [searchParams] = useSearchParams()
   const [mounted, setMounted] = useState(false)
+  const source = getOnboardingFlowSource(searchParams)
+  const isSetupFlow = source === 'setup'
 
   useEffect(() => {
     setMounted(true)
@@ -206,8 +215,9 @@ export const FeaturesPage: FC = () => {
                       : 'translate-y-4 opacity-0',
                   )}
                 >
-                  Watch our launch video to understand the vision of BrowserOS
-                  and key features!
+                  {isSetupFlow
+                    ? 'Before setup, here is the fastest way to understand what BrowserOS can actually do.'
+                    : 'Watch our launch video to understand the vision of BrowserOS and key features!'}
                 </p>
               </div>
             </div>
@@ -395,14 +405,39 @@ export const FeaturesPage: FC = () => {
 
       <section className="mx-auto max-w-7xl px-6 pt-16 pb-56">
         <div className="space-y-4 text-center">
-          <Button
-            onClick={handleStart}
-            size="lg"
-            className="bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
-          >
-            Start Using BrowserOS
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          {isSetupFlow ? (
+            <>
+              <Button
+                size="lg"
+                asChild
+                className="bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
+              >
+                <NavLink to={getOnboardingStepPath(1, source)}>
+                  Continue Setup
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </NavLink>
+              </Button>
+              <Button variant="ghost" asChild>
+                <NavLink to={ONBOARDING_ENTRY_PATH}>Back to Welcome</NavLink>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={handleStart}
+                size="lg"
+                className="bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
+              >
+                Start Using BrowserOS
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              <Button variant="ghost" asChild>
+                <NavLink to={getOnboardingStepPath(1, source)}>
+                  Revisit Guided Setup
+                </NavLink>
+              </Button>
+            </>
+          )}
         </div>
       </section>
     </div>

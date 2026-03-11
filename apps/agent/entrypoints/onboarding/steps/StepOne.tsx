@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, ChevronsUpDown } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod/v3'
 import { Button } from '@/components/ui/button'
@@ -91,6 +91,24 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
       description: '',
     },
   })
+
+  useEffect(() => {
+    let cancelled = false
+
+    onboardingProfileStorage.getValue().then((profile) => {
+      if (!profile || cancelled) return
+      form.reset({
+        name: profile.name,
+        role: profile.role,
+        company: profile.company,
+        description: profile.description ?? '',
+      })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [form])
 
   const handleSubmit = async (values: FormValues) => {
     const name = values.name.trim()

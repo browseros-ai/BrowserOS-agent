@@ -1,17 +1,26 @@
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { NavLink, useNavigate, useParams } from 'react-router'
+import { NavLink, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { ONBOARDING_STEP_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import {
+  getOnboardingDemoPath,
+  getOnboardingFeaturesPath,
+  getOnboardingFlowSource,
+  getOnboardingStepPath,
+} from '@/lib/onboarding/onboardingFlow'
+import { OnboardingProgress } from './OnboardingProgress'
 import type { StepDirection } from './StepTransition'
 import { steps } from './steps'
 
 export const StepsLayout = () => {
   const { stepId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [direction, setDirection] = useState<StepDirection>(1)
+  const source = getOnboardingFlowSource(searchParams)
 
   const currentStep = Number(stepId)
   const isLastStep = currentStep >= steps.length
@@ -33,64 +42,15 @@ export const StepsLayout = () => {
   const onContinue = () => {
     setDirection(1)
     if (isLastStep) {
-      navigate('/onboarding/demo')
+      navigate(getOnboardingDemoPath(source))
     } else {
-      navigate(`/onboarding/steps/${currentStep + 1}`)
+      navigate(getOnboardingStepPath((currentStep + 1) as 1 | 2, source))
     }
   }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      {/* Progress Indicator */}
-      <div className="border-border/40 border-b">
-        <div className="mx-auto max-w-3xl px-6 py-5">
-          <div className="relative flex items-center justify-between">
-            {steps.map((step) => {
-              const isCompleted = step.id < currentStep
-              const isActive = step.id === currentStep
-
-              return (
-                <div
-                  key={step.id}
-                  className="relative flex flex-1 items-center justify-center"
-                >
-                  <div className="relative z-10 flex flex-col items-center gap-2">
-                    <div className="relative">
-                      {isActive && (
-                        <div className="absolute inset-0 animate-ping rounded-full bg-[var(--accent-orange)] opacity-30" />
-                      )}
-                      <div
-                        className={`relative flex h-8 w-8 items-center justify-center rounded-full font-semibold text-sm transition-all duration-500 ${
-                          isCompleted
-                            ? 'bg-[var(--accent-orange)] text-white'
-                            : isActive
-                              ? 'bg-[var(--accent-orange)] text-white ring-4 ring-[var(--accent-orange)]/20'
-                              : 'border border-border bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {isCompleted ? <Check className="h-4 w-4" /> : step.id}
-                      </div>
-                    </div>
-                    <div className="hidden text-center md:block">
-                      <div
-                        className={`font-medium text-xs transition-colors duration-300 ${
-                          isCompleted || isActive
-                            ? 'text-foreground'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {step.name}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
+      <OnboardingProgress currentStep={currentStep as 1 | 2} />
       <main className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
         <div className="w-full max-w-4xl">
           <div className="relative h-[550px]">
@@ -108,8 +68,8 @@ export const StepsLayout = () => {
                 onClick={() => setDirection(-1)}
                 to={
                   canGoPrevious
-                    ? `/onboarding/steps/${currentStep - 1}`
-                    : '/onboarding'
+                    ? getOnboardingStepPath((currentStep - 1) as 1 | 2, source)
+                    : getOnboardingFeaturesPath(source)
                 }
               >
                 <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
