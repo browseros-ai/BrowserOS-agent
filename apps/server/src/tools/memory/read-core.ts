@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { getCoreMemoryPath } from '../../lib/browseros-dir'
+import { readCoreMemory } from '../../lib/memory'
 import { executeWithMetrics, toModelOutput } from '../filesystem/utils'
 
 const TOOL_NAME = 'memory_read_core'
@@ -12,13 +12,9 @@ export function createReadCoreTool() {
     inputSchema: z.object({}),
     execute: () =>
       executeWithMetrics(TOOL_NAME, async () => {
-        const file = Bun.file(getCoreMemoryPath())
-        if (!(await file.exists())) {
-          return { text: 'No core memories yet.' }
-        }
-        const content = await file.text()
+        const content = await readCoreMemory()
         if (!content.trim()) {
-          return { text: 'Core memory file is empty.' }
+          return { text: 'No core memories yet.' }
         }
         return { text: content }
       }),
