@@ -50,9 +50,14 @@ export function useConversations() {
 
     if (existingIndex >= 0) {
       const existing = current[existingIndex]
+      const lastExistingPart =
+        existing.messages[existing.messages.length - 1]?.parts
+      const lastNewPart = messages[messages.length - 1]?.parts
       const hasContentChanged =
         existing.messages.length !== messages.length ||
-        JSON.stringify(existing.messages) !== JSON.stringify(messages)
+        lastExistingPart?.length !== lastNewPart?.length ||
+        lastExistingPart?.[lastExistingPart.length - 1] !==
+          lastNewPart?.[lastNewPart.length - 1]
 
       if (!hasContentChanged) return
 

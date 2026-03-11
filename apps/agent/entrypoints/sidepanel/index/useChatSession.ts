@@ -398,12 +398,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     messagesRef.current = messages
     const messagesToSave = messages.filter((m) => m.parts?.length > 0)
     if (messagesToSave.length > 0) {
-      if (isLoggedIn) {
-        if (status !== 'streaming') {
+      if (status !== 'streaming') {
+        if (isLoggedIn) {
           saveRemoteConversation(conversationIdRef.current, messagesToSave)
+        } else {
+          saveLocalConversation(conversationIdRef.current, messagesToSave)
         }
-      } else {
-        saveLocalConversation(conversationIdRef.current, messagesToSave)
       }
     }
   }, [messages, isLoggedIn, status])
