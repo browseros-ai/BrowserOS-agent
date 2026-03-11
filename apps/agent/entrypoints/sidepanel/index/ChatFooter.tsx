@@ -1,6 +1,6 @@
 import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AppSelector } from '@/components/elements/AppSelector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
@@ -50,15 +50,6 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   useSyncRemoteIntegrations()
   const chatInputRef = useRef<ChatInputHandle>(null)
   const [isTabMentionOpen, setIsTabMentionOpen] = useState(false)
-
-  useEffect(() => {
-    if (!shouldAutoFocus) return
-
-    const frameId = requestAnimationFrame(() => {
-      chatInputRef.current?.focus()
-    })
-    return () => cancelAnimationFrame(frameId)
-  }, [shouldAutoFocus])
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
@@ -172,6 +163,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
           selectedTabs={attachedTabs}
           onToggleTab={onToggleTab}
           onTabMentionOpenChange={setIsTabMentionOpen}
+          shouldAutoFocus={shouldAutoFocus}
           ref={chatInputRef}
         />
       </div>

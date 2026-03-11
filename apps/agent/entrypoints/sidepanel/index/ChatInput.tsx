@@ -28,6 +28,7 @@ interface ChatInputProps {
   selectedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
   onTabMentionOpenChange?: (isOpen: boolean) => void
+  shouldAutoFocus?: boolean
 }
 
 export interface ChatInputHandle {
@@ -49,6 +50,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       selectedTabs,
       onToggleTab,
       onTabMentionOpenChange,
+      shouldAutoFocus = false,
     },
     ref,
   ) => {
@@ -70,6 +72,62 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
     useEffect(() => {
       onTabMentionOpenChange?.(mentionState.isOpen)
     }, [mentionState.isOpen, onTabMentionOpenChange])
+
+    useEffect(() => {
+      if (!shouldAutoFocus) return
+
+      const timeoutIds: number[] = []
+      const frameIds: number[] = []
+      let didFocus = false
+
+      const attemptFocus = () => {
+        if (didFocus) return
+
+        const textarea = textareaRef.current
+        if (!textarea) return
+
+        textarea.focus()
+        const frameId = requestAnimationFrame(() => {
+          if (document.activeElement === textarea) {
+            didFocus = true
+          }
+        })
+        frameIds.push(frameId)
+      }
+
+      const scheduleAttempt = (delay: number) => {
+        const timeoutId = window.setTimeout(() => {
+          attemptFocus()
+        }, delay)
+        timeoutIds.push(timeoutId)
+      }
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          attemptFocus()
+        }
+      }
+
+      attemptFocus()
+      scheduleAttempt(50)
+      scheduleAttempt(150)
+      scheduleAttempt(300)
+      window.addEventListener('focus', attemptFocus)
+      window.addEventListener('pageshow', attemptFocus)
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+
+      return () => {
+        for (const timeoutId of timeoutIds) {
+          window.clearTimeout(timeoutId)
+        }
+        for (const frameId of frameIds) {
+          cancelAnimationFrame(frameId)
+        }
+        window.removeEventListener('focus', attemptFocus)
+        window.removeEventListener('pageshow', attemptFocus)
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+      }
+    }, [shouldAutoFocus])
 
     const closeMention = useCallback(() => {
       const state = mentionStateRef.current
