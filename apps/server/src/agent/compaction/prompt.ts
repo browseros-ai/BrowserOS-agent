@@ -1,5 +1,11 @@
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
-import type { AssistantContent, ModelMessage, UserContent } from 'ai'
+import type {
+  AssistantContent,
+  ModelMessage,
+  ToolResultPart,
+  UserContent,
+} from 'ai'
+import { toolResultOutputToText } from './content'
 
 const SUMMARIZATION_SYSTEM_PROMPT = `You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.
 
@@ -162,27 +168,11 @@ function extractAssistantContent(content: AssistantContent): {
   return { text: texts.join(' '), toolCalls }
 }
 
-function formatToolOutput(output: unknown, maxChars: number): string {
-  if (!output || typeof output !== 'object') return String(output ?? '')
-
-  const out = output as { type?: string; value?: unknown }
-  let text: string
-
-  if (out.type === 'text' || out.type === 'error-text') {
-    text = String(out.value ?? '')
-  } else if (out.type === 'json' || out.type === 'error-json') {
-    try {
-      text = JSON.stringify(out.value)
-    } catch {
-      text = String(out.value)
-    }
-  } else {
-    try {
-      text = JSON.stringify(output)
-    } catch {
-      text = String(output)
-    }
-  }
+function formatToolOutput(
+  output: ToolResultPart['output'],
+  maxChars: number,
+): string {
+  const text = toolResultOutputToText(output)
 
   if (text.length > maxChars) {
     return `${text.slice(0, maxChars)}\n[... truncated ${text.length - maxChars} characters]`
