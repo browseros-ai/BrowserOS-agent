@@ -1,5 +1,5 @@
-import { Pencil, Plus, Trash2, Wand2 } from 'lucide-react'
-import { type FC, useState } from 'react'
+import { AlertCircle, Pencil, Plus, Trash2, Wand2 } from 'lucide-react'
+import { type FC, type KeyboardEvent, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -11,12 +11,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -26,10 +27,21 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { type SkillDetail, type SkillMeta, useSkills } from './useSkills'
 
+const loadingSkillCards = [
+  'loading-a',
+  'loading-b',
+  'loading-c',
+  'loading-d',
+  'loading-e',
+  'loading-f',
+]
+
 export const SkillsPage: FC = () => {
   const {
     skills,
     isLoading,
+    error,
+    refetch,
     createSkill,
     updateSkill,
     deleteSkill,
@@ -39,6 +51,8 @@ export const SkillsPage: FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingSkill, setEditingSkill] = useState<SkillDetail | null>(null)
   const [skillToDelete, setSkillToDelete] = useState<SkillMeta | null>(null)
+
+  const enabledCount = skills.filter((skill) => skill.enabled).length
 
   const handleCreate = () => {
     setEditingSkill(null)
@@ -74,23 +88,26 @@ export const SkillsPage: FC = () => {
     setSkillToDelete(null)
   }
 
-  if (isLoading) {
-    return (
-      <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
-        <SkillsHeader onCreateClick={handleCreate} />
-        <div className="text-muted-foreground text-sm">Loading skills...</div>
-      </div>
-    )
-  }
-
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
-      <SkillsHeader onCreateClick={handleCreate} />
+      <SkillsHeader
+        skillCount={skills.length}
+        enabledCount={enabledCount}
+        onCreateClick={handleCreate}
+      />
 
-      {skills.length === 0 ? (
+      {isLoading ? <SkillsLoadingState /> : null}
+
+      {!isLoading && error ? (
+        <SkillsErrorState onRetry={() => void refetch()} />
+      ) : null}
+
+      {!isLoading && !error && skills.length === 0 ? (
         <EmptyState onCreateClick={handleCreate} />
-      ) : (
-        <div className="space-y-3">
+      ) : null}
+
+      {!isLoading && !error && skills.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {skills.map((skill) => (
             <SkillCard
               key={skill.id}
@@ -101,7 +118,7 @@ export const SkillsPage: FC = () => {
             />
           ))}
         </div>
-      )}
+      ) : null}
 
       <SkillDialog
         open={isDialogOpen}
@@ -145,29 +162,85 @@ export const SkillsPage: FC = () => {
   )
 }
 
-const SkillsHeader: FC<{ onCreateClick: () => void }> = ({ onCreateClick }) => (
-  <div className="flex items-center justify-between">
-    <div>
-      <h1 className="font-semibold text-2xl tracking-tight">Skills</h1>
-      <p className="text-muted-foreground text-sm">
-        Define custom skills to extend your agent's capabilities.
-      </p>
+const SkillsHeader: FC<{
+  skillCount: number
+  enabledCount: number
+  onCreateClick: () => void
+}> = ({ skillCount, enabledCount, onCreateClick }) => {
+  const skillLabel = `${skillCount} skill${skillCount === 1 ? '' : 's'}`
+  const enabledLabel = `${enabledCount} enabled`
+
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div>
+        <h1 className="font-semibold text-2xl tracking-tight">Skills</h1>
+        <p className="text-muted-foreground text-sm">
+          Define reusable instructions that extend how your agent responds.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          {skillLabel} • {enabledLabel}
+        </p>
+      </div>
+      <Button onClick={onCreateClick} size="sm" className="shrink-0">
+        <Plus className="mr-1.5 size-4" />
+        New Skill
+      </Button>
     </div>
-    <Button onClick={onCreateClick} size="sm">
-      <Plus className="mr-1.5 size-4" />
-      New Skill
-    </Button>
+  )
+}
+
+const SkillsLoadingState: FC = () => (
+  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    {loadingSkillCards.map((cardKey) => (
+      <Card key={cardKey} className="h-full py-0">
+        <CardContent className="space-y-4 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="size-10 animate-pulse rounded-xl bg-muted" />
+            <div className="h-6 w-11 animate-pulse rounded-full bg-muted" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-full animate-pulse rounded bg-muted" />
+            <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
+          </div>
+          <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+        </CardContent>
+      </Card>
+    ))}
   </div>
 )
 
+const SkillsErrorState: FC<{ onRetry: () => void }> = ({ onRetry }) => (
+  <Card className="border-destructive/20 bg-destructive/5 py-0">
+    <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+          <AlertCircle className="size-4" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="font-semibold">Couldn&apos;t load skills</h2>
+          <p className="text-destructive/80 text-sm">
+            Check that the local agent services are running, then retry.
+          </p>
+        </div>
+      </div>
+      <Button variant="outline" onClick={onRetry}>
+        Retry
+      </Button>
+    </CardContent>
+  </Card>
+)
+
 const EmptyState: FC<{ onCreateClick: () => void }> = ({ onCreateClick }) => (
-  <Card className="border-dashed">
-    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-      <Wand2 className="mb-4 size-10 text-muted-foreground" />
+  <Card className="border-dashed py-0">
+    <CardContent className="flex flex-col items-center justify-center py-14 text-center">
+      <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]">
+        <Wand2 className="size-5" />
+      </div>
       <h3 className="mb-1 font-medium text-lg">No skills yet</h3>
-      <p className="mb-4 max-w-sm text-muted-foreground text-sm">
-        Skills are instructions that teach your agent how to handle specific
-        tasks like creating PDFs, processing data, or drafting emails.
+      <p className="mb-5 max-w-sm text-muted-foreground text-sm leading-6">
+        Skills teach your agent how to handle repeatable tasks like research,
+        extraction, and structured workflows.
       </p>
       <Button onClick={onCreateClick} size="sm">
         <Plus className="mr-1.5 size-4" />
@@ -183,27 +256,43 @@ const SkillCard: FC<{
   onDelete: () => void
   onToggle: (enabled: boolean) => void
 }> = ({ skill, onEdit, onDelete, onToggle }) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="font-medium text-base">{skill.name}</CardTitle>
-      <div className="flex items-center gap-2">
+  <Card className="h-full py-0 shadow-sm">
+    <CardContent className="flex h-full flex-col p-4">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-semibold text-sm leading-5">{skill.name}</h2>
         <Switch
           checked={skill.enabled}
           onCheckedChange={onToggle}
           aria-label={`Toggle ${skill.name}`}
         />
-        <Button variant="ghost" size="icon" onClick={onEdit}>
-          <Pencil className="size-4" />
+      </div>
+
+      <div className="mt-3 flex-1">
+        <p className="line-clamp-3 text-muted-foreground text-sm leading-5">
+          {skill.description}
+        </p>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          className="-ml-2 h-7 px-2 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        >
+          <Pencil className="size-3.5" />
+          Edit
         </Button>
-        <Button variant="ghost" size="icon" onClick={onDelete}>
-          <Trash2 className="size-4 text-destructive" />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onDelete}
+          className="size-7 text-muted-foreground hover:bg-transparent hover:text-destructive"
+          aria-label={`Delete ${skill.name}`}
+        >
+          <Trash2 className="size-4" />
         </Button>
       </div>
-    </CardHeader>
-    <CardContent>
-      <p className="line-clamp-2 text-muted-foreground text-sm">
-        {skill.description}
-      </p>
     </CardContent>
   </Card>
 )
@@ -223,83 +312,142 @@ const SkillDialog: FC<{
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Reset form when dialog opens
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      setName(editingSkill?.name ?? '')
-      setDescription(editingSkill?.description ?? '')
-      setContent(editingSkill?.content ?? '')
-    }
-    onOpenChange(isOpen)
-  }
+  useEffect(() => {
+    setSaving(false)
+    if (!open) return
+    setName(editingSkill?.name ?? '')
+    setDescription(editingSkill?.description ?? '')
+    setContent(editingSkill?.content ?? '')
+  }, [editingSkill, open])
+
+  const isValid =
+    name.trim().length > 0 &&
+    description.trim().length > 0 &&
+    content.trim().length > 0
 
   const handleSubmit = async () => {
+    if (!isValid || saving) return
     setSaving(true)
     try {
-      await onSave({ name, description, content })
+      await onSave({
+        name: name.trim(),
+        description: description.trim(),
+        content,
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  const isValid = name.trim() && description.trim() && content.trim()
+  const handleContentKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault()
+      void handleSubmit()
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+        <DialogHeader className="border-b px-6 py-5">
           <DialogTitle>
             {editingSkill ? 'Edit Skill' : 'Create Skill'}
           </DialogTitle>
+          <DialogDescription>
+            {editingSkill
+              ? 'Refine when the agent should use this skill and how it should execute it.'
+              : 'Define a reusable instruction set your agent can apply when a request matches.'}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="skill-name">Name</Label>
-            <Input
-              id="skill-name"
-              placeholder="e.g., PDF Processing"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={100}
-            />
+        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[280px_minmax(0,1fr)] lg:overflow-hidden">
+          <div className="space-y-5 border-b bg-muted/20 px-6 py-5 lg:border-r lg:border-b-0">
+            <div className="space-y-2">
+              <Label htmlFor="skill-name">Name</Label>
+              <Input
+                id="skill-name"
+                placeholder="e.g., Read Later"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={100}
+              />
+              <p className="text-muted-foreground text-xs leading-5">
+                Keep it short and recognizable in the skills list.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="skill-description">Description</Label>
+              <Textarea
+                id="skill-description"
+                placeholder="Describe when the agent should use this skill."
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                maxLength={500}
+                className="min-h-28 resize-none bg-background"
+              />
+              <p className="text-muted-foreground text-xs leading-5">
+                This is the trigger summary the agent uses to pick the skill.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border bg-background p-4">
+              <p className="font-medium text-sm">Useful structure</p>
+              <div className="mt-2 space-y-2 text-muted-foreground text-xs leading-5">
+                <p>List the ordered steps the agent should follow.</p>
+                <p>Close with the output or formatting you expect back.</p>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="skill-description">Description</Label>
-            <Input
-              id="skill-description"
-              placeholder="When should the agent use this skill?"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={500}
-            />
-          </div>
+          <div className="flex min-h-0 flex-col px-6 py-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <Label htmlFor="skill-content">Instructions (Markdown)</Label>
+              <Badge variant="outline" className="border-border bg-background">
+                {content.length} characters
+              </Badge>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="skill-content">Instructions (Markdown)</Label>
-            <Textarea
-              id="skill-content"
-              placeholder="Write instructions for the agent. Use markdown for formatting."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="min-h-[200px] font-mono text-sm"
-            />
+            <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/20">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <span className="font-medium text-sm">Markdown editor</span>
+                <span className="text-muted-foreground text-xs">
+                  Cmd/Ctrl + Enter to save
+                </span>
+              </div>
+              <Textarea
+                id="skill-content"
+                placeholder="Write instructions for the agent. Use markdown for structure."
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                onKeyDown={handleContentKeyDown}
+                className="min-h-[320px] flex-1 resize-none overflow-y-auto border-0 bg-transparent p-4 font-mono text-sm leading-6 shadow-none focus-visible:ring-0"
+              />
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!isValid || saving}>
-            {saving ? 'Saving...' : editingSkill ? 'Update' : 'Create'}
-          </Button>
-        </DialogFooter>
+        <div className="flex flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-muted-foreground text-xs">
+            Saved locally and available to your agent immediately.
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={!isValid || saving}>
+              {saving
+                ? 'Saving...'
+                : editingSkill
+                  ? 'Update Skill'
+                  : 'Create Skill'}
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
