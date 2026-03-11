@@ -19,6 +19,8 @@
     "start:agent": "bun ./scripts/build/controller-ext.ts && bun run --filter @browseros/agent dev",
     "build": "bun run build:server && bun run build:agent && bun run build:ext",
     "build:server": "FORCE_COLOR=1 bun scripts/build/server.ts --target=all",
+    "build:server:test": "FORCE_COLOR=1 bun scripts/build/server.ts --target=darwin-arm64 --no-upload",
+    "start:server:test": "bun run build:server:test && set -a && . apps/server/.env.development && set +a && dist/prod/server/.tmp/binaries/browseros-server-darwin-arm64",
     "build:agent:dev": "FORCE_COLOR=1 bun run --filter @browseros/agent --elide-lines=0 build:dev",
     "build:agent": "bun run codegen:agent && bun run --filter @browseros/agent build",
     "build:agent-sdk": "bun run --filter @browseros-ai/agent-sdk build",
