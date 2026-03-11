@@ -1,13 +1,13 @@
 import { Briefcase, Check, Loader2, Scale, SmilePlus, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import {
   ONBOARDING_SOUL_SELECTED_EVENT,
   ONBOARDING_STEP_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { type SoulPresetId, soulPresets } from '@/lib/onboarding/soulPresets'
+import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 import { sentry } from '@/lib/sentry/sentry'
 import { cn } from '@/lib/utils'
 import { type StepDirection, StepTransition } from './StepTransition'
@@ -27,7 +27,7 @@ const presetIcons: Record<SoulPresetId, typeof Scale> = {
 export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
   const [selected, setSelected] = useState<SoulPresetId>('balanced')
   const [isSaving, setIsSaving] = useState(false)
-  const { baseUrl } = useAgentServerUrl()
+  const rpcClient = useRpcClient()
 
   const handleContinue = async () => {
     const preset = soulPresets.find((p) => p.id === selected)
@@ -35,13 +35,9 @@ export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
 
     setIsSaving(true)
     try {
-      if (baseUrl) {
-        await fetch(`${baseUrl}/soul`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: preset.content }),
-        })
-      }
+      await rpcClient.soul.$put({
+        json: { content: preset.content },
+      })
     } catch (e) {
       sentry.captureException(e, {
         extra: { message: 'Failed to write soul during onboarding' },
