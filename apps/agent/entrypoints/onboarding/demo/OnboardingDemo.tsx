@@ -1,7 +1,8 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Globe, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import {
   ONBOARDING_COMPLETED_EVENT,
@@ -18,9 +19,10 @@ interface DemoSuggestion {
   label: string
   query: string
   mode: 'chat' | 'agent'
+  appName?: string
 }
 
-const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
+const APP_PROMPTS: Record<string, Omit<DemoSuggestion, 'appName'>[]> = {
   Gmail: [
     {
       label: 'Summarize my unread emails and highlight anything urgent',
@@ -162,7 +164,7 @@ function buildPersonalizedSuggestions(
 
     const prompts = APP_PROMPTS[appName]
     if (prompts?.[0]) {
-      suggestions.push(prompts[0])
+      suggestions.push({ ...prompts[0], appName })
       usedApps.add(appName)
     }
   }
@@ -286,9 +288,18 @@ export const OnboardingDemo = () => {
               onClick={() =>
                 handleDemoTask(suggestion.query, suggestion.mode, index)
               }
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-[var(--accent-orange)]/50 hover:bg-accent"
+              className="flex w-full items-center gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-[var(--accent-orange)]/50 hover:bg-accent"
             >
-              <span className="font-medium text-sm">{suggestion.label}</span>
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                {suggestion.appName ? (
+                  <McpServerIcon serverName={suggestion.appName} size={18} />
+                ) : (
+                  <Globe className="size-[18px] text-muted-foreground" />
+                )}
+              </div>
+              <span className="min-w-0 flex-1 font-medium text-sm">
+                {suggestion.label}
+              </span>
               <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
             </button>
           ))}
