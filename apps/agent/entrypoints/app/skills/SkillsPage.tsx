@@ -107,7 +107,7 @@ export const SkillsPage: FC = () => {
         <EmptyState onCreateClick={handleCreate} />
       ) : null}
 
-      {!isLoading && skills.length > 0 ? (
+      {!isLoading && !error && skills.length > 0 ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {skills.map((skill) => (
             <SkillCard
@@ -353,6 +353,7 @@ const SkillDialog: FC<{
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    setSaving(false)
     if (!open) return
     setName(editingSkill?.name ?? '')
     setDescription(editingSkill?.description ?? '')
