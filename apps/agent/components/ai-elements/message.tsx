@@ -344,20 +344,18 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>
  * @public
  */
 export const MessageResponse = memo(
-  ({ className, mode = 'streaming', ...props }: MessageResponseProps) => (
+  ({ className, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
         'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_[data-streamdown="code-block"]]:w-[calc(100vw-64px)]! [&_[data-streamdown="table-wrapper"]]:w-[calc(100vw-64px)]!',
         className,
       )}
       shikiTheme={themes}
-      mode={mode}
+      mode="streaming"
       {...props}
     />
   ),
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    prevProps.mode === nextProps.mode,
+  (prevProps, nextProps) => prevProps.children === nextProps.children,
 )
 
 MessageResponse.displayName = 'MessageResponse'

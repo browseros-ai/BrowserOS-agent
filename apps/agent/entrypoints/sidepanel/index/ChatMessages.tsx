@@ -89,12 +89,7 @@ const ChatMessageItem = memo<ChatMessageItemProps>(
                 switch (segment.type) {
                   case 'text':
                     return (
-                      <MessageResponse
-                        key={segment.key}
-                        mode={
-                          isLastMessage && isStreaming ? 'streaming' : 'static'
-                        }
-                      >
+                      <MessageResponse key={segment.key}>
                         {segment.text}
                       </MessageResponse>
                     )
