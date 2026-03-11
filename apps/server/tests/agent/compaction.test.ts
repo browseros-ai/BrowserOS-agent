@@ -246,7 +246,21 @@ describe('computeConfig — reserve trigger', () => {
     expect(config.triggerRatio).toBe(0.5)
   })
 
-  for (const size of [32_000, 64_000, 200_000, 1_000_000]) {
+  it('30K model → reserve is clamped to 50% of context', () => {
+    const config = computeConfig(30_000)
+    expect(config.reserveTokens).toBe(expectedReserve(30_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(30_000))
+    expect(config.triggerRatio).toBe(0.5)
+  })
+
+  it('32K model → reserve is clamped to 50% of context', () => {
+    const config = computeConfig(32_000)
+    expect(config.reserveTokens).toBe(expectedReserve(32_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(32_000))
+    expect(config.triggerRatio).toBe(0.5)
+  })
+
+  for (const size of [64_000, 200_000, 1_000_000]) {
     it(`${(size / 1000).toFixed(0)}K model → reserve is fixed at COMPACTION_RESERVE_TOKENS`, () => {
       const config = computeConfig(size)
       expect(config.reserveTokens).toBe(COMPACTION_RESERVE_TOKENS)
@@ -313,6 +327,50 @@ describe('computeConfig — summarization budgets', () => {
       )
     })
   }
+})
+
+// ---------------------------------------------------------------------------
+// computeConfig — fixedOverhead scaling
+// ---------------------------------------------------------------------------
+
+describe('computeConfig — fixedOverhead scaling', () => {
+  it('8K model → fixedOverhead capped at 40% of context', () => {
+    const config = computeConfig(8_000)
+    expect(config.fixedOverhead).toBe(Math.floor(8_000 * 0.4))
+    expect(config.fixedOverhead).toBeLessThan(
+      AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
+    )
+  })
+
+  it('20K model → fixedOverhead capped at 40% of context', () => {
+    const config = computeConfig(20_000)
+    expect(config.fixedOverhead).toBe(Math.floor(20_000 * 0.4))
+    expect(config.fixedOverhead).toBeLessThan(
+      AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
+    )
+  })
+
+  it('30K model → fixedOverhead equals constant (40% of 30K = 12K = constant)', () => {
+    const config = computeConfig(30_000)
+    expect(config.fixedOverhead).toBe(AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD)
+  })
+
+  for (const size of [64_000, 200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → fixedOverhead equals constant`, () => {
+      const config = computeConfig(size)
+      expect(config.fixedOverhead).toBe(AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD)
+    })
+  }
+
+  it('30K model → fixedOverhead does not exceed trigger threshold', () => {
+    const config = computeConfig(30_000)
+    expect(config.fixedOverhead).toBeLessThanOrEqual(config.triggerThreshold)
+  })
+
+  it('20K model → fixedOverhead does not exceed trigger threshold', () => {
+    const config = computeConfig(20_000)
+    expect(config.fixedOverhead).toBeLessThanOrEqual(config.triggerThreshold)
+  })
 })
 
 // ---------------------------------------------------------------------------

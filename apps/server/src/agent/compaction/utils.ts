@@ -100,6 +100,13 @@ export function computeConfig(contextWindow: number): ComputedConfig {
     Math.floor(reserveTokens * AGENT_LIMITS.COMPACTION_SUMMARIZER_OUTPUT_RATIO),
   )
 
+  // Cap overhead so it never exceeds 40% of context — prevents the doom loop
+  // where overhead alone triggers compaction on small-context models.
+  const fixedOverhead = Math.min(
+    AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
+    Math.floor(contextWindow * 0.4),
+  )
+
   return {
     contextWindow,
     reserveTokens,
@@ -110,7 +117,7 @@ export function computeConfig(contextWindow: number): ComputedConfig {
     maxSummarizationInput,
     summarizerMaxOutputTokens,
     summarizationTimeoutMs: AGENT_LIMITS.COMPACTION_SUMMARIZATION_TIMEOUT_MS,
-    fixedOverhead: AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
+    fixedOverhead,
     safetyMultiplier: AGENT_LIMITS.COMPACTION_SAFETY_MULTIPLIER,
     imageTokenEstimate: AGENT_LIMITS.COMPACTION_IMAGE_TOKEN_ESTIMATE,
     toolOutputMaxChars: AGENT_LIMITS.COMPACTION_TOOL_OUTPUT_MAX_CHARS,

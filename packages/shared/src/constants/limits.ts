@@ -22,12 +22,20 @@ export const AGENT_LIMITS = {
   COMPRESSION_MIN_RATIO: 0.4,
 
   // Compaction — adaptive trigger
+  // Large models (>32K): fixed 20K reserve, rest is trigger budget.
+  // Small models (≤32K): 50% reserve instead, so trigger isn't starved.
   COMPACTION_RESERVE_TOKENS: 20_000,
 
   // Compaction — adaptive keep-recent
   COMPACTION_MAX_KEEP_RECENT: 20_000,
   COMPACTION_KEEP_RECENT_FRACTION: 0.35,
-  COMPACTION_SMALL_CONTEXT_WINDOW: 16_000,
+
+  // Models at or below this use proportional (50%) reserve.
+  // Must be ≥ 2 × COMPACTION_FIXED_OVERHEAD (currently 24K) so that
+  // the 50% trigger threshold always exceeds the overhead estimate.
+  // Below 24K, the overhead cap in computeConfig() handles it.
+  COMPACTION_SMALL_CONTEXT_WINDOW: 32_000,
+
   COMPACTION_MIN_SUMMARIZABLE_INPUT: 4_000,
   COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL: 1_000,
 
@@ -39,7 +47,9 @@ export const AGENT_LIMITS = {
   COMPACTION_SUMMARIZER_OUTPUT_RATIO: 0.8,
 
   // Compaction — estimation (step 0 / no real usage)
-  // Covers system prompt (~2.5K tokens) + tool definitions as JSON Schema (~8-9K tokens)
+  // Covers system prompt (~2.5K tokens) + tool definitions (~8-9K tokens).
+  // computeConfig() caps this at 40% of context window for small models
+  // so it never exceeds the trigger threshold on its own.
   COMPACTION_FIXED_OVERHEAD: 12_000,
   COMPACTION_SAFETY_MULTIPLIER: 1.3,
   COMPACTION_IMAGE_TOKEN_ESTIMATE: 1_000,
