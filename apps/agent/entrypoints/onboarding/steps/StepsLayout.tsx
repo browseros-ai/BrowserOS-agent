@@ -15,6 +15,7 @@ import {
   onboardingProfileStorage,
   onboardingSignedInStorage,
 } from '@/lib/onboarding/onboardingStorage'
+import { Mascot } from './Mascot'
 import type { StepDirection } from './StepTransition'
 import { steps } from './steps'
 
@@ -150,41 +151,49 @@ export const StepsLayout = () => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <main className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
-        <div className="w-full max-w-4xl">
-          {isCheckingSignIn ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <>
-              <div className="relative h-[550px]">
-                <AnimatePresence initial={false} custom={direction}>
-                  <ActiveStep
-                    key={currentStep}
-                    direction={direction}
-                    onContinue={onContinue}
-                  />
-                </AnimatePresence>
+      {/* Main Content — split layout with mascot */}
+      <main className="flex flex-1 overflow-hidden">
+        {/* Left: step content */}
+        <div className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
+          <div className="w-full max-w-xl">
+            {isCheckingSignIn ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
-              <div className="pt-8">
-                <Button variant="ghost" asChild className="group">
-                  <NavLink
-                    onClick={() => setDirection(-1)}
-                    to={
-                      canGoPrevious
-                        ? `/onboarding/steps/${currentStep - 1}`
-                        : '/onboarding'
-                    }
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-                    Back
-                  </NavLink>
-                </Button>
-              </div>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="relative h-[550px]">
+                  <AnimatePresence initial={false} custom={direction}>
+                    <ActiveStep
+                      key={currentStep}
+                      direction={direction}
+                      onContinue={onContinue}
+                    />
+                  </AnimatePresence>
+                </div>
+                <div className="pt-8">
+                  <Button variant="ghost" asChild className="group">
+                    <NavLink
+                      onClick={() => setDirection(-1)}
+                      to={
+                        canGoPrevious
+                          ? `/onboarding/steps/${currentStep - 1}`
+                          : '/onboarding'
+                      }
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                      Back
+                    </NavLink>
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Right: mascot panel */}
+        <div className="hidden w-[360px] shrink-0 items-center justify-center border-border/40 border-l bg-muted/30 lg:flex">
+          <Mascot />
         </div>
       </main>
     </div>
