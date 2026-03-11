@@ -28,6 +28,7 @@ import { fetchDailyRateLimit } from './lib/rate-limiter/fetch-config'
 import { RateLimiter } from './lib/rate-limiter/rate-limiter'
 import { Sentry } from './lib/sentry'
 import { seedSoulTemplate } from './lib/soul'
+import { seedDefaultSkills } from './skills/seed'
 import { registry } from './tools/registry'
 import { VERSION } from './version'
 
@@ -132,6 +133,7 @@ export class Application {
     this.configureLogDirectory()
     await ensureBrowserosDir()
     await seedSoulTemplate()
+    await seedDefaultSkills()
 
     const dbPath = path.join(
       this.config.executionDir || this.config.resourcesDir,
