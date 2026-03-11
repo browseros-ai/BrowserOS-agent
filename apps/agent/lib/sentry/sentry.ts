@@ -2,6 +2,8 @@ import * as Sentry from '@sentry/react'
 import { getBrowserOSAdapter } from '../browseros/adapter'
 import { env } from '../env'
 
+const isSidepanel = window.location.pathname.includes('sidepanel')
+
 if (env.VITE_PUBLIC_SENTRY_DSN) {
   Sentry.init({
     dsn: env.VITE_PUBLIC_SENTRY_DSN,
@@ -10,6 +12,17 @@ if (env.VITE_PUBLIC_SENTRY_DSN) {
     sendDefaultPii: true,
     environment: env.PROD ? 'production' : 'development',
     release: chrome.runtime.getManifest().version,
+    // Disable performance tracing in sidepanel — browser tracing instruments
+    // DOM mutations and fetch calls which causes severe lag during streaming
+    tracesSampleRate: isSidepanel ? 0 : undefined,
+    integrations: isSidepanel
+      ? (defaults) =>
+          defaults.filter(
+            (i) =>
+              i.name !== 'BrowserTracing' &&
+              i.name !== 'browserTracingIntegration',
+          )
+      : undefined,
   })
 
   ;(async () => {
