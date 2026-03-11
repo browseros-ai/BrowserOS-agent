@@ -1,8 +1,8 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { Input } from '@/components/ui/input'
+import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import {
   ONBOARDING_COMPLETED_EVENT,
   ONBOARDING_DEMO_TRIGGERED_EVENT,
@@ -36,7 +36,7 @@ const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
   ],
   'Google Calendar': [
     {
-      label: "What meetings do I have tomorrow?",
+      label: 'What meetings do I have tomorrow?',
       query:
         "What meetings do I have tomorrow? Who's attending and what's the agenda?",
       mode: 'agent',
@@ -50,8 +50,7 @@ const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
   Notion: [
     {
       label: 'List my recently updated Notion pages',
-      query:
-        'List my recently updated Notion pages and summarize what changed',
+      query: 'List my recently updated Notion pages and summarize what changed',
       mode: 'agent',
     },
     {
@@ -80,8 +79,7 @@ const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
     },
     {
       label: 'List my recent GitHub pull requests',
-      query:
-        'List my recent GitHub pull requests and their review status',
+      query: 'List my recent GitHub pull requests and their review status',
       mode: 'agent',
     },
   ],
@@ -102,8 +100,7 @@ const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
   Jira: [
     {
       label: 'What Jira tickets are assigned to me?',
-      query:
-        'What Jira tickets are assigned to me? Show status and priority',
+      query: 'What Jira tickets are assigned to me? Show status and priority',
       mode: 'agent',
     },
     {
@@ -121,8 +118,7 @@ const APP_PROMPTS: Record<string, DemoSuggestion[]> = {
     },
     {
       label: 'Show my shared Google Docs with recent comments',
-      query:
-        'Show my shared Google Docs and summarize any recent comments',
+      query: 'Show my shared Google Docs and summarize any recent comments',
       mode: 'agent',
     },
   ],
@@ -280,7 +276,7 @@ export const OnboardingDemo = () => {
         </div>
 
         <div
-          className="space-y-3 overflow-y-auto pr-1"
+          className="styled-scrollbar space-y-3 overflow-y-auto pr-1"
           style={{ maxHeight: 'calc(5 * 56px + 4 * 12px)' }}
         >
           {demoSuggestions.map((suggestion, index) => (
