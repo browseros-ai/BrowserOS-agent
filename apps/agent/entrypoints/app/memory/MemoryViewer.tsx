@@ -154,7 +154,7 @@ export const MemoryViewer: FC = () => {
           <Textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            className="min-h-[200px] resize-y font-mono text-sm leading-relaxed"
+            className="max-h-[480px] min-h-[200px] resize-y font-mono text-sm leading-relaxed"
             placeholder="# Core Memories&#10;&#10;Write facts about yourself — name, preferences, projects, tools..."
             autoFocus
           />
@@ -165,7 +165,7 @@ export const MemoryViewer: FC = () => {
           )}
         </div>
       ) : (
-        <pre className="overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
+        <pre className="max-h-[480px] overflow-x-auto overflow-y-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
           {content}
         </pre>
       )}
