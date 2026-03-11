@@ -89,7 +89,12 @@ const ChatMessageItem = memo<ChatMessageItemProps>(
                 switch (segment.type) {
                   case 'text':
                     return (
-                      <MessageResponse key={segment.key}>
+                      <MessageResponse
+                        key={segment.key}
+                        mode={
+                          isLastMessage && isStreaming ? 'streaming' : 'static'
+                        }
+                      >
                         {segment.text}
                       </MessageResponse>
                     )
@@ -101,9 +106,7 @@ const ChatMessageItem = memo<ChatMessageItemProps>(
                         isStreaming={segment.isStreaming}
                       >
                         <ReasoningTrigger />
-                        <ReasoningContent>
-                          {segment.text}
-                        </ReasoningContent>
+                        <ReasoningContent>{segment.text}</ReasoningContent>
                       </Reasoning>
                     )
                   case 'tool-batch':
