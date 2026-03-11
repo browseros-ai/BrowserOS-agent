@@ -4,6 +4,7 @@ import {
   Home,
   PlugZap,
   Settings,
+  Sparkles,
   UserPen,
 } from 'lucide-react'
 import type { FC } from 'react'
@@ -49,6 +50,12 @@ const primaryNavItems: NavItem[] = [
     to: '/home/personalize',
     icon: UserPen,
     feature: Feature.PERSONALIZATION_SUPPORT,
+  },
+  {
+    name: 'Agent Soul',
+    to: '/home/soul',
+    icon: Sparkles,
+    feature: Feature.SOUL_SUPPORT,
   },
   { name: 'Settings', to: '/settings/ai', icon: Settings },
 ]
