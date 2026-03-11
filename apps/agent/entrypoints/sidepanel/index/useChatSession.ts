@@ -25,6 +25,7 @@ import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
+import { onboardingChatActiveStorage } from '@/lib/onboarding/onboardingStorage'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
@@ -90,7 +91,7 @@ const getSystemPrompt = (
 
 const ONBOARDING_SYSTEM_PROMPT = `IMPORTANT: This is the user's first interaction with BrowserOS. You are running an onboarding sequence to help them get set up. Follow these steps IN ORDER:
 
-1. LINKEDIN: Open linkedin.com in the current browser. Use take_snapshot and get_page_content to extract the user's profile (they should be logged in). Report back what you found — their headline, company, and a brief summary.
+1. LINKEDIN: Navigate to https://www.linkedin.com/in/me (this redirects to the user's own profile). Use take_snapshot and get_page_content to extract their profile details — headline, company, and a brief summary. Report back what you found.
 
 2. GMAIL/CALENDAR: Ask the user "Can I read a bit of your Gmail and Calendar to understand your work better?" If they agree, use the gmail and google calendar tools (discover_server_categories_or_actions) to read their 10 most recent emails and upcoming calendar events. Summarize what you learned.
 
@@ -297,6 +298,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
         const declinedApps = await declinedAppsStorage.getValue()
 
+        // Check if this is an onboarding chat (redirected from onboarding wizard)
+        const isOnboardingChat = await onboardingChatActiveStorage.getValue()
+        if (isOnboardingChat) {
+          await onboardingChatActiveStorage.setValue(false)
+        }
+
         const supportsArrayConversation = await Capabilities.supports(
           Feature.PREVIOUS_CONVERSATION_ARRAY,
         )
@@ -335,7 +342,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             sessionToken: provider?.sessionToken,
             browserContext,
             userSystemPrompt: getSystemPrompt(
-              options?.origin,
+              isOnboardingChat ? 'onboarding' : options?.origin,
               personalizationRef.current,
             ),
             userWorkingDir: workingDirRef.current,

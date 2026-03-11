@@ -222,15 +222,6 @@ export const ONBOARDING_CONNECT_CALENDAR_EVENT =
   'onboarding.connect_apps.calendar_connected'
 
 /** @public */
-export const ONBOARDING_CHAT_STARTED_EVENT = 'onboarding.chat.started'
-
-/** @public */
-export const ONBOARDING_CHAT_COMPLETED_EVENT = 'onboarding.chat.completed'
-
-/** @public */
-export const ONBOARDING_CHAT_SKIPPED_EVENT = 'onboarding.chat.skipped'
-
-/** @public */
 export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
 
 /** @public */

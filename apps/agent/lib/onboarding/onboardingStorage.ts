@@ -39,3 +39,8 @@ export const onboardingSignedInStorage = storage.defineItem<boolean>(
   'local:onboardingSignedIn',
   { fallback: false },
 )
+
+export const onboardingChatActiveStorage = storage.defineItem<boolean>(
+  'local:onboardingChatActive',
+  { fallback: false },
+)

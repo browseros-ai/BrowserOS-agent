@@ -1,4 +1,3 @@
-import { StepChat } from './StepChat'
 import { StepConnectApps } from './StepConnectApps'
 import { StepImport } from './StepImport'
 import { StepOne } from './StepOne'
@@ -9,5 +8,4 @@ export const steps = [
   { id: 2, name: 'Import', component: StepImport },
   { id: 3, name: 'Sign In', component: StepSignIn },
   { id: 4, name: 'Connect Apps', component: StepConnectApps },
-  { id: 5, name: 'Meet Assistant', component: StepChat },
 ]
