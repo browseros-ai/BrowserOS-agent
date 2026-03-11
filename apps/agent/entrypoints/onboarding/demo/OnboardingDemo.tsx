@@ -162,7 +162,6 @@ function buildPersonalizedSuggestions(
   const usedApps = new Set<string>()
 
   for (const appName of connectedApps) {
-    if (suggestions.length >= 3) break
     if (usedApps.has(appName)) continue
 
     const prompts = APP_PROMPTS[appName]
@@ -175,6 +174,20 @@ function buildPersonalizedSuggestions(
   return suggestions
 }
 
+function buildCompanyPrompt(company?: string): DemoSuggestion {
+  return company
+    ? {
+        label: `Search for ${company} and summarize the latest news`,
+        query: `Search for ${company} and summarize the latest news about them`,
+        mode: 'agent',
+      }
+    : {
+        label: "What's the top tech news today",
+        query: "What's the top tech news today? Give me a brief summary",
+        mode: 'agent',
+      }
+}
+
 export const OnboardingDemo = () => {
   const [customQuery, setCustomQuery] = useState('')
   const [demoSuggestions, setDemoSuggestions] = useState<DemoSuggestion[]>(() =>
@@ -183,20 +196,22 @@ export const OnboardingDemo = () => {
   const { data: userIntegrations } = useGetUserMCPIntegrations()
 
   useEffect(() => {
-    const connectedApps =
-      userIntegrations?.integrations
-        ?.filter((i) => i.is_authenticated)
-        .map((i) => i.name) ?? []
-
-    if (connectedApps.length > 0) {
-      const personalized = buildPersonalizedSuggestions(connectedApps)
-      if (personalized.length > 0) {
-        setDemoSuggestions(personalized)
-        return
-      }
-    }
-
     onboardingProfileStorage.getValue().then((profile) => {
+      const connectedApps =
+        userIntegrations?.integrations
+          ?.filter((i) => i.is_authenticated)
+          .map((i) => i.name) ?? []
+
+      const companyPrompt = buildCompanyPrompt(profile?.company)
+
+      if (connectedApps.length > 0) {
+        const personalized = buildPersonalizedSuggestions(connectedApps)
+        if (personalized.length > 0) {
+          setDemoSuggestions([...personalized, companyPrompt])
+          return
+        }
+      }
+
       setDemoSuggestions(buildDefaultSuggestions(profile?.company))
     })
   }, [userIntegrations])
@@ -264,7 +279,10 @@ export const OnboardingDemo = () => {
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div
+          className="space-y-3 overflow-y-auto pr-1"
+          style={{ maxHeight: 'calc(5 * 56px + 4 * 12px)' }}
+        >
           {demoSuggestions.map((suggestion, index) => (
             <button
               key={suggestion.label}
@@ -275,7 +293,7 @@ export const OnboardingDemo = () => {
               className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-[var(--accent-orange)]/50 hover:bg-accent"
             >
               <span className="font-medium text-sm">{suggestion.label}</span>
-              <ArrowRight className="size-4 text-muted-foreground" />
+              <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
             </button>
           ))}
         </div>
