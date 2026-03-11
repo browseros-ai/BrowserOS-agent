@@ -1,8 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import {
+  BriefcaseBusiness,
+  Check,
+  ChevronsUpDown,
+  Sparkles,
+  UserRound,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod/v3'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -35,6 +42,7 @@ import { track } from '@/lib/metrics/track'
 import { onboardingProfileStorage } from '@/lib/onboarding/onboardingStorage'
 import { personalizationStorage } from '@/lib/personalization/personalizationStorage'
 import { cn } from '@/lib/utils'
+import { StepScaffold } from './StepScaffold'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 interface StepOneProps {
@@ -43,6 +51,7 @@ interface StepOneProps {
 }
 
 const roles = [
+  'Founder / Co-Founder',
   'Software Engineer',
   'Frontend Engineer',
   'Backend Engineer',
@@ -50,30 +59,22 @@ const roles = [
   'DevOps Engineer',
   'Data Engineer',
   'ML Engineer',
-  'Engineering Manager',
   'Tech Lead',
   'CTO',
-  'VP of Engineering',
   'Product Manager',
   'Product Designer',
-  'UX Researcher',
-  'QA Engineer',
-  'Solutions Architect',
-  'Developer Advocate',
-  'Data Scientist',
-  'Founder / Co-Founder',
-  'CEO',
-  'COO',
+  'Researcher',
   'Growth / Marketing',
-  'Sales Engineer',
-  'Customer Success',
+  'Sales',
+  'Operations',
 ]
 
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, 'Tell us what to call you'),
   role: z.string().min(1, 'Role is required'),
-  company: z.string().min(1, 'Company is required'),
-  description: z.string().optional(),
+  company: z.string().optional(),
+  description: z.string().min(1, 'Tell us a bit about your work'),
+  assistantName: z.string().min(1, 'Give your BrowserOS agent a name'),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -89,89 +90,138 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
       role: '',
       company: '',
       description: '',
+      assistantName: 'BrowserOS',
     },
   })
 
   useEffect(() => {
-    let cancelled = false
-
     onboardingProfileStorage.getValue().then((profile) => {
-      if (!profile || cancelled) return
+      if (!profile) return
       form.reset({
         name: profile.name,
         role: profile.role,
-        company: profile.company,
+        company: profile.company ?? '',
         description: profile.description ?? '',
+        assistantName: profile.assistantName ?? 'BrowserOS',
       })
     })
-
-    return () => {
-      cancelled = true
-    }
   }, [form])
 
   const handleSubmit = async (values: FormValues) => {
     const name = values.name.trim()
     const role = values.role.trim()
-    const company = values.company.trim()
-    const description = values.description?.trim() || undefined
+    const company = values.company?.trim() || undefined
+    const description = values.description.trim()
+    const assistantName = values.assistantName.trim()
+    const existingProfile = await onboardingProfileStorage.getValue()
 
     await onboardingProfileStorage.setValue({
+      ...existingProfile,
       name,
       role,
       company,
       description,
+      assistantName,
     })
 
     const parts: string[] = []
-    parts.push(`Name: ${name}`)
+    parts.push(`Call the user: ${name}`)
     parts.push(`Role: ${role}`)
-    parts.push(`Company: ${company}`)
-    if (description) parts.push(`About: ${description}`)
+    if (company) parts.push(`Company: ${company}`)
+    parts.push(`What they do: ${description}`)
+    parts.push(`Preferred assistant name: ${assistantName}`)
     await personalizationStorage.setValue(parts.join('\n'))
 
     track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
       fields_filled: parts.length,
-      has_name: true,
-      has_role: true,
-      has_company: true,
-      has_description: !!description,
+      has_company: !!company,
+      has_description: true,
       role,
+      assistant_name: assistantName,
     })
-
-    track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })
+    track(ONBOARDING_STEP_COMPLETED_EVENT, {
+      step: 1,
+      step_name: 'about_you',
+    })
     onContinue()
   }
 
   return (
     <StepTransition direction={direction}>
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="w-full max-w-md space-y-6">
-          <div className="space-y-2 text-center">
-            <h2 className="font-bold text-3xl tracking-tight">
-              Tell us about yourself
-            </h2>
-            <p className="text-base text-muted-foreground">
-              We use this to personalize BrowserOS and your first task
-            </p>
-          </div>
+      <StepScaffold
+        badge="Step 1"
+        title="Start with who you are"
+        description="Give BrowserOS just enough context to make the first conversation feel personal instead of generic."
+        aside={
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <Badge
+                variant="secondary"
+                className="rounded-full bg-background px-3 py-1"
+              >
+                First-run context
+              </Badge>
+              <div className="space-y-2">
+                <h3 className="font-medium text-lg">What BrowserOS will do</h3>
+                <p className="text-muted-foreground text-sm leading-6">
+                  Use your intro to personalize the launch prompt, shape your
+                  first `SOUL.md` update, and suggest useful skills or recurring
+                  tasks.
+                </p>
+              </div>
+            </div>
 
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              className="space-y-4"
-            >
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <UserRound className="h-4 w-4 text-[var(--accent-orange)]" />
+                  <p className="font-medium text-sm">You</p>
+                </div>
+                <p className="text-muted-foreground text-sm leading-6">
+                  Name, role, company, and the kind of work you want help with.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[var(--accent-orange)]" />
+                  <p className="font-medium text-sm">Your agent</p>
+                </div>
+                <p className="text-muted-foreground text-sm leading-6">
+                  Pick the name BrowserOS should use when it introduces itself
+                  in the first chat.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <BriefcaseBusiness className="h-4 w-4 text-[var(--accent-orange)]" />
+                  <p className="font-medium text-sm">What comes next</p>
+                </div>
+                <p className="text-muted-foreground text-sm leading-6">
+                  Chrome import, Google setup, LinkedIn-aware launch, then a
+                  BrowserOS chat that can ask to learn more from Gmail and
+                  Calendar.
+                </p>
+              </div>
+            </div>
+          </div>
+        }
+      >
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-6"
+          >
+            <div className="grid gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your name</FormLabel>
+                    <FormLabel>What should I call you?</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="What should we call you?"
-                        {...field}
-                      />
+                      <Input placeholder="Nithin" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -180,10 +230,26 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
 
               <FormField
                 control={form.control}
+                name="assistantName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>What should I be called?</FormLabel>
+                    <FormControl>
+                      <Input placeholder="BrowserOS" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+              <FormField
+                control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your role</FormLabel>
+                    <FormLabel>What do you do?</FormLabel>
                     <Popover open={roleOpen} onOpenChange={setRoleOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -193,7 +259,7 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                           >
                             {field.value || (
                               <span className="text-muted-foreground">
-                                Select or type a role
+                                Select or type your role
                               </span>
                             )}
                             <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
@@ -217,8 +283,8 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                             <CommandGroup>
                               {roleSearch.trim() &&
                                 !roles.some(
-                                  (r) =>
-                                    r.toLowerCase() ===
+                                  (role) =>
+                                    role.toLowerCase() ===
                                     roleSearch.trim().toLowerCase(),
                                 ) && (
                                   <CommandItem
@@ -233,27 +299,25 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                                     {roleSearch.trim()}
                                   </CommandItem>
                                 )}
-                              {roles.map((r) => (
+                              {roles.map((role) => (
                                 <CommandItem
-                                  key={r}
-                                  value={r}
-                                  onSelect={(value) => {
-                                    field.onChange(
-                                      value === field.value ? '' : value,
-                                    )
+                                  key={role}
+                                  value={role}
+                                  onSelect={(selected) => {
+                                    field.onChange(selected)
                                     setRoleOpen(false)
                                     setRoleSearch('')
                                   }}
                                 >
                                   <Check
                                     className={cn(
-                                      'size-4',
-                                      field.value === r
+                                      'mr-2 size-4',
+                                      role === field.value
                                         ? 'opacity-100'
                                         : 'opacity-0',
                                     )}
                                   />
-                                  {r}
+                                  {role}
                                 </CommandItem>
                               ))}
                             </CommandGroup>
@@ -271,45 +335,53 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                 name="company"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company</FormLabel>
+                    <FormLabel>Where do you work? (optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Acme Inc." {...field} />
+                      <Input placeholder="BrowserOS" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            </div>
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      What does a typical day look like for you?
-                    </FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="I spend most of my day researching competitors, writing specs, and coordinating with engineering..."
-                        rows={4}
-                        className="field-sizing-fixed"
-                        {...field}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    What does your work look like day to day?
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="I'm a founder shipping product, talking to users, and living inside Gmail, Calendar, docs, and LinkedIn."
+                      className="min-h-36 resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
+            <div className="flex flex-wrap items-center justify-between gap-4 border-border/70 border-t pt-6">
+              <p className="max-w-md text-muted-foreground text-sm leading-6">
+                This stays local until you choose to sign in. After that,
+                BrowserOS can sync the basic profile and use it to make chat,
+                skills, and schedules feel more relevant.
+              </p>
               <Button
                 type="submit"
-                className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+                size="lg"
+                className="min-w-40 bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
               >
                 Continue
               </Button>
-            </form>
-          </Form>
-        </div>
-      </div>
+            </div>
+          </form>
+        </Form>
+      </StepScaffold>
     </StepTransition>
   )
 }

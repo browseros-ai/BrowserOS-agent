@@ -20,6 +20,7 @@ export async function syncOnboardingProfile(userId: string): Promise<void> {
   if (profile.role) preferences.role = profile.role
   if (profile.company) preferences.company = profile.company
   if (profile.description) preferences.description = profile.description
+  if (profile.assistantName) preferences.assistant_name = profile.assistantName
 
   await execute(UpdateProfileByUserIdDocument, {
     userId,
