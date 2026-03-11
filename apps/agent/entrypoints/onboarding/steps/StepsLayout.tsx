@@ -48,15 +48,19 @@ export const StepsLayout = () => {
       profileRef.current ?? (await onboardingProfileStorage.getValue())
     const name = profile?.name || 'there'
     const role = profile?.role || 'user'
+    const company = profile?.company || ''
 
     track(ONBOARDING_COMPLETED_EVENT)
     await onboardingCompletedStorage.setValue(true)
 
-    // Same pattern as OnboardingDemo "Try It": create tab, then open side panel
+    const intro = company
+      ? `I just installed BrowserOS. My name is ${name}, I'm a ${role} at ${company}. Help me get set up!`
+      : `I just installed BrowserOS. My name is ${name} and I'm a ${role}. Help me get set up!`
+
     await chrome.tabs.create({ active: true })
     await new Promise((resolve) => setTimeout(resolve, 500))
     openSidePanelWithSearch('open', {
-      query: `I just installed BrowserOS. My name is ${name} and I'm a ${role}. Help me get set up!`,
+      query: intro,
       mode: 'agent',
       origin: 'onboarding',
     })

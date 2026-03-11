@@ -3,6 +3,8 @@ import { storage } from '@wxt-dev/storage'
 export interface OnboardingProfile {
   name: string
   role: string
+  company: string
+  description?: string
 }
 
 export const onboardingCompletedStorage = storage.defineItem<boolean>(

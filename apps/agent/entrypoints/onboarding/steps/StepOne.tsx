@@ -26,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { Textarea } from '@/components/ui/textarea'
 import {
   ONBOARDING_ABOUT_SUBMITTED_EVENT,
   ONBOARDING_STEP_COMPLETED_EVENT,
@@ -71,6 +72,8 @@ const roles = [
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.string().min(1, 'Role is required'),
+  company: z.string().min(1, 'Company is required'),
+  description: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -84,20 +87,37 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
     defaultValues: {
       name: '',
       role: '',
+      company: '',
+      description: '',
     },
   })
 
   const handleSubmit = async (values: FormValues) => {
     const name = values.name.trim()
     const role = values.role.trim()
+    const company = values.company.trim()
+    const description = values.description?.trim() || undefined
 
-    // Save profile for use in later onboarding steps
-    await onboardingProfileStorage.setValue({ name, role })
-    await personalizationStorage.setValue(`Name: ${name}\nRole: ${role}`)
+    await onboardingProfileStorage.setValue({
+      name,
+      role,
+      company,
+      description,
+    })
+
+    const parts: string[] = []
+    parts.push(`Name: ${name}`)
+    parts.push(`Role: ${role}`)
+    parts.push(`Company: ${company}`)
+    if (description) parts.push(`About: ${description}`)
+    await personalizationStorage.setValue(parts.join('\n'))
 
     track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
+      fields_filled: parts.length,
       has_name: true,
       has_role: true,
+      has_company: true,
+      has_description: !!description,
       role,
     })
     track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })
@@ -223,6 +243,40 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                       </PopoverContent>
                     </Popover>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Acme Inc." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      What does a typical day look like for you?
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="I spend most of my day researching competitors, writing specs, and coordinating with engineering..."
+                        rows={4}
+                        className="field-sizing-fixed"
+                        {...field}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

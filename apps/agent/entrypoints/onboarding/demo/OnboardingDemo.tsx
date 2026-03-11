@@ -1,5 +1,5 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -8,15 +8,24 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
-import { onboardingCompletedStorage } from '@/lib/onboarding/onboardingStorage'
+import {
+  onboardingCompletedStorage,
+  onboardingProfileStorage,
+} from '@/lib/onboarding/onboardingStorage'
 
-function buildDemoSuggestions() {
+function buildDemoSuggestions(company?: string) {
   return [
-    {
-      label: "What's the top tech news today",
-      query: "What's the top tech news today? Give me a brief summary",
-      mode: 'agent' as const,
-    },
+    company
+      ? {
+          label: `Search for ${company} and summarize the latest news`,
+          query: `Search for ${company} and summarize the latest news about them`,
+          mode: 'agent' as const,
+        }
+      : {
+          label: "What's the top tech news today",
+          query: "What's the top tech news today? Give me a brief summary",
+          mode: 'agent' as const,
+        },
     {
       label: "What's the top news today",
       query:
@@ -33,7 +42,17 @@ function buildDemoSuggestions() {
 
 export const OnboardingDemo = () => {
   const [customQuery, setCustomQuery] = useState('')
-  const demoSuggestions = buildDemoSuggestions()
+  const [demoSuggestions, setDemoSuggestions] = useState(() =>
+    buildDemoSuggestions(),
+  )
+
+  useEffect(() => {
+    onboardingProfileStorage.getValue().then((profile) => {
+      if (profile?.company) {
+        setDemoSuggestions(buildDemoSuggestions(profile.company))
+      }
+    })
+  }, [])
 
   const completeOnboarding = async () => {
     await onboardingCompletedStorage.setValue(true)
