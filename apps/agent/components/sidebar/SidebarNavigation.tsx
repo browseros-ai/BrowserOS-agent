@@ -59,7 +59,12 @@ const primaryNavItems: NavItem[] = [
     icon: Sparkles,
     feature: Feature.SOUL_SUPPORT,
   },
-  { name: 'Skills', to: '/home/skills', icon: Wand2 },
+  {
+    name: 'Skills',
+    to: '/home/skills',
+    icon: Wand2,
+    feature: Feature.SKILLS_SUPPORT,
+  },
   {
     name: 'Memory',
     to: '/home/memory',
