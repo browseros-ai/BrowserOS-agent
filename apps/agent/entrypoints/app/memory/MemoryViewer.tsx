@@ -98,17 +98,19 @@ export const MemoryViewer: FC = () => {
         if (!isEditing) refetch()
       }}
     >
-      <div className="flex items-center justify-between border-border border-b px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 border-border border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <Brain className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">CORE.md</span>
           {isEditing ? (
-            <span className="text-violet-500 text-xs">editing</span>
+            <span className="shrink-0 text-violet-500 text-xs">editing</span>
           ) : (
-            <span className="text-muted-foreground text-xs">editable</span>
+            <span className="shrink-0 text-muted-foreground text-xs">
+              editable
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {isEditing ? (
             <>
               <Button
@@ -165,7 +167,7 @@ export const MemoryViewer: FC = () => {
           )}
         </div>
       ) : (
-        <pre className="overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
+        <pre className="styled-scrollbar max-h-[65vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
           {content}
         </pre>
       )}

@@ -78,18 +78,18 @@ export const MemoryExamples: FC = () => {
         {MEMORY_EXAMPLES.map((example) => (
           <div
             key={example.label}
-            className="flex items-center justify-between rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
           >
-            <div className="mr-3 min-w-0 flex-1">
+            <div className="min-w-0 flex-1">
               <p className="font-medium text-sm">{example.label}</p>
-              <p className="mt-0.5 truncate text-muted-foreground text-xs">
+              <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs leading-relaxed">
                 {example.query}
               </p>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="shrink-0 gap-1.5"
+              className="shrink-0 gap-1.5 self-start sm:self-center"
               onClick={() => handleTryIt(example.query)}
             >
               <MessageSquare className="h-3.5 w-3.5" />
