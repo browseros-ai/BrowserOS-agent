@@ -1,25 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
-import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
+import { useRpcClient } from '@/lib/rpc/RpcClientProvider'
 
-async function fetchSoul(baseUrl: string): Promise<string> {
-  const response = await fetch(`${baseUrl}/soul`)
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
-  const data = await response.json()
-  return data.content || ''
-}
+export const SOUL_QUERY_KEY = 'soul'
 
 export function useSoulContent() {
-  const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
+  const rpcClient = useRpcClient()
 
   const { data, isLoading, error, refetch } = useQuery<string, Error>({
-    queryKey: ['soul', baseUrl],
-    queryFn: () => fetchSoul(baseUrl as string),
-    enabled: !!baseUrl && !urlLoading,
+    queryKey: [SOUL_QUERY_KEY],
+    queryFn: async () => {
+      const response = await rpcClient.soul.$get()
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const result = await response.json()
+      return result.content || ''
+    },
   })
 
   return {
     content: data ?? null,
-    isLoading: isLoading || urlLoading,
+    isLoading,
     error,
     refetch,
   }

@@ -193,6 +193,9 @@ export const ONBOARDING_STEP_COMPLETED_EVENT = 'onboarding.step.completed'
 export const ONBOARDING_ABOUT_SUBMITTED_EVENT = 'onboarding.about.submitted'
 
 /** @public */
+export const ONBOARDING_SOUL_SELECTED_EVENT = 'onboarding.soul.selected'
+
+/** @public */
 export const ONBOARDING_CONNECT_APPS_VIEWED_EVENT =
   'onboarding.connect_apps.viewed'
 
