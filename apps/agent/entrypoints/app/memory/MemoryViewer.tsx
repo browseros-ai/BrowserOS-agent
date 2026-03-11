@@ -165,12 +165,9 @@ export const MemoryViewer: FC = () => {
           )}
         </div>
       ) : (
-        <div className="relative">
-          <pre className="styled-scrollbar max-h-[60vh] overflow-x-auto overflow-y-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
-            {content}
-          </pre>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 rounded-b-xl bg-gradient-to-t from-card to-transparent" />
-        </div>
+        <pre className="overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
+          {content}
+        </pre>
       )}
     </div>
   )
