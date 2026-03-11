@@ -47,7 +47,7 @@ const OptionsRedirect: FC = () => {
     mcp: '/settings/mcp',
     customization: '/settings/customization',
     search: '/settings/search',
-    soul: '/settings/soul',
+    soul: '/home/soul',
     'jtbd-agent': '/settings/survey',
     workflows: '/workflows',
     scheduled: '/scheduled',
@@ -78,6 +78,7 @@ export const App: FC = () => {
           <Route path="home" element={<NewTabLayout />}>
             <Route index element={<NewTab />} />
             <Route path="personalize" element={<Personalize />} />
+            <Route path="soul" element={<SoulPage />} />
           </Route>
 
           {/* Primary nav routes */}
@@ -95,7 +96,6 @@ export const App: FC = () => {
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="search" element={<SearchProviderPage />} />
-            <Route path="soul" element={<SoulPage />} />
             <Route path="skills" element={<SkillsPage />} />
             <Route path="survey" element={<SurveyPage {...surveyParams} />} />
           </Route>
@@ -121,6 +121,10 @@ export const App: FC = () => {
         <Route
           path="/settings/connect-mcp"
           element={<Navigate to="/connect-apps" replace />}
+        />
+        <Route
+          path="/settings/soul"
+          element={<Navigate to="/home/soul" replace />}
         />
         <Route path="/options/*" element={<OptionsRedirect />} />
 
