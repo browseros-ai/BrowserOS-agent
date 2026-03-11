@@ -50,7 +50,6 @@ export const Chat = () => {
 
   const [input, setInput] = useState('')
   const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -68,15 +67,6 @@ export const Chat = () => {
       setAttachedTabs(currentTab)
     })()
   }, [])
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when messages change
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
 
   // Trigger JTBD popup when AI finishes responding
   const previousChatStatus = useRef(status)
@@ -174,7 +164,6 @@ export const Chat = () => {
           <ChatMessages
             messages={messages}
             status={status}
-            messagesEndRef={messagesEndRef}
             getActionForMessage={getActionForMessage}
             liked={liked}
             onClickLike={onClickLike}

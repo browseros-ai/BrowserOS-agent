@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react'
-import { type FC, useEffect, useRef, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { ChatEmptyState } from '@/entrypoints/sidepanel/index/ChatEmptyState'
 import { ChatError } from '@/entrypoints/sidepanel/index/ChatError'
 import { ChatFooter } from '@/entrypoints/sidepanel/index/ChatFooter'
@@ -46,17 +46,11 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
 
   const [input, setInput] = useState('')
   const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   const handleModeChange = (newMode: ChatMode) => {
     track(NEWTAB_CHAT_MODE_CHANGED_EVENT, { from: mode, to: newMode })
@@ -147,7 +141,6 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
           <ChatMessages
             messages={messages}
             status={status}
-            messagesEndRef={messagesEndRef}
             getActionForMessage={getActionForMessage}
             liked={liked}
             onClickLike={onClickLike}

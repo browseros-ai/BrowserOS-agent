@@ -1,6 +1,6 @@
 import type { UIMessage } from 'ai'
 import { Bot } from 'lucide-react'
-import { type FC, Fragment, type RefObject } from 'react'
+import { type FC, Fragment } from 'react'
 import {
   Conversation,
   ConversationContent,
@@ -28,7 +28,6 @@ import { UserActionMessage } from './UserActionMessage'
 interface ChatMessagesProps {
   messages: UIMessage[]
   status: 'streaming' | 'submitted' | 'ready' | 'error'
-  messagesEndRef: RefObject<HTMLDivElement | null>
   getActionForMessage?: (message: UIMessage) => ChatAction | undefined
   liked: Record<string, boolean>
   onClickLike: (messageId: string) => void
@@ -43,7 +42,6 @@ interface ChatMessagesProps {
 export const ChatMessages: FC<ChatMessagesProps> = ({
   messages,
   status,
-  messagesEndRef,
   getActionForMessage,
   liked,
   disliked,
@@ -177,7 +175,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
           </div>
         </div>
       )}
-      <div ref={messagesEndRef} />
+      <div />
     </>
   )
 }
