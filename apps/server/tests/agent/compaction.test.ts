@@ -1,4 +1,13 @@
 import { describe, expect, it } from 'bun:test'
+import type {
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3GenerateResult,
+  LanguageModelV3Prompt,
+  LanguageModelV3StreamPart,
+  LanguageModelV3StreamResult,
+  LanguageModelV3Usage,
+} from '@ai-sdk/provider'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import type { ModelMessage, ToolResultPart } from 'ai'
@@ -112,6 +121,18 @@ function assistantMsg(text: string): ModelMessage {
   return { role: 'assistant', content: text }
 }
 
+function systemPrompt(text: string): LanguageModelV3Prompt[number] {
+  return { role: 'system', content: text }
+}
+
+function userPrompt(text: string): LanguageModelV3Prompt[number] {
+  return { role: 'user', content: [{ type: 'text', text }] }
+}
+
+function assistantPrompt(text: string): LanguageModelV3Prompt[number] {
+  return { role: 'assistant', content: [{ type: 'text', text }] }
+}
+
 function assistantToolCall(
   toolName: string,
   input: Record<string, unknown>,
@@ -186,6 +207,92 @@ function userMsgWithImage(text: string): ModelMessage {
       { type: 'image', image: new Uint8Array([1, 2, 3]) },
     ],
   }
+}
+
+function createCallOptions(
+  prompt: LanguageModelV3Prompt,
+): LanguageModelV3CallOptions {
+  return { prompt }
+}
+
+function createUsage(): LanguageModelV3Usage {
+  return {
+    inputTokens: {
+      total: 0,
+      noCache: 0,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+    },
+    outputTokens: {
+      total: 0,
+      text: 0,
+      reasoning: undefined,
+    },
+  }
+}
+
+function createTextResult(text: string): LanguageModelV3GenerateResult {
+  return {
+    content: [{ type: 'text', text }],
+    finishReason: { unified: 'stop', raw: 'stop' },
+    usage: createUsage(),
+    warnings: [],
+  }
+}
+
+function createStreamResult(): LanguageModelV3StreamResult {
+  return {
+    stream: new ReadableStream<LanguageModelV3StreamPart>(),
+  }
+}
+
+function isSystemPrompt(
+  message: LanguageModelV3Prompt[number],
+): message is Extract<LanguageModelV3Prompt[number], { role: 'system' }> {
+  return message.role === 'system'
+}
+
+const mockLanguageModel: LanguageModelV3 = {
+  specificationVersion: 'v3',
+  provider: 'test-provider',
+  modelId: 'test-model',
+  supportedUrls: {},
+  doGenerate: async () => createTextResult('unused'),
+  doStream: async () => createStreamResult(),
+}
+
+async function runWrappedGenerate(
+  middleware: ReturnType<typeof createContextOverflowMiddleware>,
+  params: LanguageModelV3CallOptions,
+  doGenerate: () => Promise<LanguageModelV3GenerateResult>,
+): Promise<LanguageModelV3GenerateResult> {
+  const wrapGenerate = middleware.wrapGenerate
+  if (!wrapGenerate) {
+    throw new Error('wrapGenerate is unavailable')
+  }
+  return await wrapGenerate({
+    doGenerate,
+    doStream: async () => createStreamResult(),
+    model: mockLanguageModel,
+    params,
+  })
+}
+
+async function runWrappedStream(
+  middleware: ReturnType<typeof createContextOverflowMiddleware>,
+  params: LanguageModelV3CallOptions,
+  doStream: () => Promise<LanguageModelV3StreamResult>,
+): Promise<LanguageModelV3StreamResult> {
+  const wrapStream = middleware.wrapStream
+  if (!wrapStream) {
+    throw new Error('wrapStream is unavailable')
+  }
+  return await wrapStream({
+    doGenerate: async () => createTextResult('unused'),
+    doStream,
+    model: mockLanguageModel,
+    params,
+  })
 }
 
 function repeat(char: string, count: number): string {
@@ -1273,96 +1380,84 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
 describe('createContextOverflowMiddleware', () => {
   it('passes through when model succeeds', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
-    const mockResult = { text: 'hello' }
-    const params = {
-      prompt: [
-        { role: 'system', content: 'You are helpful' },
-        { role: 'user', content: 'hi' },
-      ],
-    }
+    const mockResult = createTextResult('hello')
+    const params = createCallOptions([
+      systemPrompt('You are helpful'),
+      userPrompt('hi'),
+    ])
 
-    const result = await middleware.wrapGenerate?.({
-      doGenerate: async () => mockResult,
+    const result = await runWrappedGenerate(
+      middleware,
       params,
-    } as any)
+      async () => mockResult,
+    )
 
     expect(result).toBe(mockResult)
   })
 
   it('rethrows non-context errors', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
-    const params = {
-      prompt: [{ role: 'user', content: 'hi' }],
-    }
+    const params = createCallOptions([userPrompt('hi')])
 
     await expect(
-      middleware.wrapGenerate?.({
-        doGenerate: async () => {
-          throw new Error('network timeout')
-        },
-        params,
-      } as any),
+      runWrappedGenerate(middleware, params, async () => {
+        throw new Error('network timeout')
+      }),
     ).rejects.toThrow('network timeout')
   })
 
   it('truncates and retries on context_length error', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
     let callCount = 0
-    const params = {
-      prompt: [
-        { role: 'system', content: 'system prompt' },
-        { role: 'user', content: 'old message 1' },
-        { role: 'assistant', content: 'old response 1' },
-        { role: 'user', content: 'old message 2' },
-        { role: 'assistant', content: 'old response 2' },
-        { role: 'user', content: 'recent message' },
-      ],
-    }
+    const mockResult = createTextResult('success after truncation')
+    const params = createCallOptions([
+      systemPrompt('system prompt'),
+      userPrompt('old message 1'),
+      assistantPrompt('old response 1'),
+      userPrompt('old message 2'),
+      assistantPrompt('old response 2'),
+      userPrompt('recent message'),
+    ])
 
-    const result = await middleware.wrapGenerate?.({
-      doGenerate: async () => {
-        callCount++
-        if (callCount === 1) {
-          throw new Error('context_length_exceeded')
-        }
-        return { text: 'success after truncation' }
-      },
-      params,
-    } as any)
+    const result = await runWrappedGenerate(middleware, params, async () => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error('context_length_exceeded')
+      }
+      return mockResult
+    })
 
     expect(callCount).toBe(2)
-    expect(result).toEqual({ text: 'success after truncation' })
+    expect(result).toBe(mockResult)
     // System message should be preserved
-    expect(params.prompt.some((m: any) => m.role === 'system')).toBe(true)
+    expect(params.prompt.some((message) => message.role === 'system')).toBe(
+      true,
+    )
     // Prompt should be shorter after truncation
     expect(params.prompt.length).toBeLessThanOrEqual(6)
   })
 
   it('preserves system messages during truncation', async () => {
     const middleware = createContextOverflowMiddleware(10_000)
-    let truncatedPrompt: any[] = []
-    const params = {
-      prompt: [
-        { role: 'system', content: 'important system prompt' },
-        { role: 'user', content: 'a'.repeat(50_000) },
-        { role: 'assistant', content: 'b'.repeat(50_000) },
-        { role: 'user', content: 'recent' },
-      ],
-    }
+    const mockResult = createTextResult('ok')
+    let truncatedPrompt: LanguageModelV3Prompt = []
+    const params = createCallOptions([
+      systemPrompt('important system prompt'),
+      userPrompt('a'.repeat(50_000)),
+      assistantPrompt('b'.repeat(50_000)),
+      userPrompt('recent'),
+    ])
 
-    await middleware.wrapGenerate?.({
-      doGenerate: async () => {
-        if (truncatedPrompt.length === 0) {
-          truncatedPrompt = [...params.prompt]
-          throw new Error('maximum context length exceeded')
-        }
+    await runWrappedGenerate(middleware, params, async () => {
+      if (truncatedPrompt.length === 0) {
         truncatedPrompt = [...params.prompt]
-        return { text: 'ok' }
-      },
-      params,
-    } as any)
+        throw new Error('maximum context length exceeded')
+      }
+      truncatedPrompt = [...params.prompt]
+      return mockResult
+    })
 
-    const systemMsgs = truncatedPrompt.filter((m: any) => m.role === 'system')
+    const systemMsgs = truncatedPrompt.filter(isSystemPrompt)
     expect(systemMsgs.length).toBe(1)
     expect(systemMsgs[0].content).toBe('important system prompt')
   })
@@ -1370,26 +1465,22 @@ describe('createContextOverflowMiddleware', () => {
   it('handles wrapStream the same way', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
     let callCount = 0
-    const params = {
-      prompt: [
-        { role: 'system', content: 'system' },
-        { role: 'user', content: 'message' },
-      ],
-    }
+    const mockResult = createStreamResult()
+    const params = createCallOptions([
+      systemPrompt('system'),
+      userPrompt('message'),
+    ])
 
-    const result = await middleware.wrapStream?.({
-      doStream: async () => {
-        callCount++
-        if (callCount === 1) {
-          throw new Error('token limit exceeded')
-        }
-        return { stream: 'mock-stream' }
-      },
-      params,
-    } as any)
+    const result = await runWrappedStream(middleware, params, async () => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error('token limit exceeded')
+      }
+      return mockResult
+    })
 
     expect(callCount).toBe(2)
-    expect(result).toEqual({ stream: 'mock-stream' })
+    expect(result).toBe(mockResult)
   })
 
   it('detects provider-specific context overflow errors', async () => {
@@ -1410,18 +1501,14 @@ describe('createContextOverflowMiddleware', () => {
 
     for (const errMsg of errorMessages) {
       let callCount = 0
-      const params = {
-        prompt: [{ role: 'user', content: 'hi' }],
-      }
+      const mockResult = createTextResult('ok')
+      const params = createCallOptions([userPrompt('hi')])
 
-      await middleware.wrapGenerate?.({
-        doGenerate: async () => {
-          callCount++
-          if (callCount === 1) throw new Error(errMsg)
-          return { text: 'ok' }
-        },
-        params,
-      } as any)
+      await runWrappedGenerate(middleware, params, async () => {
+        callCount++
+        if (callCount === 1) throw new Error(errMsg)
+        return mockResult
+      })
 
       expect(callCount).toBe(2)
     }
@@ -1444,25 +1531,21 @@ describe('createContextOverflowMiddleware', () => {
 
   it('keeps at least the last non-system message when it exceeds target', async () => {
     const middleware = createContextOverflowMiddleware(1_000)
-    let truncatedPrompt: any[] = []
-    const params = {
-      prompt: [
-        { role: 'system', content: 'system' },
-        { role: 'user', content: 'x'.repeat(100_000) },
-      ],
-    }
+    const mockResult = createTextResult('ok')
+    let truncatedPrompt: LanguageModelV3Prompt = []
+    const params = createCallOptions([
+      systemPrompt('system'),
+      userPrompt('x'.repeat(100_000)),
+    ])
 
-    await middleware.wrapGenerate?.({
-      doGenerate: async () => {
-        if (truncatedPrompt.length === 0) {
-          truncatedPrompt = [...params.prompt]
-          throw new Error('context_length_exceeded')
-        }
+    await runWrappedGenerate(middleware, params, async () => {
+      if (truncatedPrompt.length === 0) {
         truncatedPrompt = [...params.prompt]
-        return { text: 'ok' }
-      },
-      params,
-    } as any)
+        throw new Error('context_length_exceeded')
+      }
+      truncatedPrompt = [...params.prompt]
+      return mockResult
+    })
 
     // Must keep system + at least the last user message (not empty)
     expect(truncatedPrompt.length).toBe(2)
