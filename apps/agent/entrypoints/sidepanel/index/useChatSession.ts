@@ -393,20 +393,32 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     }
   }, [conversationIdParam, remoteConversationData, isLoggedIn])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run when messages change
+  // Keep messagesRef in sync on every change (cheap ref assignment)
   useEffect(() => {
     messagesRef.current = messages
+  }, [messages])
+
+  // Save conversation only after streaming completes — not on every token
+  const previousStatusRef = useRef(status)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only save when streaming finishes
+  useEffect(() => {
+    const wasStreaming =
+      previousStatusRef.current === 'streaming' ||
+      previousStatusRef.current === 'submitted'
+    const justFinished = wasStreaming && status === 'ready'
+    previousStatusRef.current = status
+
+    if (!justFinished) return
+
     const messagesToSave = messages.filter((m) => m.parts?.length > 0)
-    if (messagesToSave.length > 0) {
-      if (isLoggedIn) {
-        if (status !== 'streaming') {
-          saveRemoteConversation(conversationIdRef.current, messagesToSave)
-        }
-      } else {
-        saveLocalConversation(conversationIdRef.current, messagesToSave)
-      }
+    if (messagesToSave.length === 0) return
+
+    if (isLoggedIn) {
+      saveRemoteConversation(conversationIdRef.current, messagesToSave)
+    } else {
+      saveLocalConversation(conversationIdRef.current, messagesToSave)
     }
-  }, [messages, isLoggedIn, status])
+  }, [status])
 
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     track(MESSAGE_SENT_EVENT, {
