@@ -14,7 +14,15 @@ async function saveMemory(baseUrl: string, content: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
   })
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`
+    try {
+      const body = await response.json()
+      if (body?.error?.message) message = body.error.message
+      else if (body?.success === false && body?.message) message = body.message
+    } catch {}
+    throw new Error(message)
+  }
 }
 
 export function useMemoryContent() {
@@ -42,5 +50,6 @@ export function useMemoryContent() {
     save: saveMutation.mutateAsync,
     isSaving: saveMutation.isPending,
     saveError: saveMutation.error,
+    resetSaveError: saveMutation.reset,
   }
 }

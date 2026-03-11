@@ -6,22 +6,33 @@ import { Textarea } from '@/components/ui/textarea'
 import { useMemoryContent } from './useMemoryContent'
 
 export const MemoryViewer: FC = () => {
-  const { content, isLoading, error, refetch, save, isSaving, saveError } =
-    useMemoryContent()
+  const {
+    content,
+    isLoading,
+    error,
+    refetch,
+    save,
+    isSaving,
+    saveError,
+    resetSaveError,
+  } = useMemoryContent()
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState('')
 
   const handleEdit = () => {
+    resetSaveError()
     setEditContent(content || '')
     setIsEditing(true)
   }
 
   const handleCreate = () => {
+    resetSaveError()
     setEditContent('')
     setIsEditing(true)
   }
 
   const handleCancel = () => {
+    resetSaveError()
     setIsEditing(false)
     setEditContent('')
   }
@@ -149,7 +160,7 @@ export const MemoryViewer: FC = () => {
           />
           {saveError && (
             <p className="mt-2 text-destructive text-xs">
-              Failed to save. Please try again.
+              {saveError.message || 'Failed to save. Please try again.'}
             </p>
           )}
         </div>
