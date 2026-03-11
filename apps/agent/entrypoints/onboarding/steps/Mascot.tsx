@@ -5,7 +5,7 @@ import EyesOpen from '@/assets/mascot/eyes-open.png'
 
 const BLINK_INTERVAL_MS = 3000
 const BLINK_DURATION_MS = 150
-const HEAD_MOVE_RANGE = 6
+const HEAD_MOVE_RANGE = 8
 
 // Head occupies roughly top 52% of the 2048x2048 image
 const HEAD_CLIP = 'inset(0 0 48% 0)'
@@ -56,7 +56,7 @@ export const Mascot = () => {
   return (
     <motion.div
       ref={containerRef}
-      className="relative h-[180px] w-[140px] shrink-0"
+      className="relative h-[260px] w-[200px] shrink-0"
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3, duration: 0.5, ease: 'easeOut' }}
