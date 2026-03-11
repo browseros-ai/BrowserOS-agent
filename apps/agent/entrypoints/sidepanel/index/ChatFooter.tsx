@@ -1,6 +1,6 @@
 import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AppSelector } from '@/components/elements/AppSelector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
@@ -48,6 +48,27 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   useSyncRemoteIntegrations()
   const chatInputRef = useRef<ChatInputHandle>(null)
   const [isTabMentionOpen, setIsTabMentionOpen] = useState(false)
+
+  useEffect(() => {
+    const focusInput = () => {
+      const active = document.activeElement
+      const isInteractiveElementFocused =
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement ||
+        active instanceof HTMLButtonElement
+      if (!isInteractiveElementFocused) {
+        chatInputRef.current?.focus()
+      }
+    }
+
+    if (document.hasFocus()) {
+      focusInput()
+    }
+
+    window.addEventListener('focus', focusInput)
+    return () => window.removeEventListener('focus', focusInput)
+  }, [])
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
