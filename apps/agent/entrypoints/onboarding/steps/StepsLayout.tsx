@@ -7,6 +7,7 @@ import {
   ONBOARDING_COMPLETED_EVENT,
   ONBOARDING_STEP_VIEWED_EVENT,
 } from '@/lib/constants/analyticsEvents'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import {
   onboardingChatActiveStorage,
@@ -14,7 +15,6 @@ import {
   onboardingProfileStorage,
   onboardingSignedInStorage,
 } from '@/lib/onboarding/onboardingStorage'
-import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import type { StepDirection } from './StepTransition'
 import { steps } from './steps'
 
@@ -34,7 +34,7 @@ export const StepsLayout = () => {
 
   const [isCheckingSignIn, setIsCheckingSignIn] = useState(false)
 
-  // Pre-seed the onboarding prompt and redirect to the home page
+  // Open a new tab, launch the side panel with the onboarding prompt
   const finishOnboarding = async () => {
     const profile = await onboardingProfileStorage.getValue()
     const name = profile?.name || 'there'
@@ -42,17 +42,15 @@ export const StepsLayout = () => {
 
     track(ONBOARDING_COMPLETED_EVENT)
     await onboardingCompletedStorage.setValue(true)
-
-    // Flag so the home page chat uses the onboarding system prompt
     await onboardingChatActiveStorage.setValue(true)
 
-    // Pre-seed the onboarding message into the home page chat
-    await searchActionsStorage.setValue({
+    // Same pattern as OnboardingDemo "Try It": create tab, then open side panel
+    await chrome.tabs.create({ active: true })
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    openSidePanelWithSearch('open', {
       query: `I just installed BrowserOS. My name is ${name} and I'm a ${role}. Help me get set up!`,
       mode: 'agent',
     })
-
-    window.location.href = chrome.runtime.getURL('app.html#/home')
   }
 
   // Auto-skip Step 4 (Connect Apps) if the user didn't sign in
