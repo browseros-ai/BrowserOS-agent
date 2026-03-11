@@ -7,22 +7,11 @@ import { PRODUCT_WEB_HOST } from './lib/constants/productWebHost'
 // biome-ignore lint/style/noProcessEnv: build config file needs env access
 const env = process.env
 
-const apiUrl = env.VITE_PUBLIC_BROWSEROS_API
-  ? new URL(env.VITE_PUBLIC_BROWSEROS_API)
-  : null
-
-if (!apiUrl && !process.argv.includes('prepare')) {
-  throw new Error(
-    'VITE_PUBLIC_BROWSEROS_API is required for wxt build/dev. ' +
-      'Set it in .env.development or your CI environment.',
-  )
-}
-
-const apiPattern = apiUrl
-  ? apiUrl.port
-    ? `${apiUrl.hostname}:${apiUrl.port}`
-    : apiUrl.hostname
-  : 'localhost'
+// biome-ignore lint/style/noNonNullAssertion: required env var
+const apiUrl = new URL(env.VITE_PUBLIC_BROWSEROS_API!)
+const apiPattern = apiUrl.port
+  ? `${apiUrl.hostname}:${apiUrl.port}`
+  : apiUrl.hostname
 
 // See https://wxt.dev/api/config.html
 // Extension ID will be bflpfmnmnokmjhmgnolecpppdbdophmk
