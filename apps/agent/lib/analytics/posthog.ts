@@ -4,14 +4,16 @@ import { env } from '../env'
 
 const isSidepanel = window.location.pathname.includes('sidepanel')
 
-if (env.VITE_PUBLIC_POSTHOG_KEY && env.VITE_PUBLIC_POSTHOG_HOST) {
+if (
+  env.VITE_PUBLIC_POSTHOG_KEY &&
+  env.VITE_PUBLIC_POSTHOG_HOST &&
+  !isSidepanel
+) {
   posthog.init(env.VITE_PUBLIC_POSTHOG_KEY, {
     api_host: env.VITE_PUBLIC_POSTHOG_HOST,
     person_profiles: 'identified_only',
     disable_external_dependency_loading: true,
-    disable_session_recording: isSidepanel,
     capture_pageview: true,
-    autocapture: !isSidepanel,
     session_recording: {
       maskAllInputs: true,
     },

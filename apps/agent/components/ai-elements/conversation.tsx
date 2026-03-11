@@ -19,7 +19,7 @@ export const Conversation = ({ className, ...props }: ConversationProps) => (
       className,
     )}
     initial="smooth"
-    resize="smooth"
+    resize="instant"
     role="log"
     {...props}
   />
