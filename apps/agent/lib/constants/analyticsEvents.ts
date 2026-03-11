@@ -193,6 +193,17 @@ export const ONBOARDING_STEP_COMPLETED_EVENT = 'onboarding.step.completed'
 export const ONBOARDING_ABOUT_SUBMITTED_EVENT = 'onboarding.about.submitted'
 
 /** @public */
+export const ONBOARDING_CONNECT_APPS_VIEWED_EVENT =
+  'onboarding.connect_apps.viewed'
+
+/** @public */
+export const ONBOARDING_APP_CONNECTED_EVENT = 'onboarding.app.connected'
+
+/** @public */
+export const ONBOARDING_CONNECT_APPS_SKIPPED_EVENT =
+  'onboarding.connect_apps.skipped'
+
+/** @public */
 export const ONBOARDING_SIGNIN_COMPLETED_EVENT = 'onboarding.signin.completed'
 
 /** @public */

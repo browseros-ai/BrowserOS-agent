@@ -30,7 +30,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
   const handleSkip = () => {
     track(ONBOARDING_SIGNIN_SKIPPED_EVENT)
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
-      step: 2,
+      step: 3,
       step_name: 'signin',
       skipped: true,
     })
