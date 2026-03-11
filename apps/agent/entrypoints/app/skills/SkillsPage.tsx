@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { type SkillDetail, type SkillMeta, useSkills } from './useSkills'
 
 const loadingSkillCards = [
@@ -173,24 +172,14 @@ const SkillsHeader: FC<{
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-3">
-        <div>
-          <h1 className="font-semibold text-2xl tracking-tight">Skills</h1>
-          <p className="text-muted-foreground text-sm">
-            Define reusable instructions that extend how your agent responds.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="border-border bg-background">
-            {skillLabel}
-          </Badge>
-          <Badge
-            variant="outline"
-            className="border-[var(--accent-orange)]/25 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]"
-          >
-            {enabledLabel}
-          </Badge>
-        </div>
+      <div>
+        <h1 className="font-semibold text-2xl tracking-tight">Skills</h1>
+        <p className="text-muted-foreground text-sm">
+          Define reusable instructions that extend how your agent responds.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          {skillLabel} • {enabledLabel}
+        </p>
       </div>
       <Button onClick={onCreateClick} size="sm" className="shrink-0">
         <Plus className="mr-1.5 size-4" />
@@ -267,26 +256,10 @@ const SkillCard: FC<{
   onDelete: () => void
   onToggle: (enabled: boolean) => void
 }> = ({ skill, onEdit, onDelete, onToggle }) => (
-  <Card
-    className={cn(
-      'h-full py-0 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
-      skill.enabled
-        ? 'border-[var(--accent-orange)]/20 hover:border-[var(--accent-orange)]/45'
-        : 'border-border hover:border-border/80',
-    )}
-  >
-    <CardContent className="flex h-full flex-col p-5">
+  <Card className="h-full py-0 shadow-sm">
+    <CardContent className="flex h-full flex-col p-4">
       <div className="flex items-start justify-between gap-3">
-        <div
-          className={cn(
-            'flex size-10 shrink-0 items-center justify-center rounded-xl border',
-            skill.enabled
-              ? 'border-[var(--accent-orange)]/25 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]'
-              : 'border-border bg-muted/40 text-muted-foreground',
-          )}
-        >
-          <Wand2 className="size-4" />
-        </div>
+        <h2 className="font-semibold text-sm leading-5">{skill.name}</h2>
         <Switch
           checked={skill.enabled}
           onCheckedChange={onToggle}
@@ -294,31 +267,18 @@ const SkillCard: FC<{
         />
       </div>
 
-      <div className="mt-4 flex-1 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-semibold text-base leading-none">{skill.name}</h2>
-          <Badge
-            variant="outline"
-            className={cn(
-              skill.enabled
-                ? 'border-[var(--accent-orange)]/25 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]'
-                : 'border-border bg-muted/50 text-muted-foreground',
-            )}
-          >
-            {skill.enabled ? 'Enabled' : 'Disabled'}
-          </Badge>
-        </div>
-        <p className="line-clamp-4 text-muted-foreground text-sm leading-6">
+      <div className="mt-3 flex-1">
+        <p className="line-clamp-3 text-muted-foreground text-sm leading-5">
           {skill.description}
         </p>
       </div>
 
-      <div className="mt-5 flex items-center justify-between gap-2 border-t pt-4">
+      <div className="mt-3 flex items-center justify-between gap-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={onEdit}
-          className="-ml-2 text-muted-foreground hover:text-foreground"
+          className="-ml-2 h-7 px-2 text-muted-foreground hover:bg-transparent hover:text-foreground"
         >
           <Pencil className="size-3.5" />
           Edit
@@ -327,7 +287,7 @@ const SkillCard: FC<{
           variant="ghost"
           size="icon-sm"
           onClick={onDelete}
-          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          className="size-7 text-muted-foreground hover:bg-transparent hover:text-destructive"
           aria-label={`Delete ${skill.name}`}
         >
           <Trash2 className="size-4" />
@@ -434,7 +394,6 @@ const SkillDialog: FC<{
             <div className="rounded-xl border border-border bg-background p-4">
               <p className="font-medium text-sm">Useful structure</p>
               <div className="mt-2 space-y-2 text-muted-foreground text-xs leading-5">
-                <p>Start with when the skill should activate.</p>
                 <p>List the ordered steps the agent should follow.</p>
                 <p>Close with the output or formatting you expect back.</p>
               </div>
@@ -443,13 +402,7 @@ const SkillDialog: FC<{
 
           <div className="flex min-h-0 flex-col px-6 py-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="skill-content">Instructions (Markdown)</Label>
-                <p className="text-muted-foreground text-xs leading-5">
-                  Long skills stay scrollable inside the editor so the footer
-                  remains accessible.
-                </p>
-              </div>
+              <Label htmlFor="skill-content">Instructions (Markdown)</Label>
               <Badge variant="outline" className="border-border bg-background">
                 {content.length} characters
               </Badge>
