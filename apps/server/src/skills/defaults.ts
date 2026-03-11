@@ -552,7 +552,7 @@ Activate when the user asks to monitor a page for changes, watch for price drops
 2. **Capture the baseline.** Navigate to the page and extract the current state:
    - Use \`navigate_page\` to load the target URL
    - Use \`get_page_content\` or \`evaluate_script\` to extract the specific content to track
-   - Save the baseline to memory using \`memory_save\` with a descriptive key like \`monitor:{url-slug}:baseline\`
+   - Save the baseline to memory using \`memory_write\` with a descriptive key like \`monitor:{url-slug}:baseline\`
 
 3. **Check for changes.** On subsequent checks:
    - Navigate to the same URL
@@ -581,7 +581,7 @@ Last checked: [current date/time]
 Monitoring: [what you're tracking]
 \`\`\`
 
-5. **Update the baseline** after reporting changes, using \`memory_save\` to store the new state.
+5. **Update the baseline** after reporting changes, using \`memory_write\` to store the new state.
 
 ## Tips
 
@@ -716,7 +716,7 @@ Activate when the user asks to organize bookmarks, find duplicates, create bookm
 5. **Execute with user confirmation:**
    - Use \`create_bookmark\` to create new folders
    - Use \`move_bookmark\` to reorganize bookmarks into folders
-   - Use \`delete_bookmark\` to remove confirmed duplicates
+   - Use \`remove_bookmark\` to remove confirmed duplicates
 
 6. **Report results:**
    \`\`\`
