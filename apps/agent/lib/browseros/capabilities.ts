@@ -43,6 +43,8 @@ export enum Feature {
   VERTICAL_TABS_SUPPORT = 'VERTICAL_TABS_SUPPORT',
   // Memory page: core memory viewer and editor
   MEMORY_SUPPORT = 'MEMORY_SUPPORT',
+  // Skills page: agent skills viewer and editor
+  SKILLS_SUPPORT = 'SKILLS_SUPPORT',
 }
 
 /**
@@ -69,6 +71,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.NEWTAB_CHAT_SUPPORT]: { minBrowserOSVersion: '0.40.0.0' },
   [Feature.VERTICAL_TABS_SUPPORT]: { minBrowserOSVersion: '0.42.0.0' },
   [Feature.MEMORY_SUPPORT]: { minServerVersion: '0.0.73' },
+  [Feature.SKILLS_SUPPORT]: { minServerVersion: '0.0.73' },
 }
 
 function parseVersion(version: string): number[] {
