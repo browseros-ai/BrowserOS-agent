@@ -1,6 +1,5 @@
 import comparePrices from './compare-prices/SKILL.md' with { type: 'text' }
 import deepResearch from './deep-research/SKILL.md' with { type: 'text' }
-import dismissPopups from './dismiss-popups/SKILL.md' with { type: 'text' }
 import extractData from './extract-data/SKILL.md' with { type: 'text' }
 import fillForm from './fill-form/SKILL.md' with { type: 'text' }
 import findAlternatives from './find-alternatives/SKILL.md' with {
@@ -22,7 +21,6 @@ export const DEFAULT_SKILLS: DefaultSkill[] = [
   { id: 'summarize-page', content: summarizePage },
   { id: 'deep-research', content: deepResearch },
   { id: 'extract-data', content: extractData },
-  { id: 'dismiss-popups', content: dismissPopups },
   { id: 'fill-form', content: fillForm },
   { id: 'screenshot-walkthrough', content: screenshotWalkthrough },
   { id: 'organize-tabs', content: organizeTabs },
