@@ -1,4 +1,4 @@
-import { Github, History, Plus, SettingsIcon } from 'lucide-react'
+import { Brain, Github, History, Plus, SettingsIcon } from 'lucide-react'
 import type { FC } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { productRepositoryUrl } from '@/lib/constants/productUrls'
 import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
+import { cn } from '@/lib/utils'
 
 interface ChatHeaderProps {
   selectedProvider: Provider
@@ -26,8 +27,10 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
   const location = useLocation()
   const navigate = useNavigate()
   const isHistoryPage = location.pathname === '/history'
+  const isMemoryPage = location.pathname === '/memory'
+  const isChatPage = !isHistoryPage && !isMemoryPage
 
-  const handleNewConversationFromHistory = () => {
+  const handleNewConversation = () => {
     onNewConversation()
     navigate('/')
   }
@@ -62,10 +65,10 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-1">
-        {!isHistoryPage && hasMessages && (
+        {(isChatPage ? hasMessages : true) && (
           <button
             type="button"
-            onClick={onNewConversation}
+            onClick={handleNewConversation}
             className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
             title="New conversation"
           >
@@ -73,24 +76,27 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
           </button>
         )}
 
-        {isHistoryPage ? (
-          <button
-            type="button"
-            onClick={handleNewConversationFromHistory}
-            className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            title="New conversation"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        ) : (
-          <Link
-            to="/history"
-            className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            title="Chat history"
-          >
-            <History className="h-4 w-4" />
-          </Link>
-        )}
+        <Link
+          to="/history"
+          className={cn(
+            'cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground',
+            isHistoryPage && 'bg-muted/70 text-foreground',
+          )}
+          title="Chat history"
+        >
+          <History className="h-4 w-4" />
+        </Link>
+
+        <Link
+          to="/memory"
+          className={cn(
+            'cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground',
+            isMemoryPage && 'bg-muted/70 text-foreground',
+          )}
+          title="Core memory"
+        >
+          <Brain className="h-4 w-4" />
+        </Link>
 
         <a
           href={productRepositoryUrl}

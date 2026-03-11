@@ -1,5 +1,6 @@
 import { FileText, Loader2 } from 'lucide-react'
 import type { FC } from 'react'
+import { MarkdownDocument } from '@/components/elements/markdown-document'
 import { useSoulContent } from './useSoulContent'
 
 export const SoulViewer: FC = () => {
@@ -52,9 +53,9 @@ export const SoulViewer: FC = () => {
           <span className="text-muted-foreground text-xs">read-only</span>
         </div>
       </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
-        {content}
-      </pre>
+      <div className="px-4 py-4">
+        <MarkdownDocument>{content}</MarkdownDocument>
+      </div>
     </div>
   )
 }

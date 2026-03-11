@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { getCoreMemoryPath } from '../../lib/browseros-dir'
+import { saveCoreMemory } from '../../lib/core-memory'
 import { executeWithMetrics, toModelOutput } from '../filesystem/utils'
 
 const TOOL_NAME = 'memory_save_core'
@@ -14,7 +14,7 @@ export function createSaveCoreTool() {
     }),
     execute: (params) =>
       executeWithMetrics(TOOL_NAME, async () => {
-        await Bun.write(getCoreMemoryPath(), params.content)
+        await saveCoreMemory(params.content)
         return { text: 'Core memories updated.' }
       }),
     toModelOutput,

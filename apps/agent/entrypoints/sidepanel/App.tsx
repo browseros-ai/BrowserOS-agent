@@ -3,6 +3,7 @@ import { HashRouter, Route, Routes } from 'react-router'
 import { ChatHistory } from './history/ChatHistory'
 import { Chat } from './index/Chat'
 import { ChatLayout } from './layout/ChatLayout'
+import { CoreMemoryPage } from './memory/CoreMemoryPage'
 
 export const App: FC = () => {
   return (
@@ -11,6 +12,7 @@ export const App: FC = () => {
         <Route element={<ChatLayout />}>
           <Route index element={<Chat />} />
           <Route path="history" element={<ChatHistory />} />
+          <Route path="memory" element={<CoreMemoryPage />} />
         </Route>
       </Routes>
     </HashRouter>
