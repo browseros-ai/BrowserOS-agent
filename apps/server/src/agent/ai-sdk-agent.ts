@@ -2,6 +2,8 @@ import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import {
+  type LanguageModel,
+  type ModelMessage,
   stepCountIs,
   ToolLoopAgent,
   type UIMessage,
@@ -18,9 +20,13 @@ import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { buildMemoryToolSet } from '../tools/memory/build-toolset'
 import type { ToolRegistry } from '../tools/tool-registry'
 import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
-import { createCompactionPrepareStep } from './compaction'
+import { createCompactionPrepareStep, type StepWithUsage } from './compaction'
 import { createContextOverflowMiddleware } from './context-overflow-middleware'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
+import {
+  getMessageNormalizationOptions,
+  normalizeMessagesForModel,
+} from './message-normalization'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
 import { buildBrowserToolSet } from './tool-adapter'
@@ -50,13 +56,17 @@ export class AiSdkAgent {
 
     // Build language model with overflow protection middleware
     const rawModel = createLanguageModel(config.resolvedConfig)
-    const model =
-      (rawModel as any).specificationVersion === 'v3'
-        ? wrapLanguageModel({
-            model: rawModel as LanguageModelV3,
-            middleware: createContextOverflowMiddleware(contextWindow),
-          })
-        : rawModel
+    const isV3Model =
+      typeof rawModel === 'object' &&
+      rawModel !== null &&
+      'specificationVersion' in rawModel &&
+      rawModel.specificationVersion === 'v3'
+    const model = isV3Model
+      ? wrapLanguageModel({
+          model: rawModel as LanguageModelV3,
+          middleware: createContextOverflowMiddleware(contextWindow),
+        })
+      : rawModel
 
     // Build browser tools from the unified tool registry
     const allBrowserTools = buildBrowserToolSet(
@@ -143,9 +153,25 @@ export class AiSdkAgent {
     })
 
     // Configure compaction for context window management
-    const prepareStep = createCompactionPrepareStep({
+    const compactionPrepareStep = createCompactionPrepareStep({
       contextWindow,
     })
+    const normalizationOptions = getMessageNormalizationOptions(
+      config.resolvedConfig,
+    )
+    const prepareStep = async (options: {
+      messages: ModelMessage[]
+      steps: ReadonlyArray<StepWithUsage>
+      model: LanguageModel
+      experimental_context: unknown
+    }) =>
+      compactionPrepareStep({
+        ...options,
+        messages: normalizeMessagesForModel(
+          options.messages,
+          normalizationOptions,
+        ),
+      })
 
     // Create the ToolLoopAgent
     const agent = new ToolLoopAgent({
