@@ -30,9 +30,9 @@ const MEMORY_EXAMPLES: Example[] = [
       'Look through my bookmarks and figure out what topics and interests matter to me. Save the key themes to your core memory.',
   },
   {
-    label: 'Summarize my week',
+    label: 'Learn my habits',
     query:
-      "Check my browsing history from the past 7 days and summarize what I've been focused on. Save the highlights to your core memory.",
+      'Go through my recent browsing history and figure out what tools and sites I rely on, what topics I keep coming back to, and what my day-to-day looks like. Save what you learn about me to core memory.',
   },
   {
     label: 'Know my open tabs',
