@@ -208,6 +208,29 @@ export const ONBOARDING_FEATURE_CLICKED_EVENT = 'onboarding.feature.clicked'
 export const ONBOARDING_COMPLETED_EVENT = 'onboarding.completed'
 
 /** @public */
+export const ONBOARDING_IMPORT_OPENED_EVENT = 'onboarding.import.opened'
+
+/** @public */
+export const ONBOARDING_IMPORT_SKIPPED_EVENT = 'onboarding.import.skipped'
+
+/** @public */
+export const ONBOARDING_CONNECT_GMAIL_EVENT =
+  'onboarding.connect_apps.gmail_connected'
+
+/** @public */
+export const ONBOARDING_CONNECT_CALENDAR_EVENT =
+  'onboarding.connect_apps.calendar_connected'
+
+/** @public */
+export const ONBOARDING_CHAT_STARTED_EVENT = 'onboarding.chat.started'
+
+/** @public */
+export const ONBOARDING_CHAT_COMPLETED_EVENT = 'onboarding.chat.completed'
+
+/** @public */
+export const ONBOARDING_CHAT_SKIPPED_EVENT = 'onboarding.chat.skipped'
+
+/** @public */
 export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
 
 /** @public */

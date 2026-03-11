@@ -13,19 +13,13 @@ import {
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
 
-function buildDemoSuggestions(company?: string) {
+function buildDemoSuggestions() {
   return [
-    company
-      ? {
-          label: `Search for ${company} and summarize the latest news`,
-          query: `Search for ${company} and summarize the latest news about them`,
-          mode: 'agent' as const,
-        }
-      : {
-          label: "What's the top tech news today",
-          query: "What's the top tech news today? Give me a brief summary",
-          mode: 'agent' as const,
-        },
+    {
+      label: "What's the top tech news today",
+      query: "What's the top tech news today? Give me a brief summary",
+      mode: 'agent' as const,
+    },
     {
       label: "What's the top news today",
       query:
@@ -48,8 +42,8 @@ export const OnboardingDemo = () => {
 
   useEffect(() => {
     onboardingProfileStorage.getValue().then((profile) => {
-      if (profile?.company) {
-        setDemoSuggestions(buildDemoSuggestions(profile.company))
+      if (profile?.name) {
+        setDemoSuggestions(buildDemoSuggestions())
       }
     })
   }, [])

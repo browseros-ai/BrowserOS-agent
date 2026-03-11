@@ -65,13 +65,27 @@ export const getResponseAndQueryFromMessageId = (
   }
 }
 
-export type ChatOrigin = 'sidepanel' | 'newtab'
+export type ChatOrigin = 'sidepanel' | 'newtab' | 'onboarding'
 
 export interface ChatSessionOptions {
   origin?: ChatOrigin
 }
 
 const NEWTAB_SYSTEM_PROMPT = `IMPORTANT: The user is chatting from the New Tab page. When performing browser actions, ALWAYS open content in a NEW TAB rather than navigating the current tab. The user's new tab page should remain accessible.`
+
+const ONBOARDING_SYSTEM_PROMPT = `IMPORTANT: This is the user's first interaction with BrowserOS. You are running an onboarding sequence to help them get set up. Follow these steps IN ORDER:
+
+1. LINKEDIN: Open linkedin.com in the current browser. Use take_snapshot and get_page_content to extract the user's profile (they should be logged in). Report back what you found — their headline, company, and a brief summary.
+
+2. GMAIL/CALENDAR: Ask the user "Can I read a bit of your Gmail and Calendar to understand your work better?" If they agree, use the gmail and google calendar tools (discover_server_categories_or_actions) to read their 10 most recent emails and upcoming calendar events. Summarize what you learned.
+
+3. SOUL UPDATE: Based on everything you've learned about the user, use soul_update to write a personalized SOUL.md. Include their communication style preferences, work context, and how they'd like you to assist them.
+
+4. SCHEDULE: Use suggest_schedule to create a daily task called "Morning Email Briefing" that runs at 9:00 AM to summarize their latest emails and calendar.
+
+5. WRAP UP: End with a warm welcome message summarizing what you've set up for them.
+
+Be conversational and friendly throughout. This is the user's first impression of BrowserOS — make it count!`
 
 export const useChatSession = (options?: ChatSessionOptions) => {
   const {
@@ -306,11 +320,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             sessionToken: provider?.sessionToken,
             browserContext,
             userSystemPrompt:
-              options?.origin === 'newtab'
-                ? [personalizationRef.current, NEWTAB_SYSTEM_PROMPT]
+              options?.origin === 'onboarding'
+                ? [personalizationRef.current, ONBOARDING_SYSTEM_PROMPT]
                     .filter(Boolean)
                     .join('\n\n')
-                : personalizationRef.current,
+                : options?.origin === 'newtab'
+                  ? [personalizationRef.current, NEWTAB_SYSTEM_PROMPT]
+                      .filter(Boolean)
+                      .join('\n\n')
+                  : personalizationRef.current,
             userWorkingDir: workingDirRef.current,
             supportsImages: provider?.supportsImages,
             previousConversation,

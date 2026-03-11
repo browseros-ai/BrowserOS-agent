@@ -3,8 +3,6 @@ import { storage } from '@wxt-dev/storage'
 export interface OnboardingProfile {
   name: string
   role: string
-  company: string
-  description?: string
 }
 
 export const onboardingCompletedStorage = storage.defineItem<boolean>(
@@ -34,5 +32,10 @@ export const authRedirectPathStorage = storage.defineItem<string | null>(
 
 export const firstRunConfettiShownStorage = storage.defineItem<boolean>(
   'local:firstRunConfettiShown',
+  { fallback: false },
+)
+
+export const onboardingSignedInStorage = storage.defineItem<boolean>(
+  'local:onboardingSignedIn',
   { fallback: false },
 )

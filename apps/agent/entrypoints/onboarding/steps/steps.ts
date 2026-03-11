@@ -1,15 +1,13 @@
+import { StepChat } from './StepChat'
+import { StepConnectApps } from './StepConnectApps'
+import { StepImport } from './StepImport'
 import { StepOne } from './StepOne'
-import { StepTwo } from './StepTwo'
+import { StepSignIn } from './StepSignIn'
 
 export const steps = [
-  {
-    id: 1,
-    name: 'About You',
-    component: StepOne,
-  },
-  {
-    id: 2,
-    name: 'Sign In',
-    component: StepTwo,
-  },
+  { id: 1, name: 'Your Name', component: StepOne },
+  { id: 2, name: 'Import', component: StepImport },
+  { id: 3, name: 'Sign In', component: StepSignIn },
+  { id: 4, name: 'Connect Apps', component: StepConnectApps },
+  { id: 5, name: 'Meet Assistant', component: StepChat },
 ]
