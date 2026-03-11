@@ -25,8 +25,10 @@ import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { track } from '@/lib/metrics/track'
-import { onboardingChatActiveStorage } from '@/lib/onboarding/onboardingStorage'
-import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import {
+  type ChatOrigin,
+  searchActionsStorage,
+} from '@/lib/search-actions/searchActionsStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from './chatTypes'
@@ -65,8 +67,6 @@ export const getResponseAndQueryFromMessageId = (
     queryText,
   }
 }
-
-export type ChatOrigin = 'sidepanel' | 'newtab' | 'onboarding'
 
 export interface ChatSessionOptions {
   origin?: ChatOrigin
@@ -193,6 +193,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
   const messagesRef = useRef<UIMessage[]>([])
+  const originOverrideRef = useRef<ChatOrigin | undefined>(undefined)
 
   useEffect(() => {
     selectedWorkspaceStorage.getValue().then((folder) => {
@@ -298,11 +299,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
         const declinedApps = await declinedAppsStorage.getValue()
 
-        // Check if this is an onboarding chat (redirected from onboarding wizard)
-        const isOnboardingChat = await onboardingChatActiveStorage.getValue()
-        if (isOnboardingChat) {
-          await onboardingChatActiveStorage.setValue(false)
-        }
+        // Use origin override from searchActionsStorage (e.g. onboarding), then clear it
+        const effectiveOrigin = originOverrideRef.current ?? options?.origin
+        originOverrideRef.current = undefined
 
         const supportsArrayConversation = await Capabilities.supports(
           Feature.PREVIOUS_CONVERSATION_ARRAY,
@@ -342,7 +341,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             sessionToken: provider?.sessionToken,
             browserContext,
             userSystemPrompt: getSystemPrompt(
-              isOnboardingChat ? 'onboarding' : options?.origin,
+              effectiveOrigin,
               personalizationRef.current,
             ),
             userWorkingDir: workingDirRef.current,
@@ -463,6 +462,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
+        originOverrideRef.current = storageAction.origin
         setMode(storageAction.mode)
         sendMessage({ text: storageAction.query, action: storageAction.action })
       }

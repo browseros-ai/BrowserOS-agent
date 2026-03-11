@@ -19,9 +19,17 @@ interface StepConnectAppsProps {
   onContinue: () => void
 }
 
-const APPS_TO_CONNECT = [
+const RECOMMENDED_APPS = [
   { name: 'Gmail', description: 'Read and send emails' },
   { name: 'Google Calendar', description: 'View and manage events' },
+]
+
+const MORE_APPS = [
+  { name: 'Notion', description: 'Notes, docs, and wikis' },
+  { name: 'Slack', description: 'Team messaging and channels' },
+  { name: 'GitHub', description: 'Repos, issues, and PRs' },
+  { name: 'Linear', description: 'Issue tracking and projects' },
+  { name: 'Discord', description: 'Communities and chat servers' },
 ]
 
 export const StepConnectApps = ({
@@ -53,12 +61,16 @@ export const StepConnectApps = ({
     )
   }
 
+  const allApps = [...RECOMMENDED_APPS, ...MORE_APPS]
+
+  const findAppDescription = (appName: string) =>
+    allApps.find((a) => a.name === appName)?.description ?? ''
+
   const handleConnect = async (appName: string) => {
     setConnectingApp(appName)
     try {
       const response = await addManagedServerMutation({ serverName: appName })
 
-      // Only register the server if it doesn't already exist locally
       const alreadyAdded = servers?.some((s) => s.managedServerName === appName)
       if (!alreadyAdded) {
         addServer({
@@ -66,8 +78,7 @@ export const StepConnectApps = ({
           displayName: appName,
           type: 'managed',
           managedServerName: appName,
-          managedServerDescription:
-            APPS_TO_CONNECT.find((a) => a.name === appName)?.description ?? '',
+          managedServerDescription: findAppDescription(appName),
         })
       }
 
@@ -76,7 +87,6 @@ export const StepConnectApps = ({
         window.open(response.oauthUrl, '_blank')?.focus()
       }
 
-      // Track the connection
       if (appName === 'Gmail') track(ONBOARDING_CONNECT_GMAIL_EVENT)
       if (appName === 'Google Calendar')
         track(ONBOARDING_CONNECT_CALENDAR_EVENT)
@@ -99,6 +109,47 @@ export const StepConnectApps = ({
     onContinue()
   }
 
+  const renderAppRow = (app: { name: string; description: string }) => {
+    const connected = isAppConnected(app.name)
+    const isConnecting = connectingApp === app.name
+
+    return (
+      <div
+        key={app.name}
+        className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)]/50"
+      >
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <McpServerIcon serverName={app.name} size={24} />
+        </div>
+        <div className="flex-1">
+          <div className="font-medium text-sm">{app.name}</div>
+          <div className="text-muted-foreground text-xs">{app.description}</div>
+        </div>
+        {isIntegrationsLoading ? (
+          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        ) : connected ? (
+          <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-600 text-xs">
+            <Check className="size-3" />
+            Connected
+          </span>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleConnect(app.name)}
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              'Connect'
+            )}
+          </Button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <StepTransition direction={direction}>
       <div className="flex h-full flex-col items-center justify-center">
@@ -111,54 +162,26 @@ export const StepConnectApps = ({
               Connect your apps
             </h2>
             <p className="text-base text-muted-foreground">
-              Let your assistant read your emails and calendar to get to know
-              you better
+              Let your assistant access your apps to help you get things done
             </p>
           </div>
 
-          <div className="space-y-3">
-            {APPS_TO_CONNECT.map((app) => {
-              const connected = isAppConnected(app.name)
-              const isConnecting = connectingApp === app.name
+          {/* Recommended */}
+          <div className="space-y-2">
+            <div className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+              Recommended
+            </div>
+            <div className="space-y-2">
+              {RECOMMENDED_APPS.map(renderAppRow)}
+            </div>
+          </div>
 
-              return (
-                <div
-                  key={app.name}
-                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-all hover:border-[var(--accent-orange)]/50"
-                >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <McpServerIcon serverName={app.name} size={24} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{app.name}</div>
-                    <div className="text-muted-foreground text-xs">
-                      {app.description}
-                    </div>
-                  </div>
-                  {isIntegrationsLoading ? (
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  ) : connected ? (
-                    <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-600 text-xs">
-                      <Check className="size-3" />
-                      Connected
-                    </span>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleConnect(app.name)}
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? (
-                        <Loader2 className="size-3 animate-spin" />
-                      ) : (
-                        'Connect'
-                      )}
-                    </Button>
-                  )}
-                </div>
-              )
-            })}
+          {/* More apps */}
+          <div className="space-y-2">
+            <div className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+              More apps
+            </div>
+            <div className="space-y-2">{MORE_APPS.map(renderAppRow)}</div>
           </div>
 
           <Button

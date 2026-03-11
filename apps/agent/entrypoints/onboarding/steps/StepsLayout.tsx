@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, Loader2 } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,7 +10,7 @@ import {
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import {
-  onboardingChatActiveStorage,
+  type OnboardingProfile,
   onboardingCompletedStorage,
   onboardingProfileStorage,
   onboardingSignedInStorage,
@@ -33,16 +33,24 @@ export const StepsLayout = () => {
   const ActiveStep = stepEntry?.component ?? (() => null)
 
   const [isCheckingSignIn, setIsCheckingSignIn] = useState(false)
+  const profileRef = useRef<OnboardingProfile | null>(null)
+
+  // Eagerly cache the profile so it's available when finishOnboarding runs
+  useEffect(() => {
+    onboardingProfileStorage.getValue().then((p) => {
+      profileRef.current = p
+    })
+  }, [])
 
   // Open a new tab, launch the side panel with the onboarding prompt
   const finishOnboarding = async () => {
-    const profile = await onboardingProfileStorage.getValue()
+    const profile =
+      profileRef.current ?? (await onboardingProfileStorage.getValue())
     const name = profile?.name || 'there'
     const role = profile?.role || 'user'
 
     track(ONBOARDING_COMPLETED_EVENT)
     await onboardingCompletedStorage.setValue(true)
-    await onboardingChatActiveStorage.setValue(true)
 
     // Same pattern as OnboardingDemo "Try It": create tab, then open side panel
     await chrome.tabs.create({ active: true })
@@ -50,6 +58,7 @@ export const StepsLayout = () => {
     openSidePanelWithSearch('open', {
       query: `I just installed BrowserOS. My name is ${name} and I'm a ${role}. Help me get set up!`,
       mode: 'agent',
+      origin: 'onboarding',
     })
   }
 
