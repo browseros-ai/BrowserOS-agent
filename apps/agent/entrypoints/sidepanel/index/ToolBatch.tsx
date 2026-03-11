@@ -24,50 +24,47 @@ interface ToolBatchProps {
   isStreaming: boolean
 }
 
-export const ToolBatch = memo<ToolBatchProps>(({
-  tools,
-  isLastBatch,
-  isLastMessage,
-  isStreaming,
-}) => {
-  const shouldBeOpen = isLastMessage && isLastBatch && isStreaming
-  const [isOpen, setIsOpen] = useState(shouldBeOpen)
-  const [hasUserInteracted, setHasUserInteracted] = useState(false)
+export const ToolBatch = memo<ToolBatchProps>(
+  ({ tools, isLastBatch, isLastMessage, isStreaming }) => {
+    const shouldBeOpen = isLastMessage && isLastBatch && isStreaming
+    const [isOpen, setIsOpen] = useState(shouldBeOpen)
+    const [hasUserInteracted, setHasUserInteracted] = useState(false)
 
-  useEffect(() => {
-    if (isLastMessage && !hasUserInteracted) {
-      if (isLastBatch) {
-        setIsOpen(isStreaming)
-      } else {
-        setIsOpen(false)
+    useEffect(() => {
+      if (isLastMessage && !hasUserInteracted) {
+        if (isLastBatch) {
+          setIsOpen(isStreaming)
+        } else {
+          setIsOpen(false)
+        }
       }
+    }, [isStreaming, isLastMessage, isLastBatch, hasUserInteracted])
+
+    const completedCount = tools.filter((t) => isToolCompleted(t.state)).length
+
+    const onManualToggle = (newState: boolean) => {
+      setHasUserInteracted(true)
+      setIsOpen(newState)
     }
-  }, [isStreaming, isLastMessage, isLastBatch, hasUserInteracted])
 
-  const completedCount = tools.filter((t) => isToolCompleted(t.state)).length
-
-  const onManualToggle = (newState: boolean) => {
-    setHasUserInteracted(true)
-    setIsOpen(newState)
-  }
-
-  return (
-    <Task open={isOpen} onOpenChange={onManualToggle}>
-      <TaskTrigger
-        title={`${completedCount}/${tools.length} actions completed`}
-        TriggerIcon={BotIcon}
-      />
-      <TaskContent>
-        {tools.map((tool) => (
-          <TaskItem key={tool.toolCallId} className="flex items-center gap-2">
-            <ToolStatusIcon state={tool.state} />
-            <span>{formatToolName(tool.toolName)}</span>
-          </TaskItem>
-        ))}
-      </TaskContent>
-    </Task>
-  )
-})
+    return (
+      <Task open={isOpen} onOpenChange={onManualToggle}>
+        <TaskTrigger
+          title={`${completedCount}/${tools.length} actions completed`}
+          TriggerIcon={BotIcon}
+        />
+        <TaskContent>
+          {tools.map((tool) => (
+            <TaskItem key={tool.toolCallId} className="flex items-center gap-2">
+              <ToolStatusIcon state={tool.state} />
+              <span>{formatToolName(tool.toolName)}</span>
+            </TaskItem>
+          ))}
+        </TaskContent>
+      </Task>
+    )
+  },
+)
 
 ToolBatch.displayName = 'ToolBatch'
 
