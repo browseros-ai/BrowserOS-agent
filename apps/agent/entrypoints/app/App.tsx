@@ -49,6 +49,7 @@ const OptionsRedirect: FC = () => {
     customization: '/settings/customization',
     search: '/settings/search',
     soul: '/home/soul',
+    skills: '/home/skills',
     'jtbd-agent': '/settings/survey',
     workflows: '/workflows',
     scheduled: '/scheduled',
@@ -80,6 +81,7 @@ export const App: FC = () => {
             <Route index element={<NewTab />} />
             <Route path="personalize" element={<Personalize />} />
             <Route path="soul" element={<SoulPage />} />
+            <Route path="skills" element={<SkillsPage />} />
             <Route path="memory" element={<MemoryPage />} />
           </Route>
 
@@ -98,7 +100,6 @@ export const App: FC = () => {
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="search" element={<SearchProviderPage />} />
-            <Route path="skills" element={<SkillsPage />} />
             <Route path="survey" element={<SurveyPage {...surveyParams} />} />
           </Route>
         </Route>
@@ -127,6 +128,10 @@ export const App: FC = () => {
         <Route
           path="/settings/soul"
           element={<Navigate to="/home/soul" replace />}
+        />
+        <Route
+          path="/settings/skills"
+          element={<Navigate to="/home/skills" replace />}
         />
         <Route path="/options/*" element={<OptionsRedirect />} />
 

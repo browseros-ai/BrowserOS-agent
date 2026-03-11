@@ -7,6 +7,7 @@ import {
   Settings,
   Sparkles,
   UserPen,
+  Wand2,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -58,6 +59,7 @@ const primaryNavItems: NavItem[] = [
     icon: Sparkles,
     feature: Feature.SOUL_SUPPORT,
   },
+  { name: 'Skills', to: '/home/skills', icon: Wand2 },
   {
     name: 'Memory',
     to: '/home/memory',
