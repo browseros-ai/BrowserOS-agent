@@ -1,6 +1,6 @@
 ---
 name: read-later
-description: Extract article content from a web page into clean, readable markdown for offline reading. Use when the user wants to save an article as text, strip ads and clutter, or create a reading copy.
+description: Bookmark the current page to a "Read Later" folder and save a PDF copy for offline reading. Use when the user wants to save a page for later, bookmark it for reading, or keep an offline copy.
 metadata:
   display-name: Read Later
   enabled: "true"
@@ -9,59 +9,42 @@ metadata:
 
 # Read Later
 
-## When to Use
+Quick-save the current page: bookmark it into a dedicated "📚 Read Later" folder and download a PDF copy for offline reading.
 
-Activate when the user asks to save an article for later, create a clean reading copy, strip away ads and navigation, or extract the main content from a cluttered page.
+## When to Apply
 
-## Steps
+Activate when the user asks to save a page for later, read it later, bookmark something to come back to, or keep an offline copy of an article.
 
-1. **Navigate to the article** using `navigate_page` if not already there.
+## Workflow
 
-2. **Extract the main content** using `get_page_content` to get the full text.
+| Step | Tool | Detail |
+|------|------|--------|
+| Get current page | `get_active_page` | Identify the page URL and title |
+| Check for folder | `get_bookmarks` | Look for an existing folder named "📚 Read Later" in the bookmark bar |
+| Create folder (if needed) | `create_bookmark` | If the folder doesn't exist, create "📚 Read Later" in the bookmark bar |
+| Add bookmark | `create_bookmark` | Save the current page URL and title into the "📚 Read Later" folder |
+| Save PDF | `save_pdf` | Download the full page as a PDF to the user's default downloads directory |
+| Notify user | — | Tell the user the page has been saved with the bookmark location and PDF file path |
 
-3. **Clean and structure the content:**
-   - Identify the article title, author, and publication date
-   - Extract the main body text, preserving paragraph structure
-   - Keep meaningful headings and subheadings
-   - Preserve important lists and block quotes
-   - Remove: navigation, ads, sidebars, related articles, comments, footers
+## Notification Format
 
-4. **Format as clean markdown:**
-
-### Output Format
-
-```markdown
-# [Article Title]
-
-**Author:** [name]
-**Published:** [date]
-**Source:** [URL]
-**Saved:** [current date]
-
----
-
-[Article body in clean markdown]
-
----
-*Saved from [domain] on [date]*
+```
+Saved to 📚 Read Later
+Title: <page title>
+URL: <page url>
+PDF: <download path>
 ```
 
-5. **Save the file** using `filesystem_write`:
-   - Default filename: `{date}-{title-slug}.md`
-   - Save to the user's preferred directory or the current working directory
+## Tool Reference
 
-6. **Confirm the save:**
-   ```
-   Saved: [filename]
-   Title: [article title]
-   Word count: ~[count]
-   Reading time: ~[X] min
-   ```
+| Category | Tools Used |
+|----------|-----------|
+| Page info | `get_active_page` |
+| Bookmarks | `get_bookmarks`, `create_bookmark` |
+| Export | `save_pdf` |
 
 ## Tips
 
-- Estimate reading time at ~250 words per minute.
-- If the article has multiple pages, detect "Next Page" links and combine all pages.
-- Preserve code blocks with proper syntax highlighting markers.
-- For paywalled content, only save what's accessible.
-- If the user saves multiple articles, suggest creating a reading list index file.
+- Always check if "📚 Read Later" already exists before creating it — avoid duplicate folders.
+- If the page title is empty or generic, use the domain + path as the bookmark title.
+- The PDF captures the page as-is, including the current scroll position and expanded sections.

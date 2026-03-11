@@ -1,6 +1,6 @@
 ---
 name: compare-prices
-description: Search for a product across multiple retailers and compare prices, availability, and shipping. Use when the user asks to compare prices, find the best deal, or check prices across stores.
+description: Search for a product across multiple retailers in parallel, save pricing data to disk, and produce an HTML report with the best deals and direct product links. Use when the user asks to compare prices, find the best deal, or check prices across stores.
 metadata:
   display-name: Compare Prices
   enabled: "true"
@@ -9,52 +9,118 @@ metadata:
 
 # Compare Prices
 
-## When to Use
+Search for a product across retailers in parallel using a hidden window, save pricing data incrementally to disk, and deliver a clean HTML comparison report with direct links to every product page.
+
+## When to Apply
 
 Activate when the user asks to compare prices for a product, find the cheapest option, check if a price is good, or shop across multiple stores.
 
-## Steps
+## Workflow
 
-1. **Clarify the product.** Get from the user:
-   - Product name or description
-   - Specific model/variant if applicable
-   - Any retailer preferences or exclusions
+### Phase 1 — Clarify
 
-2. **Search across retailers.** Open parallel tabs using `new_hidden_page` for each retailer:
-   - Search the product on each retailer's website
-   - Navigate to the most relevant product page
-   - Extract: product name, price, availability, shipping cost, seller/condition
+Confirm with the user before searching:
 
-3. **Extract pricing data** from each tab using `get_page_content` or `evaluate_script`:
-   - Regular price and sale/discounted price
-   - Shipping cost (free or amount)
-   - Availability (in stock, limited, out of stock)
-   - Seller (direct vs third-party)
+- **Product name** — exact model, variant, size, or color if applicable
+- **Retailer preferences** — any stores to include or exclude
+- **Region / currency** — defaults to user's locale
 
-4. **Close research tabs** using `close_page` after extracting data.
+### Phase 2 — Set Up & Search
 
-5. **Present comparison:**
+| Step | Tool | Detail |
+|------|------|--------|
+| Create output directory | `evaluate_script` | Create `~/Downloads/compare-<product-slug>/` with a `raw/` subfolder |
+| Open hidden window | `create_hidden_window` | Dedicated workspace — keeps the user's browsing undisturbed |
+| Open parallel tabs | `new_hidden_page` | Open up to **10 tabs** concurrently, one per retailer/search |
 
-### Output Format
+**Default search targets** (adjust based on product type and user's region):
 
+| Tab | Target |
+|-----|--------|
+| 1 | Google Shopping — `https://www.google.com/search?tbm=shop&q=<product>` |
+| 2 | Amazon — `https://www.amazon.com/s?k=<product>` |
+| 3 | Walmart — `https://www.walmart.com/search?q=<product>` |
+| 4 | Best Buy — `https://www.bestbuy.com/site/searchpage.jsp?st=<product>` |
+| 5 | Target — `https://www.target.com/s?searchTerm=<product>` |
+| 6 | eBay — `https://www.ebay.com/sch/i.html?_nkw=<product>` |
+| 7–10 | Additional retailers relevant to the product category (Newegg for tech, Home Depot for tools, etc.) |
+
+### Phase 3 — Extract & Save
+
+For **each tab**, extract pricing data and save immediately:
+
+| Step | Tool | Detail |
+|------|------|--------|
+| Navigate | `navigate_page` | Go to the search URL |
+| Read results | `get_page_content` | Extract the search results page as markdown |
+| Find best match | `navigate_page` | Click through to the most relevant product listing |
+| Extract pricing | `get_page_content` | Pull the product page content — price, availability, shipping, seller |
+| **Save raw data** | `evaluate_script` | Write to `raw/<retailer>.json` with all extracted fields (see format below) |
+| Close tab | `close_page` | Free the tab after saving |
+
+**Never hold all retailer data in memory.** Save each retailer's data to its own file immediately after extraction.
+
+#### Raw Data Format (`raw/<retailer>.json`)
+
+```json
+{
+  "retailer": "Amazon",
+  "product_name": "Product Title as Listed",
+  "product_url": "https://www.amazon.com/dp/...",
+  "price": 299.99,
+  "original_price": 349.99,
+  "currency": "USD",
+  "shipping": "Free",
+  "availability": "In Stock",
+  "seller": "Amazon.com",
+  "condition": "New",
+  "rating": "4.5/5",
+  "notes": "Prime eligible",
+  "extracted_at": "2025-03-11T10:30:00Z"
+}
 ```
-## Price Comparison: [Product Name]
 
-**Date:** [current date]
+### Phase 4 — HTML Report
 
-| Retailer | Price | Shipping | Total | Stock | Notes |
-|----------|-------|----------|-------|-------|-------|
-| [name]   | $X.XX | Free     | $X.XX | In stock | [notes] |
-| [name]   | $X.XX | $X.XX    | $X.XX | In stock | [notes] |
+After all retailers are processed, read the saved `raw/*.json` files and generate a self-contained `report.html`:
 
-### Best Deal
-**[Retailer]** at **$X.XX** (total with shipping)
-```
+| Requirement | Detail |
+|-------------|--------|
+| **Theme** | Light background (`#ffffff`), clean sans-serif typography, generous whitespace |
+| **Header** | Product name, search date, number of retailers checked |
+| **Best Deal banner** | Highlighted card at the top showing the lowest total price with a direct link to the product page |
+| **Comparison table** | All retailers sorted by total price (lowest first) with columns: Retailer, Price, Shipping, Total, Stock, Seller, Rating, Link |
+| **Product links** | Every retailer name and a "View Deal" button must be a clickable `<a href>` linking to the actual product page URL |
+| **Price highlights** | Lowest price in green, highest in muted gray. Show discount percentage if original price differs. |
+| **Self-contained** | All styles in a `<style>` block — no external CSS or JS |
+| **Responsive** | Readable on desktop and mobile |
+| **Footer** | "Generated by BrowserOS Compare Prices" with date |
+
+Use `evaluate_script` to write `report.html` to the output directory.
+
+### Phase 5 — Open & Notify
+
+| Step | Tool | Detail |
+|------|------|--------|
+| Close hidden window | `close_window` | Clean up the research workspace |
+| Open report | `new_page` | Open `file://<path>/report.html` in the user's active window |
+| Notify user | — | Tell the user the comparison is complete, highlight the best deal, and provide the report path |
+
+## Tool Reference
+
+| Category | Tools Used |
+|----------|-----------|
+| Window management | `create_hidden_window`, `close_window` |
+| Tab management | `new_hidden_page`, `close_page`, `new_page` |
+| Navigation | `navigate_page` |
+| Content extraction | `get_page_content` |
+| Data & file I/O | `evaluate_script` |
 
 ## Tips
 
-- Always compare total price (product + shipping).
-- Note whether it's sold by the retailer or a third-party marketplace seller.
-- Check for membership discounts (Amazon Prime, Walmart+).
-- If the product has variants (sizes, colors), ensure you're comparing the same variant.
-- Mention if any retailer has a price-match guarantee.
+- **Always compare total price** (product + shipping), not just the listed price.
+- **Note the seller** — marketplace third-party sellers may have different return policies than the retailer itself.
+- Mention membership discounts (Prime, Walmart+) as a note, not as the default price.
+- If the product has variants (sizes, colors), ensure every retailer is quoting the same variant.
+- If a retailer blocks scraping or returns no results, skip it and note the gap in the report.
+- For used/refurbished listings, separate them from new-condition results.

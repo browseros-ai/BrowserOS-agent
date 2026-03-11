@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Research a topic across multiple sources using parallel tabs, then synthesize findings into a structured report. Use when the user asks to research, investigate, or gather information on a topic.
+description: Research a topic across multiple sources using parallel tabs, save raw content and findings to files, then produce an HTML report and PDF. Use when the user asks to research, investigate, or gather information on a topic.
 metadata:
   display-name: Deep Research
   enabled: "true"
@@ -9,62 +9,141 @@ metadata:
 
 # Deep Research
 
-## When to Use
+End-to-end research workflow that searches the web in parallel tabs, persists raw content and notes to disk as it goes (instead of holding everything in memory), synthesizes findings, and delivers a polished HTML report plus PDF.
+
+## When to Apply
 
 Activate when the user asks to research a topic, compare information across sources, investigate something thoroughly, or compile findings from the web.
 
-## Steps
+## Workflow
 
-1. **Clarify the research question.** If the user's query is vague, ask for specifics: what aspect, what depth, any preferred sources?
+### Phase 1 — Clarify & Plan
 
-2. **Plan search queries.** Break the topic into 3-5 search angles. For example, researching "best standing desks" might include:
-   - "best standing desks 2025 reviews"
-   - "standing desk comparison reddit"
-   - "ergonomic standing desk features"
+1. **Clarify the research question.** If the query is vague, ask the user for specifics: scope, depth, preferred sources, and where to save output (default: `~/Downloads/research-<topic-slug>/`).
+2. **Plan search queries.** Break the topic into 3–5 search angles. Example for "best standing desks":
+   - `best standing desks 2025 reviews`
+   - `standing desk comparison reddit`
+   - `ergonomic standing desk features`
+   - `standing desk health benefits studies`
+3. **Create the output directory.** Use `evaluate_script` to create the target folder structure:
+   ```
+   research-<topic-slug>/
+   ├── sources/          ← raw page content per source
+   ├── findings.md       ← running synthesis
+   ├── report.html       ← final HTML report
+   └── report.pdf        ← final PDF report
+   ```
 
-3. **Open parallel research tabs.** For each search angle:
-   - Use `new_hidden_page` to open a search engine or known source
-   - Use `navigate_page` to search or go to the source URL
-   - Use `get_page_content` to extract relevant content
-   - Close the tab with `close_page` when done
+### Phase 2 — Parallel Research & Persistence
 
-4. **Extract and organize findings.** From each source, pull out:
-   - Key facts and data points
-   - Expert opinions or recommendations
-   - Consensus and disagreements across sources
-   - Source credibility indicators
+For **each** search query, open a parallel research tab and persist results to disk immediately:
 
-5. **Synthesize into a report.**
+| Step | Tool | Detail |
+|------|------|--------|
+| Open tab | `new_hidden_page` | Opens a background tab so research doesn't disrupt the user |
+| Search | `navigate_page` | Navigate to `https://www.google.com/search?q=<encoded-query>` (or the user's preferred search engine) |
+| Pick results | `get_page_content` / `get_page_links` | Read the search results page; identify the 2–3 most relevant links |
+| Visit source | `navigate_page` | Navigate to each selected result |
+| Extract content | `get_page_content` | Pull the full page text |
+| **Save raw content** | `evaluate_script` | Write a markdown file to `sources/<n>-<slug>.md` containing the page title, source URL, extraction date, and full text. **Always include the source URL** so every fact is traceable. |
+| Close tab | `close_page` | Free resources after extraction |
 
-### Output Format
+Repeat across all search angles. Run multiple tabs concurrently where possible.
 
+#### Source File Format (`sources/<n>-<slug>.md`)
+
+```markdown
+# <Page Title>
+
+- **URL:** <source-url>
+- **Retrieved:** <date-time>
+
+---
+
+<extracted page content>
 ```
-## Research Report: [Topic]
 
-**Date:** [current date]
-**Sources consulted:** [count]
+### Phase 3 — Synthesize Findings
 
-### Executive Summary
-[2-3 sentences capturing the core findings]
+After all sources are saved:
 
-### Key Findings
-1. [Finding with supporting evidence]
-2. [Finding with supporting evidence]
-3. [Finding with supporting evidence]
+1. **Read each source file** and extract key facts, data points, expert opinions, and areas of agreement or disagreement.
+2. **Write `findings.md`** in the output directory using the format below. Every claim must reference the source file and URL it came from.
+3. Continuously append to `findings.md` as you process each source — do not hold all content in memory.
 
-### Source Analysis
-| Source | Key Insight | Credibility |
-|--------|------------|-------------|
-| [name] | [insight]  | [high/med/low] |
+#### Findings File Format (`findings.md`)
 
-### Conclusion
-[Synthesis of findings with actionable recommendation]
+```markdown
+# Research Findings: <Topic>
+
+**Date:** <current date>
+**Sources consulted:** <count>
+**Output directory:** <path>
+
+## Key Findings
+
+1. **<Finding title>**
+   <Detail with supporting evidence>
+   _Source: [<source name>](<url>) — sources/<n>-<slug>.md_
+
+2. **<Finding title>**
+   ...
+
+## Source Summary
+
+| # | Source | URL | Key Insight | Credibility |
+|---|--------|-----|-------------|-------------|
+| 1 | <name> | <url> | <insight> | high / med / low |
+
+## Agreements & Disagreements
+
+- **Consensus:** ...
+- **Conflicting views:** ...
+
+## Conclusion
+
+<Synthesis of findings with actionable recommendation>
 ```
+
+### Phase 4 — HTML Report
+
+Generate a self-contained `report.html` in the output directory with the following requirements:
+
+| Requirement | Detail |
+|-------------|--------|
+| **Theme** | Light background (`#ffffff`), clean sans-serif typography, generous whitespace |
+| **Sections** | Title banner, executive summary, key findings (numbered cards), source table, conclusion |
+| **Source links** | Every finding must hyperlink to its original source URL. The source table must include clickable links. |
+| **Self-contained** | All styles inline or in a `<style>` block — no external CSS or JS dependencies |
+| **Responsive** | Readable on both desktop and mobile viewports |
+| **Footer** | "Generated by BrowserOS Deep Research" with the current date |
+
+Use `evaluate_script` to write the HTML string to `report.html` in the output directory.
+
+### Phase 5 — Open, Export & Notify
+
+| Step | Tool | Detail |
+|------|------|--------|
+| Open report | `new_page` | Open `file://<path>/report.html` so the user sees the finished report |
+| Export PDF | `save_pdf` | Save the currently open report page as `report.pdf` in the same output directory |
+| Notify user | — | Tell the user research is complete and provide paths to both `report.html` and `report.pdf` |
+
+## Tool Reference
+
+| Category | Tools Used |
+|----------|-----------|
+| Tab management | `new_hidden_page`, `new_page`, `close_page` |
+| Navigation | `navigate_page` |
+| Content extraction | `get_page_content`, `get_page_links` |
+| File I/O & scripting | `evaluate_script` |
+| Export | `save_pdf` |
 
 ## Tips
 
-- Use 4-6 sources for balanced coverage. More isn't always better.
-- Prioritize recent sources — check publication dates.
-- Note disagreements between sources rather than hiding them.
-- If researching products, include pricing and availability.
+- **4–6 sources** is the sweet spot for balanced coverage. More isn't always better.
+- **Prioritize recent sources** — check publication dates and prefer current information.
+- **Note disagreements** between sources rather than hiding them; surface conflicting data.
+- **Always record the source URL** next to every fact so the report is fully traceable.
+- For product research, include pricing and availability.
 - For technical topics, prefer official documentation and peer-reviewed sources.
+- If a Google search returns unhelpful results, try alternative queries or go directly to known authoritative sites.
