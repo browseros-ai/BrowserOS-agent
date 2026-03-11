@@ -57,11 +57,20 @@ function parseNudgeOutput(output: unknown): NudgeData | null {
   return null
 }
 
-export const getMessageSegments = (
+interface SegmentCache {
+  partsLength: number
+  segments: MessageSegment[]
+  isLastMessage: boolean
+  isStreaming: boolean
+}
+
+const cache = new Map<string, SegmentCache>()
+
+function computeSegments(
   message: UIMessage,
   isLastMessage: boolean,
   isStreaming: boolean,
-): MessageSegment[] => {
+): MessageSegment[] {
   const segments: MessageSegment[] = []
   let currentToolBatch: ToolInvocationInfo[] = []
   let textSegmentCount = 0
@@ -134,5 +143,64 @@ export const getMessageSegments = (
 
   flushToolBatch()
 
+  return segments
+}
+
+export const getMessageSegments = (
+  message: UIMessage,
+  isLastMessage: boolean,
+  isStreaming: boolean,
+): MessageSegment[] => {
+  const cached = cache.get(message.id)
+
+  if (cached && cached.partsLength === message.parts.length) {
+    const lastPart = message.parts[message.parts.length - 1]
+    const lastSeg = cached.segments[cached.segments.length - 1]
+
+    // Fast path: only last part's text grew (streaming append)
+    if (lastSeg?.type === 'reasoning' && lastPart?.type === 'reasoning') {
+      if (
+        lastSeg.text === lastPart.text &&
+        cached.isLastMessage === isLastMessage &&
+        cached.isStreaming === isStreaming
+      ) {
+        return cached.segments
+      }
+      // Reuse all segments except the last one
+      const updated = cached.segments.slice(0, -1)
+      updated.push({
+        ...lastSeg,
+        text: lastPart.text,
+        isStreaming: isStreaming && isLastMessage,
+      })
+      return updated
+    }
+
+    if (lastSeg?.type === 'text' && lastPart?.type === 'text') {
+      if (lastSeg.text === lastPart.text) {
+        return cached.segments
+      }
+      const updated = cached.segments.slice(0, -1)
+      updated.push({ ...lastSeg, text: lastPart.text })
+      return updated
+    }
+
+    // Structure unchanged and no text change detected
+    if (
+      cached.isLastMessage === isLastMessage &&
+      cached.isStreaming === isStreaming
+    ) {
+      return cached.segments
+    }
+  }
+
+  // Full recompute — structure changed (new parts added, etc.)
+  const segments = computeSegments(message, isLastMessage, isStreaming)
+  cache.set(message.id, {
+    partsLength: message.parts.length,
+    segments,
+    isLastMessage,
+    isStreaming,
+  })
   return segments
 }
