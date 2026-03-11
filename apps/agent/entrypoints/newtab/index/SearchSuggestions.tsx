@@ -37,8 +37,10 @@ const SuggestionItemRenderer: FC<{
     case 'search':
       return (
         <li className={baseClassName} {...getItemProps({ item, index })}>
-          <Search className="h-4 w-4 text-muted-foreground" />
-          {item.query}
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate" title={item.query}>
+            {item.query}
+          </span>
         </li>
       )
 
@@ -64,9 +66,14 @@ const SuggestionItemRenderer: FC<{
     case 'browseros':
       return (
         <li className={baseClassName} {...getItemProps({ item, index })}>
-          <Sparkles className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold">Ask BrowserOS:</span>
-          {item.message || 'Type a message...'}
+          <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="flex-shrink-0 font-semibold">Ask BrowserOS:</span>
+          <span
+            className="min-w-0 flex-1 truncate"
+            title={item.message || 'Type a message...'}
+          >
+            {item.message || 'Type a message...'}
+          </span>
         </li>
       )
   }
