@@ -41,7 +41,6 @@ export const GraphChat: FC<GraphChatProps> = ({
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [mounted, setMounted] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const displayMessages = getWorkflowDisplayMessages(messages)
 
   useEffect(() => {
@@ -143,7 +142,6 @@ export const GraphChat: FC<GraphChatProps> = ({
             onClickLike={onClickLike}
             messages={displayMessages}
             status={status}
-            messagesEndRef={messagesEndRef}
             showJtbdPopup={popupVisible}
             showDontShowAgain={false}
             onTakeSurvey={onTakeSurvey}
