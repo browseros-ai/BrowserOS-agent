@@ -8,7 +8,8 @@ export const NewTabLayout: FC = () => {
 
   return (
     <ChatSessionProvider origin="newtab">
-      {location.pathname !== '/home/soul' && <NewTabFocusGrid />}
+      {location.pathname !== '/home/soul' &&
+        location.pathname !== '/home/memory' && <NewTabFocusGrid />}
       <Outlet />
     </ChatSessionProvider>
   )

@@ -21,6 +21,7 @@ import { LoginPage } from './login/LoginPage'
 import { LogoutPage } from './login/LogoutPage'
 import { MagicLinkCallback } from './login/MagicLinkCallback'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
+import { MemoryPage } from './memory/MemoryPage'
 import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 import { SearchProviderPage } from './search-provider/SearchProviderPage'
@@ -79,6 +80,7 @@ export const App: FC = () => {
             <Route index element={<NewTab />} />
             <Route path="personalize" element={<Personalize />} />
             <Route path="soul" element={<SoulPage />} />
+            <Route path="memory" element={<MemoryPage />} />
           </Route>
 
           {/* Primary nav routes */}
