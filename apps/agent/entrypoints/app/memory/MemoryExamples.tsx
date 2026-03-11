@@ -25,14 +25,24 @@ const MEMORY_EXAMPLES: Example[] = [
       'My name is [name] and I work as a [role] at [company]. Save this to your core memory.',
   },
   {
-    label: 'Share preferences',
+    label: 'Learn from my bookmarks',
     query:
-      'I prefer dark mode, concise answers, and TypeScript. Remember these preferences.',
+      'Look through my bookmarks and figure out what topics and interests matter to me. Save the key themes to your core memory.',
   },
   {
-    label: 'Add your stack',
+    label: 'Summarize my week',
     query:
-      'My main tech stack is React, Node.js, and PostgreSQL. Save this to core memory.',
+      "Check my browsing history from the past 7 days and summarize what I've been focused on. Save the highlights to your core memory.",
+  },
+  {
+    label: 'Know my open tabs',
+    query:
+      "Look at my open tabs right now and figure out what I'm working on. Save the relevant context to core memory.",
+  },
+  {
+    label: 'Set how I like to chat',
+    query:
+      "I like short, direct answers. Don't over-explain or add filler. Remember how I prefer to communicate.",
   },
   {
     label: 'Review memories',
