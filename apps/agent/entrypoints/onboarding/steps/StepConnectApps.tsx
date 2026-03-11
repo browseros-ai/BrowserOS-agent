@@ -74,7 +74,7 @@ export const StepConnectApps = ({
     )
   }
 
-  // Stop polling when both recommended apps are connected
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Stop polling when both recommended apps are connected
   useEffect(() => {
     const allRecommendedConnected = RECOMMENDED_APPS.every((app) =>
       isAppConnected(app.name),
@@ -224,10 +224,10 @@ export const StepConnectApps = ({
                     <div className="relative">
                       <McpServerIcon serverName={app.name} size={24} />
                       {connected && (
-                        <Check className="absolute -right-1 -top-1 size-3 rounded-full bg-green-500 p-0.5 text-white" />
+                        <Check className="absolute -top-1 -right-1 size-3 rounded-full bg-green-500 p-0.5 text-white" />
                       )}
                     </div>
-                    <span className="text-muted-foreground text-[11px]">
+                    <span className="text-[11px] text-muted-foreground">
                       {app.name}
                     </span>
                   </button>
