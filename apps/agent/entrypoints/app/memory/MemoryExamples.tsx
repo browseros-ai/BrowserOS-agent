@@ -40,11 +40,6 @@ const MEMORY_EXAMPLES: Example[] = [
       "Look at my open tabs right now and figure out what I'm working on. Save the relevant context to core memory.",
   },
   {
-    label: 'Set how I like to chat',
-    query:
-      "I like short, direct answers. Don't over-explain or add filler. Remember how I prefer to communicate.",
-  },
-  {
     label: 'Review memories',
     query:
       'Read your core memories and tell me what you know about me. Is anything outdated?',
