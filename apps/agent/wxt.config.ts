@@ -10,6 +10,14 @@ const env = process.env
 const apiUrl = env.VITE_PUBLIC_BROWSEROS_API
   ? new URL(env.VITE_PUBLIC_BROWSEROS_API)
   : null
+
+if (!apiUrl && !process.argv.includes('prepare')) {
+  throw new Error(
+    'VITE_PUBLIC_BROWSEROS_API is required for wxt build/dev. ' +
+      'Set it in .env.development or your CI environment.',
+  )
+}
+
 const apiPattern = apiUrl
   ? apiUrl.port
     ? `${apiUrl.hostname}:${apiUrl.port}`
