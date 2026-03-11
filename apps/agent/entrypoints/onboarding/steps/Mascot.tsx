@@ -56,7 +56,7 @@ export const Mascot = () => {
   return (
     <motion.div
       ref={containerRef}
-      className="relative h-[260px] w-[200px] shrink-0"
+      className="relative h-[338px] w-[260px] shrink-0"
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: 0.3, duration: 0.5, ease: 'easeOut' }}
