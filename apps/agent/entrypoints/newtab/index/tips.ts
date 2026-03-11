@@ -57,7 +57,7 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'soul-md',
-    text: "Tell the assistant things like 'be more direct' or 'always ask first,' and it updates your SOUL.md.",
+    text: "Tell the assistant things like 'be more direct' or 'always ask first' to shape how it behaves in future chats.",
   },
   {
     id: 'sync-to-cloud',
