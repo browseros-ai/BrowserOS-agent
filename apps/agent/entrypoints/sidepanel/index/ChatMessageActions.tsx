@@ -1,6 +1,6 @@
 import { CheckIcon, CopyIcon, ThumbsDownIcon, ThumbsUpIcon } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { type FC, useState } from 'react'
+import { memo, useState } from 'react'
 import { MessageAction, MessageActions } from '@/components/ai-elements/message'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,7 +24,7 @@ interface ChatMessageActionsProps {
   onClickDislike: (comment?: string) => void
 }
 
-export const ChatMessageActions: FC<ChatMessageActionsProps> = ({
+export const ChatMessageActions = memo<ChatMessageActionsProps>(({
   messageId,
   messageText,
   liked,
@@ -142,4 +142,6 @@ export const ChatMessageActions: FC<ChatMessageActionsProps> = ({
       </Dialog>
     </MessageActions>
   )
-}
+})
+
+ChatMessageActions.displayName = 'ChatMessageActions'

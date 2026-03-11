@@ -5,7 +5,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, memo, useEffect, useState } from 'react'
 import {
   Task,
   TaskContent,
@@ -24,7 +24,7 @@ interface ToolBatchProps {
   isStreaming: boolean
 }
 
-export const ToolBatch: FC<ToolBatchProps> = ({
+export const ToolBatch = memo<ToolBatchProps>(({
   tools,
   isLastBatch,
   isLastMessage,
@@ -67,7 +67,9 @@ export const ToolBatch: FC<ToolBatchProps> = ({
       </TaskContent>
     </Task>
   )
-}
+})
+
+ToolBatch.displayName = 'ToolBatch'
 
 const formatToolName = (name: string) => {
   return name

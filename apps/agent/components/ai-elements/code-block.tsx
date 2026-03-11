@@ -84,19 +84,22 @@ export const CodeBlock = ({
 }: CodeBlockProps) => {
   const [html, setHtml] = useState<string>('')
   const [darkHtml, setDarkHtml] = useState<string>('')
-  const mounted = useRef(false)
+  const lastHighlightedCode = useRef<string>('')
 
   useEffect(() => {
+    if (code === lastHighlightedCode.current) return
+
+    let cancelled = false
     highlightCode(code, language, showLineNumbers).then(([light, dark]) => {
-      if (!mounted.current) {
+      if (!cancelled) {
         setHtml(light)
         setDarkHtml(dark)
-        mounted.current = true
+        lastHighlightedCode.current = code
       }
     })
 
     return () => {
-      mounted.current = false
+      cancelled = true
     }
   }, [code, language, showLineNumbers])
 
