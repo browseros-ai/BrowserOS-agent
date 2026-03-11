@@ -69,15 +69,6 @@ export const Chat = () => {
     })()
   }, [])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when messages change
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
   // Trigger JTBD popup when AI finishes responding
   const previousChatStatus = useRef(status)
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only trigger on status change
