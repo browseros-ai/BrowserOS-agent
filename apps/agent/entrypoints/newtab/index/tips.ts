@@ -37,15 +37,31 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'background-tasks',
-    text: 'Scheduled tasks run in a seperate window so they never interrupt your browsing.',
+    text: 'Scheduled tasks run in a separate window so they never interrupt your browsing.',
   },
   {
     id: 'claude-code-mcp',
-    text: 'Connect BrowserOS to Claude Code with the MCP integration for full browser control from your terminal.',
+    text: 'Connect BrowserOS to Claude Code to control tabs, clicks, and pages from your terminal.',
   },
   {
     id: 'mcp-servers',
     text: 'Add MCP servers for Google Calendar, Gmail, Notion, and more to build multi-service workflows.',
+  },
+  {
+    id: 'skills',
+    text: 'Create a Skill if you want the agent to follow the same instructions every time for a task.',
+  },
+  {
+    id: 'smart-nudges',
+    text: 'If BrowserOS offers to connect an app, saying yes lets it use that app directly next time.',
+  },
+  {
+    id: 'soul-md',
+    text: "Tell the assistant things like 'be more direct' or 'always ask first,' and it updates your SOUL.md.",
+  },
+  {
+    id: 'sync-to-cloud',
+    text: 'Sign in to sync your chats, settings, and scheduled tasks across devices. API keys stay on each device.',
   },
   {
     id: 'import-chrome',
@@ -66,6 +82,14 @@ export const TIPS: Tip[] = [
   {
     id: 'mode-selection',
     text: 'Use Chat mode for read-only operations like questions and summaries, and Agent mode for multi-step browser tasks.',
+  },
+  {
+    id: 'vertical-tabs',
+    text: 'Turn on Vertical Tabs in Settings > Customization to move your tabs into a readable list on the left.',
+  },
+  {
+    id: 'memory',
+    text: "Say 'remember this' to save something important, or ask 'what do you remember about X?' later.",
   },
 ]
 
