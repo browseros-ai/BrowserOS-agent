@@ -1,5 +1,5 @@
 import { Pencil, Plus, Trash2, Wand2 } from 'lucide-react'
-import { type FC, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -223,15 +223,11 @@ const SkillDialog: FC<{
   const [content, setContent] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Reset form when dialog opens
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      setName(editingSkill?.name ?? '')
-      setDescription(editingSkill?.description ?? '')
-      setContent(editingSkill?.content ?? '')
-    }
-    onOpenChange(isOpen)
-  }
+  useEffect(() => {
+    setName(editingSkill?.name ?? '')
+    setDescription(editingSkill?.description ?? '')
+    setContent(editingSkill?.content ?? '')
+  }, [editingSkill])
 
   const handleSubmit = async () => {
     setSaving(true)
@@ -245,7 +241,7 @@ const SkillDialog: FC<{
   const isValid = name.trim() && description.trim() && content.trim()
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
