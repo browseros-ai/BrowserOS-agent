@@ -408,7 +408,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const justFinished = wasStreaming && status === 'ready'
     previousStatusRef.current = status
 
-    if (!justFinished && status !== 'ready') return
+    if (!justFinished) return
 
     const messagesToSave = messages.filter((m) => m.parts?.length > 0)
     if (messagesToSave.length === 0) return
