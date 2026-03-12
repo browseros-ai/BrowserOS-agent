@@ -352,11 +352,15 @@ function getPageContext(
     '\n\n**CRITICAL RULES:**\n1. **Do NOT call `get_active_page` or `list_pages` to find your starting page.** Use the **page ID from the Browser Context** directly.'
 
   if (options?.isScheduledTask) {
-    const windowLine = options.scheduledTaskWindowId
-      ? `When creating new pages with \`new_page\`, always pass \`windowId: ${options.scheduledTaskWindowId}\`.`
-      : 'When creating new pages with `new_page`, pass the `windowId` from the Browser Context.'
-    prompt += `\n2. ${windowLine}`
-    prompt += '\n3. Complete the task end-to-end and report results.'
+    const windowRef = options.scheduledTaskWindowId
+      ? `\`windowId: ${options.scheduledTaskWindowId}\``
+      : 'the `windowId` from the Browser Context'
+    prompt += `\n2. **Always pass ${windowRef}** when calling \`new_page\` or \`new_hidden_page\`. Never omit the \`windowId\` parameter.`
+    prompt +=
+      '\n3. **Do NOT close your dedicated hidden window** (via `close_window`). It is managed by the system and will be cleaned up automatically.'
+    prompt +=
+      '\n4. **Do NOT create new windows** (via `create_window` or `create_hidden_window`). Use your existing hidden window for all pages.'
+    prompt += '\n5. Complete the task end-to-end and report results.'
   }
 
   prompt += '\n</page_context>'
