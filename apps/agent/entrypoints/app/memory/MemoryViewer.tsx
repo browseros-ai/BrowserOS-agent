@@ -1,8 +1,9 @@
 import { Brain, Check, Loader2, Pencil, Plus, X } from 'lucide-react'
 import type { FC } from 'react'
 import { useState } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { MarkdownEditor } from '@/components/ui/MarkdownEditor'
 import { useMemoryContent } from './useMemoryContent'
 
 export const MemoryViewer: FC = () => {
@@ -152,24 +153,24 @@ export const MemoryViewer: FC = () => {
       </div>
 
       {isEditing ? (
-        <div className="p-3">
-          <Textarea
+        <div className="space-y-2 p-3">
+          <MarkdownEditor
             value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="styled-scrollbar max-h-[480px] min-h-[200px] resize-y font-mono text-sm leading-relaxed"
-            placeholder="# Core Memories&#10;&#10;Write facts about yourself — name, preferences, projects, tools..."
+            onChange={setEditContent}
+            className="styled-scrollbar max-h-[480px] min-h-[200px] overflow-y-auto text-sm"
+            placeholder="Write facts about yourself — name, preferences, projects, tools..."
             autoFocus
           />
           {saveError && (
-            <p className="mt-2 text-destructive text-xs">
+            <p className="text-destructive text-xs">
               {saveError.message || 'Failed to save. Please try again.'}
             </p>
           )}
         </div>
       ) : (
-        <pre className="styled-scrollbar max-h-[65vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
-          {content}
-        </pre>
+        <div className="prose prose-sm dark:prose-invert [&_[data-streamdown='code-block']]:!w-full [&_[data-streamdown='table-wrapper']]:!w-full styled-scrollbar max-h-[65vh] max-w-none overflow-auto break-words p-4">
+          <MessageResponse>{content ?? ''}</MessageResponse>
+        </div>
       )}
     </div>
   )

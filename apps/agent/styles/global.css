@@ -373,3 +373,251 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* MDXEditor — positioning shell (non-scrolling) */
+.mdx-editor-outer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: clip;
+}
+
+/* MDXEditor — scrollable inner area */
+.mdx-editor-themed {
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* MDXEditor theme overrides — must target .mdxeditor directly to beat _editorRoot specificity */
+.mdx-editor-themed .mdxeditor {
+  --basePageBg: var(--card);
+  --baseBase: var(--card);
+  --baseBgSubtle: var(--secondary);
+  --baseBg: var(--muted);
+  --baseBgHover: var(--accent);
+  --baseBgActive: var(--accent);
+  --baseLine: var(--border);
+  --baseBorder: var(--border);
+  --baseBorderHover: var(--foreground);
+  --baseSolid: var(--muted-foreground);
+  --baseSolidHover: var(--foreground);
+  --baseText: var(--muted-foreground);
+  --baseTextContrast: var(--foreground);
+  --accentBase: var(--accent-orange);
+  --accentBgSubtle: oklch(from var(--accent-orange) l c h / 0.08);
+  --accentBg: oklch(from var(--accent-orange) l c h / 0.12);
+  --accentBgActive: oklch(from var(--accent-orange) l c h / 0.18);
+  --accentLine: oklch(from var(--accent-orange) l c h / 0.3);
+  --accentSolid: var(--accent-orange);
+  --accentText: var(--accent-orange);
+  --font-body: var(--font-sans);
+  --font-mono: var(--font-mono);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground);
+}
+
+.mdx-editor-themed .mdxeditor [role="textbox"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.mdx-editor-themed .mdxeditor [data-placeholder]::before {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+/* Content area */
+.mdx-content-editable {
+  background: transparent;
+}
+
+.mdx-content-editable h1,
+.mdx-content-editable h2,
+.mdx-content-editable h3 {
+  color: var(--foreground);
+}
+
+/* Checklist — align checkbox with text baseline */
+.mdx-content-editable [class*="listItemChecked"]::before,
+.mdx-content-editable [class*="listItemUnchecked"]::before {
+  top: 0.2em;
+}
+
+.mdx-content-editable [class*="listItemChecked"]::after {
+  top: calc(0.2em + 2px);
+}
+
+/* ── Copy button bar ── */
+.mdx-copy-bar {
+  display: flex;
+  justify-content: flex-end;
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mdx-copy-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.mdx-copy-button:hover {
+  color: var(--foreground);
+  border-color: var(--foreground);
+}
+
+/* ── Toolbar ── */
+.mdx-editor-themed .mdxeditor [role="toolbar"] {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+  gap: 4px;
+}
+
+/* Toggle groups — add gap so active buttons don't touch */
+.mdx-editor-themed .mdxeditor [role="toolbar"] [role="group"] {
+  gap: 3px;
+}
+
+/* Toolbar buttons — idle */
+.mdx-editor-themed .mdxeditor [role="toolbar"] button,
+.mdx-editor-themed .mdxeditor [role="toolbar"] [role="radio"] {
+  color: var(--muted-foreground);
+  border-radius: 6px;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+/* Toolbar buttons — hover */
+.mdx-editor-themed .mdxeditor [role="toolbar"] button:hover,
+.mdx-editor-themed .mdxeditor [role="toolbar"] [role="radio"]:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+/* Toolbar buttons — active / toggled on */
+.mdx-editor-themed .mdxeditor [role="toolbar"] button[data-state="on"],
+.mdx-editor-themed .mdxeditor [role="toolbar"] [role="radio"][data-state="on"] {
+  background: var(--accent-orange);
+  color: white;
+}
+
+/* Toolbar buttons — disabled */
+.mdx-editor-themed .mdxeditor [role="toolbar"] button[data-disabled],
+.mdx-editor-themed .mdxeditor [role="toolbar"] [role="radio"][data-disabled] {
+  opacity: 0.35;
+}
+
+/* Toolbar separator */
+.mdx-editor-themed .mdxeditor [role="toolbar"] [role="separator"] {
+  border-color: var(--border);
+  margin-inline: 4px;
+}
+
+/* ── Block-type select trigger ── */
+.mdx-editor-themed .mdxeditor [class*="selectTrigger"],
+.mdx-editor-themed .mdxeditor [class*="SelectTrigger"] {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  padding: 3px 8px;
+  transition: border-color 0.15s;
+}
+
+.mdx-editor-themed .mdxeditor [class*="selectTrigger"]:hover,
+.mdx-editor-themed .mdxeditor [class*="SelectTrigger"]:hover {
+  border-color: var(--foreground);
+}
+
+/* ── Block-type select dropdown ── */
+.mdx-editor-themed .mdxeditor [class*="selectContainer"],
+.mdx-editor-themed .mdxeditor [class*="SelectContent"] {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.15));
+}
+
+.mdx-editor-themed .mdxeditor [class*="selectItem"],
+.mdx-editor-themed .mdxeditor [class*="SelectItem"] {
+  color: var(--foreground);
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+}
+
+.mdx-editor-themed .mdxeditor [class*="selectItem"][data-highlighted],
+.mdx-editor-themed .mdxeditor [class*="SelectItem"][data-highlighted] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.mdx-editor-themed .mdxeditor [class*="selectItem"][data-state="checked"],
+.mdx-editor-themed .mdxeditor [class*="SelectItem"][data-state="checked"] {
+  background: oklch(from var(--accent-orange) l c h / 0.1);
+  color: var(--accent-orange);
+}
+
+/* ── Link dialog ── */
+.mdx-editor-themed .mdxeditor [class*="linkDialogPopover"] {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--foreground);
+  filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.15));
+}
+
+.mdx-editor-themed .mdxeditor [class*="linkDialogPopover"] input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.mdx-editor-themed .mdxeditor [class*="linkDialogPopover"] input:focus {
+  border-color: var(--accent-orange);
+  outline: none;
+  box-shadow: 0 0 0 2px oklch(from var(--accent-orange) l c h / 0.15);
+}
+
+.mdx-editor-themed .mdxeditor [class*="linkDialogPopover"] button {
+  color: var(--foreground);
+}
+
+/* ── Dark mode adjustments ── */
+.dark .mdx-editor-themed .mdxeditor [class*="selectContainer"],
+.dark .mdx-editor-themed .mdxeditor [class*="SelectContent"] {
+  filter: drop-shadow(0 4px 16px rgb(0 0 0 / 0.4));
+}
+
+.dark .mdx-editor-themed .mdxeditor [class*="linkDialogPopover"] {
+  filter: drop-shadow(0 4px 16px rgb(0 0 0 / 0.4));
+}

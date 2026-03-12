@@ -1,5 +1,5 @@
 import { AlertCircle, Pencil, Plus, Trash2, Wand2 } from 'lucide-react'
-import { type FC, type KeyboardEvent, useEffect, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MarkdownEditor } from '@/components/ui/MarkdownEditor'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { type SkillDetail, type SkillMeta, useSkills } from './useSkills'
@@ -339,7 +340,9 @@ const SkillDialog: FC<{
     }
   }
 
-  const handleContentKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleContentKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (
+    event,
+  ) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault()
       void handleSubmit()
@@ -391,12 +394,12 @@ const SkillDialog: FC<{
               </p>
             </div>
 
-            <div className="rounded-xl border border-border bg-background p-4">
-              <p className="font-medium text-sm">Useful structure</p>
-              <div className="mt-2 space-y-2 text-muted-foreground text-xs leading-5">
-                <p>List the ordered steps the agent should follow.</p>
-                <p>Close with the output or formatting you expect back.</p>
-              </div>
+            <div className="mt-auto rounded-lg border border-border/60 border-dashed bg-muted/30 px-3 py-2.5">
+              <p className="font-medium text-muted-foreground text-xs">Tip</p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-muted-foreground text-xs leading-5">
+                <li>List the ordered steps the agent should follow.</li>
+                <li>Close with the output or formatting you expect back.</li>
+              </ul>
             </div>
           </div>
 
@@ -408,22 +411,14 @@ const SkillDialog: FC<{
               </Badge>
             </div>
 
-            <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/20">
-              <div className="flex items-center justify-between border-b px-4 py-3">
-                <span className="font-medium text-sm">Markdown editor</span>
-                <span className="text-muted-foreground text-xs">
-                  Cmd/Ctrl + Enter to save
-                </span>
-              </div>
-              <Textarea
-                id="skill-content"
-                placeholder="Write instructions for the agent. Use markdown for structure."
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                onKeyDown={handleContentKeyDown}
-                className="min-h-[320px] flex-1 resize-none overflow-y-auto border-0 bg-transparent p-4 font-mono text-sm leading-6 shadow-none focus-visible:ring-0"
-              />
-            </div>
+            <MarkdownEditor
+              id="skill-content"
+              value={content}
+              onChange={setContent}
+              onKeyDown={handleContentKeyDown}
+              placeholder="Write instructions for the agent. Use markdown for structure."
+              className="mt-4 min-h-[320px] flex-1 overflow-y-auto text-sm"
+            />
           </div>
         </div>
 
