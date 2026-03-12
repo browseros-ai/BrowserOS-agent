@@ -1,5 +1,5 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import matter from 'gray-matter'
 import { getSkillsDir } from '../lib/browseros-dir'
 import { logger } from '../lib/logger'
@@ -23,7 +23,7 @@ export function slugify(name: string): string {
 function safeSkillDir(id: string): string {
   const skillsDir = getSkillsDir()
   const resolved = resolve(skillsDir, id)
-  if (!resolved.startsWith(`${skillsDir}/`)) {
+  if (!resolved.startsWith(`${skillsDir}${sep}`)) {
     throw new Error('Invalid skill id')
   }
   return resolved
