@@ -23,27 +23,93 @@ type NavItem = {
   feature?: Feature
 }
 
-const settingsNavItems: NavItem[] = [
-  { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
-  { name: 'LLM Chat & Hub', to: '/settings/chat', icon: MessageSquare },
-  { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
+type NavSection = {
+  label: string
+  items: NavItem[]
+}
+
+const settingsNavSections: NavSection[] = [
   {
-    name: 'Customization',
-    to: '/settings/customization',
-    icon: Palette,
-    feature: Feature.CUSTOMIZATION_SUPPORT,
+    label: 'Provider Settings',
+    items: [
+      { name: 'LLM Providers', to: '/settings/ai', icon: Bot },
+      {
+        name: 'Chat & Hub Provider',
+        to: '/settings/chat',
+        icon: MessageSquare,
+      },
+      { name: 'Search Provider', to: '/settings/search', icon: Search },
+    ],
   },
-  { name: 'Search Provider', to: '/settings/search', icon: Search },
-  { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
-  { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
+  {
+    label: 'BrowserOS Features',
+    items: [
+      { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
+      {
+        name: 'Customization',
+        to: '/settings/customization',
+        icon: Palette,
+        feature: Feature.CUSTOMIZATION_SUPPORT,
+      },
+    ],
+  },
+  {
+    label: 'Misc',
+    items: [
+      { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
+      { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
+    ],
+  },
 ]
 
 export const SettingsSidebar: FC = () => {
   const location = useLocation()
   const { supports } = useCapabilities()
 
-  const filteredItems = settingsNavItems.filter(
-    (item) => !item.feature || supports(item.feature),
+  const filteredSections = settingsNavSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.feature || supports(item.feature),
+      ),
+    }))
+    .filter((section) => section.items.length > 0)
+
+  const getNavLinkClassName = (isActive: boolean) =>
+    cn(
+      'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+      isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+    )
+
+  const getSectionClassName = (index: number) =>
+    cn(index > 0 && 'mt-3 border-t pt-3')
+
+  const sectionLabelClassName =
+    'mb-2 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-[0.18em]'
+
+  const isActivePath = (path: string) => location.pathname === path
+
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon
+    const isActive = isActivePath(item.to)
+
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        className={getNavLinkClassName(isActive)}
+      >
+        <Icon className="size-4 shrink-0" />
+        <span className="truncate">{item.name}</span>
+      </NavLink>
+    )
+  }
+
+  const renderSection = (section: NavSection, index: number) => (
+    <div key={section.label} className={getSectionClassName(index)}>
+      <div className={sectionLabelClassName}>{section.label}</div>
+      <nav className="space-y-1">{section.items.map(renderNavItem)}</nav>
+    </div>
   )
 
   return (
@@ -66,27 +132,7 @@ export const SettingsSidebar: FC = () => {
         <div className="mb-2 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           Settings
         </div>
-        <nav className="space-y-1">
-          {filteredItems.map((item) => {
-            const Icon = item.icon
-            const isActive = location.pathname === item.to
-
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                  isActive &&
-                    'bg-sidebar-accent text-sidebar-accent-foreground',
-                )}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="truncate">{item.name}</span>
-              </NavLink>
-            )
-          })}
-        </nav>
+        <div>{filteredSections.map(renderSection)}</div>
       </div>
 
       <div className="mt-auto border-t p-2">

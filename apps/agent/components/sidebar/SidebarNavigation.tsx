@@ -6,7 +6,6 @@ import {
   PlugZap,
   Settings,
   Sparkles,
-  UserPen,
   Wand2,
 } from 'lucide-react'
 import type { FC } from 'react'
@@ -35,30 +34,12 @@ type NavItem = {
 const primaryNavItems: NavItem[] = [
   { name: 'Home', to: '/home', icon: Home },
   {
-    name: 'Workflows',
-    to: '/workflows',
-    icon: GitBranch,
-    feature: Feature.WORKFLOW_SUPPORT,
-  },
-  { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
-  {
     name: 'Connect Apps',
     to: '/connect-apps',
     icon: PlugZap,
     feature: Feature.MANAGED_MCP_SUPPORT,
   },
-  {
-    name: 'Personalize',
-    to: '/home/personalize',
-    icon: UserPen,
-    feature: Feature.PERSONALIZATION_SUPPORT,
-  },
-  {
-    name: 'Agent Soul',
-    to: '/home/soul',
-    icon: Sparkles,
-    feature: Feature.SOUL_SUPPORT,
-  },
+  { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
   {
     name: 'Skills',
     to: '/home/skills',
@@ -70,6 +51,18 @@ const primaryNavItems: NavItem[] = [
     to: '/home/memory',
     icon: Brain,
     feature: Feature.MEMORY_SUPPORT,
+  },
+  {
+    name: 'Soul',
+    to: '/home/soul',
+    icon: Sparkles,
+    feature: Feature.SOUL_SUPPORT,
+  },
+  {
+    name: 'Workflows',
+    to: '/workflows',
+    icon: GitBranch,
+    feature: Feature.WORKFLOW_SUPPORT,
   },
   { name: 'Settings', to: '/settings/ai', icon: Settings },
 ]
