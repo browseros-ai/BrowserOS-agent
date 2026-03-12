@@ -22,6 +22,7 @@
     "@browseros/server": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@lobehub/icons": "^2.44.0",
+    "@mdxeditor/editor": "^3.52.4",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@posthog/react": "^1.5.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
