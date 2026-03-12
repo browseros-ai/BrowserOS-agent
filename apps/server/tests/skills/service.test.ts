@@ -1,8 +1,8 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { sep } from 'node:path'
 
 import { createSkillsRoutes } from '../../src/api/routes/skills'
+import { getSkill } from '../../src/skills/service'
 
 describe('skills routes', () => {
   const app = createSkillsRoutes()
@@ -13,15 +13,17 @@ describe('skills routes', () => {
     const body = await res.json()
     assert.strictEqual(body.error, 'Skill not found')
   })
-
-  it('GET /:id rejects path traversal attempts', async () => {
-    const res = await app.request('/../../../etc/passwd')
-    assert.notStrictEqual(res.status, 200)
-  })
 })
 
-describe('safeSkillDir uses platform separator', () => {
-  it(`path.sep is "${sep}" on this platform`, () => {
-    assert.ok(sep === '/' || sep === '\\')
+describe('getSkill path traversal protection', () => {
+  it('throws on path traversal attempts', async () => {
+    await assert.rejects(() => getSkill('../../../etc/passwd'), {
+      message: 'Invalid skill id',
+    })
+  })
+
+  it('returns null for valid but non-existent skill ID', async () => {
+    const result = await getSkill('nonexistent-skill')
+    assert.strictEqual(result, null)
   })
 })
