@@ -2,17 +2,12 @@ import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNavigation } from './SidebarNavigation'
-import { SidebarUserFooter } from './SidebarUserFooter'
 
 interface AppSidebarProps {
   expanded?: boolean
-  onOpenShortcuts?: () => void
 }
 
-export const AppSidebar: FC<AppSidebarProps> = ({
-  expanded = false,
-  onOpenShortcuts,
-}) => {
+export const AppSidebar: FC<AppSidebarProps> = ({ expanded = false }) => {
   return (
     <div
       className={cn(
@@ -22,10 +17,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
     >
       <SidebarBranding expanded={expanded} />
       <SidebarNavigation expanded={expanded} />
-      <SidebarUserFooter
-        expanded={expanded}
-        onOpenShortcuts={onOpenShortcuts}
-      />
     </div>
   )
 }

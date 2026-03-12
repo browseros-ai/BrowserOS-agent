@@ -5,7 +5,6 @@ import { Outlet, useLocation } from 'react-router'
 import { AppSidebar } from '@/components/sidebar/AppSidebar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { ShortcutsDialog } from '@/entrypoints/newtab/index/ShortcutsDialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { SETTINGS_PAGE_VIEWED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
@@ -18,12 +17,7 @@ export const SidebarLayout: FC = () => {
   const isMobile = useIsMobile()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
   const collapseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const openShortcuts = useCallback(() => {
-    setShortcutsDialogOpen(true)
-  }, [])
 
   useEffect(() => {
     track(SETTINGS_PAGE_VIEWED_EVENT, { page: location.pathname })
@@ -77,13 +71,9 @@ export const SidebarLayout: FC = () => {
           </main>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetContent side="left" className="w-72 p-0">
-              <AppSidebar expanded onOpenShortcuts={openShortcuts} />
+              <AppSidebar expanded />
             </SheetContent>
           </Sheet>
-          <ShortcutsDialog
-            open={shortcutsDialogOpen}
-            onOpenChange={setShortcutsDialogOpen}
-          />
         </div>
       </RpcClientProvider>
     )
@@ -99,7 +89,7 @@ export const SidebarLayout: FC = () => {
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <AppSidebar expanded={sidebarOpen} onOpenShortcuts={openShortcuts} />
+          <AppSidebar expanded={sidebarOpen} />
         </div>
 
         {/* Main content - full width, centered */}
@@ -109,10 +99,6 @@ export const SidebarLayout: FC = () => {
           </div>
         </main>
       </div>
-      <ShortcutsDialog
-        open={shortcutsDialogOpen}
-        onOpenChange={setShortcutsDialogOpen}
-      />
     </RpcClientProvider>
   )
 }

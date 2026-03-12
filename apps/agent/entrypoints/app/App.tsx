@@ -8,6 +8,7 @@ import { OnboardingDemo } from '../onboarding/demo/OnboardingDemo'
 import { FeaturesPage } from '../onboarding/features/Features'
 import { Onboarding } from '../onboarding/index/Onboarding'
 import { StepsLayout } from '../onboarding/steps/StepsLayout'
+import { AgentsPage } from './agents/AgentsPage'
 import { AISettingsPage } from './ai-settings/AISettingsPage'
 import { ConnectMCP } from './connect-mcp/ConnectMCP'
 import { CreateGraphWrapper } from './create-graph/CreateGraphWrapper'
@@ -22,6 +23,7 @@ import { LogoutPage } from './login/LogoutPage'
 import { MagicLinkCallback } from './login/MagicLinkCallback'
 import { MCPSettingsPage } from './mcp-settings/MCPSettingsPage'
 import { MemoryPage } from './memory/MemoryPage'
+import { NaturePage } from './nature/NaturePage'
 import { ProfilePage } from './profile/ProfilePage'
 import { ScheduledTasksPage } from './scheduled-tasks/ScheduledTasksPage'
 import { SearchProviderPage } from './search-provider/SearchProviderPage'
@@ -83,6 +85,8 @@ export const App: FC = () => {
             <Route path="soul" element={<SoulPage />} />
             <Route path="skills" element={<SkillsPage />} />
             <Route path="memory" element={<MemoryPage />} />
+            <Route path="agents" element={<AgentsPage />} />
+            <Route path="nature" element={<NaturePage />} />
           </Route>
 
           {/* Primary nav routes */}
