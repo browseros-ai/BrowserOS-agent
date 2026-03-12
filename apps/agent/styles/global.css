@@ -444,6 +444,39 @@
   top: calc(0.2em + 2px);
 }
 
+/* ── Copy button bar ── */
+.mdx-copy-bar {
+  display: flex;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  padding: 6px 8px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mdx-copy-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.mdx-copy-button:hover {
+  color: var(--foreground);
+  border-color: var(--foreground);
+}
+
 /* ── Toolbar ── */
 .mdx-editor-themed .mdxeditor [role="toolbar"] {
   position: sticky;

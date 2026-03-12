@@ -18,7 +18,8 @@ import {
   toolbarPlugin,
   UndoRedo,
 } from '@mdxeditor/editor'
-import { useEffect, useMemo, useRef } from 'react'
+import { Check, Copy } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface MarkdownEditorProps {
@@ -64,6 +65,33 @@ function usePlugins(readOnly?: boolean) {
   )
 }
 
+function CopyMarkdownButton({
+  editorRef,
+}: {
+  editorRef: React.RefObject<MDXEditorMethods | null>
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    const markdown = editorRef.current?.getMarkdown() ?? ''
+    navigator.clipboard.writeText(markdown)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="mdx-copy-button"
+      title="Copy raw markdown"
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      <span>{copied ? 'Copied' : 'Copy markdown'}</span>
+    </button>
+  )
+}
+
 export const MarkdownEditor = ({
   value,
   onChange,
@@ -96,6 +124,9 @@ export const MarkdownEditor = ({
         readOnly={readOnly}
         contentEditableClassName="mdx-content-editable prose prose-sm max-w-none dark:prose-invert"
       />
+      <div className="mdx-copy-bar">
+        <CopyMarkdownButton editorRef={editorRef} />
+      </div>
     </div>
   )
 }
