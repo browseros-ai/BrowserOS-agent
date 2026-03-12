@@ -26,7 +26,7 @@ export const providerTemplates: ProviderTemplate[] = [
     defaultBaseUrl: 'https://api.moonshot.ai/v1',
     defaultModelId: 'kimi-k2.5',
     supportsImages: true,
-    contextWindow: 256000,
+    contextWindow: 200000,
     apiKeyUrl: 'https://platform.moonshot.ai/console/api-keys',
     setupGuideUrl: 'https://platform.moonshot.ai/console/api-keys',
   },
