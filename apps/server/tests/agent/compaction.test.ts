@@ -311,7 +311,7 @@ function agentConfig(
     conversationId: 'test-conversation',
     provider: LLM_PROVIDERS.OPENROUTER,
     model: 'moonshotai/kimi-k2.5',
-    sessionExecutionDir: '/tmp/browseros-tests',
+    workingDir: '/tmp/browseros-tests',
     ...overrides,
   }
 }

@@ -32,7 +32,7 @@ export interface ResolvedAgentConfig {
   sessionToken?: string
   contextWindowSize?: number
   userSystemPrompt?: string
-  sessionExecutionDir: string
+  workingDir: string
   /** Whether the model supports image inputs (vision). Defaults to true. */
   supportsImages?: boolean
   /** Eval mode - enables window management tools. Defaults to false. */

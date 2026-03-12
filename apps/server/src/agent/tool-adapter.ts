@@ -38,12 +38,12 @@ function contentToModelOutput(
 export function buildBrowserToolSet(
   registry: ToolRegistry,
   browser: Browser,
-  executionDir: string,
+  workingDir: string,
 ): ToolSet {
   const toolSet: ToolSet = {}
   const ctx: ToolContext = {
     browser,
-    directories: { executionDir },
+    directories: { workingDir },
   }
 
   for (const def of registry.all()) {

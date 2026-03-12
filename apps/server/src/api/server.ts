@@ -130,7 +130,6 @@ export async function createHttpServer(config: HttpServerConfig) {
       createChatRoutes({
         browser,
         registry,
-        executionDir,
         browserosId,
         rateLimiter,
       }),

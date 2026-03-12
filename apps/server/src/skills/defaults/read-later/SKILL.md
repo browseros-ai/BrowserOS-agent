@@ -1,6 +1,6 @@
 ---
 name: read-later
-description: Bookmark the current page to a "Read Later" folder and save a PDF copy for offline reading. Use when the user wants to save a page for later, bookmark it for reading, or keep an offline copy.
+description: Bookmark the current page to a "📚 Read Later" folder and save a PDF copy for offline reading. Use when the user wants to save a page for later, bookmark it for reading, or keep an offline copy.
 metadata:
   display-name: Read Later
   enabled: "true"
@@ -23,7 +23,7 @@ Activate when the user asks to save a page for later, read it later, bookmark so
 | Check for folder | `get_bookmarks` | Look for an existing folder named "📚 Read Later" in the bookmark bar |
 | Create folder (if needed) | `create_bookmark` | If the folder doesn't exist, create "📚 Read Later" in the bookmark bar |
 | Add bookmark | `create_bookmark` | Save the current page URL and title into the "📚 Read Later" folder |
-| Save PDF | `save_pdf` | Download the full page as a PDF to the user's default downloads directory |
+| Save PDF | `save_pdf` | Download the full page as a PDF to the working directory |
 | Notify user | — | Tell the user the page has been saved with the bookmark location and PDF file path |
 
 ## Notification Format

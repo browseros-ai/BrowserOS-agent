@@ -18,7 +18,7 @@ export type ToolHandler = (
 ) => Promise<void>
 
 export interface ToolDirectories {
-  executionDir: string
+  workingDir: string
   resourcesDir?: string
 }
 
@@ -27,12 +27,12 @@ export type ToolContext = {
   directories: ToolDirectories
 }
 
-export function resolveExecutionPath(
+export function resolveWorkingPath(
   ctx: ToolContext,
   targetPath: string,
   cwd?: string,
 ): string {
-  return resolve(cwd ?? ctx.directories.executionDir, targetPath)
+  return resolve(cwd ?? ctx.directories.workingDir, targetPath)
 }
 
 export function defineTool<
