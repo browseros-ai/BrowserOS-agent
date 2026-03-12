@@ -17,16 +17,31 @@ import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { cn } from '@/lib/utils'
 
-type NavItem = {
+type BaseNavItem = {
   name: string
-  to: string
   icon: typeof Bot
   feature?: Feature
 }
 
+type InternalNavItem = BaseNavItem & {
+  href?: never
+  to: string
+}
+
+type ExternalNavItem = BaseNavItem & {
+  href: string
+  to?: never
+}
+
+type NavItem = InternalNavItem | ExternalNavItem
+
 type NavSection = {
   label: string
   items: NavItem[]
+}
+
+function isExternalNavItem(item: NavItem): item is ExternalNavItem {
+  return 'href' in item
 }
 
 const getNavLinkClassName = (isActive: boolean) =>
@@ -75,7 +90,8 @@ const primarySettingsSections: NavSection[] = [
 ]
 
 const helpItems: NavItem[] = [
-  { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
+  { name: 'Docs', href: 'https://docs.browseros.com/', icon: Info },
+  { name: 'Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
@@ -97,6 +113,21 @@ export const SettingsSidebar: FC = () => {
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon
+
+    if (isExternalNavItem(item)) {
+      return (
+        <a
+          key={item.href}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={getNavLinkClassName(false)}
+        >
+          <Icon className="size-4 shrink-0" />
+          <span className="truncate">{item.name}</span>
+        </a>
+      )
+    }
 
     return (
       <NavLink
@@ -145,18 +176,6 @@ export const SettingsSidebar: FC = () => {
             {filteredHelpItems.map(renderNavItem)}
           </nav>
         </div>
-      </div>
-
-      <div className="mt-auto border-t p-2">
-        <a
-          href="https://docs.browseros.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <Info className="size-4 shrink-0" />
-          <span className="truncate">About BrowserOS</span>
-        </a>
       </div>
     </div>
   )
