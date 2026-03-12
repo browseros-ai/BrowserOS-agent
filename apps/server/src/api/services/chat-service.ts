@@ -12,6 +12,7 @@ import { formatUserMessage } from '../../agent/format-message'
 import type { SessionStore } from '../../agent/session-store'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import type { Browser } from '../../browser/browser'
+import { getSessionsDir } from '../../lib/browseros-dir'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
@@ -261,7 +262,7 @@ export class ChatService {
   private async resolveSessionDir(request: ChatRequest): Promise<string> {
     const dir = request.userWorkingDir
       ? request.userWorkingDir
-      : path.join(this.deps.executionDir, 'sessions', request.conversationId)
+      : path.join(getSessionsDir(), request.conversationId)
     await mkdir(dir, { recursive: true })
     return dir
   }

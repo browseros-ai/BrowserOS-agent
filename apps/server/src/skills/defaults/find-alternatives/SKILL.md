@@ -29,9 +29,9 @@ Activate when the user:
    - **Price range** — same range, cheaper, or open budget? If unclear, default to ±30% of the reference product's price.
    - **Key criteria** — what matters most? (e.g., price, quality, brand, specific features)
    - **Any exclusions** — brands or stores to skip
-3. **Create output directory.** Use `evaluate_script` to create:
+3. **Create output directory.** Use `evaluate_script` to create in your working directory:
    ```
-   ~/Downloads/alternatives-<product-slug>/
+   alternatives-<product-slug>/
    ├── raw/              ← per-source research data
    ├── findings.md       ← running notes and rankings
    └── report.html       ← final HTML report

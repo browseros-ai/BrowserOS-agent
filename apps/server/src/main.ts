@@ -18,7 +18,7 @@ import { ControllerBackend } from './browser/backends/controller'
 import { Browser } from './browser/browser'
 import type { ServerConfig } from './config'
 import { INLINED_ENV } from './env'
-import { ensureBrowserosDir } from './lib/browseros-dir'
+import { cleanOldSessions, ensureBrowserosDir } from './lib/browseros-dir'
 import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
@@ -132,6 +132,7 @@ export class Application {
   private async initCoreServices(): Promise<void> {
     this.configureLogDirectory()
     await ensureBrowserosDir()
+    await cleanOldSessions()
     await seedSoulTemplate()
     await seedDefaultSkills()
 
