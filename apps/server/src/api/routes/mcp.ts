@@ -25,7 +25,16 @@ interface McpRouteDeps {
 }
 
 export function createMcpRoutes(deps: McpRouteDeps) {
-  return new Hono<Env>().all('/', async (c) => {
+  const app = new Hono<Env>()
+
+  app.get('/', (c) =>
+    c.json({
+      status: 'ok',
+      message: 'MCP server is running. Use POST to interact.',
+    }),
+  )
+
+  app.post('/', async (c) => {
     const scopeId = c.req.header('X-BrowserOS-Scope-Id') || 'ephemeral'
     metrics.log('mcp.request', { scopeId })
 
@@ -56,4 +65,6 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       )
     }
   })
+
+  return app
 }
