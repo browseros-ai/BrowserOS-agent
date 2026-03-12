@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Bot,
   Compass,
+  GitBranch,
   Info,
   MessageSquare,
   Palette,
@@ -28,11 +29,11 @@ type NavSection = {
   items: NavItem[]
 }
 
-const settingsNavSections: NavSection[] = [
+const primarySettingsSections: NavSection[] = [
   {
     label: 'Provider Settings',
     items: [
-      { name: 'LLM Providers', to: '/settings/ai', icon: Bot },
+      { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
       {
         name: 'Chat & Hub Provider',
         to: '/settings/chat',
@@ -42,31 +43,35 @@ const settingsNavSections: NavSection[] = [
     ],
   },
   {
-    label: 'BrowserOS Features',
+    label: 'Other',
     items: [
-      { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
       {
         name: 'Customization',
         to: '/settings/customization',
         icon: Palette,
         feature: Feature.CUSTOMIZATION_SUPPORT,
       },
+      { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
+      {
+        name: 'Workflows',
+        to: '/workflows',
+        icon: GitBranch,
+        feature: Feature.WORKFLOW_SUPPORT,
+      },
     ],
   },
-  {
-    label: 'Misc',
-    items: [
-      { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
-      { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
-    ],
-  },
+]
+
+const helpItems: NavItem[] = [
+  { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
+  { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
 export const SettingsSidebar: FC = () => {
   const location = useLocation()
   const { supports } = useCapabilities()
 
-  const filteredSections = settingsNavSections
+  const filteredSections = primarySettingsSections
     .map((section) => ({
       ...section,
       items: section.items.filter(
@@ -74,6 +79,10 @@ export const SettingsSidebar: FC = () => {
       ),
     }))
     .filter((section) => section.items.length > 0)
+
+  const filteredHelpItems = helpItems.filter(
+    (item) => !item.feature || supports(item.feature),
+  )
 
   const getNavLinkClassName = (isActive: boolean) =>
     cn(
@@ -128,11 +137,17 @@ export const SettingsSidebar: FC = () => {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-2">
         <div className="mb-2 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           Settings
         </div>
         <div>{filteredSections.map(renderSection)}</div>
+        <div className="mt-auto pt-4">
+          <div className={sectionLabelClassName}>Help</div>
+          <nav className="space-y-1">
+            {filteredHelpItems.map(renderNavItem)}
+          </nav>
+        </div>
       </div>
 
       <div className="mt-auto border-t p-2">

@@ -1,7 +1,6 @@
 import {
   Brain,
   CalendarClock,
-  GitBranch,
   Home,
   PlugZap,
   Settings,
@@ -57,12 +56,6 @@ const primaryNavItems: NavItem[] = [
     to: '/home/soul',
     icon: Sparkles,
     feature: Feature.SOUL_SUPPORT,
-  },
-  {
-    name: 'Workflows',
-    to: '/workflows',
-    icon: GitBranch,
-    feature: Feature.WORKFLOW_SUPPORT,
   },
   { name: 'Settings', to: '/settings/ai', icon: Settings },
 ]
