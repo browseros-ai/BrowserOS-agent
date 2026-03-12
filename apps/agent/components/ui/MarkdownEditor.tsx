@@ -125,22 +125,24 @@ export const MarkdownEditor = ({
   }
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: onKeyDown/onPasteCapture forwarding
-    <div
-      className={cn('mdx-editor-themed', className)}
-      onKeyDown={onKeyDown}
-      onPasteCapture={handlePaste}
-    >
-      <MDXEditor
-        ref={editorRef}
-        markdown={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        plugins={plugins}
-        autoFocus={autoFocus}
-        readOnly={readOnly}
-        contentEditableClassName="mdx-content-editable prose prose-sm max-w-none dark:prose-invert"
-      />
+    <div className={cn('mdx-editor-outer', className)}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: onKeyDown/onPasteCapture forwarding */}
+      <div
+        className="mdx-editor-themed"
+        onKeyDown={onKeyDown}
+        onPasteCapture={handlePaste}
+      >
+        <MDXEditor
+          ref={editorRef}
+          markdown={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          plugins={plugins}
+          autoFocus={autoFocus}
+          readOnly={readOnly}
+          contentEditableClassName="mdx-content-editable prose prose-sm max-w-none dark:prose-invert"
+        />
+      </div>
       <div className="mdx-copy-bar">
         <CopyMarkdownButton editorRef={editorRef} />
       </div>

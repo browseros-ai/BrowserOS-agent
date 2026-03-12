@@ -374,13 +374,20 @@
   }
 }
 
-/* MDXEditor — outer wrapper with border and rounding */
-.mdx-editor-themed {
+/* MDXEditor — positioning shell (non-scrolling) */
+.mdx-editor-outer {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+/* MDXEditor — scrollable inner area */
+.mdx-editor-themed {
+  height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  background: var(--card);
 }
 
 /* MDXEditor theme overrides — must target .mdxeditor directly to beat _editorRoot specificity */
@@ -448,9 +455,9 @@
 .mdx-copy-bar {
   display: flex;
   justify-content: flex-end;
-  position: sticky;
-  bottom: 0;
-  padding: 6px 8px;
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
   pointer-events: none;
   z-index: 3;
 }
