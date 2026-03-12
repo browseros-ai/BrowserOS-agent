@@ -39,7 +39,7 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     }
 
     const normalized = ensureKimiFirst(providers)
-    if (normalized.length !== providers.length) {
+    if (normalized !== providers) {
       await saveProviders(normalized)
     }
     return normalized
