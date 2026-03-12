@@ -72,11 +72,15 @@ function CopyMarkdownButton({
 }) {
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     const markdown = editorRef.current?.getMarkdown() ?? ''
-    navigator.clipboard.writeText(markdown)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await navigator.clipboard.writeText(markdown)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard access denied
+    }
   }
 
   return (
@@ -104,9 +108,13 @@ export const MarkdownEditor = ({
   const editorRef = useRef<MDXEditorMethods>(null)
   const plugins = usePlugins(readOnly)
 
+  const lastSetMarkdown = useRef(value)
+
   useEffect(() => {
+    if (lastSetMarkdown.current === value) return
     const current = editorRef.current?.getMarkdown() ?? ''
     if (current !== value) {
+      lastSetMarkdown.current = value
       editorRef.current?.setMarkdown(value)
     }
   }, [value])
