@@ -71,7 +71,7 @@ const FEATURE_CONFIG: { [K in Feature]: FeatureConfig } = {
   [Feature.NEWTAB_CHAT_SUPPORT]: { minBrowserOSVersion: '0.40.0.0' },
   [Feature.VERTICAL_TABS_SUPPORT]: { minBrowserOSVersion: '0.42.0.0' },
   [Feature.MEMORY_SUPPORT]: { minServerVersion: '0.0.73' },
-  [Feature.SKILLS_SUPPORT]: { minServerVersion: '0.0.73' },
+  [Feature.SKILLS_SUPPORT]: { minBrowserOSVersion: '0.43.0.0' },
 }
 
 function parseVersion(version: string): number[] {
