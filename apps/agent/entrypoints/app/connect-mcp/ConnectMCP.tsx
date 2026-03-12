@@ -11,6 +11,7 @@ import {
   useMcpConfig,
   useRemoveMcpServer,
 } from '@/lib/mcp/useMcpConfig'
+import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import {
@@ -65,6 +66,8 @@ export const ConnectMCP: FC = () => {
     isLoading: isUserMCPIntegrationsLoading,
     mutate: mutateUserIntegrations,
   } = useGetUserMCPIntegrations()
+
+  useSyncRemoteIntegrations()
 
   const openAuthUrlForMCP = async (mcpName: string) => {
     try {

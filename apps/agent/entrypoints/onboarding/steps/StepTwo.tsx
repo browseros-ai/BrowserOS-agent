@@ -30,7 +30,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
   const handleSkip = () => {
     track(ONBOARDING_SIGNIN_SKIPPED_EVENT)
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
-      step: 2,
+      step: 4,
       step_name: 'signin',
       skipped: true,
     })
@@ -58,7 +58,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
 
       setState('magic-link-sent')
       track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'magic_link' })
-      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
+      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 4, step_name: 'signin' })
     } catch (err) {
       setState('error')
       setError(err instanceof Error ? err.message : 'Failed to send magic link')
@@ -71,7 +71,7 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
 
     try {
       track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'google' })
-      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 2, step_name: 'signin' })
+      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 4, step_name: 'signin' })
 
       await authRedirectPathStorage.setValue('/onboarding/demo')
       await signIn.social({

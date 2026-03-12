@@ -22,9 +22,11 @@ import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
 import { createMcpRoutes } from './routes/mcp'
 import { createMcpConfigRoutes } from './routes/mcp-config'
+import { createMemoryRoutes } from './routes/memory'
 import { createProviderRoutes } from './routes/provider'
 import { createSdkRoutes } from './routes/sdk'
 import { createShutdownRoute } from './routes/shutdown'
+import { createSkillsRoutes } from './routes/skills'
 import { createSoulRoutes } from './routes/soul'
 import { createStatusRoute } from './routes/status'
 import {
@@ -63,6 +65,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     host = '0.0.0.0',
     browserosId,
     executionDir,
+    resourcesDir,
     rateLimiter,
     version,
     browser,
@@ -109,6 +112,8 @@ export async function createHttpServer(config: HttpServerConfig) {
     .route('/status', createStatusRoute({ controller }))
     .route('/soul', createSoulRoutes())
     .route('/mcp-config', createMcpConfigRoutes())
+    .route('/memory', createMemoryRoutes())
+    .route('/skills', createSkillsRoutes())
     .route('/test-provider', createProviderRoutes())
     .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
     .route(
@@ -117,6 +122,8 @@ export async function createHttpServer(config: HttpServerConfig) {
         version,
         registry,
         browser,
+        executionDir,
+        resourcesDir,
         klavisProxy,
       }),
     )

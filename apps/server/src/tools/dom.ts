@@ -1,15 +1,14 @@
 import { z } from 'zod'
 import { formatSearchResult } from '../browser/dom'
 import { defineTool } from './framework'
-
-const MAX_DOM_HTML_LENGTH = 100_000
+import { writeTempToolOutputFile } from './output-file'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 
 export const get_dom = defineTool({
   name: 'get_dom',
   description:
-    'Get the raw HTML DOM structure of a page or a specific element. Returns outer HTML. Use a CSS selector to scope to a specific part of the page and avoid large responses. For readable text content, prefer get_page_content instead.',
+    'Get the raw HTML DOM structure of a page or a specific element. Writes outer HTML to a local file and returns the file path. Use a CSS selector to scope to a specific part of the page. For readable text content, prefer get_page_content instead.',
   input: z.object({
     page: pageParam,
     selector: z
@@ -20,9 +19,8 @@ export const get_dom = defineTool({
       ),
   }),
   output: z.object({
-    html: z.string(),
+    path: z.string(),
     selector: z.string().optional(),
-    truncated: z.boolean(),
     totalLength: z.number(),
   }),
   handler: async (args, ctx, response) => {
@@ -39,25 +37,19 @@ export const get_dom = defineTool({
       return
     }
 
-    if (html.length > MAX_DOM_HTML_LENGTH) {
-      const truncatedHtml = html.substring(0, MAX_DOM_HTML_LENGTH)
-      response.text(
-        `${truncatedHtml}\n\n[Truncated — ${html.length} chars total. Use a CSS selector to scope to a specific element.]`,
-      )
-      response.data({
-        html: truncatedHtml,
-        selector: args.selector,
-        truncated: true,
-        totalLength: html.length,
-      })
-      return
-    }
-
-    response.text(html)
+    const path = await writeTempToolOutputFile({
+      toolName: 'get-dom',
+      extension: 'html',
+      content: html,
+    })
+    response.text(
+      args.selector
+        ? `Saved DOM for selector "${args.selector}" to ${path}`
+        : `Saved DOM to ${path}`,
+    )
     response.data({
-      html,
+      path,
       selector: args.selector,
-      truncated: false,
       totalLength: html.length,
     })
   },

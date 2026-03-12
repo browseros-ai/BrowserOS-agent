@@ -2,22 +2,31 @@ import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import {
+  type LanguageModel,
+  type ModelMessage,
   stepCountIs,
   ToolLoopAgent,
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
 import type { Browser } from '../browser/browser'
+import { getSkillsDir } from '../lib/browseros-dir'
 import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
 import { isSoulBootstrap, readSoul } from '../lib/soul'
+import { buildSkillsCatalog } from '../skills/catalog'
+import { loadSkills } from '../skills/loader'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { buildMemoryToolSet } from '../tools/memory/build-toolset'
 import type { ToolRegistry } from '../tools/tool-registry'
 import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
-import { createCompactionPrepareStep } from './compaction'
+import { createCompactionPrepareStep, type StepWithUsage } from './compaction'
 import { createContextOverflowMiddleware } from './context-overflow-middleware'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
+import {
+  getMessageNormalizationOptions,
+  normalizeMessagesForModel,
+} from './message-normalization'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
 import { buildBrowserToolSet } from './tool-adapter'
@@ -47,16 +56,24 @@ export class AiSdkAgent {
 
     // Build language model with overflow protection middleware
     const rawModel = createLanguageModel(config.resolvedConfig)
-    const model =
-      (rawModel as any).specificationVersion === 'v3'
-        ? wrapLanguageModel({
-            model: rawModel as LanguageModelV3,
-            middleware: createContextOverflowMiddleware(contextWindow),
-          })
-        : rawModel
+    const isV3Model =
+      typeof rawModel === 'object' &&
+      rawModel !== null &&
+      'specificationVersion' in rawModel &&
+      rawModel.specificationVersion === 'v3'
+    const model = isV3Model
+      ? wrapLanguageModel({
+          model: rawModel as LanguageModelV3,
+          middleware: createContextOverflowMiddleware(contextWindow),
+        })
+      : rawModel
 
     // Build browser tools from the unified tool registry
-    const allBrowserTools = buildBrowserToolSet(config.registry, config.browser)
+    const allBrowserTools = buildBrowserToolSet(
+      config.registry,
+      config.browser,
+      config.resolvedConfig.sessionExecutionDir,
+    )
     const browserTools = config.resolvedConfig.chatMode
       ? Object.fromEntries(
           Object.entries(allBrowserTools).filter(([name]) =>
@@ -91,6 +108,14 @@ export class AiSdkAgent {
       ...memoryTools,
     }
 
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      delete tools.suggest_schedule
+      delete tools.suggest_app_connection
+    }
+
     // Build system prompt with optional section exclusions
     // Tool definitions are already injected by the AI SDK via tool schemas,
     // so skip the redundant tool-reference section.
@@ -98,8 +123,20 @@ export class AiSdkAgent {
     if (config.resolvedConfig.isScheduledTask) {
       excludeSections.push('tab-grouping')
     }
+    if (
+      config.resolvedConfig.isScheduledTask ||
+      config.resolvedConfig.chatMode
+    ) {
+      excludeSections.push('nudges')
+    }
     const soulContent = await readSoul()
     const isBootstrap = await isSoulBootstrap()
+
+    // Load skills catalog for prompt injection
+    const skills = await loadSkills(getSkillsDir())
+    const skillsCatalog =
+      skills.length > 0 ? buildSkillsCatalog(skills) : undefined
+
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
@@ -109,12 +146,31 @@ export class AiSdkAgent {
       soulContent,
       isSoulBootstrap: isBootstrap,
       chatMode: config.resolvedConfig.chatMode,
+      connectedApps: config.browserContext?.enabledMcpServers,
+      declinedApps: config.resolvedConfig.declinedApps,
+      skillsCatalog,
     })
 
     // Configure compaction for context window management
-    const prepareStep = createCompactionPrepareStep({
+    const compactionPrepareStep = createCompactionPrepareStep({
       contextWindow,
     })
+    const normalizationOptions = getMessageNormalizationOptions(
+      config.resolvedConfig,
+    )
+    const prepareStep = async (options: {
+      messages: ModelMessage[]
+      steps: ReadonlyArray<StepWithUsage>
+      model: LanguageModel
+      experimental_context: unknown
+    }) =>
+      compactionPrepareStep({
+        ...options,
+        messages: normalizeMessagesForModel(
+          options.messages,
+          normalizationOptions,
+        ),
+      })
 
     // Create the ToolLoopAgent
     const agent = new ToolLoopAgent({

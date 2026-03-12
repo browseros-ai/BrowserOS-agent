@@ -1,5 +1,8 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { get_dom, search_dom } from '../../src/tools/dom'
 import { close_page, new_page } from '../../src/tools/navigation'
 import { evaluate_script } from '../../src/tools/snapshot'
@@ -17,6 +20,12 @@ function textOf(result: {
 function structuredOf<T>(result: { structuredContent?: unknown }): T {
   assert.ok(result.structuredContent, 'Expected structuredContent')
   return result.structuredContent as T
+}
+
+function domPathOf(result: { structuredContent?: unknown }): string {
+  const data = structuredOf<{ path: string }>(result)
+  assert.ok(data.path, 'Expected saved DOM path')
+  return data.path
 }
 
 function pageIdOf(result: {
@@ -61,6 +70,13 @@ const RICH_PAGE = `data:text/html,${encodeURIComponent(`<!DOCTYPE html>
   </main>
 </body></html>`)}`
 
+function cleanupSavedDom(domPath: string): void {
+  unlinkSync(domPath)
+  try {
+    rmSync(dirname(domPath))
+  } catch {}
+}
+
 // ── get_dom ──
 
 describe('get_dom', () => {
@@ -68,28 +84,38 @@ describe('get_dom', () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
       const pageId = pageIdOf(newResult)
+      let domPath: string | undefined
 
-      const result = await execute(get_dom, { page: pageId })
-      assert.ok(!result.isError, textOf(result))
-      const html = textOf(result)
+      try {
+        const result = await execute(get_dom, { page: pageId })
+        assert.ok(!result.isError, textOf(result))
+        domPath = domPathOf(result)
+        const html = readFileSync(domPath, 'utf8')
 
-      assert.ok(html.includes('<html'), 'Should contain <html> tag')
-      assert.ok(html.includes('</html>'), 'Should contain closing </html>')
-      assert.ok(html.includes('id="login-form"'), 'Should contain form ID')
-      assert.ok(
-        html.includes('Welcome to Test Page'),
-        'Should contain heading text',
-      )
-      assert.ok(html.includes('<head>'), 'Full page should include <head>')
-      const data = structuredOf<{
-        html: string
-        truncated: boolean
-        totalLength: number
-      }>(result)
-      assert.strictEqual(data.truncated, false)
-      assert.ok(data.totalLength >= data.html.length)
-
-      await execute(close_page, { page: pageId })
+        assert.ok(textOf(result).includes('Saved DOM'))
+        assert.ok(existsSync(domPath), 'Saved DOM file should exist')
+        assert.ok(
+          dirname(domPath).startsWith(join(tmpdir(), 'browseros-tool-output-')),
+          'Saved DOM file should be written to an OS temp directory',
+        )
+        assert.ok(html.includes('<html'), 'Should contain <html> tag')
+        assert.ok(html.includes('</html>'), 'Should contain closing </html>')
+        assert.ok(html.includes('id="login-form"'), 'Should contain form ID')
+        assert.ok(
+          html.includes('Welcome to Test Page'),
+          'Should contain heading text',
+        )
+        assert.ok(html.includes('<head>'), 'Full page should include <head>')
+        const data = structuredOf<{
+          path: string
+          totalLength: number
+        }>(result)
+        assert.strictEqual(data.path, domPath)
+        assert.strictEqual(data.totalLength, html.length)
+      } finally {
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 
@@ -97,31 +123,36 @@ describe('get_dom', () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
       const pageId = pageIdOf(newResult)
+      let domPath: string | undefined
 
-      const result = await execute(get_dom, {
-        page: pageId,
-        selector: '#login-form',
-      })
-      assert.ok(!result.isError, textOf(result))
-      const html = textOf(result)
+      try {
+        const result = await execute(get_dom, {
+          page: pageId,
+          selector: '#login-form',
+        })
+        assert.ok(!result.isError, textOf(result))
+        domPath = domPathOf(result)
+        const html = readFileSync(domPath, 'utf8')
 
-      assert.ok(html.includes('<form'), 'Should contain <form>')
-      assert.ok(html.includes('id="login-form"'), 'Should contain form ID')
-      assert.ok(html.includes('type="email"'), 'Should contain email input')
-      assert.ok(
-        html.includes('type="password"'),
-        'Should contain password input',
-      )
-      assert.ok(
-        !html.includes('<nav'),
-        'Scoped result should NOT contain nav element',
-      )
-      assert.ok(
-        !html.includes('id="features"'),
-        'Scoped result should NOT contain features section',
-      )
-
-      await execute(close_page, { page: pageId })
+        assert.ok(html.includes('<form'), 'Should contain <form>')
+        assert.ok(html.includes('id="login-form"'), 'Should contain form ID')
+        assert.ok(html.includes('type="email"'), 'Should contain email input')
+        assert.ok(
+          html.includes('type="password"'),
+          'Should contain password input',
+        )
+        assert.ok(
+          !html.includes('<nav'),
+          'Scoped result should NOT contain nav element',
+        )
+        assert.ok(
+          !html.includes('id="features"'),
+          'Scoped result should NOT contain features section',
+        )
+      } finally {
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 
@@ -129,20 +160,25 @@ describe('get_dom', () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
       const pageId = pageIdOf(newResult)
+      let domPath: string | undefined
 
-      const result = await execute(get_dom, {
-        page: pageId,
-        selector: 'nav',
-      })
-      assert.ok(!result.isError, textOf(result))
-      const html = textOf(result)
+      try {
+        const result = await execute(get_dom, {
+          page: pageId,
+          selector: 'nav',
+        })
+        assert.ok(!result.isError, textOf(result))
+        domPath = domPathOf(result)
+        const html = readFileSync(domPath, 'utf8')
 
-      assert.ok(html.includes('<nav'), 'Should contain <nav>')
-      assert.ok(html.includes('Home'), 'Should contain nav links')
-      assert.ok(html.includes('About'), 'Should contain nav links')
-      assert.ok(!html.includes('<form'), 'Scoped nav should NOT contain form')
-
-      await execute(close_page, { page: pageId })
+        assert.ok(html.includes('<nav'), 'Should contain <nav>')
+        assert.ok(html.includes('Home'), 'Should contain nav links')
+        assert.ok(html.includes('About'), 'Should contain nav links')
+        assert.ok(!html.includes('<form'), 'Scoped nav should NOT contain form')
+      } finally {
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 
@@ -169,50 +205,64 @@ describe('get_dom', () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
       const pageId = pageIdOf(newResult)
+      let domPath: string | undefined
 
-      const result = await execute(get_dom, { page: pageId })
-      assert.ok(!result.isError, textOf(result))
-      const html = textOf(result)
-      assert.ok(
-        html.includes('<html'),
-        'about:blank should still have html element',
-      )
-
-      await execute(close_page, { page: pageId })
+      try {
+        const result = await execute(get_dom, { page: pageId })
+        assert.ok(!result.isError, textOf(result))
+        domPath = domPathOf(result)
+        const html = readFileSync(domPath, 'utf8')
+        assert.ok(
+          html.includes('<html'),
+          'about:blank should still have html element',
+        )
+      } finally {
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 
-  it('truncates very large DOM with message', async () => {
+  it('writes very large DOM to disk without truncating the response body', async () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: 'about:blank' })
       const pageId = pageIdOf(newResult)
+      let domPath: string | undefined
 
-      // Generate a large DOM: 10000 divs each with 20 chars ~ 200KB
-      await execute(evaluate_script, {
-        page: pageId,
-        expression: `
-          var html = '';
-          for (var i = 0; i < 10000; i++) {
-            html += '<div class="item-' + i + '">Content block ' + i + ' here</div>';
-          }
-          document.body.innerHTML = html;
-          'done'
-        `,
-      })
+      try {
+        await execute(evaluate_script, {
+          page: pageId,
+          expression: `
+            var html = '';
+            for (var i = 0; i < 10000; i++) {
+              html += '<div class="item-' + i + '">Content block ' + i + ' here</div>';
+            }
+            document.body.innerHTML = html;
+            'done'
+          `,
+        })
 
-      const result = await execute(get_dom, { page: pageId })
-      assert.ok(!result.isError, textOf(result))
-      const text = textOf(result)
-      assert.ok(
-        text.includes('[Truncated'),
-        'Large DOM should be truncated with message',
-      )
-      assert.ok(
-        text.includes('chars total'),
-        'Truncation message should mention total size',
-      )
+        const result = await execute(get_dom, { page: pageId })
+        assert.ok(!result.isError, textOf(result))
+        domPath = domPathOf(result)
+        const data = structuredOf<{ totalLength: number }>(result)
+        const html = readFileSync(domPath, 'utf8')
 
-      await execute(close_page, { page: pageId })
+        assert.ok(textOf(result).includes('Saved DOM'))
+        assert.ok(
+          dirname(domPath).startsWith(join(tmpdir(), 'browseros-tool-output-')),
+          'Saved DOM file should be written to an OS temp directory',
+        )
+        assert.ok(data.totalLength > 100_000, 'Expected a large DOM payload')
+        assert.strictEqual(html.length, data.totalLength)
+        assert.ok(
+          html.includes('Content block 9999 here'),
+          'Saved file should contain the full DOM',
+        )
+      } finally {
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 
@@ -220,25 +270,30 @@ describe('get_dom', () => {
     await withBrowser(async ({ execute }) => {
       const newResult = await execute(new_page, { url: RICH_PAGE })
       const pageId = pageIdOf(newResult)
+      let domPath: string | undefined
 
-      const result = await execute(get_dom, {
-        page: pageId,
-        selector: '#submit-btn',
-      })
-      assert.ok(!result.isError, textOf(result))
-      const html = textOf(result)
+      try {
+        const result = await execute(get_dom, {
+          page: pageId,
+          selector: '#submit-btn',
+        })
+        assert.ok(!result.isError, textOf(result))
+        domPath = domPathOf(result)
+        const html = readFileSync(domPath, 'utf8')
 
-      assert.ok(html.includes('type="submit"'), 'Should preserve type attr')
-      assert.ok(
-        html.includes('class="btn primary"'),
-        'Should preserve class attr',
-      )
-      assert.ok(
-        html.includes('data-testid="login-submit"'),
-        'Should preserve data attributes',
-      )
-
-      await execute(close_page, { page: pageId })
+        assert.ok(html.includes('type="submit"'), 'Should preserve type attr')
+        assert.ok(
+          html.includes('class="btn primary"'),
+          'Should preserve class attr',
+        )
+        assert.ok(
+          html.includes('data-testid="login-submit"'),
+          'Should preserve data attributes',
+        )
+      } finally {
+        if (domPath && existsSync(domPath)) cleanupSavedDom(domPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 })

@@ -17,12 +17,40 @@ interface UseSuggestionsArgs {
   selectedTabs: chrome.tabs.Tab[]
 }
 
+function buildSearchResults(
+  query: string,
+  searchResultsFromApi: string[] | undefined,
+): string[] {
+  const orderedResults = [query.trim(), ...(searchResultsFromApi ?? [])]
+  const seen = new Set<string>()
+  const dedupedResults: string[] = []
+
+  for (const item of orderedResults) {
+    const normalizedItem = item.trim()
+    if (!normalizedItem) {
+      continue
+    }
+
+    const suggestionKey = normalizedItem.toLowerCase()
+    if (seen.has(suggestionKey)) {
+      continue
+    }
+
+    seen.add(suggestionKey)
+    dedupedResults.push(normalizedItem)
+  }
+
+  return dedupedResults
+}
+
 /**
  * @public
  */
 export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
   const { provider } = useSearchProvider()
   const providerConfig = getProviderConfig(provider)
+  const trimmedQuery = query.trim()
+  const hasQuery = trimmedQuery.length > 0
 
   const { data: searchResultsFromAPI } = useSearchSuggestions({
     query,
@@ -30,20 +58,16 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
   })
 
   const searchResults: string[] = useMemo(() => {
-    const results = [...(searchResultsFromAPI ?? [])]
-    if (query && !results.includes(query)) {
-      results.unshift(query)
-    }
-    return results
+    return buildSearchResults(query, searchResultsFromAPI)
   }, [searchResultsFromAPI, query])
 
   const aiTabResults = useAITabSuggestions({ selectedTabs, input: query })
-  const browserOSResults = useBrowserOSSuggestions({ query })
+  const browserOSResults = useBrowserOSSuggestions({ query: trimmedQuery })
 
   const sections = useMemo(() => {
     const result: SuggestionSection[] = []
 
-    if (query && browserOSResults.length > 0) {
+    if (hasQuery && browserOSResults.length > 0) {
       const browserOSItems: BrowserOSSuggestionItem[] = browserOSResults.map(
         (item, index) => ({
           id: `browseros-${index}`,
@@ -77,7 +101,7 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
         title: 'AI Actions',
         items: aiItems,
       })
-    } else if (query && searchResults && searchResults.length > 0) {
+    } else if (hasQuery && searchResults.length > 0) {
       const searchItems: SearchSuggestionItem[] = searchResults.map(
         (item, index) => ({
           id: `search-${index}`,
@@ -94,7 +118,7 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
 
     return result
   }, [
-    query,
+    hasQuery,
     browserOSResults,
     selectedTabs.length,
     aiTabResults,

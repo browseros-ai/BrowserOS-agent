@@ -1,23 +1,113 @@
 import { describe, expect, it } from 'bun:test'
-import type { ModelMessage } from 'ai'
+import type {
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3GenerateResult,
+  LanguageModelV3Prompt,
+  LanguageModelV3StreamPart,
+  LanguageModelV3StreamResult,
+  LanguageModelV3Usage,
+} from '@ai-sdk/provider'
+import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
+import type { ModelMessage, ToolResultPart } from 'ai'
 import {
   computeConfig,
   estimateTokens,
   findSafeSplitPoint,
   getCurrentTokenCount,
+  reduceToolOutputs,
   type StepWithUsage,
   slidingWindow,
-  truncateToolOutputs,
 } from '../../src/agent/compaction'
+import {
+  countBinaryParts,
+  stripBinaryContent,
+} from '../../src/agent/compaction/content'
 import {
   buildSummarizationPrompt,
   buildTurnPrefixPrompt,
   messagesToTranscript,
-} from '../../src/agent/compaction-prompt'
+} from '../../src/agent/compaction/prompt'
 import {
   createContextOverflowMiddleware,
   isContextOverflowError,
 } from '../../src/agent/context-overflow-middleware'
+import {
+  getMessageNormalizationOptions,
+  normalizeMessagesForModel,
+} from '../../src/agent/message-normalization'
+
+const {
+  COMPACTION_RESERVE_TOKENS,
+  COMPACTION_SMALL_CONTEXT_WINDOW,
+  COMPACTION_KEEP_RECENT_FRACTION,
+  COMPACTION_MAX_KEEP_RECENT,
+  COMPACTION_MIN_SUMMARIZABLE_INPUT,
+  COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL,
+  COMPACTION_MAX_SUMMARIZATION_INPUT,
+  COMPACTION_MIN_TOKEN_FLOOR,
+  COMPACTION_SUMMARIZER_OUTPUT_RATIO,
+} = AGENT_LIMITS
+
+function expectedReserve(contextWindow: number): number {
+  return contextWindow <= COMPACTION_SMALL_CONTEXT_WINDOW
+    ? Math.floor(contextWindow * 0.5)
+    : COMPACTION_RESERVE_TOKENS
+}
+
+function expectedTrigger(contextWindow: number): number {
+  return Math.max(0, contextWindow - expectedReserve(contextWindow))
+}
+
+function expectedKeepRecent(contextWindow: number): number {
+  return Math.max(
+    0,
+    Math.min(
+      COMPACTION_MAX_KEEP_RECENT,
+      Math.floor(
+        expectedTrigger(contextWindow) * COMPACTION_KEEP_RECENT_FRACTION,
+      ),
+    ),
+  )
+}
+
+function expectedAvailableToSummarize(contextWindow: number): number {
+  return Math.max(
+    0,
+    expectedTrigger(contextWindow) - expectedKeepRecent(contextWindow),
+  )
+}
+
+function expectedMinSummarizable(contextWindow: number): number {
+  const base =
+    contextWindow <= COMPACTION_SMALL_CONTEXT_WINDOW
+      ? COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL
+      : COMPACTION_MIN_SUMMARIZABLE_INPUT
+  return Math.max(
+    COMPACTION_MIN_TOKEN_FLOOR,
+    Math.min(base, expectedAvailableToSummarize(contextWindow)),
+  )
+}
+
+function expectedMaxSummarizationInput(contextWindow: number): number {
+  return Math.min(
+    COMPACTION_MAX_SUMMARIZATION_INPUT,
+    Math.max(
+      expectedMinSummarizable(contextWindow),
+      expectedAvailableToSummarize(contextWindow),
+    ),
+  )
+}
+
+function expectedSummarizerMaxOutput(contextWindow: number): number {
+  return Math.max(
+    COMPACTION_MIN_TOKEN_FLOOR,
+    Math.floor(
+      expectedReserve(contextWindow) * COMPACTION_SUMMARIZER_OUTPUT_RATIO,
+    ),
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,6 +119,18 @@ function userMsg(text: string): ModelMessage {
 
 function assistantMsg(text: string): ModelMessage {
   return { role: 'assistant', content: text }
+}
+
+function systemPrompt(text: string): LanguageModelV3Prompt[number] {
+  return { role: 'system', content: text }
+}
+
+function userPrompt(text: string): LanguageModelV3Prompt[number] {
+  return { role: 'user', content: [{ type: 'text', text }] }
+}
+
+function assistantPrompt(text: string): LanguageModelV3Prompt[number] {
+  return { role: 'assistant', content: [{ type: 'text', text }] }
 }
 
 function assistantToolCall(
@@ -80,6 +182,23 @@ function toolResultJson(toolName: string, value: unknown): ModelMessage {
   }
 }
 
+function toolResultContent(
+  toolName: string,
+  value: Extract<ToolResultPart['output'], { type: 'content' }>['value'],
+): ModelMessage {
+  return {
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: `call_${toolName}`,
+        toolName,
+        output: { type: 'content' as const, value },
+      },
+    ],
+  }
+}
+
 function userMsgWithImage(text: string): ModelMessage {
   return {
     role: 'user',
@@ -90,8 +209,111 @@ function userMsgWithImage(text: string): ModelMessage {
   }
 }
 
+function createCallOptions(
+  prompt: LanguageModelV3Prompt,
+): LanguageModelV3CallOptions {
+  return { prompt }
+}
+
+function createUsage(): LanguageModelV3Usage {
+  return {
+    inputTokens: {
+      total: 0,
+      noCache: 0,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+    },
+    outputTokens: {
+      total: 0,
+      text: 0,
+      reasoning: undefined,
+    },
+  }
+}
+
+function createTextResult(text: string): LanguageModelV3GenerateResult {
+  return {
+    content: [{ type: 'text', text }],
+    finishReason: { unified: 'stop', raw: 'stop' },
+    usage: createUsage(),
+    warnings: [],
+  }
+}
+
+function createStreamResult(): LanguageModelV3StreamResult {
+  return {
+    stream: new ReadableStream<LanguageModelV3StreamPart>(),
+  }
+}
+
+function isSystemPrompt(
+  message: LanguageModelV3Prompt[number],
+): message is Extract<LanguageModelV3Prompt[number], { role: 'system' }> {
+  return message.role === 'system'
+}
+
+const mockLanguageModel: LanguageModelV3 = {
+  specificationVersion: 'v3',
+  provider: 'test-provider',
+  modelId: 'test-model',
+  supportedUrls: {},
+  doGenerate: async () => createTextResult('unused'),
+  doStream: async () => createStreamResult(),
+}
+
+async function runWrappedGenerate(
+  middleware: ReturnType<typeof createContextOverflowMiddleware>,
+  params: LanguageModelV3CallOptions,
+  doGenerate: () => Promise<LanguageModelV3GenerateResult>,
+): Promise<LanguageModelV3GenerateResult> {
+  const wrapGenerate = middleware.wrapGenerate
+  if (!wrapGenerate) {
+    throw new Error('wrapGenerate is unavailable')
+  }
+  return await wrapGenerate({
+    doGenerate,
+    doStream: async () => createStreamResult(),
+    model: mockLanguageModel,
+    params,
+  })
+}
+
+async function runWrappedStream(
+  middleware: ReturnType<typeof createContextOverflowMiddleware>,
+  params: LanguageModelV3CallOptions,
+  doStream: () => Promise<LanguageModelV3StreamResult>,
+): Promise<LanguageModelV3StreamResult> {
+  const wrapStream = middleware.wrapStream
+  if (!wrapStream) {
+    throw new Error('wrapStream is unavailable')
+  }
+  return await wrapStream({
+    doGenerate: async () => createTextResult('unused'),
+    doStream,
+    model: mockLanguageModel,
+    params,
+  })
+}
+
 function repeat(char: string, count: number): string {
   return char.repeat(count)
+}
+
+function agentConfig(
+  overrides: Partial<{
+    provider: string
+    model: string
+    upstreamProvider: string
+    supportsImages: boolean
+  }> = {},
+) {
+  return {
+    conversationId: 'test-conversation',
+    provider: LLM_PROVIDERS.OPENROUTER,
+    model: 'moonshotai/kimi-k2.5',
+    sessionExecutionDir: '/tmp/browseros-tests',
+    ...overrides,
+  }
 }
 
 // Build a realistic browser automation conversation
@@ -119,45 +341,40 @@ function buildBrowserConversation(
 describe('computeConfig — reserve trigger', () => {
   it('8K model → reserve is clamped to 50% of context', () => {
     const config = computeConfig(8_000)
-    expect(config.reserveTokens).toBe(4_000)
-    expect(config.triggerThreshold).toBe(4_000)
+    expect(config.reserveTokens).toBe(expectedReserve(8_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(8_000))
     expect(config.triggerRatio).toBe(0.5)
   })
 
   it('16K model → reserve is clamped to 50% of context', () => {
     const config = computeConfig(16_000)
-    expect(config.reserveTokens).toBe(8_000)
-    expect(config.triggerThreshold).toBe(8_000)
+    expect(config.reserveTokens).toBe(expectedReserve(16_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(16_000))
     expect(config.triggerRatio).toBe(0.5)
   })
 
-  it('32K model → reserve is fixed at 16,384', () => {
+  it('30K model → reserve is clamped to 50% of context', () => {
+    const config = computeConfig(30_000)
+    expect(config.reserveTokens).toBe(expectedReserve(30_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(30_000))
+    expect(config.triggerRatio).toBe(0.5)
+  })
+
+  it('32K model → reserve is clamped to 50% of context', () => {
     const config = computeConfig(32_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(15_616)
-    expect(config.triggerRatio).toBeCloseTo(0.488, 3)
+    expect(config.reserveTokens).toBe(expectedReserve(32_000))
+    expect(config.triggerThreshold).toBe(expectedTrigger(32_000))
+    expect(config.triggerRatio).toBe(0.5)
   })
 
-  it('64K model → reserve remains fixed at 16,384', () => {
-    const config = computeConfig(64_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(47_616)
-    expect(config.triggerRatio).toBeCloseTo(0.744, 3)
-  })
-
-  it('200K model → reserve remains fixed at 16,384', () => {
-    const config = computeConfig(200_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(183_616)
-    expect(config.triggerRatio).toBeCloseTo(0.918, 3)
-  })
-
-  it('1M model → reserve remains fixed at 16,384', () => {
-    const config = computeConfig(1_000_000)
-    expect(config.reserveTokens).toBe(16_384)
-    expect(config.triggerThreshold).toBe(983_616)
-    expect(config.triggerRatio).toBeCloseTo(0.984, 3)
-  })
+  for (const size of [64_000, 200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → reserve is fixed at COMPACTION_RESERVE_TOKENS`, () => {
+      const config = computeConfig(size)
+      expect(config.reserveTokens).toBe(COMPACTION_RESERVE_TOKENS)
+      expect(config.triggerThreshold).toBe(expectedTrigger(size))
+      expect(config.triggerRatio).toBeCloseTo(expectedTrigger(size) / size, 3)
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -165,38 +382,20 @@ describe('computeConfig — reserve trigger', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeConfig — keep-recent', () => {
-  it('8K model → keeps 35% of trigger budget', () => {
-    const config = computeConfig(8_000)
-    expect(config.minSummarizableTokens).toBe(1_000)
-    expect(config.keepRecentTokens).toBe(1_400)
-  })
+  for (const size of [8_000, 16_000, 32_000, 64_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → keeps ${COMPACTION_KEEP_RECENT_FRACTION * 100}% of trigger budget`, () => {
+      const config = computeConfig(size)
+      expect(config.keepRecentTokens).toBe(expectedKeepRecent(size))
+      expect(config.minSummarizableTokens).toBe(expectedMinSummarizable(size))
+    })
+  }
 
-  it('16K model → keeps 35% of trigger budget', () => {
-    const config = computeConfig(16_000)
-    expect(config.minSummarizableTokens).toBe(1_000)
-    expect(config.keepRecentTokens).toBe(2_800)
-  })
-
-  it('32K model → keeps 35% of trigger budget', () => {
-    const config = computeConfig(32_000)
-    expect(config.minSummarizableTokens).toBe(4_000)
-    expect(config.keepRecentTokens).toBe(5_465)
-  })
-
-  it('64K model → still below cap with 35% split', () => {
-    const config = computeConfig(64_000)
-    expect(config.keepRecentTokens).toBe(16_665)
-  })
-
-  it('200K model → capped at 20K', () => {
-    const config = computeConfig(200_000)
-    expect(config.keepRecentTokens).toBe(20_000)
-  })
-
-  it('1M model → capped at 20K', () => {
-    const config = computeConfig(1_000_000)
-    expect(config.keepRecentTokens).toBe(20_000)
-  })
+  for (const size of [200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → capped at COMPACTION_MAX_KEEP_RECENT`, () => {
+      const config = computeConfig(size)
+      expect(config.keepRecentTokens).toBe(COMPACTION_MAX_KEEP_RECENT)
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -204,33 +403,80 @@ describe('computeConfig — keep-recent', () => {
 // ---------------------------------------------------------------------------
 
 describe('computeConfig — summarization budgets', () => {
-  it('16K model → summarize budget is trigger minus keep-recent', () => {
-    const config = computeConfig(16_000)
-    expect(config.maxSummarizationInput).toBe(5_200)
-    expect(config.summarizerMaxOutputTokens).toBe(6_400)
-  })
-
-  it('32K model → summarize budget expands for fewer repeated compactions', () => {
-    const config = computeConfig(32_000)
-    expect(config.maxSummarizationInput).toBe(10_151)
-    expect(config.summarizerMaxOutputTokens).toBe(13_107)
-  })
+  for (const size of [16_000, 32_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → summarize budget is trigger minus keep-recent`, () => {
+      const config = computeConfig(size)
+      expect(config.maxSummarizationInput).toBe(
+        expectedMaxSummarizationInput(size),
+      )
+      expect(config.summarizerMaxOutputTokens).toBe(
+        expectedSummarizerMaxOutput(size),
+      )
+    })
+  }
 
   it('20K model → min summarizable is clamped to available summarize budget', () => {
     const config = computeConfig(20_000)
-    expect(config.minSummarizableTokens).toBe(2_351)
-    expect(config.maxSummarizationInput).toBe(2_351)
+    expect(config.minSummarizableTokens).toBe(expectedMinSummarizable(20_000))
+    expect(config.maxSummarizationInput).toBe(
+      expectedMaxSummarizationInput(20_000),
+    )
   })
 
-  it('200K model → max summarization input is capped at 100K', () => {
-    const config = computeConfig(200_000)
-    expect(config.maxSummarizationInput).toBe(100_000)
-    expect(config.summarizerMaxOutputTokens).toBe(13_107)
+  for (const size of [200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → max summarization input capped at COMPACTION_MAX_SUMMARIZATION_INPUT`, () => {
+      const config = computeConfig(size)
+      expect(config.maxSummarizationInput).toBe(
+        COMPACTION_MAX_SUMMARIZATION_INPUT,
+      )
+      expect(config.summarizerMaxOutputTokens).toBe(
+        expectedSummarizerMaxOutput(size),
+      )
+    })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// computeConfig — fixedOverhead scaling
+// ---------------------------------------------------------------------------
+
+describe('computeConfig — fixedOverhead scaling', () => {
+  it('8K model → fixedOverhead capped at 40% of context', () => {
+    const config = computeConfig(8_000)
+    expect(config.fixedOverhead).toBe(Math.floor(8_000 * 0.4))
+    expect(config.fixedOverhead).toBeLessThan(
+      AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
+    )
   })
 
-  it('1M model → max summarization input is capped at 100K', () => {
-    const config = computeConfig(1_000_000)
-    expect(config.maxSummarizationInput).toBe(100_000)
+  it('20K model → fixedOverhead capped at 40% of context', () => {
+    const config = computeConfig(20_000)
+    expect(config.fixedOverhead).toBe(Math.floor(20_000 * 0.4))
+    expect(config.fixedOverhead).toBeLessThan(
+      AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD,
+    )
+  })
+
+  it('30K model → fixedOverhead equals constant (40% of 30K = 12K = constant)', () => {
+    const config = computeConfig(30_000)
+    expect(config.fixedOverhead).toBe(AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD)
+  })
+
+  for (const size of [64_000, 200_000, 1_000_000]) {
+    it(`${(size / 1000).toFixed(0)}K model → fixedOverhead equals constant`, () => {
+      const config = computeConfig(size)
+      expect(config.fixedOverhead).toBe(AGENT_LIMITS.COMPACTION_FIXED_OVERHEAD)
+    })
+  }
+
+  it('30K model → fixedOverhead does not exceed trigger threshold', () => {
+    const config = computeConfig(30_000)
+    expect(config.fixedOverhead).toBeLessThanOrEqual(config.triggerThreshold)
+  })
+
+  it('20K model → fixedOverhead does not exceed trigger threshold', () => {
+    const config = computeConfig(20_000)
+    expect(config.fixedOverhead).toBeLessThanOrEqual(config.triggerThreshold)
   })
 })
 
@@ -239,13 +485,13 @@ describe('computeConfig — summarization budgets', () => {
 // ---------------------------------------------------------------------------
 
 describe('estimateTokens', () => {
-  it('estimates text messages as chars/4', () => {
-    const msgs = [userMsg('a'.repeat(400))]
+  it('estimates text messages as chars/3', () => {
+    const msgs = [userMsg('a'.repeat(300))]
     expect(estimateTokens(msgs)).toBe(100)
   })
 
   it('estimates tool result text', () => {
-    const msgs = [toolResult('test', 'a'.repeat(800))]
+    const msgs = [toolResult('test', 'a'.repeat(600))]
     expect(estimateTokens(msgs)).toBe(200)
   })
 
@@ -253,12 +499,28 @@ describe('estimateTokens', () => {
     const obj = { key: 'a'.repeat(100) }
     const msgs = [toolResultJson('test', obj)]
     const serialized = JSON.stringify(obj)
-    expect(estimateTokens(msgs)).toBe(Math.ceil(serialized.length / 4))
+    expect(estimateTokens(msgs)).toBe(Math.ceil(serialized.length / 3))
+  })
+
+  it('estimates tool result content without counting base64 payload size', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Screenshot taken' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(120_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+
+    const textTokens = Math.ceil('Screenshot taken'.length / 3)
+    expect(estimateTokens(msgs)).toBe(textTokens + 1000)
   })
 
   it('counts images as 1000 tokens each', () => {
     const msgs = [userMsgWithImage('hello')]
-    const textTokens = Math.ceil('hello'.length / 4)
+    const textTokens = Math.ceil('hello'.length / 3)
     expect(estimateTokens(msgs)).toBe(textTokens + 1000)
   })
 
@@ -271,20 +533,192 @@ describe('estimateTokens', () => {
         { type: 'image', image: new Uint8Array([2]) },
       ],
     }
-    const textTokens = Math.ceil('compare these'.length / 4)
+    const textTokens = Math.ceil('compare these'.length / 3)
     expect(estimateTokens([msg])).toBe(textTokens + 2000)
   })
 
   it('handles tool call input', () => {
     const msgs = [assistantToolCall('navigate', { url: 'https://example.com' })]
     const expected = Math.ceil(
-      JSON.stringify({ url: 'https://example.com' }).length / 4,
+      JSON.stringify({ url: 'https://example.com' }).length / 3,
     )
     expect(estimateTokens(msgs)).toBe(expected)
   })
 
   it('handles empty messages', () => {
     expect(estimateTokens([])).toBe(0)
+  })
+})
+
+describe('stripBinaryContent', () => {
+  it('replaces content outputs with placeholder text and counts media parts', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Before image' },
+        {
+          type: 'image-data',
+          data: 'abcd',
+          mediaType: 'image/png',
+        },
+        {
+          type: 'file-data',
+          data: 'efgh',
+          mediaType: 'application/pdf',
+          filename: 'report.pdf',
+        },
+      ]),
+    ]
+
+    const stripped = stripBinaryContent(msgs)
+    const output = (
+      stripped[0].content as Array<{ output: { type: string; value: string } }>
+    )[0].output
+
+    expect(countBinaryParts(msgs)).toBe(2)
+    expect(output.type).toBe('text')
+    expect(output.value).toContain('Before image')
+    expect(output.value).toContain('[Image]')
+    expect(output.value).toContain('[File: report.pdf]')
+    expect(output.value).not.toContain('abcd')
+    expect(output.value).not.toContain('efgh')
+  })
+})
+
+describe('getMessageNormalizationOptions', () => {
+  it('marks openrouter-compatible transports as requiring normalization', () => {
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({ provider: LLM_PROVIDERS.OPENROUTER }),
+      ).supportsMediaInToolResults,
+    ).toBe(false)
+
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({
+          provider: LLM_PROVIDERS.BROWSEROS,
+          upstreamProvider: LLM_PROVIDERS.OPENAI,
+        }),
+      ).supportsMediaInToolResults,
+    ).toBe(false)
+  })
+
+  it('keeps native anthropic and openai transports unchanged', () => {
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({ provider: LLM_PROVIDERS.ANTHROPIC }),
+      ).supportsMediaInToolResults,
+    ).toBe(true)
+    expect(
+      getMessageNormalizationOptions(
+        agentConfig({ provider: LLM_PROVIDERS.OPENAI }),
+      ).supportsMediaInToolResults,
+    ).toBe(true)
+  })
+})
+
+describe('normalizeMessagesForModel', () => {
+  it('moves screenshot media into a follow-up user message for incompatible providers', () => {
+    const messages = [
+      assistantToolCall('snapshot', { page: 2 }),
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'abcd',
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+
+    const normalized = normalizeMessagesForModel(messages, {
+      supportsImages: true,
+      supportsMediaInToolResults: false,
+    })
+
+    expect(normalized).toHaveLength(3)
+
+    const toolMessage = normalized[1]
+    expect(toolMessage.role).toBe('tool')
+    const output = (toolMessage.content as ToolResultPart[])[0].output
+    expect(output.type).toBe('text')
+    if (output.type === 'text') {
+      expect(output.value).toContain('Captured screenshot')
+      expect(output.value).toContain('[Image]')
+      expect(output.value).not.toContain('abcd')
+    }
+
+    const mediaMessage = normalized[2]
+    expect(mediaMessage.role).toBe('user')
+    expect(Array.isArray(mediaMessage.content)).toBe(true)
+    if (Array.isArray(mediaMessage.content)) {
+      expect(mediaMessage.content[0]).toEqual({
+        type: 'text',
+        text: 'Attached image(s) from tool result:',
+      })
+      expect(mediaMessage.content[1]).toEqual({
+        type: 'image',
+        image: 'abcd',
+        mediaType: 'image/png',
+      })
+    }
+  })
+
+  it('keeps media out of the prompt when the model does not support image input', () => {
+    const messages = [
+      assistantToolCall('snapshot', { page: 2 }),
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'abcd',
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+
+    const normalized = normalizeMessagesForModel(messages, {
+      supportsImages: false,
+      supportsMediaInToolResults: false,
+    })
+
+    expect(normalized).toHaveLength(2)
+    const output = (normalized[1].content as ToolResultPart[])[0].output
+    expect(output.type).toBe('text')
+  })
+
+  it('converts generic file attachments into follow-up user file parts', () => {
+    const messages = [
+      assistantToolCall('fetch_report', { id: 'report-1' }),
+      toolResultContent('fetch_report', [
+        { type: 'text', text: 'Downloaded report' },
+        {
+          type: 'file-data',
+          data: 'cGRm',
+          mediaType: 'application/pdf',
+          filename: 'report.pdf',
+        },
+      ]),
+    ]
+
+    const normalized = normalizeMessagesForModel(messages, {
+      supportsImages: true,
+      supportsMediaInToolResults: false,
+    })
+
+    expect(normalized).toHaveLength(3)
+    expect(normalized[2].role).toBe('user')
+    if (Array.isArray(normalized[2].content)) {
+      expect(normalized[2].content[0]).toEqual({
+        type: 'text',
+        text: 'Attached file(s) from tool result:',
+      })
+      expect(normalized[2].content[1]).toEqual({
+        type: 'file',
+        data: 'cGRm',
+        mediaType: 'application/pdf',
+        filename: 'report.pdf',
+      })
+    }
   })
 })
 
@@ -513,46 +947,83 @@ describe('splitting at different context windows', () => {
 })
 
 // ---------------------------------------------------------------------------
-// truncateToolOutputs
+// reduceToolOutputs
 // ---------------------------------------------------------------------------
 
-describe('truncateToolOutputs', () => {
-  it('truncates text output exceeding maxChars', () => {
+describe('reduceToolOutputs', () => {
+  it('truncates protected recent outputs exceeding maxChars', () => {
     const msgs = [toolResult('test', 'a'.repeat(20_000))]
-    const truncated = truncateToolOutputs(msgs, 15_000)
+    const reduced = reduceToolOutputs(msgs, {
+      maxChars: 15_000,
+      keepRecentCount: 1,
+    })
 
     const output = (
-      truncated[0].content as Array<{ output: { value: string } }>
+      reduced[0].content as Array<{ output: { value: string } }>
     )[0].output.value
     expect(output.length).toBeLessThan(20_000)
     expect(output).toContain('[... truncated')
   })
 
-  it('truncates JSON output exceeding maxChars', () => {
-    const msgs = [toolResultJson('test', { data: 'x'.repeat(20_000) })]
-    const truncated = truncateToolOutputs(msgs, 15_000)
+  it('clears older verbose outputs but protects the last two', () => {
+    const msgs = [
+      toolResult('old', 'x'.repeat(500)),
+      toolResult('recent_0', 'y'.repeat(500)),
+      toolResult('recent_1', 'z'.repeat(500)),
+    ]
+    const reduced = reduceToolOutputs(msgs, {
+      maxChars: 200,
+      keepRecentCount: 2,
+      clearThreshold: 100,
+    })
 
     const part = (
-      truncated[0].content as Array<{ output: { type: string; value: string } }>
-    )[0]
-    expect(part.output.type).toBe('text')
-    expect(part.output.value).toContain('[... truncated')
-  })
-
-  it('does not modify outputs under maxChars', () => {
-    const msgs = [toolResult('test', 'short output')]
-    const truncated = truncateToolOutputs(msgs, 15_000)
-
-    const output = (
-      truncated[0].content as Array<{ output: { value: string } }>
+      reduced[0].content as Array<{ output: { type: string; value: string } }>
     )[0].output.value
-    expect(output).toBe('short output')
+    const protected0 = (
+      reduced[1].content as Array<{ output: { value: string } }>
+    )[0].output.value
+    const protected1 = (
+      reduced[2].content as Array<{ output: { value: string } }>
+    )[0].output.value
+
+    expect(part).toBe('[Cleared — 500 chars]')
+    expect(protected0).toContain('[... truncated')
+    expect(protected1).toContain('[... truncated')
   })
 
   it('does not modify non-tool messages', () => {
     const msgs = [userMsg('hello'), assistantMsg('world')]
-    const truncated = truncateToolOutputs(msgs, 100)
-    expect(truncated).toEqual(msgs)
+    expect(
+      reduceToolOutputs(msgs, { maxChars: 100, keepRecentCount: 2 }),
+    ).toEqual(msgs)
+  })
+
+  it('normalizes content output before reduction', () => {
+    const msgs = [
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(20_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ]
+    const reduced = reduceToolOutputs(msgs, {
+      maxChars: 100,
+      keepRecentCount: 1,
+      clearThreshold: 0,
+    })
+
+    const output = (
+      reduced[0].content as Array<{ output: { type: string; value: string } }>
+    )[0].output
+
+    expect(output.type).toBe('text')
+    expect(output.value).toContain('Captured screenshot')
+    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('x'.repeat(100))
   })
 })
 
@@ -670,6 +1141,23 @@ describe('messagesToTranscript', () => {
     expect(transcript.length).toBeLessThan(5000)
   })
 
+  it('serializes content tool results without leaking base64', () => {
+    const transcript = messagesToTranscript([
+      toolResultContent('snapshot', [
+        { type: 'text', text: 'Captured screenshot' },
+        {
+          type: 'image-data',
+          data: 'x'.repeat(10_000),
+          mediaType: 'image/png',
+        },
+      ]),
+    ])
+
+    expect(transcript).toContain('[Tool Result] snapshot: Captured screenshot')
+    expect(transcript).toContain('[Image]')
+    expect(transcript).not.toContain('x'.repeat(100))
+  })
+
   it('replaces images with [Image]', () => {
     const transcript = messagesToTranscript([userMsgWithImage('look at this')])
     expect(transcript).toContain('[Image]')
@@ -728,13 +1216,12 @@ describe('end-to-end config coherence', () => {
     })
   }
 
-  it('reserve is either half-context (tiny models) or fixed 16,384 (larger models)', () => {
+  it('reserve is either half-context (tiny models) or COMPACTION_RESERVE_TOKENS (larger models)', () => {
     for (const size of [
       8_000, 16_000, 32_000, 64_000, 128_000, 200_000, 1_000_000,
     ]) {
       const config = computeConfig(size)
-      const expectedReserve = size <= 16_000 ? Math.floor(size * 0.5) : 16_384
-      expect(config.reserveTokens).toBe(expectedReserve)
+      expect(config.reserveTokens).toBe(expectedReserve(size))
     }
   })
 })
@@ -765,7 +1252,7 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     expect(result).toBe(expected)
   })
 
-  it('adds outputTokens to base when no trailing tool results', () => {
+  it('adds outputTokens to base when no trailing post-step messages remain', () => {
     const steps: StepWithUsage[] = [
       { usage: { inputTokens: 50_000, outputTokens: 2_000 } },
     ]
@@ -834,11 +1321,39 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     expect(result).toBe(80_000 + 1_000 + trailing1 + trailing2)
   })
 
-  it('stops counting trailing at first non-tool message', () => {
+  it('counts the synthetic follow-up user media message too', () => {
     const steps: StepWithUsage[] = [
       { usage: { inputTokens: 50_000, outputTokens: 500 } },
     ]
-    // assistant message after tool results — trailing should be 0
+    const msgs = normalizeMessagesForModel(
+      [
+        userMsg('hello'),
+        assistantToolCall('snapshot', {}),
+        toolResultContent('snapshot', [
+          { type: 'text', text: 'Captured screenshot' },
+          {
+            type: 'image-data',
+            data: 'abcd',
+            mediaType: 'image/png',
+          },
+        ]),
+      ],
+      {
+        supportsImages: true,
+        supportsMediaInToolResults: false,
+      },
+    )
+
+    const result = getCurrentTokenCount(steps, msgs, config)
+    const trailing = estimateTokens(msgs.slice(-2), config.imageTokenEstimate)
+
+    expect(result).toBe(50_000 + 500 + trailing)
+  })
+
+  it('stops counting trailing at the most recent assistant message', () => {
+    const steps: StepWithUsage[] = [
+      { usage: { inputTokens: 50_000, outputTokens: 500 } },
+    ]
     const msgs = [
       userMsg('hello'),
       assistantToolCall('click', {}),
@@ -847,7 +1362,6 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     ]
 
     const result = getCurrentTokenCount(steps, msgs, config)
-    // No trailing tool results (last message is assistant)
     expect(result).toBe(50_500)
   })
 
@@ -866,96 +1380,84 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
 describe('createContextOverflowMiddleware', () => {
   it('passes through when model succeeds', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
-    const mockResult = { text: 'hello' }
-    const params = {
-      prompt: [
-        { role: 'system', content: 'You are helpful' },
-        { role: 'user', content: 'hi' },
-      ],
-    }
+    const mockResult = createTextResult('hello')
+    const params = createCallOptions([
+      systemPrompt('You are helpful'),
+      userPrompt('hi'),
+    ])
 
-    const result = await middleware.wrapGenerate?.({
-      doGenerate: async () => mockResult,
+    const result = await runWrappedGenerate(
+      middleware,
       params,
-    } as any)
+      async () => mockResult,
+    )
 
     expect(result).toBe(mockResult)
   })
 
   it('rethrows non-context errors', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
-    const params = {
-      prompt: [{ role: 'user', content: 'hi' }],
-    }
+    const params = createCallOptions([userPrompt('hi')])
 
     await expect(
-      middleware.wrapGenerate?.({
-        doGenerate: async () => {
-          throw new Error('network timeout')
-        },
-        params,
-      } as any),
+      runWrappedGenerate(middleware, params, async () => {
+        throw new Error('network timeout')
+      }),
     ).rejects.toThrow('network timeout')
   })
 
   it('truncates and retries on context_length error', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
     let callCount = 0
-    const params = {
-      prompt: [
-        { role: 'system', content: 'system prompt' },
-        { role: 'user', content: 'old message 1' },
-        { role: 'assistant', content: 'old response 1' },
-        { role: 'user', content: 'old message 2' },
-        { role: 'assistant', content: 'old response 2' },
-        { role: 'user', content: 'recent message' },
-      ],
-    }
+    const mockResult = createTextResult('success after truncation')
+    const params = createCallOptions([
+      systemPrompt('system prompt'),
+      userPrompt('old message 1'),
+      assistantPrompt('old response 1'),
+      userPrompt('old message 2'),
+      assistantPrompt('old response 2'),
+      userPrompt('recent message'),
+    ])
 
-    const result = await middleware.wrapGenerate?.({
-      doGenerate: async () => {
-        callCount++
-        if (callCount === 1) {
-          throw new Error('context_length_exceeded')
-        }
-        return { text: 'success after truncation' }
-      },
-      params,
-    } as any)
+    const result = await runWrappedGenerate(middleware, params, async () => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error('context_length_exceeded')
+      }
+      return mockResult
+    })
 
     expect(callCount).toBe(2)
-    expect(result).toEqual({ text: 'success after truncation' })
+    expect(result).toBe(mockResult)
     // System message should be preserved
-    expect(params.prompt.some((m: any) => m.role === 'system')).toBe(true)
+    expect(params.prompt.some((message) => message.role === 'system')).toBe(
+      true,
+    )
     // Prompt should be shorter after truncation
     expect(params.prompt.length).toBeLessThanOrEqual(6)
   })
 
   it('preserves system messages during truncation', async () => {
     const middleware = createContextOverflowMiddleware(10_000)
-    let truncatedPrompt: any[] = []
-    const params = {
-      prompt: [
-        { role: 'system', content: 'important system prompt' },
-        { role: 'user', content: 'a'.repeat(50_000) },
-        { role: 'assistant', content: 'b'.repeat(50_000) },
-        { role: 'user', content: 'recent' },
-      ],
-    }
+    const mockResult = createTextResult('ok')
+    let truncatedPrompt: LanguageModelV3Prompt = []
+    const params = createCallOptions([
+      systemPrompt('important system prompt'),
+      userPrompt('a'.repeat(50_000)),
+      assistantPrompt('b'.repeat(50_000)),
+      userPrompt('recent'),
+    ])
 
-    await middleware.wrapGenerate?.({
-      doGenerate: async () => {
-        if (truncatedPrompt.length === 0) {
-          truncatedPrompt = [...params.prompt]
-          throw new Error('maximum context length exceeded')
-        }
+    await runWrappedGenerate(middleware, params, async () => {
+      if (truncatedPrompt.length === 0) {
         truncatedPrompt = [...params.prompt]
-        return { text: 'ok' }
-      },
-      params,
-    } as any)
+        throw new Error('maximum context length exceeded')
+      }
+      truncatedPrompt = [...params.prompt]
+      return mockResult
+    })
 
-    const systemMsgs = truncatedPrompt.filter((m: any) => m.role === 'system')
+    const systemMsgs = truncatedPrompt.filter(isSystemPrompt)
     expect(systemMsgs.length).toBe(1)
     expect(systemMsgs[0].content).toBe('important system prompt')
   })
@@ -963,26 +1465,22 @@ describe('createContextOverflowMiddleware', () => {
   it('handles wrapStream the same way', async () => {
     const middleware = createContextOverflowMiddleware(200_000)
     let callCount = 0
-    const params = {
-      prompt: [
-        { role: 'system', content: 'system' },
-        { role: 'user', content: 'message' },
-      ],
-    }
+    const mockResult = createStreamResult()
+    const params = createCallOptions([
+      systemPrompt('system'),
+      userPrompt('message'),
+    ])
 
-    const result = await middleware.wrapStream?.({
-      doStream: async () => {
-        callCount++
-        if (callCount === 1) {
-          throw new Error('token limit exceeded')
-        }
-        return { stream: 'mock-stream' }
-      },
-      params,
-    } as any)
+    const result = await runWrappedStream(middleware, params, async () => {
+      callCount++
+      if (callCount === 1) {
+        throw new Error('token limit exceeded')
+      }
+      return mockResult
+    })
 
     expect(callCount).toBe(2)
-    expect(result).toEqual({ stream: 'mock-stream' })
+    expect(result).toBe(mockResult)
   })
 
   it('detects provider-specific context overflow errors', async () => {
@@ -1003,18 +1501,14 @@ describe('createContextOverflowMiddleware', () => {
 
     for (const errMsg of errorMessages) {
       let callCount = 0
-      const params = {
-        prompt: [{ role: 'user', content: 'hi' }],
-      }
+      const mockResult = createTextResult('ok')
+      const params = createCallOptions([userPrompt('hi')])
 
-      await middleware.wrapGenerate?.({
-        doGenerate: async () => {
-          callCount++
-          if (callCount === 1) throw new Error(errMsg)
-          return { text: 'ok' }
-        },
-        params,
-      } as any)
+      await runWrappedGenerate(middleware, params, async () => {
+        callCount++
+        if (callCount === 1) throw new Error(errMsg)
+        return mockResult
+      })
 
       expect(callCount).toBe(2)
     }
@@ -1037,25 +1531,21 @@ describe('createContextOverflowMiddleware', () => {
 
   it('keeps at least the last non-system message when it exceeds target', async () => {
     const middleware = createContextOverflowMiddleware(1_000)
-    let truncatedPrompt: any[] = []
-    const params = {
-      prompt: [
-        { role: 'system', content: 'system' },
-        { role: 'user', content: 'x'.repeat(100_000) },
-      ],
-    }
+    const mockResult = createTextResult('ok')
+    let truncatedPrompt: LanguageModelV3Prompt = []
+    const params = createCallOptions([
+      systemPrompt('system'),
+      userPrompt('x'.repeat(100_000)),
+    ])
 
-    await middleware.wrapGenerate?.({
-      doGenerate: async () => {
-        if (truncatedPrompt.length === 0) {
-          truncatedPrompt = [...params.prompt]
-          throw new Error('context_length_exceeded')
-        }
+    await runWrappedGenerate(middleware, params, async () => {
+      if (truncatedPrompt.length === 0) {
         truncatedPrompt = [...params.prompt]
-        return { text: 'ok' }
-      },
-      params,
-    } as any)
+        throw new Error('context_length_exceeded')
+      }
+      truncatedPrompt = [...params.prompt]
+      return mockResult
+    })
 
     // Must keep system + at least the last user message (not empty)
     expect(truncatedPrompt.length).toBe(2)

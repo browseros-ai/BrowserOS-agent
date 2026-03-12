@@ -193,6 +193,20 @@ export const ONBOARDING_STEP_COMPLETED_EVENT = 'onboarding.step.completed'
 export const ONBOARDING_ABOUT_SUBMITTED_EVENT = 'onboarding.about.submitted'
 
 /** @public */
+export const ONBOARDING_SOUL_SELECTED_EVENT = 'onboarding.soul.selected'
+
+/** @public */
+export const ONBOARDING_CONNECT_APPS_VIEWED_EVENT =
+  'onboarding.connect_apps.viewed'
+
+/** @public */
+export const ONBOARDING_APP_CONNECTED_EVENT = 'onboarding.app.connected'
+
+/** @public */
+export const ONBOARDING_CONNECT_APPS_SKIPPED_EVENT =
+  'onboarding.connect_apps.skipped'
+
+/** @public */
 export const ONBOARDING_SIGNIN_COMPLETED_EVENT = 'onboarding.signin.completed'
 
 /** @public */
@@ -206,6 +220,22 @@ export const ONBOARDING_FEATURE_CLICKED_EVENT = 'onboarding.feature.clicked'
 
 /** @public */
 export const ONBOARDING_COMPLETED_EVENT = 'onboarding.completed'
+
+/** @public */
+export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
+
+/** @public */
+export const BREADCRUMB_CONNECT_CLICKED_EVENT = 'breadcrumb.connect.clicked'
+
+/** @public */
+export const BREADCRUMB_CONNECT_MANUAL_EVENT = 'breadcrumb.connect.manual'
+
+/** @public */
+export const BREADCRUMB_CONNECT_COMPLETED_EVENT = 'breadcrumb.connect.completed'
+
+/** @public */
+export const BREADCRUMB_SCHEDULE_DISMISSED_EVENT =
+  'breadcrumb.schedule.dismissed'
 
 /** @public */
 export const KIMI_API_KEY_CONFIGURED_EVENT = 'settings.kimi.api_key_configured'

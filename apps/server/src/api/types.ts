@@ -46,6 +46,7 @@ export const ChatRequestSchema = AgentLLMConfigSchema.extend({
   userWorkingDir: z.string().min(1).optional(),
   supportsImages: z.boolean().optional().default(true),
   mode: z.enum(['chat', 'agent']).optional().default('agent'),
+  declinedApps: z.array(z.string()).optional(),
   previousConversation: z
     .union([
       z.array(
@@ -89,7 +90,8 @@ export interface HttpServerConfig {
   registry: ToolRegistry
 
   browserosId?: string
-  executionDir?: string
+  executionDir: string
+  resourcesDir: string
   rateLimiter?: RateLimiter
 
   codegenServiceUrl?: string

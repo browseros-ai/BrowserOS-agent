@@ -1,8 +1,7 @@
-import { mkdtemp, rename, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import { z } from 'zod'
-import { defineTool } from './framework'
+import { defineTool, resolveExecutionPath } from './framework'
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 const elementParam = z
@@ -18,7 +17,9 @@ export const save_pdf = defineTool({
     cwd: z
       .string()
       .optional()
-      .describe('Working directory to resolve relative paths against'),
+      .describe(
+        'Working directory to resolve relative paths against; defaults to the execution directory',
+      ),
   }),
   output: z.object({
     action: z.literal('save_pdf'),
@@ -26,7 +27,7 @@ export const save_pdf = defineTool({
     path: z.string(),
   }),
   handler: async (args, ctx, response) => {
-    const resolvedPath = resolve(args.cwd ?? process.cwd(), args.path)
+    const resolvedPath = resolveExecutionPath(ctx, args.path, args.cwd)
     const { data } = await ctx.browser.printToPDF(args.page)
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
     response.text(`Saved PDF to ${resolvedPath}`)
@@ -49,7 +50,9 @@ export const save_screenshot = defineTool({
     cwd: z
       .string()
       .optional()
-      .describe('Working directory to resolve relative paths against'),
+      .describe(
+        'Working directory to resolve relative paths against; defaults to the execution directory',
+      ),
     format: z
       .enum(['png', 'jpeg', 'webp'])
       .default('png')
@@ -74,7 +77,7 @@ export const save_screenshot = defineTool({
     fullPage: z.boolean(),
   }),
   handler: async (args, ctx, response) => {
-    const resolvedPath = resolve(args.cwd ?? process.cwd(), args.path)
+    const resolvedPath = resolveExecutionPath(ctx, args.path, args.cwd)
     const { data } = await ctx.browser.screenshot(args.page, {
       format: args.format,
       quality: args.quality,
@@ -104,7 +107,9 @@ export const download_file = defineTool({
     cwd: z
       .string()
       .optional()
-      .describe('Working directory to resolve relative paths against'),
+      .describe(
+        'Working directory to resolve relative paths against; defaults to the execution directory',
+      ),
   }),
   output: z.object({
     action: z.literal('download_file'),
@@ -115,8 +120,11 @@ export const download_file = defineTool({
     destinationPath: z.string(),
   }),
   handler: async (args, ctx, response) => {
-    const resolvedDir = resolve(args.cwd ?? process.cwd(), args.path)
-    const tempDir = await mkdtemp(join(tmpdir(), 'browseros-dl-'))
+    const resolvedDir = resolveExecutionPath(ctx, args.path, args.cwd)
+    await mkdir(ctx.directories.executionDir, { recursive: true })
+    const tempDir = await mkdtemp(
+      join(ctx.directories.executionDir, 'browseros-dl-'),
+    )
 
     try {
       const { filePath, suggestedFilename } =

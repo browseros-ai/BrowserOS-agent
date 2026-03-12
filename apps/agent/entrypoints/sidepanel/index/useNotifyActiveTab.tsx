@@ -70,7 +70,7 @@ export const useNotifyActiveTab = ({
     let cancelled = false
 
     const activate = async () => {
-      let targetTabId = toolTabId
+      let targetTabId = toolTabId ?? previousTabId ?? undefined
 
       if (!targetTabId) {
         const tabs = await chrome.tabs.query({

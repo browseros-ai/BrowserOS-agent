@@ -1,5 +1,8 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { close_page, navigate_page, new_page } from '../../src/tools/navigation'
 import {
   evaluate_script,
@@ -34,16 +37,34 @@ function pageIdOf(result: {
   return Number(textOf(result).match(/Page ID:\s*(\d+)/)?.[1])
 }
 
+function cleanupSavedContent(path: string): void {
+  unlinkSync(path)
+  try {
+    rmSync(dirname(path))
+  } catch {}
+}
+
 describe('observation tools', () => {
   it('take_snapshot returns element IDs', async () => {
     await withBrowser(async ({ execute }) => {
-      const newResult = await execute(new_page, { url: 'https://example.com' })
+      const newResult = await execute(new_page, { url: 'about:blank' })
       const pageId = pageIdOf(newResult)
+      await execute(evaluate_script, {
+        page: pageId,
+        expression: `
+          document.body.innerHTML = '<button id="submit">Submit</button><input aria-label="Email" />';
+          'done'
+        `,
+      })
 
       const snapResult = await execute(take_snapshot, { page: pageId })
       assert.ok(!snapResult.isError, textOf(snapResult))
       const text = textOf(snapResult)
       assert.ok(text.length > 0, 'Snapshot should not be empty')
+      assert.ok(
+        text.includes('Submit') || text.includes('button'),
+        'Snapshot should include interactive element details',
+      )
       const data = structuredOf<{ snapshot: string }>(snapResult)
       assert.ok(data.snapshot.length > 0, 'Expected structured snapshot')
 
@@ -143,8 +164,64 @@ describe('observation tools', () => {
       assert.ok(!contentResult.isError, textOf(contentResult))
       const text = textOf(contentResult)
       assert.ok(text.includes('Example Domain'), 'Expected page content')
+      const data = structuredOf<{
+        content: string
+        contentLength: number
+        writtenToFile: boolean
+      }>(contentResult)
+      assert.strictEqual(data.writtenToFile, false)
+      assert.strictEqual(data.contentLength, data.content.length)
 
       await execute(close_page, { page: pageId })
+    })
+  }, 60_000)
+
+  it('get_page_content writes large content to disk', async () => {
+    await withBrowser(async ({ execute }) => {
+      const newResult = await execute(new_page, { url: 'about:blank' })
+      const pageId = pageIdOf(newResult)
+      let savedPath: string | undefined
+
+      try {
+        const html = Array.from(
+          { length: 250 },
+          (_, i) =>
+            `<p>Paragraph ${i} ${'alpha beta gamma delta epsilon '.repeat(4)}</p>`,
+        ).join('')
+        await execute(evaluate_script, {
+          page: pageId,
+          expression: `document.body.innerHTML = ${JSON.stringify(`<main>${html}</main>`)}`,
+        })
+
+        const contentResult = await execute(get_page_content, { page: pageId })
+        assert.ok(!contentResult.isError, textOf(contentResult))
+        const data = structuredOf<{
+          path: string
+          contentLength: number
+          writtenToFile: boolean
+        }>(contentResult)
+        savedPath = data.path
+
+        assert.strictEqual(data.writtenToFile, true)
+        assert.ok(textOf(contentResult).includes('Saved page content'))
+        assert.ok(existsSync(savedPath), 'Saved page content file should exist')
+        assert.ok(
+          dirname(savedPath).startsWith(
+            join(tmpdir(), 'browseros-tool-output-'),
+          ),
+          'Saved page content should be written to an OS temp directory',
+        )
+
+        const savedContent = readFileSync(savedPath, 'utf8')
+        assert.strictEqual(savedContent.length, data.contentLength)
+        assert.ok(
+          savedContent.includes('Paragraph 0'),
+          'Saved file should contain the extracted content',
+        )
+      } finally {
+        if (savedPath && existsSync(savedPath)) cleanupSavedContent(savedPath)
+        await execute(close_page, { page: pageId })
+      }
     })
   }, 60_000)
 

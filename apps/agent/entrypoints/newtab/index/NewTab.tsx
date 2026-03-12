@@ -46,6 +46,7 @@ import {
   NEWTAB_WORKSPACE_OPENED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useMcpConfig } from '@/lib/mcp/useMcpConfig'
+import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
 import { cn } from '@/lib/utils'
@@ -93,6 +94,7 @@ export const NewTab = () => {
   const { supports } = useCapabilities()
   const { servers: mcpServers } = useMcpConfig()
   const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
+  useSyncRemoteIntegrations()
 
   const { messages, sendMessage, setMode, resetConversation } =
     useChatSessionContext()

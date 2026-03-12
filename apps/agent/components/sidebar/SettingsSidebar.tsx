@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Search,
   Server,
-  Sparkles,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -35,12 +34,6 @@ const settingsNavItems: NavItem[] = [
     feature: Feature.CUSTOMIZATION_SUPPORT,
   },
   { name: 'Search Provider', to: '/settings/search', icon: Search },
-  {
-    name: 'Agent Soul',
-    to: '/settings/soul',
-    icon: Sparkles,
-    feature: Feature.SOUL_SUPPORT,
-  },
   { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]

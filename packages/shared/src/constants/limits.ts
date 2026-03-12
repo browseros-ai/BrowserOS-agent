@@ -22,12 +22,20 @@ export const AGENT_LIMITS = {
   COMPRESSION_MIN_RATIO: 0.4,
 
   // Compaction — adaptive trigger
-  COMPACTION_RESERVE_TOKENS: 16_384,
+  // Large models (>32K): fixed 20K reserve, rest is trigger budget.
+  // Small models (≤32K): 50% reserve instead, so trigger isn't starved.
+  COMPACTION_RESERVE_TOKENS: 20_000,
 
   // Compaction — adaptive keep-recent
   COMPACTION_MAX_KEEP_RECENT: 20_000,
   COMPACTION_KEEP_RECENT_FRACTION: 0.35,
-  COMPACTION_SMALL_CONTEXT_WINDOW: 16_000,
+
+  // Models at or below this use proportional (50%) reserve.
+  // Must be ≥ 2 × COMPACTION_FIXED_OVERHEAD (currently 24K) so that
+  // the 50% trigger threshold always exceeds the overhead estimate.
+  // Below 24K, the overhead cap in computeConfig() handles it.
+  COMPACTION_SMALL_CONTEXT_WINDOW: 32_000,
+
   COMPACTION_MIN_SUMMARIZABLE_INPUT: 4_000,
   COMPACTION_MIN_SUMMARIZABLE_INPUT_SMALL: 1_000,
 
@@ -39,13 +47,26 @@ export const AGENT_LIMITS = {
   COMPACTION_SUMMARIZER_OUTPUT_RATIO: 0.8,
 
   // Compaction — estimation (step 0 / no real usage)
-  COMPACTION_FIXED_OVERHEAD: 5_000,
+  // Covers system prompt (~2.5K tokens) + tool definitions (~8-9K tokens).
+  // computeConfig() caps this at 40% of context window for small models
+  // so it never exceeds the trigger threshold on its own.
+  COMPACTION_FIXED_OVERHEAD: 12_000,
   COMPACTION_SAFETY_MULTIPLIER: 1.3,
   COMPACTION_IMAGE_TOKEN_ESTIMATE: 1_000,
+
+  // Compaction — pruning (before LLM summarization)
+  COMPACTION_PRUNE_KEEP_RECENT_MESSAGES: 6,
+  COMPACTION_CLEAR_OUTPUT_MIN_CHARS: 100,
 
   // Compaction — tool output truncation
   COMPACTION_TOOL_OUTPUT_MAX_CHARS: 15_000,
   COMPACTION_TRANSCRIPT_TOOL_OUTPUT_MAX_CHARS: 2_000,
+} as const
+
+export const TOOL_LIMITS = {
+  INLINE_PAGE_CONTENT_MAX_CHARS: 5_000,
+  FILESYSTEM_READ_MAX_LINES: 500,
+  FILESYSTEM_READ_MAX_CHARS: 15_000,
 } as const
 
 export const PAGINATION = {

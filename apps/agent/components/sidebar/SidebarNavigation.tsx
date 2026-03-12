@@ -1,10 +1,13 @@
 import {
+  Brain,
   CalendarClock,
   GitBranch,
   Home,
   PlugZap,
   Settings,
+  Sparkles,
   UserPen,
+  Wand2,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
@@ -49,6 +52,24 @@ const primaryNavItems: NavItem[] = [
     to: '/home/personalize',
     icon: UserPen,
     feature: Feature.PERSONALIZATION_SUPPORT,
+  },
+  {
+    name: 'Agent Soul',
+    to: '/home/soul',
+    icon: Sparkles,
+    feature: Feature.SOUL_SUPPORT,
+  },
+  {
+    name: 'Skills',
+    to: '/home/skills',
+    icon: Wand2,
+    feature: Feature.SKILLS_SUPPORT,
+  },
+  {
+    name: 'Memory',
+    to: '/home/memory',
+    icon: Brain,
+    feature: Feature.MEMORY_SUPPORT,
   },
   { name: 'Settings', to: '/settings/ai', icon: Settings },
 ]

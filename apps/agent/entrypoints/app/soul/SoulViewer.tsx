@@ -1,5 +1,6 @@
 import { FileText, Loader2 } from 'lucide-react'
 import type { FC } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import { useSoulContent } from './useSoulContent'
 
 export const SoulViewer: FC = () => {
@@ -52,9 +53,9 @@ export const SoulViewer: FC = () => {
           <span className="text-muted-foreground text-xs">read-only</span>
         </div>
       </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
-        {content}
-      </pre>
+      <div className="prose prose-sm dark:prose-invert [&_[data-streamdown='code-block']]:!w-full [&_[data-streamdown='table-wrapper']]:!w-full max-w-none break-words p-4">
+        <MessageResponse>{content}</MessageResponse>
+      </div>
     </div>
   )
 }

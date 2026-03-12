@@ -1,6 +1,6 @@
 import type { UIMessage } from 'ai'
 import { Bot } from 'lucide-react'
-import { type FC, Fragment, type RefObject } from 'react'
+import { type FC, Fragment } from 'react'
 import {
   Conversation,
   ConversationContent,
@@ -18,15 +18,16 @@ import {
 } from '@/components/ai-elements/reasoning'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { ChatMessageActions } from './ChatMessageActions'
+import { ConnectAppCard } from './ConnectAppCard'
 import { getMessageSegments } from './getMessageSegments'
 import { JtbdPopup } from './JtbdPopup'
+import { ScheduleSuggestionCard } from './ScheduleSuggestionCard'
 import { ToolBatch } from './ToolBatch'
 import { UserActionMessage } from './UserActionMessage'
 
 interface ChatMessagesProps {
   messages: UIMessage[]
   status: 'streaming' | 'submitted' | 'ready' | 'error'
-  messagesEndRef: RefObject<HTMLDivElement | null>
   getActionForMessage?: (message: UIMessage) => ChatAction | undefined
   liked: Record<string, boolean>
   onClickLike: (messageId: string) => void
@@ -41,7 +42,6 @@ interface ChatMessagesProps {
 export const ChatMessages: FC<ChatMessagesProps> = ({
   messages,
   status,
-  messagesEndRef,
   getActionForMessage,
   liked,
   disliked,
@@ -116,6 +116,21 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                                 isStreaming={isStreaming}
                               />
                             )
+                          case 'nudge':
+                            return segment.nudgeType ===
+                              'schedule_suggestion' ? (
+                              <ScheduleSuggestionCard
+                                key={segment.key}
+                                data={segment.data}
+                                isLastMessage={isLastMessage}
+                              />
+                            ) : (
+                              <ConnectAppCard
+                                key={segment.key}
+                                data={segment.data}
+                                isLastMessage={isLastMessage}
+                              />
+                            )
                           default:
                             return null
                         }
@@ -160,7 +175,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
           </div>
         </div>
       )}
-      <div ref={messagesEndRef} />
+      <div />
     </>
   )
 }

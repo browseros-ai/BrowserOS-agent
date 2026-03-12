@@ -19,6 +19,8 @@ interface McpRouteDeps {
   version: string
   registry: ToolRegistry
   browser: Browser
+  executionDir: string
+  resourcesDir: string
   klavisProxy?: KlavisProxyHandle | null
 }
 
