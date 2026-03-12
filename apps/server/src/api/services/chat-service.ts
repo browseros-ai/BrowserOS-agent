@@ -254,7 +254,9 @@ export class ChatService {
   private buildMcpServerKey(browserContext?: BrowserContext): string {
     const managed = browserContext?.enabledMcpServers?.slice().sort() ?? []
     const custom =
-      browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
+      browserContext?.customMcpServers
+        ?.map((s) => ('url' in s ? s.url : `stdio:${s.command}`))
+        .sort() ?? []
     return [...managed, ...custom].join(',')
   }
 
