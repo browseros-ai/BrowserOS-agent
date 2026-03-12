@@ -30,10 +30,19 @@ export async function loadProviders(): Promise<LlmHubProvider[]> {
     const providers = (providersPref?.value as LlmHubProvider[]) || []
 
     if (providers.length === 0) {
-      return isKimiLaunchEnabled() ? [KIMI_PROVIDER] : []
+      if (isKimiLaunchEnabled()) {
+        const defaults = [KIMI_PROVIDER]
+        await saveProviders(defaults)
+        return defaults
+      }
+      return []
     }
 
-    return ensureKimiFirst(providers)
+    const normalized = ensureKimiFirst(providers)
+    if (normalized.length !== providers.length) {
+      await saveProviders(normalized)
+    }
+    return normalized
   } catch {
     return isKimiLaunchEnabled() ? [KIMI_PROVIDER] : []
   }
