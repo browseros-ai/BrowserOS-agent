@@ -42,7 +42,7 @@ export function createMcpServer(deps: McpServiceDeps): McpServer {
   registerTools(server, deps.registry, {
     browser: deps.browser,
     directories: {
-      executionDir: deps.executionDir,
+      workingDir: deps.executionDir,
       resourcesDir: deps.resourcesDir,
     },
   })

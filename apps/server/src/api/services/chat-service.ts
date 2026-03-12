@@ -39,7 +39,7 @@ export class ChatService {
 
     const llmConfig = await resolveLLMConfig(request, this.deps.browserosId)
 
-    const sessionExecutionDir = await this.resolveSessionDir(request)
+    const workingDir = await this.resolveSessionDir(request)
 
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
@@ -55,7 +55,7 @@ export class ChatService {
       sessionToken: llmConfig.sessionToken,
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
-      sessionExecutionDir,
+      workingDir,
       supportsImages: request.supportsImages,
       chatMode: request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,

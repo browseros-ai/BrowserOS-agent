@@ -72,7 +72,7 @@ export class AiSdkAgent {
     const allBrowserTools = buildBrowserToolSet(
       config.registry,
       config.browser,
-      config.resolvedConfig.sessionExecutionDir,
+      config.resolvedConfig.workingDir,
     )
     const browserTools = config.resolvedConfig.chatMode
       ? Object.fromEntries(
@@ -98,7 +98,7 @@ export class AiSdkAgent {
     // Add filesystem tools (Pi coding agent) — skip in chat mode (read-only)
     const filesystemTools = config.resolvedConfig.chatMode
       ? {}
-      : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
+      : buildFilesystemToolSet(config.resolvedConfig.workingDir)
     const memoryTools = config.resolvedConfig.chatMode
       ? {}
       : buildMemoryToolSet()
@@ -143,7 +143,7 @@ export class AiSdkAgent {
       exclude: excludeSections,
       isScheduledTask: config.resolvedConfig.isScheduledTask,
       scheduledTaskWindowId: config.browserContext?.windowId,
-      workspaceDir: config.resolvedConfig.sessionExecutionDir,
+      workspaceDir: config.resolvedConfig.workingDir,
       soulContent,
       isSoulBootstrap: isBootstrap,
       chatMode: config.resolvedConfig.chatMode,
