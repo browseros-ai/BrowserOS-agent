@@ -363,8 +363,8 @@ const SkillDialog: FC<{
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[280px_minmax(0,1fr)] lg:overflow-hidden">
-          <div className="space-y-5 border-b bg-muted/20 px-6 py-5 lg:border-r lg:border-b-0">
+        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[280px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
+          <div className="space-y-5 border-b bg-muted/20 px-6 py-5 lg:overflow-y-auto lg:border-r lg:border-b-0">
             <div className="space-y-2">
               <Label htmlFor="skill-name">Name</Label>
               <Input
@@ -417,7 +417,7 @@ const SkillDialog: FC<{
               onChange={setContent}
               onKeyDown={handleContentKeyDown}
               placeholder="Write instructions for the agent. Use markdown for structure."
-              className="mt-4 min-h-[320px] flex-1 overflow-y-auto text-sm"
+              className="mt-4 min-h-[320px] flex-1 text-sm"
             />
           </div>
         </div>
