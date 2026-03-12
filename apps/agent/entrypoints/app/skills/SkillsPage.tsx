@@ -394,12 +394,12 @@ const SkillDialog: FC<{
               </p>
             </div>
 
-            <div className="rounded-xl border border-border bg-background p-4">
-              <p className="font-medium text-sm">Useful structure</p>
-              <div className="mt-2 space-y-2 text-muted-foreground text-xs leading-5">
-                <p>List the ordered steps the agent should follow.</p>
-                <p>Close with the output or formatting you expect back.</p>
-              </div>
+            <div className="mt-auto rounded-lg border border-border/60 border-dashed bg-muted/30 px-3 py-2.5">
+              <p className="font-medium text-muted-foreground text-xs">Tip</p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-4 text-muted-foreground text-xs leading-5">
+                <li>List the ordered steps the agent should follow.</li>
+                <li>Close with the output or formatting you expect back.</li>
+              </ul>
             </div>
           </div>
 

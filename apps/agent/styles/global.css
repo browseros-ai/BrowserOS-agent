@@ -434,6 +434,16 @@
   color: var(--foreground);
 }
 
+/* Checklist — align checkbox with text baseline */
+.mdx-content-editable [class*="listItemChecked"]::before,
+.mdx-content-editable [class*="listItemUnchecked"]::before {
+  top: 0.2em;
+}
+
+.mdx-content-editable [class*="listItemChecked"]::after {
+  top: calc(0.2em + 2px);
+}
+
 /* ── Toolbar ── */
 .mdx-editor-themed .mdxeditor [role="toolbar"] {
   position: sticky;
