@@ -111,9 +111,26 @@ export const MarkdownEditor = ({
     }
   }, [value])
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const text = e.clipboardData.getData('text/plain')
+    if (!text) return
+
+    const markdownPattern =
+      /^#{1,6}\s|^\s*[-*+]\s|^\s*\d+\.\s|\*\*.+\*\*|__.+__|\[.+\]\(.+\)|^>/m
+    if (!markdownPattern.test(text)) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    editorRef.current?.insertMarkdown(text)
+  }
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: onKeyDown forwarding for Cmd+Enter
-    <div className={cn('mdx-editor-themed', className)} onKeyDown={onKeyDown}>
+    // biome-ignore lint/a11y/noStaticElementInteractions: onKeyDown/onPasteCapture forwarding
+    <div
+      className={cn('mdx-editor-themed', className)}
+      onKeyDown={onKeyDown}
+      onPasteCapture={handlePaste}
+    >
       <MDXEditor
         ref={editorRef}
         markdown={value}
