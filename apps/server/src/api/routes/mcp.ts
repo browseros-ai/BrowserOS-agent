@@ -72,11 +72,12 @@ async function handleMcpTransportRequest(c: Context<Env>, deps: McpRouteDeps) {
 export function createMcpRoutes(deps: McpRouteDeps) {
   return new Hono<Env>().all('/', async (c) => {
     const scopeId = c.req.header('X-BrowserOS-Scope-Id') || 'ephemeral'
-    metrics.log('mcp.request', { scopeId })
 
     if (shouldReturnStatusResponse(c)) {
       return createMcpStatusResponse(c)
     }
+
+    metrics.log('mcp.request', { scopeId })
 
     // Per-request server + transport: no shared state, no race conditions,
     // no ID collisions. Required by MCP SDK 1.26.0+ security fix (GHSA-345p-7cg4-v4c7).
