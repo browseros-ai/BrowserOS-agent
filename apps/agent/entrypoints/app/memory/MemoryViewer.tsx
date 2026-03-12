@@ -152,7 +152,7 @@ export const MemoryViewer: FC = () => {
       </div>
 
       {isEditing ? (
-        <div className="p-3">
+        <div className="space-y-2 p-3">
           <MarkdownEditor
             value={editContent}
             onChange={setEditContent}
@@ -161,7 +161,7 @@ export const MemoryViewer: FC = () => {
             autoFocus
           />
           {saveError && (
-            <p className="mt-2 text-destructive text-xs">
+            <p className="text-destructive text-xs">
               {saveError.message || 'Failed to save. Please try again.'}
             </p>
           )}

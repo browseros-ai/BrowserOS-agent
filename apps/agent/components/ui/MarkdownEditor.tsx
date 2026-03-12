@@ -1,14 +1,24 @@
 import '@mdxeditor/editor/style.css'
 import {
+  BlockTypeSelect,
+  BoldItalicUnderlineToggles,
+  CreateLink,
   headingsPlugin,
+  InsertThematicBreak,
+  ListsToggle,
+  linkDialogPlugin,
+  linkPlugin,
   listsPlugin,
   MDXEditor,
   type MDXEditorMethods,
   markdownShortcutPlugin,
   quotePlugin,
+  Separator,
   thematicBreakPlugin,
+  toolbarPlugin,
+  UndoRedo,
 } from '@mdxeditor/editor'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 interface MarkdownEditorProps {
@@ -21,13 +31,38 @@ interface MarkdownEditorProps {
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>
 }
 
-const plugins = [
-  headingsPlugin(),
-  listsPlugin(),
-  quotePlugin(),
-  thematicBreakPlugin(),
-  markdownShortcutPlugin(),
-]
+function EditorToolbar() {
+  return (
+    <>
+      <UndoRedo />
+      <Separator />
+      <BoldItalicUnderlineToggles />
+      <Separator />
+      <BlockTypeSelect />
+      <Separator />
+      <ListsToggle />
+      <Separator />
+      <CreateLink />
+      <InsertThematicBreak />
+    </>
+  )
+}
+
+function usePlugins(readOnly?: boolean) {
+  return useMemo(
+    () => [
+      headingsPlugin(),
+      listsPlugin(),
+      quotePlugin(),
+      thematicBreakPlugin(),
+      linkPlugin(),
+      linkDialogPlugin(),
+      markdownShortcutPlugin(),
+      ...(readOnly ? [] : [toolbarPlugin({ toolbarContents: EditorToolbar })]),
+    ],
+    [readOnly],
+  )
+}
 
 export const MarkdownEditor = ({
   value,
@@ -39,6 +74,7 @@ export const MarkdownEditor = ({
   onKeyDown,
 }: MarkdownEditorProps) => {
   const editorRef = useRef<MDXEditorMethods>(null)
+  const plugins = usePlugins(readOnly)
 
   useEffect(() => {
     const current = editorRef.current?.getMarkdown() ?? ''

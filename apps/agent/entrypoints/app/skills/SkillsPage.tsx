@@ -411,21 +411,13 @@ const SkillDialog: FC<{
               </Badge>
             </div>
 
-            <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/20">
-              <div className="flex items-center justify-between border-b px-4 py-3">
-                <span className="font-medium text-sm">Markdown editor</span>
-                <span className="text-muted-foreground text-xs">
-                  Cmd/Ctrl + Enter to save
-                </span>
-              </div>
-              <MarkdownEditor
-                value={content}
-                onChange={setContent}
-                onKeyDown={handleContentKeyDown}
-                placeholder="Write instructions for the agent. Use markdown for structure."
-                className="min-h-[320px] flex-1 overflow-y-auto p-4 text-sm"
-              />
-            </div>
+            <MarkdownEditor
+              value={content}
+              onChange={setContent}
+              onKeyDown={handleContentKeyDown}
+              placeholder="Write instructions for the agent. Use markdown for structure."
+              className="mt-4 min-h-[320px] flex-1 overflow-y-auto text-sm"
+            />
           </div>
         </div>
 

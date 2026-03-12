@@ -66,7 +66,7 @@ export const Personalize = () => {
           autoFocus
           onChange={setPersonalization}
           placeholder="Tell BrowserOS about yourself..."
-          className="styled-scrollbar h-96 overflow-y-auto rounded-2xl border-2 border-border/50 bg-card px-4 py-3 focus-within:border-[var(--accent-orange)]/30 focus-within:ring-4 focus-within:ring-[var(--accent-orange)]/10"
+          className="styled-scrollbar h-96 overflow-y-auto"
         />
         <p className="text-muted-foreground text-xs">
           Your information is saved locally and never leaves your device.
