@@ -1,6 +1,7 @@
 import { Brain, Check, Loader2, Pencil, Plus, X } from 'lucide-react'
 import type { FC } from 'react'
 import { useState } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import { Button } from '@/components/ui/button'
 import { MarkdownEditor } from '@/components/ui/MarkdownEditor'
 import { useMemoryContent } from './useMemoryContent'
@@ -167,9 +168,9 @@ export const MemoryViewer: FC = () => {
           )}
         </div>
       ) : (
-        <pre className="styled-scrollbar max-h-[65vh] overflow-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed">
-          {content}
-        </pre>
+        <div className="prose prose-sm dark:prose-invert [&_[data-streamdown='code-block']]:!w-full [&_[data-streamdown='table-wrapper']]:!w-full styled-scrollbar max-h-[65vh] max-w-none overflow-auto break-words p-4">
+          <MessageResponse>{content ?? ''}</MessageResponse>
+        </div>
       )}
     </div>
   )
