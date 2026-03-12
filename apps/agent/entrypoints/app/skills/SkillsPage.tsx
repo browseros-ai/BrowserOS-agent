@@ -412,6 +412,7 @@ const SkillDialog: FC<{
             </div>
 
             <MarkdownEditor
+              id="skill-content"
               value={content}
               onChange={setContent}
               onKeyDown={handleContentKeyDown}

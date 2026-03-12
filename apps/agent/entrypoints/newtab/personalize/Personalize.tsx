@@ -62,6 +62,7 @@ export const Personalize = () => {
       >
         <Label htmlFor="personalization">Your Information</Label>
         <MarkdownEditor
+          id="personalization"
           value={personalization}
           autoFocus
           onChange={setPersonalization}

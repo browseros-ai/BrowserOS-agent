@@ -30,6 +30,7 @@ interface MarkdownEditorProps {
   autoFocus?: boolean
   readOnly?: boolean
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>
+  id?: string
 }
 
 function EditorToolbar() {
@@ -104,6 +105,7 @@ export const MarkdownEditor = ({
   autoFocus,
   readOnly,
   onKeyDown,
+  id,
 }: MarkdownEditorProps) => {
   const editorRef = useRef<MDXEditorMethods>(null)
   const plugins = usePlugins(readOnly)
@@ -133,7 +135,7 @@ export const MarkdownEditor = ({
   }
 
   return (
-    <div className={cn('mdx-editor-outer', className)}>
+    <div id={id} className={cn('mdx-editor-outer', className)}>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: onKeyDown/onPasteCapture forwarding */}
       <div
         className="mdx-editor-themed"
