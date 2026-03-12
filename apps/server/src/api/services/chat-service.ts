@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { mkdir } from 'node:fs/promises'
+import { mkdir, utimes } from 'node:fs/promises'
 import path from 'node:path'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
@@ -264,6 +264,10 @@ export class ChatService {
       ? request.userWorkingDir
       : path.join(getSessionsDir(), request.conversationId)
     await mkdir(dir, { recursive: true })
+    if (!request.userWorkingDir) {
+      const now = new Date()
+      await utimes(dir, now, now).catch(() => {})
+    }
     return dir
   }
 }
