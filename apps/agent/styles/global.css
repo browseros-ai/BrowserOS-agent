@@ -377,15 +377,18 @@
 /* MDXEditor — positioning shell (non-scrolling) */
 .mdx-editor-outer {
   position: relative;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
-  overflow: hidden;
+  overflow: clip;
 }
 
 /* MDXEditor — scrollable inner area */
 .mdx-editor-themed {
-  height: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
 }
