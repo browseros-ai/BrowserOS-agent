@@ -175,23 +175,27 @@ export const ConnectMCP: FC = () => {
   }
 
   const addCustomServer = async (config: CustomServerConfig) => {
-    await addServerMutation({
-      displayName: config.name,
-      type: 'custom',
-      config: {
-        url: config.url || undefined,
-        description: config.description,
-        transport: config.transport,
-        headers: config.headers,
-        command: config.command,
-        args: config.args,
-        cwd: config.cwd,
-        env: config.env,
-      },
-    })
-    track(CUSTOM_MCP_ADDED_EVENT, {
-      transport: config.transport ?? 'http',
-    })
+    try {
+      await addServerMutation({
+        displayName: config.name,
+        type: 'custom',
+        config: {
+          url: config.url || undefined,
+          description: config.description,
+          transport: config.transport,
+          headers: config.headers,
+          command: config.command,
+          args: config.args,
+          cwd: config.cwd,
+          env: config.env,
+        },
+      })
+      track(CUSTOM_MCP_ADDED_EVENT, {
+        transport: config.transport ?? 'http',
+      })
+    } catch (e) {
+      failedToAddMcp(config.name, e)
+    }
   }
 
   const availableServers = serversList?.servers.filter((eachServer) => {
@@ -335,7 +339,9 @@ export const ConnectMCP: FC = () => {
                         name: server.managedServerName,
                       })
                     } else {
-                      removeServerMutation(server.id)
+                      removeServerMutation(server.id).catch((e) =>
+                        failedToRemoveMcp(server.displayName, e),
+                      )
                     }
                   }}
                   className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
