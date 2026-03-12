@@ -11,7 +11,7 @@ import {
   Server,
 } from 'lucide-react'
 import type { FC } from 'react'
-import { NavLink, useLocation } from 'react-router'
+import { NavLink } from 'react-router'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
@@ -28,6 +28,18 @@ type NavSection = {
   label: string
   items: NavItem[]
 }
+
+const getNavLinkClassName = (isActive: boolean) =>
+  cn(
+    'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+    isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+  )
+
+const getSectionClassName = (index: number) =>
+  cn(index > 0 && 'mt-3 border-t pt-3')
+
+const sectionLabelClassName =
+  'mb-2 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-[0.18em]'
 
 const primarySettingsSections: NavSection[] = [
   {
@@ -46,7 +58,7 @@ const primarySettingsSections: NavSection[] = [
     label: 'Other',
     items: [
       {
-        name: 'Customization',
+        name: 'Customize BrowserOS',
         to: '/settings/customization',
         icon: Palette,
         feature: Feature.CUSTOMIZATION_SUPPORT,
@@ -68,7 +80,6 @@ const helpItems: NavItem[] = [
 ]
 
 export const SettingsSidebar: FC = () => {
-  const location = useLocation()
   const { supports } = useCapabilities()
 
   const filteredSections = primarySettingsSections
@@ -84,29 +95,15 @@ export const SettingsSidebar: FC = () => {
     (item) => !item.feature || supports(item.feature),
   )
 
-  const getNavLinkClassName = (isActive: boolean) =>
-    cn(
-      'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-      isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
-    )
-
-  const getSectionClassName = (index: number) =>
-    cn(index > 0 && 'mt-3 border-t pt-3')
-
-  const sectionLabelClassName =
-    'mb-2 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-[0.18em]'
-
-  const isActivePath = (path: string) => location.pathname === path
-
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon
-    const isActive = isActivePath(item.to)
 
     return (
       <NavLink
         key={item.to}
         to={item.to}
-        className={getNavLinkClassName(isActive)}
+        end
+        className={({ isActive }) => getNavLinkClassName(isActive)}
       >
         <Icon className="size-4 shrink-0" />
         <span className="truncate">{item.name}</span>
