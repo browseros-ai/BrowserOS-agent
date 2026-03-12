@@ -378,7 +378,8 @@
 .mdx-editor-themed {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--card);
 }
 
