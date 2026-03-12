@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Bot,
   Compass,
+  GitBranch,
   Info,
   MessageSquare,
   Palette,
@@ -10,40 +11,142 @@ import {
   Server,
 } from 'lucide-react'
 import type { FC } from 'react'
-import { NavLink, useLocation } from 'react-router'
+import { NavLink } from 'react-router'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { cn } from '@/lib/utils'
 
-type NavItem = {
+type BaseNavItem = {
   name: string
-  to: string
   icon: typeof Bot
   feature?: Feature
 }
 
-const settingsNavItems: NavItem[] = [
-  { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
-  { name: 'LLM Chat & Hub', to: '/settings/chat', icon: MessageSquare },
-  { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
+type InternalNavItem = BaseNavItem & {
+  href?: never
+  to: string
+}
+
+type ExternalNavItem = BaseNavItem & {
+  href: string
+  to?: never
+}
+
+type NavItem = InternalNavItem | ExternalNavItem
+
+type NavSection = {
+  label: string
+  items: NavItem[]
+}
+
+function isExternalNavItem(item: NavItem): item is ExternalNavItem {
+  return 'href' in item
+}
+
+const getNavLinkClassName = (isActive: boolean) =>
+  cn(
+    'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+    isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+  )
+
+const getSectionClassName = (index: number) =>
+  cn(index > 0 && 'mt-3 border-t pt-3')
+
+const sectionLabelClassName =
+  'mb-2 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-[0.18em]'
+
+const primarySettingsSections: NavSection[] = [
   {
-    name: 'Customization',
-    to: '/settings/customization',
-    icon: Palette,
-    feature: Feature.CUSTOMIZATION_SUPPORT,
+    label: 'Provider Settings',
+    items: [
+      { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
+      {
+        name: 'Chat & Hub Provider',
+        to: '/settings/chat',
+        icon: MessageSquare,
+      },
+      { name: 'Search Provider', to: '/settings/search', icon: Search },
+    ],
   },
-  { name: 'Search Provider', to: '/settings/search', icon: Search },
-  { name: 'Explore Features', to: '/onboarding/features', icon: Compass },
+  {
+    label: 'Other',
+    items: [
+      {
+        name: 'Customize BrowserOS',
+        to: '/settings/customization',
+        icon: Palette,
+        feature: Feature.CUSTOMIZATION_SUPPORT,
+      },
+      { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
+      {
+        name: 'Workflows',
+        to: '/workflows',
+        icon: GitBranch,
+        feature: Feature.WORKFLOW_SUPPORT,
+      },
+    ],
+  },
+]
+
+const helpItems: NavItem[] = [
+  { name: 'Docs', href: 'https://docs.browseros.com/', icon: Info },
+  { name: 'Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]
 
 export const SettingsSidebar: FC = () => {
-  const location = useLocation()
   const { supports } = useCapabilities()
 
-  const filteredItems = settingsNavItems.filter(
+  const filteredSections = primarySettingsSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.feature || supports(item.feature),
+      ),
+    }))
+    .filter((section) => section.items.length > 0)
+
+  const filteredHelpItems = helpItems.filter(
     (item) => !item.feature || supports(item.feature),
+  )
+
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon
+
+    if (isExternalNavItem(item)) {
+      return (
+        <a
+          key={item.href}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={getNavLinkClassName(false)}
+        >
+          <Icon className="size-4 shrink-0" />
+          <span className="truncate">{item.name}</span>
+        </a>
+      )
+    }
+
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        end
+        className={({ isActive }) => getNavLinkClassName(isActive)}
+      >
+        <Icon className="size-4 shrink-0" />
+        <span className="truncate">{item.name}</span>
+      </NavLink>
+    )
+  }
+
+  const renderSection = (section: NavSection, index: number) => (
+    <div key={section.label} className={getSectionClassName(index)}>
+      <div className={sectionLabelClassName}>{section.label}</div>
+      <nav className="space-y-1">{section.items.map(renderNavItem)}</nav>
+    </div>
   )
 
   return (
@@ -62,43 +165,17 @@ export const SettingsSidebar: FC = () => {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-2">
         <div className="mb-2 px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           Settings
         </div>
-        <nav className="space-y-1">
-          {filteredItems.map((item) => {
-            const Icon = item.icon
-            const isActive = location.pathname === item.to
-
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                  isActive &&
-                    'bg-sidebar-accent text-sidebar-accent-foreground',
-                )}
-              >
-                <Icon className="size-4 shrink-0" />
-                <span className="truncate">{item.name}</span>
-              </NavLink>
-            )
-          })}
-        </nav>
-      </div>
-
-      <div className="mt-auto border-t p-2">
-        <a
-          href="https://docs.browseros.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <Info className="size-4 shrink-0" />
-          <span className="truncate">About BrowserOS</span>
-        </a>
+        <div>{filteredSections.map(renderSection)}</div>
+        <div className="mt-auto pt-4">
+          <div className={sectionLabelClassName}>Help</div>
+          <nav className="space-y-1">
+            {filteredHelpItems.map(renderNavItem)}
+          </nav>
+        </div>
       </div>
     </div>
   )
