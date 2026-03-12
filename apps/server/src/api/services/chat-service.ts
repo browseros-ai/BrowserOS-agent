@@ -22,7 +22,6 @@ import type { BrowserContext, ChatRequest } from '../types'
 export interface ChatServiceDeps {
   sessionStore: SessionStore
   klavisClient: KlavisClient
-  executionDir: string
   browser: Browser
   registry: ToolRegistry
   browserosId?: string

@@ -29,7 +29,7 @@ Activate when the user asks to save a page for later, read it later, bookmark so
 ## Notification Format
 
 ```
-Saved to Read Later
+Saved to 📚 Read Later
 Title: <page title>
 URL: <page url>
 PDF: <download path>

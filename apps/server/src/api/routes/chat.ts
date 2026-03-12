@@ -1,4 +1,3 @@
-import { PATHS } from '@browseros/shared/constants/paths'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { SessionStore } from '../../agent/session-store'
@@ -17,21 +16,18 @@ import { ConversationIdParamSchema } from '../utils/validation'
 interface ChatRouteDeps {
   browser: Browser
   registry: ToolRegistry
-  executionDir?: string
   browserosId?: string
   rateLimiter?: RateLimiter
 }
 
 export function createChatRoutes(deps: ChatRouteDeps) {
   const { browserosId, rateLimiter } = deps
-  const executionDir = deps.executionDir || PATHS.DEFAULT_EXECUTION_DIR
 
   const sessionStore = new SessionStore()
   const klavisClient = new KlavisClient()
   const service = new ChatService({
     sessionStore,
     klavisClient,
-    executionDir,
     browser: deps.browser,
     registry: deps.registry,
     browserosId,
