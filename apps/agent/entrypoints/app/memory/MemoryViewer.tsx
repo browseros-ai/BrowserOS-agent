@@ -2,7 +2,7 @@ import { Brain, Check, Loader2, Pencil, Plus, X } from 'lucide-react'
 import type { FC } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { MarkdownEditor } from '@/components/ui/MarkdownEditor'
 import { useMemoryContent } from './useMemoryContent'
 
 export const MemoryViewer: FC = () => {
@@ -153,11 +153,11 @@ export const MemoryViewer: FC = () => {
 
       {isEditing ? (
         <div className="p-3">
-          <Textarea
+          <MarkdownEditor
             value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="styled-scrollbar max-h-[480px] min-h-[200px] resize-y font-mono text-sm leading-relaxed"
-            placeholder="# Core Memories&#10;&#10;Write facts about yourself — name, preferences, projects, tools..."
+            onChange={setEditContent}
+            className="styled-scrollbar max-h-[480px] min-h-[200px] overflow-y-auto text-sm"
+            placeholder="Write facts about yourself — name, preferences, projects, tools..."
             autoFocus
           />
           {saveError && (

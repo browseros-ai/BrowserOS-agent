@@ -7,7 +7,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { MarkdownEditor } from '@/components/ui/MarkdownEditor'
 import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 import { cn } from '@/lib/utils'
 import { NewTabBranding } from '../index/NewTabBranding'
@@ -61,13 +61,12 @@ export const Personalize = () => {
         )}
       >
         <Label htmlFor="personalization">Your Information</Label>
-        <Textarea
-          id="personalization"
+        <MarkdownEditor
           value={personalization}
           autoFocus
-          onChange={(e) => setPersonalization(e.target.value)}
-          placeholder="Tell BrowserOS about yourself... (Supports Markdown)"
-          className="styled-scrollbar h-96 resize-none rounded-2xl border-2 border-border/50 bg-card px-4 py-3 transition-transform placeholder:text-muted-foreground focus:border-[var(--accent-orange)]/30 focus:ring-4 focus:ring-[var(--accent-orange)]/10"
+          onChange={setPersonalization}
+          placeholder="Tell BrowserOS about yourself..."
+          className="styled-scrollbar h-96 overflow-y-auto rounded-2xl border-2 border-border/50 bg-card px-4 py-3 focus-within:border-[var(--accent-orange)]/30 focus-within:ring-4 focus-within:ring-[var(--accent-orange)]/10"
         />
         <p className="text-muted-foreground text-xs">
           Your information is saved locally and never leaves your device.

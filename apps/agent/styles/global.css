@@ -373,3 +373,53 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* MDXEditor theme overrides — must target .mdxeditor directly to beat _editorRoot specificity */
+.mdx-editor-themed .mdxeditor {
+  --basePageBg: transparent;
+  --baseBase: transparent;
+  --baseBgSubtle: transparent;
+  --baseBg: transparent;
+  --baseBgHover: var(--muted);
+  --baseBgActive: var(--muted);
+  --baseLine: var(--border);
+  --baseBorder: var(--border);
+  --baseBorderHover: var(--border);
+  --baseSolid: var(--muted-foreground);
+  --baseSolidHover: var(--foreground);
+  --baseText: var(--muted-foreground);
+  --baseTextContrast: var(--foreground);
+  --accentBase: var(--accent-orange);
+  --accentBgSubtle: oklch(from var(--accent-orange) l c h / 0.05);
+  --accentBg: oklch(from var(--accent-orange) l c h / 0.1);
+  --accentBgActive: oklch(from var(--accent-orange) l c h / 0.15);
+  --accentLine: oklch(from var(--accent-orange) l c h / 0.3);
+  --accentSolid: var(--accent-orange);
+  --accentText: var(--accent-orange);
+  --font-body: var(--font-sans);
+  --font-mono: var(--font-mono);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground);
+}
+
+.mdx-editor-themed .mdxeditor [role="textbox"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.mdx-editor-themed .mdxeditor [data-placeholder]::before {
+  color: var(--muted-foreground) !important;
+  opacity: 0.6;
+}
+
+.mdx-content-editable {
+  background: transparent;
+}
+
+.mdx-content-editable h1,
+.mdx-content-editable h2,
+.mdx-content-editable h3 {
+  color: var(--foreground);
+}

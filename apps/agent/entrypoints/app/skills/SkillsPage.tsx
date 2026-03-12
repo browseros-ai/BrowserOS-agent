@@ -1,5 +1,5 @@
 import { AlertCircle, Pencil, Plus, Trash2, Wand2 } from 'lucide-react'
-import { type FC, type KeyboardEvent, useEffect, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { MarkdownEditor } from '@/components/ui/MarkdownEditor'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { type SkillDetail, type SkillMeta, useSkills } from './useSkills'
@@ -339,7 +340,9 @@ const SkillDialog: FC<{
     }
   }
 
-  const handleContentKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleContentKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (
+    event,
+  ) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault()
       void handleSubmit()
@@ -415,13 +418,12 @@ const SkillDialog: FC<{
                   Cmd/Ctrl + Enter to save
                 </span>
               </div>
-              <Textarea
-                id="skill-content"
-                placeholder="Write instructions for the agent. Use markdown for structure."
+              <MarkdownEditor
                 value={content}
-                onChange={(event) => setContent(event.target.value)}
+                onChange={setContent}
                 onKeyDown={handleContentKeyDown}
-                className="min-h-[320px] flex-1 resize-none overflow-y-auto border-0 bg-transparent p-4 font-mono text-sm leading-6 shadow-none focus-visible:ring-0"
+                placeholder="Write instructions for the agent. Use markdown for structure."
+                className="min-h-[320px] flex-1 overflow-y-auto p-4 text-sm"
               />
             </div>
           </div>
