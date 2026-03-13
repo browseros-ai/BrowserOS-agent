@@ -22,7 +22,7 @@ Activate when the user asks to extract, scrape, pull, or collect structured data
 1. **Clarify the request.** Before extracting, confirm with the user:
    - **Source(s):** Single page, list of URLs, or search-then-extract?
    - **Output format:** CSV, JSON, or Markdown table? Default to CSV if not specified.
-   - **Output location:** Where to save files. Default: `~/Downloads/extract-<topic-slug>/`.
+   - **Output location:** Where to save files. Default: `extract-<topic-slug>/` in your working directory.
    - **What data to extract:** Column names, specific fields, or "everything in the table."
 2. **Create the output directory.** Use `evaluate_script` to create the target folder:
    ```

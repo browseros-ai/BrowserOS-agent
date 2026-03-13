@@ -129,82 +129,6 @@ function getErrorRecovery(): string {
 }
 
 // -----------------------------------------------------------------------------
-// section: cdp-tool-reference
-// Skipped by ToolLoopAgent — the AI SDK already injects tool schemas into the
-// LLM call. Kept for MCP prompt serving where clients lack tool definitions.
-// -----------------------------------------------------------------------------
-
-function getCdpToolReference(): string {
-  return `# Tool Reference
-
-## Page Management
-- \`get_active_page\` - Get the currently active (focused) page
-- \`list_pages\` - Get all open pages with IDs, titles, tab IDs, and URLs
-- \`new_page(url, hidden?, background?, windowId?)\` - Open a new page. Use hidden for background processing, background to avoid activating.
-- \`close_page(page)\` - Close a page by its page ID
-- \`navigate_page(page, action, url?)\` - Navigate: action is "url", "back", "forward", or "reload"
-- \`wait_for(page, text?, selector?, timeout?)\` - Wait for text or CSS selector to appear
-
-## Content Capture
-- \`take_snapshot(page)\` - Get interactive elements with IDs (e.g. [47]). **Always take before interacting.**
-- \`take_enhanced_snapshot(page)\` - Detailed accessibility tree with structural context
-- \`get_page_content(page, selector?, viewportOnly?, includeLinks?, includeImages?)\` - Extract page as clean markdown with headers, links, lists, tables. **Prefer for data extraction.**
-- \`take_screenshot(page, format?, quality?, fullPage?)\` - Capture page image
-- \`evaluate_script(page, expression)\` - Run JavaScript in page context
-
-## Input & Interaction
-- \`click(page, element)\` - Click element by ID from snapshot
-- \`click_at(page, x, y)\` - Click at specific coordinates
-- \`hover(page, element)\` - Hover over element
-- \`focus(page, element)\` - Focus an element (scrolls into view first)
-- \`clear(page, element)\` - Clear text from input or textarea
-- \`fill(page, element, text, clear?)\` - Type into input/textarea (clears first by default)
-- \`check(page, element)\` - Check a checkbox or radio button (no-op if already checked)
-- \`uncheck(page, element)\` - Uncheck a checkbox (no-op if already unchecked)
-- \`upload_file(page, element, files)\` - Set file(s) on a file input (absolute paths)
-- \`select_option(page, element, value)\` - Select dropdown option by value or text
-- \`press_key(page, key)\` - Press key or combo (e.g., "Enter", "Control+A", "ArrowDown")
-- \`drag(page, sourceElement, targetElement?, targetX?, targetY?)\` - Drag element to another element or coordinates
-- \`scroll(page, direction?, amount?, element?)\` - Scroll page or element (up/down/left/right)
-- \`handle_dialog(page, accept, promptText?)\` - Handle browser dialogs (alert, confirm, prompt)
-
-## Page Actions
-- \`save_pdf(page, path, cwd?)\` - Save page as PDF to disk
-- \`download_file(page, element, path, cwd?)\` - Click element to trigger download, save to directory
-
-## Window Management
-- \`list_windows\` - Get all browser windows
-- \`create_window(hidden?)\` - Create a new browser window
-- \`close_window(windowId)\` - Close a browser window
-- \`activate_window(windowId)\` - Activate (focus) a browser window
-
-## Tab Groups
-- \`list_tab_groups\` - Get all tab groups with IDs, titles, colors, and page IDs
-- \`group_tabs(pageIds, title?, groupId?)\` - Create group or add pages to existing group (groupId is a string)
-- \`update_tab_group(groupId, title?, color?, collapsed?)\` - Update group properties
-- \`ungroup_tabs(pageIds)\` - Remove pages from their groups
-- \`close_tab_group(groupId)\` - Close a tab group and all its tabs
-
-**Colors**: grey, blue, red, yellow, green, pink, purple, cyan, orange
-
-## Bookmarks
-- \`get_bookmarks\` - Get all bookmarks
-- \`create_bookmark(title, url?, parentId?)\` - Create bookmark or folder (omit url for folder)
-- \`update_bookmark(id, title?, url?)\` - Edit bookmark
-- \`remove_bookmark(id)\` - Delete bookmark or folder (recursive)
-- \`move_bookmark(id, parentId?, index?)\` - Move bookmark or folder
-- \`search_bookmarks(query)\` - Search bookmarks by title or URL
-
-## History
-- \`search_history(query, maxResults?)\` - Search browser history
-- \`get_recent_history(maxResults?)\` - Get recent history items
-- \`delete_history_url(url)\` - Delete a specific URL from history
-- \`delete_history_range(startTime, endTime)\` - Delete history within a time range (epoch ms)
-
----`
-}
-
-// -----------------------------------------------------------------------------
 // section: external-integrations
 // -----------------------------------------------------------------------------
 
@@ -428,11 +352,15 @@ function getPageContext(
     '\n\n**CRITICAL RULES:**\n1. **Do NOT call `get_active_page` or `list_pages` to find your starting page.** Use the **page ID from the Browser Context** directly.'
 
   if (options?.isScheduledTask) {
-    const windowLine = options.scheduledTaskWindowId
-      ? `When creating new pages with \`new_page\`, always pass \`windowId: ${options.scheduledTaskWindowId}\`.`
-      : 'When creating new pages with `new_page`, pass the `windowId` from the Browser Context.'
-    prompt += `\n2. ${windowLine}`
-    prompt += '\n3. Complete the task end-to-end and report results.'
+    const windowRef = options.scheduledTaskWindowId
+      ? `\`windowId: ${options.scheduledTaskWindowId}\``
+      : 'the `windowId` from the Browser Context'
+    prompt += `\n2. **Always pass ${windowRef}** when calling \`new_page\` or \`new_hidden_page\`. Never omit the \`windowId\` parameter.`
+    prompt +=
+      '\n3. **Do NOT close your dedicated hidden window** (via `close_window`). It is managed by the system and will be cleaned up automatically.'
+    prompt +=
+      '\n4. **Do NOT create new windows** (via `create_window` or `create_hidden_window`). Use your existing hidden window for all pages.'
+    prompt += '\n5. Complete the task end-to-end and report results.'
   }
 
   prompt += '\n</page_context>'
@@ -481,7 +409,6 @@ const promptSections: Record<string, PromptSectionFn> = {
   'observe-act-verify': getObserveActVerify,
   'handle-obstacles': getHandleObstacles,
   'error-recovery': getErrorRecovery,
-  'tool-reference': getCdpToolReference,
   'external-integrations': getExternalIntegrations,
   style: getStyle,
   nudges: getNudges,
@@ -494,8 +421,6 @@ const promptSections: Record<string, PromptSectionFn> = {
     options?.skillsCatalog || '',
   'security-reminder': getSecurityReminder,
 }
-
-export const PROMPT_SECTION_KEYS = Object.keys(promptSections)
 
 interface BuildSystemPromptOptions {
   userSystemPrompt?: string
@@ -522,8 +447,4 @@ export function buildSystemPrompt(options?: BuildSystemPromptOptions): string {
     .filter(Boolean)
 
   return `<AGENT_PROMPT>\n${sections.join('\n\n')}\n</AGENT_PROMPT>`
-}
-
-export function getSystemPrompt(): string {
-  return buildSystemPrompt()
 }

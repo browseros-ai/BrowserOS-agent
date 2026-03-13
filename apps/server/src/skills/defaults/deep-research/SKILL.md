@@ -19,7 +19,7 @@ Activate when the user asks to research a topic, compare information across sour
 
 ### Phase 1 — Clarify & Plan
 
-1. **Clarify the research question.** If the query is vague, ask the user for specifics: scope, depth, preferred sources, and where to save output (default: `~/Downloads/research-<topic-slug>/`).
+1. **Clarify the research question.** If the query is vague, ask the user for specifics: scope, depth, preferred sources, and where to save output (default: `research-<topic-slug>/` in your working directory).
 2. **Plan search queries.** Break the topic into 3–5 search angles. Example for "best standing desks":
    - `best standing desks 2025 reviews`
    - `standing desk comparison reddit`

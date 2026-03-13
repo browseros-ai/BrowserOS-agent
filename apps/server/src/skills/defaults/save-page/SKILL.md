@@ -21,7 +21,7 @@ Activate when the user asks to save a page as PDF, download a page for offline r
    - Dismiss any popups or overlays that would appear in the PDF
    - Scroll to load any lazy-loaded content if the page uses infinite scroll
 
-3. **Save as PDF** using `save_pdf` with a descriptive filename:
+3. **Save as PDF** using `save_pdf` with a descriptive filename in the working directory:
    - Pattern: `{domain}-{title-slug}-{date}.pdf`
    - Example: `nytimes-climate-report-2025-03-11.pdf`
    - Let the user specify a custom path if they prefer

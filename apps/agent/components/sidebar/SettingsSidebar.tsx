@@ -62,7 +62,7 @@ const primarySettingsSections: NavSection[] = [
     items: [
       { name: 'BrowserOS AI', to: '/settings/ai', icon: Bot },
       {
-        name: 'Chat & Hub Provider',
+        name: 'Chat & Council Provider',
         to: '/settings/chat',
         icon: MessageSquare,
       },

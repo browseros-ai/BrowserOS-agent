@@ -29,7 +29,7 @@ Confirm with the user before searching:
 
 | Step | Tool | Detail |
 |------|------|--------|
-| Create output directory | `evaluate_script` | Create `~/Downloads/compare-<product-slug>/` with a `raw/` subfolder |
+| Create output directory | `evaluate_script` | Create `compare-<product-slug>/` in your working directory with a `raw/` subfolder |
 | Open hidden window | `create_hidden_window` | Dedicated workspace — keeps the user's browsing undisturbed |
 | Open parallel tabs | `new_hidden_page` | Open up to **10 tabs** concurrently, one per retailer/search |
 

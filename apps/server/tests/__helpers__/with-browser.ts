@@ -86,7 +86,7 @@ export async function withBrowser(
         args,
         {
           browser,
-          directories: { executionDir: process.cwd() },
+          directories: { workingDir: process.cwd() },
         },
         signal,
       )

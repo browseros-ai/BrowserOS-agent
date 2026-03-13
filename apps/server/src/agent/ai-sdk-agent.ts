@@ -72,7 +72,7 @@ export class AiSdkAgent {
     const allBrowserTools = buildBrowserToolSet(
       config.registry,
       config.browser,
-      config.resolvedConfig.sessionExecutionDir,
+      config.resolvedConfig.workingDir,
     )
     const browserTools = config.resolvedConfig.chatMode
       ? Object.fromEntries(
@@ -98,7 +98,7 @@ export class AiSdkAgent {
     // Add filesystem tools (Pi coding agent) — skip in chat mode (read-only)
     const filesystemTools = config.resolvedConfig.chatMode
       ? {}
-      : buildFilesystemToolSet(config.resolvedConfig.sessionExecutionDir)
+      : buildFilesystemToolSet(config.resolvedConfig.workingDir)
     const memoryTools = config.resolvedConfig.chatMode
       ? {}
       : buildMemoryToolSet()
@@ -118,9 +118,7 @@ export class AiSdkAgent {
     }
 
     // Build system prompt with optional section exclusions
-    // Tool definitions are already injected by the AI SDK via tool schemas,
-    // so skip the redundant tool-reference section.
-    const excludeSections: string[] = ['tool-reference']
+    const excludeSections: string[] = []
     if (config.resolvedConfig.isScheduledTask) {
       excludeSections.push('tab-grouping')
     }
@@ -143,7 +141,7 @@ export class AiSdkAgent {
       exclude: excludeSections,
       isScheduledTask: config.resolvedConfig.isScheduledTask,
       scheduledTaskWindowId: config.browserContext?.windowId,
-      workspaceDir: config.resolvedConfig.sessionExecutionDir,
+      workspaceDir: config.resolvedConfig.workingDir,
       soulContent,
       isSoulBootstrap: isBootstrap,
       chatMode: config.resolvedConfig.chatMode,
