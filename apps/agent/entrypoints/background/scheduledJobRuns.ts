@@ -109,25 +109,6 @@ export const scheduledJobRuns = async () => {
       throw new Error(`Job not found: ${jobId}`)
     }
 
-    const backgroundWindow = await chrome.windows.create({
-      url: 'chrome://newtab',
-      focused: false,
-      state: 'minimized',
-      type: 'normal',
-    })
-
-    // FIXME: Race condition - the controller-ext extension sends a window_created
-    // WebSocket message to register window ownership, but our HTTP request may arrive
-    // at the server before that registration completes. This delay is a temporary fix.
-    // Proper solution: ControllerBridge should wait/poll for window ownership registration.
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    const backgroundTab = backgroundWindow?.tabs?.[0]
-
-    if (!backgroundWindow || !backgroundTab) {
-      throw new Error('Failed to create background window')
-    }
-
     const jobRun = await createJobRun(jobId, 'running')
     const abortController = new AbortController()
     runAbortControllers.set(jobRun.id, abortController)
@@ -135,8 +116,6 @@ export const scheduledJobRuns = async () => {
     try {
       const response = await getChatServerResponse({
         message: job.query,
-        activeTab: backgroundTab,
-        windowId: backgroundWindow.id,
         signal: abortController.signal,
       })
 
@@ -163,13 +142,6 @@ export const scheduledJobRuns = async () => {
       })
     } finally {
       runAbortControllers.delete(jobRun.id)
-      if (backgroundWindow.id) {
-        try {
-          await chrome.windows.remove(backgroundWindow.id)
-        } catch {
-          // Window may already be closed
-        }
-      }
       await updateJobLastRunAt(jobId)
     }
   }
