@@ -16,6 +16,7 @@ import { getSessionsDir } from '../../lib/browseros-dir'
 import type { KlavisClient } from '../../lib/clients/klavis/klavis-client'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
+import { getMcpServers } from '../../lib/mcp-config'
 import type { ToolRegistry } from '../../tools/tool-registry'
 import type { BrowserContext, ChatRequest } from '../types'
 
@@ -65,7 +66,7 @@ export class ChatService {
     let isNewSession = false
 
     // Build a stable key from enabled MCP servers for change detection
-    const mcpServerKey = this.buildMcpServerKey(request.browserContext)
+    const mcpServerKey = await this.buildMcpServerKey()
 
     // Detect MCP config change mid-conversation → rebuild session
     if (session && session.mcpServerKey !== mcpServerKey) {
@@ -251,11 +252,12 @@ export class ChatService {
     })
   }
 
-  private buildMcpServerKey(browserContext?: BrowserContext): string {
-    const managed = browserContext?.enabledMcpServers?.slice().sort() ?? []
-    const custom =
-      browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
-    return [...managed, ...custom].join(',')
+  private async buildMcpServerKey(): Promise<string> {
+    const servers = await getMcpServers()
+    return servers
+      .map((s) => `${s.type}:${s.id}`)
+      .sort()
+      .join(',')
   }
 
   private async resolveSessionDir(request: ChatRequest): Promise<string> {

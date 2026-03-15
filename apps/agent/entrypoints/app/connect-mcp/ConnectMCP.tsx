@@ -6,11 +6,18 @@ import {
   CUSTOM_MCP_ADDED_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import {
+  useAddMcpServer,
+  useMcpConfig,
+  useRemoveMcpServer,
+} from '@/lib/mcp/useMcpConfig'
 import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
-import { AddCustomMCPDialog } from './AddCustomMCPDialog'
+import {
+  AddCustomMCPDialog,
+  type CustomServerConfig,
+} from './AddCustomMCPDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
 import { ApiKeyDialog } from './ApiKeyDialog'
 import { AvailableManagedServers } from './AvailableManagedServers'
@@ -35,7 +42,9 @@ const failedToRemoveMcp = (serverName: string, e: unknown) => {
  * @public
  */
 export const ConnectMCP: FC = () => {
-  const { servers: createdServers, addServer, removeServer } = useMcpServers()
+  const { servers: createdServers } = useMcpConfig()
+  const { mutateAsync: addServerMutation } = useAddMcpServer()
+  const { mutateAsync: removeServerMutation } = useRemoveMcpServer()
   const [addingManagedMcp, setAddingManagedMcp] = useState(false)
   const [addingCustomMcp, setAddingCustomMcp] = useState(false)
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null)
@@ -103,8 +112,7 @@ export const ConnectMCP: FC = () => {
         return
       }
 
-      addServer({
-        id: Date.now().toString(),
+      await addServerMutation({
         displayName: name,
         type: 'managed',
         managedServerName: name,
@@ -155,7 +163,7 @@ export const ConnectMCP: FC = () => {
         serverName: name,
       })
       if (response.success) {
-        removeServer(id)
+        await removeServerMutation(id)
       } else {
         failedToRemoveMcp(name, 'Success not returned from server')
       }
@@ -166,21 +174,28 @@ export const ConnectMCP: FC = () => {
     }
   }
 
-  const addCustomServer = (config: {
-    name: string
-    url: string
-    description: string
-  }) => {
-    addServer({
-      id: Date.now().toString(),
-      displayName: config.name,
-      type: 'custom',
-      config: {
-        url: config.url,
-        description: config.description,
-      },
-    })
-    track(CUSTOM_MCP_ADDED_EVENT)
+  const addCustomServer = async (config: CustomServerConfig) => {
+    try {
+      await addServerMutation({
+        displayName: config.name,
+        type: 'custom',
+        config: {
+          url: config.url || undefined,
+          description: config.description,
+          transport: config.transport,
+          headers: config.headers,
+          command: config.command,
+          args: config.args,
+          cwd: config.cwd,
+          env: config.env,
+        },
+      })
+      track(CUSTOM_MCP_ADDED_EVENT, {
+        transport: config.transport ?? 'http',
+      })
+    } catch (e) {
+      failedToAddMcp(config.name, e)
+    }
   }
 
   const availableServers = serversList?.servers.filter((eachServer) => {
@@ -275,11 +290,20 @@ export const ConnectMCP: FC = () => {
                     >
                       {server.type === 'managed' ? 'Built-in' : 'Custom'}
                     </span>
+                    {server.type === 'custom' && server.config?.transport && (
+                      <span className="rounded bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs uppercase">
+                        {server.config.transport}
+                      </span>
+                    )}
                   </div>
                   <p className="text-muted-foreground text-sm">
                     {server.managedServerDescription ||
                       server.config?.description ||
-                      server.config?.url}
+                      (server.config?.transport === 'stdio'
+                        ? [server.config.command, ...(server.config.args ?? [])]
+                            .filter(Boolean)
+                            .join(' ')
+                        : server.config?.url)}
                   </p>
                 </div>
                 {server.type === 'managed' &&
@@ -315,7 +339,9 @@ export const ConnectMCP: FC = () => {
                         name: server.managedServerName,
                       })
                     } else {
-                      removeServer(server.id)
+                      removeServerMutation(server.id).catch((e) =>
+                        failedToRemoveMcp(server.displayName, e),
+                      )
                     }
                   }}
                   className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"

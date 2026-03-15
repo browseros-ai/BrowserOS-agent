@@ -2,26 +2,9 @@ import { useEffect, useRef } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
-import { type McpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 
-const constructMcpServers = (servers: McpServer[]) => {
-  return servers
-    .filter((eachServer) => eachServer.type === 'managed')
-    .map((each) => each.managedServerName)
-}
-
-const constructCustomServers = (servers: McpServer[]) => {
-  return servers
-    .filter((eachServer) => eachServer.type === 'custom')
-    .map((each) => ({
-      name: each.displayName,
-      url: each.config?.url,
-    }))
-}
-
 export const useChatRefs = () => {
-  const { servers: mcpServers } = useMcpServers()
   const {
     selectedProvider: selectedLlmProvider,
     isLoading: isLoadingProviders,
@@ -31,15 +14,11 @@ export const useChatRefs = () => {
   const selectedLlmProviderRef = useRef<LlmProviderConfig | null>(
     selectedLlmProvider,
   )
-  const enabledMcpServersRef = useRef(constructMcpServers(mcpServers))
-  const enabledCustomServersRef = useRef(constructCustomServers(mcpServers))
   const personalizationRef = useRef(personalization)
 
   useDeepCompareEffect(() => {
     selectedLlmProviderRef.current = selectedLlmProvider
-    enabledMcpServersRef.current = constructMcpServers(mcpServers)
-    enabledCustomServersRef.current = constructCustomServers(mcpServers)
-  }, [selectedLlmProvider, mcpServers])
+  }, [selectedLlmProvider ?? {}])
 
   useEffect(() => {
     personalizationRef.current = personalization
@@ -47,8 +26,6 @@ export const useChatRefs = () => {
 
   return {
     selectedLlmProviderRef,
-    enabledMcpServersRef,
-    enabledCustomServersRef,
     personalizationRef,
     selectedLlmProvider,
     isLoadingProviders,

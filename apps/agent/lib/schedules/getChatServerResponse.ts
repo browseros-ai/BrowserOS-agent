@@ -6,7 +6,6 @@ import {
   providersStorage,
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
-import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
 import type { ToolCallExecution } from './scheduleTypes'
@@ -82,16 +81,6 @@ export async function getChatServerResponse(
   const conversationId = request.conversationId ?? crypto.randomUUID()
   const personalization = await personalizationStorage.getValue()
 
-  const mcpServers = (await mcpServerStorage.getValue()) ?? []
-  const enabledMcpServers = mcpServers
-    .filter((s) => s.type === 'managed')
-    .map((s) => s.managedServerName)
-    .filter((name): name is string => !!name)
-  const customMcpServers = mcpServers
-    .filter((s) => s.type === 'custom' && !!s.config?.url)
-    // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
-    .map((s) => ({ name: s.displayName, url: s.config!.url }))
-
   const response = await fetch(`${agentServerUrl}/chat`, {
     method: 'POST',
     signal: request.signal,
@@ -118,17 +107,10 @@ export async function getChatServerResponse(
       region: provider?.region,
       sessionToken: provider?.sessionToken,
       browserContext:
-        request.activeTab ||
-        request.windowId ||
-        enabledMcpServers.length ||
-        customMcpServers.length
+        request.activeTab || request.windowId
           ? {
               windowId: request.windowId,
               activeTab: request.activeTab,
-              enabledMcpServers:
-                enabledMcpServers.length > 0 ? enabledMcpServers : undefined,
-              customMcpServers:
-                customMcpServers.length > 0 ? customMcpServers : undefined,
             }
           : undefined,
       userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,

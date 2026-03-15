@@ -22,7 +22,7 @@ import { useGetMCPServersList } from '@/entrypoints/app/connect-mcp/useGetMCPSer
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { useSubmitApiKey } from '@/entrypoints/app/connect-mcp/useSubmitApiKey'
 import { MANAGED_MCP_ADDED_EVENT } from '@/lib/constants/analyticsEvents'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { useAddMcpServer, useMcpConfig } from '@/lib/mcp/useMcpConfig'
 import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
@@ -43,7 +43,8 @@ export const AppSelector: FC<AppSelectorProps> = ({
     apiKeyUrl: string
   } | null>(null)
 
-  const { servers: createdServers, addServer } = useMcpServers()
+  const { servers: createdServers } = useMcpConfig()
+  const { mutateAsync: addMcpServerMutation } = useAddMcpServer()
   useSyncRemoteIntegrations()
   const { trigger: addManagedServerMutation } = useAddManagedServer()
   const { trigger: submitApiKeyMutation, isMutating: isSubmittingApiKey } =
@@ -125,8 +126,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
   const handleAddServer = async (name: string, description: string) => {
     try {
       const response = await addManagedServerMutation({ serverName: name })
-      addServer({
-        id: Date.now().toString(),
+      await addMcpServerMutation({
         displayName: name,
         type: 'managed',
         managedServerName: name,

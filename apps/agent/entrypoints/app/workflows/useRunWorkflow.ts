@@ -1,6 +1,5 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { compact } from 'es-toolkit/array'
 import { useEffect, useRef, useState } from 'react'
 import { useChatRefs } from '@/entrypoints/sidepanel/index/useChatRefs'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
@@ -23,12 +22,7 @@ export const useRunWorkflow = () => {
 
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
-  const {
-    selectedLlmProviderRef,
-    enabledMcpServersRef,
-    enabledCustomServersRef,
-    personalizationRef,
-  } = useChatRefs()
+  const { selectedLlmProviderRef, personalizationRef } = useChatRefs()
 
   const agentUrlRef = useRef(agentServerUrl)
 
@@ -44,8 +38,6 @@ export const useRunWorkflow = () => {
           | WorkflowMessageMetadata
           | undefined
         const provider = selectedLlmProviderRef.current
-        const enabledMcpServers = enabledMcpServersRef.current
-        const customMcpServers = enabledCustomServersRef.current
 
         return {
           api: `${agentUrlRef.current}/graph/${codeIdRef.current}/run`,
@@ -66,8 +58,6 @@ export const useRunWorkflow = () => {
             browserContext: {
               windowId: metadata?.window?.id,
               activeTab: metadata?.window?.tabs?.[0],
-              enabledMcpServers: compact(enabledMcpServers),
-              customMcpServers,
             },
             userSystemPrompt: personalizationRef.current,
             supportsImages: provider?.supportsImages,

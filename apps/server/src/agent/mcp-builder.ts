@@ -1,23 +1,29 @@
 import { createMCPClient } from '@ai-sdk/mcp'
+import { Experimental_StdioMCPTransport as StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
-import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { ToolSet } from 'ai'
 import type { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { logger } from '../lib/logger'
-import {
-  detectMcpTransport,
-  type McpTransportType,
-} from '../lib/mcp-transport-detect'
+import { getMcpServers } from '../lib/mcp-config'
 
-export interface McpServerSpec {
-  name: string
-  url: string
-  transport: McpTransportType
-  headers?: Record<string, string>
-}
+export type McpServerSpec =
+  | {
+      type: 'url'
+      name: string
+      url: string
+      transport: 'http' | 'sse'
+      headers?: Record<string, string>
+    }
+  | {
+      type: 'stdio'
+      name: string
+      command: string
+      args?: string[]
+      cwd?: string
+      env?: Record<string, string>
+    }
 
 export interface McpServerSpecDeps {
-  browserContext?: BrowserContext
   klavisClient?: KlavisClient
   browserosId?: string
 }
@@ -27,31 +33,33 @@ export interface McpClientBundle {
   tools: ToolSet
 }
 
-// Build list of MCP server specs from config + browser context
+// Build MCP specs from mcp.json config file
 export async function buildMcpServerSpecs(
   deps: McpServerSpecDeps,
 ): Promise<McpServerSpec[]> {
   const specs: McpServerSpec[] = []
+  const servers = await getMcpServers()
 
-  // Klavis Strata MCP servers
-  if (
-    deps.browserosId &&
-    deps.klavisClient &&
-    deps.browserContext?.enabledMcpServers?.length
-  ) {
+  // Managed servers → Klavis Strata
+  const managedNames = servers
+    .filter((s) => s.type === 'managed' && s.managedServerName)
+    .map((s) => s.managedServerName!)
+
+  if (deps.browserosId && deps.klavisClient && managedNames.length) {
     try {
       const result = await deps.klavisClient.createStrata(
         deps.browserosId,
-        deps.browserContext.enabledMcpServers,
+        managedNames,
       )
       specs.push({
+        type: 'url',
         name: 'klavis-strata',
         url: result.strataServerUrl,
-        transport: 'streamable-http',
+        transport: 'http',
       })
       logger.info('Added Klavis Strata MCP server', {
         browserosId: deps.browserosId.slice(0, 12),
-        servers: deps.browserContext.enabledMcpServers,
+        servers: managedNames,
       })
     } catch (error) {
       logger.error('Failed to create Klavis Strata MCP server', {
@@ -60,17 +68,27 @@ export async function buildMcpServerSpecs(
     }
   }
 
-  // User-provided custom MCP servers
-  if (deps.browserContext?.customMcpServers?.length) {
-    const servers = deps.browserContext.customMcpServers
-    const transports = await Promise.all(
-      servers.map((s) => detectMcpTransport(s.url)),
-    )
-    for (let i = 0; i < servers.length; i++) {
+  // Custom servers → explicit transport from config
+  const customServers = servers.filter((s) => s.type === 'custom')
+  for (const server of customServers) {
+    const transport = server.config?.transport ?? 'http'
+
+    if (transport === 'stdio' && server.config?.command) {
       specs.push({
-        name: `custom-${servers[i].name}`,
-        url: servers[i].url,
-        transport: transports[i],
+        type: 'stdio',
+        name: `custom-${server.displayName}`,
+        command: server.config.command,
+        args: server.config.args,
+        cwd: server.config.cwd,
+        env: server.config.env,
+      })
+    } else if (server.config?.url) {
+      specs.push({
+        type: 'url',
+        name: `custom-${server.displayName}`,
+        url: server.config.url,
+        transport: transport === 'sse' ? 'sse' : 'http',
+        headers: server.config.headers,
       })
     }
   }
@@ -84,14 +102,23 @@ async function connectMcpClient(
 ): Promise<{ client: { close(): Promise<void> }; tools: ToolSet } | null> {
   const timeout = TIMEOUTS.MCP_CLIENT_CONNECT
   try {
+    const transport =
+      spec.type === 'stdio'
+        ? new StdioMCPTransport({
+            command: spec.command,
+            args: spec.args,
+            env: spec.env,
+            cwd: spec.cwd,
+          })
+        : {
+            type:
+              spec.transport === 'sse' ? ('sse' as const) : ('http' as const),
+            url: spec.url,
+            headers: spec.headers,
+          }
+
     const client = await Promise.race([
-      createMCPClient({
-        transport: {
-          type: spec.transport === 'sse' ? 'sse' : 'http',
-          url: spec.url,
-          headers: spec.headers,
-        },
-      }),
+      createMCPClient({ transport }),
       new Promise<never>((_, reject) =>
         setTimeout(
           () =>
@@ -118,7 +145,6 @@ async function connectMcpClient(
   } catch (error) {
     logger.warn('Failed to connect MCP client, skipping', {
       name: spec.name,
-      url: spec.url,
       error: error instanceof Error ? error.message : String(error),
     })
     return null

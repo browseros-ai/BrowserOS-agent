@@ -89,7 +89,6 @@ export class AiSdkAgent {
 
     // Build external MCP server specs (Klavis, custom) and connect clients
     const specs = await buildMcpServerSpecs({
-      browserContext: config.browserContext,
       klavisClient: config.klavisClient,
       browserosId: config.browserosId,
     })
