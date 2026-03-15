@@ -400,6 +400,35 @@ All filesystem tools operate relative to this directory.
 </workspace>`
 }
 
+// -----------------------------------------------------------------------------
+// section: sub-agents
+// -----------------------------------------------------------------------------
+
+function getSubAgents(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  if (options?.chatMode) return ''
+
+  return `<sub_agents>
+## Task Delegation
+
+You can delegate focused subtasks to independent sub-agents using \`delegate_task\`. Each sub-agent runs in its own context window with full tool access.
+
+**When to delegate:**
+- Research requiring reading many pages (the sub-agent explores, you get a summary)
+- Data extraction or scraping tasks across multiple sources
+- Deep filesystem exploration or code analysis
+- Any subtask that would consume significant context in your main conversation
+
+**How to delegate well:**
+- Write clear, self-contained task descriptions
+- Include all necessary context: URLs, file paths, search terms, expected output format
+- The sub-agent has NO access to your conversation history — include everything it needs
+- Do not delegate simple single-step actions (just do them directly)
+</sub_agents>`
+}
+
 const promptSections: Record<string, PromptSectionFn> = {
   intro: getIntro,
   'security-boundary': getSecurityBoundary,
@@ -419,6 +448,7 @@ const promptSections: Record<string, PromptSectionFn> = {
   memory: getMemory,
   skills: (_exclude: Set<string>, options?: BuildSystemPromptOptions) =>
     options?.skillsCatalog || '',
+  'sub-agents': getSubAgents,
   'security-reminder': getSecurityReminder,
 }
 

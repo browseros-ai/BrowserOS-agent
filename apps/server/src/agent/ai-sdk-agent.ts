@@ -6,6 +6,7 @@ import {
   type ModelMessage,
   stepCountIs,
   ToolLoopAgent,
+  type ToolSet,
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
@@ -29,6 +30,7 @@ import {
 } from './message-normalization'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
+import { createDelegateTaskTool } from './sub-agent'
 import { buildBrowserToolSet } from './tool-adapter'
 import type { ResolvedAgentConfig } from './types'
 
@@ -102,7 +104,7 @@ export class AiSdkAgent {
     const memoryTools = config.resolvedConfig.chatMode
       ? {}
       : buildMemoryToolSet()
-    const tools = {
+    const tools: ToolSet = {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
@@ -149,6 +151,16 @@ export class AiSdkAgent {
       declinedApps: config.resolvedConfig.declinedApps,
       skillsCatalog,
     })
+
+    // Add sub-agent delegation tool — exact replica of parent, fresh context
+    if (!config.resolvedConfig.chatMode) {
+      tools.delegate_task = createDelegateTaskTool({
+        model,
+        instructions,
+        parentTools: tools,
+        contextWindow,
+      })
+    }
 
     // Configure compaction for context window management
     const compactionPrepareStep = createCompactionPrepareStep({
