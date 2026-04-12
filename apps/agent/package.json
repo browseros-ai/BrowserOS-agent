@@ -63,7 +63,7 @@
     "cytoscape-node-html-label": "^1.2.2",
     "dayjs": "^1.11.19",
     "dompurify": "^3.3.1",
-    "downshift": "^9.0.10",
+    "downshift": "^9.3.2",
     "embla-carousel-react": "^8.6.0",
     "es-toolkit": "^1.42.0",
     "eventsource-parser": "^3.0.6",
