@@ -114,7 +114,7 @@
     "lefthook": "^2.0.3",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.2",
-    "wxt": "^0.20.18"
+    "wxt": "^0.20.20"
   },
   "trustedDependencies": [
     "esbuild",
