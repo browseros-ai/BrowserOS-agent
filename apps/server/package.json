@@ -59,7 +59,7 @@
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "@sentry/bun": "^10.31.0",
     "ai": "^6.0.94",
-    "chrome-devtools-frontend": "^1.0.1577886",
+    "chrome-devtools-frontend": "^1.0.1611825",
     "commander": "^14.0.1",
     "core-js": "3.45.1",
     "debug": "4.4.3",
