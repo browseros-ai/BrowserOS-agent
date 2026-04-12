@@ -54,7 +54,7 @@
     "@google/genai": "1.30.0",
     "@hono/mcp": "^0.2.3",
     "@hono/node-server": "^1.19.6",
-    "@hono/zod-validator": "^0.4.3",
+    "@hono/zod-validator": "^0.7.6",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@openrouter/ai-sdk-provider": "^2.2.3",
     "@sentry/bun": "^10.31.0",
