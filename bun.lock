@@ -174,7 +174,7 @@
         "core-js": "3.45.1",
         "debug": "4.4.3",
         "eventsource-parser": "^3.0.0",
-        "fuse.js": "^7.1.0",
+        "fuse.js": "^7.3.0",
         "gray-matter": "^4.0.3",
         "hono": "^4.12.3",
         "klavis": "^2.15.0",
@@ -2110,7 +2110,7 @@
 
     "chrome-devtools-frontend": ["chrome-devtools-frontend@1.0.1577886", "", {}, "sha512-B9hY3o/0RuVCDWNYh9YnkEbRrPUMCY+NaOgBxvZRzGvqbGSMNckkVSdO67SwWR8bm4fo/qplXbUj0cSr229V6w=="],
 
-    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.20.0", "", { "bin": { "chrome-devtools-mcp": "build/src/bin/chrome-devtools-mcp.js", "chrome-devtools": "build/src/bin/chrome-devtools.js" } }, "sha512-wBnt8901lAXdac3AB7WdONYTAXGW+YqqIVVg7PztxYVNPs3VVgM2UZnZT/ICYPIofKTuRBOkRdEE/VYm90ZgYA=="],
+    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.21.0", "", { "bin": { "chrome-devtools-mcp": "build/src/bin/chrome-devtools-mcp.js", "chrome-devtools": "build/src/bin/chrome-devtools.js" } }, "sha512-d+iqrRmcwpRFV3Q4DRCF2LCoq+WCRU3GhISKQ9v8g+1C2Uh8upj3urkjxNO4QIjhBMIYei/VQ1OQLFceby80Og=="],
 
     "chrome-launcher": ["chrome-launcher@1.2.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^2.0.1" }, "bin": { "print-chrome-path": "bin/print-chrome-path.cjs" } }, "sha512-JbuGuBNss258bvGil7FT4HKdC3SC2K7UAEUqiPy3ACS3Yxo3hAW6bvFpCu2HsIJLgTqxgEX6BkujvzZfLpUD0Q=="],
 
@@ -2620,7 +2620,7 @@
 
     "function-bind": ["function-bind@1.1.2", "", {}, "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="],
 
-    "fuse.js": ["fuse.js@7.1.0", "", {}, "sha512-trLf4SzuuUxfusZADLINj+dE8clK1frKdmqiJNb1Es75fmI5oY6X2mxLVUciLLjxqw/xr72Dhy+lER6dGd02FQ=="],
+    "fuse.js": ["fuse.js@7.3.0", "", {}, "sha512-plz8RVjfcDedTGfVngWH1jmJvBvAwi1v2jecfDerbEnMcmOYUEEwKFTHbNoCiYyzaK2Ws8lABkTCcRSqCY1q4w=="],
 
     "fx-runner": ["fx-runner@1.4.0", "", { "dependencies": { "commander": "2.9.0", "shell-quote": "1.7.3", "spawn-sync": "1.0.15", "when": "3.7.7", "which": "1.2.4", "winreg": "0.0.12" }, "bin": { "fx-runner": "bin/fx-runner" } }, "sha512-rci1g6U0rdTg6bAaBboP7XdRu01dzTAaKXxFf+PUqGuCv6Xu7o8NZdY1D5MvKGIjb6EdS1g3VlXOgksir1uGkg=="],
 
