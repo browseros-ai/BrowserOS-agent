@@ -27,6 +27,7 @@ import {
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { useChatSessionContext } from '@/entrypoints/sidepanel/layout/ChatSessionContext'
+import { isBrowserWorkflowQuery } from '@/lib/browser-workflows/isBrowserWorkflowQuery'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
@@ -260,6 +261,13 @@ export const NewTab = () => {
       closeMention()
       return
     }
+
+    const query = inputValueRef.current.trim()
+    if (isBrowserWorkflowQuery(query)) {
+      runBrowserOSAction(query, 'agent')
+      return
+    }
+
     if (highlightedIndex > -1) {
       const selectedItem = flatItems[highlightedIndex]
       runSelectedAction(selectedItem)
@@ -288,6 +296,28 @@ export const NewTab = () => {
     setSelectedTabs([])
   }
 
+  const runBrowserOSAction = (message: string, mode: 'chat' | 'agent') => {
+    track(NEWTAB_AI_TRIGGERED_EVENT, {
+      mode,
+      tabs_count: selectedTabs.length,
+    })
+    const action = createBrowserOSAction({
+      mode,
+      message,
+      tabs: selectedTabs,
+    })
+    if (supports(Feature.NEWTAB_CHAT_SUPPORT)) {
+      startInlineChat(message, mode, action)
+    } else {
+      openSidePanelWithSearch('open', {
+        query: message,
+        mode,
+        action,
+      })
+      reset()
+      setSelectedTabs([])
+    }
+  }
   const runSelectedAction = (item: SuggestionItem | undefined) => {
     if (!item) return
 
