@@ -102,6 +102,21 @@ function getObserveActVerify(): string {
 }
 
 // -----------------------------------------------------------------------------
+// section: action-cache
+// -----------------------------------------------------------------------------
+
+function getActionCache(): string {
+  return `## Action cache
+**Before any multi-step browser task**, call \`recall(page, intent)\` — it checks whether a similar sequence has been done before on the same domain and returns cached steps plus static recipe hints, all in one call. A cache hit can collapse a 5-step derive-from-DOM sequence into a single replay, cutting task time by 3–5×.
+
+If \`recall()\` returns steps, replay them adapting args (URLs, text, dates) to the current intent rather than re-deriving the click path from scratch.
+
+**After completing a task successfully**, call \`learn(session_id, steps)\` with the \`record_session_id\` from \`recall()\` and every BrowserOS tool call you made in order. This compounds: the second run of any workflow is dramatically faster.
+
+Skip recall/learn only for truly one-off single-tool calls (e.g. a lone \`navigate_page\` or \`take_screenshot\`).`
+}
+
+// -----------------------------------------------------------------------------
 // section: handle-obstacles
 // -----------------------------------------------------------------------------
 
@@ -126,6 +141,22 @@ function getErrorRecovery(): string {
 - After 2 failed attempts → describe blocking issue, request guidance
 
 ---`
+}
+
+// -----------------------------------------------------------------------------
+// section: script-over-click
+// -----------------------------------------------------------------------------
+
+function getScriptOverClick(): string {
+  return `## Script over click
+When an action is DOM-accessible, prefer \`evaluate_script\` over a \`click\`/\`fill\` chain — it skips the snapshot round-trip and is more reliable on React/SPA pages:
+- Submit a form: \`document.querySelector('form').submit()\`
+- Click a button programmatically: \`document.querySelector('button[type="submit"]').click()\`
+- Read an input value: \`document.querySelector('input#id').value\`
+- Toggle a checkbox by DOM id: \`document.getElementById('id').click()\`
+- Check computed page state: \`document.title\`, \`location.href\`, \`document.readyState\`
+
+Fall back to \`click(page, element)\` when the DOM click does not trigger expected side effects (custom React synthetic handlers, visual feedback loops, browser-native events that JS .click() does not fire).`
 }
 
 // -----------------------------------------------------------------------------
@@ -400,23 +431,30 @@ All filesystem tools operate relative to this directory.
 </workspace>`
 }
 
+// Sections are ordered so that all static content forms a long cacheable prefix
+// before any session-specific dynamic sections (soul, connected apps, skills,
+// user prefs). This maximises KV-cache hits across steps and across sessions.
 const promptSections: Record<string, PromptSectionFn> = {
+  // --- static prefix (same for every user/session/mode) ---
   intro: getIntro,
   'security-boundary': getSecurityBoundary,
   'strict-rules': getStrictRules,
   'complete-tasks': getCompleteTasks,
   'auto-included-context': getAutoIncludedContext,
   'observe-act-verify': getObserveActVerify,
+  'script-over-click': getScriptOverClick,
+  'action-cache': getActionCache,
   'handle-obstacles': getHandleObstacles,
   'error-recovery': getErrorRecovery,
-  'external-integrations': getExternalIntegrations,
   style: getStyle,
+  memory: getMemory,
   nudges: getNudges,
+  // --- dynamic suffix (varies per user/session) ---
+  'external-integrations': getExternalIntegrations,
+  soul: getSoul,
   workspace: getWorkspace,
   'page-context': getPageContext,
   'user-preferences': getUserPreferences,
-  soul: getSoul,
-  memory: getMemory,
   skills: (_exclude: Set<string>, options?: BuildSystemPromptOptions) =>
     options?.skillsCatalog || '',
   'security-reminder': getSecurityReminder,

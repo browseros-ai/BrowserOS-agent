@@ -110,7 +110,8 @@ export const hover = defineTool({
 
 export const clear = defineTool({
   name: 'clear',
-  description: 'Clear the text content of an input or textarea element',
+  description:
+    'Clear the text content of an input or textarea element. No snapshot is auto-included after clearing.',
   input: z.object({
     page: pageParam,
     element: elementParam,
@@ -124,14 +125,13 @@ export const clear = defineTool({
     await ctx.browser.fill(args.page, args.element, '', true)
     response.text(`Cleared [${args.element}]`)
     response.data({ action: 'clear', page: args.page, element: args.element })
-    response.includeSnapshot(args.page)
   },
 })
 
 export const fill = defineTool({
   name: 'fill',
   description:
-    'Type text into an input or textarea element. Focuses the element, optionally clears existing text, then types character by character.',
+    'Type text into an input or textarea element. Focuses the element, optionally clears existing text, then types character by character. No snapshot is auto-included — call take_snapshot if the page reacts (autocomplete, validation errors, dynamic fields).',
   input: z.object({
     page: pageParam,
     element: elementParam,
@@ -168,14 +168,13 @@ export const fill = defineTool({
       textLength: args.text.length,
       clear: args.clear,
     })
-    response.includeSnapshot(args.page)
   },
 })
 
 export const press_key = defineTool({
   name: 'press_key',
   description:
-    "Press a key or key combination (e.g. 'Enter', 'Escape', 'Control+A', 'Meta+Shift+P'). Sent to the currently focused element.",
+    "Press a key or key combination (e.g. 'Enter', 'Escape', 'Control+A', 'Meta+Shift+P'). Sent to the currently focused element. A snapshot is auto-included so you can see the result (submitted form, closed dialog, moved focus).",
   input: z.object({
     page: pageParam,
     key: z
@@ -191,6 +190,7 @@ export const press_key = defineTool({
     await ctx.browser.pressKey(args.page, args.key)
     response.text(`Pressed ${args.key}`)
     response.data({ action: 'press_key', page: args.page, key: args.key })
+    response.includeSnapshot(args.page)
   },
 })
 

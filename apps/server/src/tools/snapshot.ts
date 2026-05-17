@@ -42,7 +42,7 @@ export const take_enhanced_snapshot = defineTool({
 export const get_page_content = defineTool({
   name: 'get_page_content',
   description:
-    'Extract page content as clean markdown with headers, links, lists, tables, and formatting preserved. Large results are written to a local file and returned by path. Not for automation — use take_snapshot for that.',
+    'Extract page content as clean markdown with headers, links, lists, tables, and formatting preserved. Large results are written to a local file and returned by path. Not for automation — use take_snapshot for that. Defaults to viewport-only to keep context lean; pass viewportOnly: false only when you need content below the fold.',
   input: z.object({
     page: pageParam,
     selector: z
@@ -53,8 +53,10 @@ export const get_page_content = defineTool({
       ),
     viewportOnly: z
       .boolean()
-      .default(false)
-      .describe('Only extract content visible in the current viewport'),
+      .default(true)
+      .describe(
+        'Only extract content visible in the current viewport (default: true). Set false only when you need content below the fold.',
+      ),
     includeLinks: z
       .boolean()
       .default(false)
@@ -129,7 +131,8 @@ export const get_page_content = defineTool({
 
 export const take_screenshot = defineTool({
   name: 'take_screenshot',
-  description: 'Take a screenshot of a page',
+  description:
+    'Capture a visual screenshot of a page. Use ONLY when visual layout, images, or CSS rendering matters — screenshots add image-processing latency. For interaction, use take_snapshot. For text/data extraction, use get_page_content.',
   input: z.object({
     page: pageParam,
     format: z
@@ -200,7 +203,7 @@ export const get_page_links = defineTool({
 export const evaluate_script = defineTool({
   name: 'evaluate_script',
   description:
-    'Execute JavaScript in the page context. Returns the result as a string. Use for reading page state or performing actions not covered by other tools.',
+    'Execute JavaScript in the page context. Prefer this over click/fill for DOM-accessible operations: form.submit(), button.click() via DOM, reading input values, toggling checkboxes, querying computed state. Faster than simulated clicks on React/SPA pages. Returns the result as a string.',
   input: z.object({
     page: pageParam,
     expression: z.string().describe('JavaScript expression to evaluate'),
