@@ -14,6 +14,7 @@ export const RATE_LIMITS = {
 
 export const AGENT_LIMITS = {
   MAX_TURNS: 100,
+  SUB_AGENT_MAX_TURNS: 15,
   DEFAULT_CONTEXT_WINDOW: 200_000,
 
   // Compression settings for context compaction heuristics
