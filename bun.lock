@@ -164,7 +164,7 @@
         "@google/genai": "1.30.0",
         "@hono/mcp": "^0.2.3",
         "@hono/node-server": "^1.19.6",
-        "@hono/zod-validator": "^0.4.3",
+        "@hono/zod-validator": "^0.7.6",
         "@modelcontextprotocol/sdk": "^1.27.1",
         "@openrouter/ai-sdk-provider": "^2.2.3",
         "@sentry/bun": "^10.31.0",
@@ -768,7 +768,7 @@
 
     "@hono/node-server": ["@hono/node-server@1.19.9", "", { "peerDependencies": { "hono": "^4" } }, "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw=="],
 
-    "@hono/zod-validator": ["@hono/zod-validator@0.4.3", "", { "peerDependencies": { "hono": ">=3.9.0", "zod": "^3.19.1" } }, "sha512-xIgMYXDyJ4Hj6ekm9T9Y27s080Nl9NXHcJkOvkXPhubOLj8hZkOL8pDnnXfvCf5xEE8Q4oMFenQUZZREUY2gqQ=="],
+    "@hono/zod-validator": ["@hono/zod-validator@0.7.6", "", { "peerDependencies": { "hono": ">=3.9.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@5.2.2", "", { "dependencies": { "@standard-schema/utils": "^0.3.0" }, "peerDependencies": { "react-hook-form": "^7.55.0" } }, "sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA=="],
 
@@ -2110,7 +2110,7 @@
 
     "chrome-devtools-frontend": ["chrome-devtools-frontend@1.0.1577886", "", {}, "sha512-B9hY3o/0RuVCDWNYh9YnkEbRrPUMCY+NaOgBxvZRzGvqbGSMNckkVSdO67SwWR8bm4fo/qplXbUj0cSr229V6w=="],
 
-    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.20.0", "", { "bin": { "chrome-devtools-mcp": "build/src/bin/chrome-devtools-mcp.js", "chrome-devtools": "build/src/bin/chrome-devtools.js" } }, "sha512-wBnt8901lAXdac3AB7WdONYTAXGW+YqqIVVg7PztxYVNPs3VVgM2UZnZT/ICYPIofKTuRBOkRdEE/VYm90ZgYA=="],
+    "chrome-devtools-mcp": ["chrome-devtools-mcp@0.21.0", "", { "bin": { "chrome-devtools-mcp": "build/src/bin/chrome-devtools-mcp.js", "chrome-devtools": "build/src/bin/chrome-devtools.js" } }, "sha512-d+iqrRmcwpRFV3Q4DRCF2LCoq+WCRU3GhISKQ9v8g+1C2Uh8upj3urkjxNO4QIjhBMIYei/VQ1OQLFceby80Og=="],
 
     "chrome-launcher": ["chrome-launcher@1.2.0", "", { "dependencies": { "@types/node": "*", "escape-string-regexp": "^4.0.0", "is-wsl": "^2.2.0", "lighthouse-logger": "^2.0.1" }, "bin": { "print-chrome-path": "bin/print-chrome-path.cjs" } }, "sha512-JbuGuBNss258bvGil7FT4HKdC3SC2K7UAEUqiPy3ACS3Yxo3hAW6bvFpCu2HsIJLgTqxgEX6BkujvzZfLpUD0Q=="],
 
