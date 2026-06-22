@@ -29,6 +29,7 @@ export const useNotifyActiveTab = ({
   conversationId: string
 }) => {
   const lastTabIdRef = useRef<number | null>(null)
+  const knownTabsRef = useRef<Set<number>>(new Set())
 
   const lastMessage = messages?.[messages.length - 1]
 
@@ -38,6 +39,11 @@ export const useNotifyActiveTab = ({
 
   const hasToolCalls = !!latestTool
   const toolTabId = extractTabId(latestTool as ToolUIPart | null)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset when conversationId changes
+  useEffect(() => {
+    knownTabsRef.current = new Set()
+  }, [conversationId])
 
   useEffect(() => {
     const isStreaming = status === 'streaming'
@@ -81,6 +87,18 @@ export const useNotifyActiveTab = ({
       }
 
       if (cancelled || !targetTabId) return
+
+      // Open side panel on tabs the agent hasn't seen yet
+      if (!knownTabsRef.current.has(targetTabId)) {
+        knownTabsRef.current.add(targetTabId)
+        chrome.runtime
+          .sendMessage({
+            type: 'open-sidepanel-on-tab',
+            tabId: targetTabId,
+            conversationId,
+          })
+          .catch(() => {})
+      }
 
       if (previousTabId && previousTabId !== targetTabId) {
         const deactivateMessage: GlowMessage = {

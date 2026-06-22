@@ -31,6 +31,17 @@ export default defineBackground(() => {
 
   scheduledJobRuns()
 
+  // Track which tabs belong to each agent conversation for side panel management
+  const agentTabSets = new Map<string, Set<number>>()
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    for (const [conversationId, tabSet] of agentTabSets) {
+      tabSet.delete(tabId)
+      // Prune empty entries to prevent unbounded growth
+      if (tabSet.size === 0) agentTabSets.delete(conversationId)
+    }
+  })
+
   chrome.action.onClicked.addListener(async (tab) => {
     if (tab.id) {
       await toggleSidePanel(tab.id)
@@ -90,6 +101,29 @@ export default defineBackground(() => {
         conversationId: message.conversationId,
         timestamp: Date.now(),
       })
+    }
+
+    // Open side panel on tabs the agent interacts with
+    if (
+      message?.type === 'open-sidepanel-on-tab' &&
+      message?.tabId &&
+      message?.conversationId
+    ) {
+      const { tabId, conversationId } = message
+      let tabSet = agentTabSets.get(conversationId)
+      if (!tabSet) {
+        tabSet = new Set()
+        agentTabSets.set(conversationId, tabSet)
+      }
+      if (!tabSet.has(tabId)) {
+        tabSet.add(tabId)
+        openSidePanel(tabId).catch(() => {})
+      }
+    }
+
+    // Clean up tab tracking when conversation resets
+    if (message?.type === 'clear-agent-tabs' && message?.conversationId) {
+      agentTabSets.delete(message.conversationId)
     }
   })
 
