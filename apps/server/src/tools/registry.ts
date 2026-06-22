@@ -1,4 +1,10 @@
 import {
+  gmail_compose_draft,
+  site_describe,
+  site_intents,
+  site_open,
+} from './affordances'
+import {
   create_bookmark,
   get_bookmarks,
   move_bookmark,
@@ -138,6 +144,12 @@ export const registry = createRegistry([
   update_tab_group,
   ungroup_tabs,
   close_tab_group,
+
+  // Site Affordances (4)
+  gmail_compose_draft,
+  site_describe,
+  site_intents,
+  site_open,
 
   // Info (1)
   browseros_info,

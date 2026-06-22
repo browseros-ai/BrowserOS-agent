@@ -6,6 +6,7 @@ import { ChatFooter } from '@/entrypoints/sidepanel/index/ChatFooter'
 import { ChatMessages } from '@/entrypoints/sidepanel/index/ChatMessages'
 import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 import { useChatSessionContext } from '@/entrypoints/sidepanel/layout/ChatSessionContext'
+import { isBrowserWorkflowQuery } from '@/lib/browser-workflows/isBrowserWorkflowQuery'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import {
   NEWTAB_CHAT_MODE_CHANGED_EVENT,
@@ -92,7 +93,13 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
       })
       sendMessage({ text: messageText, action })
     } else {
-      sendMessage({ text: messageText })
+      const action = isBrowserWorkflowQuery(messageText)
+        ? createBrowserOSAction({
+            mode,
+            message: messageText,
+          })
+        : undefined
+      sendMessage({ text: messageText, action })
     }
     setInput('')
     setAttachedTabs([])
@@ -153,7 +160,9 @@ export const NewTabChat: FC<NewTabChatProps> = ({ onBackToSearch }) => {
           />
         )}
         {agentUrlError && <ChatError error={agentUrlError} />}
-        {chatError && <ChatError error={chatError} />}
+        {chatError && messages[messages.length - 1]?.role !== 'assistant' && (
+          <ChatError error={chatError} />
+        )}
       </main>
 
       <div className="mx-auto w-full max-w-3xl px-4">

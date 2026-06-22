@@ -7,7 +7,8 @@ import type { CodegenConfig } from '@graphql-codegen/cli'
 const env = process.env
 
 const schemaPath =
-  env.GRAPHQL_SCHEMA_PATH ?? path.resolve(__dirname, 'schema/schema.graphql')
+  env.GRAPHQL_SCHEMA_PATH?.trim() ||
+  path.resolve(__dirname, 'schema/schema.graphql')
 if (!existsSync(schemaPath)) {
   throw new Error(
     'No schema found. Either set GRAPHQL_SCHEMA_PATH in .env.development ' +

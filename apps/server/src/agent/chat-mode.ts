@@ -11,4 +11,6 @@ export const CHAT_MODE_ALLOWED_TOOLS = new Set([
   'take_snapshot',
   'take_enhanced_snapshot',
   'evaluate_script',
+  'site_describe',
+  'site_intents',
 ])
